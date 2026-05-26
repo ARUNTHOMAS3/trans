@@ -35,6 +35,26 @@ All business-owned transactional data is scoped using the `entity_id` column.
 
 ---
 
+## Relationships & Constraints
+- **Multi-Tenancy:** Strictly enforced via `entity_id` foreign key.
+- **Cascading Deletes:** Generally avoided; soft-delete via `is_deleted` or `status` is preferred to maintain audit integrity.
+- **Naming Convention:** snake_case for tables and columns; `id` as primary key (UUID).
+
+## Enums & Statuses
+- **Account Groups:** `Assets`, `Liabilities`, `Equity`, `Income`, `Expenses`.
+- **Transaction Types:** `Invoice`, `Payment`, `Credit Note`, `Purchase Order`, `Bill`.
+- **Order Status:** `Draft`, `Confirmed`, `Invoiced`, `Closed`.
+
+## Audit & Metadata Fields
+Every major table contains:
+- `created_at`: timestamp of creation.
+- `updated_at`: timestamp of last modification.
+- `created_by_id`: UUID of the actor who created the record.
+- `updated_by_id`: UUID of the actor who last updated the record.
+- `is_deleted`: boolean for soft-deletion (where applicable).
+
+---
+
 ## Raw Schema Snapshot
 
 ```sql
@@ -1818,3 +1838,39 @@ CREATE TABLE public.zone_master (
   CONSTRAINT zone_master_pkey PRIMARY KEY (id)
 );
 ```
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

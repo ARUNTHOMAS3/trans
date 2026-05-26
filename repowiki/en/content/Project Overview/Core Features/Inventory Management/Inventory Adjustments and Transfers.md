@@ -355,6 +355,34 @@ ADJ_LIST["Adjustment List Screen"] --> ITEM
 - [inventory_adjustments_adjustment_create.dart](file://lib/modules/adjustments/presentation/inventory_adjustments_adjustment_create.dart)
 - [inventory_assemblies_assembly_create.dart](file://lib/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_create.dart)
 
+## Operational Transfer Workflows
+
+### Outlet Transfer Process
+This workflow covers the movement of stock between two outlets, including requirements, approval, and settlement.
+
+**Process Steps:**
+1. **Product Requirement**: Outlet A identifies a need and creates a Product Requirement Request.
+2. **Review**: The request is sent to Outlet B (or HO) for review.
+3. **Approval Decision**:
+    - **Approve (Entry-wise)**: Selected items are approved for transfer.
+    - **Reject/Revise**: Items can be rejected or the request can be sent back for revision.
+4. **HO Approval**: For specialized returns or high-value transfers, HO approval is required.
+5. **Settlement**: The system auto-converts the approved request into a Purchase Order (for A) and an Invoice (for B).
+6. **Dispatch & Receipt**: Outlet B dispatches the stock; Outlet A confirms receipt and the inventory ledger is updated at both locations.
+
+```mermaid
+graph TD
+    Start([Start]) --> Req[Create Product Requirement Request]
+    Req --> Review{Review Request}
+    Review -- Reject --> End([End])
+    Review -- Revise --> Req
+    Review -- Approve --> Settlement[Auto-convert to Invoice/PO]
+    Settlement --> Dispatch[Outlet B Dispatches Items]
+    Dispatch --> Receipt[Outlet A Receives Items]
+    Receipt --> UpdateLedger[Update Inventory Ledger & Settlement]
+    UpdateLedger --> End
+```
+
 ## Conclusion
 The Inventory Adjustments and Transfers system integrates item models, batch tracking, assembly workflows, and reporting to support accurate inventory management. By following structured procedures for adjustments, transfers, reconciliation, and cycle counting—and by leveraging the valuation method and audit trail—the system ensures reliable inventory valuation, COGS computation, and financial reporting.
 

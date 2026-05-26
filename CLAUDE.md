@@ -1,6 +1,8 @@
-# CLAUDE.md — Zerpai ERP
+﻿# CLAUDE.md â€” Zerpai ERP
 
 This file governs how Claude should behave when working in this repository. Read it fully before taking any action.
+
+Also read `AI_AGENT_MANDATORY_READS.md` at startup; it defines required governance/context files.
 
 ---
 
@@ -10,7 +12,7 @@ This file governs how Claude should behave when working in this repository. Read
 
 | Layer            | Technology                                    |
 | ---------------- | --------------------------------------------- |
-| Frontend         | Flutter (Dart) — Web + Android                |
+| Frontend         | Flutter (Dart) â€” Web + Android                |
 | State Management | Riverpod (`flutter_riverpod`)                 |
 | Navigation       | GoRouter (`lib/core/routing/app_router.dart`) |
 | HTTP Client      | Dio (`lib/shared/services/api_client.dart`)   |
@@ -19,11 +21,11 @@ This file governs how Claude should behave when working in this repository. Read
 | ORM              | Drizzle ORM                                   |
 | Database         | Supabase (PostgreSQL)                         |
 | File Storage     | Cloudflare R2                                 |
-| Deployment       | Vercel                                        |
+| Deployment       | Railway/Cloudflare Pages                                        |
 
 ---
 
-## Hard Rules — Never Break These
+## Hard Rules â€” Never Break These
 
 ### Frontend
 
@@ -32,6 +34,9 @@ This file governs how Claude should behave when working in this repository. Read
 - **Hive only** for offline/local data. Never use shared_preferences for data storage (UI flags only).
 - **Lucide Icons** as primary icon set. FontAwesome only for brand icons.
 - **`app_theme.dart` tokens only** for colors, spacing, typography. No hardcoded values ever.
+- **No hardcoded colors anywhere in feature code** (`Color(0x...)`, `Colors.*`, hex strings) unless an approved exception is explicitly documented.
+- **Checkboxes, radios, and switches/toggles must use blue + white interaction styling globally**. Do not use branding accent/green for their active states.
+- **Branding accent color is reserved for sidebar selected modules and primary/new action buttons**.
 - **Dialogs, modals, popup menus, dropdown overlays, calendars, and similar floating surfaces default to pure white `#FFFFFF`**. Do not rely on inherited Material tinting for these components.
 - **Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the default reusable date picker** wherever the shared anchored picker pattern is applicable. Do not add new raw `showDatePicker(...)` usages for standard ERP flows unless there is a specific exception.
 - **Prefer real DB-backed data and DB-backed master defaults**, keep empty/error states explicit, centralize shared UI styling, and keep warehouse/storage/accounting/physical concepts separated.
@@ -52,8 +57,8 @@ This file governs how Claude should behave when working in this repository. Read
 - **Drizzle ORM only**. Never suggest Prisma, TypeORM, or raw SQL outside of Drizzle.
 - **NestJS only**. Never suggest Express, Fastify, Hono, GraphQL, or tRPC.
 - **class-validator + class-transformer** for all DTO validation.
-- **Multi-tenancy is mandatory**: every query on business-owned tables must filter by `entity_id` (FK to `organisation_branch_master.id`). Resolve `entityId` from the `@Tenant()` decorator context — use `@Tenant('entityId')` in controllers. Never read `X-Org-Id` or `X-Branch-Id` headers manually in service methods.
-- **`organisation_branch_master`** is the polymorphic entity registry: `type` = `'ORG'` or `'BRANCH'`, `ref_id` → actual `organization.id` or `branches.id`. All business tables reference it via `entity_id`.
+- **Multi-tenancy is mandatory**: every query on business-owned tables must filter by `entity_id` (FK to `organisation_branch_master.id`). Resolve `entityId` from the `@Tenant()` decorator context â€” use `@Tenant('entityId')` in controllers. Never read `X-Org-Id` or `X-Branch-Id` headers manually in service methods.
+- **`organisation_branch_master`** is the polymorphic entity registry: `type` = `'ORG'` or `'BRANCH'`, `ref_id` â†’ actual `organization.id` or `branches.id`. All business tables reference it via `entity_id`.
 - **Exception**: global lookup tables (`products`, `categories`, `brands`, `manufacturers`, `tax_rates`, `tax_groups`, `payment_terms`, `currencies`, `uqc`, `units`, `storage_conditions`, `buying_rules`, `drug_schedules`, `drug_strengths`, `contents`, `racks`, `shipment_preferences`, `tds_rates`, `tds_sections`, `tds_groups`, `price_lists`, `price_list_items`, `countries`, `states`, `timezones`, `gst_treatments`, `gstin_registration_types`, `business_types`, `hsn_sac_codes`, `composite_items`, `composite_item_parts`) have NO `entity_id`. Never add entity_id filtering to these tables.
 
 ### Database
@@ -66,7 +71,7 @@ This file governs how Claude should behave when working in this repository. Read
 
 ---
 
-## File Naming Convention (Flutter — STRICT)
+## File Naming Convention (Flutter â€” STRICT)
 
 Pattern: `<module>_<submodule>_<page>.dart`
 
@@ -134,13 +139,13 @@ backend/
     app.module.ts
     main.ts
     database/
-      schema.ts       # Drizzle schema — source of truth
+      schema.ts       # Drizzle schema â€” source of truth
     common/           # middleware, guards, interceptors
     modules/          # one folder per domain module
 ```
 
 Dev port: **3001**
-Prod URL: `https://zabnix-backend.vercel.app`
+Prod URL: `https://zabnix-backend.Railway/Cloudflare Pages.app`
 
 ---
 
@@ -148,9 +153,9 @@ Prod URL: `https://zabnix-backend.vercel.app`
 
 Every API request carries:
 
-- `X-Org-Id` — organization system identifier (routing/auth)
-- `X-Branch-Id` — branch identifier (optional, for branch-scoped sessions)
-- `X-Entity-Id` — preferred header; direct `organisation_branch_master.id` for the active scope
+- `X-Org-Id` â€” organization system identifier (routing/auth)
+- `X-Branch-Id` â€” branch identifier (optional, for branch-scoped sessions)
+- `X-Entity-Id` â€” preferred header; direct `organisation_branch_master.id` for the active scope
 
 `TenantMiddleware` intercepts all requests and resolves `entityId` on `req.tenantContext`. All business queries filter by `entity_id`. Use `@Tenant()` or `@Tenant('entityId')` in controllers instead of reading headers manually. The `products` table is the only exception (global, shared across all orgs).
 
@@ -172,20 +177,20 @@ Every API request carries:
 - **Inputs**: Rectangular, 3-4px radius, thin light-gray border, ~36px height.
 - **Numeric fields**: Must block non-numeric characters (alphabets, special chars).
 - **Tables**: Server-side pagination, default 100 rows per page. Inline editing allowed.
-- **Dropdowns**: White box with chevron. All dropdowns with selectable options use `FormDropdown<T>` from `lib/shared/widgets/inputs/dropdown_input.dart` — never `DropdownButtonFormField`. `FormDropdown` includes built-in search.
+- **Dropdowns**: White box with chevron. All dropdowns with selectable options use `FormDropdown<T>` from `lib/shared/widgets/inputs/dropdown_input.dart` â€” never `DropdownButtonFormField`. `FormDropdown` includes built-in search.
 - **Buttons**: Primary green (`#22A95E`), secondary gray/outline.
-- **Status indicators**: Colored text only — no pill badges.
+- **Status indicators**: Colored text only â€” no pill badges.
 - **Menus**: `MenuAnchor` for action menus, `FormDropdown` for form inputs.
 - **Layout**: Dark sidebar (`~#2C3E50`), white cards on light-gray main canvas.
-- **Tooltips**: Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart` — never Flutter's built-in `Tooltip` widget. `ZTooltip` enforces a 220px max-width so text wraps compactly instead of rendering as a single long line. Trigger icon is `LucideIcons.helpCircle` at size 14-15. Tooltip text must be concise (1-2 short sentences max).
+- **Tooltips**: Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart` â€” never Flutter's built-in `Tooltip` widget. `ZTooltip` enforces a 220px max-width so text wraps compactly instead of rendering as a single long line. Trigger icon is `LucideIcons.helpCircle` at size 14-15. Tooltip text must be concise (1-2 short sentences max).
 
 ### Keyboard Shortcuts
 
-- `Ctrl+S` — Save / Draft
-- `Ctrl+Enter` — Publish / Save & Post
-- `Esc` — Cancel (with Discard Guard if form is dirty)
-- `/` — Focus Search
-- `Alt+N` — New entry visual indicator
+- `Ctrl+S` â€” Save / Draft
+- `Ctrl+Enter` â€” Publish / Save & Post
+- `Esc` â€” Cancel (with Discard Guard if form is dirty)
+- `/` â€” Focus Search
+- `Alt+N` â€” New entry visual indicator
 
 All shortcut tooltips must show the key combo (e.g., "Save (Ctrl+S)").
 
@@ -194,9 +199,9 @@ All shortcut tooltips must show the key combo (e.g., "Save (Ctrl+S)").
 ## GST & Indian Business Context
 
 - Target market: Indian SMEs (retail, pharmacy, trading)
-- GST compliance is a core requirement — invoices, bills, and reports must be GST-aware
+- GST compliance is a core requirement â€” invoices, bills, and reports must be GST-aware
 - GSTIN codes always stored and displayed in UPPERCASE
-- Fiscal year follows Indian standard (April–March)
+- Fiscal year follows Indian standard (Aprilâ€“March)
 
 ---
 
@@ -204,9 +209,9 @@ All shortcut tooltips must show the key combo (e.g., "Save (Ctrl+S)").
 
 Replace all `print()` statements with `AppLogger`:
 
-- Debug info → `AppLogger.debug(module: '...', data: ...)`
-- Warnings → `AppLogger.warning(module: '...', data: ...)`
-- Errors → `AppLogger.error(module: '...', data: ...)`
+- Debug info â†’ `AppLogger.debug(module: '...', data: ...)`
+- Warnings â†’ `AppLogger.warning(module: '...', data: ...)`
+- Errors â†’ `AppLogger.error(module: '...', data: ...)`
 
 Never use `print()` in new or modified code.
 
@@ -229,14 +234,16 @@ Never use `print()` in new or modified code.
 
 ---
 
-## Reusables — Check Before Creating
+## Reusables â€” Check Before Creating
 
 Before writing any new shared widget, mixin, service, utility, or helper:
 
-1. **Check `REUSABLES.md`** at the project root — it catalogs every reusable component in `lib/shared/` and `lib/core/`.
+1. **Check `REUSABLES.md`** at the project root â€” it catalogs every reusable component in `lib/shared/` and `lib/core/`.
 2. If a suitable reusable exists, use it. Do not duplicate it.
 3. If no match exists and you create something genuinely reusable, **add it to `REUSABLES.md`** immediately.
 4. **Tell the user** when you find an existing reusable they could use, including which one it is, or when you create a new one so they can decide whether to promote it.
+5. If a similar UI/logic pattern appears in 2+ touched locations, explicitly recommend reusable extraction or promotion in your response.
+6. If you intentionally keep something local instead of reusable, explicitly justify the decision.
 
 Key reusables to always check first: `FormDropdown<T>`, `CustomTextField`, `ZerpaiDatePicker`, `ZTooltip`, `GstinPrefillBanner`, `LicenceValidationMixin`, `ZerpaiLayout`, `ZButton`, `ZerpaiConfirmationDialog`, `AppTheme` tokens.
 
@@ -244,11 +251,11 @@ Key reusables to always check first: `FormDropdown<T>`, `CustomTextField`, `Zerp
 
 ## What NOT to Do
 
-- Do not suggest React, Vue, Next.js, Tailwind, or any web framework — this is a Flutter project
+- Do not suggest React, Vue, Next.js, Tailwind, or any web framework â€” this is a Flutter project
 - Do not add `org_id` filtering to the `products` table
 - Do not use Prisma, TypeORM, or raw SQL outside Drizzle
 - Do not hardcode colors, spacing, or typography values
-- Do not use `print()` — use `AppLogger`
+- Do not use `print()` â€” use `AppLogger`
 - Do not invent DB tables or columns not in `PRD/prd_schema.md`
 - Do not run migrations without first running `npm run db:pull`
 - Do not reorder the sidebar navigation
@@ -270,3 +277,40 @@ Key reusables to always check first: `FormDropdown<T>`, `CustomTextField`, `Zerp
 | Theme Tokens                | `lib/core/theme/app_theme.dart`       |
 | Router                      | `lib/core/routing/app_router.dart`    |
 | API Client                  | `lib/shared/services/api_client.dart` |
+
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

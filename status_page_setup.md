@@ -1,4 +1,4 @@
-# Live Status Page Setup Plan
+﻿# Live Status Page Setup Plan
 
 This plan outlines how to set up a professional, real-time status page to monitor the uptime of Zerpai ERP (Frontend, API, Database, and Cache).
 
@@ -24,7 +24,7 @@ I recommend **BetterStack** for its professional "Zoho-style" aesthetic and ease
 
 #### **A. Set up Uptime Monitors**
 Create three monitors on the chosen platform:
-- **ERP Frontend**: Monitor the Vercel production URL (e.g., `https://zerpai-erp-one.vercel.app`).
+- **ERP Frontend**: Monitor the Railway/Cloudflare Pages production URL (e.g., `https://zerpai-erp-one.Railway/Cloudflare Pages.app`).
 - **ERP API**: Monitor the backend API health endpoint (e.g., `https://api.zerpai.com/health`).
 - **Database**: Monitor the Supabase project endpoint.
 
@@ -60,3 +60,4 @@ Add a "System Health" button that opens the live status page in a new tab.
 ### Manual Verification
 - Manually trigger a "down" state (e.g., by stopping the backend dev server) and verify the status page updates within 1-3 minutes.
 - Verify the link within Zerpai ERP opens the correct status dashboard.
+

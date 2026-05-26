@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:zerpai_erp/modules/accountant/models/transaction_lock_model.dart';
-import 'package:zerpai_erp/modules/accountant/providers/transaction_lock_provider.dart';
+import 'package:zerpai_erp/modules/accountant/transaction_locking/models/transaction_lock_model.dart';
+import 'package:zerpai_erp/modules/accountant/transaction_locking/providers/transaction_lock_provider.dart';
 
 class _MockDio extends Mock implements Dio {}
 

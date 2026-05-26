@@ -159,7 +159,7 @@ All 11 screens ungated. Required: gate each by `reports` + category + action.
 - `items_item_create.dart` / `items_item_list.dart` / `items_item_detail.dart` — `item` create/edit/delete
 - `items_composite_items_composite_creation.dart` / `_listview.dart` — `composite_items` create/edit/delete
 - `inventory_itemgroup_itemgroup_create.dart` / `_list.dart` — `item_groups` create/edit/delete
-- `items_pricelist_pricelist_overview.dart` / `_creation.dart` / `_edit.dart` — `price_list` create/edit/delete
+- `pricelist_overview.dart` / `_creation.dart` / `_edit.dart` — `price_list` create/edit/delete
 - `inventory_mapping_mapping_create.dart` / `_list.dart` — `item_mapping` edit
 - Import/export dialogs in items — `item` Import Items / Export Items
 - Priority: **high**

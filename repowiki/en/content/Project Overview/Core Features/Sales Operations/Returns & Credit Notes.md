@@ -328,5 +328,48 @@ Common issues and resolutions:
 - [sales_credit_note_create.dart](file://lib/modules/sales/presentation/sales_credit_note_create.dart#L473-L512)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L86-L119)
 
+## Operational Return Workflows
+
+### Master Return Workflow (Customer to Vendor)
+Comprehensive workflow for items returning from customers back to outlets, through HO, and finally to vendors.
+
+**Process Steps:**
+1. **Initiate Return**: Outlet customer initiates a return request.
+2. **Acceptance/Rejection**: Outlet reviews and accepts/rejects the return.
+3. **Internal Transfer**: Accepted returns are transferred from Outlet to Head Office (HO).
+4. **HO Inspection**: HO inspects the items and creates a Purchase Return to the Vendor.
+5. **Credit Note Processing**: Credit notes are generated at each stage (Vendor to HO, HO to Outlet, Outlet to Customer) to settle the accounting.
+
+```mermaid
+graph TD
+    Start([Start]) --> CustReturn[Customer Returns to Outlet]
+    CustReturn --> OutletReview{Outlet Review}
+    OutletReview -- Reject --> End([End])
+    OutletReview -- Accept --> TransToHO[Transfer to Head Office]
+    TransToHO --> HOReview[HO Inspection & Review]
+    HOReview --> CreatePurchReturn[Create Purchase Return to Vendor]
+    CreatePurchReturn --> settlement[Process Credit Notes & Settlements]
+    settlement --> End
+```
+
+### Damaged Courier Credit Note Workflow
+Workflow for handling items damaged during transit.
+
+**Process Steps:**
+1. **Report Damage**: Identify and report damaged items from a courier shipment.
+2. **Approval**: Obtain approval for a credit note.
+3. **Credit Note Creation**: Generate a Credit Note to account for the loss.
+4. **Reconciliation**: Settle the claim with the courier/customer.
+
+```mermaid
+graph TD
+    Start([Start]) --> ReportDamage[Report Damaged Items]
+    ReportDamage --> ApproveClaim{Approve Claim}
+    ApproveClaim -- Reject --> End([End])
+    ApproveClaim -- Accept --> CreateCN[Create Credit Note]
+    CreateCN --> Reconcile[Settle Claim/Reconcile]
+    Reconcile --> End
+```
+
 ## Conclusion
 The Returns and Credit Notes system in Zerpai ERP centers around the credit note creation UI, backed by the sales order controller and models. While the current implementation emphasizes credit note generation, inventory return procedures and refund handling can be integrated via the items inventory section and inventory adjustments UI. The architecture supports extensibility for return reason categorization, item inspection, return authorization, policy enforcement, and tracking by extending the existing models and UI components.

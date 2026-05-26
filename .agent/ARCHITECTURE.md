@@ -1,12 +1,12 @@
-# Zerpai ERP — Agent Architecture
+﻿# Zerpai ERP â€” Agent Architecture
 
 > Antigravity Kit customized for Zerpai ERP (Flutter Web + Android + NestJS + Supabase)
 
-## 🏗️ Zerpai ERP Stack
+## ðŸ—ï¸ Zerpai ERP Stack
 
 | Layer          | Technology                     |
 | -------------- | ------------------------------ |
-| **Frontend**   | Flutter (Dart) — Web + Android |
+| **Frontend**   | Flutter (Dart) â€” Web + Android |
 | **State**      | Riverpod                       |
 | **Navigation** | GoRouter                       |
 | **HTTP**       | Dio                            |
@@ -14,7 +14,7 @@
 | **Backend**    | NestJS (TypeScript)            |
 | **ORM**        | Drizzle ORM                    |
 | **Database**   | Supabase (PostgreSQL)          |
-| **Deployment** | Vercel                         |
+| **Deployment** | Railway/Cloudflare Pages                         |
 | **Storage**    | Cloudflare R2                  |
 
 ## Canonical Flutter Structure Rule
@@ -45,13 +45,13 @@
 ## Tooltip Rule
 
 - Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`. Never use Flutter's built-in `Tooltip` widget.
-- `ZTooltip` enforces a 220 px max-width so text wraps compactly. Trigger icon is `LucideIcons.helpCircle` at 14–15 px. Copy must be ≤ 2 short sentences.
+- `ZTooltip` enforces a 220 px max-width so text wraps compactly. Trigger icon is `LucideIcons.helpCircle` at 14â€“15 px. Copy must be â‰¤ 2 short sentences.
 
 ## Deep-Linking Rule
 
 - Every screen, sub-screen, tab, and significant dialog state must be addressable via a named GoRouter route.
 - Routes must preserve path/query parameters so refresh, direct URL, and back-navigation restore full context.
-- Never use `Navigator.push` — always navigate through GoRouter (`context.go`, `context.push`, `context.goNamed`).
+- Never use `Navigator.push` â€” always navigate through GoRouter (`context.go`, `context.push`, `context.goNamed`).
 
 ## Global Settings Rules
 
@@ -64,7 +64,7 @@
 - Keep warehouse masters, storage/location masters, accounting stock, and physical stock as separate concepts.
 - Keep save/create buttons, cancel/secondary actions, upload affordances, and border/divider treatments on centralized theme rules rather than screen-local color choices.
 
-## 🚦 Agent Routing Quick Reference
+## ðŸš¦ Agent Routing Quick Reference
 
 | Task                      | Use Agent            |
 | ------------------------- | -------------------- |
@@ -76,11 +76,11 @@
 | Multi-domain tasks        | `orchestrator`       |
 | Task planning             | `project-planner`    |
 
-> ⚠️ `frontend-specialist` redirects to `mobile-developer` for this project.
+> âš ï¸ `frontend-specialist` redirects to `mobile-developer` for this project.
 
 ---
 
-## 📋 Overview
+## ðŸ“‹ Overview
 
 Antigravity Kit is a modular system consisting of:
 
@@ -90,21 +90,21 @@ Antigravity Kit is a modular system consisting of:
 
 ---
 
-## 🏗️ Directory Structure
+## ðŸ—ï¸ Directory Structure
 
 ```plaintext
 .agent/
-├── ARCHITECTURE.md          # This file
-├── agents/                  # 20 Specialist Agents
-├── skills/                  # 36 Skills
-├── workflows/               # 11 Slash Commands
-├── rules/                   # Global Rules
-└── scripts/                 # Master Validation Scripts
+â”œâ”€â”€ ARCHITECTURE.md          # This file
+â”œâ”€â”€ agents/                  # 20 Specialist Agents
+â”œâ”€â”€ skills/                  # 36 Skills
+â”œâ”€â”€ workflows/               # 11 Slash Commands
+â”œâ”€â”€ rules/                   # Global Rules
+â””â”€â”€ scripts/                 # Master Validation Scripts
 ```
 
 ---
 
-## 🤖 Agents (20)
+## ðŸ¤– Agents (20)
 
 Specialist AI personas for different domains.
 
@@ -115,11 +115,11 @@ Specialist AI personas for different domains.
 | `database-architect`    | Schema, Drizzle migrations     | Supabase PostgreSQL, Drizzle Kit, PRD schema snapshots  |
 | `orchestrator`          | Multi-agent coordination       | Parallel agents, synthesis                              |
 | `project-planner`       | Discovery, task planning       | Brainstorming, plan-writing, architecture               |
-| `frontend-specialist`   | ⚠️ REDIRECT → mobile-developer | Not for this Flutter project                            |
+| `frontend-specialist`   | âš ï¸ REDIRECT â†’ mobile-developer | Not for this Flutter project                            |
 | `debugger`              | Root cause analysis            | Systematic debugging for Flutter + NestJS               |
 | `security-auditor`      | Security compliance            | Vulnerability scanning, OWASP                           |
 | `test-engineer`         | Testing strategies             | Flutter tests, NestJS unit tests                        |
-| `devops-engineer`       | CI/CD, Vercel deployment       | Vercel config, deployment procedures                    |
+| `devops-engineer`       | CI/CD, Railway/Cloudflare Pages deployment       | Railway/Cloudflare Pages config, deployment procedures                    |
 | `performance-optimizer` | Speed optimization             | Flutter rendering, API performance                      |
 | `documentation-writer`  | Docs (explicit only)           | Only when explicitly requested                          |
 | `code-archaeologist`    | Legacy code, refactoring       | Clean-code, code-review                                 |
@@ -127,7 +127,7 @@ Specialist AI personas for different domains.
 
 ---
 
-## 🧩 Skills (36)
+## ðŸ§© Skills (36)
 
 Modular knowledge domains that agents can load on-demand. based on task context.
 
@@ -135,8 +135,8 @@ Modular knowledge domains that agents can load on-demand. based on task context.
 
 | Skill                   | Description                                                           |
 | ----------------------- | --------------------------------------------------------------------- |
-| `react-best-practices`  | React & Next.js performance optimization (Vercel - 57 rules)          |
-| `web-design-guidelines` | Web UI audit - 100+ rules for accessibility, UX, performance (Vercel) |
+| `react-best-practices`  | React & Next.js performance optimization (Railway/Cloudflare Pages - 57 rules)          |
+| `web-design-guidelines` | Web UI audit - 100+ rules for accessibility, UX, performance (Railway/Cloudflare Pages) |
 | `tailwind-patterns`     | Tailwind CSS v4 utilities                                             |
 | `frontend-design`       | UI/UX patterns, design systems                                        |
 | `ui-ux-pro-max`         | 50 styles, 21 palettes, 50 fonts                                      |
@@ -238,7 +238,7 @@ Modular knowledge domains that agents can load on-demand. based on task context.
 
 ---
 
-## 🔄 Workflows (11)
+## ðŸ”„ Workflows (11)
 
 Slash command procedures. Invoke with `/command`.
 
@@ -258,13 +258,13 @@ Slash command procedures. Invoke with `/command`.
 
 ---
 
-## 🎯 Skill Loading Protocol
+## ðŸŽ¯ Skill Loading Protocol
 
 ```plaintext
-User Request → Skill Description Match → Load SKILL.md
-                                            ↓
+User Request â†’ Skill Description Match â†’ Load SKILL.md
+                                            â†“
                                     Read references/
-                                            ↓
+                                            â†“
                                     Read scripts/
 ```
 
@@ -272,10 +272,10 @@ User Request → Skill Description Match → Load SKILL.md
 
 ```plaintext
 skill-name/
-├── SKILL.md           # (Required) Metadata & instructions
-├── scripts/           # (Optional) Python/Bash scripts
-├── references/        # (Optional) Templates, docs
-└── assets/            # (Optional) Images, logos
+â”œâ”€â”€ SKILL.md           # (Required) Metadata & instructions
+â”œâ”€â”€ scripts/           # (Optional) Python/Bash scripts
+â”œâ”€â”€ references/        # (Optional) Templates, docs
+â””â”€â”€ assets/            # (Optional) Images, logos
 ```
 
 ### Enhanced Skills (with scripts/references)
@@ -287,7 +287,7 @@ skill-name/
 
 ---
 
-## � Scripts (2)
+## ï¿½ Scripts (2)
 
 Master validation scripts that orchestrate skill-level scripts.
 
@@ -332,7 +332,7 @@ For details, see [scripts/README.md](scripts/README.md)
 
 ---
 
-## 📊 Statistics
+## ðŸ“Š Statistics
 
 | Metric              | Value                         |
 | ------------------- | ----------------------------- |
@@ -344,7 +344,7 @@ For details, see [scripts/README.md](scripts/README.md)
 
 ---
 
-## 🔗 Quick Reference
+## ðŸ”— Quick Reference
 
 | Need     | Agent                 | Skills                                |
 | -------- | --------------------- | ------------------------------------- |
@@ -356,3 +356,4 @@ For details, see [scripts/README.md](scripts/README.md)
 | Testing  | `test-engineer`       | testing-patterns, webapp-testing      |
 | Debug    | `debugger`            | systematic-debugging                  |
 | Plan     | `project-planner`     | brainstorming, plan-writing           |
+

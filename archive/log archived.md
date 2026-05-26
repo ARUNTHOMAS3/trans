@@ -223,7 +223,7 @@ Completed the Sales Orders module: added a Zoho-style PDF detail view, fixed dee
 
 ### Toast Migration (background agent — completed)
 
-- Replaced all 216 raw `ScaffoldMessenger`/`SnackBar` usages with `ZerpaiToast` across 41 files. Final file was `items_pricelist_pricelist_overview.dart` (6 usages). Zero raw SnackBar calls remain in application code.
+- Replaced all 216 raw `ScaffoldMessenger`/`SnackBar` usages with `ZerpaiToast` across 41 files. Final file was `pricelist_overview.dart` (6 usages). Zero raw SnackBar calls remain in application code.
 
 ### Backend — `backend/src/modules/sales/`
 
@@ -1210,7 +1210,7 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 ### Remaining ElevatedButton/TextButton overrides cleared
 
 - `lib/core/widgets/forms/manage_list_dialog.dart`, `manage_reorder_terms_dialog.dart`, `manage_simple_list_dialog.dart`: removed `backgroundColor: const Color(0xFF22C55E)`
-- `lib/modules/items/pricelist/presentation/items_pricelist_pricelist_overview.dart`: removed `foregroundColor: AppTheme.successGreen` from `TextButton.styleFrom()`
+- `lib/modules/pricelist/presentation/pricelist_overview.dart`: removed `foregroundColor: AppTheme.successGreen` from `TextButton.styleFrom()`
 
 ---
 
@@ -6583,7 +6583,7 @@ Top 5 largest files identified; split strategies documented (execution deferred)
 | `manual_journal_create_screen.dart`             | 3,333 | header form + line items table + summary bar + form provider |
 | `items_composite_items_composite_creation.dart` | 3,007 | BOM table + component picker + cost summary + form provider  |
 | `items_item_detail_stock.dart`                  | 2,851 | warehouse tab + movements tab + reorder tab + stock provider |
-| `items_pricelist_pricelist_edit.dart`           | 2,531 | shared form widget + thin edit/create wrappers               |
+| `pricelist_edit.dart`           | 2,531 | shared form widget + thin edit/create wrappers               |
 | `items_pricelist_pricelist_creation.dart`       | 2,525 | same as above                                                |
 
 ### 7. Test Coverage Added (37 tests, all passing)
@@ -7047,12 +7047,12 @@ Users could leave edit flows with unsaved values and lose data silently. The con
 - Added dirty-state tracking to delivery challan creation
 - Cancel/back now asks before discarding unsaved delivery challan changes
 
-**`lib/modules/items/pricelist/presentation/items_pricelist_create.dart`**
+**`lib/modules/pricelist/presentation/items_pricelist_create.dart`**
 
 - Added dirty-state tracking to price list creation
 - Cancel/back now asks before discarding unsaved price list changes
 
-**`lib/modules/items/pricelist/presentation/items_pricelist_edit.dart`**
+**`lib/modules/pricelist/presentation/items_pricelist_edit.dart`**
 
 - Added dirty-state tracking to price list editing
 - Cancel/back now asks before discarding unsaved price list changes
@@ -7430,7 +7430,7 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 
 - Extended `lib/core/routing/app_router.dart` so route query `?q=` is forwarded into overview screens that previously ignored the shell search handoff.
 - Updated `lib/modules/items/items/presentation/sections/report/items_report_overview.dart` and `lib/modules/items/items/presentation/sections/report/items_report_body.dart` to initialize the items search box and trigger the existing item search flow from the route query.
-- Updated `lib/modules/items/pricelist/presentation/items_pricelist_pricelist_overview.dart` so price lists hydrate the incoming query into the existing price-list filter provider.
+- Updated `lib/modules/pricelist/presentation/pricelist_overview.dart` so price lists hydrate the incoming query into the existing price-list filter provider.
 - Updated `lib/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart` so vendors now boot with the route query already applied to the list search.
 - Converted `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart` to a stateful consumer screen so purchase orders can persist and apply the query through `PurchaseOrderFilter.search`.
 - Updated `lib/modules/sales/presentation/sales_order_overview.dart` so sales orders now locally filter the loaded dataset from the route query.

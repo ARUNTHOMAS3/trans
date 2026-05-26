@@ -1,0 +1,41 @@
+name: Lint Checks
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+jobs:
+  markdown-and-yaml:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-save markdownlint-cli yaml-lint
+      - name: Lint changed Markdown/YAML files only (PR-safe)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            mapfile -t MD_FILES < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -E '\.md$' || true)
+            mapfile -t YML_FILES < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -E '\.ya?ml$' || true)
+          else
+            mapfile -t MD_FILES < <(git diff --name-only HEAD~1 HEAD | grep -E '\.md$' || true)
+            mapfile -t YML_FILES < <(git diff --name-only HEAD~1 HEAD | grep -E '\.ya?ml$' || true)
+          fi
+
+          if (( ${#MD_FILES[@]} > 0 )); then
+            printf '%s\n' "${MD_FILES[@]}" | xargs npx markdownlint
+          else
+            echo "No changed Markdown files to lint."
+          fi
+
+          if (( ${#YML_FILES[@]} > 0 )); then
+            printf '%s\n' "${YML_FILES[@]}" | xargs npx yaml-lint
+          else
+            echo "No changed YAML files to lint."
+          fi

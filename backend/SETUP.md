@@ -1,9 +1,9 @@
-# Backend Setup and Deployment Guide
+﻿# Backend Setup and Deployment Guide
 
 ## Prerequisites
 
 - Node.js 18+ installed
-- Vercel CLI installed globally: `npm i -g vercel`
+- Railway/Cloudflare Pages CLI installed globally: `npm i -g Railway/Cloudflare Pages`
 - Git repository connected
 
 ## Step 1: Environment Setup
@@ -69,17 +69,17 @@ npm run start:prod
 
 The server will start on `http://localhost:3001`
 
-## Step 5: Deploy to Vercel
+## Step 5: Deploy to Railway/Cloudflare Pages
 
-### Link Project to Vercel
+### Link Project to Railway/Cloudflare Pages
 
 ```bash
-# Login to Vercel
-vercel login
+# Login to Railway/Cloudflare Pages
+Railway/Cloudflare Pages login
 
-# Link backend to Vercel project
+# Link backend to Railway/Cloudflare Pages project
 cd backend
-vercel link
+Railway/Cloudflare Pages link
 ```
 
 When prompted:
@@ -88,44 +88,44 @@ When prompted:
 - Link to existing project: **Y** 
 - Project name: **zabnix-backend**
 
-### Set Environment Variables on Vercel
+### Set Environment Variables on Railway/Cloudflare Pages
 
 ```bash
 # Add all environment variables from .env file
-vercel env add DATABASE_URL
-vercel env add SUPABASE_URL
-vercel env add SUPABASE_ANON_KEY
-vercel env add SUPABASE_SERVICE_ROLE_KEY
-vercel env add JWT_SECRET
-vercel env add CORS_ORIGIN
-vercel env add CLOUDFLARE_ACCOUNT_ID
-vercel env add CLOUDFLARE_ACCESS_KEY_ID
-vercel env add CLOUDFLARE_SECRET_ACCESS_KEY
-vercel env add CLOUDFLARE_BUCKET_NAME
-vercel env add CLOUDFLARE_R2_ENDPOINT
+Railway/Cloudflare Pages env add DATABASE_URL
+Railway/Cloudflare Pages env add SUPABASE_URL
+Railway/Cloudflare Pages env add SUPABASE_ANON_KEY
+Railway/Cloudflare Pages env add SUPABASE_SERVICE_ROLE_KEY
+Railway/Cloudflare Pages env add JWT_SECRET
+Railway/Cloudflare Pages env add CORS_ORIGIN
+Railway/Cloudflare Pages env add CLOUDFLARE_ACCOUNT_ID
+Railway/Cloudflare Pages env add CLOUDFLARE_ACCESS_KEY_ID
+Railway/Cloudflare Pages env add CLOUDFLARE_SECRET_ACCESS_KEY
+Railway/Cloudflare Pages env add CLOUDFLARE_BUCKET_NAME
+Railway/Cloudflare Pages env add CLOUDFLARE_R2_ENDPOINT
 ```
 
 For each command, paste the value from your `.env` file when prompted.
 
-**Or use the Vercel Dashboard:**
-1. Go to https://vercel.com/zabnix/zabnix-backend/settings/environment-variables
+**Or use the Railway/Cloudflare Pages Dashboard:**
+1. Go to https://Railway/Cloudflare Pages.com/zabnix/zabnix-backend/settings/environment-variables
 2. Add all variables from `.env.example`
 
 ### Deploy
 
 ```bash
 # Deploy to production
-vercel --prod
+Railway/Cloudflare Pages --prod
 ```
 
-Your backend will be live at: **https://zabnix-backend.vercel.app**
+Your backend will be live at: **https://zabnix-backend.Railway/Cloudflare Pages.app**
 
 ## Step 6: Connect Frontend to Backend
 
 Update your Flutter `.env` file:
 
 ```env
-BACKEND_URL=https://zabnix-backend.vercel.app
+BACKEND_URL=https://zabnix-backend.Railway/Cloudflare Pages.app
 ```
 
 Or for local development:
@@ -210,9 +210,9 @@ npm run db:push            # Apply schema changes
 npm run db:studio          # Open visual database editor
 
 # Deployment
-vercel                     # Deploy to preview
-vercel --prod              # Deploy to production
-vercel logs                # View deployment logs
+Railway/Cloudflare Pages                     # Deploy to preview
+Railway/Cloudflare Pages --prod              # Deploy to production
+Railway/Cloudflare Pages logs                # View deployment logs
 ```
 
 ## Troubleshooting
@@ -220,7 +220,7 @@ vercel logs                # View deployment logs
 ### CORS Issues
 
 If you get CORS errors, ensure `CORS_ORIGIN` includes both:
-- `https://zerpai-erp-one.vercel.app`
+- `https://zerpai-erp-one.Railway/Cloudflare Pages.app`
 - Your local development URL
 
 ### Database Connection
@@ -228,27 +228,28 @@ If you get CORS errors, ensure `CORS_ORIGIN` includes both:
 Test database connection:
 
 ```bash
-node -e "const {client} = require('./src/db/db'); client.unsafe('SELECT 1').then(() => console.log('✅ Connected')).catch(console.error)"
+node -e "const {client} = require('./src/db/db'); client.unsafe('SELECT 1').then(() => console.log('âœ… Connected')).catch(console.error)"
 ```
 
-### Vercel Build Errors
+### Railway/Cloudflare Pages Build Errors
 
 Check build logs:
 
 ```bash
-vercel logs <deployment-url>
+Railway/Cloudflare Pages logs <deployment-url>
 ```
 
 Common fixes:
 - Ensure all environment variables are set
-- Check `vercel.json` configuration
+- Check `Railway/Cloudflare Pages.json` configuration
 - Verify TypeScript builds locally first
 
 ## Next Steps
 
-1. ✅ Copy `.env.example` to `.env`
-2. ✅ Run `npm install`
-3. ✅ Test locally with `npm run start:dev`
-4. ✅ Deploy to Vercel with `vercel --prod`
+1. âœ… Copy `.env.example` to `.env`
+2. âœ… Run `npm install`
+3. âœ… Test locally with `npm run start:dev`
+4. âœ… Deploy to Railway/Cloudflare Pages with `Railway/Cloudflare Pages --prod`
 5. Update Flutter app to use deployed backend URL
 6. Migrate existing services to use Drizzle ORM
+

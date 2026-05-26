@@ -1,8 +1,8 @@
 # Disaster Recovery & Business Continuity Plan
 
-## ⚠️ PRD Edit Policy
+## âš ï¸ PRD Edit Policy
 Do not edit PRD files unless explicitly requested by the user or team head.
-## 🔒 Auth Policy (Pre-Production)
+## ðŸ”’ Auth Policy (Pre-Production)
 No authentication setup is allowed until production. The application must run without enforced login/RBAC/JWT in dev and staging. Auth UI may exist but must not be wired into routing until production approval.
 **Last Edited:** 2026-01-28 15:13
 **Last Edited Version:** 1.3
@@ -33,7 +33,7 @@ This document outlines the disaster recovery and business continuity procedures 
 
 **Manual Backups:**
 - **When:** Before major migrations or releases
-- **How:** Via Supabase Dashboard → Database → Backups → Create Backup
+- **How:** Via Supabase Dashboard â†’ Database â†’ Backups â†’ Create Backup
 - **Naming:** `manual_backup_YYYYMMDD_v1.x.x_pre_migration`
 
 **Backup Testing:**
@@ -60,7 +60,7 @@ This document outlines the disaster recovery and business continuity procedures 
 - **Access Control:** Limited to DevOps lead and CTO only
 
 **Infrastructure as Code:**
-- **Vercel Configuration:** `vercel.json` files in repo
+- **Railway/Cloudflare Pages Configuration:** `Railway/Cloudflare Pages.json` files in repo
 - **Future:** Terraform/Pulumi scripts for complete infrastructure recreation
 
 ### 2.3 Application Data Backups
@@ -87,8 +87,8 @@ This document outlines the disaster recovery and business continuity procedures 
 
 **Critical (Must Restore First):**
 1. Database (Supabase)
-2. Backend API (Vercel)
-3. Frontend Web App (Vercel)
+2. Backend API (Railway/Cloudflare Pages)
+3. Frontend Web App (Railway/Cloudflare Pages)
 4. Authentication (Supabase Auth)
 
 **Non-Critical (Can Restore Later):**
@@ -113,7 +113,7 @@ This document outlines the disaster recovery and business continuity procedures 
 ### 4.2 Incident Response Workflow
 
 **Step 1: Detection**
-- Monitoring alerts (Sentry, Vercel, Uptime)
+- Monitoring alerts (Sentry, Railway/Cloudflare Pages, Uptime)
 - User reports via support
 - Internal discovery
 
@@ -157,7 +157,7 @@ This document outlines the disaster recovery and business continuity procedures 
 
 **Required Runbooks:**
 - `runbook_database_failure.md`
-- `runbook_vercel_deployment_rollback.md`
+- `runbook_railway_cloudflare_rollback.md`
 - `runbook_security_breach.md`
 - `runbook_data_corruption.md`
 - `runbook_supabase_auth_down.md`
@@ -224,22 +224,22 @@ This document outlines the disaster recovery and business continuity procedures 
 **Data Loss:** Up to 24 hours (daily backups)  
 **Mitigation:** Enable PITR for production (reduces to < 1 hour loss)
 
-### 5.2 Scenario: Vercel Outage
+### 5.2 Scenario: Railway/Cloudflare Pages Outage
 
-**Probability:** Low-Medium (Vercel has 99.99% SLA)  
+**Probability:** Low-Medium (Railway/Cloudflare Pages has 99.99% SLA)  
 **Impact:** Critical (app unavailable)
 
 **Recovery Procedure:**
 
-**If Vercel is completely down (rare):**
-1. **Wait for Vercel status updates:** https://www.vercel-status.com
-2. **No action needed:** Vercel handles infrastructure recovery
-3. **Estimated RTO:** 1-2 hours (Vercel SLA)
+**If Railway/Cloudflare Pages is completely down (rare):**
+1. **Wait for Railway/Cloudflare Pages status updates:** https://www.Railway/Cloudflare Pages-status.com
+2. **No action needed:** Railway/Cloudflare Pages handles infrastructure recovery
+3. **Estimated RTO:** 1-2 hours (Railway/Cloudflare Pages SLA)
 
 **If specific deployment is broken:**
 1. **Rollback to previous version:**
    ```bash
-   # Via Vercel Dashboard
+   # Via Railway/Cloudflare Pages Dashboard
    Deployments > [Select Previous] > Promote to Production
    ```
 2. **Estimated RTO:** 5-10 minutes
@@ -395,7 +395,7 @@ WHERE schemaname = 'public';
 | Vendor | Support Contact | SLA | Escalation |
 |--------|----------------|-----|------------|
 | **Supabase** | support@supabase.io | 4 hours (paid tier) | Via dashboard |
-| **Vercel** | vercel.com/support | 1 hour (Enterprise) | Via dashboard |
+| **Railway/Cloudflare Pages** | Railway/Cloudflare Pages.com/support | 1 hour (Enterprise) | Via dashboard |
 | **Cloudflare** | enterprise@cloudflare.com | 1 hour | Phone support |
 
 ---
@@ -416,3 +416,41 @@ WHERE schemaname = 'public';
 
 **Document Owner:** DevOps/Infrastructure Team  
 **Next Review Date:** 2026-04-20
+
+
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

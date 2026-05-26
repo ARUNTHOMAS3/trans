@@ -1,4 +1,4 @@
-# Quick Start Commands
+﻿# Quick Start Commands
 
 ## Backend Setup
 
@@ -45,33 +45,33 @@ npm list drizzle-orm
 npm run db:studio
 ```
 
-## Deploy to Vercel
+## Deploy to Railway/Cloudflare Pages
 
 ```powershell
-# Install Vercel CLI globally (if not installed)
-npm i -g vercel
+# Install Railway/Cloudflare Pages CLI globally (if not installed)
+npm i -g Railway/Cloudflare Pages
 
 # Backend deployment
 cd backend
-vercel login
-vercel link
-vercel --prod
+Railway/Cloudflare Pages login
+Railway/Cloudflare Pages link
+Railway/Cloudflare Pages --prod
 
 # Frontend deployment
 cd ..
-vercel link  
-vercel --prod
+Railway/Cloudflare Pages link  
+Railway/Cloudflare Pages --prod
 ```
 
 ## Environment Variables
 
 The `.env.example` already contains your complete configuration:
-- ✅ Supabase database credentials
-- ✅ Supabase API keys
-- ✅ Cloudflare R2 storage
-- ✅ JWT secret
-- ✅ CORS origins
-- ✅ Frontend/Backend URLs
+- âœ… Supabase database credentials
+- âœ… Supabase API keys
+- âœ… Cloudflare R2 storage
+- âœ… JWT secret
+- âœ… CORS origins
+- âœ… Frontend/Backend URLs
 
 Just copy it to `.env`:
 ```powershell
@@ -98,3 +98,4 @@ taskkill /PID <process_id> /F
 - Verify `DATABASE_URL` in `.env`
 - Check Supabase project is active
 - Test with: `npm run db:studio`
+

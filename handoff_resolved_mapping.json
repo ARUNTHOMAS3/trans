@@ -1,0 +1,1432 @@
+﻿{
+    "mapping":  [
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_dialog.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\z_tooltip.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\z_tooltip.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\recent_history_service.dart",
+                        "project_path":  "lib\\shared\\services\\recent_history_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\repositories\\payments_repository.dart",
+                        "project_path":  "lib\\modules\\sales\\repositories\\payments_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\entities\\purchase-order.entity.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\entities\\purchase-order.entity.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\radio_group.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\radio_group.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\services\\sales_order_api_service.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\data\\services\\sales_order_api_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\custom_text_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\custom_text_field.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\services\\customers.service.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\services\\customers.service.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\unsaved_changes_guard.dart",
+                        "project_path":  "lib\\shared\\widgets\\unsaved_changes_guard.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\warehouse_popover.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\warehouse_popover.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\z_date_picker_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\z_date_picker_field.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_table_shell.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_table_shell.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\dto\\create-vendor.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\dto\\create-vendor.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\draft_storage_service.dart",
+                        "project_path":  "lib\\shared\\services\\draft_storage_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_payment_terms_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_payment_terms_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\zerpai_toast.dart",
+                        "project_path":  "lib\\shared\\utils\\zerpai_toast.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_context.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_context.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\providers\\purchases_bills_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\bills\\providers\\purchases_bills_provider.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\data\\purchase_receive_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\data\\purchase_receive_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_overview_actions.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_overview_actions.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\models\\purchases_bills_bill_model.dart",
+                        "project_path":  "lib\\modules\\purchases\\bills\\models\\purchases_bills_bill_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\sales_order_item_row.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\sales_order_item_row.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\form_row.dart",
+                        "project_path":  "lib\\shared\\widgets\\form_row.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\settings_navigation_sidebar.dart",
+                        "project_path":  "lib\\shared\\widgets\\settings_navigation_sidebar.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\controllers\\purchase-receives.controller.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\controllers\\purchase-receives.controller.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\display_name_utils.dart",
+                        "project_path":  "lib\\shared\\utils\\display_name_utils.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\skeleton.dart",
+                        "project_path":  "lib\\shared\\widgets\\skeleton.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_builders.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_builders.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_attributes_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_attributes_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_address_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_address_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\services\\hsn-sac.service.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\services\\hsn-sac.service.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_data_table_shell.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_data_table_shell.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_helpers.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_helpers.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\sequences_api_service.dart",
+                        "project_path":  "lib\\shared\\services\\sequences_api_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\hsn_sac_model.dart",
+                        "project_path":  "lib\\modules\\sales\\models\\hsn_sac_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_skeletons.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_skeletons.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\repositories\\purchases_purchase_receives_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\repositories\\purchases_purchase_receives_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\services\\purchase-receives.service.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\services\\purchase-receives.service.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\custom_date_picker.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\custom_date_picker.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_customer_detail_context_model.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\data\\models\\sales_customer_detail_context_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\dialogs\\unsaved_changes_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\dialogs\\unsaved_changes_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_remarks_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_remarks_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\text_input.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\text_input.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_categories_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_categories_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_simple_list_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_simple_list_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\repositories\\purchases_bills_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\bills\\repositories\\purchases_bills_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\providers\\purchase_receives_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\providers\\purchase_receives_provider.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_currency_display.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_currency_display.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\bin_locations_service.dart",
+                        "project_path":  "lib\\shared\\services\\bin_locations_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\services\\purchase-orders.service.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\services\\purchase-orders.service.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\gstin_lookup_model.dart",
+                        "project_path":  "lib\\modules\\sales\\models\\gstin_lookup_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\report_utils.dart",
+                        "project_path":  "lib\\shared\\utils\\report_utils.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_primary_info_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_primary_info_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\sync\\global_sync_manager.dart",
+                        "project_path":  "lib\\shared\\services\\sync\\global_sync_manager.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\sections\\license_registration_section.dart",
+                        "project_path":  "lib\\shared\\widgets\\sections\\license_registration_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\controllers\\vendors.controller.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\controllers\\vendors.controller.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_custom_fields_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_custom_fields_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\phone_input_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\phone_input_field.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\lookups\\lookups.module.ts",
+                        "project_path":  "backend\\src\\modules\\lookups\\lookups.module.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_radio_group.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_radio_group.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\top_bar\\top_bar.dart",
+                        "project_path":  "lib\\shared\\widgets\\top_bar\\top_bar.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_bank_details_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_bank_details_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_list_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_list_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\mixins\\licence_validation_mixin.dart",
+                        "project_path":  "lib\\shared\\mixins\\licence_validation_mixin.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\keyboard_scrollable.dart",
+                        "project_path":  "lib\\shared\\widgets\\keyboard_scrollable.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_date_picker_style.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_date_picker_style.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_table_helpers.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_table_helpers.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\breakpoints.dart",
+                        "project_path":  "lib\\shared\\responsive\\breakpoints.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\services\\vendors.service.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\services\\vendors.service.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\lookup_service.dart",
+                        "project_path":  "lib\\shared\\services\\lookup_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\placeholder_screen.dart",
+                        "project_path":  "lib\\shared\\widgets\\placeholder_screen.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_builders.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_builders.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\storage_service.dart",
+                        "project_path":  "lib\\shared\\services\\storage_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_reorder_terms_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_reorder_terms_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\entities\\purchase-receive.entity.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\entities\\purchase-receive.entity.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\lookup_utils.dart",
+                        "project_path":  "lib\\shared\\utils\\lookup_utils.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\constants\\gst_constants.dart",
+                        "project_path":  "lib\\shared\\constants\\gst_constants.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\sales_order_preferences_dialog.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\sales_order_preferences_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\radio_input.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\radio_input.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\repositories\\sales_orders_repository.dart",
+                        "project_path":  "lib\\modules\\sales\\repositories\\sales_orders_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\models\\purchases_purchase_orders_order_model.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\models\\purchases_purchase_orders_order_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\entities\\customer.entity.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\entities\\customer.entity.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\dto\\create-customer.dto.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\dto\\create-customer.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\file_upload_button.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\file_upload_button.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_license_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_license_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\tables\\table_header_menu.dart",
+                        "project_path":  "lib\\shared\\widgets\\tables\\table_header_menu.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_licence_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_licence_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_payment_link_model.dart",
+                        "project_path":  "lib\\modules\\sales\\payment_links\\data\\models\\sales_payment_link_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\providers\\lookup_providers.dart",
+                        "project_path":  "lib\\shared\\providers\\lookup_providers.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_other_details_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_other_details_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\dto\\update-purchase-receive.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\dto\\update-purchase-receive.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_layout.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_layout.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_overview_other_tabs.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_overview_other_tabs.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\data\\purchase_receive_repository_impl.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\data\\purchase_receive_repository_impl.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\sections\\contact_persons_table.dart",
+                        "project_path":  "lib\\shared\\widgets\\sections\\contact_persons_table.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_date_picker.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_date_picker.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\category_dropdown.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\category_dropdown.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\sections\\address_section.dart",
+                        "project_path":  "lib\\shared\\widgets\\sections\\address_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_helpers.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_helpers.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_contact_persons_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_contact_persons_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\z_search_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\z_search_field.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_calendar.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_calendar.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_remarks_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_remarks_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\services\\sales.service.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\services\\sales.service.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_overview_tab.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_overview_tab.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\email_composer.dart",
+                        "project_path":  "lib\\shared\\widgets\\email_composer.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_order_model.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\data\\models\\sales_order_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\advanced_customer_search_dialog.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\advanced_customer_search_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\entities\\vendor.entity.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\entities\\vendor.entity.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\repositories\\customers_repository.dart",
+                        "project_path":  "lib\\modules\\sales\\repositories\\customers_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\providers\\vendor_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\providers\\vendor_provider.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\uppercase_text_formatter.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\uppercase_text_formatter.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_payment_model.dart",
+                        "project_path":  "lib\\modules\\sales\\payments_received\\data\\models\\sales_payment_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\dto\\customer-detail-context.dto.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\dto\\customer-detail-context.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\purchase-orders.module.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\purchase-orders.module.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\async_action_handler.dart",
+                        "project_path":  "lib\\shared\\utils\\async_action_handler.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_order_item_model.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\data\\models\\sales_order_item_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\models\\column_config.dart",
+                        "project_path":  "lib\\shared\\models\\column_config.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\gstin_prefill_banner.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\gstin_prefill_banner.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\app_date_formatter.dart",
+                        "project_path":  "lib\\shared\\utils\\app_date_formatter.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\models\\purchases_vendors_vendor_model.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\models\\purchases_vendors_vendor_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\constants\\currency_constants.dart",
+                        "project_path":  "lib\\shared\\constants\\currency_constants.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\dto\\update-purchase-order.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\dto\\update-purchase-order.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_row_actions.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_row_actions.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\hsn_sac_search_modal.dart",
+                        "project_path":  "lib\\shared\\widgets\\hsn_sac_search_modal.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\field_label.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\field_label.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\theme\\text_styles.dart",
+                        "project_path":  "lib\\shared\\theme\\text_styles.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\dialogs\\zerpai_confirmation_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\dialogs\\zerpai_confirmation_dialog.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_customer_model.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\data\\models\\sales_customer_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\services\\gstin_lookup_service.dart",
+                        "project_path":  "lib\\modules\\sales\\services\\gstin_lookup_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\dropdown_input.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\dropdown_input.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\providers\\purchases_purchase_orders_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\providers\\purchases_purchase_orders_provider.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\sync\\sync_service.dart",
+                        "project_path":  "lib\\shared\\services\\sync\\sync_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\vendors.module.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\vendors.module.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\texts\\zerpai_link_text.dart",
+                        "project_path":  "lib\\shared\\widgets\\texts\\zerpai_link_text.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\dto\\update-customer.dto.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\dto\\update-customer.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_form.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_form.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\models\\purchases_purchase_receives_model.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\models\\purchases_purchase_receives_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\controllers\\sales.controller.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\controllers\\sales.controller.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\purchase-receives.module.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\purchase-receives.module.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_reporting_tags_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_reporting_tags_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\tables\\table_more_menu.dart",
+                        "project_path":  "lib\\shared\\widgets\\tables\\table_more_menu.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_primary_info_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_primary_info_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_address_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_address_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\shortcut_handler.dart",
+                        "project_path":  "lib\\shared\\widgets\\shortcut_handler.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_expandable_tabs.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_expandable_tabs.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\settings_fixed_header_layout.dart",
+                        "project_path":  "lib\\shared\\widgets\\settings_fixed_header_layout.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\form_layout_constants.dart",
+                        "project_path":  "lib\\shared\\utils\\form_layout_constants.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_dialogs.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_dialogs.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\repositories\\purchases_purchase_receives_repository_impl.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\repositories\\purchases_purchase_receives_repository_impl.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchases.module.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchases.module.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\controllers\\purchase-orders.controller.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\controllers\\purchase-orders.controller.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\dto\\create-purchase-order.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\dto\\create-purchase-order.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\lookups\\global-lookups.controller.ts",
+                        "project_path":  "backend\\src\\modules\\lookups\\global-lookups.controller.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\providers\\purchases_purchase_receives_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\providers\\purchases_purchase_receives_provider.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\controllers\\customers.controller.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\controllers\\customers.controller.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\reports\\zerpai_report_shell.dart",
+                        "project_path":  "lib\\shared\\widgets\\reports\\zerpai_report_shell.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_dialogs.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_dialogs.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_eway_bill_model.dart",
+                        "project_path":  "lib\\modules\\sales\\eway_bills\\data\\models\\sales_eway_bill_model.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_button.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_button.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\models\\account_node.dart",
+                        "project_path":  "lib\\shared\\models\\account_node.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\services\\hsn_sac_lookup_service.dart",
+                        "project_path":  "lib\\modules\\sales\\services\\hsn_sac_lookup_service.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\repositories\\vendor_repository_impl.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\repositories\\vendor_repository_impl.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_overview_left_panel.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_overview_left_panel.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_contact_persons_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_contact_persons_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\shared_field_layout.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\shared_field_layout.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\account_tree_dropdown.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\account_tree_dropdown.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\transaction_series_dropdown.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\transaction_series_dropdown.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\zerpai_layout.dart",
+                        "project_path":  "lib\\shared\\widgets\\zerpai_layout.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\dto\\update-vendor.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\dto\\update-vendor.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_builders.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_builders.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\form_controllers_manager.dart",
+                        "project_path":  "lib\\shared\\utils\\form_controllers_manager.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\repositories\\purchases_purchase_orders_order_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\repositories\\purchases_purchase_orders_order_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_other_details_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_other_details_section.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\tax_engine.dart",
+                        "project_path":  "lib\\shared\\utils\\tax_engine.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\sales.module.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\sales.module.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\lookups\\lookups.controller.ts",
+                        "project_path":  "backend\\src\\modules\\lookups\\lookups.controller.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\controllers\\sales_order_controller.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\controllers\\sales_order_controller.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\repositories\\purchases_purchase_orders_order_repository_impl.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\repositories\\purchases_purchase_orders_order_repository_impl.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\repositories\\eway_bills_repository.dart",
+                        "project_path":  "lib\\modules\\sales\\repositories\\eway_bills_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\settings_search_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\settings_search_field.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\repositories\\vendor_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\repositories\\vendor_repository.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\resizable_box.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\resizable_box.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\notifiers\\purchase_order_notifier.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\notifiers\\purchase_order_notifier.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\gstin_prefill_utils.dart",
+                        "project_path":  "lib\\shared\\utils\\gstin_prefill_utils.dart",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\dto\\create-purchase-receive.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\dto\\create-purchase-receive.dto.ts",
+                        "status":  "Match",
+                        "reason":  "Single exact filename match"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_invoice_list.dart",
+                        "project_path":  "lib\\modules\\sales\\invoices\\presentation\\pages\\sales_invoice_list.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\purchases_vendors_vendor_list.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\pages\\purchases_vendors_vendor_list.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_create.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\presentation\\pages\\purchases_purchase_receives_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\tables\\column_customizer.dart",
+                        "project_path":  "lib\\shared\\widgets\\tables\\column_customizer.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by matching suffix layout"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\presentation\\purchases_bills_list.dart",
+                        "project_path":  "lib\\modules\\purchases\\bills\\presentation\\pages\\purchases_bills_list.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\env_service.dart",
+                        "project_path":  "lib\\core\\services\\env_service.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\image_picker_service.dart",
+                        "project_path":  "lib\\shared\\services\\image_picker_service.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by matching suffix layout"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_customer_create.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\pages\\sales_customer_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\presentation\\purchases_purchase_orders_list.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\presentation\\pages\\purchases_purchase_orders_list.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\presentation\\purchases_bills_create.dart",
+                        "project_path":  "lib\\modules\\purchases\\bills\\presentation\\pages\\purchases_bills_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_eway_bill_create.dart",
+                        "project_path":  "lib\\modules\\sales\\eway_bills\\presentation\\pages\\sales_eway_bill_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\error_handler.dart",
+                        "project_path":  "lib\\core\\utils\\error_handler.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_customer_overview.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\pages\\sales_customer_overview.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_delivery_challan_create.dart",
+                        "project_path":  "lib\\modules\\sales\\delivery_challans\\presentation\\pages\\sales_delivery_challan_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_payment_link_create.dart",
+                        "project_path":  "lib\\modules\\sales\\payment_links\\presentation\\pages\\sales_payment_link_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_order_create.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\pages\\sales_order_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\constants\\phone_prefixes.dart",
+                        "project_path":  "lib\\shared\\constants\\phone_prefixes.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by matching suffix layout"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_invoice_create.dart",
+                        "project_path":  "lib\\modules\\sales\\invoices\\presentation\\pages\\sales_invoice_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\dialog_service.dart",
+                        "project_path":  "lib\\shared\\services\\dialog_service.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by matching suffix layout"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_retainer_invoice_create.dart",
+                        "project_path":  "lib\\modules\\sales\\retainer_invoices\\presentation\\pages\\sales_retainer_invoice_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_list.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\presentation\\pages\\purchases_purchase_receives_list.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_edit.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\presentation\\pages\\purchases_purchase_receives_edit.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_payment_create.dart",
+                        "project_path":  "lib\\modules\\sales\\payments_received\\presentation\\pages\\sales_payment_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\api_client.dart",
+                        "project_path":  "lib\\core\\services\\api_client.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\presentation\\purchases_purchase_orders_create.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\presentation\\pages\\purchases_purchase_orders_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\theme\\app_text_styles.dart",
+                        "project_path":  "lib\\shared\\theme\\app_text_styles.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by matching suffix layout"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_recurring_invoice_create.dart",
+                        "project_path":  "lib\\modules\\sales\\recurring_invoices\\presentation\\pages\\sales_recurring_invoice_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_order_list.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\pages\\sales_order_list.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\hive_adapters.dart",
+                        "project_path":  "lib\\shared\\services\\hive_adapters.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\purchases_vendors_vendor_create.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\pages\\purchases_vendors_vendor_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_quotation_create.dart",
+                        "project_path":  "lib\\modules\\sales\\quotations\\presentation\\pages\\sales_quotation_create.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_document_detail.dart",
+                        "project_path":  "lib\\modules\\sales\\documents\\presentation\\pages\\sales_document_detail.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    },
+                    {
+                        "handoff_path":  "handoff\\lib\\shared\\services\\hive_service.dart",
+                        "project_path":  "lib\\shared\\services\\hive_service.dart",
+                        "status":  "Resolved Duplicate",
+                        "reason":  "Duplicate resolved by skipping shim"
+                    }
+                ],
+    "manual_review":  [
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\bulk_items_dialog.dart",
+                              "project_paths":  [
+                                                    "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\bulk_items_dialog.dart",
+                                                    "lib\\shared\\widgets\\dialogs\\bulk_items_dialog.dart"
+                                                ],
+                              "status":  "Ambiguous",
+                              "reason":  "Multiple non-shim paths found: lib\\modules\\sales\\sales_orders\\presentation\\widgets\\bulk_items_dialog.dart, lib\\shared\\widgets\\dialogs\\bulk_items_dialog.dart"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\sales_item_quick_edit_dialog.dart",
+                              "project_paths":  [
+                                                    "lib\\modules\\sales\\credit_note\\presentation\\pages\\sales_item_quick_edit_dialog.dart",
+                                                    "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\sales_item_quick_edit_dialog.dart"
+                                                ],
+                              "status":  "Ambiguous",
+                              "reason":  "Multiple non-shim paths found: lib\\modules\\sales\\credit_note\\presentation\\pages\\sales_item_quick_edit_dialog.dart, lib\\modules\\sales\\sales_orders\\presentation\\widgets\\sales_item_quick_edit_dialog.dart"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_ui.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_filter.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_credit_note_create.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_import_export_dialog.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_table_logic.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff_resolved_mapping.json",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff_indexing_results.json",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_table.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_search_dialog.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_generic_list.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          },
+                          {
+                              "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_columns.dart",
+                              "project_paths":  [
+
+                                                ],
+                              "status":  "No Match",
+                              "reason":  "No file with this name exists in project"
+                          }
+                      ]
+}

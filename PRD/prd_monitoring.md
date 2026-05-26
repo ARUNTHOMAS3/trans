@@ -1,9 +1,9 @@
-# Monitoring & Observability PRD
+﻿# Monitoring & Observability PRD
 **Last Updated: 2026-04-20 12:46:08**
 
-## ⚠️ PRD Edit Policy
+## âš ï¸ PRD Edit Policy
 Do not edit PRD files unless explicitly requested by the user or team head.
-## 🔒 Auth Policy (Pre-Production)
+## ðŸ”’ Auth Policy (Pre-Production)
 No authentication setup is allowed until production. The application must run without enforced login/RBAC/JWT in dev and staging. Auth UI may exist but must not be wired into routing until production approval.
 **Last Edited:** 2026-01-28 15:13
 **Last Edited Version:** 1.3
@@ -14,9 +14,9 @@ No authentication setup is allowed until production. The application must run wi
 
 ### Tools
 - **Error Tracking:** Sentry (frontend + backend)
-- **Performance:** Vercel Analytics  
+- **Performance:** Railway/Cloudflare Pages Analytics  
 - **Uptime:** UptimeRobot
-- **Logs:** Vercel Logs
+- **Logs:** Railway/Cloudflare Pages Logs
 - **Business Metrics:** Google Analytics 4
 
 ---
@@ -45,7 +45,7 @@ No authentication setup is allowed until production. The application must run wi
 - **Invoices Created** per day
 - **POS Transactions** per day
 - **Revenue Processed**
-- **Sync Errors** (offline→online)
+- **Sync Errors** (offlineâ†’online)
 
 ---
 
@@ -125,8 +125,8 @@ No authentication setup is allowed until production. The application must run wi
 - **View:** Error trends, stack traces, affected users
 - **Filters:** By environment, release, error type
 
-### Vercel Analytics (Performance)
-- **URL:** `vercel.com/analytics`
+### Railway/Cloudflare Pages Analytics (Performance)
+- **URL:** `Railway/Cloudflare Pages.com/analytics`
 - **Metrics:** Page views, load time, Core Web Vitals
 - **Filters:** By page, country, device
 
@@ -139,7 +139,7 @@ No authentication setup is allowed until production. The application must run wi
 
 ## 7. Incident Response
 
-**Severity:** P0 (Critical) → P3 (Low)
+**Severity:** P0 (Critical) â†’ P3 (Low)
 
 **Response Times:**
 - P0: Immediate
@@ -182,3 +182,40 @@ No authentication setup is allowed until production. The application must run wi
 
 **Document Owner:** DevOps Team  
 **Next Review Date:** 2026-04-20
+
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

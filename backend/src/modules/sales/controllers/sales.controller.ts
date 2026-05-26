@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -7,6 +7,7 @@ import {
   Query,
   Param,
   BadRequestException,
+  ParseUUIDPipe,
 } from "@nestjs/common";
 import { HsnSacService } from "../services/hsn-sac.service";
 import { SalesService } from "../services/sales.service";
@@ -94,23 +95,20 @@ export class SalesController {
     return this.salesService.createEWayBill(body, tenant.entityId);
   }
 
-  @Put(":id")
-  async updateSalesOrder(
-    @Param("id") id: string,
-    @Body() body: any,
-    @Tenant() tenant: TenantContext,
-  ) {
-    return this.salesService.updateSalesOrder(id, body, tenant.entityId);
-  }
-
   @Get("invoices")
   async getInvoices(@Tenant() tenant: TenantContext) {
     return this.salesService.getInvoices(tenant.entityId);
   }
 
   @Get("invoices/:id")
-  async getInvoiceById(@Param("id") id: string) {
-    return this.salesService.getInvoiceById(id);
+  async getInvoiceById(
+    @Param("id") id: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    if (!id) {
+      throw new BadRequestException("Invoice ID is required");
+    }
+    return this.salesService.getInvoiceById(id, tenant.entityId);
   }
 
   @Post("invoices")
@@ -118,9 +116,20 @@ export class SalesController {
     return this.salesService.createInvoice(body, tenant.entityId);
   }
 
+  @Put(":id([0-9a-fA-F-]{36})")
+  async updateSalesOrder(
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Body() body: any,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.salesService.updateSalesOrder(id, body, tenant.entityId);
+  }
+
   // Must be last — dynamic segment catches anything not matched above
-  @Get(":id")
-  async getSalesOrderById(@Param("id") id: string) {
+  @Get(":id([0-9a-fA-F-]{36})")
+  async getSalesOrderById(
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+  ) {
     return this.salesService.getSalesOrderById(id);
   }
 }

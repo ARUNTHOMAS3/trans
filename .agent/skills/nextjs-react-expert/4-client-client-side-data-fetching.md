@@ -1,4 +1,4 @@
-# 4. Client-Side Data Fetching
+﻿# 4. Client-Side Data Fetching
 
 > **Impact:** MEDIUM-HIGH
 > **Focus:** Automatic deduplication and efficient data fetching patterns reduce redundant network requests.
@@ -188,7 +188,7 @@ function UpdateButton() {
 }
 ```
 
-Reference: [https://swr.vercel.app](https://swr.vercel.app)
+Reference: [https://swr.Railway/Cloudflare Pages.app](https://swr.Railway/Cloudflare Pages.app)
 
 ---
 
@@ -261,4 +261,5 @@ function cachePrefs(user: FullUser) {
 **Always wrap in try-catch:** `getItem()` and `setItem()` throw in incognito/private browsing (Safari, Firefox), when quota exceeded, or when disabled.
 
 **Benefits:** Schema evolution via versioning, reduced storage size, prevents storing tokens/PII/internal flags.
+
 

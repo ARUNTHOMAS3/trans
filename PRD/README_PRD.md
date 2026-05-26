@@ -1,10 +1,10 @@
-# 📚 Zerpai ERP Documentation Index
+﻿# ðŸ“š Zerpai ERP Documentation Index
 
-## ⚠️ PRD Edit Policy
+## âš ï¸ PRD Edit Policy
 
 Do not edit PRD files unless explicitly requested by the user or team head.
 
-## 🔒 Auth Policy (Pre-Production)
+## ðŸ”’ Auth Policy (Pre-Production)
 
 No authentication setup is allowed until production. The application must run without enforced login/RBAC/JWT in dev and staging. Auth UI may exist but must not be wired into routing until production approval.
 **Last Edited:** 2026-01-29 23:32
@@ -12,11 +12,11 @@ No authentication setup is allowed until production. The application must run wi
 
 ---
 
-## ⚡ **QUICK START**
+## âš¡ **QUICK START**
 
-### 🔴 **Starting Development? Read This First:**
+### ðŸ”´ **Starting Development? Read This First:**
 
-👉 **[PRD_COMPLIANCE_AUDIT.md](PRD_COMPLIANCE_AUDIT.md)** - Current codebase vs PRD requirements
+ðŸ‘‰ **[PRD_COMPLIANCE_AUDIT.md](PRD_COMPLIANCE_AUDIT.md)** - Current codebase vs PRD requirements
 
 - **What needs to change NOW**
 - **Prioritized action plan (P0, P1, P2)**
@@ -24,11 +24,11 @@ No authentication setup is allowed until production. The application must run wi
 
 ---
 
-## 📖 Documentation Structure
+## ðŸ“– Documentation Structure
 
 ### **Core Product Requirements**
 
-#### 1. **`PRD.md`** ⭐ **START HERE**
+#### 1. **`PRD.md`** â­ **START HERE**
 
 - **Complete PRD (25 sections, ~1,800 lines)**
 - Architecture, tech stack, workflows
@@ -36,9 +36,9 @@ No authentication setup is allowed until production. The application must run wi
 - ALL essential information in one place
 - **Use this as:** Single source of truth for development
 
-#### 1.1 **`prd_tech_stack.md`** 🧱 **STACK REFERENCE**
+#### 1.1 **`prd_tech_stack.md`** ðŸ§± **STACK REFERENCE**
 
-- Canonical Flutter/NestJS/Supabase/Drizzle/Vercel stack decisions
+- Canonical Flutter/NestJS/Supabase/Drizzle/Railway/Cloudflare Pages stack decisions
 - Package inventory and runtime implementation notes from the current codebase
 - Environment, deployment, testing, and monitoring stack details
 - PRD-vs-code drift list for stack-related gaps
@@ -69,7 +69,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 
 #### 4. **`prd_monitoring.md`**
 
-- Monitoring stack (Sentry, Vercel, UptimeRobot)
+- Monitoring stack (Sentry, Railway/Cloudflare Pages, UptimeRobot)
 - Key metrics & alert thresholds
 - Health check endpoints
 - Logging standards
@@ -91,7 +91,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 - Feature request process
 - **Use this for:** Product planning, stakeholder communication
 
-#### 7. **`prd_folder_structure.md`** 📁 **NEW - CRITICAL**
+#### 7. **`prd_folder_structure.md`** ðŸ“ **NEW - CRITICAL**
 
 - Complete folder structure (Frontend & Backend)
 - File naming conventions (STRICT snake_case)
@@ -103,7 +103,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 
 ---
 
-#### 8. **`prd_ui.md`** 🎨 **UI-ONLY PRD**
+#### 8. **`prd_ui.md`** ðŸŽ¨ **UI-ONLY PRD**
 
 - UI standards only (layouts, inputs, tables, navigation chrome)
 - Creation/edit page rules
@@ -112,14 +112,14 @@ These are extracted from the comprehensive PRD for focused operational use:
 
 ---
 
-#### 9. **`prd_schema.md`** 🗄️ **SCHEMA SNAPSHOT**
+#### 9. **`prd_schema.md`** ðŸ—„ï¸ **SCHEMA SNAPSHOT**
 - Current DB schema table list (snapshot)
 - Strict form-to-table mapping rules
 - **Use this for:** Data mapping and backend integration
 
 ---
 
-#### 10. **`prd_keyboard_shortcuts.md`** ⌨️ **SHORTCUT REFERENCE**
+#### 10. **`prd_keyboard_shortcuts.md`** âŒ¨ï¸ **SHORTCUT REFERENCE**
 - Centralized list of all power-user shortcuts
 - Implementation details (ShortcutHandler, isDirty tracking)
 - Tooltip and visual hint standards
@@ -127,7 +127,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 
 ---
 
-## 🗺️ Quick Navigation
+## ðŸ—ºï¸ Quick Navigation
 
 ### **For Developers:**
 
@@ -163,7 +163,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 
 ---
 
-## 📊 Document Statistics
+## ðŸ“Š Document Statistics
 
 | Document                     | Sections | Lines | Purpose                      |
 | ---------------------------- | -------- | ----- | ---------------------------- |
@@ -181,7 +181,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 
 ---
 
-## 🎯 Key Decisions (Locked)
+## ðŸŽ¯ Key Decisions (Locked)
 
 These **cannot** be changed without major discussion:
 
@@ -191,7 +191,7 @@ These **cannot** be changed without major discussion:
 4. **Hive** for offline data - Section 7.1
 5. **File Naming:** `module_submodule_page.dart` - Section 15
 6. **UI System Compliance:** Strictly via `app_theme.dart` - Section 14
-7. **Git Workflow:** `feat/*`, `fix/*` → `dev` → `main` - Section 14.4
+7. **Git Workflow:** `feat/*`, `fix/*` â†’ `dev` â†’ `main` - Section 14.4
 8. **Testing:** 70% coverage minimum - Section 17.2
 9. **Latest Stable Dependencies Only** - Section 7.1
 10. **DB Options/Master Table Naming:** `<module_name>_<options_descriptor>` for all new lookup tables - Section 12.1
@@ -226,7 +226,7 @@ All PRD documents are version-controlled in Git. Check commit history for change
 
 ---
 
-## 🚀 Getting Started Checklist
+## ðŸš€ Getting Started Checklist
 
 **New to the project? Start here:**
 
@@ -239,7 +239,7 @@ All PRD documents are version-controlled in Git. Check commit history for change
 
 ---
 
-## 📞 Questions?
+## ðŸ“ž Questions?
 
 **Documentation Issues:**
 
@@ -254,7 +254,7 @@ All PRD documents are version-controlled in Git. Check commit history for change
 
 ---
 
-## 📝 Changelog
+## ðŸ“ Changelog
 
 | Date       | Version | Changes                                   |
 | ---------- | ------- | ----------------------------------------- |
@@ -264,3 +264,40 @@ All PRD documents are version-controlled in Git. Check commit history for change
 
 **Last Updated:** 2026-01-30  
 **Next Review:** 2026-04-20
+
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

@@ -177,29 +177,30 @@ S-->>U : "Navigate back"
 
 ### Sales Lifecycle: Multi-Document Workflow
 
-- Quotes → Sales Orders → Invoices → Payments → Credit Notes (Returns)
-- Supporting documents: Challans, Retainer Invoices, Recurring Invoices, E-Way Bills
+- Quotations → Retainer Invoices → Sales Orders → Invoices → Payments → Credit Notes (Returns)
+- Supporting documents: Delivery Challans, Recurring Invoices, E-Way Bills, Payment Links
 - Providers for lists:
-  - Quotes, Invoices, Payments, Credit Notes, Challans, Retainer Invoices, Recurring Invoices, E-Way Bills, Payment Links
+  - Quotations, Invoices, Payments, Credit Notes, Delivery Challans, Retainer Invoices, Recurring Invoices, E-Way Bills, Payment Links
 - Deletion supported for sales orders.
 
 ```mermaid
 flowchart TD
-Start(["Start"]) --> Quote["Create Quote"]
-Quote --> SO["Convert to Sales Order"]
+Start(["Start"]) --> Quote["Create Quotation"]
+Quote --> RET["Create Retainer Invoice"]
+RET --> SO["Convert to Sales Order"]
 SO --> INV["Generate Invoice"]
-INV --> PAY["Record Payment"]
-PAY --> CN["Issue Credit Note (Return)"]
+INV --> PAY["Record Payment Received"]
+PAY --> CN["Issue Credit Note (Sales Return)"]
 SO --> CHALLAN["Create Delivery Challan"]
 INV --> EWB["Generate E-Way Bill"]
-SO --> RET["Create Retainer Invoice"]
 INV --> REC["Create Recurring Invoice"]
+INV --> LINK["Generate Payment Link"]
 SO --> DEL["Delete Sales Order (Draft)"]
 CN --> End(["End"])
 CHALLAN --> End
 EWB --> End
-RET --> End
 REC --> End
+LINK --> End
 DEL --> End
 ```
 

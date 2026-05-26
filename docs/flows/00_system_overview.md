@@ -1,4 +1,4 @@
-# System Overview — Zerpai ERP
+﻿# System Overview â€” Zerpai ERP
 
 ## Full Architecture Flow
 
@@ -19,7 +19,7 @@ graph TD
         SYNC[SyncManager]
     end
 
-    subgraph BACKEND["NestJS Backend (Vercel)"]
+    subgraph BACKEND["NestJS Backend (Railway/Cloudflare Pages)"]
         MW[Tenant Middleware\nx-entity-id]
         CTRL_BE[Controllers]
         SVC[Services]
@@ -76,6 +76,7 @@ graph LR
     INVENTORY --> INV_PKG[Packages]
     INVENTORY --> INV_SHP[Shipments]
     INVENTORY --> INV_TR[Transfer Orders]
+    INVENTORY --> INV_MO[Move Orders]
     INVENTORY --> INV_PL[Pick Lists]
 
     SALES --> SALES_CX[Customers]
@@ -121,7 +122,7 @@ flowchart LR
     SVC -->|business tables - WHERE entity_id = ...| TENANT[(entity_id-scoped tables)]
 ```
 
-## Data Pattern — Online-First with Offline Fallback
+## Data Pattern â€” Online-First with Offline Fallback
 
 ```mermaid
 flowchart TD
@@ -134,3 +135,4 @@ flowchart TD
     TRY -->|network error| HIVE[Read from Hive Cache]
     HIVE --> RETURN
 ```
+

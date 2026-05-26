@@ -1,5 +1,9 @@
 {
   "scripts": {
+    "prepare": "husky",
+    "lint:commits": "commitlint --from=HEAD~1",
+    "validate:branch-name": "node ./scripts/validate-branch-name.mjs",
+    "validate:pr-title": "echo \"PR title is validated in GitHub Actions\"",
     "test:flutter": "flutter test",
     "test:backend": "npm test --prefix backend -- --runInBand",
     "test:e2e": "playwright test",
@@ -15,6 +19,10 @@
   "devDependencies": {
     "@playwright/test": "^1.42.1",
     "@types/node": "^20.11.24",
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
     "http-server": "^14.1.1"
+    ,
+    "husky": "^9.1.7"
   }
 }

@@ -442,6 +442,33 @@ BackendSvc --> DB[("Database")]
 - [sales_order_api_service.dart](file://lib/modules/sales/services/sales_order_api_service.dart#L114-L121)
 - [sales.service.ts](file://backend/src/sales/sales.service.ts#L80-L97)
 
+## Operational Sales Order Workflows
+
+### Standard Sales Order Lifecycle
+The canonical lifecycle of a sales order from initial creation to final payment recording.
+
+**Process Steps:**
+1. **Start**: User initiates the sales process.
+2. **Create Sales Order**: Enter customer and item details in the system.
+3. **Confirm Sales Order**: Validate and finalize the order.
+4. **Generate Picklist**: Determine which items to pick from inventory.
+5. **Pack Items**: Physical packaging of the items.
+6. **Ship Items**: Dispatch the items to the customer.
+7. **Create Invoice**: Generate the financial document for the transaction.
+8. **Record Payment**: Finalize the transaction by recording the payment.
+
+```mermaid
+graph TD
+    Start([Start]) --> CreateSO[Create Sales Order]
+    CreateSO --> ConfirmSO[Confirm Sales Order]
+    ConfirmSO --> GenPick[Generate Picklist]
+    GenPick --> PackItems[Pack Items]
+    PackItems --> ShipItems[Ship Items]
+    ShipItems --> CreateInv[Create Invoice]
+    CreateInv --> RecordPay[Record Payment]
+    RecordPay --> End([End])
+```
+
 ## Conclusion
 The Sales Orders system provides a clear, layered implementation for managing sales order lifecycles on the frontend and backend. The current design supports order creation, listing, and basic totals computation. To meet enterprise needs, future enhancements should include robust order validation, inventory reservation, and integration with warehouse management systems.
 

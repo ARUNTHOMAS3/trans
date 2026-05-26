@@ -8,7 +8,7 @@
 - [default_tax_rates_section.dart](file://lib/modules/items/presentation/sections/default_tax_rates_section.dart)
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart)
 - [sales_payment_link_model.dart](file://lib/modules/sales/models/sales_payment_link_model.dart)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart)
 </cite>
 
 ## Table of Contents
@@ -58,7 +58,7 @@ SP["SalesPayment<br/>lib/modules/sales/models/sales_payment_model.dart"]
 SPL["SalesPaymentLink<br/>lib/modules/sales/models/sales_payment_link_model.dart"]
 end
 subgraph "Pricelist"
-PL["PriceList<br/>lib/modules/pricelist/models/pricelist_model.dart"]
+PL["PriceList<br/>lib/modules/pricelists/models/pricelist_model.dart"]
 end
 AN --> CC
 TR --> DTRS
@@ -74,7 +74,7 @@ SPL --> CC
 - [default_tax_rates_section.dart](file://lib/modules/items/presentation/sections/default_tax_rates_section.dart#L1-L225)
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart#L1-L61)
 - [sales_payment_link_model.dart](file://lib/modules/sales/models/sales_payment_link_model.dart#L1-L49)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 **Section sources**
 - [account_node.dart](file://lib/shared/models/account_node.dart#L1-L14)
@@ -83,7 +83,7 @@ SPL --> CC
 - [default_tax_rates_section.dart](file://lib/modules/items/presentation/sections/default_tax_rates_section.dart#L1-L225)
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart#L1-L61)
 - [sales_payment_link_model.dart](file://lib/modules/sales/models/sales_payment_link_model.dart#L1-L49)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 ## Core Components
 - AccountNode: Lightweight hierarchical account model used to represent chart of accounts nodes with selectable flags and children.
@@ -108,7 +108,7 @@ These components collectively enable:
 - [default_tax_rates_section.dart](file://lib/modules/items/presentation/sections/default_tax_rates_section.dart#L1-L225)
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart#L1-L61)
 - [sales_payment_link_model.dart](file://lib/modules/sales/models/sales_payment_link_model.dart#L1-L49)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 ## Architecture Overview
 The Financial module integrates shared models with domain-specific models to support:
@@ -188,7 +188,7 @@ PriceList ..> CurrencyOption : "currency-aware pricing"
 - [default_tax_rates_section.dart](file://lib/modules/items/presentation/sections/default_tax_rates_section.dart#L1-L225)
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart#L1-L61)
 - [sales_payment_link_model.dart](file://lib/modules/sales/models/sales_payment_link_model.dart#L1-L49)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 ## Detailed Component Analysis
 
@@ -310,7 +310,7 @@ Note: The referenced files provide foundational models and UI sections. Full rep
 **Section sources**
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart#L28-L60)
 - [sales_payment_link_model.dart](file://lib/modules/sales/models/sales_payment_link_model.dart#L22-L47)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L20)
 
 #### Currency Conversions
@@ -391,7 +391,7 @@ TR["TaxRate<br/>tax_rate_model.dart"] --> DTRS["DefaultTaxRatesSection<br/>defau
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L20)
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart#L1-L61)
 - [sales_payment_link_model.dart](file://lib/modules/sales/models/sales_payment_link_model.dart#L1-L49)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [tax_rate_model.dart](file://lib/modules/items/models/tax_rate_model.dart#L1-L38)
 - [default_tax_rates_section.dart](file://lib/modules/items/presentation/sections/default_tax_rates_section.dart#L1-L225)
 
@@ -399,7 +399,7 @@ TR["TaxRate<br/>tax_rate_model.dart"] --> DTRS["DefaultTaxRatesSection<br/>defau
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L20)
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart#L1-L61)
 - [sales_payment_link_model.dart](file://lib/modules/sales/models/sales_payment_link_model.dart#L1-L49)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [tax_rate_model.dart](file://lib/modules/items/models/tax_rate_model.dart#L1-L38)
 - [default_tax_rates_section.dart](file://lib/modules/items/presentation/sections/default_tax_rates_section.dart#L1-L225)
 
@@ -446,3 +446,4 @@ The Financial module establishes a solid foundation for chart of accounts, multi
 - [tax_rate_model.dart](file://lib/modules/items/models/tax_rate_model.dart#L1-L38)
 - [default_tax_rates_section.dart](file://lib/modules/items/presentation/sections/default_tax_rates_section.dart#L1-L225)
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L20)
+

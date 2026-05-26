@@ -449,6 +449,88 @@ Common issues and remedies:
 - [sales_order_api_service.dart](file://lib/modules/sales/services/sales_order_api_service.dart#L114-L120)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L86-L95)
 
+## Operational Workflows
+
+### Sales & Purchase Workflow with Quotation Flow
+This workflow describes the end-to-end process from receiving a quotation request to final delivery and invoicing, including handling of stocked vs. non-stocked items.
+
+**Process Steps:**
+1. **Receive Quotation Request**: Process starts with a customer's request for pricing.
+2. **Create Quotation**: Sales team generates a formal quotation.
+3. **Send Quotation**: Deliver the quotation to the customer.
+4. **Customer Response**: 
+    - If **Accepted**: Request a retainer invoice for advance payment.
+    - If **Rejected**: Workflow ends.
+5. **Retainer Processing**: Convert retainer invoice to "Payment Made" status.
+6. **Convert to Sales Order**: Transform the accepted quotation into a formal Sales Order.
+7. **Check Stock Availability**:
+    - **In Stock**: Generate picklist, package items, ship items, create invoice, and generate E-way bills for delivery.
+    - **Non-Stocked Item**: Create a Purchase Order to the vendor, receive items, create vendor bills, and then proceed to invoicing.
+
+```mermaid
+graph TD
+    Start([Start]) --> ReceiveReq[Receive Quotation Request]
+    ReceiveReq --> CreateQuote[Create Quotation]
+    CreateQuote --> SendQuote[Send Quotation to Customer]
+    SendQuote --> CustResp{Customer Response}
+    
+    CustResp -- Reject --> End([End])
+    CustResp -- Accept --> ReqRetainer[Request Retainer Invoice]
+    
+    ReqRetainer --> ConvPayment[Convert to Payment Made]
+    ConvPayment --> ConvSO[Convert Quotation to Sales Order]
+    ConvSO --> CheckStock{Check Stock Availability}
+    
+    CheckStock -- In Stock --> GenPicklist[Generate Picklist]
+    GenPicklist --> PackItems[Package Items]
+    PackItems --> ShipItems[Ship Items]
+    ShipItems --> CreateInv[Create Invoice]
+    CreateInv --> GenEWay[Generate E-way Bills]
+    GenEWay --> Deliver[Deliver to Outlet Customer]
+    Deliver --> End
+    
+    CheckStock -- Non Stocked --> CreatePO[Create Purchase Order]
+    CreatePO --> RecvItems[Receive Items]
+    RecvItems --> CreateBills[Create Bills]
+    CreateBills --> CreateInv
+```
+
+### Customer Retainer Invoice Workflow
+Specific workflow for managing customer advance payments and subsequent fulfillment.
+
+**Process Steps:**
+1. **Raise Sales Order**: Initialize the transaction.
+2. **Request Retainer Invoice**: Generate a request for advance payment.
+3. **Customer Payment**: Customer completes the advance payment.
+4. **Convert to Payment Made**: Record the receipt in the system.
+5. **Check Stock Availability**:
+    - **In Stock**: Move directly to picklist creation.
+    - **Not in Stock**: Create a Purchase Order to the vendor, receive items, and enter vendor bills before picking.
+6. **Fulfillment**: Package and ship items to the customer.
+7. **Final Invoicing**: Generate the final tax invoice.
+
+```mermaid
+graph TD
+    Start([Start]) --> RaiseSO[Raise Sales Order]
+    RaiseSO --> ReqRetainer[Request Retainer Invoice]
+    ReqRetainer --> CustPays[Customer Pays]
+    CustPays --> ConvPayment[Convert Retainer Invoice to Payment Made]
+    ConvPayment --> CheckStock{Check Stock Availability}
+    
+    CheckStock -- In Stock --> CreatePick[Create Picklist]
+    CreatePick --> PackItems[Package Items]
+    
+    CheckStock -- Not in Stock --> CreatePO[Create Purchase Order to Vendor]
+    CreatePO --> RecvItems[Receive Items from Vendor]
+    RecvItems --> EnterBill[Enter Bill]
+    EnterBill --> CreatePickAfter[Create Picklist After Receipt]
+    CreatePickAfter --> PackItems
+    
+    PackItems --> ShipItems[Ship Items]
+    ShipItems --> CreateFinalInv[Create Final Invoice]
+    CreateFinalInv --> End([End])
+```
+
 ## Conclusion
 The quotation workflow integrates a straightforward UI for capturing customer and item details, computing totals, and persisting quotations. The backend provides robust endpoints for quotations and related documents, enabling downstream conversions and notifications. While template management is not explicit in the UI, item and price list integrations support consistent quoting. Extending expiry enforcement and automated notifications would further strengthen the workflow.
 

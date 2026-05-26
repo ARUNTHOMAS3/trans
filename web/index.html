@@ -121,6 +121,57 @@
     </div>
 
     <script>
+      // TODO(prod-cleanup): Remove or disable this temporary perf observer block after production stabilization.
+      (function () {
+        const isLocalHost =
+          location.hostname === "localhost" ||
+          location.hostname === "127.0.0.1" ||
+          location.hostname === "0.0.0.0";
+        const isForced = new URLSearchParams(location.search).get("perfDebug") === "1";
+        if (!("PerformanceObserver" in window) || !(isLocalHost || isForced)) return;
+
+        const debug = (...args) => console.debug("[perf-debug]", ...args);
+        const safeObserve = (type, options = {}) => {
+          try {
+            const po = new PerformanceObserver((list) => {
+              for (const entry of list.getEntries()) {
+                debug(type, entry.toJSON ? entry.toJSON() : entry);
+              }
+            });
+            po.observe({ type, buffered: true, ...options });
+            return po;
+          } catch (_) {
+            return null;
+          }
+        };
+
+        const supported = PerformanceObserver.supportedEntryTypes || [];
+        debug("supportedEntryTypes", supported);
+
+        // Navigation timing (TTFB + worker startup insight)
+        safeObserve("navigation");
+
+        // Resource timing (cache-hit/transfer size insight)
+        safeObserve("resource");
+
+        // User timing measures (custom app marks)
+        safeObserve("measure");
+
+        // Event timing (INP-style interaction diagnostics)
+        if (supported.includes("event")) {
+          safeObserve("event", { durationThreshold: 16 });
+        }
+
+        // Long tasks (legacy, still useful where LoAF unsupported)
+        safeObserve("longtask");
+
+        // Long animation frames (preferred over longtask when available)
+        safeObserve("long-animation-frame");
+
+        // Optional element timing (requires elementtiming attr on target elements)
+        safeObserve("element");
+      })();
+
       // PWA Install Prompt Capture
       let deferredPrompt;
       window.addEventListener("beforeinstallprompt", (e) => {

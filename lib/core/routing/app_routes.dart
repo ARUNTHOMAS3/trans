@@ -36,6 +36,62 @@ class AppRoutes {
   static const String settingsRoleCreate = '/settings/roles/new';
   static const String settingsRoleDetail = '/settings/roles/:id';
   static const String settingsRoleEdit = '/settings/roles/:id/edit';
+  // Taxes & Compliance
+  static const String settingsTaxes = '/settings/taxes';
+  static const String settingsDirectTaxes = '/settings/direct-taxes';
+  static const String settingsEwayBills = '/settings/eway-bills';
+  static const String settingsEinvoicing = '/settings/einvoicing';
+  static const String settingsMsme = '/settings/msme';
+  // Setup & Configurations
+  static const String settingsGeneral = '/settings/general';
+  static const String settingsCurrencies = '/settings/currencies';
+  static const String settingsReminders = '/settings/reminders';
+  static const String settingsCustomerPortal = '/settings/customer-portal';
+  // Customization
+  static const String settingsTransactionNumberSeries =
+      '/settings/transaction-number-series';
+  static const String settingsPdfTemplates = '/settings/pdf-templates';
+  static const String settingsEmailNotifications =
+      '/settings/email-notifications';
+  static const String settingsSmsNotifications = '/settings/sms-notifications';
+  static const String settingsReportingTags = '/settings/reporting-tags';
+  static const String settingsWebTabs = '/settings/web-tabs';
+  // Automation
+  static const String settingsWorkflowRules = '/settings/workflow-rules';
+  static const String settingsWorkflowActions = '/settings/workflow-actions';
+  static const String settingsWorkflowLogs = '/settings/workflow-logs';
+  // Integrations & Marketplace
+  static const String settingsIntegrationsZoho = '/settings/integrations/zoho';
+  static const String settingsIntegrationsWhatsapp =
+      '/settings/integrations/whatsapp';
+  static const String settingsIntegrationsSms = '/settings/integrations/sms';
+  static const String settingsIntegrationsShipping =
+      '/settings/integrations/shipping';
+  static const String settingsIntegrationsPos = '/settings/integrations/pos';
+  static const String settingsIntegrationsEcommerce =
+      '/settings/integrations/ecommerce';
+  static const String settingsIntegrationsAccounting =
+      '/settings/integrations/accounting';
+  static const String settingsIntegrationsSalesMarketing =
+      '/settings/integrations/sales-marketing';
+  static const String settingsIntegrationsEdi = '/settings/integrations/edi';
+  static const String settingsIntegrationsOtherApps =
+      '/settings/integrations/other-apps';
+  static const String settingsIntegrationsMarketplace =
+      '/settings/integrations/marketplace';
+  // Developer Data
+  static const String settingsDeveloperIncomingWebhooks =
+      '/settings/developer/incoming-webhooks';
+  static const String settingsDeveloperConnections =
+      '/settings/developer/connections';
+  static const String settingsDeveloperApiUsage =
+      '/settings/developer/api-usage';
+  static const String settingsDeveloperDataManagement =
+      '/settings/developer/data-management';
+  static const String settingsDeveloperDelugeComponents =
+      '/settings/developer/deluge-components';
+  static const String settingsDeveloperWebForms =
+      '/settings/developer/web-forms';
 
   // Items
   static const String itemsReport = '/items/report';
@@ -78,8 +134,8 @@ class AppRoutes {
   // Sales — Invoices
   static const String salesInvoices = '/sales/invoices';
   static const String salesInvoicesCreate = '/sales/invoices/create';
-  static const String salesInvoicesDetail = '/sales/invoices/:id';
   static const String salesInvoicesEdit = '/sales/invoices/:id/edit';
+  static const String salesInvoicesDetail = '/sales/invoices/:id';
 
   // Sales — Delivery Challans
   static const String salesDeliveryChallans = '/sales/delivery-challans';
@@ -97,12 +153,18 @@ class AppRoutes {
 
   // Sales — Returns
   static const String salesReturns = '/sales/returns';
+  static const String salesReturnsCreate = '/sales/returns/create';
   static const String salesReturnsDetail = '/sales/returns/:id';
 
   // Sales — Credit Notes
   static const String salesCreditNotes = '/sales/credit-notes';
   static const String salesCreditNotesCreate = '/sales/credit-notes/create';
+  static const String salesCreditNotesEdit = '/sales/credit-notes/edit/:id';
   static const String salesCreditNotesDetail = '/sales/credit-notes/:id';
+  // Compatibility aliases used by imported modules
+  static const String creditNotes = salesCreditNotes;
+  static const String creditNotesCreate = salesCreditNotesCreate;
+  static const String creditNotesEdit = salesCreditNotesEdit;
 
   // Sales — e-Way Bills
   static const String salesEWayBills = '/sales/e-way-bills';
@@ -126,14 +188,21 @@ class AppRoutes {
   static const String assembliesCreate = '/inventory/assemblies/create';
 
   // Price Lists
-  static const String priceLists = '/items/price-lists';
-  static const String priceListsCreate = '/items/price-lists/create';
-  static const String priceListsEdit = '/items/price-lists/edit/:id';
+  static const String priceLists = '/pricelists/price-lists';
+  static const String priceListsCreate = '/pricelists/price-lists/create';
+  static const String priceListsEdit = '/pricelists/price-lists/edit/:id';
+  static const String branchPriceLists = '/pricelists/branch-price-lists';
+  static const String branchPriceListsCreate =
+      '/pricelists/branch-price-lists/create';
+  static const String branchPriceListsEdit =
+      '/pricelists/branch-price-lists/edit/:id';
 
   // Inventory placeholders
   static const String inventoryAdjustments = '/inventory/adjustments';
   static const String inventoryAdjustmentsCreate =
       '/inventory/adjustments/create';
+  static const String inventoryAdjustmentsEdit =
+      '/inventory/adjustments/edit/:id';
   static const String picklists = '/inventory/picklists';
   static const String picklistsDetail = '/inventory/picklists/:id';
   static const String picklistsCreate = '/inventory/picklists/create';
@@ -148,6 +217,12 @@ class AppRoutes {
   static const String transferOrders = '/inventory/transfer-orders';
   static const String transferOrdersCreate =
       '/inventory/transfer-orders/create';
+  static const String transferOrdersEdit =
+      '/inventory/transfer-orders/edit/:id';
+  static const String transferOrdersDetail = '/inventory/transfer-orders/:id';
+  static const String moveOrders = '/inventory/move-orders';
+  static const String moveOrdersCreate = '/inventory/move-orders/create';
+  static const String moveOrdersDetail = '/inventory/move-orders/:id';
 
   // Items utility routes
   static const String itemGroups = '/items/item-groups';
@@ -261,3 +336,5 @@ class AppRoutes {
   static const String accountantTransactionsReport =
       '/accountant/transactions-report';
 }
+
+

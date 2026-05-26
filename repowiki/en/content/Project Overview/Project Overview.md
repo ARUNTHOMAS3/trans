@@ -103,7 +103,9 @@ graph TB
 
 Key capabilities
 - Inventory management: products catalog, units, categories, tax rates, manufacturers, brands, storage locations, racks, reorder terms, and product compositions
-- Sales operations: customers, GSTIN lookup, payments, e-way bills, payment links, sales orders, invoices, and related workflows
+- Price Lists: standalone price management with support for branch-specific overrides
+- Sales operations: customers, GSTIN lookup, payments, e-way bills, payment links, recurring invoices, sales orders, invoices, and related workflows
+- Purchase operations: vendors, purchase orders, purchase receives, bills, and payment tracking
 - Customer management: customer profiles, addresses, GSTIN verification, and payment tracking
 - Reporting: dashboards and sales reports (with planned expansion)
 

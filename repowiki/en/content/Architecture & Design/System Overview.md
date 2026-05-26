@@ -1,4 +1,4 @@
-# System Overview
+﻿# System Overview
 
 <cite>
 **Referenced Files in This Document**
@@ -254,13 +254,13 @@ SALES_ORDERS ||--o{ SALES_E_WAY_BILLS : "saleId"
 
 ### Multi-Tenant Architecture
 - Context headers
-  - x-entity-id: mandatory — direct `organisation_branch_master.id` for the active scope
+  - x-entity-id: mandatory â€” direct `organisation_branch_master.id` for the active scope
 - Middleware behavior
   - TenantMiddleware resolves `entityId` from headers by looking up `organisation_branch_master`
   - Attaches full `TenantContext` to each request; controllers access it via `@Tenant()` decorator
 - Data isolation
   - All business tables have `entity_id uuid NOT NULL` FK to `organisation_branch_master(id)`
-  - `organisation_branch_master`: `type` = `'ORG'` or `'BRANCH'`, `ref_id` → actual org or branch UUID
+  - `organisation_branch_master`: `type` = `'ORG'` or `'BRANCH'`, `ref_id` â†’ actual org or branch UUID
   - Global lookup tables (products, categories, tax_rates, currencies, etc.) have no `entity_id`
 
 ```mermaid
@@ -377,7 +377,7 @@ ZerpAI ERP combines a responsive Flutter frontend with a scalable NestJS backend
 
 ## Appendices
 - Deployment topology
-  - Frontend and backend deployments via Vercel (configuration files present)
+  - Frontend and backend deployments via Railway/Cloudflare Pages (configuration files present)
   - Database hosted on Supabase with managed migrations
 - Scalability considerations
   - Single database instance supporting hundreds of branches

@@ -617,3 +617,59 @@ InputDecoration(
   - Hovering over arrows or the rows selector should show a subtle light-gray background highlight.
   - Page transitions must show a centralized loading indicator if data retrieval takes >200ms.
   - **Background Loading:** The next page’s data must be queued for background loading immediately after the current page is rendered to facilitate near-instant navigation.
+
+---
+
+## 49. Accessibility Standards
+- **Keyboard Navigation:** 
+    - `Tab` / `Shift+Tab` for field focus.
+    - `Enter` to submit forms or select dropdown items.
+    - `Esc` to close modals and cancel actions.
+- **Screen Reader Support:** Semantic labeling for all interactive icons and buttons.
+- **Contrast:** AA standard contrast ratios for all text-on-background combinations.
+- **Font Sizes:** Flexible scaling support for high-DPI displays.
+
+---
+
+## 50. UX Edge Cases & Error States
+- **No Internet:** Persistent banner showing "Offline Mode"; disable non-cached actions.
+- **Session Expiry:** Graceful redirection to login (planned) with state preservation.
+- **Large Data Tables:** Skeleton loaders for rows; virtual scrolling for 1000+ records.
+- **Invalid Forms:** Visual vibration/shake and red highlight on the first erroneous field.
+- **Duplicate Actions:** Disable "Save" button immediately upon first click to prevent double-entries.
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

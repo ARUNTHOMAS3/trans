@@ -1,470 +1,426 @@
-# 🧪 Zerpai ERP — Post Entity Refactoring Testing Checklist
+# Zerpai ERP — Owned Modules Comprehensive Testing Checklist
 
-> **Purpose**: Verify all modules and their CRUD operations work correctly after the unified `entity_id` polymorphic tenancy migration.
-> **Entity Model**: All scoped queries must use `entity_id` (FK → `organisation_branch_master`). Legacy `org_id` + `branch_id` columns are deprecated.
-> **Legend**: ✅ Pass · ❌ Fail · ⚠️ Partial · ⏳ Pending
-
----
-
-## 🔑 Pre-Flight Checks
-
-- [ ] Backend server starts without TypeScript build errors (`npm run start:dev`)
-- [ ] Flutter app compiles and loads on Chrome (`flutter run -d chrome`)
-- [ ] `TenantMiddleware` resolves `entity_id` correctly from request headers
-- [ ] `@Tenant()` decorator injects `TenantContext` in all controllers
-- [ ] Supabase connection is active (health endpoint responds `/health`)
-- [ ] No residual `org_id` / `branch_id` filtering in active service queries
+> Owner scope from sidebar marks: Items, Price Lists, Branch Price Lists, Inventory Adjustments, Move Orders, Transfer Orders, Customers, Sales Returns, Credit Notes, Vendors, Manual Journals, Recurring Journals, Bulk Update, Transaction Locking, Opening Balances, Chart of Accounts, Reports, Audit Logs.
+> Use this as execution checklist. Mark each case: `[ ]` pending, `[x]` pass, `[!]` fail.
 
 ---
 
-## 1. 🏠 Home / Dashboard
+## 0) Test Run Controls (Mandatory Before Module Testing)
 
-| Operation | Frontend | Backend | Status |
-|-----------|----------|---------|--------|
-| Dashboard summary loads (sales, purchases, inventory KPIs) | [✓] | [✓] | ✅ |
-| Branch-scoped metrics displayed correctly | [✓] | [✓] | ✅ |
-| Charts / graphs render with real data | [✓] | [✓] | ✅ |
+### 0.1 Environment + Access
+- [!] Backend boot clean (`npm run start:dev`) without route/DTO/runtime crash. (Timed run hit tool timeout; `npm run build` passed, and `:3001` is listening.)
+- [x] Flutter web boot clean (`flutter run -d chrome`) without red-screen on initial navigation. (Port `53500` listener confirmed; first attempt on `53431` failed due port already in use.)
+- [ ] Login works with active token.
+- [ ] Token expiry behavior verified: app redirects/logout on expired token (no stale authenticated state).
+- [ ] Current org/entity selected correctly in navbar context switcher.
 
----
+### 0.2 Route + Deep Link Guardrails
+- [ ] Every listed module route opens directly via URL refresh.
+- [ ] Browser back/forward preserves list/detail/create state correctly.
+- [ ] No `go_router` redirectOnly assertion (`matchList.last.route.redirectOnly`) during create/edit/delete flows.
 
-## 2. 📦 Items Module
+### 0.3 UI Governance Guardrails
+- [ ] Dropdown inputs use shared `FormDropdown<T>` behavior.
+- [ ] Tooltips use shared `ZTooltip` behavior.
+- [ ] Floating surfaces (dialogs, menus, overlays) render pure white backgrounds.
+- [ ] No overflow stripes (`RenderFlex overflow`) in main list/detail/create screens.
 
-### 2.1 Items
-
-- [✓] **List**: Items list loads with correct branch-scoped data
-- [✓] **Search**: Search by name / SKU returns relevant items
-- [✓] **Create**: New item saves successfully (incl. tax, HSN, batch fields)
-- [✓] **Read**: Item detail page loads all fields correctly
-- [✓] **Update**: Editing an item saves changes without errors
-- [✓] **Delete**: Deleting an item removes it from the list
-- [ ] **Bulk Update**: Bulk update applies changes across selected items - Not checked
-- [ ] **Warehouse Stocks**: Viewing per-warehouse stock works - Not checked
-- [ ] **Stock Adjustment (Physical)**: Physical count adjustment saves correctly - Not checked
-- [✓] **Item History**: Product history tab loads correctly - Not checked
-- [ ] **Batch Info**: Batch details load for pharma items - Not checked
-- [ ] **Composite Item Create**: Composite product creation works - Phase 2
-- [ ] **Composite Item List**: Composite items list scoped to entity - Phase 2
-- [✓] **Reorder Terms**: View/create/update/delete reorder rules for item - Not checked
-
-### 2.2 Composite Items - Phase 2
-
-- [ ] **List**: Composite items list loads
-- [ ] **Create**: New composite item saves with parts/BOM
-- [ ] **Read**: Composite item detail page loads correctly
-- [ ] **Update**: Editing composite item saves changes
-- [ ] **Delete**: Deleting composite item works
-
-### 2.3 Item Groups - Phase 2
-
-- [ ] **List**: Item groups list loads
-- [ ] **Create**: New item group saves
-- [ ] **Read**: Item group detail displays correctly
-- [ ] **Update**: Edit item group works
-- [ ] **Delete**: Remove item group works
-
-### 2.4 Price Lists
-
-- [✓] **List**: Price lists load correctly
-- [✓] **Create**: New price list saves with line items
-- [✓] **Read**: Price list detail opens correctly
-- [✓] **Update**: Edit price list works
-- [✓] **Delete**: Delete price list works
-- [ ] **Assign to Customer**: Price list can be assigned to a customer - Not Implemented
-
-### 2.5 Item Mapping - Not Implemented
-
-- [ ] **List**: Item mapping list loads
-- [ ] **Create**: New item mapping entry saves
-- [ ] **Update**: Edit mapping works
-- [ ] **Delete**: Remove mapping entry works
+### 0.4 Execution Notes (2026-05-19)
+- Backend checks executed: `npm run build` ✓, startup probe on `:3001` detected listener.
+- Frontend checks executed: `flutter run -d chrome` on `:53431` ✗ (port conflict), retry on `:53500` started listener ✓.
+- Pending checks require interactive browser/session validation (login/token expiry/nav context/routes/UI overflow scan).
 
 ---
 
-## 3. 🏭 Inventory Module
+## 1) Items Module
 
-### 3.1 Assemblies - Phase 2
+### Route/Screen Coverage
+- [✓] `/items` list opens.
+- [✓] `/items/create` opens.
+- [✓] `/items/detail/:id` opens from list and direct URL.
+- [✓] `/items/edit/:id` opens where applicable.
 
-- [ ] **List**: Assembly jobs list loads
-- [ ] **Create**: New assembly order saves
-- [ ] **Read**: Assembly detail page loads
-- [ ] **Update**: Edit assembly works
-- [ ] **Complete**: Marking assembly as complete updates stock
+### Functional Coverage (from `items_item_list.dart`, `items_item_create.dart`, `items_item_detail.dart`)
+- [✓] List fetch loads first page and count correctly.
+- [✓] Search updates list and returns expected rows.
+- [✓] Filter/sort toggles update rows deterministically.
+- [✓] Create item (all required fields) saves successfully.
+- [✓] Edit item persists changes and reflects in detail/list.
+- [✓] Delete item removes row and no ghost row remains.
+- [✓] Image upload in detail updates primary + gallery URLs.
+- [✓] Reorder point update saves and reload shows new value.
+- [✓] Reorder term update saves and reload shows new value.
+- [x] Warehouse stock tab loads without empty schema exceptions.
+- [-] Batch tab loads, create/edit/delete batch actions work.
+- [ ] Serials tab loads and filters correctly.
+- [ ] Transactions tab loads and filters by type/status.
+- [ ] Opening stock dialog posts valid payload.
+- [ ] Physical stock adjustment flow stores variance correctly.
 
-### 3.2 Inventory Adjustments - Not Implemented
-
-- [ ] **List**: Adjustments list loads with branch scope
-- [ ] **Create**: New adjustment (add/remove/set) saves
-- [ ] **Read**: Adjustment detail page loads
-- [ ] **Update**: Edit draft adjustment works
-- [ ] **Delete**: Delete draft adjustment works
-
-### 3.3 Picklists - Work In Progress
-
-- [ ] **List**: Picklists list loads
-- [ ] **Create**: New picklist saves
-- [ ] **Read**: Picklist detail page loads
-- [ ] **Update**: Edit picklist works
-- [ ] **Delete**: Delete picklist works
-- [ ] **Warehouse Items**: Fetch items available in a warehouse
-
-### 3.4 Packages - Work In Progress
-
-- [ ] **List**: Packages list loads
-- [ ] **Create**: New package saves
-- [ ] **Read**: Package detail page loads
-- [ ] **Update**: Edit package works
-- [ ] **Delete**: Delete package works
-
-### 3.5 Shipments - Work In Progress
-
-- [ ] **List**: Shipments list loads
-- [ ] **Create**: New shipment saves
-- [ ] **Read**: Shipment detail page loads
-- [ ] **Update**: Edit shipment works
-- [ ] **Delete**: Delete shipment works
-
-### 3.6 Transfer Orders - Not Implemented
-
-- [ ] **List**: Transfer orders list loads
-- [ ] **Create**: New transfer order saves (source + destination branch)
-- [ ] **Read**: Transfer order detail loads
-- [ ] **Update**: Edit transfer order works
-- [ ] **Approve / Receive**: Status transition works
+### Product Split Regression (critical)
+- [ ] No payload includes removed `rack_id` field.
+- [ ] Entity-specific fields resolve from split tables/views.
+- [ ] Create/edit does not rely on dropped `products.sku` column.
+- [ ] Preferred vendor and valuation fetch from new source, not removed product columns.
 
 ---
 
-## 4. 💰 Sales Module
+## 2) Price Lists Module
 
-### 4.1 Customers 
+### Route/Screen Coverage
+- [ ] `/items/price-lists` overview opens.
+- [ ] `/items/price-lists/create` opens.
+- [ ] `/items/price-lists/edit/:id` opens via row action and direct URL.
 
-- [✓] **List**: Customers list loads with branch scope
-- [x] **Search**: Search by name / GSTIN works
-- [✓] **Create**: New customer saves (with billing/shipping address, GSTIN)
-- [✓] **Read**: Customer detail page loads
-- [✓] **Update**: Edit customer works
-- [x] **Delete**: Delete customer works
-- [ ] **Statistics**: Customer statistics tab loads
-
-### 4.2 Retainer Invoices
-
-- [ ] **List**: Retainer invoices list loads
-- [ ] **Create**: New retainer invoice saves
-- [ ] **Read**: Retainer invoice detail loads
-- [ ] **Update**: Edit draft retainer invoice works
-- [ ] **Delete**: Delete draft retainer invoice works
-
-### 4.3 Sales Orders
-
-- [ ] **List**: Sales orders list loads with status filters
-- [ ] **Create**: New sales order saves (customer, items, tax)
-- [ ] **Read**: Sales order detail page loads
-- [ ] **Update**: Edit sales order works
-- [ ] **Delete / Cancel**: Cancel order works
-- [ ] **Convert to Invoice**: Convert SO → Invoice
-
-### 4.4 Invoices
-
-- [ ] **List**: Invoices list loads
-- [ ] **Create**: New invoice saves (manual / from SO)
-- [ ] **Read**: Invoice detail page loads
-- [ ] **Update**: Edit draft invoice works
-- [ ] **Delete**: Delete draft invoice works
-- [ ] **Print / PDF**: Invoice PDF generation works
-- [ ] **Payment Record**: Record payment against invoice
-
-### 4.5 Delivery Challans
-
-- [ ] **List**: Delivery challans list loads
-- [ ] **Create**: New delivery challan saves
-- [ ] **Read**: Delivery challan detail loads
-- [ ] **Update**: Edit works
-- [ ] **Delete**: Delete works
-
-### 4.6 Payments Received
-
-- [ ] **List**: Payments received list loads
-- [ ] **Create**: New payment record saves
-- [ ] **Read**: Payment detail loads
-- [ ] **Update**: Edit payment works
-- [ ] **Delete**: Delete payment works
-
-### 4.7 Sales Returns
-
-- [ ] **List**: Sales returns list loads
-- [ ] **Create**: New return saves (against invoice)
-- [ ] **Read**: Return detail loads
-- [ ] **Update**: Edit works
-
-### 4.8 Credit Notes
-
-- [ ] **List**: Credit notes list loads
-- [ ] **Create**: New credit note saves
-- [ ] **Read**: Credit note detail loads
-- [ ] **Update**: Edit draft credit note works
-- [ ] **Delete**: Delete draft credit note works
-
-### 4.9 e-Way Bills
-
-- [ ] **List**: e-Way bills list loads
-- [ ] **Create**: New e-Way bill saves
-- [ ] **Read**: e-Way bill detail loads
-- [ ] **Update**: Edit works
-- [ ] **Delete**: Delete works
+### Functional Coverage (`pricelist_overview.dart`, `pricelist_add.dart`, `pricelist_edit.dart`)
+- [ ] List load with pagination works.
+- [ ] Search focuses and filters rows correctly.
+- [ ] Status/type/date filters apply and clear correctly.
+- [ ] Bulk activate selected rows works.
+- [ ] Bulk deactivate selected rows works.
+- [ ] Bulk delete selected rows works with confirmation.
+- [ ] Row action: edit works.
+- [ ] Row action: clone/template flow works.
+- [ ] Row action: activate/deactivate works.
+- [ ] Row action: delete works.
+- [ ] Column customization saves and restores view.
+- [ ] Create: pricing scheme + item rates save correctly.
+- [ ] Create: bulk update mode updates selected rows only.
+- [ ] Create: volume ranges add/edit/remove persists correctly.
+- [ ] Edit: existing values hydrate and save correctly.
 
 ---
 
-## 5. 🛒 Purchases Module
+## 3) Branch Price Lists Module
 
-### 5.1 Vendors
+### Route/Screen Coverage
+- [ ] `/items/branch-price-lists` overview opens.
+- [ ] `/items/branch-price-lists/create` opens.
+- [ ] `/items/branch-price-lists/edit/:id` opens via action and direct URL.
 
-- [ ] **List**: Vendors list loads with branch scope
-- [ ] **Search**: Search vendors works
-- [ ] **Create**: New vendor saves (GSTIN, address, payment terms)
-- [ ] **Read**: Vendor detail page loads
-- [ ] **Update**: Edit vendor works
-- [ ] **Delete**: Delete vendor works
-
-### 5.2 Expenses
-
-- [ ] **List**: Expenses list loads
-- [ ] **Create**: New expense saves
-- [ ] **Read**: Expense detail loads
-- [ ] **Update**: Edit expense works
-- [ ] **Delete**: Delete expense works
-
-### 5.3 Recurring Expenses
-
-- [ ] **List**: Recurring expenses list loads
-- [ ] **Create**: New recurring expense saves with schedule
-- [ ] **Read**: Recurring expense detail loads
-- [ ] **Update**: Edit recurring expense works
-- [ ] **Delete**: Delete recurring expense works
-
-### 5.4 Purchase Orders
-
-- [ ] **List**: PO list loads with status filters
-- [ ] **Create**: New PO saves (vendor, items, tax)
-- [ ] **Read**: PO detail page loads
-- [ ] **Update**: Edit PO works
-- [ ] **Delete**: Delete PO works
-
-### 5.5 Bills
-
-- [ ] **List**: Bills list loads
-- [ ] **Create**: New bill saves (from PO or manual)
-- [ ] **Read**: Bill detail page loads
-- [ ] **Update**: Edit draft bill works
-- [ ] **Delete**: Delete draft bill works
-- [ ] **Payment**: Record payment against bill
-
-### 5.6 Recurring Bills
-
-- [ ] **List**: Recurring bills list loads
-- [ ] **Create**: New recurring bill saves
-- [ ] **Read**: Recurring bill detail loads
-- [ ] **Update**: Edit works
-- [ ] **Delete**: Delete works
-
-### 5.7 Payments Made
-
-- [ ] **List**: Payments made list loads
-- [ ] **Create**: New payment saves
-- [ ] **Read**: Payment detail loads
-- [ ] **Update**: Edit payment works
-- [ ] **Delete**: Delete payment works
-
-### 5.8 Vendor Credits
-
-- [ ] **List**: Vendor credits list loads
-- [ ] **Create**: New vendor credit saves
-- [ ] **Read**: Vendor credit detail loads
-- [ ] **Update**: Edit works
-- [ ] **Delete**: Delete works
+### Functional Coverage (`branch_pricelist_overview_page.dart`, `branch_pricelist_add_page.dart`, `branch_pricelist_edit_page.dart`)
+- [ ] List load/pagination/search works.
+- [ ] Branch selector data loads and required branch selection enforced.
+- [ ] Create from template hydrates correctly.
+- [ ] Item search/filter in rates grid works.
+- [ ] Bulk update mode (markup/markdown, %/flat) works.
+- [ ] Volume range validation prevents invalid overlaps and negatives.
+- [ ] Save creates record and redirects to list.
+- [ ] Edit hydrates existing overrides + ranges correctly.
+- [ ] Edit save persists and list reflects updated timestamp.
 
 ---
 
-## 6. 📒 Accountant Module
+## 4) Inventory Adjustments Module
 
-### 6.1 Manual Journals
+### Route/Screen Coverage
+- [ ] `/inventory/adjustments` overview opens.
+- [ ] `/inventory/adjustments/create` opens.
+- [ ] `/inventory/adjustments/edit/:id` opens for editable states.
 
-- [ ] **List**: Manual journals list loads with branch scope
-- [ ] **Create**: New journal entry saves (debit/credit lines)
-- [ ] **Read**: Journal detail page loads
-- [ ] **Update**: Edit draft journal works
-- [ ] **Delete**: Delete draft journal works
-- [ ] **Status Change**: Approve/publish journal works
-- [ ] **Clone**: Clone journal creates a copy
-- [ ] **Reverse**: Reverse journal creates contra entry
-- [ ] **Attachments**: View and upload attachments to journal
-- [ ] **Create Template from Journal**: Save as template works
-
-### 6.2 Recurring Journals
-
-- [ ] **List**: Recurring journals list loads
-- [ ] **Create**: New recurring journal saves with schedule
-- [ ] **Read**: Recurring journal detail loads
-- [ ] **Update**: Edit recurring journal works
-- [ ] **Delete**: Delete recurring journal works
-- [ ] **Clone**: Clone recurring journal works
-- [ ] **Generate Child**: Manual trigger generates child journal
-- [ ] **Status Change**: Pause/resume/activate recurring journal
-
-### 6.3 Bulk Update
-
-- [ ] **Search Transactions**: Filter transactions by account/date/amount
-- [ ] **Bulk Update**: Reassign transactions to a different account
-
-### 6.4 Transaction Locking
-
-- [ ] **List Locks**: View locked modules/periods
-- [ ] **Lock Module**: Lock a module for a date period
-- [ ] **Unlock Module**: Unlock a locked module
-
-### 6.5 Opening Balances
-
-- [ ] **View**: Opening balances page loads
-- [ ] **Save**: Save opening balances for accounts
+### Functional Coverage (`inventory_adjustments_overview_screen.dart`, `inventory_adjustments_create.dart`)
+- [ ] Overview list + detail panel select/close route sync works.
+- [ ] Create: warehouse and reason required validation works.
+- [ ] Create: line item add/remove works.
+- [ ] Bin lookup loads by warehouse and restores selected value.
+- [ ] Batch dialog add/remove/search/select works.
+- [ ] Quantity validation prevents negative/invalid submit.
+- [ ] Save Draft submits draft status payload correctly.
+- [ ] Submit submits submitted status payload correctly.
+- [ ] Approve path submits approved status payload correctly.
+- [ ] Attachment add/remove persists correctly.
+- [ ] Edit draft reload + update works.
 
 ---
 
-## 7. 📊 Accounts Module
+## 5) Move Orders Module
 
-### 7.1 Chart of Accounts
+### Route/Screen Coverage
+- [ ] `/inventory/move-orders` list opens.
+- [ ] `/inventory/move-orders/create` opens.
+- [ ] `/inventory/move-orders/:id` detail panel opens via row click.
 
-- [ ] **List**: All accounts load grouped by type
-- [ ] **Create**: New account saves
-- [ ] **Read**: Account detail + transaction history loads
-- [ ] **Update**: Edit account works
-- [ ] **Delete**: Delete account works (if no transactions)
-- [ ] **Search**: Search accounts by name/code works
-- [ ] **Filter by Group**: Filter by account type/group works
-- [ ] **Closing Balance**: Closing balance calculated correctly
-
----
-
-## 8. 📈 Reports Module
-
-- [ ] **Dashboard Summary**: KPI cards load with branch-scoped data
-- [ ] **Profit & Loss**: P&L statement loads for date range
-- [ ] **General Ledger**: General ledger renders with account entries
-- [ ] **Account Transactions**: Filtered transactions by account load
-- [ ] **Trial Balance**: Trial balance loads correctly
-- [ ] **Sales by Customer**: Sales by customer report loads
-- [ ] **Inventory Valuation**: Inventory valuation by branch loads
-- [ ] **Daily Sales**: Daily sales report loads
-- [ ] **Inventory Stock**: Current stock levels load
+### Functional Coverage (`inventory_move_orders_list.dart`, `inventory_move_orders_create.dart`)
+- [ ] List load with warehouse/user lookups works.
+- [ ] Search/status filters work.
+- [ ] Column customization save/restore works.
+- [ ] Row select all/select single works.
+- [ ] Detail panel open/close keeps route in sync.
+- [ ] Create move order with valid rows saves.
+- [ ] Bin/location movement data persists correctly.
+- [ ] No hardcoded dummy business values in create/list/detail.
 
 ---
 
-## 9. 📄 Documents Module
+## 6) Transfer Orders Module
 
-- [ ] **List**: Documents list loads for branch
-- [ ] **Upload**: Document upload saves correctly
-- [ ] **View**: Document preview/download works
+### Route/Screen Coverage
+- [ ] `/inventory/transfer-orders` list opens.
+- [ ] `/inventory/transfer-orders/create` opens.
+- [ ] `/inventory/transfer-orders/edit/:id` opens.
+- [ ] `/inventory/transfer-orders/:id` detail opens.
 
----
-
-## 10. 🕵️ Audit Logs Module
-
-- [ ] **List**: Audit logs list loads
-- [ ] **Filter by Table**: Filter by table name works
-- [ ] **Filter by Action**: Filter by INSERT/UPDATE/DELETE works
-- [ ] **Filter by Date Range**: Date range filter works
-- [ ] **Filter by Actor**: Filter by user works
-- [ ] **Filter by Request ID**: Request ID filter works
-- [ ] **Search**: Full-text search works
-
----
-
-## 11. ⚙️ Settings Module
-
-### 11.1 Organization & Branches
-
-- [✓] **Branches List**: Branches list loads
-- [✓] **Branch Create**: New branch saves
-- [✓] **Branch Detail**: Branch detail loads
-- [✓] **Branch Update**: Edit branch works
-- [✓] **Branch Delete**: Delete branch works
-- [✓] **Business Types**: Business types dropdown loads
-
-### 11.2 Users & Roles
-
-- [✓] **Users List**: Users list loads with branch scope
-- [✓] **User Create**: New user record saves
-- [✓] **User Detail**: User detail page loads
-- [✓] **User Update**: Edit user works
-- [✓] **User Status**: Activate/deactivate user works
-- [✓] **User Delete**: Delete user works
-- [✓] **Set Default Branch**: Set user's default branch works
-- [✓] **Location Access**: View/update user branch access works
-- [✓] **Role Catalog**: Roles list loads
-- [✓] **Role Create**: New role saves with permissions
-- [✓] **Role Update**: Edit role permissions works
-- [✓] **Role Delete**: Delete role works
-
-### 11.3 Warehouses
-
-- [✓] **List**: Warehouses list loads
-- [✓] **Create**: New warehouse saves
-- [✓] **Read**: Warehouse detail loads
-- [✓] **Update**: Edit warehouse works
-- [✓] **Delete**: Delete warehouse works
-
-### 11.4 Zones & Bin Locations
-
-- [ ] **Zones List**: Zones list loads for branch
-- [ ] **Zone Create**: New zone saves
-- [ ] **Zone Disable**: Disable zone works
-- [ ] **Bin List**: Bins within a zone load
-- [ ] **Bin Create**: New bin saves within zone
-- [ ] **Bin Update**: Edit bin works
-- [ ] **Bin Delete**: Delete bin works
-- [ ] **Bulk Action**: Bulk zone/bin actions work
-- [ ] **Get Counts**: Zone/bin counts loads correctly
-
-### 11.5 Transaction Series
-
-- [✓] **List**: Transaction series list loads
-- [✓] **Create**: New series numbering rule saves
-- [✓] **Read**: Series detail loads
-- [✓] **Update**: Edit series works
-- [✓] **Delete**: Delete series works
+### Functional Coverage (`inventory_transfer_orders_list.dart`, `inventory_transfer_orders_create.dart`)
+- [ ] List `_bootstrapScreen` completes (no stuck loader).
+- [ ] `_hydrateFromRoute` + `_syncRoute` preserve filters in URL.
+- [ ] `_loadRows` handles API errors with retry UI.
+- [ ] Custom views create/apply/delete persists.
+- [ ] Sort by date/created/modified works.
+- [ ] Import from file creates records safely.
+- [ ] Export generates downloadable file.
+- [ ] Create transfer validates source/destination warehouse rules.
+- [ ] Item selection and product hydration by ID works.
+- [ ] Bin/batch allocation dialog saves expected quantities.
+- [ ] Mark-as-received action transitions status correctly.
+- [ ] Delete transfer works with confirmation and list refresh.
 
 ---
 
-## 12. 🖨️ Printing Module
+## 7) Customers Module
 
-- [ ] **Templates List**: Print templates list loads
-- [ ] **Create Template**: New print template saves
-- [ ] **Edit Template**: Edit template works
-- [ ] **Preview Template**: Template preview renders correctly
-- [ ] **Print Invoice**: Print from invoice page works
+### Route/Screen Coverage
+- [ ] `/sales/customers` overview opens.
+- [ ] `/sales/customers/create` opens.
+- [ ] `/sales/customers/edit/:id` opens.
+- [ ] `/sales/customers/:id` detail loads via deep link.
 
----
-
-## 🔍 Tenancy Isolation Tests
-
-> Critical: These tests ensure `entity_id` scoping is working correctly and data does not leak across tenants.
-
-- [ ] **Cross-Entity Isolation**: Items created under entity A do NOT appear when browsing as entity B
-- [ ] **Sales Isolation**: Sales orders created under branch A do NOT show in branch B
-- [ ] **Purchase Isolation**: Purchase orders scoped correctly per entity
-- [ ] **Report Scope**: Reports only show data for the active entity
-- [ ] **Audit Log Scope**: Audit logs filtered to active entity
-- [ ] **User Scope**: Users list shows only users for the active entity
-- [ ] **TenantContext in Headers**: Missing `X-Entity-Id` header returns `400 Bad Request` or tenant resolution error
+### Functional Coverage (`sales_customer_overview.dart`, `sales_customer_create.dart`)
+- [ ] List and left panel selection works.
+- [ ] Search + advanced search results and selection behavior correct.
+- [ ] Create required fields validation works.
+- [ ] GST, phone, email validations trigger correctly.
+- [ ] Address/contact person tabs save and reload correctly.
+- [ ] Payment terms/currency/state/country lookups load.
+- [ ] File upload documents save with customer payload.
+- [ ] Edit existing customer hydrates all sections.
+- [ ] Update customer persists and overview reflects change.
+- [ ] Delete behavior works (if enabled in UI).
 
 ---
 
-## 🐛 Notes / Failed Tests
+## 8) Sales Returns Module
 
-> Use this section to record failing tests with error details.
+### Route/Screen Coverage
+- [ ] `/sales/returns` overview opens.
+- [ ] `/sales/returns/create` opens.
+- [ ] `/sales/returns/:id` detail opens.
 
-| Module | Operation | Error Message | Status |
-|--------|-----------|---------------|--------|
-| | | | |
+### Functional Coverage (`sales_return_overview_page.dart`, `sales_return_create_page.dart`)
+- [ ] List fetch + empty state + skeleton state works.
+- [ ] New return number sequence settings load/update correctly.
+- [ ] Customer selection (including advanced modal) works.
+- [ ] Warehouse selection warning and rebind behavior works.
+- [ ] Add/remove line item works.
+- [ ] Bulk line item add works.
+- [ ] Return qty / credit-only qty validation enforced.
+- [ ] Save draft works.
+- [ ] Save and approve works.
+- [ ] Payload posts correct items structure.
 
 ---
 
-**Last Updated**: April 20, 2026 — 14:04 IST
-**Updated By**: Post Entity Refactoring Audit
+## 9) Credit Notes Module
+
+### Route/Screen Coverage
+- [ ] `/sales/credit-notes` overview opens.
+- [ ] `/sales/credit-notes/create` opens.
+- [ ] `/sales/credit-notes/edit/:id` opens.
+- [ ] `/sales/credit-notes/:id` detail opens.
+
+### Functional Coverage (`credit_note_overview_page.dart`, `credit_note_add_page.dart`)
+- [ ] List load/search/empty state works.
+- [ ] Create page loads without render/assertion crash.
+- [ ] Customer dropdown/search/create flow works.
+- [ ] Address panel select/edit/new address actions work.
+- [ ] Item grid add/remove rows works.
+- [ ] Zero-value fields show hint text, not forced value.
+- [ ] Tax/discount/rate calculations update totals correctly.
+- [ ] Batch modal (`InventoryBinBatchFOC`) opens and saves mapped qty.
+- [ ] Save Draft works.
+- [ ] Save & Approve works.
+- [ ] Edit existing credit note hydrates and updates correctly.
+
+---
+
+## 10) Vendors Module
+
+### Route/Screen Coverage
+- [ ] `/purchases/vendors` list opens.
+- [ ] `/purchases/vendors/create` opens.
+
+### Functional Coverage (`purchases_vendors_vendor_list.dart`, `purchases_vendors_vendor_create.dart`)
+- [ ] List fetch + search works.
+- [ ] Create validation for required fields works.
+- [ ] GST and contact validations work.
+- [ ] Payment terms, TDS, price list lookups load.
+- [ ] Contact persons + addresses + bank details persist.
+- [ ] License/document upload persists.
+- [ ] Save creates vendor and returns to list.
+- [ ] Update existing vendor flow works (if edit route enabled).
+- [ ] Delete vendor works (if action enabled).
+
+---
+
+## 11) Accountant — Manual Journals
+
+### Route/Screen Coverage
+- [ ] `/accountant/manual-journals` overview opens.
+- [ ] `/accountant/manual-journals/create` opens.
+- [ ] `/accountant/manual-journals/:id` detail/edit opens.
+
+### Functional Coverage (`manual_journals_overview_screen.dart`, `manual_journal_create_screen.dart`)
+- [ ] Overview list load and filters work.
+- [ ] Draft autosave triggers and restore prompt works.
+- [ ] Journal number auto settings load + save.
+- [ ] Add/remove journal rows works.
+- [ ] Debit/credit totals calculation balances correctly.
+- [ ] Account search and contact search works per row.
+- [ ] Save draft persists draft status.
+- [ ] Publish posts journal status.
+- [ ] Save as template works.
+- [ ] Attachment upload (limit/count/size rules) enforced.
+- [ ] Edit existing journal updates correctly.
+
+---
+
+## 12) Accountant — Recurring Journals
+
+### Route/Screen Coverage
+- [ ] `/accountant/recurring-journals` overview opens.
+- [ ] `/accountant/recurring-journals/create` opens.
+- [ ] `/accountant/recurring-journals/:id` detail opens.
+
+### Functional Coverage (`recurring_journal_overview_screen.dart`, `recurring_journal_create_screen.dart`)
+- [ ] List loads with statuses.
+- [ ] Create recurring journal with schedule works.
+- [ ] Edit recurring journal updates schedule/details.
+- [ ] Pause/activate/cancel transitions work.
+- [ ] Import/export actions do not crash.
+
+---
+
+## 13) Accountant — Bulk Update
+
+### Route/Screen Coverage
+- [ ] `/accountant/bulk-update` opens.
+
+### Functional Coverage (`accountant_bulk_update_screen.dart`)
+- [ ] Filter dialog opens and validates required source account.
+- [ ] Transaction search returns expected result set.
+- [ ] Account target search works.
+- [ ] Bulk update updates selected records only.
+- [ ] Updated records removed/refreshed in local result set.
+- [ ] Clear/reset filters works.
+
+---
+
+## 14) Accountant — Transaction Locking
+
+### Route/Screen Coverage
+- [ ] `/accountant/transaction-locking` opens.
+
+### Functional Coverage (`accountant_transaction_locking_screen.dart`)
+- [ ] Module lock dialog opens and saves date lock.
+- [ ] Lock-all dialog applies to supported modules.
+- [ ] Unlock path works where allowed.
+- [ ] Locked period prevents edit/delete in affected modules.
+- [ ] Lock explanations and warnings render correctly.
+
+---
+
+## 15) Accountant — Opening Balances
+
+### Route/Screen Coverage
+- [ ] `/accountant/opening-balances` opens.
+- [ ] `/accountant/opening-balances/update` opens.
+
+### Functional Coverage (`accountant_opening_balances_screen.dart`, `accountant_opening_balances_update_screen.dart`)
+- [ ] Opening balances summary loads.
+- [ ] Debit/credit totals calculate live and accurately.
+- [ ] Save writes balances and returns success state.
+- [ ] Cancel returns without dirty writes.
+- [ ] Reopen screen and verify persistence.
+
+---
+
+## 16) Accounts — Chart of Accounts
+
+### Route/Screen Coverage
+- [ ] `/accounts/chart-of-accounts` opens.
+- [ ] `/accounts/chart-of-accounts/create` opens.
+- [ ] `/accounts/chart-of-accounts/edit/:id` opens.
+- [ ] `/accounts/chart-of-accounts/:id` detail opens.
+
+### Functional Coverage (`accountant_chart_of_accounts_overview.dart`, `accountant_chart_of_accounts_creation.dart`)
+- [ ] Tree/list loads and parent-child hierarchy correct.
+- [ ] Search + advanced search filter works.
+- [ ] Create account validates code/name/parent/rules.
+- [ ] Duplicate account code validation blocks save.
+- [ ] Edit account updates fields.
+- [ ] Bulk activate/deactivate works.
+- [ ] Bulk delete works with confirmation.
+- [ ] Column customization persists.
+- [ ] Import/export actions complete without runtime crash.
+
+---
+
+## 17) Reports + Audit Logs
+
+### Route/Screen Coverage
+- [ ] `/reports` opens reports center/dashboard.
+- [ ] `/audit-logs` opens audit screen.
+
+### Functional Coverage (`reports_center_screen.dart`, `reports_reports_overview.dart`, `reports_audit_logs_screen.dart`)
+- [ ] Reports search/filter in center works.
+- [ ] Each report card routes to correct report screen.
+- [ ] Daily sales report loads without API contract errors.
+- [ ] P&L, GL, Trial Balance, Sales by Customer, Inventory Valuation open and load.
+- [ ] Audit logs list loads with pagination.
+- [ ] Audit logs filters/search/date range work.
+- [ ] Audit log detail payload mapping displays action/entity/user/time correctly.
+
+---
+
+## 18) Sidebar + Module Placement Regression (Your New Split)
+
+### 18.1 Sidebar Structure
+- [ ] `Items` group contains: Items, Composite Items, Item Groups, Item Mapping.
+- [ ] `Price Lists` appears as separate parent group (after Items).
+- [ ] `Price Lists` group contains: Price Lists, Branch Price Lists.
+- [ ] Inventory group still contains: Inventory Adjustments, Move Orders, Transfer Orders.
+
+### 18.2 Route/Permission Mapping
+- [ ] Permission key mapping allows visibility for `price_list` modules.
+- [ ] Clicking Price Lists opens `/items/price-lists`.
+- [ ] Clicking Branch Price Lists opens `/items/branch-price-lists`.
+
+---
+
+## 19) Failure Log Template (Use For Any Failed Case)
+
+Copy block for every failure:
+
+```text
+[Module]:
+[Test Case ID/Name]:
+[Route]:
+[Build/Commit]:
+[Input Data]:
+[Expected]:
+[Actual]:
+[API Calls]:
+[Console/Stack Trace]:
+[Repro Steps]:
+[Severity]: Blocker / High / Medium / Low
+[Owner]:
+```
+
+---
+
+## 20) Final Sign-Off
+
+- [ ] All owned module critical flows pass.
+- [ ] No red-screen/assertion in full navigation pass.
+- [ ] No route 404 for owned module APIs.
+- [ ] No schema mismatch errors for migrated product split fields.
+- [ ] Checklist evidence captured and shared.

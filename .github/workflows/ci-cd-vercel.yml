@@ -20,6 +20,12 @@ jobs:
   frontend_ci:
     name: Frontend CI (Flutter)
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
     steps:
       - name: Checkout
@@ -29,6 +35,18 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      - name: Generate assets/.env for CI
+        shell: bash
+        run: |
+          mkdir -p assets
+          cat > assets/.env <<EOF
+          SUPABASE_URL=${SUPABASE_URL}
+          SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+          API_BASE_URL=${API_BASE_URL:-http://localhost:3001}
+          ENVIRONMENT=${ENVIRONMENT:-ci}
+          SENTRY_DSN=${SENTRY_DSN}
+          EOF
 
       - name: Install frontend dependencies
         run: flutter pub get
@@ -70,7 +88,7 @@ jobs:
       - name: Run backend tests
         run: npm test -- --runInBand --passWithNoTests
         env:
-          DRIZZLE_DATABASE_URL: ${{ secrets.DRIZZLE_DATABASE_URL }}
+          DRIZZLE_DATABASE_URL: ${{ secrets.DRIZZLE_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres' }}
 
   deploy_frontend:
     name: Deploy Frontend (Vercel)

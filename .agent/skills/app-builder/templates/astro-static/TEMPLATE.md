@@ -1,4 +1,4 @@
----
+﻿---
 name: astro-static
 description: Astro static site template principles. Content-focused websites, blogs, documentation.
 ---
@@ -21,17 +21,17 @@ description: Astro static site template principles. Content-focused websites, bl
 
 ```
 project-name/
-├── src/
-│   ├── components/      # .astro components
-│   ├── content/         # MDX content
-│   │   ├── blog/
-│   │   └── config.ts    # Collection schemas
-│   ├── layouts/         # Page layouts
-│   ├── pages/           # File-based routing
-│   └── styles/
-├── public/              # Static assets
-├── astro.config.mjs
-└── package.json
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ components/      # .astro components
+â”‚   â”œâ”€â”€ content/         # MDX content
+â”‚   â”‚   â”œâ”€â”€ blog/
+â”‚   â”‚   â””â”€â”€ config.ts    # Collection schemas
+â”‚   â”œâ”€â”€ layouts/         # Page layouts
+â”‚   â”œâ”€â”€ pages/           # File-based routing
+â”‚   â””â”€â”€ styles/
+â”œâ”€â”€ public/              # Static assets
+â”œâ”€â”€ astro.config.mjs
+â””â”€â”€ package.json
 ```
 
 ---
@@ -61,7 +61,7 @@ project-name/
 
 | Platform | Method |
 |----------|--------|
-| Vercel | Auto-detected |
+| Railway/Cloudflare Pages | Auto-detected |
 | Netlify | Auto-detected |
 | Cloudflare Pages | Auto-detected |
 | GitHub Pages | Build + deploy action |
@@ -74,3 +74,4 @@ project-name/
 - Leverage static generation
 - Add islands only where needed
 - Optimize images with Astro Image
+

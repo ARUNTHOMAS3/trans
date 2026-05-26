@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    PAGE[items_pricelist_pricelist_creation.dart] --> LOAD[Load products + currencies]
+    PAGE[pricelist_add.dart] --> LOAD[Load products + currencies]
     LOAD --> API1[GET /api/v1/products]
     LOAD --> API2[GET /api/v1/lookups/currencies]
 
@@ -30,13 +30,13 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    PAGE[items_pricelist_overview.dart] --> PROV[pricelistProvider]
+    PAGE[pricelist_overview.dart] --> PROV[pricelistProvider]
     PROV --> REPO[PricelistRepository]
     REPO --> API[GET /api/v1/products/pricelist]
     API --> TABLE[Render list\nname, currency, item count, status]
 
     TABLE --> ACTIONS[Row actions]
-    ACTIONS --> EDIT[Edit → /items/price-lists/edit/:id]
+    ACTIONS --> EDIT[Edit → /price-lists/edit/:id]
     ACTIONS --> DEACT[Deactivate\nPATCH /pricelist/:id/deactivate]
     ACTIONS --> DEL[Delete\nDELETE /pricelist/:id]
 ```

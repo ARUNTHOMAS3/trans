@@ -10,7 +10,7 @@
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart)
 - [gstin_lookup_model.dart](file://lib/modules/sales/models/gstin_lookup_model.dart)
 - [gstin_lookup_service.dart](file://lib/modules/sales/services/gstin_lookup_service.dart)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart)
 </cite>
 
 ## Table of Contents
@@ -76,7 +76,7 @@ PL --> CC
 - [gstin_lookup_model.dart](file://lib/modules/sales/models/gstin_lookup_model.dart#L1-L173)
 - [gstin_lookup_service.dart](file://lib/modules/sales/services/gstin_lookup_service.dart#L1-L28)
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L800)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 **Section sources**
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L1-L461)
@@ -86,7 +86,7 @@ PL --> CC
 - [gstin_lookup_model.dart](file://lib/modules/sales/models/gstin_lookup_model.dart#L1-L173)
 - [gstin_lookup_service.dart](file://lib/modules/sales/services/gstin_lookup_service.dart#L1-L28)
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L800)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 ## Core Components
 - Item model encapsulates pricing fields (selling price, MRP, PTR, cost price) and currency fields, along with tax-related attributes (HSN/SAC, tax preference, intra-state/inter-state tax IDs).
@@ -105,7 +105,7 @@ PL --> CC
 - [gstin_lookup_model.dart](file://lib/modules/sales/models/gstin_lookup_model.dart#L1-L173)
 - [gstin_lookup_service.dart](file://lib/modules/sales/services/gstin_lookup_service.dart#L1-L28)
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L4-L18)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L6-L50)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L6-L50)
 
 ## Architecture Overview
 The system integrates UI, models, services, and APIs to configure pricing and taxes. The ItemsController loads tax rates and other lookups, exposes validation and persistence, and feeds UI sections. GSTIN lookup complements tax configuration for GST-compliant transactions.
@@ -243,7 +243,7 @@ Guidance:
 **Section sources**
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L20-L800)
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L35-L45)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L18-L28)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L18-L28)
 
 ### Practical Examples and Scenarios
 - Example 1: Multi-currency product
@@ -370,4 +370,5 @@ The Zerpai ERP pricing and taxation configuration system provides a solid founda
 - Round-off preferences include never mind, 0.99, 0.50, whole number, and 0.25.
 
 **Section sources**
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L98-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L98-L150)
+

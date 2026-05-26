@@ -1,4 +1,4 @@
-# Build & Configuration
+﻿# Build & Configuration
 
 <cite>
 **Referenced Files in This Document**
@@ -15,9 +15,9 @@
 - [backend/src/db/db.ts](file://backend/src/db/db.ts)
 - [backend/src/db/schema.ts](file://backend/src/db/schema.ts)
 - [backend/.env.example](file://backend/.env.example)
-- [backend/vercel.json](file://backend/vercel.json)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json)
 - [.env.example](file://.env.example)
-- [vercel.json](file://vercel.json)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json)
 </cite>
 
 ## Table of Contents
@@ -39,7 +39,7 @@ This document explains how to build and configure ZerpAI ERP across its Flutter 
 - Build pipelines for both frontend and backend, including environment-specific builds, minification, and bundle optimization
 - Dependency management, version compatibility, and troubleshooting
 - Environment configuration for development, staging, and production
-- Build artifact generation and deployment via Vercel
+- Build artifact generation and deployment via Railway/Cloudflare Pages
 
 ## Project Structure
 ZerpAI ERP is a monorepo with two primary build systems:
@@ -143,14 +143,14 @@ participant Dev as "Developer"
 participant Flutter as "Flutter CLI"
 participant Backend as "NestJS CLI"
 participant DB as "PostgreSQL (via Drizzle)"
-participant Vercel as "Vercel"
+participant Railway/Cloudflare Pages as "Railway/Cloudflare Pages"
 Dev->>Flutter : "flutter pub get/build"
 Flutter->>Flutter : "Load assets/.env<br/>Initialize Hive and Supabase"
 Dev->>Backend : "npm run build/start"
 Backend->>DB : "Connect via DATABASE_URL<br/>Run migrations via Drizzle"
 Backend->>Backend : "Compile TS to JS<br/>Serve on PORT"
-Dev->>Vercel : "Deploy frontend/backend"
-Vercel-->>Dev : "Production URLs"
+Dev->>Railway/Cloudflare Pages : "Deploy frontend/backend"
+Railway/Cloudflare Pages-->>Dev : "Production URLs"
 ```
 
 **Diagram sources**
@@ -159,8 +159,8 @@ Vercel-->>Dev : "Production URLs"
 - [backend/src/db/db.ts](file://backend/src/db/db.ts#L1-L13)
 - [backend/drizzle.config.ts](file://backend/drizzle.config.ts#L1-L16)
 - [backend/package.json](file://backend/package.json#L1-L79)
-- [vercel.json](file://vercel.json#L1-L12)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 
 ## Detailed Component Analysis
 
@@ -374,10 +374,10 @@ Backend->>Backend : "dotenv.config()<br/>enable CORS and validation pipes"
 ### Build Pipeline and Artifacts
 - Flutter
   - Build artifacts: build/web (static site)
-  - Vercel configuration: vercel.json routes all paths to static output
+  - Railway/Cloudflare Pages configuration: Railway/Cloudflare Pages.json routes all paths to static output
 - NestJS
   - Build artifacts: dist/ (compiled JS)
-  - Vercel configuration: backend/vercel.json routes all paths to src/main.ts with @vercel/node
+  - Railway/Cloudflare Pages configuration: backend/Railway/Cloudflare Pages.json routes all paths to src/main.ts with @Railway/Cloudflare Pages/node
 - Android build metadata
   - android/local.properties defines sdk.dir, flutter.sdk, build modes, and versionName/code
 
@@ -385,11 +385,11 @@ Backend->>Backend : "dotenv.config()<br/>enable CORS and validation pipes"
 graph LR
 subgraph "Frontend Build"
 FW["Flutter Web Build"] --> FWOut["build/web"]
-FWOut --> FV["vercel.json"]
+FWOut --> FV["Railway/Cloudflare Pages.json"]
 end
 subgraph "Backend Build"
 NB["NestJS Build"] --> NBOut["dist/"]
-NBOut --> NV["backend/vercel.json"]
+NBOut --> NV["backend/Railway/Cloudflare Pages.json"]
 end
 subgraph "Android"
 AND["android/local.properties"]
@@ -397,13 +397,13 @@ end
 ```
 
 **Diagram sources**
-- [vercel.json](file://vercel.json#L1-L12)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [android/local.properties](file://android/local.properties#L1-L5)
 
 **Section sources**
-- [vercel.json](file://vercel.json#L1-L12)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [android/local.properties](file://android/local.properties#L1-L5)
 
 ## Dependency Analysis
@@ -452,7 +452,7 @@ end
   - Use release builds for production deployments
 - NestJS
   - Enable production mode via NODE_ENV=production
-  - Use Drizzle’s strict mode and schema validation to prevent runtime errors
+  - Use Drizzleâ€™s strict mode and schema validation to prevent runtime errors
   - Leverage incremental builds and source maps for debugging during development
 
 [No sources needed since this section provides general guidance]
@@ -478,7 +478,7 @@ end
 - [analysis_options.yaml](file://analysis_options.yaml#L1-L29)
 
 ## Conclusion
-ZerpAI ERP’s build and configuration rely on well-defined Flutter and NestJS pipelines. The frontend loads environment variables from assets and initializes Supabase and Hive, while the backend compiles TypeScript, connects to PostgreSQL via Drizzle, and serves REST endpoints. Environment-specific builds are supported via environment templates and Vercel configurations. Following the outlined steps ensures reliable development, testing, and production deployments.
+ZerpAI ERPâ€™s build and configuration rely on well-defined Flutter and NestJS pipelines. The frontend loads environment variables from assets and initializes Supabase and Hive, while the backend compiles TypeScript, connects to PostgreSQL via Drizzle, and serves REST endpoints. Environment-specific builds are supported via environment templates and Railway/Cloudflare Pages configurations. Following the outlined steps ensures reliable development, testing, and production deployments.
 
 [No sources needed since this section summarizes without analyzing specific files]
 

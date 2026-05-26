@@ -1,8 +1,8 @@
 # Deployment & Release Management Guide
 
-## ⚠️ PRD Edit Policy
+## âš ï¸ PRD Edit Policy
 Do not edit PRD files unless explicitly requested by the user or team head.
-## 🔒 Auth Policy (Pre-Production)
+## ðŸ”’ Auth Policy (Pre-Production)
 No authentication setup is allowed until production. The application must run without enforced login/RBAC/JWT in dev and staging. Auth UI may exist but must not be wired into routing until production approval.
 **Last Edited:** 2026-01-28 15:13
 **Last Edited Version:** 1.3
@@ -22,26 +22,26 @@ This document defines the deployment pipeline, release process, and versioning s
 **Pipeline Stages:**
 
 ```
-Pull Request → dev branch:
-  ├─ Format Check
-  ├─ Linting
-  ├─ Unit Tests
-  ├─ Build Verification
-  ├─ Security Scan
-  └─ Code Coverage Report
+Pull Request â†’ dev branch:
+  â”œâ”€ Format Check
+  â”œâ”€ Linting
+  â”œâ”€ Unit Tests
+  â”œâ”€ Build Verification
+  â”œâ”€ Security Scan
+  â””â”€ Code Coverage Report
 
 Merge to dev:
-  ├─ Deploy to Vercel Staging
-  ├─ Integration Tests
-  └─ Smoke Tests
+  â”œâ”€ Deploy to Railway/Cloudflare Pages Staging
+  â”œâ”€ Integration Tests
+  â””â”€ Smoke Tests
 
 Merge to main:
-  ├─ Create Git Tag
-  ├─ Generate Release Notes
-  ├─ Run Migrations (manual approval)
-  ├─ Deploy to Vercel Production
-  ├─ Health Checks
-  └─ Monitor (2 hours)
+  â”œâ”€ Create Git Tag
+  â”œâ”€ Generate Release Notes
+  â”œâ”€ Run Migrations (manual approval)
+  â”œâ”€ Deploy to Railway/Cloudflare Pages Production
+  â”œâ”€ Health Checks
+  â””â”€ Monitor (2 hours)
 ```
 
 ### 2.2 CI Configuration Files
@@ -139,23 +139,23 @@ jobs:
 
 **Access:** Localhost only
 
-### 3.2 Staging (Vercel Preview)
+### 3.2 Staging (Railway/Cloudflare Pages Preview)
 
 **Purpose:** Pre-production testing
 
-**URL:** `https://zerpai-staging.vercel.app`
+**URL:** `https://zerpai-staging.Railway/Cloudflare Pages.app`
 
 **Configuration:**
 - Separate Supabase staging database
 - Production-like data (anonymized)
-- Vercel Analytics enabled
+- Railway/Cloudflare Pages Analytics enabled
 - Sentry (test mode)
 
 **Deployment Trigger:** Auto-deploy on merge to `dev`
 
 **Access:** Internal team + selected beta users
 
-### 3.3 Production (Vercel)
+### 3.3 Production (Railway/Cloudflare Pages)
 
 **Purpose:** Live user-facing application
 
@@ -163,7 +163,7 @@ jobs:
 
 **Configuration:**
 - Production Supabase database
-- Vercel Analytics (full)
+- Railway/Cloudflare Pages Analytics (full)
 - Sentry (production mode)
 - All security measures enabled
 
@@ -180,9 +180,9 @@ jobs:
 **Format:** `MAJOR.MINOR.PATCH`
 
 **Rules:**
-- **MAJOR** (e.g., 1.0.0 → 2.0.0): Breaking API changes, major architectural rewrites
-- **MINOR** (e.g., 1.0.0 → 1.1.0): New features, backward compatible
-- **PATCH** (e.g., 1.0.0 → 1.0.1): Bug fixes, small improvements
+- **MAJOR** (e.g., 1.0.0 â†’ 2.0.0): Breaking API changes, major architectural rewrites
+- **MINOR** (e.g., 1.0.0 â†’ 1.1.0): New features, backward compatible
+- **PATCH** (e.g., 1.0.0 â†’ 1.0.1): Bug fixes, small improvements
 
 **Examples:**
 - `v1.0.0` - Initial production release
@@ -308,7 +308,7 @@ git push origin main
 
 **Step 7: Run Database Migrations (if needed)**
 ```bash
-# SSH into Vercel/Supabase or use migration tool
+# SSH into Railway/Cloudflare Pages/Supabase or use migration tool
 npm run migration:run
 
 # Verify migration success
@@ -316,7 +316,7 @@ npm run migration:status
 ```
 
 **Step 8: Deploy to Production**
-- Vercel auto-deploys on push to `main`
+- Railway/Cloudflare Pages auto-deploys on push to `main`
 - Monitor deployment logs
 - Wait for "Deployment Ready" status
 
@@ -337,7 +337,7 @@ npm run test:smoke:production
 
 **Step 10: Monitor (2 Hours)**
 - Watch Sentry for error spikes
-- Check Vercel Analytics for traffic
+- Check Railway/Cloudflare Pages Analytics for traffic
 - Monitor user reports in support channel
 
 **Step 11: Post-Release**
@@ -369,23 +369,23 @@ npm run test:smoke:production
 
 **Probationary Period:** Monitor for 2 hours post-deployment
 
-### 6.2 Application Rollback (Vercel)
+### 6.2 Application Rollback (Railway/Cloudflare Pages)
 
-**Via Vercel Dashboard:**
+**Via Railway/Cloudflare Pages Dashboard:**
 1. Go to Deployments
 2. Find previous stable deployment
-3. Click "..." menu → "Promote to Production"
+3. Click "..." menu â†’ "Promote to Production"
 4. Confirm promotion
 
 **Estimated Time:** 2-5 minutes
 
-**Via Vercel CLI:**
+**Via Railway/Cloudflare Pages CLI:**
 ```bash
 # List recent deployments
-verceldeployments list --prod
+railway deployments
 
 # Rollback to specific deployment
-vercel rollback [DEPLOYMENT_URL]
+Railway/Cloudflare Pages rollback [DEPLOYMENT_URL]
 ```
 
 ### 6.3 Database Migration Rollback
@@ -456,7 +456,7 @@ git checkout main
 git merge hotfix/fix-critical-bug
 git push origin main
 
-# 6. Deploy (auto via Vercel)
+# 6. Deploy (auto via Railway/Cloudflare Pages)
 
 # 7. Backport to dev
 git checkout dev
@@ -464,13 +464,13 @@ git merge hotfix/fix-critical-bug
 git push origin dev
 
 # 8. Bump version (patch)
-# v1.1.0 → v1.1.1
+# v1.1.0 â†’ v1.1.1
 ```
 
 ### 7.2 Hotfix Versioning
 
 - Always a PATCH version bump
-- `v1.1.0` → `v1.1.1`
+- `v1.1.0` â†’ `v1.1.1`
 - Tag immediately after merge
 
 ### 7.3 Hotfix Communication
@@ -513,9 +513,9 @@ No user action required.
 | Metric | Tool | Dashboard |
 |--------|------|-----------|
 | Errors | Sentry | sentry.io/zerpai |
-| Performance | Vercel Analytics | vercel.com/analytics |
+| Performance | Railway/Cloudflare Pages Analytics | Railway/Cloudflare Pages.com/analytics |
 | Uptime | UptimeRobot | uptimerobot.com/dashboard |
-| Logs | Vercel Logs | vercel.com/logs |
+| Logs | Railway/Cloudflare Pages Logs | Railway/Cloudflare Pages.com/logs |
 
 ### 8.3 Alerting
 
@@ -540,7 +540,7 @@ No user action required.
 ```markdown
 # Release v1.1.0 - January 20, 2026
 
-## 🎉 What's New
+## ðŸŽ‰ What's New
 
 ### Barcode Scanner Integration
 - Scan products directly into POS
@@ -552,28 +552,28 @@ No user action required.
 - Dashboard widget shows all low-stock items
 - [Learn more](https://docs.zerpai.com/low-stock)
 
-## 🐛 Bug Fixes
+## ðŸ› Bug Fixes
 - Fixed invoice tax calculation for inter-state transactions (#234)
 - Resolved POS crash when offline (#245)
 - Improved report generation performance for large datasets (#256)
 
-## 🔧 Improvements
+## ðŸ”§ Improvements
 - Faster product search (50% reduction in response time)
 - Mobile-responsive invoice creation screen
 - Better error messages for failed API calls
 
-## ⚠️ Breaking Changes
+## âš ï¸ Breaking Changes
 None
 
-## 📊 Performance
-- Average page load: 1.8s (↓ from 2.1s)
-- API p95 latency: 450ms (↓ from 520ms)
+## ðŸ“Š Performance
+- Average page load: 1.8s (â†“ from 2.1s)
+- API p95 latency: 450ms (â†“ from 520ms)
 
-## 📚 Documentation
+## ðŸ“š Documentation
 - [Barcode Scanner Guide](https://docs.zerpai.com/barcode)
 - [Migration Guide](https://docs.zerpai.com/migration) (if applicable)
 
-## 🙏 Thank You
+## ðŸ™ Thank You
 Thanks to all contributors and users who reported bugs!
 
 ---
@@ -597,7 +597,7 @@ Thanks to all contributors and users who reported bugs!
 - [ ] Backup created
 - [ ] Merge to main
 - [ ] Migrations run (if needed)
-- [ ] Vercel deployment succeeded
+- [ ] Railway/Cloudflare Pages deployment succeeded
 - [ ] Health checks passed
 
 **Post-Deployment:**
@@ -624,19 +624,19 @@ Thanks to all contributors and users who reported bugs!
 **Symptoms:** Deployment succeeds, but app errors on database operations
 
 **Solutions:**
-1. Check migration logs in Vercel
+1. Check migration logs in Railway/Cloudflare Pages
 2. Manually inspect database schema
 3. Rollback migration: `npm run migration:rollback`
 4. Fix migration script and redeploy
 
-### Issue: Vercel Deployment Stuck
+### Issue: Railway/Cloudflare Pages Deployment Stuck
 
 **Symptoms:** Deployment in "Building" state for > 10 minutes
 
 **Solutions:**
-1. Check Vercel status: https://www.vercel-status.com
+1. Check Railway/Cloudflare Pages status: https://www.Railway/Cloudflare Pages-status.com
 2. Cancel deployment, try again
-3. If persistent, contact Vercel support
+3. If persistent, contact Railway/Cloudflare Pages support
 
 ---
 
@@ -656,3 +656,41 @@ Thanks to all contributors and users who reported bugs!
 
 **Document Owner:** Engineering Lead  
 **Next Review Date:** 2026-04-20
+
+
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

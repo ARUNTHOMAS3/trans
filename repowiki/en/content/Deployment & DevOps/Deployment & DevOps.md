@@ -6,7 +6,7 @@
 - [backend/package.json](file://backend/package.json)
 - [backend/nest-cli.json](file://backend/nest-cli.json)
 - [backend/.env.example](file://backend/.env.example)
-- [backend/vercel.json](file://backend/vercel.json)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json)
 - [backend/src/main.ts](file://backend/src/main.ts)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts)
 - [backend/src/common/middleware/tenant.middleware.ts](file://backend/src/common/middleware/tenant.middleware.ts)
@@ -17,7 +17,7 @@
 - [backend/src/db/schema.ts](file://backend/src/db/schema.ts)
 - [.env.example](file://.env.example)
 - [pubspec.yaml](file://pubspec.yaml)
-- [vercel.json](file://vercel.json)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json)
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md)
 - [PRD/prd_monitoring.md](file://PRD/prd_monitoring.md)
 - [supabase/migrations/README.md](file://supabase/migrations/README.md)
@@ -36,11 +36,11 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive deployment and DevOps guidance for ZerpAI ERP. It covers build configuration for Flutter and NestJS, environment setup, Vercel deployment for the frontend, backend hosting options, database configuration with Supabase and Drizzle, CI/CD pipeline setup, automated testing, release management, monitoring and alerting, logging strategies, performance monitoring, disaster recovery, backup strategies, maintenance schedules, environment-specific configuration management, secrets handling, scaling considerations, security hardening, SSL/TLS configuration, and load balancing setup.
+This document provides comprehensive deployment and DevOps guidance for ZerpAI ERP. It covers build configuration for Flutter and NestJS, environment setup, Railway/Cloudflare Pages deployment for the frontend, backend hosting options, database configuration with Supabase and Drizzle, CI/CD pipeline setup, automated testing, release management, monitoring and alerting, logging strategies, performance monitoring, disaster recovery, backup strategies, maintenance schedules, environment-specific configuration management, secrets handling, scaling considerations, security hardening, SSL/TLS configuration, and load balancing setup.
 
 ## Project Structure
 ZerpAI ERP consists of:
-- Flutter web frontend under the repository root, configured to build to build/web and deploy via Vercel.
+- Flutter web frontend under the repository root, configured to build to build/web and deploy via Railway/Cloudflare Pages.
 - NestJS backend under backend/, built with TypeScript, using Drizzle ORM and Supabase for database operations.
 - Supabase migrations under supabase/migrations/ for schema initialization and seed data.
 - PRD documents under PRD/ detailing deployment, release management, and monitoring.
@@ -48,7 +48,7 @@ ZerpAI ERP consists of:
 ```mermaid
 graph TB
 subgraph "Frontend (Flutter)"
-FE_Vercel[".env + build/web<br/>vercel.json"]
+FE_CloudflarePages[".env + build/web<br/>Railway/Cloudflare Pages.json"]
 end
 subgraph "Backend (NestJS)"
 BE_Main["src/main.ts"]
@@ -63,7 +63,7 @@ end
 subgraph "Database"
 SUPA["Supabase (PostgreSQL)"]
 end
-FE_Vercel --> BE_Main
+FE_CloudflarePages --> BE_Main
 BE_App --> BE_Tenant
 BE_App --> BE_SupabaseMod
 BE_SupabaseMod --> BE_SupabaseSvc
@@ -74,7 +74,7 @@ BE_Schema --> BE_DB
 ```
 
 **Diagram sources**
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts#L1-L20)
 - [backend/src/common/middleware/tenant.middleware.ts](file://backend/src/common/middleware/tenant.middleware.ts#L1-L70)
@@ -85,7 +85,7 @@ BE_Schema --> BE_DB
 - [backend/src/db/schema.ts](file://backend/src/db/schema.ts#L1-L293)
 
 **Section sources**
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts#L1-L20)
 - [backend/src/common/middleware/tenant.middleware.ts](file://backend/src/common/middleware/tenant.middleware.ts#L1-L70)
@@ -97,10 +97,10 @@ BE_Schema --> BE_DB
 
 ## Core Components
 - Frontend build and deployment:
-  - Flutter builds to build/web and deploys via Vercel using vercel.json.
+  - Flutter builds to build/web and deploys via Railway/Cloudflare Pages using Railway/Cloudflare Pages.json.
   - Environment variables are loaded via .env and assets configuration in pubspec.yaml.
 - Backend build and deployment:
-  - NestJS project with TypeScript, compiled via Nest CLI and deployed to Vercel Node builder.
+  - NestJS project with TypeScript, compiled via Nest CLI and deployed to Railway/Cloudflare Pages Node builder.
   - Environment variables managed via .env.example and runtime configuration.
 - Database:
   - Supabase-backed PostgreSQL with Drizzle ORM for schema definition and migrations.
@@ -113,7 +113,7 @@ BE_Schema --> BE_DB
 - [backend/package.json](file://backend/package.json#L1-L79)
 - [backend/nest-cli.json](file://backend/nest-cli.json#L1-L12)
 - [backend/.env.example](file://backend/.env.example#L1-L40)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [backend/src/supabase/supabase.service.ts](file://backend/src/supabase/supabase.service.ts#L1-L32)
 - [backend/src/db/db.ts](file://backend/src/db/db.ts#L1-L13)
@@ -123,84 +123,84 @@ BE_Schema --> BE_DB
 
 ## Architecture Overview
 The system follows a modern cloud-native architecture:
-- Frontend (Flutter web) served statically via Vercel.
-- Backend (NestJS) serverless on Vercel Node builder.
+- Frontend (Flutter web) served statically via Railway/Cloudflare Pages.
+- Backend (NestJS) serverless on Railway/Cloudflare Pages Node builder.
 - Database (Supabase) managed externally; backend connects via DATABASE_URL and uses Supabase service role key for privileged operations.
 - CI/CD via GitHub Actions for both frontend and backend, with automated testing and coverage reporting.
 
 ```mermaid
 graph TB
 Client["Browser (Flutter Web)"]
-VercelFE["Vercel Frontend"]
-VercelBE["Vercel Backend (Node)"]
+CloudflarePagesFE["Railway/Cloudflare Pages Frontend"]
+RailwayBE["Railway/Cloudflare Pages Backend (Node)"]
 SupabaseDB["Supabase PostgreSQL"]
-Client --> VercelFE
-Client --> VercelBE
-VercelFE --> VercelBE
-VercelBE --> SupabaseDB
+Client --> CloudflarePagesFE
+Client --> RailwayBE
+CloudflarePagesFE --> RailwayBE
+RailwayBE --> SupabaseDB
 ```
 
 **Diagram sources**
-- [vercel.json](file://vercel.json#L1-L12)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 
 **Section sources**
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L15-L122)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
-- [vercel.json](file://vercel.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 
 ## Detailed Component Analysis
 
-### Frontend Build and Vercel Deployment (Flutter)
+### Frontend Build and Railway/Cloudflare Pages Deployment (Flutter)
 - Build target: build/web.
-- Static file serving via Vercel with vercel.json.
+- Static file serving via Railway/Cloudflare Pages with Railway/Cloudflare Pages.json.
 - Environment variables loaded at runtime via .env and Flutter dotenv support.
 
 ```mermaid
 flowchart TD
 Start(["Developer runs Flutter build"]) --> BuildWeb["flutter build web --release"]
 BuildWeb --> Output["build/web generated"]
-Output --> VercelConfig["vercel.json routes to build/web"]
-VercelConfig --> Deploy["Vercel deployment"]
+Output --> CloudflarePagesConfig["Railway/Cloudflare Pages.json routes to build/web"]
+CloudflarePagesConfig --> Deploy["Railway/Cloudflare Pages deployment"]
 Deploy --> Serve["Serve static assets"]
 ```
 
 **Diagram sources**
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [pubspec.yaml](file://pubspec.yaml#L1-L128)
 
 **Section sources**
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [pubspec.yaml](file://pubspec.yaml#L1-L128)
 
-### Backend Build and Vercel Deployment (NestJS)
+### Backend Build and Railway/Cloudflare Pages Deployment (NestJS)
 - NestJS build and watch scripts defined in package.json.
-- Vercel Node builder configured to serve src/main.ts.
+- Railway/Cloudflare Pages Node builder configured to serve src/main.ts.
 - Environment variables loaded via dotenv in main.ts and drizzle config.
 
 ```mermaid
 sequenceDiagram
 participant Dev as "Developer"
 participant CI as "GitHub Actions"
-participant Vercel as "Vercel"
+participant Railway/Cloudflare Pages as "Railway/Cloudflare Pages"
 participant BE as "NestJS App"
 Dev->>CI : Push to dev/main
 CI->>CI : Lint, Test, Coverage
-CI->>Vercel : Build artifacts
-Vercel->>BE : Deploy src/main.ts
-BE-->>Vercel : Running on port
-Vercel-->>Client : Serve API
+CI->>Railway/Cloudflare Pages : Build artifacts
+Railway/Cloudflare Pages->>BE : Deploy src/main.ts
+BE-->>Railway/Cloudflare Pages : Running on port
+Railway/Cloudflare Pages-->>Client : Serve API
 ```
 
 **Diagram sources**
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L84-L121)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [backend/package.json](file://backend/package.json#L1-L79)
 
 **Section sources**
 - [backend/package.json](file://backend/package.json#L1-L79)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L15-L122)
 
 ### Database Configuration (Supabase + Drizzle)
@@ -266,7 +266,7 @@ DevBypass --> |No| ProdAuth["Parse JWT and headers"] --> Attach["Attach org/bran
 - Backend environment variables include database URL, Supabase keys, JWT secret, CORS origins, API prefix, Cloudflare R2 storage, and frontend/backend URLs.
 - Frontend environment variables include API base URL, Supabase keys, environment, feature flags, cache settings, timeouts, and logging preferences.
 - Secrets handling:
-  - Store sensitive keys in Vercel project settings and environment variables.
+  - Store sensitive keys in Railway/Cloudflare Pages project settings and environment variables.
   - Do not commit .env or .env.local to version control.
 
 **Section sources**
@@ -278,7 +278,7 @@ DevBypass --> |No| ProdAuth["Parse JWT and headers"] --> Attach["Attach org/bran
   - Flutter CI: format check, analyze, tests with coverage, upload coverage, build web release.
   - NestJS CI: format check, lint, tests with coverage, security audit, build.
 - Release process:
-  - Pre-release checklist, versioning with semantic versioning, Git tagging, PR to main, manual approval, database migrations (manual approval), Vercel auto-deploy, health checks, monitoring.
+  - Pre-release checklist, versioning with semantic versioning, Git tagging, PR to main, manual approval, database migrations (manual approval), Railway/Cloudflare Pages auto-deploy, health checks, monitoring.
 
 ```mermaid
 flowchart TD
@@ -288,7 +288,7 @@ Unit --> Build["Build Verification"]
 Build --> Security["Security Audit"]
 Security --> Coverage["Coverage Report"]
 Coverage --> MergeDev{"Merge to dev?"}
-MergeDev --> |Yes| Staging["Vercel Staging Deploy"]
+MergeDev --> |Yes| Staging["Railway/Cloudflare Pages Staging Deploy"]
 Staging --> IntTest["Integration Tests"]
 IntTest --> Smoke["Smoke Tests"]
 MergeDev --> |No| PR
@@ -296,7 +296,7 @@ MergeDev --> MergeMain{"Merge to main?"}
 MergeMain --> |Yes| Tag["Create Git Tag"]
 Tag --> ReleaseNotes["Generate Release Notes"]
 ReleaseNotes --> ManualApproval["Manual Approval (Migrations)"]
-ManualApproval --> ProdDeploy["Vercel Production Deploy"]
+ManualApproval --> ProdDeploy["Railway/Cloudflare Pages Production Deploy"]
 ProdDeploy --> Health["Health Checks"]
 Health --> Monitor["Monitor 2 Hours"]
 ```
@@ -310,7 +310,7 @@ Health --> Monitor["Monitor 2 Hours"]
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L44-L121)
 
 ### Monitoring and Alerting
-- Tools: Sentry (errors), Vercel Analytics (performance), UptimeRobot (uptime), Vercel Logs (logs), Google Analytics 4 (business metrics).
+- Tools: Sentry (errors), Railway/Cloudflare Pages Analytics (performance), UptimeRobot (uptime), Railway/Cloudflare Pages Logs (logs), Google Analytics 4 (business metrics).
 - Metrics and thresholds for error rate, API response time, page load time, and database queries.
 - Health check endpoint: GET /api/health.
 - Alerting: Slack alerts for error spikes and performance thresholds; PagerDuty for critical incidents.
@@ -336,20 +336,20 @@ Health --> Monitor["Monitor 2 Hours"]
 - [PRD/prd_monitoring.md](file://PRD/prd_monitoring.md#L170-L176)
 
 ### Scaling Considerations
-- Horizontal scaling: Vercel’s autoscaling handles frontend and backend Node instances.
+- Horizontal scaling: Cloudflare Pages' autoscaling handles frontend and backend Node instances.
 - Database scaling: leverage Supabase managed PostgreSQL scaling and read replicas as needed.
 - Caching: implement Redis caching for frequently accessed data and API responses.
-- CDN: serve static assets via Vercel CDN.
+- CDN: serve static assets via Railway/Cloudflare Pages CDN.
 
 **Section sources**
 - [PRD/prd_monitoring.md](file://PRD/prd_monitoring.md#L150-L167)
 
 ### Security Hardening, SSL/TLS, and Load Balancing
-- SSL/TLS: Vercel provides managed TLS termination; enforce HTTPS in frontend and backend.
+- SSL/TLS: Railway/Cloudflare Pages provides managed TLS termination; enforce HTTPS in frontend and backend.
 - CORS: configured in backend main.ts for allowed origins and headers.
 - JWT: implement JWT verification in tenant middleware (currently development bypass).
-- Secrets: store in Vercel environment variables; rotate keys periodically.
-- Load balancing: Vercel distributes traffic globally; ensure backend endpoints are stateless.
+- Secrets: store in Railway/Cloudflare Pages environment variables; rotate keys periodically.
+- Load balancing: Railway/Cloudflare Pages distributes traffic globally; ensure backend endpoints are stateless.
 
 **Section sources**
 - [backend/src/main.ts](file://backend/src/main.ts#L13-L24)
@@ -392,15 +392,15 @@ Drizzle --> SupabaseDB["Supabase PostgreSQL"]
 - CI build failing:
   - Check GitHub Actions logs, run local builds, resolve dependency conflicts.
 - Migration fails in production:
-  - Inspect Vercel migration logs, manually verify schema, rollback migration, fix script, redeploy.
-- Vercel deployment stuck:
-  - Check Vercel status, cancel and retry, contact support if persistent.
+  - Inspect Railway/Cloudflare Pages migration logs, manually verify schema, rollback migration, fix script, redeploy.
+- Railway/Cloudflare Pages deployment stuck:
+  - Check Railway/Cloudflare Pages status, cancel and retry, contact support if persistent.
 
 **Section sources**
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L608-L637)
 
 ## Conclusion
-ZerpAI ERP leverages Vercel for scalable frontend and backend hosting, Supabase for managed PostgreSQL, and Drizzle ORM for schema management. The documented CI/CD pipeline, monitoring stack, and release management processes provide a robust foundation for reliable deployments. Strengthening tenant authentication, implementing Redis caching, and enforcing JWT-based authorization will further enhance security and performance.
+ZerpAI ERP leverages Railway/Cloudflare Pages for scalable frontend and backend hosting, Supabase for managed PostgreSQL, and Drizzle ORM for schema management. The documented CI/CD pipeline, monitoring stack, and release management processes provide a robust foundation for reliable deployments. Strengthening tenant authentication, implementing Redis caching, and enforcing JWT-based authorization will further enhance security and performance.
 
 ## Appendices
 
@@ -413,3 +413,4 @@ ZerpAI ERP leverages Vercel for scalable frontend and backend hosting, Supabase 
 **Section sources**
 - [backend/.env.example](file://backend/.env.example#L1-L40)
 - [.env.example](file://.env.example#L1-L68)
+

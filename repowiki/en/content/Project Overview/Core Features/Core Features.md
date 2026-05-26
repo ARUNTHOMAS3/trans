@@ -94,10 +94,14 @@ B_ProdCtrl --> S_DB
   - Real-time stock tracking and batch/serial number support
   - Product registration with tax, pricing, and inventory settings
   - Assembly creation with associated items and batch linkage
+- Price Lists
+  - Standalone module for managing base price lists and branch-specific price lists
 - Sales Operations
   - Multi-document workflow: quotes, orders, invoices, returns
   - Customer onboarding with GSTIN lookup and compliance
-  - Payments, e-way bills, and payment links
+  - Payments, e-way bills, payment links, and recurring invoices
+- Purchase Operations
+  - Vendor management, purchase orders, purchase receives, and billing workflows
 - Customer Management
   - Comprehensive customer profile with address, contacts, and GST settings
   - GST treatment selection and PAN/GSTIN verification

@@ -1,4 +1,4 @@
-# Troubleshooting & FAQ
+﻿# Troubleshooting & FAQ
 
 <cite>
 **Referenced Files in This Document**
@@ -356,7 +356,7 @@ Logger --> Dio
 - Caching:
   - Configure CACHE_STALENESS_HOURS and MAX_CACHE_SIZE_MB to balance freshness and performance.
 - Database:
-  - Prefer Drizzle’s typed queries and joins to avoid N+1 and unnecessary scans.
+  - Prefer Drizzleâ€™s typed queries and joins to avoid N+1 and unnecessary scans.
   - Use pagination and filters in controllers for large datasets.
 - Offline mode:
   - ENABLE_OFFLINE_MODE leverages Hive caching; monitor cache sizes and stale thresholds.
@@ -437,13 +437,13 @@ Logger --> Dio
 - [backend/SETUP.md](file://backend/SETUP.md#L220-L225)
 - [backend/.env.example](file://backend/.env.example#L23)
 
-### Vercel Build and Runtime Errors
+### Railway/Cloudflare Pages Build and Runtime Errors
 - Symptoms:
-  - Vercel deployment fails or crashes at runtime.
+  - Railway/Cloudflare Pages deployment fails or crashes at runtime.
 - Steps:
-  - Check Vercel logs for the specific deployment URL.
-  - Ensure all environment variables are set on Vercel.
-  - Verify vercel.json configuration and that TypeScript builds locally first.
+  - Check Railway/Cloudflare Pages logs for the specific deployment URL.
+  - Ensure all environment variables are set on Railway/Cloudflare Pages.
+  - Verify Railway/Cloudflare Pages.json configuration and that TypeScript builds locally first.
   - Confirm backend runs locally with npm run start:dev.
 
 **Section sources**

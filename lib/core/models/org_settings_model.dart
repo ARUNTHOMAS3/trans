@@ -29,6 +29,7 @@ class OrgSettings {
   final String? pincode;
   final String? phone;
   final String? country;
+  final String? email;
 
   const OrgSettings({
     required this.id,
@@ -58,6 +59,7 @@ class OrgSettings {
     this.pincode,
     this.phone,
     this.country,
+    this.email,
   });
 
   factory OrgSettings.fromJson(Map<String, dynamic> json) => OrgSettings(
@@ -101,6 +103,7 @@ class OrgSettings {
     pincode: json['pincode']?.toString(),
     phone: json['phone']?.toString(),
     country: json['country']?.toString(),
+    email: json['email']?.toString() ?? json['company_email']?.toString() ?? json['companyEmail']?.toString(),
   );
 
   /// Returns a copy with updated fields.
@@ -142,6 +145,7 @@ class OrgSettings {
     paymentStubAddress: paymentStubAddress ?? this.paymentStubAddress,
     hasSeparatePaymentStubAddress:
         hasSeparatePaymentStubAddress ?? this.hasSeparatePaymentStubAddress,
+    email: email ?? this.email,
   );
 
   String? get resolvedCompanyIdLabel {
@@ -162,4 +166,31 @@ class OrgSettings {
     }
     return '$label: $value';
   }
+
+  /// Compatibility getter used by shared document widgets.
+  /// Preference:
+  /// 1) explicit payment stub address
+  /// 2) composed address from organization profile fields
+  String? get resolvedPaymentStubAddress {
+    final explicit = paymentStubAddress?.trim();
+    if (explicit != null && explicit.isNotEmpty) {
+      return explicit;
+    }
+
+    final parts = <String>[
+      attention?.trim() ?? '',
+      street?.trim() ?? '',
+      place?.trim() ?? '',
+      city?.trim() ?? '',
+      pincode?.trim() ?? '',
+      country?.trim() ?? '',
+      phone?.trim() ?? '',
+    ].where((p) => p.isNotEmpty).toList();
+
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join(', ');
+  }
 }
+

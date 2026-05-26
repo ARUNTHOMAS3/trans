@@ -1,4 +1,4 @@
-# Monitoring & Maintenance
+﻿# Monitoring & Maintenance
 **Last Updated: 2026-04-20 12:46:08**
 
 <cite>
@@ -15,7 +15,7 @@
 - [products.controller.ts](file://backend/src/products/products.controller.ts)
 - [sales.controller.ts](file://backend/src/sales/sales.controller.ts)
 - [.env.example](file://backend/.env.example)
-- [vercel.json](file://vercel.json)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json)
 - [001_initial_schema_and_seed.sql](file://supabase/migrations/001_initial_schema_and_seed.sql)
 - [drizzle.config.ts](file://backend/drizzle.config.ts)
 - [package.json](file://backend/package.json)
@@ -41,7 +41,7 @@ ZerpAI ERP consists of:
 - Flutter/Dart frontend (UI and logging utilities)
 - NestJS backend (REST API, middleware, database integration)
 - Supabase-managed PostgreSQL database
-- Vercel deployment for frontend and static assets
+- Railway/Cloudflare Pages deployment for frontend and static assets
 - PRD-driven monitoring and DR plans
 
 ```mermaid
@@ -57,8 +57,8 @@ SB["Supabase Client"]
 end
 subgraph "Infrastructure"
 SUPA["Supabase PostgreSQL"]
-VERCEL["Vercel Deployment"]
-MON["Monitoring Stack<br/>Sentry, Vercel Analytics, UptimeRobot"]
+Railway/Cloudflare Pages["Railway/Cloudflare Pages Deployment"]
+MON["Monitoring Stack<br/>Sentry, Railway/Cloudflare Pages Analytics, UptimeRobot"]
 end
 FE --> API
 API --> DB
@@ -67,7 +67,7 @@ DB --> SUPA
 SB --> SUPA
 API --> MON
 FE --> MON
-VERCEL --> FE
+Railway/Cloudflare Pages --> FE
 ```
 
 **Diagram sources**
@@ -78,7 +78,7 @@ VERCEL --> FE
 - [supabase.service.ts](file://backend/src/supabase/supabase.service.ts#L1-L32)
 - [db.ts](file://backend/src/db/db.ts#L1-L13)
 - [schema.ts](file://backend/src/db/schema.ts#L1-L293)
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [prd_monitoring.md](file://PRD/prd_monitoring.md#L1-L181)
 
 **Section sources**
@@ -89,11 +89,11 @@ VERCEL --> FE
 - [supabase.service.ts](file://backend/src/supabase/supabase.service.ts#L1-L32)
 - [db.ts](file://backend/src/db/db.ts#L1-L13)
 - [schema.ts](file://backend/src/db/schema.ts#L1-L293)
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [prd_monitoring.md](file://PRD/prd_monitoring.md#L1-L181)
 
 ## Core Components
-- Monitoring stack: Sentry (errors), Vercel Analytics (performance), UptimeRobot (uptime), Vercel Logs (logs), GA4 (business metrics)
+- Monitoring stack: Sentry (errors), Railway/Cloudflare Pages Analytics (performance), UptimeRobot (uptime), Railway/Cloudflare Pages Logs (logs), GA4 (business metrics)
 - Health endpoint: GET /api/health
 - Logging: Structured JSON logs with levels and context
 - Database: Drizzle ORM with Supabase PostgreSQL; migration and indexing strategy
@@ -134,7 +134,7 @@ Mon-->>Mon : "Aggregate errors, latency, uptime"
 ## Detailed Component Analysis
 
 ### Monitoring Stack and Health Checks
-- Tools: Sentry (errors), Vercel Analytics (performance), UptimeRobot (uptime), Vercel Logs (logs), GA4 (business metrics)
+- Tools: Sentry (errors), Railway/Cloudflare Pages Analytics (performance), UptimeRobot (uptime), Railway/Cloudflare Pages Logs (logs), GA4 (business metrics)
 - Health endpoint: GET /api/health returns status, timestamp, version, and service statuses
 - Monitoring cadence: UptimeRobot pings every 5 minutes; daily error dashboard review; weekly performance trend review; monthly deep dives; quarterly alerting rule reviews
 
@@ -333,11 +333,11 @@ class SupabaseService {
 - [.env.example](file://backend/.env.example#L1-L40)
 
 ### Frontend Deployment and Static Assets
-- Vercel configuration serves Flutter web build output
+- Railway/Cloudflare Pages configuration serves Flutter web build output
 - Frontend URL and backend URL configured in environment
 
 **Section sources**
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [.env.example](file://backend/.env.example#L36-L39)
 
 ## Dependency Analysis
@@ -380,7 +380,7 @@ Backend --> Mon["Monitoring Stack"]
 ## Troubleshooting Guide
 - Health check failures: verify backend connectivity, database readiness, and middleware configuration
 - Error spikes: inspect Sentry for top events, affected users, and stack traces
-- Slow performance: review Vercel Analytics, backend logs, and database query patterns
+- Slow performance: review Railway/Cloudflare Pages Analytics, backend logs, and database query patterns
 - Authentication/tenant issues: confirm tenant middleware behavior and environment headers
 - Database connectivity: validate DATABASE_URL and Supabase credentials
 
@@ -391,14 +391,14 @@ Backend --> Mon["Monitoring Stack"]
 - [db.ts](file://backend/src/db/db.ts#L8-L12)
 
 ## Conclusion
-ZerpAI ERP’s monitoring and maintenance framework combines structured logging, health checks, and external observability tools to ensure reliability and performance. Database optimization, robust alerting, and a clear incident response process support continuous operations. Disaster recovery and business continuity plans provide resilience against failures and breaches.
+ZerpAI ERPâ€™s monitoring and maintenance framework combines structured logging, health checks, and external observability tools to ensure reliability and performance. Database optimization, robust alerting, and a clear incident response process support continuous operations. Disaster recovery and business continuity plans provide resilience against failures and breaches.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
 ## Appendices
 
 ### Maintenance Procedures
-- Routine updates: deploy via Vercel; monitor health and logs; verify business metrics
+- Routine updates: deploy via Railway/Cloudflare Pages; monitor health and logs; verify business metrics
 - Database cleanup: archive old data per retention policy; validate PITR and backups
 - System optimization: add missing indexes, implement caching, reduce N+1 queries, compress assets
 
@@ -409,7 +409,7 @@ ZerpAI ERP’s monitoring and maintenance framework combines structured logging,
 ### Disaster Recovery and Business Continuity
 - Backup strategy: daily automated backups, manual backups before major changes, monthly testing
 - Recovery objectives: RTO < 4 hours, RPO < 24 hours (critical data < 1 hour)
-- Scenarios: database loss, Vercel outage, security breach, accidental deletion
+- Scenarios: database loss, Railway/Cloudflare Pages outage, security breach, accidental deletion
 - Runbooks: maintain runbooks for database failure, deployment rollback, security breach, data corruption, auth outage
 
 **Section sources**
@@ -417,7 +417,7 @@ ZerpAI ERP’s monitoring and maintenance framework combines structured logging,
 
 ### Incident Response Protocols
 - Severity levels: P0 (immediate), P1 (< 2 hours), P2 (< 24 hours), P3 (next sprint)
-- Workflow: detection → assessment → communication → mitigation → resolution → post-mortem
+- Workflow: detection â†’ assessment â†’ communication â†’ mitigation â†’ resolution â†’ post-mortem
 - Runbooks: maintain templates and required runbooks for common incidents
 
 **Section sources**

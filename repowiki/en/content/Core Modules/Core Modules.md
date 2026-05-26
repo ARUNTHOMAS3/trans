@@ -46,6 +46,7 @@ ROUTER["App Router<br/>lib/core/routing/app_router.dart"]
 ITEMS["Items Module<br/>lib/modules/items/*"]
 SALES["Sales Module<br/>lib/modules/sales/*"]
 REPORTS["Reports Module<br/>lib/modules/reports/*"]
+PRICELIST["Price List Module<br/>lib/modules/pricelist/*"]
 SHARED["Shared UI & Models<br/>lib/shared/*"]
 end
 subgraph "Backend (NestJS)"
@@ -63,6 +64,7 @@ APP --> ROUTER
 ROUTER --> ITEMS
 ROUTER --> SALES
 ROUTER --> REPORTS
+ROUTER --> PRICELIST
 ITEMS --> PRODUCTS_SVC
 SALES --> SALES_SVC
 NEST_APP --> PRODUCTS_SVC
@@ -90,6 +92,7 @@ DB_SCHEMA --> SUPABASE
 ## Core Components
 - Items/Products module: Product master, formulations, pricing, inventory settings, tax preferences, and composition tracking.
 - Sales module: Customer lifecycle, quotations, orders, invoices, credit notes, challans, payments, and e-way bills.
+- Price List module: Global/Standard price lists, branch-specific pricing, and volume-based rates.
 - Reports module: Dashboard cards and categorized report listings.
 - Purchase module: Vendor management and procurement processes (UI placeholders present).
 - Financial module: Chart of accounts, multi-currency support, and tax automation.

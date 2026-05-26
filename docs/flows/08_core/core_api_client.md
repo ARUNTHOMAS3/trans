@@ -1,4 +1,4 @@
-# Core — API Client & Caching Flow
+﻿# Core â€” API Client & Caching Flow
 
 ## Dio ApiClient Architecture
 
@@ -14,7 +14,7 @@ flowchart TD
 
     HEADERS --> ENV{Environment?}
     ENV -->|dev| DEV_URL[http://localhost:3001/api/v1/]
-    ENV -->|prod| PROD_URL[https://zabnix-backend.vercel.app/api/v1/]
+    ENV -->|prod| PROD_URL[https://zabnix-backend.Railway/Cloudflare Pages.app/api/v1/]
 
     DEV_URL --> BACKEND[NestJS Backend]
     PROD_URL --> BACKEND
@@ -53,3 +53,4 @@ flowchart TD
     ENV_SVC --> FLAGS[feature flags\ndebug mode]
     BASE_URL --> DIO[Dio baseUrl set]
 ```
+

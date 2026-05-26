@@ -34,18 +34,19 @@ This section defines the **official module structure** for Zerpai ERP. All modul
 
 The following table defines the complete module hierarchy as it appears in the application sidebar:
 
-| Main Module   | Sub-Modules                                                                                                                                          |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Home**      | —                                                                                                                                                    |
-| **Items**     | Items<br>Composite Items<br>Item Groups<br>Price Lists<br>Item Mapping                                                                              |
-| **Inventory** | Assemblies<br>Inventory Adjustments<br>Picklists<br>Packages<br>Shipments<br>Transfer Orders                                                        |
-| **Sales**     | Customers<br>Retainer Invoices<br>Sales Orders<br>Invoices<br>Delivery Challans<br>Payments Received<br>Sales Returns<br>Credit Notes<br>e-Way Bills |
-| **Purchases** | Vendors<br>Expenses<br>Recurring Expenses<br>Purchase Orders<br>Bills<br>Recurring Bills<br>Payments Made<br>Vendor Credits                        |
-| **Accountant**| Manual Journals<br>Recurring Journals<br>Bulk Update<br>Transaction Locking<br>Opening Balances                                                     |
-| **Accounts**  | Chart of Accounts                                                                                                                                    |
-| **Reports**   | —                                                                                                                                                    |
-| **Documents** | —                                                                                                                                                    |
-| **Audit Logs**| —                                                                                                                                                    |
+| Main Module    | Sub-Modules                                                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Home**       | —                                                                                                                                                                                                       |
+| **Items**      | Items<br>Composite Items<br>Item Groups<br>Item Mapping                                                                                                                                                 |
+| **Price Lists**| —                                                                                                                                                                                                       |
+| **Inventory**  | Assemblies<br>Inventory Adjustments<br>Picklists<br>Packages<br>Shipments<br>Transfer Orders<br>Move Orders                                                                                             |
+| **Sales**      | Customers<br>Quotations<br>Retainer Invoices<br>Sales Orders<br>Invoices<br>Delivery Challans<br>Payments Received<br>Sales Returns<br>Credit Notes<br>e-Way Bills<br>Payment Links<br>Recurring Invoices |
+| **Purchases**  | Vendors<br>Expenses<br>Recurring Expenses<br>Purchase Orders<br>Purchase Receives<br>Bills<br>Recurring Bills<br>Payments Made<br>Vendor Credits                                                        |
+| **Accountant** | Manual Journals<br>Recurring Journals<br>Bulk Update<br>Transaction Locking<br>Opening Balances                                                                                                         |
+| **Accounts**   | Chart of Accounts                                                                                                                                                                                       |
+| **Reports**    | —                                                                                                                                                                                                       |
+| **Documents**  | —                                                                                                                                                                                                       |
+| **Audit Logs** | —                                                                                                                                                                                                       |
 
 ### 2.2 Module Hierarchy Tree
 
@@ -56,8 +57,9 @@ Home
 │   ├── Items
 │   ├── Composite Items
 │   ├── Item Groups
-│   ├── Price Lists
 │   └── Item Mapping
+│
+├── Price Lists
 │
 ├── Inventory
 │   ├── Assemblies
@@ -65,10 +67,12 @@ Home
 │   ├── Picklists
 │   ├── Packages
 │   ├── Shipments
-│   └── Transfer Orders
+│   ├── Transfer Orders
+│   └── Move Orders
 │
 ├── Sales
 │   ├── Customers
+│   ├── Quotations
 │   ├── Retainer Invoices
 │   ├── Sales Orders
 │   ├── Invoices
@@ -76,13 +80,16 @@ Home
 │   ├── Payments Received
 │   ├── Sales Returns
 │   ├── Credit Notes
-│   └── e-Way Bills
+│   ├── e-Way Bills
+│   ├── Payment Links
+│   └── Recurring Invoices
 │
 ├── Purchases
 │   ├── Vendors
 │   ├── Expenses
 │   ├── Recurring Expenses
 │   ├── Purchase Orders
+│   ├── Purchase Receives
 │   ├── Bills
 │   ├── Recurring Bills
 │   ├── Payments Made
@@ -150,7 +157,7 @@ Sub-modules are created as **nested folders** under their parent module:
 
 ```
 
-lib/modules/items/
+lib/modules/
 ├── items/ # "Items" sub-module
 ├── composite_items/ # "Composite Items" sub-module
 ├── item_groups/ # "Item Groups" sub-module
@@ -224,9 +231,9 @@ All files MUST follow the exact pattern:
 
 **Detailed Examples:**
 
-- `items_pricelist_pricelist_creation.dart` (Items → Price Lists → Create)
-- `items_pricelist_pricelist_overview.dart` (Items → Price Lists → Overview)
-- `items_pricelist_pricelist_edit.dart` (Items → Price Lists → Edit)
+- `pricelist_add.dart` (Price Lists → Create)
+- `pricelist_overview.dart` (Price Lists → Overview)
+- `pricelist_edit.dart` (Price Lists → Edit)
 - `sales_customers_customer_creation.dart` (Sales → Customers → Create)
 - `sales_customers_customer_overview.dart` (Sales → Customers → Overview)
 
@@ -433,8 +440,8 @@ zerpai_erp/
 │       │   │   ├── items_items_item_repository.dart      # Abstract interface
 │       │   │   └── items_items_item_repository_impl.dart # Implementation
 │       │   └── presentation/
-│       │       ├── items_pricelist_pricelist_overview.dart
-│       │       ├── items_pricelist_pricelist_creation.dart
+│       │       ├── pricelist_overview.dart
+│       │       ├── pricelist_add.dart
 │       │       ├── items_items_item_detail.dart
 │       │       └── widgets/
 │       │           ├── items_items_item_card.dart
@@ -487,7 +494,7 @@ zerpai_erp/
 │   │   │   ├── repositories/
 │   │   │   │   └── items_items_item_repository_test.dart
 │   │   │   └── presentation/
-│   │   │       └── items_pricelist_pricelist_creation_test.dart
+│   │   │       └── pricelist_add_test.dart
 │   │   │
 │   │   └── sales/
 │   │       ├── models/
@@ -564,24 +571,24 @@ lib/modules/<module_name>/
 - ✅ State transformations beyond simple CRUD
 - ❌ Simple CRUD operations (keep in providers)
 
-**Example (Items → Price Lists):**
+**Example (Price Lists):**
 
 ```
-lib/modules/items/
+lib/modules/
 ├── models/
-│   └── items_pricelist_pricelist_model.dart
+│   └── pricelist_model.dart
 ├── providers/
-│   └── items_pricelist_provider.dart
+│   └── pricelist_provider.dart
 ├── controllers/                         # Optional for simple modules
-│   └── items_pricelist_controller.dart
+│   └── pricelist_controller.dart
 ├── repositories/
-│   ├── items_pricelist_repository.dart         # Interface
-│   └── items_pricelist_repository_impl.dart    # Implementation
+│   ├── pricelist_repository.dart         # Interface
+│   └── pricelist_repository_impl.dart    # Implementation
 └── presentation/
-    ├── items_pricelist_pricelist_overview.dart
-    ├── items_pricelist_pricelist_creation.dart
+    ├── pricelist_overview.dart
+    ├── pricelist_add.dart
     └── widgets/
-        └── items_pricelist_card.dart
+        └── pricelist_card.dart
 ```
 
 ---
@@ -596,7 +603,7 @@ lib/modules/items/
 
 | ✅ Correct                                | ❌ Wrong                                              |
 | ----------------------------------------- | ----------------------------------------------------- |
-| `items_pricelist_pricelist_creation.dart` | `ItemsPriceListCreate.dart` (PascalCase)              |
+| `pricelist_add.dart` | `ItemsPriceListCreate.dart` (PascalCase)              |
 | `sales_orders_order_creation.dart`        | `sales_order_create_screen.dart` (old suffix pattern) |
 | `items_items_item_card.dart`              | `ItemCard.dart` (PascalCase)                          |
 | `sales_orders_provider.dart`              | `sales-provider.dart` (kebab-case)                    |
@@ -670,8 +677,8 @@ START
 | String extensions         | `lib/core/extensions/string_extensions.dart`                          | Core extension         |
 | Shared model              | `lib/shared/models/common_models.dart`                                | Shared model           |
 | SalesOrderCard            | `lib/modules/sales/presentation/widgets/sales_orders_order_card.dart` | Module-specific widget |
-| Item model                | `lib/modules/items/models/items_items_item_model.dart`                | Module-specific        |
-| Items provider            | `lib/modules/items/providers/items_items_item_provider.dart`          | Module-specific        |
+| Item model                | `lib/modules/models/items_items_item_model.dart`                | Module-specific        |
+| Items provider            | `lib/modules/providers/items_items_item_provider.dart`          | Module-specific        |
 
 ---
 
@@ -866,7 +873,7 @@ test/
 │   │   ├── repositories/
 │   │   │   └── items_items_item_repository_test.dart
 │   │   └── presentation/
-│   │       └── items_pricelist_pricelist_creation_test.dart
+│   │       └── pricelist_add_test.dart
 │   │
 │   └── sales/
 │       └── ...
@@ -892,7 +899,7 @@ test/
 
 - `items_items_item_model.dart` → `items_items_item_model_test.dart`
 - `sales_orders_provider.dart` → `sales_orders_provider_test.dart`
-- `items_pricelist_pricelist_creation.dart` → `items_pricelist_pricelist_creation_test.dart`
+- `pricelist_add.dart` → `pricelist_add_test.dart`
 
 ---
 
@@ -1147,3 +1154,92 @@ presentation/
 
 **Last Updated:** 2026-01-21  
 **Status:** Mandatory for all complex widgets.
+
+---
+
+## 13. Structure Doc Synchronization (Mandatory)
+
+This file is policy source. Runtime and execution docs must stay in lockstep:
+
+1. `current structure.md` = live runtime snapshot.
+2. `structure folder refactoring plan.md` = migration execution target and batch order.
+3. `PRD/prd_folder_structure.md` (this file) = normative policy.
+
+Whenever any folder/file ownership changes, all 3 docs must be updated in same batch.
+
+## 14. Incoming Handoff Merge Governance (Mandatory)
+
+### 14.1 Pre-merge gates
+
+- Backup required first in `backups/refactor-batches/<timestamp>-<scope>/`.
+- Canonical destination path must be decided before moving files.
+- Transitional path requires compatibility shim unless import graph already zero.
+
+### 14.2 During merge
+
+- No destructive deletes in same batch as path moves.
+- No new generic folders/files without owner (forbidden: unlabeled sink paths).
+- Every moved file must preserve behavioral parity unless explicitly approved.
+
+### 14.3 Post-merge verification
+
+- Frontend touched: `dart analyze` touched files.
+- Backend touched: `npm.cmd run build` in `backend/`.
+- Route changes: route/deeplink smoke check.
+
+### 14.4 Documentation and audit trail
+
+- `log.md` entry is mandatory with moved paths, shims, verification results, residual risks.
+- Keep handoff backups until explicit sign-off from reviewer.
+- If merge conflict resolved by decision, write short decision note in `log.md`.
+
+## 15. Strict Create/Merge Rules (Do/Don’t)
+
+### Do
+
+- Create files only in canonical owner module.
+- Keep module-contained business logic.
+- Use `shared/` only for proven cross-domain reusable units.
+
+### Don’t
+
+- Create new legacy roots.
+- Merge handoff files directly into random folders.
+- Remove shims before import-zero verification.
+- Skip `log.md` for structural changes.
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

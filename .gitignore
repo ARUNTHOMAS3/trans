@@ -24,6 +24,7 @@ logs/
 npm-debug.log*
 
 # Testing
+
 coverage/
 .nyc_output/
 
@@ -92,12 +93,15 @@ app.*.map.json
 # 4. ENVIRONMENT VARIABLES (Security)
 # ---------------------------------
 .env
+.env.example
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.vercel
+assets/.env
 assets/.env.local
+!assets/.env.example
 
 # ---------------------------------
 # 5. MISC & OS
@@ -364,4 +368,50 @@ archive/scripts/test_drizzle_query.ts
 archive/scripts/test_prod_query_params.js
 archive/scripts/test_prod_query.js
 archive/scripts/trace_backend_watch_restart.ps1
-handoff.txt
+.backup_handoff_ar_20260502_150333/backend/src/modules/inventory/inventory.module.ts
+.backup_handoff_ar_20260502_150333/backend/src/modules/inventory/controllers/picklists.controller.ts
+.backup_handoff_ar_20260502_150333/backend/src/modules/inventory/services/picklists.service.ts
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/models/warehouse_model.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/picklists/data/inventory_picklist_repository_impl.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/picklists/data/inventory_picklist_repository.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/picklists/models/inventory_picklist_model.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/picklists/presentation/inventory_picklists_create.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/picklists/presentation/inventory_picklists_edit.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/picklists/presentation/inventory_picklists_list.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/picklists/presentation/inventory_picklists_update.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/picklists/providers/inventory_picklists_provider.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/providers/stock_provider.dart
+.backup_handoff_ar_20260502_150333/lib/modules/inventory/providers/warehouse_provider.dart
+.backup_handoff_ar_20260502_150333/lib/shared/providers/lookup_providers.dart
+screen shots items overview/Screenshot 2026-05-02 214648.png
+screen shots items overview/Screenshot 2026-05-02 214655.png
+screen shots items overview/Screenshot 2026-05-02 214706.png
+screen shots items overview/Screenshot 2026-05-02 214710.png
+screen shots items overview/Screenshot 2026-05-02 214714.png
+screen shots items overview/Screenshot 2026-05-02 214718.png
+screen shots items overview/Screenshot 2026-05-02 214722.png
+screen shots items overview/Screenshot 2026-05-02 214726.png
+screen shots items overview/Screenshot 2026-05-02 214732.png
+screen shots items overview/Screenshot 2026-05-02 214737.png
+screen shots items overview/Screenshot 2026-05-02 214746.png
+screen shots items overview/Screenshot 2026-05-02 214754.png
+screen shots items overview/Screenshot 2026-05-02 214758.png
+screen shots items overview/Screenshot 2026-05-02 214802.png
+screen shots items overview/Screenshot 2026-05-02 214807.png
+screen shots items overview/Screenshot 2026-05-02 214813.png
+screen shots items overview/Screenshot 2026-05-02 214821.png
+screen shots items overview/Screenshot 2026-05-02 214836.png
+screen shots items overview/Screenshot 2026-05-02 214844.png
+screen shots items overview/Screenshot 2026-05-02 214849.png
+screen shots items overview/Screenshot 2026-05-02 214856.png
+screen shots items overview/Screenshot 2026-05-02 214906.png
+pdfs (1).pdf
+proposed app theme dart file.txt
+assets/.env
+assets/.env
+jules env.md
+jules env.md
+.lean-ctx/graph.db
+DEPLOY_ENV.md
+.lean-ctx/graph.db
+.lean-ctx/graph.meta.json

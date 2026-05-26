@@ -1,4 +1,4 @@
-# Contributing Guide
+﻿# Contributing Guide
 
 <cite>
 **Referenced Files in This Document**
@@ -143,7 +143,7 @@ Reviewers verify:
 - File placement matches the decision tree.
 - Modules follow internal structure (models, providers, repositories, presentation).
 - No PascalCase or kebab-case filenames.
-- Imports are organized (core → shared → modules).
+- Imports are organized (core â†’ shared â†’ modules).
 - Mirrored test structure exists.
 
 **Section sources**
@@ -212,14 +212,14 @@ NPM --> Jest["jest"]
 - Backend setup: Ensure environment variables are copied and configured; install dependencies; run locally with hot reload.
 - CORS issues: Confirm CORS_ORIGIN includes both local and deployed origins.
 - Database connectivity: Test connection locally; verify Drizzle studio and migrations.
-- Vercel deployment: Ensure all environment variables are set; check logs for build errors.
+- Railway/Cloudflare Pages deployment: Ensure all environment variables are set; check logs for build errors.
 
 **Section sources**
 - [backend/SETUP.md](file://backend/SETUP.md#L9-L255)
 - [backend/TESTING.md](file://backend/TESTING.md#L220-L246)
 
 ## Conclusion
-By following this guide—using the correct branches, adhering to folder and naming conventions, running local QA checks, and engaging respectfully—you help maintain a high-quality, scalable codebase for ZerpAI ERP.
+By following this guideâ€”using the correct branches, adhering to folder and naming conventions, running local QA checks, and engaging respectfullyâ€”you help maintain a high-quality, scalable codebase for ZerpAI ERP.
 
 ## Appendices
 

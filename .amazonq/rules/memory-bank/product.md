@@ -1,4 +1,4 @@
-# ZERPAI ERP — Product Overview
+﻿# ZERPAI ERP â€” Product Overview
 
 ## Purpose & Value Proposition
 
@@ -67,13 +67,14 @@ ZERPAI is a modern, multi-tenant ERP system built for Indian SMBs. It targets bu
 
 - Flutter Web (primary)
 - Flutter Android (secondary)
-- Backend deployed on Vercel (serverless NestJS)
+- Backend deployed on Railway/Cloudflare Pages (serverless NestJS)
 - Database on Supabase (PostgreSQL + Auth + Storage)
 
 ## Multi-Tenancy Model
 
-- All business tables scope data via `entity_id uuid NOT NULL` — FK to `organisation_branch_master(id)`
+- All business tables scope data via `entity_id uuid NOT NULL` â€” FK to `organisation_branch_master(id)`
 - `organisation_branch_master`: `type` = `'ORG'` or `'BRANCH'`; `ref_id` links to actual `organization.id` or `branches.id`
 - Headers: `X-Org-Id` (routing), `X-Branch-Id` (optional), `X-Entity-Id` (preferred direct scope)
-- Use `@Tenant()` / `@Tenant('entityId')` decorator in controllers — never read headers manually in services
+- Use `@Tenant()` / `@Tenant('entityId')` decorator in controllers â€” never read headers manually in services
 - **Global tables (no `entity_id`):** `products`, `categories`, `brands`, `manufacturers`, `tax_rates`, `tax_groups`, `payment_terms`, `currencies`, `uqc`, `units`, `storage_conditions`, `buying_rules`, `drug_schedules`, `drug_strengths`, `contents`, `racks`, `shipment_preferences`, `tds_rates`, `tds_sections`, `tds_groups`, `price_lists`, `price_list_items`, `countries`, `states`, `timezones`, `gst_treatments`, `gstin_registration_types`, `business_types`, `hsn_sac_codes`, `composite_items`, `composite_item_parts`
+

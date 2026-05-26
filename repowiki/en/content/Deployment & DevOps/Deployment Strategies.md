@@ -2,10 +2,10 @@
 
 <cite>
 **Referenced Files in This Document**
-- [vercel.json](file://vercel.json)
-- [backend/vercel.json](file://backend/vercel.json)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json)
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md)
-- [VERCEL_DEPLOY.md](file://VERCEL_DEPLOY.md)
+- [RAILWAY_CLOUDFLARE_DEPLOY.md](file://RAILWAY_CLOUDFLARE_DEPLOY.md)
 - [backend/.env.example](file://backend/.env.example)
 - [.env.example](file://.env.example)
 - [backend/package.json](file://backend/package.json)
@@ -29,12 +29,12 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides a comprehensive deployment strategy for ZerpAI ERP, covering the Flutter frontend deployment on Vercel, backend deployment options, environment variable management, and the end-to-end CI/CD pipeline from development to production. It also outlines multi-environment strategies, rollback procedures, domain and SSL configuration, and load balancing considerations.
+This document provides a comprehensive deployment strategy for ZerpAI ERP, covering the Flutter frontend deployment on Railway/Cloudflare Pages, backend deployment options, environment variable management, and the end-to-end CI/CD pipeline from development to production. It also outlines multi-environment strategies, rollback procedures, domain and SSL configuration, and load balancing considerations.
 
 ## Project Structure
 ZerpAI ERP consists of:
-- Flutter frontend (web) served statically via Vercel
-- NestJS backend deployed via Vercel Functions or serverless
+- Flutter frontend (web) served statically via Railway/Cloudflare Pages
+- NestJS backend deployed via Railway/Cloudflare Pages Functions or serverless
 - Supabase for authentication and database
 - Optional Cloudflare R2 for object storage
 - GitHub Actions-based CI/CD pipeline
@@ -45,9 +45,9 @@ subgraph "Frontend (Flutter Web)"
 A["Flutter Web Build<br/>build/web"]
 B[".env (assets/.env)<br/>Runtime config"]
 end
-subgraph "Vercel Platform"
-C["Static Site Generation<br/>vercel.json builds/routes"]
-D["Backend (Node)<br/>backend/vercel.json"]
+subgraph "Railway/Cloudflare Pages Platform"
+C["Static Site Generation<br/>Railway/Cloudflare Pages.json builds/routes"]
+D["Backend (Node)<br/>backend/Railway/Cloudflare Pages.json"]
 end
 subgraph "Backend Runtime"
 E["NestJS App<br/>backend/src/main.ts"]
@@ -63,60 +63,60 @@ E --> G
 ```
 
 **Diagram sources**
-- [vercel.json](file://vercel.json#L1-L12)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 
 **Section sources**
-- [vercel.json](file://vercel.json#L1-L12)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [pubspec.yaml](file://pubspec.yaml#L1-L128)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 
 ## Core Components
-- Static frontend deployment via Vercel with SSG configuration and route handling
-- Backend deployment via Vercel Functions using Node builder
+- Static frontend deployment via Railway/Cloudflare Pages with SSG configuration and route handling
+- Backend deployment via Railway/Cloudflare Pages Functions using Node builder
 - Environment variable management for both frontend and backend
 - CI/CD pipeline with automated testing, staging, and production deployment
 - Supabase integration for authentication and database
 - Optional Cloudflare R2 for media/image storage
 
 **Section sources**
-- [vercel.json](file://vercel.json#L1-L12)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [.env.example](file://.env.example#L1-L68)
 - [backend/.env.example](file://backend/.env.example#L1-L40)
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L15-L42)
 
 ## Architecture Overview
-The deployment architecture integrates frontend and backend on Vercel, with Supabase and optional R2 for storage. The CI/CD pipeline automates quality gates and deploys to staging and production environments.
+The deployment architecture integrates frontend and backend on Railway/Cloudflare Pages, with Supabase and optional R2 for storage. The CI/CD pipeline automates quality gates and deploys to staging and production environments.
 
 ```mermaid
 sequenceDiagram
 participant Dev as "Developer"
 participant GH as "GitHub Actions"
-participant Vercel as "Vercel"
+participant Railway/Cloudflare Pages as "Railway/Cloudflare Pages"
 participant Supabase as "Supabase"
 participant R2 as "Cloudflare R2"
 Dev->>GH : Push/Pull Request to dev/main
 GH->>GH : Run Flutter/NestJS tests and builds
-GH->>Vercel : Deploy frontend (staging on dev, prod on main)
-GH->>Vercel : Deploy backend (functions)
-Vercel->>Supabase : Connect for auth/db
-Vercel->>R2 : Store/retrieve assets (optional)
-Vercel-->>Dev : Deployment URL and logs
+GH->>Railway/Cloudflare Pages : Deploy frontend (staging on dev, prod on main)
+GH->>Railway/Cloudflare Pages : Deploy backend (functions)
+Railway/Cloudflare Pages->>Supabase : Connect for auth/db
+Railway/Cloudflare Pages->>R2 : Store/retrieve assets (optional)
+Railway/Cloudflare Pages-->>Dev : Deployment URL and logs
 ```
 
 **Diagram sources**
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L17-L42)
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
-- [vercel.json](file://vercel.json#L1-L12)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 
 ## Detailed Component Analysis
 
-### Vercel Frontend Deployment (Flutter Web)
+### Railway/Cloudflare Pages Frontend Deployment (Flutter Web)
 - Static site generation configuration:
   - Builds: Uses a static builder for the Flutter web output directory
   - Routes: Generic catch-all route forwarding
@@ -126,33 +126,33 @@ Vercel-->>Dev : Deployment URL and logs
   - Loaded at runtime from assets/.env during app initialization
   - Required keys validated by EnvService
 - Base href and routing:
-  - index.html uses a placeholder base href suitable for Vercel’s routing
+  - index.html uses a placeholder base href suitable for Cloudflare Pages' routing
 - Build command:
   - Flutter build web --release performed in CI
 
 ```mermaid
 flowchart TD
 Start(["CI Build"]) --> FlutterBuild["flutter build web --release"]
-FlutterBuild --> VercelConfig["vercel.json SSG config"]
-VercelConfig --> Deploy["Vercel Deploy"]
+FlutterBuild --> CloudflarePagesConfig["Railway/Cloudflare Pages.json SSG config"]
+CloudflarePagesConfig --> Deploy["Railway/Cloudflare Pages Deploy"]
 Deploy --> RuntimeEnv["Load assets/.env at startup"]
 RuntimeEnv --> Serve["Serve static SPA"]
 ```
 
 **Diagram sources**
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [web/index.html](file://web/index.html#L17)
 - [lib/main.dart](file://lib/main.dart#L20-L25)
 - [lib/shared/services/env_service.dart](file://lib/shared/services/env_service.dart#L1-L72)
 
 **Section sources**
-- [vercel.json](file://vercel.json#L1-L12)
+- [Railway/Cloudflare Pages.json](file://Railway/Cloudflare Pages.json#L1-L12)
 - [web/index.html](file://web/index.html#L17)
 - [lib/main.dart](file://lib/main.dart#L20-L25)
 - [lib/shared/services/env_service.dart](file://lib/shared/services/env_service.dart#L1-L72)
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L46-L82)
 
-### Backend Deployment (NestJS on Vercel Functions)
+### Backend Deployment (NestJS on Railway/Cloudflare Pages Functions)
 - Builder and routes:
   - Node builder configured for src/main.ts
   - Catch-all route forwards to the entrypoint
@@ -168,25 +168,25 @@ RuntimeEnv --> Serve["Serve static SPA"]
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
-participant Vercel as "Vercel Functions"
+participant Railway/Cloudflare Pages as "Railway/Cloudflare Pages Functions"
 participant Nest as "NestJS main.ts"
 participant Supabase as "Supabase"
 participant R2 as "R2"
-Client->>Vercel : HTTP Request
-Vercel->>Nest : Invoke handler
+Client->>Railway/Cloudflare Pages : HTTP Request
+Railway/Cloudflare Pages->>Nest : Invoke handler
 Nest->>Supabase : Auth/DB operations
 Nest->>R2 : Upload/download assets (optional)
-Nest-->>Vercel : Response
-Vercel-->>Client : HTTP Response
+Nest-->>Railway/Cloudflare Pages : Response
+Railway/Cloudflare Pages-->>Client : HTTP Response
 ```
 
 **Diagram sources**
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [backend/.env.example](file://backend/.env.example#L1-L40)
 
 **Section sources**
-- [backend/vercel.json](file://backend/vercel.json#L1-L18)
+- [backend/Railway/Cloudflare Pages.json](file://backend/Railway/Cloudflare Pages.json#L1-L18)
 - [backend/src/main.ts](file://backend/src/main.ts#L13-L46)
 - [backend/.env.example](file://backend/.env.example#L1-L40)
 
@@ -198,14 +198,14 @@ Vercel-->>Client : HTTP Response
 - Backend:
   - Supabase and R2 configuration via environment variables
   - Example template in backend/.env.example
-- Vercel:
-  - Environment variables managed via Vercel dashboard or CLI
-  - Secrets stored securely on Vercel platform
+- Railway/Cloudflare Pages:
+  - Environment variables managed via Railway/Cloudflare Pages dashboard or CLI
+  - Secrets stored securely on Railway/Cloudflare Pages platform
 
 ```mermaid
 flowchart TD
 EnvExample[".env.example<br/>.env.template"] --> AssetsEnv["assets/.env<br/>runtime-loaded"]
-VercelEnv["Vercel Dashboard/CLI<br/>secrets"] --> RuntimeEnv["Runtime env vars"]
+RailwayEnv["Railway/Cloudflare Pages Dashboard/CLI<br/>secrets"] --> RuntimeEnv["Runtime env vars"]
 RuntimeEnv --> EnvService["EnvService.validate()"]
 EnvService --> Supabase["Supabase Config"]
 EnvService --> R2["R2 Config (optional)"]
@@ -216,14 +216,14 @@ EnvService --> R2["R2 Config (optional)"]
 - [lib/shared/services/env_service.dart](file://lib/shared/services/env_service.dart#L48-L70)
 - [lib/main.dart](file://lib/main.dart#L20-L25)
 - [backend/.env.example](file://backend/.env.example#L1-L40)
-- [VERCEL_DEPLOY.md](file://VERCEL_DEPLOY.md#L33-L46)
+- [RAILWAY_CLOUDFLARE_DEPLOY.md](file://RAILWAY_CLOUDFLARE_DEPLOY.md#L33-L46)
 
 **Section sources**
 - [.env.example](file://.env.example#L1-L68)
 - [lib/shared/services/env_service.dart](file://lib/shared/services/env_service.dart#L1-L72)
 - [lib/main.dart](file://lib/main.dart#L20-L25)
 - [backend/.env.example](file://backend/.env.example#L1-L40)
-- [VERCEL_DEPLOY.md](file://VERCEL_DEPLOY.md#L33-L46)
+- [RAILWAY_CLOUDFLARE_DEPLOY.md](file://RAILWAY_CLOUDFLARE_DEPLOY.md#L33-L46)
 
 ### CI/CD Pipeline and Deployment Triggers
 - Stages:
@@ -263,10 +263,10 @@ Health --> Monitor["Monitor (2 hours)"]
 ### Multi-Environment Deployment Strategies
 - Development (local):
   - Local Supabase instance, hot reload, debug logging, mock data
-- Staging (Vercel Preview):
+- Staging (Railway/Cloudflare Pages Preview):
   - Separate Supabase staging database, anonymized data, analytics and Sentry in test mode
   - Auto-deploy on merge to dev
-- Production (Vercel):
+- Production (Railway/Cloudflare Pages):
   - Production Supabase database, full analytics and Sentry, all security measures
   - Manual merge to main with approvals required
 
@@ -276,7 +276,7 @@ Health --> Monitor["Monitor (2 hours)"]
 ### Rollback Procedures
 - Immediate rollback triggers:
   - Error rate > threshold, critical feature failure, data corruption, security vulnerability
-- Application rollback (Vercel):
+- Application rollback (Railway/Cloudflare Pages):
   - Dashboard or CLI promotion of previous stable deployment
 - Database migration rollback:
   - Rollback scripts executed and verified in staging prior to production
@@ -288,18 +288,18 @@ Health --> Monitor["Monitor (2 hours)"]
 
 ### Domain Configuration, SSL, and Load Balancing
 - Domains and URLs:
-  - Frontend URL and backend URL configured in Vercel and .env
+  - Frontend URL and backend URL configured in Railway/Cloudflare Pages and .env
   - Example URLs documented in deployment guide
 - SSL:
-  - Vercel provides free TLS termination; ensure DNS records point to Vercel
+  - Railway/Cloudflare Pages provides free TLS termination; ensure DNS records point to Railway/Cloudflare Pages
 - Load balancing:
-  - Vercel’s global edge network distributes traffic; no manual load balancer required
+  - Cloudflare Pages' global edge network distributes traffic; no manual load balancer required
 - CORS:
   - Backend enables CORS for development and production origins; ensure frontend origin matches
 
 **Section sources**
-- [VERCEL_DEPLOY.md](file://VERCEL_DEPLOY.md#L10-L11)
-- [VERCEL_DEPLOY.md](file://VERCEL_DEPLOY.md#L33-L46)
+- [RAILWAY_CLOUDFLARE_DEPLOY.md](file://RAILWAY_CLOUDFLARE_DEPLOY.md#L10-L11)
+- [RAILWAY_CLOUDFLARE_DEPLOY.md](file://RAILWAY_CLOUDFLARE_DEPLOY.md#L33-L46)
 - [backend/.env.example](file://backend/.env.example#L23)
 - [backend/src/main.ts](file://backend/src/main.ts#L19-L24)
 
@@ -312,7 +312,7 @@ Health --> Monitor["Monitor (2 hours)"]
   - Optional R2 for assets
 - CI/CD depends on:
   - GitHub Actions workflows for Flutter and NestJS
-  - Vercel for deployment and environment management
+  - Railway/Cloudflare Pages for deployment and environment management
 
 ```mermaid
 graph LR
@@ -322,9 +322,9 @@ BE["NestJS Backend"] --> Supabase
 BE --> R2
 CI["GitHub Actions"] --> FE
 CI --> BE
-CI --> Vercel["Vercel Deployment"]
-Vercel --> FE
-Vercel --> BE
+CI --> Railway/Cloudflare Pages["Railway/Cloudflare Pages Deployment"]
+Railway/Cloudflare Pages --> FE
+Railway/Cloudflare Pages --> BE
 ```
 
 **Diagram sources**
@@ -340,10 +340,10 @@ Vercel --> BE
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L17-L42)
 
 ## Performance Considerations
-- Optimize Flutter build for production and enable compression on Vercel
+- Optimize Flutter build for production and enable compression on Railway/Cloudflare Pages
 - Minimize backend cold starts by keeping functions lean and preloading dependencies
 - Use Supabase connection pooling and R2 for efficient asset delivery
-- Monitor Vercel Analytics and Sentry for performance regressions
+- Monitor Railway/Cloudflare Pages Analytics and Sentry for performance regressions
 
 [No sources needed since this section provides general guidance]
 
@@ -352,18 +352,18 @@ Vercel --> BE
   - Check GitHub Actions logs, reproduce locally with flutter build web or npm run build
   - Resolve dependency conflicts
 - Migration fails in production:
-  - Inspect migration logs in Vercel, rollback migration, fix script, redeploy
-- Vercel deployment stuck:
-  - Check Vercel status, cancel and retry, contact support if persistent
+  - Inspect migration logs in Railway/Cloudflare Pages, rollback migration, fix script, redeploy
+- Railway/Cloudflare Pages deployment stuck:
+  - Check Railway/Cloudflare Pages status, cancel and retry, contact support if persistent
 - API requests failing:
   - Verify backend URL environment variables and CORS configuration
 
 **Section sources**
 - [PRD/prd_deployment.md](file://PRD/prd_deployment.md#L608-L637)
-- [VERCEL_DEPLOY.md](file://VERCEL_DEPLOY.md#L88-L107)
+- [RAILWAY_CLOUDFLARE_DEPLOY.md](file://RAILWAY_CLOUDFLARE_DEPLOY.md#L88-L107)
 
 ## Conclusion
-ZerpAI ERP follows a robust, automated deployment strategy leveraging Vercel for both frontend and backend, with Supabase and optional R2 for data and assets. The CI/CD pipeline enforces quality gates and supports safe production releases with clear rollback procedures. Proper environment variable management and domain/SSL configuration ensure secure and reliable operation across environments.
+ZerpAI ERP follows a robust, automated deployment strategy leveraging Railway/Cloudflare Pages for both frontend and backend, with Supabase and optional R2 for data and assets. The CI/CD pipeline enforces quality gates and supports safe production releases with clear rollback procedures. Proper environment variable management and domain/SSL configuration ensure secure and reliable operation across environments.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -379,10 +379,11 @@ ZerpAI ERP follows a robust, automated deployment strategy leveraging Vercel for
 - [.env.example](file://.env.example#L1-L68)
 - [backend/.env.example](file://backend/.env.example#L1-L40)
 
-### Appendix B: Vercel Deployment Commands
+### Appendix B: Railway/Cloudflare Pages Deployment Commands
 - Deploy to preview or production
 - View logs and list deployments
 - Force rebuild to clear cache
 
 **Section sources**
-- [VERCEL_DEPLOY.md](file://VERCEL_DEPLOY.md#L69-L86)
+- [RAILWAY_CLOUDFLARE_DEPLOY.md](file://RAILWAY_CLOUDFLARE_DEPLOY.md#L69-L86)
+

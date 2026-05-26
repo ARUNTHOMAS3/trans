@@ -12,6 +12,230 @@
 - [004_add_track_serial_number.sql](file://supabase/migrations/004_add_track_serial_number.sql)
 </cite>
 
+## 0. Process Workflows (System Source of Truth)
+
+These workflows define the inter-branch and financial synchronization logic for inventory.
+
+### 0.1 Store to Store Transfer Workflow
+
+#### Mermaid Diagram
+```mermaid
+graph TD
+    dqUQsr5I1gpn["OUTLET A_Create Product Requirement Request"] --> dqUQgSZ_e3Vi["Send Request to Outlet B"]
+    dqUQgSZ_e3Vi["Send Request to Outlet B"] --> eqUQz5wCBK1F["Review Request"]
+    eqUQz5wCBK1F["Review Request"] --> eqUQ2v2Z65hs["{Approve request?}"]
+    eqUQ2v2Z65hs["{Approve request?}"] -->|Entry-wise: Approve| eqUQ1gbc89XM["Raise Purchase Return Request to HO"]
+    eqUQ1gbc89XM["Raise Purchase Return Request to HO"] --> eqUQ~ugs0EB4["Review Purchase Return Request"]
+    eqUQ~ugs0EB4["Review Purchase Return Request"] --> eqUQcqV2-A9T["{HO approves purchase return?}"]
+    eqUQcqV2-A9T["{HO approves purchase return?}"] -->|Yes| eqUQZ46xTSCY["_Auto Convert to Sales RETURN and Credit Note"]
+    eqUQZ46xTSCY["_Auto Convert to Sales RETURN and Credit Note"] --> eqUQ22vuMGcw["Auto Convert to Invoice for Outlet A"]
+    eqUQ22vuMGcw["Auto Convert to Invoice for Outlet A"] --> eqUQu65RykJc["Dispatch Items from Outlet B"]
+    eqUQu65RykJc["Dispatch Items from Outlet B"] --> dqUQw4_XDqIS["Receive Items at Outlet A"]
+    dqUQw4_XDqIS["Receive Items at Outlet A"] --> eqUQrquGWeAG["Complete Transfer and Settlement"]
+```
+
+#### Written Workflow
+- **Initiation:** Start -> OUTLET A_Create Product Requirement Request -> Send Request to Outlet B.
+- **Review:** Review Request -> {Approve request?}.
+- **HO Intervention:** {Approve request?} (Approve) -> Raise Purchase Return Request to HO -> Review Purchase Return Request -> {HO approves purchase return?}.
+- **Conversion:** {HO approves purchase return?} (Yes) -> _Auto Convert to Sales RETURN and Credit Note -> Auto Convert to Invoice for Outlet A.
+- **Execution:** Dispatch Items from Outlet B -> Receive Items at Outlet A -> Complete Transfer and Settlement -> End.
+
+### 0.2 Auto Payment Ledger Workflow (Branch to HO)
+
+#### Mermaid Diagram
+```mermaid
+graph TD
+    08TQTIFFSvbx["Start"] --> 08TQ74X9E89D["Send  Purchase Bill to Outlet"]
+    08TQ74X9E89D["Send  Purchase Bill to Outlet"] --> 08TQ7f4WN0Lm["Receive Bill from HO"]
+    08TQ7f4WN0Lm["Receive Bill from HO"] --> 08TQLzeYozmi["Review Bill and Decide Payment Amount"]
+    08TQLzeYozmi["Review Bill and Decide Payment Amount"] --> 08TQsATBiqyB["Payment Type?"]
+    08TQsATBiqyB["Payment Type?"] -->|Full| 08TQeVOREMPQ["Pay Full Bill Amount"]
+    08TQsATBiqyB["Payment Type?"] -->|Partial| 08TQ4C0yRPga["Pay Partial Bill Amount"]
+    08TQeVOREMPQ["Pay Full Bill Amount"] --> 08TQxrpYwy6d["HO will post the payment recived entry"]
+    08TQ4C0yRPga["Pay Partial Bill Amount"] --> 08TQxrpYwy6d["HO will post the payment recived entry"]
+    08TQxrpYwy6d["HO will post the payment recived entry"] --> 08TQcWBEVo8I["Automatically Post Payment made Entry in outlet"]
+    08TQcWBEVo8I["Automatically Post Payment made Entry in outlet"] --> 08TQZn4kmVcz["Accounts synchronized: HO & Outlet entries kept identical"]
+```
+
+- **Synchronization:** Automatically Post Payment made Entry in outlet -> Accounts synchronized: HO & Outlet entries kept identical -> End.
+
+### 0.3 Detailed Module Workflows
+
+#### Mermaid Diagram
+```mermaid
+graph TD
+    buqPy5TtCGY3["Enter Bill"] --> buqPYGJxOZ.a["Generate Picklist"]
+    mjqPtrNA3skL["Prepare Estimate(quatation) (Optional)"] --> mjqPfppiCHhQ["Accepted Estimate"]
+    I7qPnk.-EOze["Delivered Order"] --> I7qPxeoquyCe["Sales Return Created"]
+    mjqPVNHxq822["Shipment"] --> mjqPIjMbAlVd["Create Invoice"]
+    I7qPAfZ.2~V3["Picklist Created"] --> I7qPgikgbVOd["Package Created"]
+    mjqPFmPQFoKc["Stock Available?"] -->|No| mjqPbCv-u7T.["Create Purchase Order"]
+    I7qPg8coFvX2["Shipment Created"] -->|Full| I7qPpXHXEXSI["Full Delivery → Invoice → Paid"]
+    I7qP6KmGTpyo["Purchase Request (Auto/Manual)"] --> I7qPnxCeAvI6["Purchase Order (PO)"]
+    I7qP5yaI5Whc["Vendor Bill Recorded"] --> I7qPvpJ2rdes["Vendor Payment"]
+    mjqPFmPQFoKc["Stock Available?"] -->|Yes| mjqPaCwgd8la["Create Picklist"]
+    I7qPnxCeAvI6["Purchase Order (PO)"] --> I7qPu4fvknrp["purchase recieves"]
+    H7qP1SrqFnHn["Customer Request"] --> J7qPc~n_hB9-["Customer Advance / Retainer Invoice"]
+    J7qPT9TewTDW["Adjust with Future Bills"] --> I7qP5yaI5Whc["Vendor Bill Recorded"]
+    I7qP7rTcjhq7["Goods Received Back (Stock Increased)"] --> I7qPXZbleBXA["Credit Note Issued"]
+    buqPxz._cO26["Package Items"] --> buqP65XRq6S9["Shipment"]
+    buqPirUNPn-9["Start"] --> buqPzmxJR1kJ["Sales Order (SO)"]
+    buqPhU6F-7v1["Raise Purchase Order to Vendor"] --> buqPvgTHmTqO["Purchase Receives"]
+    mjqPaCwgd8la["Create Picklist"] --> mjqPKrZ4wRni["Package Items"]
+    mjqPKrZ4wRni["Package Items"] --> mjqPVNHxq822["Shipment"]
+    I7qPiy6V36EB["Return to Supplier(purchase return)"] --> I7qP2dcMI8xC["Vendor Credit Note"]
+    I7qPXZbleBXA["Credit Note Issued"] --> I7qPozU2NqGz["Customer: Refund or Apply as Credit?"]
+    I7qPERxUTw2u["Confirm Sales Order"] --> I7qPOKpm5kj1["Check Stock Availability"]
+    I7qPXZbleBXA["Credit Note Issued"] -->|NON ACTIVE GOODS| I7qPiy6V36EB["Return to Supplier(purchase return)"]
+    mjqP1xHdO1E9["Enter Vendor Bills"] --> mjqPaCwgd8la["Create Picklist"]
+    mjqPUawRGLYw["Customer Request"] --> mjqP5lyV3J5.["Create Sales Order"]
+    I7qPnk.-EOze["Delivered Order"] --> I7qPxeoquyCe["Sales Return Created"]
+    I7qPOKpm5kj1["Check Stock Availability"] -->|Stock Available| I7qPAfZ.2~V3["Picklist Created"]
+    I7qPILDwd0Dm["Refund Processed"] --> J7qPEbfuRYW8["End"]
+    buqP65XRq6S9["Shipment"] --> cuqP9rv4MwQI["invoice"]
+    mjqPbCv-u7T.["Create Purchase Order"] --> mjqP2VHa7dsB["Receive Purchased Items(PURCHASE RECIEVE)"]
+    I7qP_0dpnDh6["Create Sales Order (SO)"] --> I7qPERxUTw2u["Confirm Sales Order"]
+    I7qPNHu-IcmK["Mark as Delivered"] -->|if reject| I7qPnk.-EOze["Delivered Order"]
+    I7qPg80M2_n2["PAID"] --> J7qPEbfuRYW8["End"]
+    H7qPyX5DprAq["Start"] --> H7qP1SrqFnHn["Customer Request"]
+    mjqP2VHa7dsB["Receive Purchased Items(PURCHASE RECIEVE)"] --> mjqP1xHdO1E9["Enter Vendor Bills"]
+    I7qPxeoquyCe["Sales Return Created"] --> I7qP7rTcjhq7["Goods Received Back (Stock Increased)"]
+    I7qPXZbleBXA["Credit Note Issued"] -->|ACTIVE STOCK| j7ZPSohrRueb["transfer orders"]
+    I7qPNHu-IcmK["Mark as Delivered"] -->|if accept| I7qPYZANBrm9["Invoice Created (Draft)"]
+    buqPvgTHmTqO["Purchase Receives"] --> buqPy5TtCGY3["Enter Bill"]
+    I7qP-brN8NSh["Stock Increased + Batch Created"] --> I7qP5yaI5Whc["Vendor Bill Recorded"]
+    I7qP03kSnnC5["Applied as Credit to Future Invoice"] --> I7qPYZANBrm9["Invoice Created (Draft)"]
+    I7qPPaZWr1P7["Vendor: Refund or Adjust with Future Bills?"] -->|Adjust| J7qPT9TewTDW["Adjust with Future Bills"]
+    J7qPc~n_hB9-["Customer Advance / Retainer Invoice"] --> J7qPPEN8kGiM["Advance Payment Received"]
+    I7qP1Lo89wdo["Invoice Sent"] --> I7qPnr0JdP3e["Payment Received"]
+    cuqPYyXFC3.1["Stock available?"] -->||Stocked|| buqPYGJxOZ.a["Generate Picklist"]
+    I7qPYZANBrm9["Invoice Created (Draft)"] --> I7qP1Lo89wdo["Invoice Sent"]
+    I7qPg8coFvX2["Shipment Created"] -->|Partial| I7qPREBC.DHs["Partial Delivery → Partial Invoice + Backorder"]
+    buqPYGJxOZ.a["Generate Picklist"] --> buqPxz._cO26["Package Items"]
+    I7qPvpJ2rdes["Vendor Payment"] --> I7qPYZANBrm9["Invoice Created (Draft)"]
+    mjqPpRxjpX9P["Start"] --> mjqPUawRGLYw["Customer Request"]
+    I7qP5yaI5Whc["Vendor Bill Recorded"] --> I7qPYZANBrm9["Invoice Created (Draft)"]
+    I7qPOKpm5kj1["Check Stock Availability"] -->|Stock Not Available| I7qP6KmGTpyo["Purchase Request (Auto/Manual)"]
+    H7qPmUu0~2eO["Accepted Estimate"] --> I7qP_0dpnDh6["Create Sales Order (SO)"]
+    I7qPu4fvknrp["purchase recieves"] --> I7qP-brN8NSh["Stock Increased + Batch Created"]
+    I7qP2dcMI8xC["Vendor Credit Note"] --> I7qPPaZWr1P7["Vendor: Refund or Adjust with Future Bills?"]
+    mjqPbf9BTnZV["Confirm Sales Order"] --> mjqPFmPQFoKc["Stock Available?"]
+    I7qPu4fvknrp["purchase recieves"] --> I7qP-brN8NSh["Stock Increased + Batch Created"]
+    H7qP1SrqFnHn["Customer Request"] --> H7qPZ1teyN7w["Estimate(QUOTES) (Optional)"]
+    buqPy5TtCGY3["Enter Bill"] --> cuqP9rv4MwQI["invoice"]
+    J7qPFt6~Z7fA["Stored as Customer Credit"] --> J7qPv3wCRTGf["Auto Apply to Future Invoices"]
+    mjqPfppiCHhQ["Accepted Estimate"] --> mjqP5lyV3J5.["Create Sales Order"]
+    I7qPozU2NqGz["Customer: Refund or Apply as Credit?"] -->|Apply as Credit| I7qP03kSnnC5["Applied as Credit to Future Invoice"]
+    J7qPPEN8kGiM["Advance Payment Received"] --> J7qPFt6~Z7fA["Stored as Customer Credit"]
+    I7qPu4fvknrp["purchase recieves"] --> I7qPAfZ.2~V3["Picklist Created"]
+    J7qP~l_JrJsc["Vendor Refund"] --> J7qPEbfuRYW8["End"]
+    H7qPZ1teyN7w["Estimate(QUOTES) (Optional)"] --> H7qPmUu0~2eO["Accepted Estimate"]
+    mjqP5lyV3J5.["Create Sales Order"] --> mjqPbf9BTnZV["Confirm Sales Order"]
+    mjqP98BFcWvy["Receive Payment"] --> mjqPcZ9LOf0e["End"]
+    H7qP1SrqFnHn["Customer Request"] --> I7qP_0dpnDh6["Create Sales Order (SO)"]
+    I7qPnr0JdP3e["Payment Received"] --> I7qPg80M2_n2["PAID"]
+    J7qPv3wCRTGf["Auto Apply to Future Invoices"] --> I7qPYZANBrm9["Invoice Created (Draft)"]
+    mjqPUawRGLYw["Customer Request"] --> mjqPtrNA3skL["Prepare Estimate(quatation) (Optional)"]
+    buqPzmxJR1kJ["Sales Order (SO)"] --> cuqPYyXFC3.1["Stock available?"]
+    I7qPRWhz6a0T["Failed Delivery → Return Entry"] --> I7qPxeoquyCe["Sales Return Created"]
+    cuqPYyXFC3.1["Stock available?"] -->||Non-stocked|| buqPhU6F-7v1["Raise Purchase Order to Vendor"]
+    I7qPozU2NqGz["Customer: Refund or Apply as Credit?"] -->|Refund| I7qPILDwd0Dm["Refund Processed"]
+    mjqPIjMbAlVd["Create Invoice"] --> mjqP98BFcWvy["Receive Payment"]
+    I7qPg8coFvX2["Shipment Created"] -->|Failed| I7qPRWhz6a0T["Failed Delivery → Return Entry"]
+    I7qPg8coFvX2["Shipment Created"] --> I7qPvP8H2Xey["Delivery Challan (Optional)"]
+    I7qPvP8H2Xey["Delivery Challan (Optional)"] --> I7qPNHu-IcmK["Mark as Delivered"]
+    I7qPgikgbVOd["Package Created"] --> I7qPg8coFvX2["Shipment Created"]
+    I7qPPaZWr1P7["Vendor: Refund or Adjust with Future Bills?"] -->|Refund| J7qP~l_JrJsc["Vendor Refund"]
+```
+
+#### Written Workflow
+- **Enter Bill** -> Generate Picklist
+- **Prepare Estimate(quatation) (Optional)** -> Accepted Estimate
+- **Delivered Order** -> Sales Return Created
+- **Shipment** -> Create Invoice
+- **Picklist Created** -> Package Created
+- **Stock Available? (No)** -> Create Purchase Order
+- **Shipment Created (Full)** -> Full Delivery → Invoice → Paid
+- **Purchase Request (Auto/Manual)** -> Purchase Order (PO)
+- **Vendor Bill Recorded** -> Vendor Payment
+- **Stock Available? (Yes)** -> Create Picklist
+- **Purchase Order (PO)** -> purchase recieves
+- **Customer Request** -> Customer Advance / Retainer Invoice
+- **Adjust with Future Bills** -> Vendor Bill Recorded
+- **Goods Received Back (Stock Increased)** -> Credit Note Issued
+- **Package Items** -> Shipment
+- **Start** -> Sales Order (SO)
+- **Raise Purchase Order to Vendor** -> Purchase Receives
+- **Create Picklist** -> Package Items
+- **Package Items** -> Shipment
+- **Return to Supplier(purchase return)** -> Vendor Credit Note
+- **Credit Note Issued** -> Customer: Refund or Apply as Credit?
+- **Confirm Sales Order** -> Check Stock Availability
+- **Credit Note Issued (NON ACTIVE GOODS)** -> Return to Supplier(purchase return)
+- **Enter Vendor Bills** -> Create Picklist
+- **Customer Request** -> Create Sales Order
+- **Delivered Order** -> Sales Return Created
+- **Check Stock Availability (Stock Available)** -> Picklist Created
+- **Refund Processed** -> End
+- **Shipment** -> invoice
+- **Create Purchase Order** -> Receive Purchased Items(PURCHASE RECIEVE)
+- **Create Sales Order (SO)** -> Confirm Sales Order
+- **Mark as Delivered (if reject)** -> Delivered Order
+- **PAID** -> End
+- **Start** -> Customer Request
+- **Receive Purchased Items(PURCHASE RECIEVE)** -> Enter Vendor Bills
+- **Sales Return Created** -> Goods Received Back (Stock Increased)
+- **Credit Note Issued (ACTIVE STOCK)** -> transfer orders
+- **Mark as Delivered (if accept)** -> Invoice Created (Draft)
+- **Purchase Receives** -> Enter Bill
+- **Stock Increased + Batch Created** -> Vendor Bill Recorded
+- **Applied as Credit to Future Invoice** -> Invoice Created (Draft)
+- **Vendor: Refund or Adjust with Future Bills? (Adjust)** -> Adjust with Future Bills
+- **Customer Advance / Retainer Invoice** -> Advance Payment Received
+- **Invoice Sent** -> Payment Received
+- **Stock available? (Stocked)** -> Generate Picklist
+- **Invoice Created (Draft)** -> Invoice Sent
+- **Shipment Created (Partial)** -> Partial Delivery → Partial Invoice + Backorder
+- **Generate Picklist** -> Package Items
+- **Vendor Payment** -> Invoice Created (Draft)
+- **Start** -> Customer Request
+- **Vendor Bill Recorded** -> Invoice Created (Draft)
+- **Check Stock Availability (Stock Not Available)** -> Purchase Request (Auto/Manual)
+- **Accepted Estimate** -> Create Sales Order (SO)
+- **purchase recieves** -> Stock Increased + Batch Created
+- **Vendor Credit Note** -> Vendor: Refund or Adjust with Future Bills?
+- **Confirm Sales Order** -> Stock Available?
+- **purchase recieves** -> Stock Increased + Batch Created
+- **Customer Request** -> Estimate(QUOTES) (Optional)
+- **Enter Bill** -> invoice
+- **Stored as Customer Credit** -> Auto Apply to Future Invoices
+- **Accepted Estimate** -> Create Sales Order
+- **Customer: Refund or Apply as Credit? (Apply as Credit)** -> Applied as Credit to Future Invoice
+- **Advance Payment Received** -> Stored as Customer Credit
+- **purchase recieves** -> Picklist Created
+- **Vendor Refund** -> End
+- **Estimate(QUOTES) (Optional)** -> Accepted Estimate
+- **Create Sales Order** -> Confirm Sales Order
+- **Receive Payment** -> End
+- **Customer Request** -> Create Sales Order (SO)
+- **Payment Received** -> PAID
+- **Auto Apply to Future Invoices** -> Invoice Created (Draft)
+- **Customer Request** -> Prepare Estimate(quatation) (Optional)
+- **Sales Order (SO)** -> Stock available?
+- **Failed Delivery → Return Entry** -> Sales Return Created
+- **Stock available? (Non-stocked)** -> Raise Purchase Order to Vendor
+- **Customer: Refund or Apply as Credit? (Refund)** -> Refund Processed
+- **Create Invoice** -> Receive Payment
+- **Shipment Created (Failed)** -> Failed Delivery → Return Entry
+- **Shipment Created** -> Delivery Challan (Optional)
+- **Delivery Challan (Optional)** -> Mark as Delivered
+- **Package Created** -> Shipment Created
+- **Vendor: Refund or Adjust with Future Bills? (Refund)** -> Vendor Refund
+
+---
+
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)

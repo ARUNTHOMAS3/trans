@@ -141,6 +141,20 @@
       "when": 1776852291089,
       "tag": "0019_old_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1777285403859,
+      "tag": "0020_jittery_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1777558430499,
+      "tag": "0021_common_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

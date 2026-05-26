@@ -22,7 +22,9 @@
 		"test:e2e": "jest --config ./test/jest-e2e.json",
 		"db:generate": "drizzle-kit generate",
 		"db:push": "drizzle-kit push",
-		"db:pull": "drizzle-kit pull"
+		"db:pull": "drizzle-kit pull",
+		"db:pull:safe": "powershell -ExecutionPolicy Bypass -File ./scripts/db-pull-safe.ps1",
+		"db:pull:insecure": "powershell -ExecutionPolicy Bypass -File ./scripts/db-pull-safe.ps1 -Insecure"
 	},
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.1004.0",
@@ -39,7 +41,7 @@
 		"@sentry/nestjs": "^10.47.0",
 		"@supabase/supabase-js": "^2.39.0",
 		"@upstash/redis": "^1.37.0",
-		"axios": "^1.15.0",
+		"axios": "^1.16.0",
 		"bullmq": "^5.73.0",
 		"class-transformer": "^0.5.1",
 		"class-validator": "^0.14.0",
@@ -96,4 +98,3 @@
 		"testEnvironment": "node"
 	}
 }
-

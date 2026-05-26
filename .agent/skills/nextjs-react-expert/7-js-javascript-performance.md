@@ -1,4 +1,4 @@
-# 7. JavaScript Performance
+﻿# 7. JavaScript Performance
 
 > **Impact:** LOW-MEDIUM
 > **Focus:** Micro-optimizations for hot paths can add up to meaningful improvements.
@@ -153,7 +153,7 @@ function processOrders(orders: Order[], users: User[]) {
 ```
 
 Build map once (O(n)), then all lookups are O(1).
-For 1000 orders × 1000 users: 1M ops → 2K ops.
+For 1000 orders Ã— 1000 users: 1M ops â†’ 2K ops.
 
 ---
 
@@ -166,7 +166,7 @@ For 1000 orders × 1000 users: 1M ops → 2K ops.
 
 Cache object property lookups in hot paths.
 
-**Incorrect (3 lookups × N iterations):**
+**Incorrect (3 lookups Ã— N iterations):**
 
 ```typescript
 for (let i = 0; i < arr.length; i++) {
@@ -263,7 +263,7 @@ function onAuthChange() {
 
 Use a Map (not a hook) so it works everywhere: utilities, event handlers, not just React components.
 
-Reference: [How we made the Vercel Dashboard twice as fast](https://vercel.com/blog/how-we-made-the-vercel-dashboard-twice-as-fast)
+Reference: [How we made the Railway/Cloudflare Pages Dashboard twice as fast](https://Railway/Cloudflare Pages.com/blog/how-we-made-the-Railway/Cloudflare Pages-dashboard-twice-as-fast)
 
 ---
 
@@ -681,4 +681,5 @@ const sorted = [...items].sort((a, b) => a.value - b.value)
 - `.toReversed()` - immutable reverse
 - `.toSpliced()` - immutable splice
 - `.with()` - immutable element replacement
+
 

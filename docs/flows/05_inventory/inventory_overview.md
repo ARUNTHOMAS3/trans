@@ -12,6 +12,7 @@ graph TD
     INV --> PKG[packages/\nPackages]
     INV --> SHIP[shipments/\nShipments]
     INV --> TR[transfer_orders/\nTransfer Orders]
+    INV --> MO[move_orders/\nMove Orders]
 
     ASSM --> ASSM_M[inventory_adjustment_model.dart\nstock_model.dart]
     ASSM --> ASSM_R[adjustments_repository.dart\nstock_repository.dart]
@@ -51,9 +52,11 @@ graph LR
     BASE --> D[/packages]
     BASE --> E[/shipments]
     BASE --> F[/transfer-orders]
+    BASE --> G[/move-orders]
 
     A --> A1[list]
     A --> A2[/create]
     F --> F1[list]
     F --> F2[/create]
+    G --> G1[list]
 ```

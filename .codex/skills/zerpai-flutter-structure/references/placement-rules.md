@@ -31,7 +31,7 @@ lib/modules/<module>/
 - Feature screens: `<module>_<submodule>_<entity>_<page>.dart` where practical.
 - Examples:
   - `sales_customers_customer_creation.dart`
-  - `items_pricelist_pricelist_overview.dart`
+  - `pricelist_overview.dart`
   - `accountant_chart_of_accounts_creation.dart`
 
 ## Routing

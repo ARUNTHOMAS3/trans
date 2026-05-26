@@ -1,4 +1,4 @@
----
+﻿---
 name: deployment-procedures
 description: Production deployment principles and decision-making. Safe deployment workflows, rollback strategies, and verification. Teaches thinking, not scripts.
 allowed-tools: Read, Glob, Grep, Bash
@@ -11,7 +11,7 @@ allowed-tools: Read, Glob, Grep, Bash
 
 ---
 
-## ⚠️ How to Use This Skill
+## âš ï¸ How to Use This Skill
 
 This skill teaches **deployment principles**, not bash scripts to copy.
 
@@ -27,26 +27,26 @@ This skill teaches **deployment principles**, not bash scripts to copy.
 
 ```
 What are you deploying?
-│
-├── Static site / JAMstack
-│   └── Vercel, Netlify, Cloudflare Pages
-│
-├── Simple web app
-│   ├── Managed → Railway, Render, Fly.io
-│   └── Control → VPS + PM2/Docker
-│
-├── Microservices
-│   └── Container orchestration
-│
-└── Serverless
-    └── Edge functions, Lambda
+â”‚
+â”œâ”€â”€ Static site / JAMstack
+â”‚   â””â”€â”€ Railway/Cloudflare Pages, Netlify, Cloudflare Pages
+â”‚
+â”œâ”€â”€ Simple web app
+â”‚   â”œâ”€â”€ Managed â†’ Railway, Render, Fly.io
+â”‚   â””â”€â”€ Control â†’ VPS + PM2/Docker
+â”‚
+â”œâ”€â”€ Microservices
+â”‚   â””â”€â”€ Container orchestration
+â”‚
+â””â”€â”€ Serverless
+    â””â”€â”€ Edge functions, Lambda
 ```
 
 ### Each Platform Has Different Procedures
 
 | Platform | Deployment Method |
 |----------|------------------|
-| **Vercel/Netlify** | Git push, auto-deploy |
+| **Railway/Cloudflare Pages/Netlify** | Git push, auto-deploy |
 | **Railway/Render** | Git push or CLI |
 | **VPS + PM2** | SSH + manual steps |
 | **Docker** | Image push + orchestration |
@@ -84,19 +84,19 @@ What are you deploying?
 
 ```
 1. PREPARE
-   └── Verify code, build, env vars
+   â””â”€â”€ Verify code, build, env vars
 
 2. BACKUP
-   └── Save current state before changing
+   â””â”€â”€ Save current state before changing
 
 3. DEPLOY
-   └── Execute with monitoring open
+   â””â”€â”€ Execute with monitoring open
 
 4. VERIFY
-   └── Health check, logs, key flows
+   â””â”€â”€ Health check, logs, key flows
 
 5. CONFIRM or ROLLBACK
-   └── All good? Confirm. Issues? Rollback.
+   â””â”€â”€ All good? Confirm. Issues? Rollback.
 ```
 
 ### Phase Principles
@@ -146,7 +146,7 @@ What are you deploying?
 
 | Platform | Rollback Method |
 |----------|----------------|
-| **Vercel/Netlify** | Redeploy previous commit |
+| **Railway/Cloudflare Pages/Netlify** | Redeploy previous commit |
 | **Railway/Render** | Rollback in dashboard |
 | **VPS + PM2** | Restore backup, restart |
 | **Docker** | Previous image tag |
@@ -203,7 +203,7 @@ What are you deploying?
 
 ## 8. Anti-Patterns
 
-| ❌ Don't | ✅ Do |
+| âŒ Don't | âœ… Do |
 |----------|-------|
 | Deploy on Friday | Deploy early in week |
 | Rush deployment | Follow the process |
@@ -239,3 +239,4 @@ Before deploying:
 ---
 
 > **Remember:** Every deployment is a risk. Minimize risk through preparation, not speed.
+

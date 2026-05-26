@@ -1,4 +1,4 @@
-# Zerpai ERP Tech Stack PRD
+﻿# Zerpai ERP Tech Stack PRD
 **Last Updated: 2026-04-20 12:46:08**
 
 ## Edit Policy
@@ -8,7 +8,7 @@ Do not edit this PRD file unless explicitly requested by the user or team head.
 ## Last Reviewed
 
 - **Date:** 2026-04-04
-- **Review Basis:** `pubspec.yaml`, root `package.json`, `backend/package.json`, `lib/main.dart`, `lib/core/routing/app_router.dart`, `lib/core/services/api_client.dart`, `backend/src/main.ts`, `backend/api/index.ts`, `backend/drizzle.config.ts`, `vercel.json`, `backend/vercel.json`, `PRD/PRD.md`, and PRD supplement files.
+- **Review Basis:** `pubspec.yaml`, root `package.json`, `backend/package.json`, `lib/main.dart`, `lib/core/routing/app_router.dart`, `lib/core/services/api_client.dart`, `backend/src/main.ts`, `backend/api/index.ts`, `backend/drizzle.config.ts`, `Railway/Cloudflare Pages.json`, `backend/Railway/Cloudflare Pages.json`, `PRD/PRD.md`, and PRD supplement files.
 
 ---
 
@@ -24,13 +24,13 @@ These stack choices are locked unless the PRD is intentionally revised.
 | Frontend HTTP | Dio (`dio`) only | `http` package is not allowed. Dio setup is centralized through `lib/core/services/api_client.dart` and re-exported from `lib/shared/services/api_client.dart`. |
 | Frontend offline/local DB | Hive (`hive`, `hive_flutter`) | `lib/main.dart` initializes Hive, registers adapters, and opens business caches plus `config` and `local_drafts` boxes. |
 | Frontend config | `flutter_dotenv` + `--dart-define` | Supabase and API base URL values are resolved from dart-define first, then `.env` asset fallback for local/mobile. |
-| Backend framework | NestJS (`@nestjs/*`) | API runs as a Nest app locally and as a Vercel serverless handler through `backend/api/index.ts`. |
+| Backend framework | NestJS (`@nestjs/*`) | API runs as a Nest app locally and as a Railway/Cloudflare Pages serverless handler through `backend/api/index.ts`. |
 | Backend language | TypeScript | Backend source lives under `backend/src/`; strict Drizzle schema typing is enabled. |
 | Backend ORM/query layer | Drizzle ORM + `drizzle-kit` | Canonical schema source is `backend/src/db/schema.ts`; generated artifacts are emitted to `backend/drizzle/`. |
 | Database | Supabase PostgreSQL | Supabase client is used server-side and Flutter initializes `supabase_flutter` client-side. |
 | Object storage | Cloudflare R2 via AWS S3 SDK | `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` are included in backend dependencies. |
-| Frontend hosting | Vercel static deployment | Root `vercel.json` serves `build/web` and rewrites app routes to `index.html`. |
-| Backend hosting | Vercel Node serverless | `backend/vercel.json` routes all requests to `api/index.ts` and configures daily cron. |
+| Frontend hosting | Railway/Cloudflare Pages static deployment | Root `Railway/Cloudflare Pages.json` serves `build/web` and rewrites app routes to `index.html`. |
+| Backend hosting | Railway/Cloudflare Pages Node serverless | `backend/Railway/Cloudflare Pages.json` routes all requests to `api/index.ts` and configures daily cron. |
 | Frontend unit/widget testing | `flutter_test`, `mocktail` | Root scripts expose `npm run test:flutter` as a wrapper around `flutter test`. |
 | Backend testing | Jest + `ts-jest` | Backend scripts expose `npm test`, `npm run test:e2e`, and coverage commands. |
 | E2E/browser testing | Playwright | Root `playwright.config.ts` builds Flutter web locally and serves `build/web` through `http-server` for Chromium tests. |
@@ -118,11 +118,11 @@ Observed source footprint at review time:
 
 - `backend/src/main.ts` starts the Nest app locally on `PORT` (default `3001`) and applies:
   - global prefix `api/v1`
-  - CORS allowlist with localhost and Vercel-friendly host patterns
+  - CORS allowlist with localhost and Railway/Cloudflare Pages-friendly host patterns
   - `ValidationPipe` with whitelist, transform, and reject-on-unknown-fields behavior
   - `StandardResponseInterceptor`
   - `GlobalExceptionFilter`
-- `backend/api/index.ts` wraps the Nest app in an Express adapter for Vercel serverless execution and reuses the same `api/v1` prefix plus validation/interceptor setup.
+- `backend/api/index.ts` wraps the Nest app in an Express adapter for Railway/Cloudflare Pages serverless execution and reuses the same `api/v1` prefix plus validation/interceptor setup.
 - `backend/src/common/middleware/tenant.middleware.ts` resolves `entityId` from `X-Entity-Id`, `X-Org-Id`, or `X-Branch-Id` headers by looking up `organisation_branch_master`. Controllers access resolved context via `@Tenant()` or `@Tenant('entityId')` decorator.
 - `backend/drizzle.config.ts` points Drizzle to `backend/src/db/schema.ts`, writes generated artifacts to `backend/drizzle/`, and uses `DATABASE_URL`.
 
@@ -165,7 +165,7 @@ Observed source footprint at review time:
 
 ### 4.2 Tenancy Model
 
-- Dev and staging may run with auth toggled off, but schema and services must stay auth-ready.`r`n- All business tables scope data via `entity_id uuid NOT NULL REFERENCES organisation_branch_master(id)` � the single canonical tenant scope column.`r`n- `organisation_branch_master`: `type` = `'ORG'` or `'BRANCH'`, `ref_id` links to actual `organization.id` or `branches.id`.`r`n- Global lookup tables (`products`, `categories`, `brands`, etc.) have NO `entity_id`.`r`n- API requests use tenant headers `X-Entity-Id` (preferred), `X-Org-Id`, and `X-Branch-Id`. Controllers access resolved context via `@Tenant()` or `@Tenant('entityId')` decorator.
+- Dev and staging may run with auth toggled off, but schema and services must stay auth-ready.`r`n- All business tables scope data via `entity_id uuid NOT NULL REFERENCES organisation_branch_master(id)` ï¿½ the single canonical tenant scope column.`r`n- `organisation_branch_master`: `type` = `'ORG'` or `'BRANCH'`, `ref_id` links to actual `organization.id` or `branches.id`.`r`n- Global lookup tables (`products`, `categories`, `brands`, etc.) have NO `entity_id`.`r`n- API requests use tenant headers `X-Entity-Id` (preferred), `X-Org-Id`, and `X-Branch-Id`. Controllers access resolved context via `@Tenant()` or `@Tenant('entityId')` decorator.
 - Current frontend routes inject a dev `orgSystemId` path segment and default to `0000000000` when no org prefix is present.
 
 ### 4.3 Object and Offline Storage
@@ -180,14 +180,14 @@ Observed source footprint at review time:
 
 ### 5.1 Frontend Deployment
 
-- Root `vercel.json` serves `build/web` and rewrites all routes to `/index.html`, which is required for GoRouter deep-link refresh behavior.
+- Root `Railway/Cloudflare Pages.json` serves `build/web` and rewrites all routes to `/index.html`, which is required for GoRouter deep-link refresh behavior.
 - Local dev command remains `flutter run -d chrome`.
 - Production web build command remains `flutter build web --release`.
 
 ### 5.2 Backend Deployment
 
-- `backend/vercel.json` uses `@vercel/node` against `api/index.ts`.
-- All backend routes are rewritten to the Vercel function entrypoint.
+- `backend/Railway/Cloudflare Pages.json` uses `@Railway/Cloudflare Pages/node` against `api/index.ts`.
+- All backend routes are rewritten to the Railway/Cloudflare Pages function entrypoint.
 - CORS headers explicitly allow org/branch tenant headers.
 - A daily cron is configured for `/api/accounts/recurring-journals/trigger-cron`.
 
@@ -221,7 +221,7 @@ Backend (`backend/.env.example`):
 
 PRD supplements currently prescribe:
 
-- Vercel observability/deployment monitoring
+- Railway/Cloudflare Pages observability/deployment monitoring
 - Sentry for frontend/backend error tracking
 - UptimeRobot or equivalent uptime checks
 - structured logs with contextual metadata and no sensitive data leakage
@@ -281,7 +281,7 @@ This section should be actively maintained when the stack changes.
 | --- | --- | --- | --- |
 | Swagger/OpenAPI | `PRD/PRD.md` requires OpenAPI docs via `@nestjs/swagger` and `/api-docs`. | No `@nestjs/swagger` dependency or Swagger bootstrap code was found in `backend/package.json` or `backend/src/main.ts`. | Either implement Swagger or revise the PRD requirement if API docs are intentionally deferred. |
 | Monitoring SDKs | `PRD/prd_monitoring.md` and `PRD/README_PRD.md` mention Sentry/UptimeRobot. | No Sentry SDK dependency was found in frontend/backend manifests during this review. | Add observability SDKs and uptime setup, or mark this as a deployment-phase gap. |
-| CI/CD workflow files | `PRD/prd_deployment.md` describes GitHub Actions CI/CD. | No `.github/workflows/*` files were present in this checkout at review time. | Add workflows or document the current manual/Vercel-only release flow. |
+| CI/CD workflow files | `PRD/prd_deployment.md` describes GitHub Actions CI/CD. | No `.github/workflows/*` files were present in this checkout at review time. | Add workflows or document the current manual/Railway/Cloudflare Pages-only release flow. |
 | Frontend API client path | PRD references `lib/shared/services/api_client.dart` as the implementation anchor. | The actual implementation now lives in `lib/core/services/api_client.dart`; `lib/shared/services/api_client.dart` is a re-export shim. | Keep the shim for compatibility and update PRD text to mention the core implementation location plus shared export path. |
 | Root env template | `PRD/PRD.md` expects a committed `.env.example` template. | No root `.env.example` file was found at checkout root; backend has `backend/.env.example`, and Flutter loads `assets/.env`. | Add a root/frontend env template or revise the PRD to document `assets/.env` as the Flutter env template. |
 
@@ -301,10 +301,47 @@ This section should be actively maintained when the stack changes.
 
 ## 9. Related PRD References
 
-- `PRD/PRD.md` — master PRD and locked behavioral rules
-- `PRD/prd_folder_structure.md` — frontend/backend folder conventions
-- `PRD/prd_ui.md` — UI system and control rules
-- `PRD/prd_schema.md` — schema snapshot and form-table mapping rules
-- `PRD/prd_deployment.md` — release, rollback, and environment workflow
-- `PRD/prd_monitoring.md` — monitoring and alerting expectations
-- `PRD/prd_disaster_recovery.md` — backup, restore, RTO/RPO
+- `PRD/PRD.md` â€” master PRD and locked behavioral rules
+- `PRD/prd_folder_structure.md` â€” frontend/backend folder conventions
+- `PRD/prd_ui.md` â€” UI system and control rules
+- `PRD/prd_schema.md` â€” schema snapshot and form-table mapping rules
+- `PRD/prd_deployment.md` â€” release, rollback, and environment workflow
+- `PRD/prd_monitoring.md` â€” monitoring and alerting expectations
+- `PRD/prd_disaster_recovery.md` â€” backup, restore, RTO/RPO
+
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

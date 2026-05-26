@@ -1,0 +1,37 @@
+name: Security Scans
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gitleaks CLI
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
+          gitleaks version
+      - name: Scan only new commit range
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            gitleaks git --no-banner --redact --log-opts="${BASE_SHA}..${HEAD_SHA}"
+          else
+            gitleaks git --no-banner --redact --log-opts="-n 1"
+          fi
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm audit --audit-level=moderate || true
+      - run: npm --prefix backend audit --audit-level=moderate || true

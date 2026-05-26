@@ -12,7 +12,7 @@
 - [sales_customer_address_section.dart](file://lib/modules/sales/presentation/sections/sales_customer_address_section.dart)
 - [sales_customer_other_details_section.dart](file://lib/modules/sales/presentation/sections/sales_customer_other_details_section.dart)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart)
 </cite>
 
 ## Table of Contents
@@ -257,7 +257,7 @@ Pricing customization:
 - [sales_customer_primary_info_section.dart](file://lib/modules/sales/presentation/sections/sales_customer_primary_info_section.dart#L11-L21)
 - [sales_customer_other_details_section.dart](file://lib/modules/sales/presentation/sections/sales_customer_other_details_section.dart#L105-L122)
 - [sales_customer_other_details_section.dart](file://lib/modules/sales/presentation/sections/sales_customer_other_details_section.dart#L250-L262)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 ### Customer History Tracking
 The overview screen organizes customer history across tabs:
@@ -411,3 +411,4 @@ The Customer Management feature provides a robust, extensible foundation for onb
   - Assign price lists and currencies aligned with customer segments.
 
 [No sources needed since this section provides general guidance]
+

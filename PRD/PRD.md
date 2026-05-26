@@ -1,26 +1,26 @@
-# 📘 Product Requirements Document (PRD) - Comprehensive
+﻿# ðŸ“˜ Product Requirements Document (PRD) - Comprehensive
 
-> **📐 Entity Model Specification:** The tenancy and ownership architecture (how data is scoped by org vs. branch) is defined in [`PRD/prd_entity_model.md`](./prd_entity_model.md). All developers and AI agents must read that document before writing queries, API endpoints, or providers. It supplements this PRD and does not alter it.
+> **ðŸ“ Entity Model Specification:** The tenancy and ownership architecture (how data is scoped by org vs. branch) is defined in [`PRD/prd_entity_model.md`](./prd_entity_model.md). All developers and AI agents must read that document before writing queries, API endpoints, or providers. It supplements this PRD and does not alter it.
 
-## ⚠️ PRD Edit Policy
+## âš ï¸ PRD Edit Policy
 
 Do not edit PRD files unless explicitly requested by the user or team head.
 
-## 🔒 Auth Policy (Pre-Production)
+## ðŸ”’ Auth Policy (Pre-Production)
 
 No authentication setup is allowed until production. The application must run without enforced login/RBAC/JWT in dev and staging. Auth UI may exist but must not be wired into routing until production approval.
-**Last Edited:** 2026-01-30 03:53
-**Last Edited Version:** 2.5
+**Last Edited:** 2026-05-15 12:45:00 IST
+**Last Edited Version:** 2.6
 
-## 📅 Shared Date Picker Policy
+## ðŸ“… Shared Date Picker Policy
 
 The application standard date picker is `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart`. Wherever the shared anchored picker pattern is suitable, it must be reused instead of introducing fresh raw `showDatePicker(...)` implementations. Any deviation should be treated as an explicit exception, not the default.
 
-## ♻️ Reusables Policy
+## â™»ï¸ Reusables Policy
 
 Before creating any new shared widget, mixin, service, utility, helper, or reusable UI pattern, developers and agents must check `REUSABLES.md` at the project root first. If a suitable reusable already exists, it must be reused instead of duplicated. If no suitable reusable exists and a genuinely reusable abstraction is created, it must be added to `REUSABLES.md` immediately after creation. When a relevant reusable already exists, the developer or agent must explicitly tell the user which reusable can be used. When a new reusable is created, the developer or agent must explicitly tell the user so they can decide whether to promote it further. Reusables that should always be checked first include `FormDropdown<T>`, `CustomTextField`, `ZerpaiDatePicker`, `ZTooltip`, `GstinPrefillBanner`, `LicenceValidationMixin`, `ZerpaiLayout`, `ZButton`, `ZerpaiConfirmationDialog`, and `AppTheme` tokens.
 
-## 🔵 Selection Controls Color Policy
+## ðŸ”µ Selection Controls Color Policy
 
 Checkbox, radio, and switch/toggle controls must use a strict blue/white interaction scheme across the product.
 - Checkbox checked state: blue fill with white tick.
@@ -29,7 +29,7 @@ Checkbox, radio, and switch/toggle controls must use a strict blue/white interac
 - Branding accent color must not be used for checkbox/radio/switch active states.
 - Branding accent remains reserved for sidebar selected modules and primary/new action buttons.
 
-## 🌐 Global Settings Policy
+## ðŸŒ Global Settings Policy
 
 The application must prefer real DB-backed runtime data wherever a schema-backed source already exists. When real data is unavailable, the UI must show an explicit empty or error state instead of fabricated business values. Lookup defaults should resolve from DB-backed master rows rather than hardcoded IDs or labels. Reusable control behavior and visual styling should be centralized in shared sources. Warehouse master data, storage/location master data, accounting stock, and physical stock must remain separate concepts across schema, API, and UI. Shared environments must be updated with additive migrations and scoped upserts instead of destructive resets.
 Primary save/create/confirm actions, cancel/secondary actions, upload controls, borders, and separators must also follow centralized project styling rules instead of per-screen color choices.
@@ -37,39 +37,170 @@ Any new database table created specifically for the global settings system must 
 
 ---
 
-## 1. Overview
+**Last Edited:** 2026-05-15 12:45:00 IST
+**Last Edited Version:** 2.6
 
-### 1.1 Product Vision
+---
 
-Zerpai ERP is a **modern, online-first but offline-capable ERP system** built for Indian SMEs. The initial focus is on **retail, pharmacy, and trading businesses**, with a modular architecture designed for future expansion. It is engineered to support small internet interferences, ensuring operational continuity.
+## 1. Product Overview
+- **Product Name:** Zerpai ERP
+- **Product Vision:** To become the definitive, online-first but offline-capable ERP solution for Indian SMEs, starting with the Pharmaceutical and Retail sectors.
+- **Problem Statement:** Indian SMEs often struggle with complex, outdated, or expensive ERP systems that lack proper GST compliance, offline reliability, and modern user experiences.
+- **Purpose of the System:** To provide a high-density, keyboard-optimized, and GST-compliant management system that scales from single stores to 1000+ branches.
+- **Business Goals:** 
+    - Achieve 100% GST compliance for all transactions.
+    - Enable seamless multi-branch inventory synchronization.
+    - Provide a zero-latency POS experience for retail operations.
+- **Expected Outcome:** A unified business platform where users can manage items, sales, purchases, and reporting with minimal technical friction.
 
-The system is designed to:
+### 1.1 Success Criteria
+- **Acceptance Definition:** All core Sales/Purchase/Inventory modules functional and consistent across HO/Branch nodes.
+- **Project Success:** Achievement of sub-10s POS checkout and 100% GST accuracy.
 
-- Replace dependency on spreadsheets and fragmented, single-purpose tools.
-- Provide a fast, responsive user experience for daily operations (POS, billing, inventory management).
-- Ensure data integrity and correctness for critical business functions (inventory, GST, reporting).
-- Support complex operational structures like **Head Office (HO) → Franchise-Owned, Franchise-Operated (FOFO) → Company-Owned, Company-Operated (COCO)**.
-- Scale efficiently to support over 1000 branches on a single, robust database instance.
 
-**Inspiration & Visual Reference:** The design and workflow of this ERP are heavily inspired by the Zoho Inventory web application. All developers and agents should use the following demo URL as a primary reference for UI, UX, and feature functionality:
-`https://www.zoho.com/in/inventory/inventory-software-demo/#/home/inventory-dashboard`
+## 2. Target Users
+- **User Personas:**
+    - **Retail Shop Owner:** Needs a high-level overview of sales, profit, and stock.
+    - **Inventory Manager:** Focuses on stock levels, transfers, and warehouse management.
+    - **Cashier/Billing Operator:** Requires a rapid, keyboard-first interface for sales.
+- **User Roles:**
+    - **Admin (HO):** Full control over organization, branches, and global settings.
+    - **Manager (Branch):** Manages branch-specific transactions and staff.
+    - **Staff:** Limited access to billing and reporting as per assigned branch.
+- **User Expectations:** 
+    - Reliability under intermittent internet conditions.
+    - Accurate, real-time reporting.
+    - Modern, intuitive interface (Zoho-inspired).
 
-If the demo page presents a signup dialog, it should be dismissed by clicking the 'cancel' or 'close' button. If any doubts about a feature or workflow remain after consulting the demo, the agent is encouraged to ask the user for clarification at any time.
+### 2.1 User Pain Points Summary
+- Slow billing during peak hours.
+- Mismatched stock between HO and branches.
+- Complex tax calculations and GST filing prep.
 
-### 1.2 Development Philosophy (Auth-Free Dev Stage)
+## 3. Goals & Objectives
+- **Primary Goals:**
+    - Unified multi-tenant architecture with polymorphic tenancy.
+    - Comprehensive inventory tracking (Serial, Batch, FIFO/LIFO).
+    - Fully automated inter-branch transfer and payment ledger sync.
+- **Secondary Goals:**
+    - Integrated Price List management (Branch-specific and Global).
+    - Advanced reporting (GSTR-1, Sales analysis, Low stock alerts).
+- **KPIs & Success Metrics:**
+    - Average time per POS transaction < 10 seconds.
+    - 100% data consistency between HO and Outlets within 1 minute of sync.
+    - System uptime > 99.9% (including offline mode functionality).
+
+## 4. Scope
+- **In Scope:**
+    - Core modules: Items, Sales, Purchases, Inventory, Accounts, Settings.
+    - Multi-branch hierarchy (HO -> Branch -> Warehouse -> Bin).
+    - Price Lists and Discount management.
+    - GST-compliant invoicing and billing.
+- **Out of Scope:**
+    - Direct government API filing (V1).
+    - HR & Payroll management (V2).
+    - Direct e-commerce platform integration.
+- **MVP Scope:**
+    - Core Sales/Purchase/Inventory cycle for a single HO and 2 Outlets.
+- **Future Scope:**
+    - Manufacturing/BOM module.
+    - Advanced Mobile App for field sales.
+
+### 4.1 Risks & Constraints
+- **Technical Limitations:** Local browser storage (Hive/IndexedDB) limits on massive datasets.
+- **Budget/Time Constraints:** MVP timeline focused on core POS and inventory.
+- **Open Questions:** Integration with specific local hardware (Barcode scanners/Printers) across all OS types.
+
+---
+
+## 5. Development Philosophy (Auth-Free Dev Stage)
 
 To maximize development velocity and focus on core business logic, the initial development and testing stages will operate **without a formal authentication layer**.
 
-- ✅ **No Enforced Login Flow:** The application boots directly to the home dashboard. Auth UI screens exist in `lib/modules/auth/`, but are not wired into routing yet.
-- ❌ **No Role-Based Access Control (RBAC):** All features are accessible. Role-specific behavior may be simulated in the UI, but is not enforced at the API or database level.
-- ❌ **No JWTs or Supabase Auth:** The backend does not require or validate authentication tokens.
-- ✅ **Single Organizational Context:** The system operates under a polymorphic `entity_id` context referencing the `organisation_branch_master` table. This identifies the active Head Office or Branch for all transactions, replacing the legacy dual-column `org_id + branch_id` pattern.
+- âœ… **No Enforced Login Flow:** The application boots directly to the home dashboard. Auth UI screens exist in `lib/modules/auth/`, but are not wired into routing yet.
+- âŒ **No Role-Based Access Control (RBAC):** All features are accessible. Role-specific behavior may be simulated in the UI, but is not enforced at the API or database level.
+- âŒ **No JWTs or Supabase Auth:** The backend does not require or validate authentication tokens.
+- âœ… **Single Organizational Context:** The system operates under a polymorphic `entity_id` context referencing the `organisation_branch_master` table. This identifies the active Head Office or Branch for all transactions, replacing the legacy dual-column `org_id + branch_id` pattern.
 
 This strategy allows for rapid iteration. The architecture is **"Auth-Ready,"** ensuring that a comprehensive security layer can be added later with minimal refactoring.
 
 ---
 
-## 2. Agent Architecture
+## 6. Features
+
+### 6.1 Items & Products Module
+- **Description:** Centralized product master management with support for global product definitions and branch-specific inventory.
+- **Business Logic:** 
+    - Products are global (no `entity_id`).
+    - Inventory is tracked per warehouse/bin (scoped by `entity_id`).
+- **Priority:** High
+- **Dependencies:** Database Schema, Storage Service.
+
+### 6.2 Price Lists Module
+- **Description:** Dynamic pricing engine allowing for global, branch-specific, and customer-specific price lists.
+- **Business Logic:** 
+    - Priority: Branch Price List > Customer Price List > Global Price List > Base Price.
+- **Priority:** Medium
+- **Dependencies:** Items Module, Sales Module.
+
+### 6.3 Sales & Billing (POS)
+- **Description:** High-speed retail billing and invoice management.
+- **Business Logic:** 
+    - Supports multiple payment modes (Cash, Card, UPI).
+    - Auto-generates GST-compliant invoices.
+- **Priority:** Critical
+- **Dependencies:** Items Module, Inventory Module.
+
+### 6.4 Inventory & Transfers
+- **Description:** Management of stock movements, assemblies, and inter-branch transfers.
+- **Business Logic:** 
+    - Automated store-to-store transfer approval workflow.
+- **Priority:** High
+- **Dependencies:** Items Module.
+
+## 7. User Stories
+- **As an admin**, I can create new branches and warehouses to expand my business operations.
+- **As a cashier**, I can quickly scan items and generate an invoice to serve customers faster.
+- **As an inventory manager**, I can view real-time stock levels across all branches to prevent stockouts.
+- **As a branch manager**, I can request stock from another branch when my local inventory is low.
+
+## 8. Functional Requirements
+- **Authentication:** (Planned) Supabase Auth integration for secure access.
+- **Notifications:** Real-time alerts for low stock and pending transfer requests.
+- **Reporting:** Exportable sales, inventory, and GST reports in CSV/Excel formats.
+- **CRUD Operations:** Standard management for items, customers, vendors, and transactions.
+- **Search/Filter:** High-performance global search for products and customers.
+
+## 9. Non-Functional Requirements
+- **Security:** RLS policies and data encryption at rest.
+- **Performance:** Sub-100ms response time for local POS operations.
+- **Scalability:** Support for 10,000+ SKU items and 1,000+ branches.
+- **Availability:** Offline-first architecture for critical billing functions.
+- **Reliability:** Automated background synchronization for data consistency.
+
+## 10. User Flow Summary
+- **Login** (Auth-free for now) -> **Dashboard** -> **Select Module** (Sales/Items/etc.) -> **Execute Task** (Create Invoice/Add Item) -> **Sync** (Auto).
+- **Navigation Logic:** Sidebar-driven navigation with master-detail views for records.
+
+### 10.1 Integrations
+- **Payment Gateway:** Razorpay (Planned).
+- **Email Services:** SendGrid/Resend for automated reports.
+- **WhatsApp:** Twilio integration for invoice sharing.
+- **Third-party:** GSTN E-way Bill API integration.
+
+## 11. Platform Details
+- **Web:** Primary platform, optimized for desktop Chrome/Edge.
+- **Mobile:** Future focus for Android/iOS field management.
+- **Device Support:** Tablets and Desktops with standard resolution.
+
+## 12. Permissions & Roles (Matrix)
+- **Admin:** Full read/write access to all modules and system settings.
+- **Manager:** Full access to branch-specific data; restricted global settings.
+- **Staff:** Access to Sales and Inventory viewing; restricted deletion and reporting.
+
+---
+
+## 13. Agent Architecture
 
 ### 2.1 Overview
 
@@ -128,7 +259,7 @@ To ensure optimal performance from the AI agent, prompts should be:
 
 ## 7. Tooling & Integrations
 
-**📄 Stack Reference:** See **[`prd_tech_stack.md`](./prd_tech_stack.md)** for the standalone, codebase-verified package inventory, deployment/runtime details, environment variables, and PRD-vs-implementation drift list. This section remains the locked high-level source of truth; `prd_tech_stack.md` should stay synchronized with it whenever dependencies, hosting, or runtime architecture change.
+**ðŸ“„ Stack Reference:** See **[`prd_tech_stack.md`](./prd_tech_stack.md)** for the standalone, codebase-verified package inventory, deployment/runtime details, environment variables, and PRD-vs-implementation drift list. This section remains the locked high-level source of truth; `prd_tech_stack.md` should stay synchronized with it whenever dependencies, hosting, or runtime architecture change.
 
 | Component           | Technology                        | Decision & Rationale                                                                                                                                                                                    |
 | :------------------ | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -138,11 +269,11 @@ To ensure optimal performance from the AI agent, prompts should be:
 | **ORM**             | Drizzle ORM                       | Used for database migrations and queries in the backend.                                                                                                                                                |
 | **HTTP Client**     | **Dio only**                      | Standardized on Dio. `http` package is deprecated and must be removed. Dio provides superior features like interceptors, error handling, and timeouts, crucial for an ERP.                              |
 | **Local Storage**   | **Hive** & **shared_preferences** | **Decision Locked:** `Hive` is the definitive database for offline data (items, customers, POS drafts). `shared_preferences` is restricted to config-only data (UI flags, theme, last selected branch). |
-| **Deployment**      | Vercel                            | Configuration files (`vercel.json`) are present for both frontend and backend.                                                                                                                          |
+| **Deployment**      | Railway/Cloudflare Pages                            | Configuration files (`Railway/Cloudflare Pages.json`) are present for both frontend and backend.                                                                                                                          |
 | **Storage**         | Cloudflare R2                     | For object storage like product images and documents.                                                                                                                                                   |
 | **Version Control** | Git                               | Hosted on GitHub, with CI/CD workflows defined.                                                                                                                                                         |
 
-### 7.1 Dependency Management Policy ⚠️ **MANDATORY**
+### 7.1 Dependency Management Policy âš ï¸ **MANDATORY**
 
 **Rule: Use Latest Stable Dependencies (Caret Ranges Allowed)**
 
@@ -165,15 +296,15 @@ Before adding any new dependency, the developer/agent MUST:
 
 **Examples:**
 
-- ✅ **Correct:** Adding `dio: ^5.9.0` when 5.9.0 is the latest stable
-- ❌ **Incorrect:** Adding `http: ^0.13.0` (deprecated, use `dio` instead)
-- ❌ **Incorrect:** Adding `provider: ^6.0.0` (use `riverpod` per architecture decision)
+- âœ… **Correct:** Adding `dio: ^5.9.0` when 5.9.0 is the latest stable
+- âŒ **Incorrect:** Adding `http: ^0.13.0` (deprecated, use `dio` instead)
+- âŒ **Incorrect:** Adding `provider: ^6.0.0` (use `riverpod` per architecture decision)
 
-### 7.1.1 Environment Configuration (Hybrid) 🌍
+### 7.1.1 Environment Configuration (Hybrid) ðŸŒ
 
 To support seamless transitions between local development and production deployment, the application MUST adhere to the following environment configuration rules:
 
-1.  **Production (Release Mode):** When deployed (`flutter build web --release`), the app **MUST** automatically point to the hosted backend: `https://zabnix-backend.vercel.app`.
+1.  **Production (Release Mode):** When deployed (`flutter build web --release`), the app **MUST** automatically point to the hosted backend: `https://zabnix-backend.Railway/Cloudflare Pages.app`.
 2.  **Development (Debug Mode on Web):** When running locally (`flutter run -d chrome`), the app **MUST** automatically point to the local backend: `http://localhost:3001`.
 3.  **Fallback:** If neither of the above specific cases is true (e.g., mobile testing), the app **MUST** respect the `API_BASE_URL` defined in `.env` or passed via `--dart-define`.
 
@@ -181,7 +312,7 @@ To support seamless transitions between local development and production deploym
 
 ---
 
-## 7.2 Project Structure & File Organization 📁
+## 7.2 Project Structure & File Organization ðŸ“
 
 **CRITICAL:** The Zerpai ERP project follows a strict, standardized folder structure for both frontend (Flutter) and backend (NestJS). This ensures:
 
@@ -190,7 +321,7 @@ To support seamless transitions between local development and production deploym
 - Clear separation of concerns
 - Scalable architecture
 
-**📄 Detailed Reference:** See **[`prd_folder_structure.md`](./prd_folder_structure.md)** for the complete folder structure guide, including:
+**ðŸ“„ Detailed Reference:** See **[`prd_folder_structure.md`](./prd_folder_structure.md)** for the complete folder structure guide, including:
 
 - Frontend structure (`lib/core/`, `lib/shared/`, `lib/modules/`)
 - Backend structure (`src/modules/`, `src/common/`, `src/database/`)
@@ -207,9 +338,9 @@ To support seamless transitions between local development and production deploym
 - **Reusable widgets** (forms, dialogs, layout wrappers, responsive UI): `lib/shared/widgets/`
 - **Cross-feature services**: `lib/shared/services/`
 - **Feature-specific code**: `lib/modules/<module>/`
-- **File naming**: `module_submodule_page.dart` (e.g., `items_pricelist_pricelist_creation.dart`, `sales_orders_order_creation.dart`). Avoid `_screen` suffixes unless required for clarity.
+- **File naming**: `module_submodule_page.dart` (e.g., `pricelist_add.dart`, `sales_orders_order_creation.dart`). Avoid `_screen` suffixes unless required for clarity.
 
-**⚠️ ALL new code MUST follow this structure. See the detailed guide for full compliance.**
+**âš ï¸ ALL new code MUST follow this structure. See the detailed guide for full compliance.**
 
 ---
 
@@ -224,17 +355,21 @@ The primary navigation is a Zoho-style collapsible sidebar. Current order (as im
     - Items
     - Composite Items
     - Item Groups
-    - Price Lists
     - Item Mapping
-3.  Inventory
+3.  Price Lists ([`PRD/prd_price_lists.md`](./prd_price_lists.md))
+    - Price List
+    - Branch Price List
+4.  Inventory
     - Assemblies
     - Inventory Adjustments
     - Picklists
     - Packages
     - Shipments
     - Transfer Orders
-4.  Sales
+    - Move Orders
+5.  Sales
     - Customers
+    - Quotations
     - Retainer Invoices
     - Sales Orders
     - Invoices
@@ -243,33 +378,36 @@ The primary navigation is a Zoho-style collapsible sidebar. Current order (as im
     - Sales Returns
     - Credit Notes
     - e-Way Bills
-5.  Purchases
+    - Payment Links
+    - Recurring Invoices
+6.  Purchases
     - Vendors
     - Expenses
     - Recurring Expenses
     - Purchase Orders
+    - Purchase Receives
     - Bills
     - Recurring Bills
     - Payments Made
     - Vendor Credits
-6.  Accountant
+7.  Accountant
     - Manual Journals
     - Recurring Journals
     - Bulk Update
     - Transaction Locking
     - Opening Balances
-7.  Accounts
+8.  Accounts
     - Chart of Accounts
-8.  Reports
-9.  Documents
-10. Audit Logs
+9.  Reports
+10. Documents
+11. Audit Logs
 
 Settings is a global routed area, but it is not part of the primary sidebar module stack.
 
 ### 8.2 Sales Workflow (STRICT)
 
 The sales process follows a strict, status-driven lifecycle:
-`Quotation` → `Sales Order` → `Invoice` → `Payment`
+`Quotation` â†’ `Sales Order` â†’ `Invoice` â†’ `Payment`
 
 - Each step corresponds to a distinct database table.
 - Inventory stock level is reduced ONLY upon **invoice confirmation**.
@@ -278,7 +416,7 @@ The sales process follows a strict, status-driven lifecycle:
 ### 8.3 Purchase Workflow (STRICT)
 
 The purchase process also follows a strict lifecycle:
-`Purchase Order` → `Receipt` → `Bill` → `Payment`
+`Purchase Order` â†’ `Receipt` â†’ `Bill` â†’ `Payment`
 
 - Inventory stock level is increased ONLY upon **goods receipt**.
 - Financial totals are affected by Bills, not Purchase Orders.
@@ -413,10 +551,10 @@ If any options table / master lookup table is created in the database (dropdown 
 
 **Scope & Enforcement**
 
-- ✅ Applies to **ALL NEW TABLES** created from now onward
-- ✅ Settings-owned tables are a mandatory special case and must always use the `settings_` prefix
-- ❌ Do **NOT** rename or modify existing production tables
-- 🔒 Existing schema remains untouched until a planned production refactor phase
+- âœ… Applies to **ALL NEW TABLES** created from now onward
+- âœ… Settings-owned tables are a mandatory special case and must always use the `settings_` prefix
+- âŒ Do **NOT** rename or modify existing production tables
+- ðŸ”’ Existing schema remains untouched until a planned production refactor phase
 
 **Future Note**
 At a later production stage, existing tables may be renamed to comply with this convention as part of a controlled migration. This change is explicitly deferred and not part of the current scope.
@@ -495,7 +633,7 @@ All UI colors, typography, spacing, and interaction behavior MUST originate from
 | Secondary Text     | textSecondary   | `#6B7280` | Labels, hints, metadata               |
 | Borders / Dividers | borderColor     | `#D3D9E3` | Tables, cards, separators             |
 
-**❌ MUST NOT:**
+**âŒ MUST NOT:**
 
 - Hardcode hex values in widgets.
 - Introduce new colors per screen.
@@ -560,11 +698,11 @@ Maintain data integrity and visual consistency without mutating user-entered dat
 
 | Context                 | Policy                        | Rationale                                        |
 | :---------------------- | :---------------------------- | :----------------------------------------------- |
-| **Tables / Lists**      | ✅ Allowed (Display-only)     | Optimized for scanning speed.                    |
-| **Forms (Create/Edit)** | ❌ Strictly Prohibited        | Higher cognitive load; misleading about storage. |
-| **Detail Screens**      | ⚠️ Limited & Controlled       | Allowed for headlines only; prefer Title Case.   |
-| **PDFs / Invoices**     | ❌ Prohibited for descriptive | Legal and print readability requirements.        |
-| **Exports / API**       | ❌ Strictly Prohibited        | System neutral; must be reversible.              |
+| **Tables / Lists**      | âœ… Allowed (Display-only)     | Optimized for scanning speed.                    |
+| **Forms (Create/Edit)** | âŒ Strictly Prohibited        | Higher cognitive load; misleading about storage. |
+| **Detail Screens**      | âš ï¸ Limited & Controlled       | Allowed for headlines only; prefer Title Case.   |
+| **PDFs / Invoices**     | âŒ Prohibited for descriptive | Legal and print readability requirements.        |
+| **Exports / API**       | âŒ Strictly Prohibited        | System neutral; must be reversible.              |
 
 **4. Design Enforcement Rules**
 
@@ -592,9 +730,9 @@ Store what the user means. Style what the UI needs. Never confuse the two.
 - Padding inside cards/tables: `16px`
 - Modal padding: `24px`
 
-**❌ MUST NOT:** Arbitrary spacing values are not allowed.
+**âŒ MUST NOT:** Arbitrary spacing values are not allowed.
 
-### 14.4.1 Layout Stability Rules (Golden Rules) — MANDATORY
+### 14.4.1 Layout Stability Rules (Golden Rules) â€” MANDATORY
 
 These rules prevent overflow, unbounded constraints, and broken layouts. **All developers and AI agents MUST follow them strictly.**
 
@@ -627,13 +765,13 @@ These rules prevent overflow, unbounded constraints, and broken layouts. **All d
 
 #### 14.5.3 Must / Must Not
 
-**✅ MUST:**
+**âœ… MUST:**
 
 - Support column visibility toggling.
 - Support horizontal scroll.
 - Match column order exactly across views.
 
-**❌ MUST NOT:**
+**âŒ MUST NOT:**
 
 - Freeze widths permanently.
 - Hardcode column sizes.
@@ -686,7 +824,7 @@ These rules prevent overflow, unbounded constraints, and broken layouts. **All d
 ### 14.8 Reusability & Extensibility
 
 - All UI patterns must be built as reusable components.
-- No “one-off” UI logic inside screens.
+- No â€œone-offâ€ UI logic inside screens.
 - Tables, filters, dropdowns, menus must be drop-in compatible.
 
 ### 14.9 AI Development Enforcement Prompt
@@ -708,7 +846,7 @@ To ensure a modern and consistent user interface, the application has standardiz
 - **FormDropdown:** For all form-based inputs and selections, use the `FormDropdown` component (defined in `dropdown_input.dart`). Do not use `MenuAnchor` or `DropdownButton` for form inputs.
 - **Hover States:** Rely on the native hover and focus states of `MenuItemButton`. Custom implementations like `_HoverableMenuItem` are deprecated and should be removed.
 
-### 14.12 Form UI System (Creation/Edit Pages) — MANDATORY
+### 14.12 Form UI System (Creation/Edit Pages) â€” MANDATORY
 
 These rules define the visual and interaction standards for all **creation/edit pages** (e.g., New Customer, New Invoice). **All developers and AI agents MUST follow them strictly.**
 
@@ -718,14 +856,14 @@ These rules define the visual and interaction standards for all **creation/edit 
 - **Main Canvas (Right):** Light theme (white cards on very light gray background).
 - **Header (Top):** Minimal; document title, breadcrumbs, and window controls (Close/Maximize).
 - **Global Search:** Context-aware placeholder with keyboard shortcut hint (`/`).
-- **Recent History:** Clock icon showing the last 5–10 visited records.
+- **Recent History:** Clock icon showing the last 5â€“10 visited records.
 - **Form Alignment:** Left-aligned horizontal labels, fixed label column width, fluid input column.
 - **Gutter:** Clear whitespace between label column and input column.
 - **Sectioning:** Logical blocks separated by whitespace (avoid heavy borders).
 
 #### 14.12.2 Input Fields & Text Entry
 
-- **Standard Inputs:** Rectangular, slight radius (3–4px), thin light-gray border (~`#E0E0E0`), consistent height (~36px).
+- **Standard Inputs:** Rectangular, slight radius (3â€“4px), thin light-gray border (~`#E0E0E0`), consistent height (~36px).
 - **Focus State:** Blue or green border/glow to indicate focus.
 - **Required Fields:** Red asterisk; label often red.
 - **Text Areas:** Multi-line with resize handle (bottom-right diagonal lines). Optional helper text like "Max 500 characters".
@@ -743,7 +881,7 @@ These rules define the visual and interaction standards for all **creation/edit 
 #### 14.12.4 Tabular Input (Item Table)
 
 - **Headers:** Uppercase, bold, small font (ITEM DETAILS, QUANTITY, RATE, TAX, AMOUNT).
-- **Hardware Integration:** “Scan Item” button with barcode icon above table headers.
+- **Hardware Integration:** â€œScan Itemâ€ button with barcode icon above table headers.
 - **Context Filters:** Table-level selectors (e.g., Warehouse, Price List) between section header and grid.
 - **Rows:** Empty-state row shows placeholder image + text ("Type or click to select an item.").
 - **Inline Editing:** Text appears static until clicked.
@@ -837,7 +975,7 @@ InputDecoration(
 **Component Specs**
 
 - **White Box Input:** `filled: true`, `#FFFFFF` fill, `#E0E0E0` border, `#0088FF` focus at 1.5px.
-- **Prefix/Suffix:** Currency symbols (₹, $) as `prefixText` inside the grey box; numbers right-aligned.
+- **Prefix/Suffix:** Currency symbols (â‚¹, $) as `prefixText` inside the grey box; numbers right-aligned.
 - **Selection Cards:** Selected = `#F0F7FF` bg, `#0088FF` border, blue check icon. Inactive = `#F9F9F9` bg, `#E0E0E0` border.
 - **Dropdown Overlay:** Elevation 8 (shadow ~`rgba(0,0,0,0.15)`), selected row `#0088FF` with white text, check icon on far right.
 - **Dropdown Search:** Only for Currency/Item dropdowns; disabled for Markup/Markdown and Round Off.
@@ -846,7 +984,7 @@ InputDecoration(
 
 - **Unit Pricing Columns:** ITEM DETAILS | SALES/PURCHASE RATE | CUSTOM RATE.
 - **Volume Pricing Columns:** ITEM DETAILS | SALES/PURCHASE RATE | START QTY | END QTY | CUSTOM RATE.
-- **Ranges:** Stack within a single item row; “+ Add New Range” aligns left of quantity columns.
+- **Ranges:** Stack within a single item row; â€œ+ Add New Rangeâ€ aligns left of quantity columns.
 - **Alignment:** Item details left; rates/quantities right-aligned (`TextAlign.right`).
 
 **Visibility Matrix**
@@ -862,9 +1000,9 @@ InputDecoration(
 
 **Interactive Behaviors**
 
-- **Bulk Update Modal:** Horizontal row (Dropdown + Dropdown + “by” + Input + Dropdown). Footer buttons right-aligned (Update green, Cancel neutral).
+- **Bulk Update Modal:** Horizontal row (Dropdown + Dropdown + â€œbyâ€ + Input + Dropdown). Footer buttons right-aligned (Update green, Cancel neutral).
 - **Discount Helper Text:** Visible only if discount checkbox is true; blue, 12px, italic, directly below checkbox label.
-- **Round Off Popover:** “View Examples” opens floating card with arrow and static examples table.
+- **Round Off Popover:** â€œView Examplesâ€ opens floating card with arrow and static examples table.
 - **Currency Dropdown:** Searchable; selection updates all currency prefix texts in the table.
 
 **Typography**
@@ -885,7 +1023,7 @@ InputDecoration(
 **Box Rule (Width & Alignment)**
 
 - **Max Width:** `400px` for dropdown overlays.
-- **Alignment:** Left edge aligns to the input field’s left edge (no full-width stretch).
+- **Alignment:** Left edge aligns to the input fieldâ€™s left edge (no full-width stretch).
 
 **Color & Border Reset**
 
@@ -896,12 +1034,12 @@ InputDecoration(
 
 **Vertical Density**
 
-- **Row Height:** 36–40px per item.
+- **Row Height:** 36â€“40px per item.
 - **Padding:** `EdgeInsets.symmetric(horizontal: 12, vertical: 0)`.
 
 **Layout Stability**
 
-- **Label Width Lock:** Left labels (e.g., “Round Off To”, “Currency”) stay fixed at 160px and must not shift when menus open.
+- **Label Width Lock:** Left labels (e.g., â€œRound Off Toâ€, â€œCurrencyâ€) stay fixed at 160px and must not shift when menus open.
 
 #### 14.12.9 Right Utility Bar (Collapsible Sidebar)
 
@@ -922,12 +1060,12 @@ InputDecoration(
 
 #### 14.12.12 Advanced Table Row Actions (Kebab Menu)
 
-- **Row Actions:** Red delete (x), drag handle, and vertical ellipsis (⋮) for advanced options.
+- **Row Actions:** Red delete (x), drag handle, and vertical ellipsis (â‹®) for advanced options.
 - **Menu Options:** Clone row, add description row, show additional fields (discount, serial, etc.).
 
 #### 14.12.13 Breadcrumb & Back Navigation
 
-- **Header Pattern:** Module Icon → Back Arrow → Page Title.
+- **Header Pattern:** Module Icon â†’ Back Arrow â†’ Page Title.
 - **Behavior:** Back arrow returns to the list view (one-click up).
 
 #### 14.12.14 Dropdown Visual Hierarchy (Rich List)
@@ -942,7 +1080,7 @@ InputDecoration(
 
 #### 14.12.16 Currency Prefix Alignment
 
-- **Prefix:** Currency symbol (₹/INR) outside the input or non-editable prefix.
+- **Prefix:** Currency symbol (â‚¹/INR) outside the input or non-editable prefix.
 - **Alignment:** Totals column aligns currency symbols vertically for clean numeric columns.
 
 #### 14.12.17 Checkbox Grouping (Progressive Disclosure)
@@ -964,8 +1102,8 @@ InputDecoration(
 
 #### 14.12.20 Organization Switcher (Tenant Selector)
 
-- **Location:** Top-right header, near the primary “New (+)” action.
-- **Design:** Dropdown text link showing current org (e.g., “ZABNIX PRIVATE L...”).
+- **Location:** Top-right header, near the primary â€œNew (+)â€ action.
+- **Design:** Dropdown text link showing current org (e.g., â€œZABNIX PRIVATE L...â€).
 - **Behavior:** Switches between organizations without logout (multi-entity support).
 
 #### 14.12.21 Master Checkbox (Bulk Selection)
@@ -996,7 +1134,7 @@ InputDecoration(
 
 #### 14.12.26 Attachment Module
 
-- **Section:** “Attach File(s) to Transfer Order” (or equivalent).
+- **Section:** â€œAttach File(s) to Transfer Orderâ€ (or equivalent).
 - **Controls:** Upload button with cloud/arrow icon; dropdown source selector.
 - **Constraints:** Microcopy shows limits (e.g., max 5 files, 10MB each).
 
@@ -1007,7 +1145,7 @@ InputDecoration(
 
 #### 14.12.28 Guided Action Links (Empty States)
 
-- **Empty State CTA:** Instructional text + a single action button (e.g., “Add Items”).
+- **Empty State CTA:** Instructional text + a single action button (e.g., â€œAdd Itemsâ€).
 - **Behavior:** Guides users to the next required step, not a blank table.
 
 #### 14.12.29 Active Tab Sidebar Indicator
@@ -1027,18 +1165,18 @@ InputDecoration(
 #### 14.12.32 PDF Template Switcher (Footer)
 
 - **Location:** Bottom-right footer of creation forms (e.g., Retainer Invoice, Delivery Challan).
-- **Design:** “PDF Template: Standard Template” with a Change action.
+- **Design:** â€œPDF Template: Standard Templateâ€ with a Change action.
 - **Behavior:** Pre-save print configuration (template selection before saving).
 
 #### 14.12.33 Just-in-Time Stock Visibility
 
 - **Location:** Under item table in Transfer Order.
-- **Design:** “CURRENT AVAILABILITY” with Source Stock / Destination Stock.
+- **Design:** â€œCURRENT AVAILABILITYâ€ with Source Stock / Destination Stock.
 - **Behavior:** Real-time population based on selected items; prevents invalid transfers.
 
 #### 14.12.34 HSN Lookup (External Search)
 
-- **Location:** Item creation → HSN Code field.
+- **Location:** Item creation â†’ HSN Code field.
 - **Design:** Blue magnifying-glass icon (distinct from dropdown chevron).
 - **Behavior:** Opens modal/global lookup (external GST/HSN database).
 
@@ -1050,18 +1188,18 @@ InputDecoration(
 
 #### 14.12.36 Progressive Disclosure (Toggle Checkboxes)
 
-- **Location:** Item creation → Sellable / Purchasable.
+- **Location:** Item creation â†’ Sellable / Purchasable.
 - **Behavior:** Toggles visibility of Sales/Purchase info blocks to reduce clutter.
 
 #### 14.12.37 Dynamic Primary Button Text
 
-- **Behavior:** Primary CTA text changes by module context (e.g., “Save and Send”, “Generate picklist”).
+- **Behavior:** Primary CTA text changes by module context (e.g., â€œSave and Sendâ€, â€œGenerate picklistâ€).
 - **Goal:** Action-oriented labeling for clarity.
 
 #### 14.12.38 Inventory Tracking Shortcut
 
 - **Location:** Sales Order footer (right).
-- **Design:** Small blue link with box icon (“Inventory Tracking”).
+- **Design:** Small blue link with box icon (â€œInventory Trackingâ€).
 - **Behavior:** Cross-module quick view of stock history/availability.
 
 #### 14.12.39 GST/Tax Trigger Fields
@@ -1071,7 +1209,7 @@ InputDecoration(
 
 #### 14.12.40 Live Chat Integration
 
-- **Locations:** Bottom bar (“Smart Chat”), sidebar (“Chats”).
+- **Locations:** Bottom bar (â€œSmart Chatâ€), sidebar (â€œChatsâ€).
 - **Behavior:** Internal chat/command palette; `Ctrl+Space` hint for quick access.
 
 ---
@@ -1209,9 +1347,9 @@ This section defines the behavior, permissions, and core directives for any AI a
 
 The agent is granted broad authority to use its tools to fulfill tasks, with the following critical exceptions:
 
-- ✅ **Allowed:** Full use of tools for file creation (`write_file`), file modification (`replace`), directory listing (`ls`), directory creation (`mkdir`), code analysis, dependency management (`flutter pub`, `npm`), and version control (`git`).
+- âœ… **Allowed:** Full use of tools for file creation (`write_file`), file modification (`replace`), directory listing (`ls`), directory creation (`mkdir`), code analysis, dependency management (`flutter pub`, `npm`), and version control (`git`).
 
-- ❌ **Strictly Forbidden:** The agent is **NEVER** permitted to execute commands or use tools that perform destructive or permission-altering operations. This includes, but is not limited to:
+- âŒ **Strictly Forbidden:** The agent is **NEVER** permitted to execute commands or use tools that perform destructive or permission-altering operations. This includes, but is not limited to:
   - **Deletion:** `rm`, `del`, `rmdir`
   - **Directory Navigation:** `cd` (The agent must always work from the project root and use full or relative paths for all file operations).
   - **Permission Changes:** `chmod`, `chown`, `icacls`.
@@ -1334,8 +1472,8 @@ These scenarios MUST have comprehensive test coverage due to their business-crit
 - Queue retry logic for failed API calls
 - Data consistency after network restoration
   **Workflows:**
-- Complete Sales flow: Quote → SO → Invoice → Payment
-- Complete Purchase flow: PO → Receipt → Bill → Payment
+- Complete Sales flow: Quote â†’ SO â†’ Invoice â†’ Payment
+- Complete Purchase flow: PO â†’ Receipt â†’ Bill â†’ Payment
 
 ---
 
@@ -1430,14 +1568,14 @@ As the system evolves, database schema changes are inevitable. This section outl
 - **Automated & Repeatable:** Migrations must be scripted and version-controlled, ensuring they can be reliably applied across all environments.
 - **Tested:** All migrations must be tested in development and staging before production deployment.
 
-### 19.3 Items → Products Migration Plan
+### 19.3 Items â†’ Products Migration Plan
 
 **Background:** The legacy `items` table is deprecated. All new development uses the global `products` table (no `org_id`). This migration plan ensures a smooth transition.
 **Current Status (Phase 1 - Dual Support):**
 
 - Frontend maintains backward-compatible provider aliases:
-  - `itemsProvider` → `productsProvider`
-  - `itemsControllerProvider` → `productsControllerProvider`
+  - `itemsProvider` â†’ `productsProvider`
+  - `itemsControllerProvider` â†’ `productsControllerProvider`
 - All new code uses `products` table and [Product](cci:2://file:///D:/K4NN4N/zerpai_erp/lib/modules/products/models/product_model.dart:3:0-451:1) model
 - Legacy references being systematically refactored
 1. **Data Copy (if legacy items exist):**
@@ -1449,10 +1587,10 @@ As the system evolves, database schema changes are inevitable. This section outl
 
 2. **Foreign Key Updates:**
    Update all referencing tables:
-   - `invoice_items.item_id` → `product_id`
-   - `purchase_order_items.item_id` → `product_id`
+   - `invoice_items.item_id` â†’ `product_id`
+   - `purchase_order_items.item_id` â†’ `product_id`
    - `branch_inventory.product_id` (replaces legacy `branch_id_inventory.item_id`)
-   - `sales_order_items.item_id` → `product_id`
+   - `sales_order_items.item_id` â†’ `product_id`
    ```
 
 Remove all provider aliases from codebase
@@ -1704,10 +1842,10 @@ app.enableCors({
 
 **Severity Levels:**
 
-- **P0 (Critical):** System down, data loss, security breach → Response: Immediate
-- **P1 (High):** Major feature broken, significant user impact → Response: < 2 hours
-- **P2 (Medium):** Minor feature broken, workaround available → Response: < 24 hours
-- **P3 (Low):** Cosmetic issues, feature requests → Response: Next sprint
+- **P0 (Critical):** System down, data loss, security breach â†’ Response: Immediate
+- **P1 (High):** Major feature broken, significant user impact â†’ Response: < 2 hours
+- **P2 (Medium):** Minor feature broken, workaround available â†’ Response: < 24 hours
+- **P3 (Low):** Cosmetic issues, feature requests â†’ Response: Next sprint
 
 **Incident Response Runbook:**
 
@@ -1736,20 +1874,20 @@ app.enableCors({
 
 **On Pull Request to `dev`:**
 
-1. ✅ Code formatting check (`dart format --set-exit-if-changed`, `prettier --check`)
-2. ✅ Linting (`flutter analyze`, `npm run lint`)
-3. ✅ Unit tests (`flutter test`, `npm run test`)
-4. ✅ Build verification (`flutter build web --release`, `npm run build`)
-5. ✅ Security scan (`npm audit`, dependency vulnerability check)
-6. ✅ Code coverage report (must meet 70% threshold)
+1. âœ… Code formatting check (`dart format --set-exit-if-changed`, `prettier --check`)
+2. âœ… Linting (`flutter analyze`, `npm run lint`)
+3. âœ… Unit tests (`flutter test`, `npm run test`)
+4. âœ… Build verification (`flutter build web --release`, `npm run build`)
+5. âœ… Security scan (`npm audit`, dependency vulnerability check)
+6. âœ… Code coverage report (must meet 70% threshold)
 
 **Status:** PR is **blocked from merging** if any check fails.
 
 **On Merge to `dev` (Staging Deployment):**
 
 1. All PR checks passed
-2. Deploy backend to **Vercel staging**
-3. Deploy frontend to **Vercel staging**
+2. Deploy backend to **Railway/Cloudflare Pages staging**
+3. Deploy frontend to **Railway/Cloudflare Pages staging**
 4. Run integration tests against staging
 5. Automated smoke tests on staging environment
 
@@ -1758,8 +1896,8 @@ app.enableCors({
 1. Create git tag with version (e.g., `v1.0.0`)
 2. Generate release notes from commits (conventional commits)
 3. Run database migrations (if any) - **manual approval required**
-4. Deploy backend to **Vercel production**
-5. Deploy frontend to **Vercel production**
+4. Deploy backend to **Railway/Cloudflare Pages production**
+5. Deploy frontend to **Railway/Cloudflare Pages production**
 6. Run post-deployment health checks
 7. Monitor error rates for 2 hours (auto-rollback if error spike detected)
 
@@ -1767,9 +1905,9 @@ app.enableCors({
 
 **Semantic Versioning:** `MAJOR.MINOR.PATCH`
 
-- **MAJOR:** Breaking API changes, major architectural changes (e.g., v1.0.0 → v2.0.0)
-- **MINOR:** New features, backward compatible (e.g., v1.0.0 → v1.1.0)
-- **PATCH:** Bug fixes, small improvements (e.g., v1.0.0 → v1.0.1)
+- **MAJOR:** Breaking API changes, major architectural changes (e.g., v1.0.0 â†’ v2.0.0)
+- **MINOR:** New features, backward compatible (e.g., v1.0.0 â†’ v1.1.0)
+- **PATCH:** Bug fixes, small improvements (e.g., v1.0.0 â†’ v1.0.1)
 
 **Release Cadence:**
 
@@ -1785,7 +1923,7 @@ If production deployment fails or critical bugs discovered post-deployment:
 
 **Immediate Rollback (< 15 minutes):**
 
-1. **Application Code:** Revert to last known good version via Vercel rollback (one-click)
+1. **Application Code:** Revert to last known good version via Railway/Cloudflare Pages rollback (one-click)
 2. **Verify:** Check health endpoint returns 200 OK
 3. **Monitor:** Confirm error rates return to normal
 
@@ -1828,8 +1966,8 @@ Before deploying to production:
 **Tools:**
 
 - **Error Tracking:** Sentry (frontend + backend)
-- **Performance Monitoring:** Vercel Analytics
-- **Log Aggregation:** Vercel Logs (basic), upgrade to Datadog/LogRocket for advanced
+- **Performance Monitoring:** Railway/Cloudflare Pages Analytics
+- **Log Aggregation:** Railway/Cloudflare Pages Logs (basic), upgrade to Datadog/LogRocket for advanced
 
 **Key Metrics to Track:**
 
@@ -1872,7 +2010,7 @@ Track critical business operations (for product analytics):
 
 **Operational Metrics:**
 
-- **Sync Errors:** Offline → Online sync failure rate
+- **Sync Errors:** Offline â†’ Online sync failure rate
 - **Stock Movements:** Inventory changes per day
 - **Report Generation:** Most used reports
 
@@ -1935,7 +2073,7 @@ class HealthIndicator extends StatelessWidget {
 
 **Uptime Monitoring:**
 
-- Use external service (UptimeRobot, Better Uptime, or Vercel built-in)
+- Use external service (UptimeRobot, Better Uptime, or Railway/Cloudflare Pages built-in)
 - Ping `/api/health` every 5 minutes
 - Alert if downtime > 2 minutes
 
@@ -2004,8 +2142,8 @@ class HealthIndicator extends StatelessWidget {
 
 Progressive disclosure checklist shown on dashboard:
 
-- [ ] ✅ Organization profile completed
-- [ ] ✅ First branch created
+- [ ] âœ… Organization profile completed
+- [ ] âœ… First branch created
 - [ ] Add your first product
 - [ ] Add your first customer
 - [ ] Create your first invoice
@@ -2013,7 +2151,7 @@ Progressive disclosure checklist shown on dashboard:
 - [ ] Generate your first sales report
 - [ ] Set up stock reorder alerts
 
-**Gamification:** Show progress bar (0% → 100%), celebrate milestones
+**Gamification:** Show progress bar (0% â†’ 100%), celebrate milestones
 
 ### 24.2 In-App Guidance
 
@@ -2080,17 +2218,17 @@ Progressive disclosure checklist shown on dashboard:
 
 **Explicitly OUT of Scope for V1.0:**
 
-- ❌ **Mobile Native Apps:** Flutter Web only, no iOS/Android native apps (Roadmap: v2.0)
-- ❌ **E-Commerce Integration:** No Shopify/WooCommerce/Amazon sync (Roadmap: v1.5)
-- ❌ **Government Portal Integration:** No direct GST e-filing, no e-Way bill generation API integration (Roadmap: v2.0)
-- ❌ **Advanced Reporting:** No custom report builder, no pivot tables, no visual dashboards (Roadmap: v1.3)
-- ❌ **Manufacturing Module:** No production planning, Bill of Materials (BOM), work orders (Roadmap: v3.0)
-- ❌ **Multi-Currency:** INR only for v1.0 (Roadmap: v2.0 for international expansion)
-- ❌ **Advanced Inventory:** Bin/rack location tracking schema exists but no UI (Roadmap: v1.2)
-- ❌ **Payment Gateway Integration:** No Razorpay/Stripe integration for automated payment collection (Roadmap: v1.4)
-- ❌ **Barcode Scanner:** POS supports manual entry only, no hardware scanner integration (Roadmap: v1.2)
-- ❌ **Email Marketing:** No bulk email campaigns, newsletters (Roadmap: v2.5)
-- ❌ **CRM Features:** No lead management, sales pipeline (Roadmap: v2.5)
+- âŒ **Mobile Native Apps:** Flutter Web only, no iOS/Android native apps (Roadmap: v2.0)
+- âŒ **E-Commerce Integration:** No Shopify/WooCommerce/Amazon sync (Roadmap: v1.5)
+- âŒ **Government Portal Integration:** No direct GST e-filing, no e-Way bill generation API integration (Roadmap: v2.0)
+- âŒ **Advanced Reporting:** No custom report builder, no pivot tables, no visual dashboards (Roadmap: v1.3)
+- âŒ **Manufacturing Module:** No production planning, Bill of Materials (BOM), work orders (Roadmap: v3.0)
+- âŒ **Multi-Currency:** INR only for v1.0 (Roadmap: v2.0 for international expansion)
+- âŒ **Advanced Inventory:** Bin/rack location tracking schema exists but no UI (Roadmap: v1.2)
+- âŒ **Payment Gateway Integration:** No Razorpay/Stripe integration for automated payment collection (Roadmap: v1.4)
+- âŒ **Barcode Scanner:** POS supports manual entry only, no hardware scanner integration (Roadmap: v1.2)
+- âŒ **Email Marketing:** No bulk email campaigns, newsletters (Roadmap: v2.5)
+- âŒ **CRM Features:** No lead management, sales pipeline (Roadmap: v2.5)
 
 ### 25.2 Technical Debt Items (Known Issues Deferred)
 
@@ -2191,3 +2329,40 @@ Progressive disclosure checklist shown on dashboard:
 4. Resource availability
 
 **Transparency:** Public roadmap board (GitHub Projects / Notion) where users can track progress
+
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

@@ -1,0 +1,1273 @@
+﻿{
+    "duplicates":  [
+                       {
+                           "filename":  "sales_invoice_list.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_invoice_list.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\invoices\\presentation\\sales_invoice_list.dart",
+                                                 "lib\\modules\\sales\\invoices\\presentation\\pages\\sales_invoice_list.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_vendors_vendor_list.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\purchases_vendors_vendor_list.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\vendors\\presentation\\purchases_vendors_vendor_list.dart",
+                                                 "lib\\modules\\purchases\\vendors\\presentation\\pages\\purchases_vendors_vendor_list.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_purchase_receives_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_create.dart",
+                                                 "lib\\modules\\purchases\\purchase_receives\\presentation\\pages\\purchases_purchase_receives_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "column_customizer.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\widgets\\tables\\column_customizer.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\credit_note\\presentation\\column_customizer.dart",
+                                                 "lib\\modules\\sales\\credit_note\\presentation\\pages\\column_customizer.dart",
+                                                 "lib\\shared\\widgets\\tables\\column_customizer.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_bills_list.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\presentation\\purchases_bills_list.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\bills\\presentation\\purchases_bills_list.dart",
+                                                 "lib\\modules\\purchases\\bills\\presentation\\pages\\purchases_bills_list.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "env_service.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\services\\env_service.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\services\\env_service.dart",
+                                                 "lib\\shared\\services\\env_service.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "image_picker_service.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\services\\image_picker_service.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\services\\image_picker_service.dart",
+                                                 "lib\\shared\\services\\image_picker_service.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_customer_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_customer_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\customers\\presentation\\sales_customer_create.dart",
+                                                 "lib\\modules\\sales\\customers\\presentation\\pages\\sales_customer_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_purchase_orders_list.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\presentation\\purchases_purchase_orders_list.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\purchase_orders\\presentation\\purchases_purchase_orders_list.dart",
+                                                 "lib\\modules\\purchases\\purchase_orders\\presentation\\pages\\purchases_purchase_orders_list.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_bills_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\presentation\\purchases_bills_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\bills\\presentation\\purchases_bills_create.dart",
+                                                 "lib\\modules\\purchases\\bills\\presentation\\pages\\purchases_bills_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_eway_bill_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_eway_bill_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\eway_bills\\presentation\\sales_eway_bill_create.dart",
+                                                 "lib\\modules\\sales\\eway_bills\\presentation\\pages\\sales_eway_bill_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "error_handler.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\utils\\error_handler.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\utils\\error_handler.dart",
+                                                 "lib\\shared\\utils\\error_handler.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "bulk_items_dialog.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\bulk_items_dialog.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\bulk_items_dialog.dart",
+                                                 "lib\\shared\\widgets\\dialogs\\bulk_items_dialog.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_customer_overview.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_customer_overview.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\customers\\presentation\\sales_customer_overview.dart",
+                                                 "lib\\modules\\sales\\customers\\presentation\\pages\\sales_customer_overview.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_delivery_challan_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_delivery_challan_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\delivery_challans\\presentation\\sales_delivery_challan_create.dart",
+                                                 "lib\\modules\\sales\\delivery_challans\\presentation\\pages\\sales_delivery_challan_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_item_quick_edit_dialog.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\sales_item_quick_edit_dialog.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\credit_note\\presentation\\sales_item_quick_edit_dialog.dart",
+                                                 "lib\\modules\\sales\\credit_note\\presentation\\pages\\sales_item_quick_edit_dialog.dart",
+                                                 "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\sales_item_quick_edit_dialog.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_payment_link_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_payment_link_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\payment_links\\presentation\\sales_payment_link_create.dart",
+                                                 "lib\\modules\\sales\\payment_links\\presentation\\pages\\sales_payment_link_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_order_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_order_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\sales_orders\\presentation\\sales_order_create.dart",
+                                                 "lib\\modules\\sales\\sales_orders\\presentation\\pages\\sales_order_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "phone_prefixes.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\constants\\phone_prefixes.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\constants\\phone_prefixes.dart",
+                                                 "lib\\shared\\constants\\phone_prefixes.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_invoice_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_invoice_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\invoices\\presentation\\sales_invoice_create.dart",
+                                                 "lib\\modules\\sales\\invoices\\presentation\\pages\\sales_invoice_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "dialog_service.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\services\\dialog_service.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\services\\dialog_service.dart",
+                                                 "lib\\shared\\services\\dialog_service.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_retainer_invoice_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_retainer_invoice_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\retainer_invoices\\presentation\\sales_retainer_invoice_create.dart",
+                                                 "lib\\modules\\sales\\retainer_invoices\\presentation\\pages\\sales_retainer_invoice_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_purchase_receives_list.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_list.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_list.dart",
+                                                 "lib\\modules\\purchases\\purchase_receives\\presentation\\pages\\purchases_purchase_receives_list.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_purchase_receives_edit.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_edit.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\purchase_receives\\presentation\\purchases_purchase_receives_edit.dart",
+                                                 "lib\\modules\\purchases\\purchase_receives\\presentation\\pages\\purchases_purchase_receives_edit.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_payment_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_payment_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\payments_received\\presentation\\sales_payment_create.dart",
+                                                 "lib\\modules\\sales\\payments_received\\presentation\\pages\\sales_payment_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "api_client.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\services\\api_client.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\services\\api_client.dart",
+                                                 "lib\\shared\\services\\api_client.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_purchase_orders_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\presentation\\purchases_purchase_orders_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\purchase_orders\\presentation\\purchases_purchase_orders_create.dart",
+                                                 "lib\\modules\\purchases\\purchase_orders\\presentation\\pages\\purchases_purchase_orders_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "app_text_styles.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\theme\\app_text_styles.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\theme\\app_text_styles.dart",
+                                                 "lib\\shared\\theme\\app_text_styles.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_recurring_invoice_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_recurring_invoice_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\recurring_invoices\\presentation\\sales_recurring_invoice_create.dart",
+                                                 "lib\\modules\\sales\\recurring_invoices\\presentation\\pages\\sales_recurring_invoice_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_order_list.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_order_list.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\sales_orders\\presentation\\sales_order_list.dart",
+                                                 "lib\\modules\\sales\\sales_orders\\presentation\\pages\\sales_order_list.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "hive_adapters.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\services\\hive_adapters.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\services\\hive_adapters.dart",
+                                                 "lib\\shared\\services\\hive_adapters.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "purchases_vendors_vendor_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\purchases_vendors_vendor_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\purchases\\vendors\\presentation\\purchases_vendors_vendor_create.dart",
+                                                 "lib\\modules\\purchases\\vendors\\presentation\\pages\\purchases_vendors_vendor_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_quotation_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_quotation_create.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\quotations\\presentation\\sales_quotation_create.dart",
+                                                 "lib\\modules\\sales\\quotations\\presentation\\pages\\sales_quotation_create.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "sales_document_detail.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_document_detail.dart",
+                           "project_paths":  [
+                                                 "lib\\modules\\sales\\documents\\presentation\\sales_document_detail.dart",
+                                                 "lib\\modules\\sales\\documents\\presentation\\pages\\sales_document_detail.dart"
+                                             ]
+                       },
+                       {
+                           "filename":  "hive_service.dart",
+                           "handoff_path":  "handoff\\lib\\shared\\services\\hive_service.dart",
+                           "project_paths":  [
+                                                 "lib\\core\\services\\hive_service.dart",
+                                                 "lib\\shared\\services\\hive_service.dart"
+                                             ]
+                       }
+                   ],
+    "matches":  [
+                    {
+                        "filename":  "responsive_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_dialog.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_dialog.dart"
+                    },
+                    {
+                        "filename":  "z_tooltip.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\z_tooltip.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\z_tooltip.dart"
+                    },
+                    {
+                        "filename":  "recent_history_service.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\services\\recent_history_service.dart",
+                        "project_path":  "lib\\shared\\services\\recent_history_service.dart"
+                    },
+                    {
+                        "filename":  "payments_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\repositories\\payments_repository.dart",
+                        "project_path":  "lib\\modules\\sales\\repositories\\payments_repository.dart"
+                    },
+                    {
+                        "filename":  "purchase-order.entity.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\entities\\purchase-order.entity.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\entities\\purchase-order.entity.ts"
+                    },
+                    {
+                        "filename":  "radio_group.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\radio_group.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\radio_group.dart"
+                    },
+                    {
+                        "filename":  "sales_order_api_service.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\services\\sales_order_api_service.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\data\\services\\sales_order_api_service.dart"
+                    },
+                    {
+                        "filename":  "custom_text_field.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\custom_text_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\custom_text_field.dart"
+                    },
+                    {
+                        "filename":  "customers.service.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\services\\customers.service.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\services\\customers.service.ts"
+                    },
+                    {
+                        "filename":  "unsaved_changes_guard.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\unsaved_changes_guard.dart",
+                        "project_path":  "lib\\shared\\widgets\\unsaved_changes_guard.dart"
+                    },
+                    {
+                        "filename":  "warehouse_popover.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\warehouse_popover.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\warehouse_popover.dart"
+                    },
+                    {
+                        "filename":  "z_date_picker_field.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\z_date_picker_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\z_date_picker_field.dart"
+                    },
+                    {
+                        "filename":  "responsive_table_shell.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_table_shell.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_table_shell.dart"
+                    },
+                    {
+                        "filename":  "create-vendor.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\dto\\create-vendor.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\dto\\create-vendor.dto.ts"
+                    },
+                    {
+                        "filename":  "draft_storage_service.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\services\\draft_storage_service.dart",
+                        "project_path":  "lib\\shared\\services\\draft_storage_service.dart"
+                    },
+                    {
+                        "filename":  "manage_payment_terms_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_payment_terms_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_payment_terms_dialog.dart"
+                    },
+                    {
+                        "filename":  "zerpai_toast.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\zerpai_toast.dart",
+                        "project_path":  "lib\\shared\\utils\\zerpai_toast.dart"
+                    },
+                    {
+                        "filename":  "responsive_context.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_context.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_context.dart"
+                    },
+                    {
+                        "filename":  "purchases_bills_provider.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\providers\\purchases_bills_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\bills\\providers\\purchases_bills_provider.dart"
+                    },
+                    {
+                        "filename":  "purchase_receive_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\data\\purchase_receive_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\data\\purchase_receive_repository.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_overview_actions.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_overview_actions.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_overview_actions.dart"
+                    },
+                    {
+                        "filename":  "purchases_bills_bill_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\models\\purchases_bills_bill_model.dart",
+                        "project_path":  "lib\\modules\\purchases\\bills\\models\\purchases_bills_bill_model.dart"
+                    },
+                    {
+                        "filename":  "sales_order_item_row.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\sales_order_item_row.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\sales_order_item_row.dart"
+                    },
+                    {
+                        "filename":  "form_row.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\form_row.dart",
+                        "project_path":  "lib\\shared\\widgets\\form_row.dart"
+                    },
+                    {
+                        "filename":  "settings_navigation_sidebar.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\settings_navigation_sidebar.dart",
+                        "project_path":  "lib\\shared\\widgets\\settings_navigation_sidebar.dart"
+                    },
+                    {
+                        "filename":  "purchase-receives.controller.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\controllers\\purchase-receives.controller.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\controllers\\purchase-receives.controller.ts"
+                    },
+                    {
+                        "filename":  "display_name_utils.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\display_name_utils.dart",
+                        "project_path":  "lib\\shared\\utils\\display_name_utils.dart"
+                    },
+                    {
+                        "filename":  "skeleton.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\skeleton.dart",
+                        "project_path":  "lib\\shared\\widgets\\skeleton.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_builders.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_builders.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_builders.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_attributes_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_attributes_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_attributes_section.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_address_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_address_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_address_section.dart"
+                    },
+                    {
+                        "filename":  "hsn-sac.service.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\services\\hsn-sac.service.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\services\\hsn-sac.service.ts"
+                    },
+                    {
+                        "filename":  "z_data_table_shell.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_data_table_shell.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_data_table_shell.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_helpers.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_helpers.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_helpers.dart"
+                    },
+                    {
+                        "filename":  "sequences_api_service.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\services\\sequences_api_service.dart",
+                        "project_path":  "lib\\shared\\services\\sequences_api_service.dart"
+                    },
+                    {
+                        "filename":  "hsn_sac_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\hsn_sac_model.dart",
+                        "project_path":  "lib\\modules\\sales\\models\\hsn_sac_model.dart"
+                    },
+                    {
+                        "filename":  "z_skeletons.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_skeletons.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_skeletons.dart"
+                    },
+                    {
+                        "filename":  "purchases_purchase_receives_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\repositories\\purchases_purchase_receives_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\repositories\\purchases_purchase_receives_repository.dart"
+                    },
+                    {
+                        "filename":  "purchase-receives.service.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\services\\purchase-receives.service.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\services\\purchase-receives.service.ts"
+                    },
+                    {
+                        "filename":  "custom_date_picker.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\custom_date_picker.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\custom_date_picker.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_detail_context_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_customer_detail_context_model.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\data\\models\\sales_customer_detail_context_model.dart"
+                    },
+                    {
+                        "filename":  "unsaved_changes_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\dialogs\\unsaved_changes_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\dialogs\\unsaved_changes_dialog.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_remarks_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_remarks_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_remarks_section.dart"
+                    },
+                    {
+                        "filename":  "text_input.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\text_input.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\text_input.dart"
+                    },
+                    {
+                        "filename":  "manage_categories_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_categories_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_categories_dialog.dart"
+                    },
+                    {
+                        "filename":  "manage_simple_list_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_simple_list_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_simple_list_dialog.dart"
+                    },
+                    {
+                        "filename":  "purchases_bills_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\bills\\repositories\\purchases_bills_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\bills\\repositories\\purchases_bills_repository.dart"
+                    },
+                    {
+                        "filename":  "purchase_receives_provider.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\providers\\purchase_receives_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\providers\\purchase_receives_provider.dart"
+                    },
+                    {
+                        "filename":  "z_currency_display.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_currency_display.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_currency_display.dart"
+                    },
+                    {
+                        "filename":  "bin_locations_service.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\services\\bin_locations_service.dart",
+                        "project_path":  "lib\\shared\\services\\bin_locations_service.dart"
+                    },
+                    {
+                        "filename":  "purchase-orders.service.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\services\\purchase-orders.service.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\services\\purchase-orders.service.ts"
+                    },
+                    {
+                        "filename":  "gstin_lookup_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\gstin_lookup_model.dart",
+                        "project_path":  "lib\\modules\\sales\\models\\gstin_lookup_model.dart"
+                    },
+                    {
+                        "filename":  "report_utils.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\report_utils.dart",
+                        "project_path":  "lib\\shared\\utils\\report_utils.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_primary_info_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_primary_info_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_primary_info_section.dart"
+                    },
+                    {
+                        "filename":  "global_sync_manager.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\services\\sync\\global_sync_manager.dart",
+                        "project_path":  "lib\\shared\\services\\sync\\global_sync_manager.dart"
+                    },
+                    {
+                        "filename":  "license_registration_section.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\sections\\license_registration_section.dart",
+                        "project_path":  "lib\\shared\\widgets\\sections\\license_registration_section.dart"
+                    },
+                    {
+                        "filename":  "vendors.controller.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\controllers\\vendors.controller.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\controllers\\vendors.controller.ts"
+                    },
+                    {
+                        "filename":  "sales_customer_custom_fields_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_custom_fields_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_custom_fields_section.dart"
+                    },
+                    {
+                        "filename":  "phone_input_field.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\phone_input_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\phone_input_field.dart"
+                    },
+                    {
+                        "filename":  "lookups.module.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\lookups\\lookups.module.ts",
+                        "project_path":  "backend\\src\\modules\\lookups\\lookups.module.ts"
+                    },
+                    {
+                        "filename":  "zerpai_radio_group.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_radio_group.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_radio_group.dart"
+                    },
+                    {
+                        "filename":  "top_bar.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\top_bar\\top_bar.dart",
+                        "project_path":  "lib\\shared\\widgets\\top_bar\\top_bar.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_bank_details_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_bank_details_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_bank_details_section.dart"
+                    },
+                    {
+                        "filename":  "manage_list_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_list_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_list_dialog.dart"
+                    },
+                    {
+                        "filename":  "licence_validation_mixin.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\mixins\\licence_validation_mixin.dart",
+                        "project_path":  "lib\\shared\\mixins\\licence_validation_mixin.dart"
+                    },
+                    {
+                        "filename":  "keyboard_scrollable.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\keyboard_scrollable.dart",
+                        "project_path":  "lib\\shared\\widgets\\keyboard_scrollable.dart"
+                    },
+                    {
+                        "filename":  "zerpai_date_picker_style.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_date_picker_style.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_date_picker_style.dart"
+                    },
+                    {
+                        "filename":  "z_table_helpers.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_table_helpers.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_table_helpers.dart"
+                    },
+                    {
+                        "filename":  "breakpoints.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\breakpoints.dart",
+                        "project_path":  "lib\\shared\\responsive\\breakpoints.dart"
+                    },
+                    {
+                        "filename":  "vendors.service.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\services\\vendors.service.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\services\\vendors.service.ts"
+                    },
+                    {
+                        "filename":  "lookup_service.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\services\\lookup_service.dart",
+                        "project_path":  "lib\\shared\\services\\lookup_service.dart"
+                    },
+                    {
+                        "filename":  "placeholder_screen.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\placeholder_screen.dart",
+                        "project_path":  "lib\\shared\\widgets\\placeholder_screen.dart"
+                    },
+                    {
+                        "filename":  "zerpai_builders.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_builders.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_builders.dart"
+                    },
+                    {
+                        "filename":  "storage_service.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\services\\storage_service.dart",
+                        "project_path":  "lib\\shared\\services\\storage_service.dart"
+                    },
+                    {
+                        "filename":  "manage_reorder_terms_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\manage_reorder_terms_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\manage_reorder_terms_dialog.dart"
+                    },
+                    {
+                        "filename":  "purchase-receive.entity.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\entities\\purchase-receive.entity.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\entities\\purchase-receive.entity.ts"
+                    },
+                    {
+                        "filename":  "lookup_utils.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\lookup_utils.dart",
+                        "project_path":  "lib\\shared\\utils\\lookup_utils.dart"
+                    },
+                    {
+                        "filename":  "gst_constants.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\constants\\gst_constants.dart",
+                        "project_path":  "lib\\shared\\constants\\gst_constants.dart"
+                    },
+                    {
+                        "filename":  "sales_order_preferences_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\sales_order_preferences_dialog.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\sales_order_preferences_dialog.dart"
+                    },
+                    {
+                        "filename":  "radio_input.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\radio_input.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\radio_input.dart"
+                    },
+                    {
+                        "filename":  "sales_orders_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\repositories\\sales_orders_repository.dart",
+                        "project_path":  "lib\\modules\\sales\\repositories\\sales_orders_repository.dart"
+                    },
+                    {
+                        "filename":  "purchases_purchase_orders_order_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\models\\purchases_purchase_orders_order_model.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\models\\purchases_purchase_orders_order_model.dart"
+                    },
+                    {
+                        "filename":  "customer.entity.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\entities\\customer.entity.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\entities\\customer.entity.ts"
+                    },
+                    {
+                        "filename":  "create-customer.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\dto\\create-customer.dto.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\dto\\create-customer.dto.ts"
+                    },
+                    {
+                        "filename":  "file_upload_button.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\file_upload_button.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\file_upload_button.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_license_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_license_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_license_section.dart"
+                    },
+                    {
+                        "filename":  "table_header_menu.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\tables\\table_header_menu.dart",
+                        "project_path":  "lib\\shared\\widgets\\tables\\table_header_menu.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_licence_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_licence_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_licence_section.dart"
+                    },
+                    {
+                        "filename":  "sales_payment_link_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_payment_link_model.dart",
+                        "project_path":  "lib\\modules\\sales\\payment_links\\data\\models\\sales_payment_link_model.dart"
+                    },
+                    {
+                        "filename":  "lookup_providers.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\providers\\lookup_providers.dart",
+                        "project_path":  "lib\\shared\\providers\\lookup_providers.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_other_details_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_other_details_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_other_details_section.dart"
+                    },
+                    {
+                        "filename":  "update-purchase-receive.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\dto\\update-purchase-receive.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\dto\\update-purchase-receive.dto.ts"
+                    },
+                    {
+                        "filename":  "responsive_layout.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_layout.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_layout.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_overview_other_tabs.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_overview_other_tabs.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_overview_other_tabs.dart"
+                    },
+                    {
+                        "filename":  "purchase_receive_repository_impl.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\data\\purchase_receive_repository_impl.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\data\\purchase_receive_repository_impl.dart"
+                    },
+                    {
+                        "filename":  "contact_persons_table.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\sections\\contact_persons_table.dart",
+                        "project_path":  "lib\\shared\\widgets\\sections\\contact_persons_table.dart"
+                    },
+                    {
+                        "filename":  "zerpai_date_picker.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_date_picker.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_date_picker.dart"
+                    },
+                    {
+                        "filename":  "category_dropdown.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\category_dropdown.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\category_dropdown.dart"
+                    },
+                    {
+                        "filename":  "address_section.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\sections\\address_section.dart",
+                        "project_path":  "lib\\shared\\widgets\\sections\\address_section.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_helpers.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_helpers.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_helpers.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_contact_persons_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_contact_persons_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_contact_persons_section.dart"
+                    },
+                    {
+                        "filename":  "z_search_field.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\z_search_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\z_search_field.dart"
+                    },
+                    {
+                        "filename":  "zerpai_calendar.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\zerpai_calendar.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\zerpai_calendar.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_remarks_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_remarks_section.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_remarks_section.dart"
+                    },
+                    {
+                        "filename":  "sales.service.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\services\\sales.service.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\services\\sales.service.ts"
+                    },
+                    {
+                        "filename":  "sales_customer_overview_tab.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_overview_tab.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_overview_tab.dart"
+                    },
+                    {
+                        "filename":  "email_composer.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\email_composer.dart",
+                        "project_path":  "lib\\shared\\widgets\\email_composer.dart"
+                    },
+                    {
+                        "filename":  "sales_order_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_order_model.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\data\\models\\sales_order_model.dart"
+                    },
+                    {
+                        "filename":  "advanced_customer_search_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\widgets\\advanced_customer_search_dialog.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\presentation\\widgets\\advanced_customer_search_dialog.dart"
+                    },
+                    {
+                        "filename":  "vendor.entity.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\entities\\vendor.entity.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\entities\\vendor.entity.ts"
+                    },
+                    {
+                        "filename":  "customers_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\repositories\\customers_repository.dart",
+                        "project_path":  "lib\\modules\\sales\\repositories\\customers_repository.dart"
+                    },
+                    {
+                        "filename":  "vendor_provider.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\providers\\vendor_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\providers\\vendor_provider.dart"
+                    },
+                    {
+                        "filename":  "uppercase_text_formatter.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\uppercase_text_formatter.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\uppercase_text_formatter.dart"
+                    },
+                    {
+                        "filename":  "sales_payment_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_payment_model.dart",
+                        "project_path":  "lib\\modules\\sales\\payments_received\\data\\models\\sales_payment_model.dart"
+                    },
+                    {
+                        "filename":  "customer-detail-context.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\dto\\customer-detail-context.dto.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\dto\\customer-detail-context.dto.ts"
+                    },
+                    {
+                        "filename":  "purchase-orders.module.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\purchase-orders.module.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\purchase-orders.module.ts"
+                    },
+                    {
+                        "filename":  "async_action_handler.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\async_action_handler.dart",
+                        "project_path":  "lib\\shared\\utils\\async_action_handler.dart"
+                    },
+                    {
+                        "filename":  "sales_order_item_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_order_item_model.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\data\\models\\sales_order_item_model.dart"
+                    },
+                    {
+                        "filename":  "column_config.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\models\\column_config.dart",
+                        "project_path":  "lib\\shared\\models\\column_config.dart"
+                    },
+                    {
+                        "filename":  "gstin_prefill_banner.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\gstin_prefill_banner.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\gstin_prefill_banner.dart"
+                    },
+                    {
+                        "filename":  "app_date_formatter.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\app_date_formatter.dart",
+                        "project_path":  "lib\\shared\\utils\\app_date_formatter.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_vendor_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\models\\purchases_vendors_vendor_model.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\models\\purchases_vendors_vendor_model.dart"
+                    },
+                    {
+                        "filename":  "currency_constants.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\constants\\currency_constants.dart",
+                        "project_path":  "lib\\shared\\constants\\currency_constants.dart"
+                    },
+                    {
+                        "filename":  "update-purchase-order.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\dto\\update-purchase-order.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\dto\\update-purchase-order.dto.ts"
+                    },
+                    {
+                        "filename":  "z_row_actions.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_row_actions.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_row_actions.dart"
+                    },
+                    {
+                        "filename":  "hsn_sac_search_modal.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\hsn_sac_search_modal.dart",
+                        "project_path":  "lib\\shared\\widgets\\hsn_sac_search_modal.dart"
+                    },
+                    {
+                        "filename":  "field_label.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\field_label.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\field_label.dart"
+                    },
+                    {
+                        "filename":  "text_styles.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\theme\\text_styles.dart",
+                        "project_path":  "lib\\shared\\theme\\text_styles.dart"
+                    },
+                    {
+                        "filename":  "zerpai_confirmation_dialog.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\dialogs\\zerpai_confirmation_dialog.dart",
+                        "project_path":  "lib\\shared\\widgets\\dialogs\\zerpai_confirmation_dialog.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_customer_model.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\data\\models\\sales_customer_model.dart"
+                    },
+                    {
+                        "filename":  "gstin_lookup_service.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\services\\gstin_lookup_service.dart",
+                        "project_path":  "lib\\modules\\sales\\services\\gstin_lookup_service.dart"
+                    },
+                    {
+                        "filename":  "dropdown_input.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\dropdown_input.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\dropdown_input.dart"
+                    },
+                    {
+                        "filename":  "purchases_purchase_orders_provider.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\providers\\purchases_purchase_orders_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\providers\\purchases_purchase_orders_provider.dart"
+                    },
+                    {
+                        "filename":  "sync_service.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\services\\sync\\sync_service.dart",
+                        "project_path":  "lib\\shared\\services\\sync\\sync_service.dart"
+                    },
+                    {
+                        "filename":  "vendors.module.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\vendors.module.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\vendors.module.ts"
+                    },
+                    {
+                        "filename":  "zerpai_link_text.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\texts\\zerpai_link_text.dart",
+                        "project_path":  "lib\\shared\\widgets\\texts\\zerpai_link_text.dart"
+                    },
+                    {
+                        "filename":  "update-customer.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\dto\\update-customer.dto.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\dto\\update-customer.dto.ts"
+                    },
+                    {
+                        "filename":  "responsive_form.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\responsive\\responsive_form.dart",
+                        "project_path":  "lib\\shared\\responsive\\responsive_form.dart"
+                    },
+                    {
+                        "filename":  "purchases_purchase_receives_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\models\\purchases_purchase_receives_model.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\models\\purchases_purchase_receives_model.dart"
+                    },
+                    {
+                        "filename":  "sales.controller.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\controllers\\sales.controller.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\controllers\\sales.controller.ts"
+                    },
+                    {
+                        "filename":  "purchase-receives.module.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\purchase-receives.module.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\purchase-receives.module.ts"
+                    },
+                    {
+                        "filename":  "sales_customer_reporting_tags_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_reporting_tags_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_reporting_tags_section.dart"
+                    },
+                    {
+                        "filename":  "table_more_menu.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\tables\\table_more_menu.dart",
+                        "project_path":  "lib\\shared\\widgets\\tables\\table_more_menu.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_primary_info_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_primary_info_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_primary_info_section.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_address_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_address_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_address_section.dart"
+                    },
+                    {
+                        "filename":  "shortcut_handler.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\shortcut_handler.dart",
+                        "project_path":  "lib\\shared\\widgets\\shortcut_handler.dart"
+                    },
+                    {
+                        "filename":  "z_expandable_tabs.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_expandable_tabs.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_expandable_tabs.dart"
+                    },
+                    {
+                        "filename":  "settings_fixed_header_layout.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\settings_fixed_header_layout.dart",
+                        "project_path":  "lib\\shared\\widgets\\settings_fixed_header_layout.dart"
+                    },
+                    {
+                        "filename":  "form_layout_constants.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\form_layout_constants.dart",
+                        "project_path":  "lib\\shared\\utils\\form_layout_constants.dart"
+                    },
+                    {
+                        "filename":  "purchases_vendors_dialogs.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_dialogs.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\presentation\\sections\\purchases_vendors_dialogs.dart"
+                    },
+                    {
+                        "filename":  "purchases_purchase_receives_repository_impl.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\repositories\\purchases_purchase_receives_repository_impl.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\repositories\\purchases_purchase_receives_repository_impl.dart"
+                    },
+                    {
+                        "filename":  "purchases.module.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchases.module.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchases.module.ts"
+                    },
+                    {
+                        "filename":  "purchase-orders.controller.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\controllers\\purchase-orders.controller.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\controllers\\purchase-orders.controller.ts"
+                    },
+                    {
+                        "filename":  "create-purchase-order.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-orders\\dto\\create-purchase-order.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-orders\\dto\\create-purchase-order.dto.ts"
+                    },
+                    {
+                        "filename":  "global-lookups.controller.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\lookups\\global-lookups.controller.ts",
+                        "project_path":  "backend\\src\\modules\\lookups\\global-lookups.controller.ts"
+                    },
+                    {
+                        "filename":  "purchases_purchase_receives_provider.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_receives\\providers\\purchases_purchase_receives_provider.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_receives\\providers\\purchases_purchase_receives_provider.dart"
+                    },
+                    {
+                        "filename":  "customers.controller.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\controllers\\customers.controller.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\controllers\\customers.controller.ts"
+                    },
+                    {
+                        "filename":  "zerpai_report_shell.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\reports\\zerpai_report_shell.dart",
+                        "project_path":  "lib\\shared\\widgets\\reports\\zerpai_report_shell.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_dialogs.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_dialogs.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_dialogs.dart"
+                    },
+                    {
+                        "filename":  "sales_eway_bill_model.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\models\\sales_eway_bill_model.dart",
+                        "project_path":  "lib\\modules\\sales\\eway_bills\\data\\models\\sales_eway_bill_model.dart"
+                    },
+                    {
+                        "filename":  "z_button.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\z_button.dart",
+                        "project_path":  "lib\\shared\\widgets\\z_button.dart"
+                    },
+                    {
+                        "filename":  "account_node.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\models\\account_node.dart",
+                        "project_path":  "lib\\shared\\models\\account_node.dart"
+                    },
+                    {
+                        "filename":  "hsn_sac_lookup_service.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\services\\hsn_sac_lookup_service.dart",
+                        "project_path":  "lib\\modules\\sales\\services\\hsn_sac_lookup_service.dart"
+                    },
+                    {
+                        "filename":  "vendor_repository_impl.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\repositories\\vendor_repository_impl.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\repositories\\vendor_repository_impl.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_overview_left_panel.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_overview_left_panel.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_overview_left_panel.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_contact_persons_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_contact_persons_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_contact_persons_section.dart"
+                    },
+                    {
+                        "filename":  "shared_field_layout.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\shared_field_layout.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\shared_field_layout.dart"
+                    },
+                    {
+                        "filename":  "account_tree_dropdown.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\account_tree_dropdown.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\account_tree_dropdown.dart"
+                    },
+                    {
+                        "filename":  "transaction_series_dropdown.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\transaction_series_dropdown.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\transaction_series_dropdown.dart"
+                    },
+                    {
+                        "filename":  "zerpai_layout.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\zerpai_layout.dart",
+                        "project_path":  "lib\\shared\\widgets\\zerpai_layout.dart"
+                    },
+                    {
+                        "filename":  "update-vendor.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\vendors\\dto\\update-vendor.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\vendors\\dto\\update-vendor.dto.ts"
+                    },
+                    {
+                        "filename":  "sales_customer_builders.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_builders.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_builders.dart"
+                    },
+                    {
+                        "filename":  "form_controllers_manager.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\form_controllers_manager.dart",
+                        "project_path":  "lib\\shared\\utils\\form_controllers_manager.dart"
+                    },
+                    {
+                        "filename":  "purchases_purchase_orders_order_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\repositories\\purchases_purchase_orders_order_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\repositories\\purchases_purchase_orders_order_repository.dart"
+                    },
+                    {
+                        "filename":  "sales_customer_other_details_section.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_customer_other_details_section.dart",
+                        "project_path":  "lib\\modules\\sales\\customers\\presentation\\sections\\sales_customer_other_details_section.dart"
+                    },
+                    {
+                        "filename":  "tax_engine.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\tax_engine.dart",
+                        "project_path":  "lib\\shared\\utils\\tax_engine.dart"
+                    },
+                    {
+                        "filename":  "sales.module.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\sales\\sales.module.ts",
+                        "project_path":  "backend\\src\\modules\\sales\\sales.module.ts"
+                    },
+                    {
+                        "filename":  "lookups.controller.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\lookups\\lookups.controller.ts",
+                        "project_path":  "backend\\src\\modules\\lookups\\lookups.controller.ts"
+                    },
+                    {
+                        "filename":  "sales_order_controller.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\controllers\\sales_order_controller.dart",
+                        "project_path":  "lib\\modules\\sales\\sales_orders\\controllers\\sales_order_controller.dart"
+                    },
+                    {
+                        "filename":  "purchases_purchase_orders_order_repository_impl.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\repositories\\purchases_purchase_orders_order_repository_impl.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\repositories\\purchases_purchase_orders_order_repository_impl.dart"
+                    },
+                    {
+                        "filename":  "eway_bills_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\sales\\repositories\\eway_bills_repository.dart",
+                        "project_path":  "lib\\modules\\sales\\repositories\\eway_bills_repository.dart"
+                    },
+                    {
+                        "filename":  "settings_search_field.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\settings_search_field.dart",
+                        "project_path":  "lib\\shared\\widgets\\settings_search_field.dart"
+                    },
+                    {
+                        "filename":  "vendor_repository.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\vendors\\repositories\\vendor_repository.dart",
+                        "project_path":  "lib\\modules\\purchases\\vendors\\repositories\\vendor_repository.dart"
+                    },
+                    {
+                        "filename":  "resizable_box.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\widgets\\inputs\\resizable_box.dart",
+                        "project_path":  "lib\\shared\\widgets\\inputs\\resizable_box.dart"
+                    },
+                    {
+                        "filename":  "purchase_order_notifier.dart",
+                        "handoff_path":  "handoff\\lib\\modules\\purchases\\purchase_orders\\notifiers\\purchase_order_notifier.dart",
+                        "project_path":  "lib\\modules\\purchases\\purchase_orders\\notifiers\\purchase_order_notifier.dart"
+                    },
+                    {
+                        "filename":  "gstin_prefill_utils.dart",
+                        "handoff_path":  "handoff\\lib\\shared\\utils\\gstin_prefill_utils.dart",
+                        "project_path":  "lib\\shared\\utils\\gstin_prefill_utils.dart"
+                    },
+                    {
+                        "filename":  "create-purchase-receive.dto.ts",
+                        "handoff_path":  "handoff\\backend\\src\\modules\\purchases\\purchase-receives\\dto\\create-purchase-receive.dto.ts",
+                        "project_path":  "backend\\src\\modules\\purchases\\purchase-receives\\dto\\create-purchase-receive.dto.ts"
+                    }
+                ],
+    "no_matches":  [
+                       {
+                           "filename":  "sales_generic_list_ui.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_ui.dart"
+                       },
+                       {
+                           "filename":  "sales_generic_list_filter.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_filter.dart"
+                       },
+                       {
+                           "filename":  "sales_credit_note_create.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_credit_note_create.dart"
+                       },
+                       {
+                           "filename":  "sales_generic_list_import_export_dialog.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_import_export_dialog.dart"
+                       },
+                       {
+                           "filename":  "sales_generic_list_table_logic.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_table_logic.dart"
+                       },
+                       {
+                           "filename":  "handoff_resolved_mapping.json",
+                           "handoff_path":  "handoff_resolved_mapping.json"
+                       },
+                       {
+                           "filename":  "handoff_indexing_results.json",
+                           "handoff_path":  "handoff_indexing_results.json"
+                       },
+                       {
+                           "filename":  "sales_generic_list_table.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_table.dart"
+                       },
+                       {
+                           "filename":  "sales_generic_list_search_dialog.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_search_dialog.dart"
+                       },
+                       {
+                           "filename":  "sales_generic_list.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sales_generic_list.dart"
+                       },
+                       {
+                           "filename":  "sales_generic_list_columns.dart",
+                           "handoff_path":  "handoff\\lib\\modules\\sales\\presentation\\sections\\sales_generic_list_columns.dart"
+                       },
+                       {
+                           "filename":  "MERGE_INSTRUCTIONS.md",
+                           "handoff_path":  "handoff\\MERGE_INSTRUCTIONS.md"
+                       }
+                   ]
+}

@@ -90,6 +90,7 @@ standalone depending on the variant.
 | `ZRowActions` | `z_row_actions.dart` | Vertical ellipsis (⋮) menu for row-level actions; supports Edit, Delete, Duplicate, and custom actions with dividers |
 | `ColumnCustomizerDialog` | `tables/column_customizer.dart` | Reorderable list dialog for table column customization (visibility, order, locking); uses `ColumnConfig` model |
 | `ColumnConfig` | `../models/column_config.dart` | Model for table column settings: id, label, isVisible, orderIndex, isLocked |
+| `ZModuleTable<T>` | `tables/z_module_table.dart` | Reusable module list table shell (Sales-Orders-style): header menu, select-all/row select, sortable headers, configurable columns, wrap/clip text toggle, row-cell builder hooks |
 
 ### Dialogs
 
@@ -100,6 +101,8 @@ standalone depending on the variant.
 | `ManageListDialog` | `inputs/manage_list_dialog.dart` | Two-level dialog: view list → edit individual item |
 | `ManagePaymentTermsDialog` | `inputs/manage_payment_terms_dialog.dart` | Dialog for managing payment term schedules |
 | `ManageCategoriesDialog` | `inputs/manage_categories_dialog.dart` | Dialog for managing category hierarchy |
+| `InventoryBinBatchFOC` (`PicklistSelectBatchesDialog`) | `dialogs/inventory_bin_batch_foc.dart` | Shared Select Batches modal reused by Inventory Picklists and Credit Notes. Inputs: `itemName`, `productId`, `warehouseName`, `warehouseId`, `branchId?`, `totalQuantity`, `savedBatchData?`. Row fields: `binLocation`, `batchRef`, `batchNo`, `unitPack`, `mrp`, `prate`, `expDate`, `mfgDate`, `mfgBatch`, `qtyOut`, `foc`. Result: `PicklistBatchDialogResult` with `overwriteLineItem`, `batchCount`, `appliedQuantity`, `totalIncludingFoc`, `batchDataList`. |
+| `InventoryBatchBinSelectionDialog` | `dialogs/inventory_batch_bin_selection_dialog.dart` | Shared Select Batches + Bin Locations modal with quantity validation and row-based batch entry. |
 
 ### Loading / Error States
 

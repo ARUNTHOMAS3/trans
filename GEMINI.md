@@ -1,5 +1,7 @@
 # GEMINI.md — Zerpai ERP Project Context
 
+Mandatory startup bootstrap: read `AI_AGENT_MANDATORY_READS.md` before implementation guidance.
+
 > **Mandate**: Clarity Over Complexity.
 > **Vision**: Exact Zoho Inventory Equivalence for Indian SMEs (Retail, Pharma, Trading).
 
@@ -28,12 +30,16 @@ Strict adherence to `REUSABLES.md`. NEVER reinvent common widgets.
 - **Form Inputs**: `CustomTextField`, `FormDropdown`, `ZerpaiDatePicker`.
 - **Layout**: `ZDataTableShell`, `ZerpaiLayout`, `SettingsUsersRolesShell`.
 - **Feedback**: `ZerpaiToast`, `ZTooltip`.
+- If a similar pattern appears in 2+ touched files, propose reusable extraction/promotion explicitly.
+- If kept local, justify why reusable extraction is not appropriate.
 
 ### 2. UI Governance
 
 - **Surfaces**: Pure white (`#FFFFFF`) for main content areas.
 - **Density**: Zoho-style high density. Row heights ~32px-40px. 14px checkboxes.
-- **Colors**: Zoho Blue (`#0088FF`), Success Green (`#28A745`), Border Light (`#EEEEEE`).
+- **Colors**: Do not hardcode colors in feature modules; use centralized AppTheme/shared tokens only.
+- **Selection controls**: Checkboxes, radios, and switches/toggles must use blue + white interaction styling globally.
+- **Accent usage**: Branding accent is reserved for sidebar selected modules and primary/new action buttons; never for checkbox/radio/switch active states.
 - **Typography**: Inter font family. Headers often use ALL CAPS for section titles.
 
 ### 3. Navigation & Routing
@@ -88,3 +94,39 @@ supabase/ (For migrations)
 2 - Allow write access to the backend/src/ and lib/ directories for implementing the refactor.
 3 - Allow execution of npm, flutter, and prisma commands.
 4 - Allow access to current schema.md and all plan/doc files in the root.
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

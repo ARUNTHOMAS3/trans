@@ -1,4 +1,4 @@
-# 2. Bundle Size Optimization
+﻿# 2. Bundle Size Optimization
 
 > **Impact:** CRITICAL
 > **Focus:** Reducing initial bundle size improves Time to Interactive and Largest Contentful Paint.
@@ -67,7 +67,7 @@ Direct imports provide 15-70% faster dev boot, 28% faster builds, 40% faster col
 
 Libraries commonly affected: `lucide-react`, `@mui/material`, `@mui/icons-material`, `@tabler/icons-react`, `react-icons`, `@headlessui/react`, `@radix-ui/react-*`, `lodash`, `ramda`, `date-fns`, `rxjs`, `react-use`.
 
-Reference: [How we optimized package imports in Next.js](https://vercel.com/blog/how-we-optimized-package-imports-in-next-js)
+Reference: [How we optimized package imports in Next.js](https://Railway/Cloudflare Pages.com/blog/how-we-optimized-package-imports-in-next-js)
 
 ---
 
@@ -115,7 +115,7 @@ Analytics, logging, and error tracking don't block user interaction. Load them a
 **Incorrect (blocks initial bundle):**
 
 ```tsx
-import { Analytics } from '@vercel/analytics/react'
+import { Analytics } from '@Railway/Cloudflare Pages/analytics/react'
 
 export default function RootLayout({ children }) {
   return (
@@ -135,7 +135,7 @@ export default function RootLayout({ children }) {
 import dynamic from 'next/dynamic'
 
 const Analytics = dynamic(
-  () => import('@vercel/analytics/react').then(m => m.Analytics),
+  () => import('@Railway/Cloudflare Pages/analytics/react').then(m => m.Analytics),
   { ssr: false }
 )
 
@@ -237,4 +237,5 @@ function FlagsProvider({ children, flags }: Props) {
 ```
 
 The `typeof window !== 'undefined'` check prevents bundling preloaded modules for SSR, optimizing server bundle size and build speed.
+
 

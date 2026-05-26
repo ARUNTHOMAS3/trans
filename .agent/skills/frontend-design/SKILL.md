@@ -1,4 +1,4 @@
----
+﻿---
 name: frontend-design
 description: Design thinking and decision-making for web UI. Use when designing components, layouts, color schemes, typography, or creating aesthetic interfaces. Teaches principles, not fixed values.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
@@ -11,25 +11,25 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 ---
 
-## 🎯 Selective Reading Rule (MANDATORY)
+## ðŸŽ¯ Selective Reading Rule (MANDATORY)
 
 **Read REQUIRED files always, OPTIONAL only when needed:**
 
 | File | Status | When to Read |
 |------|--------|--------------|
-| [ux-psychology.md](ux-psychology.md) | 🔴 **REQUIRED** | Always read first! |
-| [color-system.md](color-system.md) | ⚪ Optional | Color/palette decisions |
-| [typography-system.md](typography-system.md) | ⚪ Optional | Font selection/pairing |
-| [visual-effects.md](visual-effects.md) | ⚪ Optional | Glassmorphism, shadows, gradients |
-| [animation-guide.md](animation-guide.md) | ⚪ Optional | Animation needed |
-| [motion-graphics.md](motion-graphics.md) | ⚪ Optional | Lottie, GSAP, 3D |
-| [decision-trees.md](decision-trees.md) | ⚪ Optional | Context templates |
+| [ux-psychology.md](ux-psychology.md) | ðŸ”´ **REQUIRED** | Always read first! |
+| [color-system.md](color-system.md) | âšª Optional | Color/palette decisions |
+| [typography-system.md](typography-system.md) | âšª Optional | Font selection/pairing |
+| [visual-effects.md](visual-effects.md) | âšª Optional | Glassmorphism, shadows, gradients |
+| [animation-guide.md](animation-guide.md) | âšª Optional | Animation needed |
+| [motion-graphics.md](motion-graphics.md) | âšª Optional | Lottie, GSAP, 3D |
+| [decision-trees.md](decision-trees.md) | âšª Optional | Context templates |
 
-> 🔴 **ux-psychology.md = ALWAYS READ. Others = only if relevant.**
+> ðŸ”´ **ux-psychology.md = ALWAYS READ. Others = only if relevant.**
 
 ---
 
-## 🔧 Runtime Scripts
+## ðŸ”§ Runtime Scripts
 
 **Execute these for audits (don't read, just run):**
 
@@ -39,7 +39,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 ---
 
-## ⚠️ CRITICAL: ASK BEFORE ASSUMING (MANDATORY)
+## âš ï¸ CRITICAL: ASK BEFORE ASSUMING (MANDATORY)
 
 > **STOP! If the user's request is open-ended, DO NOT default to your favorites.**
 
@@ -54,11 +54,11 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 **Layout not specified?** Ask:
 > "Do you have a layout preference? (single column/grid/asymmetric/full-width?)"
 
-### ⛔ DEFAULT TENDENCIES TO AVOID (ANTI-SAFE HARBOR):
+### â›” DEFAULT TENDENCIES TO AVOID (ANTI-SAFE HARBOR):
 
 | AI Default Tendency | Why It's Bad | Think Instead |
 |---------------------|--------------|---------------|
-| **Bento Grids (Modern Cliché)** | Used in every AI design | Why does this content NEED a grid? |
+| **Bento Grids (Modern ClichÃ©)** | Used in every AI design | Why does this content NEED a grid? |
 | **Hero Split (Left/Right)** | Predictable & Boring | How about Massive Typography or Vertical Narrative? |
 | **Mesh/Aurora Gradients** | The "new" lazy background | What's a radical color pairing? |
 | **Glassmorphism** | AI's idea of "premium" | How about solid, high-contrast flat? |
@@ -67,7 +67,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 | Dark background + neon glow | Overused, "AI look" | What does the BRAND actually need? |
 | **Rounded everything** | Generic/Safe | Where can I use sharp, brutalist edges? |
 
-> 🔴 **"Every 'safe' structure you choose brings you one step closer to a generic template. TAKE RISKS."**
+> ðŸ”´ **"Every 'safe' structure you choose brings you one step closer to a generic template. TAKE RISKS."**
 
 ---
 
@@ -83,7 +83,7 @@ Before any design work, ANSWER THESE or ASK USER:
 | **Tech** | What stack? | Affects capabilities |
 | **Audience** | Who exactly? | Drives all visual decisions |
 
-### Audience → Design Approach
+### Audience â†’ Design Approach
 
 | Audience | Think About |
 |----------|-------------|
@@ -111,9 +111,9 @@ Before any design work, ANSWER THESE or ASK USER:
 ### Emotional Design Levels
 
 ```
-VISCERAL (instant)  → First impression: colors, imagery, overall feel
-BEHAVIORAL (use)    → Using it: speed, feedback, efficiency
-REFLECTIVE (memory) → After: "I like what this says about me"
+VISCERAL (instant)  â†’ First impression: colors, imagery, overall feel
+BEHAVIORAL (use)    â†’ Using it: speed, feedback, efficiency
+REFLECTIVE (memory) â†’ After: "I like what this says about me"
 ```
 
 ### Trust Building
@@ -128,25 +128,25 @@ REFLECTIVE (memory) → After: "I like what this says about me"
 
 ## 3. Layout Principles
 
-### Golden Ratio (φ = 1.618)
+### Golden Ratio (Ï† = 1.618)
 
 ```
 Use for proportional harmony:
-├── Content : Sidebar = roughly 62% : 38%
-├── Each heading size = previous × 1.618 (for dramatic scale)
-├── Spacing can follow: sm → md → lg (each × 1.618)
+â”œâ”€â”€ Content : Sidebar = roughly 62% : 38%
+â”œâ”€â”€ Each heading size = previous Ã— 1.618 (for dramatic scale)
+â”œâ”€â”€ Spacing can follow: sm â†’ md â†’ lg (each Ã— 1.618)
 ```
 
 ### 8-Point Grid Concept
 
 ```
 All spacing and sizing in multiples of 8:
-├── Tight: 4px (half-step for micro)
-├── Small: 8px
-├── Medium: 16px
-├── Large: 24px, 32px
-├── XL: 48px, 64px, 80px
-└── Adjust based on content density
+â”œâ”€â”€ Tight: 4px (half-step for micro)
+â”œâ”€â”€ Small: 8px
+â”œâ”€â”€ Medium: 16px
+â”œâ”€â”€ Large: 24px, 32px
+â”œâ”€â”€ XL: 48px, 64px, 80px
+â””â”€â”€ Adjust based on content density
 ```
 
 ### Key Sizing Principles
@@ -166,9 +166,9 @@ All spacing and sizing in multiples of 8:
 ### 60-30-10 Rule
 
 ```
-60% → Primary/Background (calm, neutral base)
-30% → Secondary (supporting areas)
-10% → Accent (CTAs, highlights, attention)
+60% â†’ Primary/Background (calm, neutral base)
+30% â†’ Secondary (supporting areas)
+10% â†’ Accent (CTAs, highlights, attention)
 ```
 
 ### Color Psychology (For Decision Making)
@@ -207,9 +207,9 @@ For detailed color theory: [color-system.md](color-system.md)
 
 ```
 Contrast + Harmony:
-├── DIFFERENT enough for hierarchy
-├── SIMILAR enough for cohesion
-└── Usually: display + neutral, or serif + sans
+â”œâ”€â”€ DIFFERENT enough for hierarchy
+â”œâ”€â”€ SIMILAR enough for cohesion
+â””â”€â”€ Usually: display + neutral, or serif + sans
 ```
 
 ### Readability Rules
@@ -229,31 +229,31 @@ For detailed typography: [typography-system.md](typography-system.md)
 
 ```
 Key properties:
-├── Semi-transparent background
-├── Backdrop blur
-├── Subtle border for definition
-└── ⚠️ **WARNING:** Standard blue/white glassmorphism is a modern cliché. Use it radically or not at all.
+â”œâ”€â”€ Semi-transparent background
+â”œâ”€â”€ Backdrop blur
+â”œâ”€â”€ Subtle border for definition
+â””â”€â”€ âš ï¸ **WARNING:** Standard blue/white glassmorphism is a modern clichÃ©. Use it radically or not at all.
 ```
 
 ### Shadow Hierarchy
 
 ```
 Elevation concept:
-├── Higher elements = larger shadows
-├── Y-offset > X-offset (light from above)
-├── Multiple layers = more realistic
-└── Dark mode: may need glow instead
+â”œâ”€â”€ Higher elements = larger shadows
+â”œâ”€â”€ Y-offset > X-offset (light from above)
+â”œâ”€â”€ Multiple layers = more realistic
+â””â”€â”€ Dark mode: may need glow instead
 ```
 
 ### Gradient Usage
 
 ```
 Harmonious gradients:
-├── Adjacent colors on wheel (analogous)
-├── OR same hue, different lightness
-├── Avoid harsh complementary pairs
-├── 🚫 **NO Mesh/Aurora Gradients** (floating blobs)
-└── VARY from project to project radically
+â”œâ”€â”€ Adjacent colors on wheel (analogous)
+â”œâ”€â”€ OR same hue, different lightness
+â”œâ”€â”€ Avoid harsh complementary pairs
+â”œâ”€â”€ ðŸš« **NO Mesh/Aurora Gradients** (floating blobs)
+â””â”€â”€ VARY from project to project radically
 ```
 
 For complete effects guide: [visual-effects.md](visual-effects.md)
@@ -266,10 +266,10 @@ For complete effects guide: [visual-effects.md](visual-effects.md)
 
 ```
 Duration based on:
-├── Distance (further = longer)
-├── Size (larger = slower)
-├── Importance (critical = clear)
-└── Context (urgent = fast, luxury = slow)
+â”œâ”€â”€ Distance (further = longer)
+â”œâ”€â”€ Size (larger = slower)
+â”œâ”€â”€ Importance (critical = clear)
+â””â”€â”€ Context (urgent = fast, luxury = slow)
 ```
 
 ### Easing Selection
@@ -321,7 +321,7 @@ For animation patterns: [animation-guide.md](animation-guide.md), for advanced: 
 
 ## 9. Anti-Patterns (What NOT to Do)
 
-### ❌ Lazy Design Indicators
+### âŒ Lazy Design Indicators
 
 - Default system fonts without consideration
 - Stock imagery that doesn't match
@@ -330,17 +330,17 @@ For animation patterns: [animation-guide.md](animation-guide.md), for advanced: 
 - Walls of text without hierarchy
 - Inaccessible contrast
 
-### ❌ AI Tendency Patterns (AVOID!)
+### âŒ AI Tendency Patterns (AVOID!)
 
 - **Same colors every project**
 - **Dark + neon as default**
-- **Purple/violet everything (PURPLE BAN ✅)**
+- **Purple/violet everything (PURPLE BAN âœ…)**
 - **Bento grids for simple landing pages**
 - **Mesh Gradients & Glow Effects**
-- **Same layout structure / Vercel clone**
+- **Same layout structure / Railway/Cloudflare Pages clone**
 - **Not asking user preferences**
 
-### ❌ Dark Patterns (Unethical)
+### âŒ Dark Patterns (Unethical)
 
 - Hidden costs
 - Fake urgency
@@ -356,25 +356,25 @@ For animation patterns: [animation-guide.md](animation-guide.md), for advanced: 
 For EVERY design task:
 
 1. CONSTRAINTS
-   └── What's the timeline, brand, tech, audience?
-   └── If unclear → ASK
+   â””â”€â”€ What's the timeline, brand, tech, audience?
+   â””â”€â”€ If unclear â†’ ASK
 
 2. CONTENT
-   └── What content exists?
-   └── What's the hierarchy?
+   â””â”€â”€ What content exists?
+   â””â”€â”€ What's the hierarchy?
 
 3. STYLE DIRECTION
-   └── What's appropriate for context?
-   └── If unclear → ASK (don't default!)
+   â””â”€â”€ What's appropriate for context?
+   â””â”€â”€ If unclear â†’ ASK (don't default!)
 
 4. EXECUTION
-   └── Apply principles above
-   └── Check against anti-patterns
+   â””â”€â”€ Apply principles above
+   â””â”€â”€ Check against anti-patterns
 
 5. REVIEW
-   └── "Does this serve the user?"
-   └── "Is this different from my defaults?"
-   └── "Would I be proud of this?"
+   â””â”€â”€ "Does this serve the user?"
+   â””â”€â”€ "Is this different from my defaults?"
+   â””â”€â”€ "Would I be proud of this?"
 ```
 
 ---
@@ -405,10 +405,10 @@ For deeper guidance on specific areas:
 After implementing your design, run the audit:
 
 ```
-1. DESIGN   → Read frontend-design principles ← YOU ARE HERE
-2. CODE     → Implement the design
-3. AUDIT    → Run web-design-guidelines review
-4. FIX      → Address findings from audit
+1. DESIGN   â†’ Read frontend-design principles â† YOU ARE HERE
+2. CODE     â†’ Implement the design
+3. AUDIT    â†’ Run web-design-guidelines review
+4. FIX      â†’ Address findings from audit
 ```
 
 > **Next Step:** After coding, use `web-design-guidelines` skill to audit your implementation for accessibility, focus states, animations, and performance issues.
@@ -416,3 +416,4 @@ After implementing your design, run the audit:
 ---
 
 > **Remember:** Design is THINKING, not copying. Every project deserves fresh consideration based on its unique context and users. **Avoid the Modern SaaS Safe Harbor!**
+

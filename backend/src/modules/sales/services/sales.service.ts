@@ -766,19 +766,60 @@ export class SalesService {
       }
     }
 
+    const invoiceIds = invoices.map((inv) => inv.id);
+    const invoiceSoMap = new Map<string, { order_number: string; sales_order_id: string }>();
+    try {
+      if (invoiceIds.length > 0) {
+        const { data: linkedLinks } = await client
+          .from("invoice_sales_orders")
+          .select("invoice_id, sales_order_id")
+          .in("invoice_id", invoiceIds);
+
+        if (linkedLinks && linkedLinks.length > 0) {
+          const soIds = Array.from(new Set(linkedLinks.map((l) => l.sales_order_id)));
+          const { data: sos } = await client
+            .from("sales_orders")
+            .select("id, sale_number")
+            .in("id", soIds);
+
+          const soMap = new Map<string, string>();
+          if (sos) {
+            for (const so of sos) {
+              soMap.set(so.id, so.sale_number);
+            }
+          }
+
+          for (const link of linkedLinks) {
+            const orderNum = soMap.get(link.sales_order_id);
+            if (orderNum) {
+              invoiceSoMap.set(link.invoice_id, {
+                order_number: orderNum,
+                sales_order_id: link.sales_order_id,
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
     return invoices.map((inv) => ({
       ...inv,
       customer: inv.customer_id
         ? customersMap.get(inv.customer_id) || null
         : null,
+      order_number: invoiceSoMap.get(inv.id)?.order_number || null,
+      sales_order_id: invoiceSoMap.get(inv.id)?.sales_order_id || null,
     }));
   }
 
-  async getInvoiceById(id: string) {
+  async getInvoiceById(id: string, orgId: string) {
     const client = this.supabaseService.getClient();
     const { data: invoice, error: invoiceError } = await client
       .from("invoice_master")
       .select("*")
+      .eq("entity_id", orgId)
       .eq("id", id)
       .single();
 
@@ -878,10 +919,37 @@ export class SalesService {
       }
     }
 
+    // Fetch associated sales order id and number
+    let orderNumber: string | null = null;
+    let salesOrderId: string | null = null;
+    try {
+      const { data: linked } = await client
+        .from("invoice_sales_orders")
+        .select("sales_order_id")
+        .eq("invoice_id", id)
+        .maybeSingle();
+
+      if (linked?.sales_order_id) {
+        salesOrderId = linked.sales_order_id;
+        const { data: so } = await client
+          .from("sales_orders")
+          .select("sale_number")
+          .eq("id", linked.sales_order_id)
+          .maybeSingle();
+        if (so) {
+          orderNumber = so.sale_number;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
     return {
       ...invoice,
       customer,
       items: enrichedItems,
+      order_number: orderNumber,
+      sales_order_id: salesOrderId,
     };
   }
 

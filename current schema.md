@@ -1,2828 +1,2362 @@
-## Table `account_transactions`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `account_id` | `uuid` |  |
-| `transaction_date` | `timestamp` |  |
-| `transaction_type` | `varchar` |  Nullable |
-| `reference_number` | `varchar` |  Nullable |
-| `description` | `text` |  Nullable |
-| `debit` | `numeric` |  Nullable |
-| `credit` | `numeric` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `source_id` | `uuid` |  Nullable |
-| `source_type` | `varchar` |  Nullable |
-| `contact_id` | `uuid` |  Nullable |
-| `contact_type` | `varchar` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `org_id` | `uuid` |  |
-
-## Table `accounts`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `system_account_name` | `varchar` |  Nullable Unique |
-| `account_code` | `varchar` |  Nullable Unique |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `parent_id` | `uuid` |  Nullable |
-| `account_group` | `account_group_enum` |  |
-| `is_system` | `bool` |  Nullable |
-| `account_type` | `account_type_enum` |  |
-| `description` | `text` |  Nullable |
-| `account_number` | `varchar` |  Nullable |
-| `ifsc` | `varchar` |  Nullable |
-| `currency` | `varchar` |  Nullable |
-| `show_in_zerpai_expense` | `bool` |  Nullable |
-| `add_to_watchlist` | `bool` |  Nullable |
-| `is_deletable` | `bool` |  Nullable |
-| `user_account_name` | `varchar` |  Nullable |
-| `created_by` | `uuid` |  Nullable |
-| `is_deleted` | `bool` |  Nullable |
-| `modified_at` | `timestamptz` |  Nullable |
-| `modified_by` | `uuid` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `org_id` | `uuid` |  |
-
-## Table `assemblies_constituencies`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `district_id` | `uuid` |  |
-| `code` | `varchar` |  Nullable |
-| `name` | `varchar` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `audit_logs`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `table_name` | `varchar` |  |
-| `record_id` | `uuid` |  |
-| `action` | `varchar` |  |
-| `old_values` | `jsonb` |  Nullable |
-| `new_values` | `jsonb` |  Nullable |
-| `user_id` | `uuid` |  |
-| `created_at` | `timestamptz` |  Nullable |
-| `org_id` | `uuid` |  |
-| `actor_name` | `text` |  |
-| `schema_name` | `text` |  |
-| `record_pk` | `text` |  Nullable |
-| `changed_columns` | `_text` |  Nullable |
-| `txid` | `int8` |  |
-| `source` | `text` |  |
-| `module_name` | `text` |  Nullable |
-| `request_id` | `text` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `audit_logs_archive`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `table_name` | `varchar` |  |
-| `record_id` | `uuid` |  |
-| `action` | `varchar` |  |
-| `old_values` | `jsonb` |  Nullable |
-| `new_values` | `jsonb` |  Nullable |
-| `user_id` | `uuid` |  |
-| `created_at` | `timestamptz` |  Nullable |
-| `org_id` | `uuid` |  |
-| `actor_name` | `text` |  |
-| `schema_name` | `text` |  |
-| `record_pk` | `text` |  Nullable |
-| `changed_columns` | `_text` |  Nullable |
-| `txid` | `int8` |  |
-| `source` | `text` |  |
-| `module_name` | `text` |  Nullable |
-| `request_id` | `text` |  Nullable |
-| `archived_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `backup_inventory_adjustment_reasons_20260518`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` |  Nullable |
-| `entity_id` | `uuid` |  Nullable |
-| `name` | `varchar` |  Nullable |
-| `code` | `varchar` |  Nullable |
-| `reason_type` | `varchar` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `sort_order` | `int4` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `batch_master`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `product_id` | `uuid` |  Nullable |
-| `batch_no` | `varchar` |  Unique |
-| `expiry_date` | `date` |  |
-| `unit_pack` | `varchar` |  Nullable |
-| `is_manufacture_details` | `bool` |  Nullable |
-| `manufacture_batch_number` | `varchar` |  Nullable |
-| `manufacture_exp` | `date` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `created_by_entity_id` | `uuid` |  Nullable |
-| `source_type` | `varchar` |  Nullable |
-
-## Table `batch_stock_layers`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `batch_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  |
-| `bin_id` | `uuid` |  |
-| `vendor_id` | `uuid` |  Nullable |
-| `purchase_rate` | `numeric` |  |
-| `mrp` | `numeric` |  |
-| `qty` | `numeric` |  |
-| `foc_qty` | `numeric` |  Nullable |
-| `ref_id` | `uuid` |  Nullable |
-| `ref_type` | `varchar` |  |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `reserved_qty` | `numeric` |  |
-
-## Table `batch_transactions`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `batch_id` | `uuid` |  |
-| `layer_id` | `uuid` |  Nullable |
-| `product_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  |
-| `bin_id` | `uuid` |  Nullable |
-| `trans_type` | `varchar` |  |
-| `ref_id` | `uuid` |  Nullable |
-| `ref_no` | `varchar` |  Nullable |
-| `qty_in` | `numeric` |  Nullable |
-| `qty_out` | `numeric` |  Nullable |
-| `rate` | `numeric` |  Nullable |
-| `trans_date` | `timestamptz` |  |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `bin_master`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  |
-| `zone_id` | `uuid` |  |
-| `bin_code` | `varchar` |  |
-| `level_path` | `text` |  Nullable |
-| `bin_type` | `varchar` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `branch_price_list_assignments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `price_list_id` | `uuid` |  |
-| `branch_entity_id` | `uuid` |  |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `branch_transaction_series`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `transaction_series_id` | `uuid` |  |
-| `created_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `branch_user_access`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `user_id` | `uuid` |  |
-| `role_id` | `uuid` |  Nullable |
-| `is_default_branch` | `bool` |  Nullable |
-| `permissions` | `jsonb` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `branch_users`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `user_id` | `uuid` |  |
-| `role` | `varchar` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `branches`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `org_id` | `uuid` |  |
-| `name` | `varchar` |  |
-| `branch_code` | `varchar` |  |
-| `branch_type` | `varchar` |  Nullable |
-| `email` | `varchar` |  Nullable |
-| `phone` | `varchar` |  Nullable |
-| `website` | `varchar` |  Nullable |
-| `attention` | `text` |  Nullable |
-| `street` | `text` |  Nullable |
-| `place` | `text` |  Nullable |
-| `city` | `varchar` |  Nullable |
-| `state` | `varchar` |  Nullable |
-| `pincode` | `varchar` |  Nullable |
-| `country` | `varchar` |  |
-| `gstin` | `varchar` |  Nullable |
-| `gstin_registration_type` | `varchar` |  Nullable |
-| `logo_url` | `text` |  Nullable |
-| `subscription_from` | `date` |  Nullable |
-| `subscription_to` | `date` |  Nullable |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-| `is_child_location` | `bool` |  |
-| `parent_branch_id` | `uuid` |  Nullable |
-| `primary_contact_id` | `uuid` |  Nullable |
-| `gstin_legal_name` | `varchar` |  Nullable |
-| `gstin_trade_name` | `varchar` |  Nullable |
-| `gstin_registered_on` | `date` |  Nullable |
-| `gstin_reverse_charge` | `bool` |  |
-| `gstin_import_export` | `bool` |  |
-| `gstin_import_export_account_id` | `uuid` |  Nullable |
-| `gstin_digital_services` | `bool` |  |
-| `default_transaction_series_id` | `uuid` |  Nullable |
-| `district_id` | `uuid` |  Nullable |
-| `local_body_id` | `uuid` |  Nullable |
-| `ward_id` | `uuid` |  Nullable |
-| `system_id` | `varchar` |  |
-| `pan` | `varchar` |  Nullable |
-| `industry` | `varchar` |  Nullable |
-| `gst_treatment` | `varchar` |  Nullable |
-| `is_drug_registered` | `bool` |  |
-| `drug_licence_type` | `varchar` |  Nullable |
-| `drug_licence_20` | `varchar` |  Nullable |
-| `drug_licence_21` | `varchar` |  Nullable |
-| `drug_licence_20b` | `varchar` |  Nullable |
-| `drug_licence_21b` | `varchar` |  Nullable |
-| `is_fssai_registered` | `bool` |  |
-| `fssai_number` | `varchar` |  Nullable |
-| `is_msme_registered` | `bool` |  |
-| `msme_registration_type` | `varchar` |  Nullable |
-| `msme_number` | `varchar` |  Nullable |
-| `msme_type` | `varchar` |  Nullable |
-| `fiscal_year` | `varchar` |  Nullable |
-| `report_basis` | `varchar` |  Nullable |
-| `has_separate_payment_stub_address` | `bool` |  |
-| `payment_stub_address` | `text` |  Nullable |
-| `payment_stub_assembly_id` | `uuid` |  Nullable |
-| `assembly_id` | `uuid` |  Nullable |
-
-## Table `branding`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `accent_color` | `varchar` |  |
-| `theme_mode` | `varchar` |  |
-| `keep_branding` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `brands`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  Unique |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `business_types`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `label` | `varchar` |  |
-| `description` | `text` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `buying_rules`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `buying_rule` | `varchar` |  Unique |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `rule_description` | `text` |  Nullable |
-| `system_behavior` | `text` |  Nullable |
-| `associated_schedule_codes` | `_text` |  |
-| `requires_rx` | `bool` |  |
-| `requires_patient_info` | `bool` |  |
-| `is_saleable` | `bool` |  |
-| `log_to_special_register` | `bool` |  |
-| `requires_doctor_name` | `bool` |  |
-| `requires_prescription_date` | `bool` |  |
-| `requires_age_check` | `bool` |  |
-| `institutional_only` | `bool` |  |
-| `blocks_retail_sale` | `bool` |  |
-| `quantity_limit` | `int4` |  Nullable |
-| `allows_refill` | `bool` |  |
-| `sort_order` | `int4` |  |
-
-## Table `carrier`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  Unique |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `categories`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  Unique |
-| `description` | `text` |  Nullable |
-| `parent_id` | `uuid` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `company_id_labels`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `label` | `varchar` |  Unique |
-| `is_active` | `bool` |  |
-| `sort_order` | `int2` |  |
-
-## Table `composite_item_branch_inventory_settings`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `org_id` | `uuid` |  |
-| `composite_item_id` | `uuid` |  |
-| `reorder_point` | `int4` |  |
-| `reorder_term_id` | `uuid` |  Nullable |
-| `is_active` | `bool` |  |
-| `created_by_id` | `uuid` |  Nullable |
-| `updated_by_id` | `uuid` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `composite_item_parts`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `composite_item_id` | `uuid` |  |
-| `component_product_id` | `uuid` |  |
-| `quantity` | `numeric` |  |
-| `selling_price_override` | `numeric` |  Nullable |
-| `cost_price_override` | `numeric` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `composite_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `type` | `composite_type` |  |
-| `product_name` | `varchar` |  |
-| `sku` | `varchar` |  Nullable Unique |
-| `unit_id` | `uuid` |  |
-| `category_id` | `uuid` |  Nullable |
-| `is_returnable` | `bool` |  Nullable |
-| `push_to_ecommerce` | `bool` |  Nullable |
-| `hsn_code` | `varchar` |  Nullable |
-| `tax_preference` | `tax_preference` |  Nullable |
-| `intra_state_tax_id` | `uuid` |  Nullable |
-| `inter_state_tax_id` | `uuid` |  Nullable |
-| `primary_image_url` | `text` |  Nullable |
-| `image_urls` | `text` |  Nullable |
-| `selling_price` | `numeric` |  Nullable |
-| `selling_price_currency` | `varchar` |  Nullable |
-| `ptr` | `numeric` |  Nullable |
-| `sales_account_id` | `uuid` |  Nullable |
-| `sales_description` | `text` |  Nullable |
-| `cost_price` | `numeric` |  Nullable |
-| `purchase_account_id` | `uuid` |  Nullable |
-| `preferred_vendor_id` | `uuid` |  Nullable |
-| `purchase_description` | `text` |  Nullable |
-| `length` | `numeric` |  Nullable |
-| `width` | `numeric` |  Nullable |
-| `height` | `numeric` |  Nullable |
-| `dimension_unit` | `varchar` |  Nullable |
-| `weight` | `numeric` |  Nullable |
-| `weight_unit` | `varchar` |  Nullable |
-| `manufacturer_id` | `uuid` |  Nullable |
-| `brand_id` | `uuid` |  Nullable |
-| `mpn` | `varchar` |  Nullable |
-| `upc` | `varchar` |  Nullable |
-| `isbn` | `varchar` |  Nullable |
-| `ean` | `varchar` |  Nullable |
-| `is_track_inventory` | `bool` |  Nullable |
-| `track_batches` | `bool` |  Nullable |
-| `track_serial_number` | `bool` |  Nullable |
-| `inventory_account_id` | `uuid` |  Nullable |
-| `inventory_valuation_method` | `inventory_valuation_method` |  Nullable |
-| `reorder_point` | `int4` |  Nullable |
-| `reorder_term_id` | `uuid` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `is_lock` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `created_by_id` | `uuid` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `updated_by_id` | `uuid` |  Nullable |
-
-## Table `contents`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `content_name` | `varchar` |  Unique |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `countries`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  Unique |
-| `full_label` | `varchar` |  Nullable |
-| `phone_code` | `varchar` |  |
-| `short_code` | `varchar` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `primary_timezone_id` | `uuid` |  Nullable |
-
-## Table `credit_note_item_batches`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `credit_note_item_id` | `uuid` |  |
-| `batch_id` | `uuid` |  |
-| `layer_id` | `uuid` |  Nullable |
-| `warehouse_id` | `uuid` |  Nullable |
-| `bin_id` | `uuid` |  Nullable |
-| `quantity` | `numeric` |  |
-| `rate` | `numeric` |  Nullable |
-| `mrp` | `numeric` |  Nullable |
-| `ref_type` | `varchar` |  Nullable |
-| `ref_id` | `uuid` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `credit_note_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `credit_note_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `invoice_item_id` | `uuid` |  Nullable |
-| `sales_return_item_id` | `uuid` |  Nullable |
-| `account_id` | `uuid` |  Nullable |
-| `description` | `text` |  Nullable |
-| `quantity` | `numeric` |  |
-| `rate` | `numeric` |  |
-| `discount_type` | `varchar` |  Nullable |
-| `discount_value` | `numeric` |  Nullable |
-| `discount_amount` | `numeric` |  Nullable |
-| `tax_id` | `uuid` |  Nullable |
-| `tax_percentage` | `numeric` |  Nullable |
-| `tax_amount` | `numeric` |  Nullable |
-| `taxable_amount` | `numeric` |  Nullable |
-| `line_total` | `numeric` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `credit_notes`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `customer_id` | `uuid` |  |
-| `credit_note_number` | `varchar` |  Unique |
-| `reference_number` | `varchar` |  Nullable |
-| `credit_note_date` | `date` |  |
-| `reason` | `varchar` |  Nullable |
-| `salesperson_id` | `uuid` |  Nullable |
-| `warehouse_id` | `uuid` |  Nullable |
-| `price_list_id` | `uuid` |  Nullable |
-| `subject` | `text` |  Nullable |
-| `customer_notes` | `text` |  Nullable |
-| `terms_conditions` | `text` |  Nullable |
-| `subtotal` | `numeric` |  Nullable |
-| `discount_total` | `numeric` |  Nullable |
-| `tax_total` | `numeric` |  Nullable |
-| `shipping_charges` | `numeric` |  Nullable |
-| `tds_total` | `numeric` |  Nullable |
-| `tcs_total` | `numeric` |  Nullable |
-| `adjustment_amount` | `numeric` |  Nullable |
-| `round_off` | `numeric` |  Nullable |
-| `grand_total` | `numeric` |  Nullable |
-| `source_type` | `varchar` |  Nullable |
-| `source_id` | `uuid` |  Nullable |
-| `status` | `varchar` |  |
-| `created_by` | `uuid` |  Nullable |
-| `approved_by` | `uuid` |  Nullable |
-| `approved_at` | `timestamptz` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `currencies`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `name` | `varchar` |  |
-| `symbol` | `varchar` |  Nullable |
-| `decimals` | `int4` |  Nullable |
-| `format` | `varchar` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `customer_contact_persons`
-
-Alternative contact persons for customers
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `customer_id` | `uuid` |  |
-| `salutation` | `varchar` |  Nullable |
-| `first_name` | `varchar` |  Nullable |
-| `last_name` | `varchar` |  Nullable |
-| `email` | `varchar` |  Nullable |
-| `work_phone` | `varchar` |  Nullable |
-| `mobile_phone` | `varchar` |  Nullable |
-| `display_order` | `int4` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `customers`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `display_name` | `varchar` |  |
-| `customer_type` | `varchar` |  Nullable |
-| `salutation` | `varchar` |  Nullable |
-| `first_name` | `varchar` |  Nullable |
-| `last_name` | `varchar` |  Nullable |
-| `company_name` | `varchar` |  Nullable |
-| `email` | `varchar` |  Nullable |
-| `phone` | `varchar` |  Nullable |
-| `mobile_phone` | `varchar` |  Nullable |
-| `gstin` | `varchar` |  Nullable |
-| `pan` | `varchar` |  Nullable |
-| `payment_terms` | `varchar` |  Nullable |
-| `billing_address` | `text` |  Nullable |
-| `shipping_address` | `text` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `receivables` | `numeric` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `customer_number` | `varchar` |  Nullable Unique |
-| `designation` | `varchar` |  Nullable |
-| `department` | `varchar` |  Nullable |
-| `business_type` | `varchar` |  Nullable |
-| `customer_language` | `varchar` |  Nullable |
-| `date_of_birth` | `date` |  Nullable |
-| `age` | `int4` |  Nullable |
-| `gender` | `varchar` |  Nullable |
-| `place_of_customer` | `varchar` |  Nullable |
-| `privilege_card_number` | `varchar` |  Nullable |
-| `parent_customer_id` | `uuid` |  Nullable |
-| `tax_preference` | `varchar` |  Nullable |
-| `exemption_reason` | `text` |  Nullable |
-| `drug_licence_type` | `varchar` |  Nullable |
-| `drug_license_20` | `varchar` |  Nullable |
-| `drug_license_21` | `varchar` |  Nullable |
-| `drug_license_20b` | `varchar` |  Nullable |
-| `drug_license_21b` | `varchar` |  Nullable |
-| `fssai` | `varchar` |  Nullable |
-| `msme_registration_type` | `varchar` |  Nullable |
-| `msme_number` | `varchar` |  Nullable |
-| `drug_license_20_doc_url` | `text` |  Nullable |
-| `drug_license_21_doc_url` | `text` |  Nullable |
-| `drug_license_20b_doc_url` | `text` |  Nullable |
-| `drug_license_21b_doc_url` | `text` |  Nullable |
-| `fssai_doc_url` | `text` |  Nullable |
-| `msme_doc_url` | `text` |  Nullable |
-| `opening_balance` | `numeric` |  Nullable |
-| `credit_limit` | `numeric` |  Nullable |
-| `enable_portal` | `bool` |  Nullable |
-| `facebook_handle` | `varchar` |  Nullable |
-| `twitter_handle` | `varchar` |  Nullable |
-| `whatsapp_number` | `varchar` |  Nullable |
-| `is_recurring` | `bool` |  Nullable |
-| `gst_treatment` | `varchar` |  Nullable |
-| `place_of_supply` | `varchar` |  Nullable |
-| `website` | `varchar` |  Nullable |
-| `price_list_id` | `uuid` |  Nullable |
-| `receivable_balance` | `numeric` |  Nullable |
-| `billing_address_street` | `varchar` |  Nullable |
-| `billing_address_place` | `varchar` |  Nullable |
-| `billing_address_city` | `varchar` |  Nullable |
-| `billing_address_zip` | `varchar` |  Nullable |
-| `billing_address_phone` | `varchar` |  Nullable |
-| `shipping_address_street` | `varchar` |  Nullable |
-| `shipping_address_place` | `varchar` |  Nullable |
-| `shipping_address_city` | `varchar` |  Nullable |
-| `shipping_address_zip` | `varchar` |  Nullable |
-| `shipping_address_phone` | `varchar` |  Nullable |
-| `remarks` | `text` |  Nullable |
-| `status` | `varchar` |  Nullable |
-| `document_urls` | `text` |  Nullable |
-| `is_drug_registered` | `bool` |  Nullable |
-| `is_fssai_registered` | `bool` |  Nullable |
-| `is_msme_registered` | `bool` |  Nullable |
-| `currency_id` | `uuid` |  Nullable |
-| `billing_address_state_id` | `uuid` |  Nullable |
-| `shipping_address_state_id` | `uuid` |  Nullable |
-| `billing_address_country_id` | `uuid` |  Nullable |
-| `shipping_address_country_id` | `uuid` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `associated_branch_id` | `uuid` |  Nullable |
-
-## Table `date_format`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `format_pattern` | `varchar` |  |
-| `group_name` | `varchar` |  |
-| `label` | `varchar` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `date_separator`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `separator` | `varchar` |  |
-| `label` | `varchar` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `drug_licence_types`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `label` | `varchar` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `drug_schedules`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `shedule_name` | `varchar` |  Unique |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `schedule_code` | `varchar` |  Nullable |
-| `reference_description` | `text` |  Nullable |
-| `requires_prescription` | `bool` |  |
-| `requires_h1_register` | `bool` |  |
-| `is_narcotic` | `bool` |  |
-| `requires_batch_tracking` | `bool` |  |
-| `sort_order` | `int4` |  |
-| `is_common` | `bool` |  |
-
-## Table `drug_strengths`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `strength_name` | `varchar` |  Unique |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `fiscal_year_presets`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `label` | `varchar` |  |
-| `start_month` | `int2` |  |
-| `end_month` | `int2` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `fiscal_years`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `org_id` | `uuid` |  |
-| `name` | `varchar` |  |
-| `start_date` | `date` |  |
-| `end_date` | `date` |  |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `gst_treatments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `label` | `varchar` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `gstin_registration_types`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `label` | `varchar` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `hsn_sac_codes`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `type` | `hsn_sac_type` |  |
-| `code` | `varchar` |  Unique |
-| `description` | `text` |  |
-
-## Table `industries`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  Unique |
-| `is_active` | `bool` |  |
-| `sort_order` | `int2` |  |
-
-## Table `inventory_adjustment_account_entries`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `adjustment_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `account_id` | `uuid` |  |
-| `debit` | `numeric` |  |
-| `credit` | `numeric` |  |
-| `description` | `text` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `inventory_adjustment_attachments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `adjustment_id` | `uuid` |  |
-| `file_name` | `text` |  |
-| `file_url` | `text` |  Nullable |
-| `storage_bucket` | `text` |  Nullable |
-| `storage_path` | `text` |  Nullable |
-| `mime_type` | `text` |  Nullable |
-| `file_size_bytes` | `int8` |  Nullable |
-| `file_hash` | `text` |  Nullable |
-| `uploaded_by` | `uuid` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `inventory_adjustment_item_batches`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `adjustment_id` | `uuid` |  |
-| `adjustment_item_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  Nullable |
-| `bin_id` | `uuid` |  Nullable |
-| `batch_id` | `uuid` |  Nullable |
-| `batch_reference` | `varchar` |  Nullable |
-| `quantity_in` | `numeric` |  |
-| `quantity_out` | `numeric` |  |
-| `rate` | `numeric` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-| `batch_stock_layer_id` | `uuid` |  Nullable |
-
-## Table `inventory_adjustment_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `adjustment_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `quantity_before` | `numeric` |  |
-| `quantity_adjusted` | `numeric` |  |
-| `quantity_after` | `numeric` |  |
-| `cost_price` | `numeric` |  Nullable |
-| `mrp` | `numeric` |  Nullable |
-| `adjustment_value` | `numeric` |  |
-| `batch_id` | `uuid` |  Nullable |
-| `batch_reference` | `varchar` |  Nullable |
-| `batch_allocations` | `jsonb` |  |
-| `reporting_tags` | `jsonb` |  |
-| `mfd_month_year` | `varchar` |  Nullable |
-| `expiry_month_year` | `varchar` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `inventory_adjustment_reasons`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  Nullable |
-| `name` | `varchar` |  |
-| `code` | `varchar` |  Nullable |
-| `reason_type` | `varchar` |  Nullable |
-| `is_active` | `bool` |  |
-| `sort_order` | `int4` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `inventory_adjustment_value_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `adjustment_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `batch_id` | `uuid` |  Nullable |
-| `batch_stock_layer_id` | `uuid` |  Nullable |
-| `current_value` | `numeric` |  |
-| `changed_value` | `numeric` |  |
-| `adjusted_value` | `numeric` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `inventory_adjustments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `product_id` | `uuid` |  Nullable |
-| `warehouse_id` | `uuid` |  Nullable |
-| `adjustment_number` | `varchar` |  Nullable Unique |
-| `adjustment_date` | `timestamptz` |  |
-| `adjustment_type` | `inventory_adjustment_type` |  |
-| `reason_id` | `uuid` |  Nullable |
-| `reason` | `varchar` |  Nullable |
-| `reference_number` | `varchar` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `account_id` | `uuid` |  Nullable |
-| `status` | `inventory_adjustment_status` |  |
-| `quantity_before` | `numeric` |  Nullable |
-| `quantity_adjusted` | `numeric` |  Nullable |
-| `quantity_after` | `numeric` |  Nullable |
-| `cost_price` | `numeric` |  Nullable |
-| `adjustment_value` | `numeric` |  Nullable |
-| `adjusted_by` | `uuid` |  Nullable |
-| `approved_by` | `uuid` |  Nullable |
-| `approved_at` | `timestamptz` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `inventory_move_order_destination_bins`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `source_batch_row_id` | `uuid` |  |
-| `destination_bin_id` | `uuid` |  |
-| `qty_in` | `numeric` |  |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `inventory_move_order_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `move_order_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `qty` | `numeric` |  |
-| `remarks` | `text` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `inventory_move_order_source_batches`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `move_order_item_id` | `uuid` |  |
-| `source_layer_id` | `uuid` |  |
-| `batch_id` | `uuid` |  |
-| `source_bin_id` | `uuid` |  |
-| `qty_out` | `numeric` |  |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `inventory_move_orders`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  |
-| `move_order_number` | `varchar` |  Unique |
-| `move_date` | `timestamp` |  |
-| `assignee_id` | `uuid` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `status` | `varchar` |  |
-| `created_by` | `uuid` |  Nullable |
-| `completed_by` | `uuid` |  Nullable |
-| `completed_at` | `timestamp` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-
-## Table `inventory_package_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `package_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `quantity` | `numeric` |  |
-| `sales_order_id` | `uuid` |  Nullable |
-| `picklist_id` | `uuid` |  Nullable |
-| `batch_no` | `varchar` |  Nullable |
-| `bin_location` | `varchar` |  Nullable |
-| `foc` | `int2` |  Nullable |
-
-## Table `inventory_package_sales_orders`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `package_id` | `uuid` | Primary |
-| `sales_order_id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-
-## Table `inventory_packages`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `customer_id` | `uuid` |  |
-| `package_number` | `varchar` |  Unique |
-| `package_date` | `date` |  |
-| `dimension_length` | `numeric` |  Nullable |
-| `dimension_width` | `numeric` |  Nullable |
-| `dimension_height` | `numeric` |  Nullable |
-| `dimension_unit` | `varchar` |  Nullable |
-| `weight` | `numeric` |  Nullable |
-| `weight_unit` | `varchar` |  Nullable |
-| `is_manual_mode` | `bool` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `status` | `varchar` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `created_by` | `uuid` |  Nullable |
-| `is_delete` | `bool` |  |
-
-## Table `inventory_shipment_packages`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `shipment_id` | `uuid` | Primary |
-| `package_id` | `uuid` | Primary |
-
-## Table `inventory_shipment_sales_orders`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `shipment_id` | `uuid` | Primary |
-| `sales_order_id` | `uuid` | Primary |
-
-## Table `inventory_shipments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `shipment_number` | `varchar` |  Unique |
-| `customer_id` | `uuid` |  Nullable |
-| `date` | `date` |  |
-| `delivered_date` | `timestamp` |  Nullable |
-| `carrier` | `varchar` |  Nullable |
-| `tracking_number` | `varchar` |  Nullable |
-| `tracking_url` | `text` |  Nullable |
-| `shipping_charges` | `numeric` |  |
-| `notes` | `text` |  Nullable |
-| `is_delivered` | `bool` |  |
-| `send_notification` | `bool` |  |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `is_delete` | `bool` |  |
-
-## Table `inventory_stock_commitments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  Nullable |
-| `product_id` | `uuid` |  |
-| `source_type` | `varchar` |  |
-| `source_id` | `uuid` |  |
-| `committed_qty` | `numeric` |  |
-| `status` | `varchar` |  |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `invoice_attachments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `invoice_id` | `uuid` |  |
-| `file_name` | `varchar` |  Nullable |
-| `file_path` | `text` |  Nullable |
-| `uploaded_by` | `uuid` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `invoice_item_batches`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `invoice_item_id` | `uuid` |  |
-| `batch_id` | `uuid` |  |
-| `layer_id` | `uuid` |  Nullable |
-| `warehouse_id` | `uuid` |  |
-| `bin_id` | `uuid` |  Nullable |
-| `quantity` | `numeric` |  |
-| `foc_quantity` | `numeric` |  Nullable |
-| `purchase_rate` | `numeric` |  Nullable |
-| `sales_rate` | `numeric` |  Nullable |
-| `mrp` | `numeric` |  Nullable |
-| `expiry_date` | `date` |  Nullable |
-| `manufacturer_batch` | `varchar` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `invoice_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `invoice_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `description` | `text` |  Nullable |
-| `quantity` | `numeric` |  |
-| `rate` | `numeric` |  |
-| `discount_type` | `varchar` |  Nullable |
-| `discount_value` | `numeric` |  Nullable |
-| `tax_id` | `uuid` |  Nullable |
-| `tax_percentage` | `numeric` |  Nullable |
-| `taxable_amount` | `numeric` |  Nullable |
-| `tax_amount` | `numeric` |  Nullable |
-| `line_total` | `numeric` |  Nullable |
-| `foc_quantity` | `numeric` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `invoice_master`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `customer_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  Nullable |
-| `invoice_number` | `varchar` |  |
-| `invoice_date` | `date` |  |
-| `due_date` | `date` |  Nullable |
-| `payment_terms` | `varchar` |  Nullable |
-| `salesperson_id` | `uuid` |  Nullable |
-| `subject` | `text` |  Nullable |
-| `customer_notes` | `text` |  Nullable |
-| `terms_conditions` | `text` |  Nullable |
-| `price_list_id` | `uuid` |  Nullable |
-| `shipping_charges` | `numeric` |  Nullable |
-| `adjustment_amount` | `numeric` |  Nullable |
-| `round_off` | `numeric` |  Nullable |
-| `subtotal` | `numeric` |  Nullable |
-| `tax_total` | `numeric` |  Nullable |
-| `tds_total` | `numeric` |  Nullable |
-| `tcs_total` | `numeric` |  Nullable |
-| `grand_total` | `numeric` |  Nullable |
-| `inventory_flow_type` | `varchar` |  Nullable |
-| `status` | `varchar` |  Nullable |
-| `is_batch_allocated` | `bool` |  Nullable |
-| `created_by` | `uuid` |  Nullable |
-| `approved_by` | `uuid` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `invoice_sales_orders`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `invoice_id` | `uuid` |  |
-| `sales_order_id` | `uuid` |  |
-
-## Table `invoice_shipments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `invoice_id` | `uuid` |  |
-| `shipment_id` | `uuid` |  |
-
-## Table `journal_number_settings`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `auto_generate` | `bool` |  Nullable |
-| `prefix` | `varchar` |  Nullable |
-| `next_number` | `int4` |  Nullable |
-| `is_manual_override_allowed` | `bool` |  Nullable |
-| `user_id` | `uuid` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `journal_template_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `template_id` | `uuid` |  |
-| `account_id` | `uuid` |  |
-| `description` | `text` |  Nullable |
-| `contact_id` | `uuid` |  Nullable |
-| `contact_type` | `accounts_contact_type` |  Nullable |
-| `type` | `accounts_journal_template_type` |  Nullable |
-| `debit` | `numeric` |  Nullable |
-| `credit` | `numeric` |  Nullable |
-| `sort_order` | `int4` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `journal_templates`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `template_name` | `varchar` |  |
-| `reference_number` | `varchar` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `reporting_method` | `accounts_reporting_method` |  Nullable |
-| `currency_code` | `varchar` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `enter_amount` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `lsgd_districts`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `state_id` | `uuid` |  |
-| `name` | `varchar` |  |
-| `code` | `varchar` |  Nullable |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-
-## Table `lsgd_local_bodies`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `district_id` | `uuid` |  |
-| `name` | `varchar` |  |
-| `code` | `varchar` |  Nullable |
-| `body_type` | `varchar` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-
-## Table `lsgd_wards`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `local_body_id` | `uuid` |  |
-| `ward_no` | `int4` |  Nullable |
-| `name` | `varchar` |  |
-| `code` | `varchar` |  Nullable |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-
-## Table `manual_journal_attachments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `manual_journal_id` | `uuid` |  |
-| `file_name` | `varchar` |  |
-| `file_path` | `text` |  |
-| `file_size` | `int4` |  Nullable |
-| `uploaded_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `manual_journal_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `manual_journal_id` | `uuid` |  |
-| `account_id` | `uuid` |  |
-| `description` | `text` |  Nullable |
-| `contact_id` | `uuid` |  Nullable |
-| `contact_type` | `accounts_contact_type` |  Nullable |
-| `debit` | `numeric` |  Nullable |
-| `credit` | `numeric` |  Nullable |
-| `sort_order` | `int4` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `contact_name` | `varchar` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `manual_journal_tag_mappings`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `manual_journal_item_id` | `uuid` | Primary |
-| `reporting_tag_id` | `uuid` | Primary |
-
-## Table `manual_journals`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `journal_number` | `varchar` |  Unique |
-| `fiscal_year_id` | `uuid` |  Nullable |
-| `reference_number` | `varchar` |  Nullable |
-| `journal_date` | `date` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `is_13th_month_adjustment` | `bool` |  Nullable |
-| `reporting_method` | `accounts_reporting_method` |  Nullable |
-| `currency_code` | `varchar` |  Nullable |
-| `status` | `accounts_manual_journal_status` |  Nullable |
-| `total_amount` | `numeric` |  Nullable |
-| `created_by` | `uuid` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `recurring_journal_id` | `uuid` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `is_deleted` | `bool` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `manufacturers`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  Unique |
-| `contact_info` | `jsonb` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `move_order_attachments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `move_order_id` | `uuid` |  |
-| `file_name` | `varchar` |  |
-| `original_file_name` | `varchar` |  Nullable |
-| `file_url` | `text` |  |
-| `file_size` | `int8` |  Nullable |
-| `file_type` | `varchar` |  Nullable |
-| `uploaded_by` | `uuid` |  Nullable |
-| `uploaded_at` | `timestamptz` |  Nullable |
-
-## Table `organisation_branch_master`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  |
-| `type` | `varchar` |  |
-| `ref_id` | `uuid` |  Unique |
-| `parent_id` | `uuid` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `organization`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  |
-| `slug` | `varchar` |  Unique |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `state_id` | `uuid` |  Nullable |
-| `industry` | `varchar` |  Nullable |
-| `logo_url` | `text` |  Nullable |
-| `base_currency` | `varchar` |  Nullable |
-| `fiscal_year` | `varchar` |  Nullable |
-| `timezone` | `varchar` |  Nullable |
-| `date_format` | `varchar` |  Nullable |
-| `date_separator` | `varchar` |  Nullable |
-| `company_id_label` | `varchar` |  Nullable |
-| `company_id_value` | `varchar` |  Nullable |
-| `payment_stub_address` | `text` |  Nullable |
-| `has_separate_payment_stub_address` | `bool` |  |
-| `system_id` | `varchar` |  |
-| `base_currency_decimals` | `int2` |  Nullable |
-| `base_currency_format` | `varchar` |  Nullable |
-| `organization_language` | `varchar` |  Nullable |
-| `communication_languages` | `_text` |  |
-| `payment_stub_district_id` | `uuid` |  Nullable |
-| `payment_stub_local_body_id` | `uuid` |  Nullable |
-| `payment_stub_ward_id` | `uuid` |  Nullable |
-| `is_drug_registered` | `bool` |  |
-| `drug_licence_type` | `varchar` |  Nullable |
-| `drug_license_20` | `varchar` |  Nullable |
-| `drug_license_21` | `varchar` |  Nullable |
-| `drug_license_20b` | `varchar` |  Nullable |
-| `drug_license_21b` | `varchar` |  Nullable |
-| `is_fssai_registered` | `bool` |  |
-| `fssai_number` | `varchar` |  Nullable |
-| `is_msme_registered` | `bool` |  |
-| `msme_registration_type` | `varchar` |  Nullable |
-| `msme_number` | `varchar` |  Nullable |
-| `payment_stub_assembly_id` | `uuid` |  Nullable |
-| `attention` | `text` |  Nullable |
-| `street` | `text` |  Nullable |
-| `place` | `text` |  Nullable |
-| `city` | `varchar` |  Nullable |
-| `pincode` | `varchar` |  Nullable |
-| `phone` | `varchar` |  Nullable |
-| `district_id` | `uuid` |  Nullable |
-| `local_body_id` | `uuid` |  Nullable |
-| `assembly_id` | `uuid` |  Nullable |
-| `ward_id` | `uuid` |  Nullable |
-| `report_basis` | `varchar` |  Nullable |
-| `drug_license_20_url` | `text` |  Nullable |
-| `drug_license_21_url` | `text` |  Nullable |
-| `drug_license_20b_url` | `text` |  Nullable |
-| `drug_license_21b_url` | `text` |  Nullable |
-| `fssai_url` | `text` |  Nullable |
-| `msme_url` | `text` |  Nullable |
-| `additional_fields` | `jsonb` |  Nullable |
-
-## Table `payment_terms`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `term_name` | `varchar` |  Unique |
-| `number_of_days` | `int4` |  |
-| `description` | `text` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `picklist_batch_allocation`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `picklist_item_id` | `uuid` |  |
-| `batch_id` | `uuid` |  |
-| `layer_id` | `varchar` |  |
-| `warehouse_id` | `uuid` |  |
-| `bin_id` | `uuid` |  |
-| `qty` | `numeric` |  |
-| `foc_qty` | `numeric` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `picklist_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `picklist_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `sales_order_id` | `uuid` |  Nullable |
-| `sales_order_line_id` | `uuid` |  Nullable |
-| `qty_ordered` | `numeric` |  Nullable |
-| `qty_to_pick` | `numeric` |  Nullable |
-| `qty_picked` | `numeric` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `status` | `text` |  Nullable |
-
-## Table `picklist_master`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `picklist_no` | `varchar` |  Unique |
-| `entity_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  |
-| `assignee_id` | `uuid` |  Nullable |
-| `picklist_date` | `date` |  |
-| `status` | `text` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `is_delete` | `bool` |  |
-| `is_entrypass` | `bool` |  |
-
-## Table `price_list_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `price_list_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `custom_rate` | `numeric` |  Nullable |
-| `discount_percentage` | `numeric` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `price_list_volume_ranges`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `price_list_item_id` | `uuid` |  |
-| `start_quantity` | `numeric` |  |
-| `end_quantity` | `numeric` |  Nullable |
-| `rate` | `numeric` |  |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `price_lists`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  |
-| `description` | `text` |  Nullable |
-| `currency` | `varchar` |  Nullable |
-| `pricing_scheme` | `varchar` |  |
-| `details` | `text` |  Nullable |
-| `round_off_preference` | `varchar` |  Nullable |
-| `status` | `varchar` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `price_list_type` | `varchar` |  Nullable |
-| `percentage_type` | `varchar` |  Nullable |
-| `percentage_value` | `numeric` |  Nullable |
-| `discount_enabled` | `bool` |  Nullable |
-| `transaction_type` | `varchar` |  Nullable |
-| `entity_id` | `uuid` |  Nullable |
-| `created_by_entity_id` | `uuid` |  Nullable |
-| `price_scope` | `varchar` |  |
-| `is_seasonal` | `bool` |  |
-| `valid_from` | `date` |  Nullable |
-| `valid_to` | `date` |  Nullable |
-
-## Table `product_bin_mappings`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `product_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  |
-| `bin_id` | `uuid` |  |
-| `is_default` | `bool` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `min_qty` | `int4` |  Nullable |
-| `max_qty` | `int4` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `created_by_id` | `uuid` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `updated_by_id` | `uuid` |  Nullable |
-
-## Table `product_branch_inventory_settings`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `org_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `reorder_point` | `int4` |  |
-| `reorder_term_id` | `uuid` |  Nullable |
-| `is_active` | `bool` |  |
-| `created_by_id` | `uuid` |  Nullable |
-| `updated_by_id` | `uuid` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `product_contents`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `product_id` | `uuid` |  |
-| `content_id` | `uuid` |  Nullable |
-| `strength_id` | `uuid` |  Nullable |
-| `shedule_id` | `uuid` |  Nullable |
-| `display_order` | `int4` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `product_entity_settings`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `product_id` | `uuid` |  |
-| `entity_id` | `uuid` |  |
-| `sku` | `varchar` |  Nullable |
-| `reorder_point` | `int4` |  Nullable |
-| `reorder_term_id` | `uuid` |  Nullable |
-| `inventory_valuation_method` | `inventory_valuation_method` |  Nullable |
-| `preferred_vendor_id` | `uuid` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `created_by_id` | `uuid` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `updated_by_id` | `uuid` |  Nullable |
-
-## Table `product_vendor_mappings`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `vendor_id` | `uuid` |  |
-| `item_id` | `uuid` |  |
-| `mapping_name` | `varchar` |  |
-| `vendor_product_code` | `varchar` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `products`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `type` | `product_type` |  |
-| `product_name` | `varchar` |  |
-| `billing_name` | `varchar` |  Nullable |
-| `item_code` | `varchar` |  Unique |
-| `unit_id` | `uuid` |  |
-| `category_id` | `uuid` |  Nullable |
-| `is_returnable` | `bool` |  Nullable |
-| `push_to_ecommerce` | `bool` |  Nullable |
-| `hsn_code` | `varchar` |  Nullable |
-| `tax_preference` | `tax_preference` |  Nullable |
-| `intra_state_tax_id` | `uuid` |  Nullable |
-| `inter_state_tax_id` | `uuid` |  Nullable |
-| `primary_image_url` | `text` |  Nullable |
-| `image_urls` | `jsonb` |  Nullable |
-| `selling_price` | `numeric` |  Nullable |
-| `selling_price_currency` | `varchar` |  Nullable |
-| `mrp` | `numeric` |  Nullable |
-| `ptr` | `numeric` |  Nullable |
-| `sales_account_id` | `uuid` |  Nullable |
-| `sales_description` | `text` |  Nullable |
-| `cost_price` | `numeric` |  Nullable |
-| `cost_price_currency` | `varchar` |  Nullable |
-| `purchase_account_id` | `uuid` |  Nullable |
-| `purchase_description` | `text` |  Nullable |
-| `length` | `numeric` |  Nullable |
-| `width` | `numeric` |  Nullable |
-| `height` | `numeric` |  Nullable |
-| `dimension_unit` | `varchar` |  Nullable |
-| `weight` | `numeric` |  Nullable |
-| `weight_unit` | `varchar` |  Nullable |
-| `manufacturer_id` | `uuid` |  Nullable |
-| `brand_id` | `uuid` |  Nullable |
-| `mpn` | `varchar` |  Nullable |
-| `upc` | `varchar` |  Nullable |
-| `isbn` | `varchar` |  Nullable |
-| `ean` | `varchar` |  Nullable |
-| `track_assoc_ingredients` | `bool` |  Nullable |
-| `buying_rule_old` | `varchar` |  Nullable |
-| `schedule_of_drug_old` | `varchar` |  Nullable |
-| `is_track_inventory` | `bool` |  Nullable |
-| `track_bin_location` | `bool` |  Nullable |
-| `track_batches` | `bool` |  Nullable |
-| `inventory_account_id` | `uuid` |  Nullable |
-| `storage_id` | `uuid` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `is_lock` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `created_by_id` | `uuid` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `updated_by_id` | `uuid` |  Nullable |
-| `track_serial_number` | `bool` |  Nullable |
-| `buying_rule_id` | `uuid` |  Nullable |
-| `schedule_of_drug_id` | `uuid` |  Nullable |
-| `lock_unit_pack` | `numeric` |  Nullable |
-| `storage_description` | `text` |  Nullable |
-| `about` | `text` |  Nullable |
-| `uses_description` | `text` |  Nullable |
-| `how_to_use` | `text` |  Nullable |
-| `dosage_description` | `text` |  Nullable |
-| `missed_dose_description` | `text` |  Nullable |
-| `safety_advice` | `text` |  Nullable |
-| `side_effects` | `jsonb` |  Nullable |
-| `faq_text` | `jsonb` |  Nullable |
-| `preferred_vendor_id` | `uuid` |  Nullable |
-| `sku` | `varchar` |  Nullable Unique |
-| `exemption_reason` | `varchar` |  Nullable |
-| `inventory_valuation_method` | `varchar` |  Nullable |
-| `rack_id` | `uuid` |  Nullable |
-| `reorder_point` | `int4` |  Nullable |
-| `reorder_term_id` | `uuid` |  Nullable |
-
-## Table `purchase_order_attachments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `purchase_order_id` | `uuid` |  |
-| `file_name` | `varchar` |  |
-| `file_path` | `text` |  |
-| `file_size` | `varchar` |  Nullable |
-| `file_type` | `varchar` |  Nullable |
-| `uploaded_at` | `timestamptz` |  Nullable |
-
-## Table `purchase_order_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `purchase_order_id` | `uuid` |  |
-| `sort_order` | `int4` |  Nullable |
-| `is_header` | `bool` |  Nullable |
-| `header_text` | `text` |  Nullable |
-| `product_id` | `uuid` |  Nullable |
-| `description` | `text` |  Nullable |
-| `account_id` | `uuid` |  Nullable |
-| `quantity` | `numeric` |  Nullable |
-| `rate` | `numeric` |  Nullable |
-| `tax_id` | `uuid` |  Nullable |
-| `item_tax_rate` | `numeric` |  Nullable |
-| `tax_amount` | `numeric` |  Nullable |
-| `discount` | `numeric` |  Nullable |
-| `discount_type` | `varchar` |  Nullable |
-| `amount` | `numeric` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `entity_id` | `uuid` |  Nullable |
-| `accounts` | `uuid` |  Nullable |
-| `pricelist` | `varchar` |  Nullable |
-| `hsn_code` | `numeric` |  Nullable |
-
-## Table `purchase_orders`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `order_number` | `varchar` |  Unique |
-| `order_date` | `date` |  |
-| `expected_delivery_date` | `date` |  Nullable |
-| `reference_number` | `varchar` |  Nullable |
-| `vendor_id` | `uuid` |  |
-| `payment_terms_id` | `uuid` |  Nullable |
-| `shipment_preference_id` | `uuid` |  Nullable |
-| `delivery_type` | `varchar` |  |
-| `delivery_warehouse_id` | `uuid` |  Nullable |
-| `delivery_customer_id` | `uuid` |  Nullable |
-| `warehouse_id` | `uuid` |  Nullable |
-| `discount_level` | `varchar` |  Nullable |
-| `discount` | `numeric` |  Nullable |
-| `discount_type` | `varchar` |  Nullable |
-| `total_quantity` | `numeric` |  Nullable |
-| `currency` | `varchar` |  Nullable |
-| `subtotal` | `numeric` |  Nullable |
-| `tax_amount` | `numeric` |  Nullable |
-| `tax_type` | `varchar` |  Nullable |
-| `tds_tcs_type` | `varchar` |  Nullable |
-| `tds_id` | `uuid` |  Nullable |
-| `tds_tcs_amount` | `numeric` |  Nullable |
-| `adjustment` | `numeric` |  Nullable |
-| `total` | `numeric` |  Nullable |
-| `status` | `varchar` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `terms_and_conditions` | `text` |  Nullable |
-| `is_reverse_charge` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `is_delete` | `bool` |  |
-| `discount_account_id` | `uuid` |  |
-
-## Table `purchase_receive_item_batches`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `purchase_receive_item_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  Nullable |
-| `bin_id` | `uuid` |  Nullable |
-| `bin_label` | `varchar` |  Nullable |
-| `batch_no` | `varchar` |  |
-| `unit_pack` | `varchar` |  Nullable |
-| `mrp` | `numeric` |  Nullable |
-| `ptr` | `numeric` |  Nullable |
-| `quantity` | `numeric` |  |
-| `foc_qty` | `numeric` |  |
-| `manufacture_batch_number` | `varchar` |  Nullable |
-| `manufacture_date` | `date` |  Nullable |
-| `expiry_date` | `date` |  |
-| `is_damaged` | `bool` |  |
-| `damaged_qty` | `numeric` |  |
-| `entity_id` | `uuid` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `purchase_receive_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `purchase_receive_id` | `uuid` |  |
-| `item_id` | `uuid` |  Nullable |
-| `item_name` | `varchar` |  |
-| `description` | `text` |  Nullable |
-| `ordered` | `numeric` |  |
-| `received` | `numeric` |  |
-| `in_transit` | `numeric` |  |
-| `quantity_to_receive` | `numeric` |  |
-| `warehouse_id` | `uuid` |  Nullable |
-| `bin_id` | `uuid` |  Nullable |
-| `bin_label` | `varchar` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `purchase_receives`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `purchase_receive_number` | `varchar` |  Unique |
-| `received_date` | `date` |  |
-| `vendor_name` | `varchar` |  Nullable |
-| `purchase_order_id` | `uuid` |  Nullable |
-| `purchase_order_number` | `varchar` |  Nullable |
-| `warehouse_id` | `uuid` |  Nullable |
-| `transaction_bin_id` | `uuid` |  Nullable |
-| `transaction_bin_label` | `varchar` |  Nullable |
-| `status` | `varchar` |  |
-| `notes` | `text` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-| `is_delete` | `bool` |  |
-| `bill_no` | `varchar` |  Nullable |
-| `bill_date` | `date` |  Nullable |
-| `bill_invoice_total` | `numeric` |  Nullable |
-
-## Table `racks`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `rack_code` | `varchar` |  Unique |
-| `rack_name` | `varchar` |  Nullable |
-| `storage_id` | `uuid` |  Nullable |
-| `capacity` | `int4` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `recurring_journal_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `recurring_journal_id` | `uuid` |  |
-| `account_id` | `uuid` |  |
-| `description` | `text` |  Nullable |
-| `contact_id` | `uuid` |  Nullable |
-| `contact_type` | `varchar` |  Nullable |
-| `debit` | `numeric` |  Nullable |
-| `credit` | `numeric` |  Nullable |
-| `sort_order` | `int4` |  Nullable |
-| `contact_name` | `varchar` |  Nullable |
-
-## Table `recurring_journals`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `profile_name` | `varchar` |  |
-| `repeat_every` | `varchar` |  |
-| `interval` | `int4` |  |
-| `start_date` | `date` |  |
-| `end_date` | `date` |  Nullable |
-| `never_expires` | `bool` |  Nullable |
-| `reference_number` | `varchar` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `currency_code` | `varchar` |  Nullable |
-| `reporting_method` | `varchar` |  Nullable |
-| `status` | `varchar` |  Nullable |
-| `last_generated_date` | `timestamp` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `created_by` | `uuid` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `reorder_terms`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `term_name` | `varchar` |  |
-| `description` | `text` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `quantity` | `int4` |  |
-| `updated_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `reporting_tags`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `tag_name` | `varchar` |  |
-| `is_active` | `bool` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `roles`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `label` | `varchar` |  |
-| `description` | `text` |  |
-| `permissions` | `jsonb` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `sales_order_attachments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `sales_order_id` | `uuid` |  |
-| `file_name` | `varchar` |  |
-| `file_path` | `text` |  |
-| `file_size` | `varchar` |  Nullable |
-| `file_type` | `varchar` |  Nullable |
-| `source` | `varchar` |  Nullable |
-| `uploaded_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `sales_order_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `sales_order_id` | `uuid` |  |
-| `line_no` | `int4` |  |
-| `product_id` | `uuid` |  |
-| `description` | `text` |  Nullable |
-| `quantity` | `numeric` |  |
-| `free_quantity` | `numeric` |  |
-| `rate` | `numeric` |  |
-| `discount_type` | `varchar` |  Nullable |
-| `discount_value` | `numeric` |  |
-| `discount_amount` | `numeric` |  |
-| `tax_id` | `uuid` |  Nullable |
-| `tax_rate` | `numeric` |  |
-| `tax_amount` | `numeric` |  |
-| `amount` | `numeric` |  |
-| `mrp` | `numeric` |  |
-| `batch_id` | `uuid` |  Nullable |
-| `warehouse_id` | `uuid` |  Nullable |
-| `line_meta` | `jsonb` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `hsn_code` | `numeric` |  |
-| `accounts` | `uuid` |  |
-| `pricelist` | `varchar` |  Nullable |
-
-## Table `sales_orders`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `customer_id` | `uuid` |  |
-| `transaction_series` | `varchar` |  Nullable |
-| `sale_number` | `varchar` |  Nullable Unique |
-| `reference` | `varchar` |  Nullable |
-| `sale_date` | `timestamp` |  Nullable |
-| `expected_shipment_date` | `timestamp` |  Nullable |
-| `delivery_method` | `varchar` |  Nullable |
-| `payment_terms` | `varchar` |  Nullable |
-| `payment_term_id` | `uuid` |  Nullable |
-| `salesperson_id` | `varchar` |  Nullable |
-| `salesperson_name` | `varchar` |  Nullable |
-| `warehouse_id` | `uuid` |  Nullable |
-| `warehouse_name` | `varchar` |  Nullable |
-| `price_list_id` | `uuid` |  Nullable |
-| `place_of_supply` | `varchar` |  Nullable |
-| `document_type` | `varchar` |  |
-| `status` | `varchar` |  Nullable |
-| `sub_total` | `numeric` |  |
-| `tax_total` | `numeric` |  |
-| `discount_total` | `numeric` |  |
-| `shipping_charges` | `numeric` |  |
-| `tds_tcs_type` | `varchar` |  Nullable |
-| `tds_tcs_tax_id` | `uuid` |  Nullable |
-| `tds_tcs_amount` | `numeric` |  |
-| `adjustment` | `numeric` |  |
-| `round_off` | `numeric` |  |
-| `total_quantity` | `numeric` |  |
-| `total` | `numeric` |  |
-| `currency` | `varchar` |  Nullable |
-| `customer_notes` | `text` |  Nullable |
-| `terms_and_conditions` | `text` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `is_delete` | `bool` |  |
-
-## Table `sales_payment_links`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `customer_id` | `uuid` |  |
-| `amount` | `numeric` |  |
-| `link_url` | `text` |  |
-| `status` | `varchar` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `sales_payments`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `customer_id` | `uuid` |  |
-| `payment_number` | `varchar` |  Nullable Unique |
-| `payment_date` | `timestamp` |  Nullable |
-| `payment_mode` | `varchar` |  Nullable |
-| `amount` | `numeric` |  |
-| `bank_charges` | `numeric` |  Nullable |
-| `reference` | `varchar` |  Nullable |
-| `deposit_to` | `varchar` |  Nullable |
-| `notes` | `text` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `sales_return_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `sales_return_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `sales_invoice_item_id` | `uuid` |  Nullable |
-| `invoiced_qty` | `numeric` |  Nullable |
-| `already_returned_qty` | `numeric` |  Nullable |
-| `return_qty` | `numeric` |  Nullable |
-| `receivable_qty` | `numeric` |  Nullable |
-| `credit_only_qty` | `numeric` |  Nullable |
-| `remarks` | `text` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `sales_returns`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `customer_id` | `uuid` |  |
-| `rma_number` | `varchar` |  |
-| `return_date` | `date` |  |
-| `warehouse_id` | `uuid` |  Nullable |
-| `reason` | `text` |  Nullable |
-| `reference_number` | `varchar` |  Nullable |
-| `contains_credit_only_goods` | `bool` |  |
-| `status` | `varchar` |  |
-| `notes` | `text` |  Nullable |
-| `created_by` | `uuid` |  Nullable |
-| `approved_by` | `uuid` |  Nullable |
-| `approved_at` | `timestamptz` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `states`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `state_id` | `uuid` |  |
-| `name` | `varchar` |  |
-| `code` | `varchar` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `storage_conditions`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `location_name` | `varchar` |  Unique |
-| `temperature_range` | `varchar` |  Nullable |
-| `description` | `text` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `display_text` | `varchar` |  Nullable |
-| `common_examples` | `text` |  Nullable |
-| `min_temp_c` | `numeric` |  Nullable |
-| `max_temp_c` | `numeric` |  Nullable |
-| `is_cold_chain` | `bool` |  |
-| `requires_fridge` | `bool` |  |
-| `sort_order` | `int4` |  |
-| `storage_type` | `varchar` |  Nullable |
-
-## Table `tax_group_rates`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `tax_group_id` | `uuid` |  Nullable |
-| `tax_id` | `uuid` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `tax_groups`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `tax_group_name` | `varchar` |  Unique |
-| `tax_rate` | `numeric` |  |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `tax_rates`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `tax_name` | `varchar` |  Unique |
-| `tax_rate` | `numeric` |  |
-| `tax_type` | `tax_type` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `tds_group_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `tds_group_id` | `uuid` |  Nullable |
-| `tds_rate_id` | `uuid` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `tds_groups`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `group_name` | `varchar` |  Unique |
-| `applicable_from` | `timestamp` |  Nullable |
-| `applicable_to` | `timestamp` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `tds_rates`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `tax_name` | `varchar` |  Unique |
-| `section_id` | `uuid` |  Nullable |
-| `base_rate` | `numeric` |  |
-| `surcharge_rate` | `numeric` |  Nullable |
-| `cess_rate` | `numeric` |  Nullable |
-| `payable_account_id` | `uuid` |  Nullable |
-| `receivable_account_id` | `uuid` |  Nullable |
-| `is_higher_rate` | `bool` |  Nullable |
-| `reason_higher_rate` | `text` |  Nullable |
-| `applicable_from` | `timestamp` |  Nullable |
-| `applicable_to` | `timestamp` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `tds_sections`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `section_name` | `varchar` |  Unique |
-| `description` | `text` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `timezones`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  Unique |
-| `tzdb_name` | `varchar` |  |
-| `utc_offset` | `varchar` |  |
-| `display` | `varchar` |  |
-| `country_id` | `uuid` |  Nullable |
-| `is_active` | `bool` |  |
-| `sort_order` | `int2` |  |
-
-## Table `transaction_locks`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `org_id` | `uuid` |  |
-| `module_name` | `varchar` |  |
-| `lock_date` | `timestamp` |  |
-| `reason` | `text` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `transaction_series`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `org_id` | `uuid` |  Nullable |
-| `name` | `varchar` |  |
-| `modules` | `jsonb` |  |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-| `code` | `varchar` |  Nullable |
-| `branch_code` | `varchar` |  Nullable |
-| `warehouse_code` | `varchar` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `transaction_series_modules`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `label` | `varchar` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `transaction_series_placeholders`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `token` | `varchar` |  Unique |
-| `label` | `varchar` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `transaction_series_restart_options`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `code` | `varchar` |  Unique |
-| `label` | `varchar` |  |
-| `sort_order` | `int4` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `transactional_sequences`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `module` | `varchar` |  |
-| `prefix` | `varchar` |  |
-| `suffix` | `varchar` |  Nullable |
-| `next_number` | `int4` |  |
-| `padding` | `int4` |  |
-| `is_active` | `bool` |  |
-| `entity_id` | `uuid` |  |
-| `created_at` | `timestamp` |  Nullable |
-| `updated_at` | `timestamp` |  Nullable |
-
-## Table `transfer_order_destination_batches`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `transfer_item_id` | `uuid` |  |
-| `source_batch_id` | `uuid` |  |
-| `destination_batch_id` | `uuid` |  |
-| `destination_warehouse_id` | `uuid` |  |
-| `destination_bin_id` | `uuid` |  |
-| `qty` | `numeric` |  |
-
-## Table `transfer_order_items`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `transfer_order_id` | `uuid` |  |
-| `product_id` | `uuid` |  |
-| `qty_requested` | `numeric` |  |
-| `qty_transferred` | `numeric` |  |
-| `unit` | `varchar` |  Nullable |
-| `created_at` | `timestamptz` |  |
-
-## Table `transfer_order_logs`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `transfer_order_id` | `uuid` |  |
-| `action` | `varchar` |  |
-| `action_by` | `uuid` |  Nullable |
-| `action_at` | `timestamptz` |  |
-
-## Table `transfer_order_master`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `transfer_no` | `varchar` |  |
-| `transfer_date` | `date` |  |
-| `entity_id` | `uuid` |  |
-| `source_warehouse_id` | `uuid` |  |
-| `destination_warehouse_id` | `uuid` |  |
-| `status` | `varchar` |  |
-| `reason` | `text` |  Nullable |
-| `created_by` | `uuid` |  Nullable |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-
-## Table `transfer_order_source_batches`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `transfer_item_id` | `uuid` |  |
-| `batch_id` | `uuid` |  |
-| `layer_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  |
-| `bin_id` | `uuid` |  |
-| `qty` | `numeric` |  |
-
-## Table `units`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `unit_name` | `varchar` |  Unique |
-| `unit_type` | `unit_type` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-| `unit_symbol` | `varchar` |  Nullable |
-| `uqc_id` | `uuid` |  Nullable |
-
-## Table `uqc`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `uqc_code` | `varchar` |  Unique |
-| `description` | `varchar` |  |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamp` |  Nullable |
-
-## Table `user_branch_access`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `org_id` | `uuid` |  |
-| `user_id` | `uuid` |  |
-| `is_default_business` | `bool` |  |
-| `is_default_warehouse` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-
-## Table `users`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `email` | `varchar` |  Unique |
-| `full_name` | `varchar` |  |
-| `role` | `varchar` |  |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamptz` |  |
-| `updated_at` | `timestamptz` |  |
-| `entity_id` | `uuid` |  |
-| `default_warehouse_id` | `uuid` |  Nullable |
-
-## Table `vendor_bank_accounts`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `vendor_id` | `uuid` |  Nullable |
-| `holder_name` | `text` |  Nullable |
-| `bank_name` | `text` |  Nullable |
-| `account_number` | `text` |  Nullable |
-| `ifsc` | `text` |  Nullable |
-| `is_primary` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `vendor_contact_persons`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `vendor_id` | `uuid` |  Nullable |
-| `salutation` | `text` |  Nullable |
-| `first_name` | `text` |  Nullable |
-| `last_name` | `text` |  Nullable |
-| `email` | `text` |  Nullable |
-| `work_phone` | `text` |  Nullable |
-| `mobile_phone` | `text` |  Nullable |
-| `designation` | `text` |  Nullable |
-| `department` | `text` |  Nullable |
-| `is_primary` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-
-## Table `vendors`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `vendor_number` | `varchar` |  Nullable Unique |
-| `display_name` | `varchar` |  |
-| `salutation` | `varchar` |  Nullable |
-| `first_name` | `varchar` |  Nullable |
-| `last_name` | `varchar` |  Nullable |
-| `company_name` | `varchar` |  Nullable |
-| `email` | `varchar` |  Nullable |
-| `phone` | `varchar` |  Nullable |
-| `mobile_phone` | `varchar` |  Nullable |
-| `designation` | `varchar` |  Nullable |
-| `department` | `varchar` |  Nullable |
-| `website` | `varchar` |  Nullable |
-| `vendor_language` | `varchar` |  Nullable |
-| `gst_treatment` | `varchar` |  Nullable |
-| `gstin` | `varchar` |  Nullable |
-| `source_of_supply` | `varchar` |  Nullable |
-| `pan` | `varchar` |  Nullable |
-| `currency` | `varchar` |  Nullable |
-| `payment_terms` | `varchar` |  Nullable |
-| `is_msme_registered` | `bool` |  Nullable |
-| `msme_registration_type` | `varchar` |  Nullable |
-| `msme_registration_number` | `varchar` |  Nullable |
-| `is_drug_registered` | `bool` |  Nullable |
-| `drug_licence_type` | `varchar` |  Nullable |
-| `drug_license_20` | `varchar` |  Nullable |
-| `drug_license_21` | `varchar` |  Nullable |
-| `drug_license_20b` | `varchar` |  Nullable |
-| `drug_license_21b` | `varchar` |  Nullable |
-| `is_fssai_registered` | `bool` |  Nullable |
-| `fssai_number` | `varchar` |  Nullable |
-| `tds_rate_id` | `varchar` |  Nullable |
-| `enable_portal` | `bool` |  Nullable |
-| `remarks` | `text` |  Nullable |
-| `x_handle` | `varchar` |  Nullable |
-| `facebook_handle` | `varchar` |  Nullable |
-| `whatsapp_number` | `varchar` |  Nullable |
-| `source` | `varchar` |  Nullable |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-| `updated_at` | `timestamptz` |  Nullable |
-| `billing_attention` | `text` |  Nullable |
-| `billing_address_street` | `text` |  Nullable |
-| `billing_address_place` | `text` |  Nullable |
-| `billing_city` | `text` |  Nullable |
-| `billing_state` | `text` |  Nullable |
-| `billing_pincode` | `text` |  Nullable |
-| `billing_country_region` | `text` |  Nullable |
-| `billing_phone` | `text` |  Nullable |
-| `billing_fax` | `text` |  Nullable |
-| `shipping_attention` | `text` |  Nullable |
-| `shipping_address_street` | `text` |  Nullable |
-| `shipping_address_place` | `text` |  Nullable |
-| `shipping_city` | `text` |  Nullable |
-| `shipping_state` | `text` |  Nullable |
-| `shipping_pincode` | `text` |  Nullable |
-| `shipping_country_region` | `text` |  Nullable |
-| `shipping_phone` | `text` |  Nullable |
-| `shipping_fax` | `text` |  Nullable |
-| `price_list_id` | `uuid` |  Nullable |
-| `entity_id` | `uuid` |  |
-
-## Table `warehouses`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `name` | `varchar` |  |
-| `attention` | `text` |  Nullable |
-| `street` | `text` |  Nullable |
-| `place` | `text` |  Nullable |
-| `city` | `text` |  Nullable |
-| `state` | `text` |  Nullable |
-| `phone` | `varchar` |  Nullable |
-| `email` | `varchar` |  Nullable |
-| `is_active` | `bool` |  |
-| `created_at` | `timestamp` |  |
-| `updated_at` | `timestamp` |  |
-| `warehouse_code` | `varchar` |  Nullable |
-| `pincode` | `varchar` |  Nullable |
-| `country` | `varchar` |  |
-| `customer_id` | `uuid` |  Nullable |
-| `vendor_id` | `uuid` |  Nullable |
-| `district_id` | `uuid` |  Nullable |
-| `local_body_id` | `uuid` |  Nullable |
-| `ward_id` | `uuid` |  Nullable |
-| `assembly_id` | `uuid` |  Nullable |
-| `entity_id` | `uuid` |  |
-| `org_id` | `uuid` |  |
-| `source_branch_id` | `uuid` |  Nullable |
-| `is_default_for_branch` | `bool` |  |
-
-## Table `zone_levels`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `zone_id` | `uuid` |  |
-| `level_no` | `int4` |  |
-| `level_name` | `varchar` |  Nullable |
-| `alias` | `varchar` |  Nullable |
-| `delimiter` | `varchar` |  Nullable |
-| `total` | `int4` |  |
-| `created_at` | `timestamptz` |  Nullable |
-
-## Table `zone_master`
-
-### Columns
-
-| Name | Type | Constraints |
-|------|------|-------------|
-| `id` | `uuid` | Primary |
-| `entity_id` | `uuid` |  |
-| `warehouse_id` | `uuid` |  |
-| `zone_name` | `varchar` |  |
-| `is_active` | `bool` |  Nullable |
-| `created_at` | `timestamptz` |  Nullable |
-
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.account_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  account_id uuid NOT NULL,
+  transaction_date timestamp without time zone NOT NULL DEFAULT now(),
+  transaction_type character varying,
+  reference_number character varying,
+  description text,
+  debit numeric DEFAULT 0.00,
+  credit numeric DEFAULT 0.00,
+  created_at timestamp without time zone DEFAULT now(),
+  source_id uuid,
+  source_type character varying,
+  contact_id uuid,
+  contact_type character varying,
+  entity_id uuid NOT NULL,
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  CONSTRAINT account_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT account_transactions_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
+  CONSTRAINT account_transactions_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  system_account_name character varying UNIQUE,
+  account_code character varying UNIQUE,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  parent_id uuid,
+  account_group USER-DEFINED NOT NULL DEFAULT 'Expenses'::account_group_enum,
+  is_system boolean DEFAULT false,
+  account_type USER-DEFINED NOT NULL,
+  description text,
+  account_number character varying,
+  ifsc character varying,
+  currency character varying DEFAULT 'INR'::character varying,
+  show_in_zerpai_expense boolean DEFAULT false,
+  add_to_watchlist boolean DEFAULT false,
+  is_deletable boolean DEFAULT true,
+  user_account_name character varying,
+  created_by uuid,
+  is_deleted boolean DEFAULT false,
+  modified_at timestamp with time zone DEFAULT now(),
+  modified_by uuid,
+  entity_id uuid NOT NULL,
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  CONSTRAINT accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_accounts_parent FOREIGN KEY (parent_id) REFERENCES public.accounts(id),
+  CONSTRAINT accounts_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.assemblies_constituencies (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  district_id uuid NOT NULL,
+  code character varying,
+  name character varying NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT assemblies_constituencies_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_assemblies_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id)
+);
+CREATE TABLE public.audit_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  table_name character varying NOT NULL,
+  record_id uuid NOT NULL,
+  action character varying NOT NULL,
+  old_values jsonb,
+  new_values jsonb,
+  user_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  actor_name text NOT NULL DEFAULT 'system'::text,
+  schema_name text NOT NULL DEFAULT 'public'::text,
+  record_pk text,
+  changed_columns ARRAY,
+  txid bigint NOT NULL DEFAULT txid_current(),
+  source text NOT NULL DEFAULT 'system'::text,
+  module_name text,
+  request_id text,
+  entity_id uuid NOT NULL,
+  CONSTRAINT audit_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT audit_logs_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.audit_logs_archive (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  table_name character varying NOT NULL,
+  record_id uuid NOT NULL,
+  action character varying NOT NULL,
+  old_values jsonb,
+  new_values jsonb,
+  user_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  actor_name text NOT NULL DEFAULT 'system'::text,
+  schema_name text NOT NULL DEFAULT 'public'::text,
+  record_pk text,
+  changed_columns ARRAY,
+  txid bigint NOT NULL DEFAULT txid_current(),
+  source text NOT NULL DEFAULT 'system'::text,
+  module_name text,
+  request_id text,
+  archived_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT audit_logs_archive_pkey PRIMARY KEY (id),
+  CONSTRAINT audit_logs_archive_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.backup_inventory_adjustment_reasons_20260518 (
+  id uuid,
+  entity_id uuid,
+  name character varying,
+  code character varying,
+  reason_type character varying,
+  is_active boolean,
+  sort_order integer,
+  created_at timestamp with time zone,
+  updated_at timestamp with time zone
+);
+CREATE TABLE public.batch_master (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  product_id uuid,
+  batch_no character varying NOT NULL UNIQUE,
+  expiry_date date NOT NULL,
+  unit_pack character varying,
+  is_manufacture_details boolean DEFAULT false,
+  manufacture_batch_number character varying,
+  manufacture_exp date,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by_entity_id uuid,
+  source_type character varying,
+  CONSTRAINT batch_master_pkey PRIMARY KEY (id),
+  CONSTRAINT batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.batch_stock_layers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  batch_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  bin_id uuid NOT NULL,
+  vendor_id uuid,
+  purchase_rate numeric NOT NULL DEFAULT 0,
+  mrp numeric NOT NULL DEFAULT 0,
+  qty numeric NOT NULL DEFAULT 0,
+  foc_qty numeric DEFAULT 0,
+  ref_id uuid,
+  ref_type character varying NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  reserved_qty numeric NOT NULL DEFAULT 0,
+  CONSTRAINT batch_stock_layers_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_batch FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
+  CONSTRAINT batch_stock_layers_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT batch_stock_layers_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id),
+  CONSTRAINT batch_stock_layers_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id)
+);
+CREATE TABLE public.batch_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  batch_id uuid NOT NULL,
+  layer_id uuid,
+  product_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  bin_id uuid,
+  trans_type character varying NOT NULL,
+  ref_id uuid,
+  ref_no character varying,
+  qty_in numeric DEFAULT 0,
+  qty_out numeric DEFAULT 0,
+  rate numeric,
+  trans_date timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT batch_transactions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.bin_master (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  zone_id uuid NOT NULL,
+  bin_code character varying NOT NULL,
+  level_path text,
+  bin_type character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT bin_master_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_zone FOREIGN KEY (zone_id) REFERENCES public.zone_master(id),
+  CONSTRAINT bin_master_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id)
+);
+CREATE TABLE public.branch_price_list_assignments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  price_list_id uuid NOT NULL,
+  branch_entity_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT branch_price_list_assignments_pkey PRIMARY KEY (id),
+  CONSTRAINT branch_price_list_assignments_price_list_id_fkey FOREIGN KEY (price_list_id) REFERENCES public.price_lists(id),
+  CONSTRAINT branch_price_list_assignments_branch_entity_id_fkey FOREIGN KEY (branch_entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.branch_transaction_series (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transaction_series_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT branch_transaction_series_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_branch_transaction_series_transaction_series_id_fkey FOREIGN KEY (transaction_series_id) REFERENCES public.transaction_series(id),
+  CONSTRAINT branch_transaction_series_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.branch_user_access (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  role_id uuid,
+  is_default_branch boolean DEFAULT false,
+  permissions jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT branch_user_access_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_branch_user_access_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT settings_branch_user_access_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
+  CONSTRAINT branch_user_access_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.branch_users (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  role character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT branch_users_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_branch_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT branch_users_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.branches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL,
+  name character varying NOT NULL,
+  branch_code character varying NOT NULL,
+  branch_type character varying,
+  email character varying,
+  phone character varying,
+  website character varying,
+  attention text,
+  street text,
+  place text,
+  city character varying,
+  state character varying,
+  pincode character varying,
+  country character varying NOT NULL DEFAULT 'India'::character varying,
+  gstin character varying,
+  gstin_registration_type character varying,
+  logo_url text,
+  subscription_from date,
+  subscription_to date,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_child_location boolean NOT NULL DEFAULT false,
+  parent_branch_id uuid,
+  primary_contact_id uuid,
+  gstin_legal_name character varying,
+  gstin_trade_name character varying,
+  gstin_registered_on date,
+  gstin_reverse_charge boolean NOT NULL DEFAULT false,
+  gstin_import_export boolean NOT NULL DEFAULT false,
+  gstin_import_export_account_id uuid,
+  gstin_digital_services boolean NOT NULL DEFAULT false,
+  default_transaction_series_id uuid,
+  district_id uuid,
+  local_body_id uuid,
+  ward_id uuid,
+  system_id character varying NOT NULL DEFAULT (nextval('branches_system_id_seq'::regclass))::text,
+  pan character varying,
+  industry character varying,
+  gst_treatment character varying,
+  is_drug_registered boolean NOT NULL DEFAULT false,
+  drug_licence_type character varying,
+  drug_licence_20 character varying,
+  drug_licence_21 character varying,
+  drug_licence_20b character varying,
+  drug_licence_21b character varying,
+  is_fssai_registered boolean NOT NULL DEFAULT false,
+  fssai_number character varying,
+  is_msme_registered boolean NOT NULL DEFAULT false,
+  msme_registration_type character varying,
+  msme_number character varying,
+  msme_type character varying,
+  fiscal_year character varying,
+  report_basis character varying DEFAULT 'accrual'::character varying,
+  has_separate_payment_stub_address boolean NOT NULL DEFAULT false,
+  payment_stub_address text,
+  payment_stub_assembly_id uuid,
+  assembly_id uuid,
+  CONSTRAINT branches_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_branches_parent_branch_id_fkey FOREIGN KEY (parent_branch_id) REFERENCES public.branches(id),
+  CONSTRAINT settings_branches_gstin_import_export_account_id_fkey FOREIGN KEY (gstin_import_export_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT settings_branches_default_transaction_series_id_fkey FOREIGN KEY (default_transaction_series_id) REFERENCES public.transaction_series(id),
+  CONSTRAINT settings_branches_payment_stub_assembly_id_fkey FOREIGN KEY (payment_stub_assembly_id) REFERENCES public.assemblies_constituencies(id),
+  CONSTRAINT settings_branches_branch_type_fkey FOREIGN KEY (branch_type) REFERENCES public.business_types(code),
+  CONSTRAINT settings_branches_gst_treatment_fkey FOREIGN KEY (gst_treatment) REFERENCES public.gst_treatments(code),
+  CONSTRAINT settings_branches_gstin_registration_type_fkey FOREIGN KEY (gstin_registration_type) REFERENCES public.gstin_registration_types(code),
+  CONSTRAINT settings_branches_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
+  CONSTRAINT settings_branches_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id),
+  CONSTRAINT settings_branches_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.lsgd_local_bodies(id),
+  CONSTRAINT settings_branches_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.lsgd_wards(id),
+  CONSTRAINT settings_branches_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.assemblies_constituencies(id),
+  CONSTRAINT branches_id_to_registry_fkey FOREIGN KEY (id) REFERENCES public.organisation_branch_master(ref_id)
+);
+CREATE TABLE public.branding (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  accent_color character varying NOT NULL DEFAULT '#22A95E'::character varying,
+  theme_mode character varying NOT NULL DEFAULT 'dark'::character varying CHECK (theme_mode::text = ANY (ARRAY['dark'::character varying, 'light'::character varying]::text[])),
+  keep_branding boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT branding_pkey PRIMARY KEY (id),
+  CONSTRAINT branding_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.brands (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT brands_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.business_types (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  label character varying NOT NULL,
+  description text NOT NULL DEFAULT ''::text,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT business_types_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.buying_rules (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  buying_rule character varying NOT NULL UNIQUE,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  rule_description text,
+  system_behavior text,
+  associated_schedule_codes ARRAY NOT NULL DEFAULT ARRAY[]::text[],
+  requires_rx boolean NOT NULL DEFAULT false,
+  requires_patient_info boolean NOT NULL DEFAULT false,
+  is_saleable boolean NOT NULL DEFAULT true,
+  log_to_special_register boolean NOT NULL DEFAULT false,
+  requires_doctor_name boolean NOT NULL DEFAULT false,
+  requires_prescription_date boolean NOT NULL DEFAULT false,
+  requires_age_check boolean NOT NULL DEFAULT false,
+  institutional_only boolean NOT NULL DEFAULT false,
+  blocks_retail_sale boolean NOT NULL DEFAULT false,
+  quantity_limit integer,
+  allows_refill boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 0,
+  CONSTRAINT buying_rules_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.carrier (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT carrier_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.categories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  description text,
+  parent_id uuid,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT categories_pkey PRIMARY KEY (id),
+  CONSTRAINT categories_parent_id_categories_id_fk FOREIGN KEY (parent_id) REFERENCES public.categories(id)
+);
+CREATE TABLE public.company_id_labels (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  label character varying NOT NULL UNIQUE,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order smallint NOT NULL DEFAULT 0,
+  CONSTRAINT company_id_labels_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.composite_item_branch_inventory_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  composite_item_id uuid NOT NULL,
+  reorder_point integer NOT NULL DEFAULT 0,
+  reorder_term_id uuid,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by_id uuid,
+  updated_by_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT composite_item_branch_inventory_settings_pkey PRIMARY KEY (id),
+  CONSTRAINT cibis_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT cibis_composite_item_id_fkey FOREIGN KEY (composite_item_id) REFERENCES public.composite_items(id),
+  CONSTRAINT cibis_reorder_term_id_fkey FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id)
+);
+CREATE TABLE public.composite_item_parts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  composite_item_id uuid NOT NULL,
+  component_product_id uuid NOT NULL,
+  quantity numeric NOT NULL,
+  selling_price_override numeric,
+  cost_price_override numeric,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT composite_item_parts_pkey PRIMARY KEY (id),
+  CONSTRAINT composite_item_parts_composite_item_id_fkey FOREIGN KEY (composite_item_id) REFERENCES public.composite_items(id),
+  CONSTRAINT composite_item_parts_component_product_id_fkey FOREIGN KEY (component_product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.composite_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  type USER-DEFINED NOT NULL,
+  product_name character varying NOT NULL,
+  sku character varying UNIQUE,
+  unit_id uuid NOT NULL,
+  category_id uuid,
+  is_returnable boolean DEFAULT false,
+  push_to_ecommerce boolean DEFAULT false,
+  hsn_code character varying,
+  tax_preference USER-DEFINED,
+  intra_state_tax_id uuid,
+  inter_state_tax_id uuid,
+  primary_image_url text,
+  image_urls text,
+  selling_price numeric,
+  selling_price_currency character varying DEFAULT 'INR'::character varying,
+  ptr numeric,
+  sales_account_id uuid,
+  sales_description text,
+  cost_price numeric,
+  purchase_account_id uuid,
+  preferred_vendor_id uuid,
+  purchase_description text,
+  length numeric,
+  width numeric,
+  height numeric,
+  dimension_unit character varying DEFAULT 'cm'::character varying,
+  weight numeric,
+  weight_unit character varying DEFAULT 'kg'::character varying,
+  manufacturer_id uuid,
+  brand_id uuid,
+  mpn character varying,
+  upc character varying,
+  isbn character varying,
+  ean character varying,
+  is_track_inventory boolean DEFAULT true,
+  track_batches boolean DEFAULT false,
+  track_serial_number boolean DEFAULT false,
+  inventory_account_id uuid,
+  inventory_valuation_method USER-DEFINED,
+  reorder_point integer DEFAULT 0,
+  reorder_term_id uuid,
+  is_active boolean DEFAULT true,
+  is_lock boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  created_by_id uuid,
+  updated_at timestamp with time zone DEFAULT now(),
+  updated_by_id uuid,
+  CONSTRAINT composite_items_pkey PRIMARY KEY (id),
+  CONSTRAINT composite_items_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
+  CONSTRAINT composite_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
+  CONSTRAINT composite_items_intra_state_tax_id_fkey FOREIGN KEY (intra_state_tax_id) REFERENCES public.tax_rates(id),
+  CONSTRAINT composite_items_inter_state_tax_id_fkey FOREIGN KEY (inter_state_tax_id) REFERENCES public.tax_rates(id),
+  CONSTRAINT composite_items_sales_account_id_fkey FOREIGN KEY (sales_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT composite_items_purchase_account_id_fkey FOREIGN KEY (purchase_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT composite_items_manufacturer_id_fkey FOREIGN KEY (manufacturer_id) REFERENCES public.manufacturers(id),
+  CONSTRAINT composite_items_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id),
+  CONSTRAINT composite_items_inventory_account_id_fkey FOREIGN KEY (inventory_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT composite_items_reorder_term_id_fkey FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id)
+);
+CREATE TABLE public.contents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  content_name character varying NOT NULL UNIQUE,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT contents_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.countries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  full_label character varying,
+  phone_code character varying NOT NULL,
+  short_code character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  primary_timezone_id uuid,
+  CONSTRAINT countries_pkey PRIMARY KEY (id),
+  CONSTRAINT countries_primary_timezone_id_fkey FOREIGN KEY (primary_timezone_id) REFERENCES public.timezones(id)
+);
+CREATE TABLE public.currencies (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  name character varying NOT NULL,
+  symbol character varying,
+  decimals integer DEFAULT 2,
+  format character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT currencies_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.customer_contact_persons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  salutation character varying,
+  first_name character varying,
+  last_name character varying,
+  email character varying,
+  work_phone character varying,
+  mobile_phone character varying,
+  display_order integer DEFAULT 0,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT customer_contact_persons_pkey PRIMARY KEY (id),
+  CONSTRAINT customer_contact_persons_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT customer_contact_persons_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.customers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  display_name character varying NOT NULL,
+  customer_type character varying DEFAULT 'Business'::character varying,
+  salutation character varying,
+  first_name character varying,
+  last_name character varying,
+  company_name character varying,
+  email character varying,
+  phone character varying,
+  mobile_phone character varying,
+  gstin character varying,
+  pan character varying,
+  payment_terms character varying,
+  billing_address text,
+  shipping_address text,
+  is_active boolean DEFAULT true,
+  receivables numeric DEFAULT 0.00,
+  created_at timestamp without time zone DEFAULT now(),
+  customer_number character varying UNIQUE,
+  designation character varying,
+  department character varying,
+  business_type character varying,
+  customer_language character varying DEFAULT 'English'::character varying,
+  date_of_birth date,
+  age integer,
+  gender character varying,
+  place_of_customer character varying,
+  privilege_card_number character varying,
+  parent_customer_id uuid,
+  tax_preference character varying,
+  exemption_reason text,
+  drug_licence_type character varying,
+  drug_license_20 character varying,
+  drug_license_21 character varying,
+  drug_license_20b character varying,
+  drug_license_21b character varying,
+  fssai character varying,
+  msme_registration_type character varying,
+  msme_number character varying,
+  drug_license_20_doc_url text,
+  drug_license_21_doc_url text,
+  drug_license_20b_doc_url text,
+  drug_license_21b_doc_url text,
+  fssai_doc_url text,
+  msme_doc_url text,
+  opening_balance numeric DEFAULT 0,
+  credit_limit numeric,
+  enable_portal boolean DEFAULT false,
+  facebook_handle character varying,
+  twitter_handle character varying,
+  whatsapp_number character varying,
+  is_recurring boolean DEFAULT false,
+  gst_treatment character varying,
+  place_of_supply character varying,
+  website character varying,
+  price_list_id uuid,
+  receivable_balance numeric DEFAULT 0,
+  billing_address_street character varying,
+  billing_address_place character varying,
+  billing_address_city character varying,
+  billing_address_zip character varying,
+  billing_address_phone character varying,
+  shipping_address_street character varying,
+  shipping_address_place character varying,
+  shipping_address_city character varying,
+  shipping_address_zip character varying,
+  shipping_address_phone character varying,
+  remarks text,
+  status character varying DEFAULT 'active'::character varying,
+  document_urls text,
+  is_drug_registered boolean,
+  is_fssai_registered boolean,
+  is_msme_registered boolean,
+  currency_id uuid,
+  billing_address_state_id uuid,
+  shipping_address_state_id uuid,
+  billing_address_country_id uuid,
+  shipping_address_country_id uuid,
+  entity_id uuid NOT NULL,
+  associated_branch_id uuid,
+  CONSTRAINT customers_pkey PRIMARY KEY (id),
+  CONSTRAINT customers_currency_id_fkey FOREIGN KEY (currency_id) REFERENCES public.currencies(id),
+  CONSTRAINT customers_price_list_id_fkey FOREIGN KEY (price_list_id) REFERENCES public.price_lists(id),
+  CONSTRAINT customers_parent_customer_id_fkey FOREIGN KEY (parent_customer_id) REFERENCES public.customers(id),
+  CONSTRAINT customers_billing_address_state_id_states_id_fk FOREIGN KEY (billing_address_state_id) REFERENCES public.states(id),
+  CONSTRAINT customers_shipping_address_state_id_states_id_fk FOREIGN KEY (shipping_address_state_id) REFERENCES public.states(id),
+  CONSTRAINT customers_billing_address_country_id_fkey FOREIGN KEY (billing_address_country_id) REFERENCES public.countries(id),
+  CONSTRAINT customers_shipping_address_country_id_fkey FOREIGN KEY (shipping_address_country_id) REFERENCES public.countries(id),
+  CONSTRAINT customers_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT customers_associated_branch_id_fkey FOREIGN KEY (associated_branch_id) REFERENCES public.branches(id)
+);
+CREATE TABLE public.date_format (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  format_pattern character varying NOT NULL,
+  group_name character varying NOT NULL,
+  label character varying NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT date_format_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.date_separator (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  separator character varying NOT NULL,
+  label character varying NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT date_separator_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.drug_licence_types (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  label character varying NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT drug_licence_types_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.drug_schedules (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  shedule_name character varying NOT NULL UNIQUE,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  schedule_code character varying,
+  reference_description text,
+  requires_prescription boolean NOT NULL DEFAULT false,
+  requires_h1_register boolean NOT NULL DEFAULT false,
+  is_narcotic boolean NOT NULL DEFAULT false,
+  requires_batch_tracking boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_common boolean NOT NULL DEFAULT false,
+  CONSTRAINT drug_schedules_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.drug_strengths (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  strength_name character varying NOT NULL UNIQUE,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT drug_strengths_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.fiscal_year_presets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  label character varying NOT NULL,
+  start_month smallint NOT NULL,
+  end_month smallint NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT fiscal_year_presets_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.fiscal_years (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  name character varying NOT NULL,
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT fiscal_years_pkey PRIMARY KEY (id),
+  CONSTRAINT fiscal_years_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.gst_treatments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  label character varying NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT gst_treatments_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.gstin_registration_types (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  label character varying NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT gstin_registration_types_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.hsn_sac_codes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  type USER-DEFINED NOT NULL,
+  code character varying NOT NULL UNIQUE,
+  description text NOT NULL,
+  CONSTRAINT hsn_sac_codes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.industries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order smallint NOT NULL DEFAULT 0,
+  CONSTRAINT industries_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.inventory_adjustment_account_entries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  debit numeric NOT NULL DEFAULT 0,
+  credit numeric NOT NULL DEFAULT 0,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_account_entries_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_account_entries_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_account_entries_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_account_entries_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.inventory_adjustment_attachments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  adjustment_id uuid NOT NULL,
+  file_name text NOT NULL,
+  file_url text,
+  storage_bucket text,
+  storage_path text,
+  mime_type text,
+  file_size_bytes bigint CHECK (file_size_bytes IS NULL OR file_size_bytes >= 0),
+  file_hash text,
+  uploaded_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_attachments_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_attachments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_attachments_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_attachments_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.inventory_adjustment_item_batches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_id uuid NOT NULL,
+  adjustment_item_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  warehouse_id uuid,
+  bin_id uuid,
+  batch_id uuid,
+  batch_reference character varying,
+  quantity_in numeric NOT NULL DEFAULT 0,
+  quantity_out numeric NOT NULL DEFAULT 0,
+  rate numeric,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  batch_stock_layer_id uuid,
+  CONSTRAINT inventory_adjustment_item_batches_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_item_batches_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_item_batches_adjustment_item_id_fkey FOREIGN KEY (adjustment_item_id) REFERENCES public.inventory_adjustment_items(id),
+  CONSTRAINT inventory_adjustment_item_batches_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_item_batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustment_item_batches_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT inventory_adjustment_item_batches_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
+  CONSTRAINT inventory_adjustment_item_batches_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id),
+  CONSTRAINT inventory_adjustment_item_batches_batch_stock_layer_id_fkey FOREIGN KEY (batch_stock_layer_id) REFERENCES public.batch_stock_layers(id)
+);
+CREATE TABLE public.inventory_adjustment_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity_before numeric NOT NULL DEFAULT 0,
+  quantity_adjusted numeric NOT NULL DEFAULT 0,
+  quantity_after numeric NOT NULL DEFAULT 0,
+  cost_price numeric,
+  mrp numeric,
+  adjustment_value numeric NOT NULL DEFAULT 0,
+  batch_id uuid,
+  batch_reference character varying,
+  batch_allocations jsonb NOT NULL DEFAULT '[]'::jsonb,
+  reporting_tags jsonb NOT NULL DEFAULT '{}'::jsonb,
+  mfd_month_year character varying CHECK (mfd_month_year IS NULL OR mfd_month_year::text ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'::text),
+  expiry_month_year character varying CHECK (expiry_month_year IS NULL OR expiry_month_year::text ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'::text),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_items_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustment_items_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
+);
+CREATE TABLE public.inventory_adjustment_reasons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid,
+  name character varying NOT NULL,
+  code character varying,
+  reason_type character varying DEFAULT 'both'::character varying,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_reasons_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_reasons_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.inventory_adjustment_value_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  batch_id uuid,
+  batch_stock_layer_id uuid,
+  current_value numeric NOT NULL DEFAULT 0,
+  changed_value numeric NOT NULL DEFAULT 0,
+  adjusted_value numeric NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_value_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_value_items_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_value_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_value_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustment_value_items_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
+);
+CREATE TABLE public.inventory_adjustments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  product_id uuid,
+  warehouse_id uuid,
+  adjustment_number character varying UNIQUE,
+  adjustment_date timestamp with time zone NOT NULL DEFAULT now(),
+  adjustment_type USER-DEFINED NOT NULL DEFAULT 'quantity'::inventory_adjustment_type,
+  reason_id uuid,
+  reason character varying,
+  reference_number character varying,
+  notes text,
+  account_id uuid,
+  status USER-DEFINED NOT NULL DEFAULT 'draft'::inventory_adjustment_status,
+  quantity_before numeric,
+  quantity_adjusted numeric,
+  quantity_after numeric,
+  cost_price numeric,
+  adjustment_value numeric,
+  adjusted_by uuid,
+  approved_by uuid,
+  approved_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustments_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustments_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustments_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT inventory_adjustments_adjusted_by_fkey FOREIGN KEY (adjusted_by) REFERENCES public.users(id),
+  CONSTRAINT inventory_adjustments_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES public.users(id),
+  CONSTRAINT fk_inventory_adjustments_reason_id FOREIGN KEY (reason_id) REFERENCES public.inventory_adjustment_reasons(id),
+  CONSTRAINT inventory_adjustments_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.inventory_move_order_destination_bins (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  source_batch_row_id uuid NOT NULL,
+  destination_bin_id uuid NOT NULL,
+  qty_in numeric NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT inventory_move_order_destination_bins_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_move_order_destination_bins_source_batch_row_id_fkey FOREIGN KEY (source_batch_row_id) REFERENCES public.inventory_move_order_source_batches(id)
+);
+CREATE TABLE public.inventory_move_order_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  move_order_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  qty numeric NOT NULL,
+  remarks text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT inventory_move_order_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_move_order_items_move_order_id_fkey FOREIGN KEY (move_order_id) REFERENCES public.inventory_move_orders(id)
+);
+CREATE TABLE public.inventory_move_order_source_batches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  move_order_item_id uuid NOT NULL,
+  source_layer_id uuid NOT NULL,
+  batch_id uuid NOT NULL,
+  source_bin_id uuid NOT NULL,
+  qty_out numeric NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT inventory_move_order_source_batches_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_move_order_source_batches_move_order_item_id_fkey FOREIGN KEY (move_order_item_id) REFERENCES public.inventory_move_order_items(id)
+);
+CREATE TABLE public.inventory_move_orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  move_order_number character varying NOT NULL UNIQUE,
+  move_date timestamp without time zone NOT NULL,
+  assignee_id uuid,
+  notes text,
+  status character varying NOT NULL DEFAULT 'draft'::character varying,
+  created_by uuid,
+  completed_by uuid,
+  completed_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT inventory_move_orders_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.inventory_package_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  package_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity numeric NOT NULL DEFAULT 0,
+  sales_order_id uuid,
+  picklist_id uuid,
+  batch_no character varying,
+  bin_location character varying,
+  foc smallint,
+  CONSTRAINT inventory_package_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_package_items_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.inventory_packages(id),
+  CONSTRAINT inventory_package_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_package_items_picklist_id_fkey FOREIGN KEY (picklist_id) REFERENCES public.picklist_master(id),
+  CONSTRAINT inventory_package_items_entity_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.inventory_package_sales_orders (
+  package_id uuid NOT NULL,
+  sales_order_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  CONSTRAINT inventory_package_sales_orders_pkey PRIMARY KEY (package_id, sales_order_id),
+  CONSTRAINT inventory_package_sales_orders_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.inventory_packages(id)
+);
+CREATE TABLE public.inventory_packages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  customer_id uuid NOT NULL,
+  package_number character varying NOT NULL UNIQUE,
+  package_date date NOT NULL DEFAULT CURRENT_DATE,
+  dimension_length numeric DEFAULT 0,
+  dimension_width numeric DEFAULT 0,
+  dimension_height numeric DEFAULT 0,
+  dimension_unit character varying DEFAULT 'cm'::character varying,
+  weight numeric DEFAULT 0,
+  weight_unit character varying DEFAULT 'kg'::character varying,
+  is_manual_mode boolean DEFAULT false,
+  notes text,
+  status character varying DEFAULT 'Not Shipped'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by uuid,
+  is_delete boolean NOT NULL,
+  CONSTRAINT inventory_packages_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_packages_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT inventory_packages_entity_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.inventory_shipment_packages (
+  shipment_id uuid NOT NULL,
+  package_id uuid NOT NULL,
+  CONSTRAINT inventory_shipment_packages_pkey PRIMARY KEY (shipment_id, package_id),
+  CONSTRAINT inventory_shipment_packages_shipment_id_fkey FOREIGN KEY (shipment_id) REFERENCES public.inventory_shipments(id),
+  CONSTRAINT inventory_shipment_packages_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.inventory_packages(id)
+);
+CREATE TABLE public.inventory_shipment_sales_orders (
+  shipment_id uuid NOT NULL,
+  sales_order_id uuid NOT NULL,
+  CONSTRAINT inventory_shipment_sales_orders_pkey PRIMARY KEY (shipment_id, sales_order_id),
+  CONSTRAINT inventory_shipment_sales_orders_shipment_id_fkey FOREIGN KEY (shipment_id) REFERENCES public.inventory_shipments(id),
+  CONSTRAINT inventory_shipment_sales_orders_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(id)
+);
+CREATE TABLE public.inventory_shipments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  shipment_number character varying NOT NULL UNIQUE,
+  customer_id uuid,
+  date date NOT NULL,
+  delivered_date timestamp without time zone,
+  carrier character varying,
+  tracking_number character varying,
+  tracking_url text,
+  shipping_charges numeric NOT NULL DEFAULT 0,
+  notes text,
+  is_delivered boolean NOT NULL DEFAULT false,
+  send_notification boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  is_delete boolean NOT NULL,
+  CONSTRAINT inventory_shipments_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_shipments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_shipments_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id)
+);
+CREATE TABLE public.inventory_stock_commitments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  warehouse_id uuid,
+  product_id uuid NOT NULL,
+  source_type character varying NOT NULL,
+  source_id uuid NOT NULL,
+  committed_qty numeric NOT NULL DEFAULT 0,
+  status character varying NOT NULL DEFAULT 'OPEN'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT inventory_stock_commitments_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.journal_number_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  auto_generate boolean DEFAULT true,
+  prefix character varying,
+  next_number integer DEFAULT 1,
+  is_manual_override_allowed boolean DEFAULT false,
+  user_id uuid,
+  entity_id uuid NOT NULL,
+  CONSTRAINT journal_number_settings_pkey PRIMARY KEY (id),
+  CONSTRAINT journal_number_settings_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.journal_template_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  template_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  description text,
+  contact_id uuid,
+  contact_type USER-DEFINED,
+  type USER-DEFINED,
+  debit numeric DEFAULT 0.00,
+  credit numeric DEFAULT 0.00,
+  sort_order integer,
+  entity_id uuid NOT NULL,
+  CONSTRAINT journal_template_items_pkey PRIMARY KEY (id),
+  CONSTRAINT accounts_journal_template_items_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.journal_templates(id),
+  CONSTRAINT accounts_journal_template_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
+  CONSTRAINT journal_template_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.journal_templates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  template_name character varying NOT NULL,
+  reference_number character varying,
+  notes text,
+  reporting_method USER-DEFINED,
+  currency_code character varying DEFAULT 'INR'::character varying,
+  is_active boolean DEFAULT true,
+  enter_amount boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT journal_templates_pkey PRIMARY KEY (id),
+  CONSTRAINT journal_templates_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.lsgd_districts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  state_id uuid NOT NULL,
+  name character varying NOT NULL,
+  code character varying,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT lsgd_districts_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_districts_state_id_fkey FOREIGN KEY (state_id) REFERENCES public.states(id)
+);
+CREATE TABLE public.lsgd_local_bodies (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  district_id uuid NOT NULL,
+  name character varying NOT NULL,
+  code character varying,
+  body_type character varying NOT NULL CHECK (body_type::text = ANY (ARRAY['grama_panchayat'::character varying::text, 'municipality'::character varying::text, 'corporation'::character varying::text, 'town_panchayat'::character varying::text])),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT lsgd_local_bodies_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_local_bodies_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id)
+);
+CREATE TABLE public.lsgd_wards (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  local_body_id uuid NOT NULL,
+  ward_no integer,
+  name character varying NOT NULL,
+  code character varying,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT lsgd_wards_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_wards_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.lsgd_local_bodies(id)
+);
+CREATE TABLE public.manual_journal_attachments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  manual_journal_id uuid NOT NULL,
+  file_name character varying NOT NULL,
+  file_path text NOT NULL,
+  file_size integer,
+  uploaded_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT manual_journal_attachments_pkey PRIMARY KEY (id),
+  CONSTRAINT accounts_manual_journal_attachments_manual_journal_id_fkey FOREIGN KEY (manual_journal_id) REFERENCES public.manual_journals(id),
+  CONSTRAINT manual_journal_attachments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.manual_journal_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  manual_journal_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  description text,
+  contact_id uuid,
+  contact_type USER-DEFINED,
+  debit numeric DEFAULT 0.00,
+  credit numeric DEFAULT 0.00,
+  sort_order integer,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  contact_name character varying,
+  entity_id uuid NOT NULL,
+  CONSTRAINT manual_journal_items_pkey PRIMARY KEY (id),
+  CONSTRAINT accounts_manual_journal_items_manual_journal_id_fkey FOREIGN KEY (manual_journal_id) REFERENCES public.manual_journals(id),
+  CONSTRAINT accounts_manual_journal_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
+  CONSTRAINT manual_journal_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.manual_journal_tag_mappings (
+  manual_journal_item_id uuid NOT NULL,
+  reporting_tag_id uuid NOT NULL,
+  CONSTRAINT manual_journal_tag_mappings_pkey PRIMARY KEY (manual_journal_item_id, reporting_tag_id),
+  CONSTRAINT accounts_manual_journal_tag_mapping_manual_journal_item_id_fkey FOREIGN KEY (manual_journal_item_id) REFERENCES public.manual_journal_items(id),
+  CONSTRAINT accounts_manual_journal_tag_mappings_reporting_tag_id_fkey FOREIGN KEY (reporting_tag_id) REFERENCES public.reporting_tags(id)
+);
+CREATE TABLE public.manual_journals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  journal_number character varying NOT NULL UNIQUE,
+  fiscal_year_id uuid,
+  reference_number character varying,
+  journal_date date DEFAULT CURRENT_DATE,
+  notes text,
+  is_13th_month_adjustment boolean DEFAULT false,
+  reporting_method USER-DEFINED DEFAULT 'accrual_and_cash'::accounts_reporting_method,
+  currency_code character varying DEFAULT 'INR'::character varying,
+  status USER-DEFINED DEFAULT 'draft'::accounts_manual_journal_status,
+  total_amount numeric DEFAULT 0.00,
+  created_by uuid,
+  created_at timestamp without time zone DEFAULT now(),
+  recurring_journal_id uuid,
+  updated_at timestamp with time zone DEFAULT now(),
+  is_deleted boolean NOT NULL DEFAULT false,
+  entity_id uuid NOT NULL,
+  CONSTRAINT manual_journals_pkey PRIMARY KEY (id),
+  CONSTRAINT accounts_manual_journals_recurring_journal_id_fkey FOREIGN KEY (recurring_journal_id) REFERENCES public.recurring_journals(id),
+  CONSTRAINT accounts_manual_journals_fiscal_year_id_fkey FOREIGN KEY (fiscal_year_id) REFERENCES public.fiscal_years(id),
+  CONSTRAINT manual_journals_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.manufacturers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  contact_info jsonb,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT manufacturers_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.move_order_attachments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  move_order_id uuid NOT NULL,
+  file_name character varying NOT NULL,
+  original_file_name character varying,
+  file_url text NOT NULL,
+  file_size bigint,
+  file_type character varying,
+  uploaded_by uuid,
+  uploaded_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT move_order_attachments_pkey PRIMARY KEY (id),
+  CONSTRAINT move_order_attachments_move_order_id_fkey FOREIGN KEY (move_order_id) REFERENCES public.inventory_move_orders(id)
+);
+CREATE TABLE public.organisation_branch_master (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  type character varying NOT NULL,
+  ref_id uuid NOT NULL UNIQUE,
+  parent_id uuid,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT organisation_branch_master_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.organization (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  slug character varying NOT NULL UNIQUE,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  state_id uuid,
+  industry character varying,
+  logo_url text,
+  base_currency character varying,
+  fiscal_year character varying,
+  timezone character varying,
+  date_format character varying,
+  date_separator character varying,
+  company_id_label character varying,
+  company_id_value character varying,
+  payment_stub_address text,
+  has_separate_payment_stub_address boolean NOT NULL DEFAULT false,
+  system_id character varying NOT NULL DEFAULT (nextval('organization_system_id_seq'::regclass))::text,
+  base_currency_decimals smallint,
+  base_currency_format character varying,
+  organization_language character varying DEFAULT 'English'::character varying,
+  communication_languages ARRAY NOT NULL DEFAULT ARRAY['English'::text],
+  payment_stub_district_id uuid,
+  payment_stub_local_body_id uuid,
+  payment_stub_ward_id uuid,
+  is_drug_registered boolean NOT NULL DEFAULT false,
+  drug_licence_type character varying,
+  drug_license_20 character varying,
+  drug_license_21 character varying,
+  drug_license_20b character varying,
+  drug_license_21b character varying,
+  is_fssai_registered boolean NOT NULL DEFAULT false,
+  fssai_number character varying,
+  is_msme_registered boolean NOT NULL DEFAULT false,
+  msme_registration_type character varying,
+  msme_number character varying,
+  payment_stub_assembly_id uuid,
+  attention text,
+  street text,
+  place text,
+  city character varying,
+  pincode character varying,
+  phone character varying,
+  district_id uuid,
+  local_body_id uuid,
+  assembly_id uuid,
+  ward_id uuid,
+  report_basis character varying DEFAULT 'accrual'::character varying,
+  drug_license_20_url text,
+  drug_license_21_url text,
+  drug_license_20b_url text,
+  drug_license_21b_url text,
+  fssai_url text,
+  msme_url text,
+  additional_fields jsonb,
+  CONSTRAINT organization_pkey PRIMARY KEY (id),
+  CONSTRAINT organization_payment_stub_assembly_id_fkey FOREIGN KEY (payment_stub_assembly_id) REFERENCES public.assemblies_constituencies(id),
+  CONSTRAINT organization_state_id_fkey FOREIGN KEY (state_id) REFERENCES public.states(id),
+  CONSTRAINT organization_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id),
+  CONSTRAINT organization_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.lsgd_local_bodies(id),
+  CONSTRAINT organization_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.assemblies_constituencies(id),
+  CONSTRAINT organization_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.lsgd_wards(id),
+  CONSTRAINT organization_payment_stub_district_id_fkey FOREIGN KEY (payment_stub_district_id) REFERENCES public.lsgd_districts(id),
+  CONSTRAINT organization_payment_stub_local_body_id_fkey FOREIGN KEY (payment_stub_local_body_id) REFERENCES public.lsgd_local_bodies(id),
+  CONSTRAINT organization_payment_stub_ward_id_fkey FOREIGN KEY (payment_stub_ward_id) REFERENCES public.lsgd_wards(id),
+  CONSTRAINT organization_id_to_registry_fkey FOREIGN KEY (id) REFERENCES public.organisation_branch_master(ref_id)
+);
+CREATE TABLE public.payment_terms (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  term_name character varying NOT NULL UNIQUE,
+  number_of_days integer NOT NULL,
+  description text,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT payment_terms_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.picklist_batch_allocation (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  picklist_item_id uuid NOT NULL,
+  batch_id uuid NOT NULL,
+  layer_id character varying NOT NULL,
+  warehouse_id uuid NOT NULL,
+  bin_id uuid NOT NULL,
+  qty numeric NOT NULL,
+  foc_qty numeric DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT picklist_batch_allocation_pkey PRIMARY KEY (id),
+  CONSTRAINT picklist_batch_allocation_picklist_item_id_fkey FOREIGN KEY (picklist_item_id) REFERENCES public.picklist_items(id),
+  CONSTRAINT picklist_batch_allocation_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT picklist_batch_allocation_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id)
+);
+CREATE TABLE public.picklist_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  picklist_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  sales_order_id uuid,
+  sales_order_line_id uuid,
+  qty_ordered numeric,
+  qty_to_pick numeric,
+  qty_picked numeric DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  status text,
+  CONSTRAINT picklist_items_pkey PRIMARY KEY (id),
+  CONSTRAINT picklist_items_picklist_id_fkey FOREIGN KEY (picklist_id) REFERENCES public.picklist_master(id)
+);
+CREATE TABLE public.picklist_master (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  picklist_no character varying NOT NULL UNIQUE,
+  entity_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  assignee_id uuid,
+  picklist_date date NOT NULL,
+  status text,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  is_delete boolean NOT NULL,
+  is_entrypass boolean NOT NULL,
+  CONSTRAINT picklist_master_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.price_list_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  price_list_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  custom_rate numeric,
+  discount_percentage numeric,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT price_list_items_pkey PRIMARY KEY (id),
+  CONSTRAINT price_list_items_price_list_id_fkey FOREIGN KEY (price_list_id) REFERENCES public.price_lists(id),
+  CONSTRAINT price_list_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.price_list_volume_ranges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  price_list_item_id uuid NOT NULL,
+  start_quantity numeric NOT NULL,
+  end_quantity numeric,
+  rate numeric NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT price_list_volume_ranges_pkey PRIMARY KEY (id),
+  CONSTRAINT price_list_volume_ranges_price_list_item_id_fkey FOREIGN KEY (price_list_item_id) REFERENCES public.price_list_items(id)
+);
+CREATE TABLE public.price_lists (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  description text DEFAULT ''::text,
+  currency character varying DEFAULT 'INR'::character varying,
+  pricing_scheme character varying NOT NULL,
+  details text DEFAULT ''::text,
+  round_off_preference character varying DEFAULT 'never_mind'::character varying,
+  status character varying DEFAULT 'active'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  price_list_type character varying DEFAULT 'all_items'::character varying,
+  percentage_type character varying,
+  percentage_value numeric,
+  discount_enabled boolean DEFAULT false,
+  transaction_type character varying DEFAULT 'Sales'::character varying,
+  entity_id uuid,
+  created_by_entity_id uuid,
+  price_scope character varying NOT NULL DEFAULT 'SELF'::character varying,
+  is_seasonal boolean NOT NULL DEFAULT false,
+  valid_from date,
+  valid_to date,
+  CONSTRAINT price_lists_pkey PRIMARY KEY (id),
+  CONSTRAINT price_lists_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT price_lists_created_by_entity_id_fkey FOREIGN KEY (created_by_entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.product_bin_mappings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  bin_id uuid NOT NULL,
+  is_default boolean DEFAULT false,
+  is_active boolean DEFAULT true,
+  min_qty integer,
+  max_qty integer,
+  created_at timestamp without time zone DEFAULT now(),
+  created_by_id uuid,
+  updated_at timestamp without time zone DEFAULT now(),
+  updated_by_id uuid,
+  CONSTRAINT product_bin_mappings_pkey PRIMARY KEY (id),
+  CONSTRAINT product_bin_mappings_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.product_branch_inventory_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  product_id uuid NOT NULL,
+  reorder_point integer NOT NULL DEFAULT 0,
+  reorder_term_id uuid,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by_id uuid,
+  updated_by_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT product_branch_inventory_settings_pkey PRIMARY KEY (id),
+  CONSTRAINT product_branch_inventory_settings_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT product_branch_inventory_settings_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT product_branch_inventory_settings_reorder_term_id_fkey FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id)
+);
+CREATE TABLE public.product_contents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL,
+  content_id uuid,
+  strength_id uuid,
+  shedule_id uuid,
+  display_order integer DEFAULT 0,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT product_contents_pkey PRIMARY KEY (id),
+  CONSTRAINT product_contents_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT product_contents_strength_id_fkey FOREIGN KEY (strength_id) REFERENCES public.drug_strengths(id),
+  CONSTRAINT product_contents_content_id_fkey FOREIGN KEY (content_id) REFERENCES public.contents(id),
+  CONSTRAINT product_contents_schedule_id_fkey FOREIGN KEY (shedule_id) REFERENCES public.drug_schedules(id)
+);
+CREATE TABLE public.product_entity_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  sku character varying,
+  reorder_point integer DEFAULT 0,
+  reorder_term_id uuid,
+  inventory_valuation_method USER-DEFINED CHECK (inventory_valuation_method IS NULL OR (inventory_valuation_method = ANY (ARRAY['FIFO'::inventory_valuation_method, 'LIFO'::inventory_valuation_method, 'FEFO'::inventory_valuation_method, 'Weighted Average'::inventory_valuation_method, 'Specific Identification'::inventory_valuation_method]))),
+  preferred_vendor_id uuid,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  created_by_id uuid,
+  updated_at timestamp without time zone DEFAULT now(),
+  updated_by_id uuid,
+  CONSTRAINT product_entity_settings_pkey PRIMARY KEY (id),
+  CONSTRAINT product_entity_settings_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT product_entity_settings_preferred_vendor_id_fkey FOREIGN KEY (preferred_vendor_id) REFERENCES public.vendors(id),
+  CONSTRAINT product_entity_settings_reorder_term_id_fkey FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id)
+);
+CREATE TABLE public.product_vendor_mappings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vendor_id uuid NOT NULL,
+  item_id uuid NOT NULL,
+  mapping_name character varying NOT NULL,
+  vendor_product_code character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT product_vendor_mappings_pkey PRIMARY KEY (id),
+  CONSTRAINT item_vendor_mappings_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.products (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  type USER-DEFINED NOT NULL,
+  product_name character varying NOT NULL,
+  billing_name character varying,
+  item_code character varying NOT NULL UNIQUE,
+  unit_id uuid NOT NULL,
+  category_id uuid,
+  is_returnable boolean DEFAULT false,
+  push_to_ecommerce boolean DEFAULT false,
+  hsn_code character varying,
+  tax_preference USER-DEFINED,
+  intra_state_tax_id uuid,
+  inter_state_tax_id uuid,
+  primary_image_url text,
+  image_urls jsonb,
+  selling_price numeric,
+  selling_price_currency character varying DEFAULT 'INR'::character varying,
+  mrp numeric,
+  ptr numeric,
+  sales_account_id uuid,
+  sales_description text,
+  cost_price numeric,
+  cost_price_currency character varying DEFAULT 'INR'::character varying,
+  purchase_account_id uuid,
+  purchase_description text,
+  length numeric,
+  width numeric,
+  height numeric,
+  dimension_unit character varying DEFAULT 'cm'::character varying,
+  weight numeric,
+  weight_unit character varying DEFAULT 'kg'::character varying,
+  manufacturer_id uuid,
+  brand_id uuid,
+  mpn character varying,
+  upc character varying,
+  isbn character varying,
+  ean character varying,
+  track_assoc_ingredients boolean DEFAULT false,
+  buying_rule_old character varying,
+  schedule_of_drug_old character varying,
+  is_track_inventory boolean DEFAULT true,
+  track_bin_location boolean DEFAULT true,
+  track_batches boolean DEFAULT true,
+  inventory_account_id uuid,
+  storage_id uuid,
+  is_active boolean DEFAULT true,
+  is_lock boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT now(),
+  created_by_id uuid,
+  updated_at timestamp without time zone DEFAULT now(),
+  updated_by_id uuid,
+  track_serial_number boolean DEFAULT false,
+  buying_rule_id uuid,
+  schedule_of_drug_id uuid,
+  lock_unit_pack numeric,
+  storage_description text,
+  about text,
+  uses_description text,
+  how_to_use text,
+  dosage_description text,
+  missed_dose_description text,
+  safety_advice text,
+  side_effects jsonb,
+  faq_text jsonb,
+  preferred_vendor_id uuid,
+  sku character varying UNIQUE,
+  exemption_reason character varying,
+  inventory_valuation_method character varying,
+  rack_id uuid,
+  reorder_point integer DEFAULT 0,
+  reorder_term_id uuid,
+  CONSTRAINT products_pkey PRIMARY KEY (id),
+  CONSTRAINT products_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id),
+  CONSTRAINT products_intra_state_tax_id_fkey FOREIGN KEY (intra_state_tax_id) REFERENCES public.tax_groups(id),
+  CONSTRAINT products_storage_id_fkey FOREIGN KEY (storage_id) REFERENCES public.storage_conditions(id),
+  CONSTRAINT products_inter_state_tax_id_fkey FOREIGN KEY (inter_state_tax_id) REFERENCES public.tax_rates(id),
+  CONSTRAINT products_manufacturer_id_fkey FOREIGN KEY (manufacturer_id) REFERENCES public.manufacturers(id),
+  CONSTRAINT products_unit_id_units_id_fk FOREIGN KEY (unit_id) REFERENCES public.units(id),
+  CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
+  CONSTRAINT products_sales_account_id_accounts_id_fk FOREIGN KEY (sales_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT products_purchase_account_id_accounts_id_fk FOREIGN KEY (purchase_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT products_inventory_account_id_accounts_id_fk FOREIGN KEY (inventory_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT products_buying_rule_id_buying_rules_id_fk FOREIGN KEY (buying_rule_id) REFERENCES public.buying_rules(id),
+  CONSTRAINT products_schedule_of_drug_id_schedules_id_fk FOREIGN KEY (schedule_of_drug_id) REFERENCES public.drug_schedules(id),
+  CONSTRAINT products_preferred_vendor_id_vendors_id_fk FOREIGN KEY (preferred_vendor_id) REFERENCES public.vendors(id),
+  CONSTRAINT products_reorder_term_id_fk FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id),
+  CONSTRAINT products_rack_id_fk FOREIGN KEY (rack_id) REFERENCES public.racks(id)
+);
+CREATE TABLE public.purchase_order_attachments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  purchase_order_id uuid NOT NULL,
+  file_name character varying NOT NULL,
+  file_path text NOT NULL,
+  file_size character varying,
+  file_type character varying,
+  uploaded_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT purchase_order_attachments_pkey PRIMARY KEY (id),
+  CONSTRAINT purchases_purchase_order_attachments_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.purchase_orders(id)
+);
+CREATE TABLE public.purchase_order_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  purchase_order_id uuid NOT NULL,
+  sort_order integer,
+  is_header boolean DEFAULT false,
+  header_text text,
+  product_id uuid,
+  description text,
+  account_id uuid,
+  quantity numeric DEFAULT 0.00,
+  rate numeric DEFAULT 0.00,
+  tax_id uuid,
+  item_tax_rate numeric DEFAULT 0.00,
+  tax_amount numeric DEFAULT 0.00,
+  discount numeric DEFAULT 0.00,
+  discount_type character varying DEFAULT 'percentage'::character varying,
+  amount numeric DEFAULT 0.00,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  entity_id uuid,
+  accounts uuid,
+  pricelist character varying,
+  hsn_code numeric,
+  CONSTRAINT purchase_order_items_pkey PRIMARY KEY (id),
+  CONSTRAINT purchases_purchase_order_items_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.purchase_orders(id),
+  CONSTRAINT purchases_purchase_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT purchases_purchase_order_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
+  CONSTRAINT purchase_order_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.purchase_orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_number character varying NOT NULL UNIQUE,
+  order_date date NOT NULL,
+  expected_delivery_date date,
+  reference_number character varying,
+  vendor_id uuid NOT NULL,
+  payment_terms_id uuid,
+  shipment_preference_id uuid,
+  delivery_type character varying NOT NULL DEFAULT 'warehouse'::character varying,
+  delivery_warehouse_id uuid,
+  delivery_customer_id uuid,
+  warehouse_id uuid,
+  discount_level character varying DEFAULT 'transaction'::character varying,
+  discount numeric DEFAULT 0.00,
+  discount_type character varying DEFAULT 'percentage'::character varying,
+  total_quantity numeric DEFAULT 0.00,
+  currency character varying DEFAULT 'INR'::character varying,
+  subtotal numeric DEFAULT 0.00,
+  tax_amount numeric DEFAULT 0.00,
+  tax_type character varying DEFAULT 'exclusive'::character varying,
+  tds_tcs_type character varying DEFAULT 'none'::character varying,
+  tds_id uuid,
+  tds_tcs_amount numeric DEFAULT 0.00,
+  adjustment numeric DEFAULT 0.00,
+  total numeric DEFAULT 0.00,
+  status character varying DEFAULT 'Draft'::character varying,
+  notes text,
+  terms_and_conditions text,
+  is_reverse_charge boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  is_delete boolean NOT NULL,
+  discount_account_id uuid NOT NULL,
+  CONSTRAINT purchase_orders_pkey PRIMARY KEY (id),
+  CONSTRAINT purchases_purchase_orders_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id),
+  CONSTRAINT purchases_purchase_orders_payment_terms_id_fkey FOREIGN KEY (payment_terms_id) REFERENCES public.payment_terms(id),
+  CONSTRAINT purchases_purchase_orders_shipment_preference_id_fkey FOREIGN KEY (shipment_preference_id) REFERENCES public.carrier(id),
+  CONSTRAINT purchases_purchase_orders_delivery_warehouse_id_fkey FOREIGN KEY (delivery_warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT purchases_purchase_orders_delivery_customer_id_fkey FOREIGN KEY (delivery_customer_id) REFERENCES public.customers(id),
+  CONSTRAINT purchases_purchase_orders_tds_id_fkey FOREIGN KEY (tds_id) REFERENCES public.tds_rates(id),
+  CONSTRAINT purchases_purchase_orders_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT purchase_orders_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT purchase_orders_discount_account_id_fkey FOREIGN KEY (discount_account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.purchase_receive_item_batches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  purchase_receive_item_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  warehouse_id uuid,
+  bin_id uuid,
+  bin_label character varying,
+  batch_no character varying NOT NULL,
+  unit_pack character varying,
+  mrp numeric,
+  ptr numeric,
+  quantity numeric NOT NULL DEFAULT 0,
+  foc_qty numeric NOT NULL DEFAULT 0,
+  manufacture_batch_number character varying,
+  manufacture_date date,
+  expiry_date date NOT NULL,
+  is_damaged boolean NOT NULL DEFAULT false,
+  damaged_qty numeric NOT NULL DEFAULT 0,
+  entity_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT purchase_receive_item_batches_pkey PRIMARY KEY (id),
+  CONSTRAINT purchase_receive_item_batches_purchase_receive_item_id_fkey FOREIGN KEY (purchase_receive_item_id) REFERENCES public.purchase_receive_items(id),
+  CONSTRAINT purchase_receive_item_batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT purchase_receive_item_batches_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT purchase_receive_item_batches_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id),
+  CONSTRAINT purchase_receive_item_batches_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.purchase_receive_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  purchase_receive_id uuid NOT NULL,
+  item_id uuid,
+  item_name character varying NOT NULL,
+  description text,
+  ordered numeric NOT NULL DEFAULT 0,
+  received numeric NOT NULL DEFAULT 0,
+  in_transit numeric NOT NULL DEFAULT 0,
+  quantity_to_receive numeric NOT NULL DEFAULT 0,
+  warehouse_id uuid,
+  bin_id uuid,
+  bin_label character varying,
+  entity_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT purchase_receive_items_pkey PRIMARY KEY (id),
+  CONSTRAINT purchase_receive_items_purchase_receive_id_fkey FOREIGN KEY (purchase_receive_id) REFERENCES public.purchase_receives(id),
+  CONSTRAINT purchase_receive_items_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.products(id),
+  CONSTRAINT purchase_receive_items_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT purchase_receive_items_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id),
+  CONSTRAINT purchase_receive_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.purchase_receives (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  purchase_receive_number character varying NOT NULL UNIQUE,
+  received_date date NOT NULL,
+  vendor_name character varying,
+  purchase_order_id uuid,
+  purchase_order_number character varying,
+  warehouse_id uuid,
+  transaction_bin_id uuid,
+  transaction_bin_label character varying,
+  status character varying NOT NULL DEFAULT 'draft'::character varying,
+  notes text,
+  entity_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_delete boolean NOT NULL,
+  bill_no character varying,
+  bill_date date,
+  bill_invoice_total numeric,
+  CONSTRAINT purchase_receives_pkey PRIMARY KEY (id),
+  CONSTRAINT purchase_receives_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT purchase_receives_transaction_bin_id_fkey FOREIGN KEY (transaction_bin_id) REFERENCES public.bin_master(id),
+  CONSTRAINT purchase_receives_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.racks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  rack_code character varying NOT NULL UNIQUE,
+  rack_name character varying,
+  storage_id uuid,
+  capacity integer,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT racks_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.recurring_journal_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  recurring_journal_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  description text,
+  contact_id uuid,
+  contact_type character varying,
+  debit numeric DEFAULT 0.00,
+  credit numeric DEFAULT 0.00,
+  sort_order integer,
+  contact_name character varying,
+  CONSTRAINT recurring_journal_items_pkey PRIMARY KEY (id),
+  CONSTRAINT accounts_recurring_journal_items_recur_journal_id_fkey FOREIGN KEY (recurring_journal_id) REFERENCES public.recurring_journals(id),
+  CONSTRAINT accounts_recurring_journal_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.recurring_journals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  profile_name character varying NOT NULL,
+  repeat_every character varying NOT NULL,
+  interval integer NOT NULL DEFAULT 1,
+  start_date date NOT NULL,
+  end_date date,
+  never_expires boolean DEFAULT true,
+  reference_number character varying,
+  notes text,
+  currency_code character varying DEFAULT 'INR'::character varying,
+  reporting_method character varying DEFAULT 'accrual_and_cash'::character varying,
+  status character varying DEFAULT 'active'::character varying,
+  last_generated_date timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  created_by uuid,
+  entity_id uuid NOT NULL,
+  CONSTRAINT recurring_journals_pkey PRIMARY KEY (id),
+  CONSTRAINT recurring_journals_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.reorder_terms (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  term_name character varying NOT NULL,
+  description text,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  quantity integer NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT reorder_terms_pkey PRIMARY KEY (id),
+  CONSTRAINT reorder_terms_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.reporting_tags (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tag_name character varying NOT NULL,
+  is_active boolean DEFAULT true,
+  entity_id uuid NOT NULL,
+  CONSTRAINT reporting_tags_pkey PRIMARY KEY (id),
+  CONSTRAINT reporting_tags_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.roles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  label character varying NOT NULL,
+  description text NOT NULL DEFAULT ''::text,
+  permissions jsonb NOT NULL DEFAULT '{}'::jsonb,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT roles_pkey PRIMARY KEY (id),
+  CONSTRAINT roles_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.sales_order_attachments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sales_order_id uuid NOT NULL,
+  file_name character varying NOT NULL,
+  file_path text NOT NULL,
+  file_size character varying,
+  file_type character varying,
+  source character varying DEFAULT 'upload'::character varying,
+  uploaded_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT sales_order_attachments_pkey PRIMARY KEY (id),
+  CONSTRAINT sales_order_attachments_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(id),
+  CONSTRAINT sales_order_attachments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.sales_order_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sales_order_id uuid NOT NULL,
+  line_no integer NOT NULL DEFAULT 1,
+  product_id uuid NOT NULL,
+  description text,
+  quantity numeric NOT NULL DEFAULT 0.000,
+  free_quantity numeric NOT NULL DEFAULT 0.000,
+  rate numeric NOT NULL DEFAULT 0.00,
+  discount_type character varying DEFAULT '%'::character varying CHECK (discount_type::text = ANY (ARRAY['%'::character varying, 'value'::character varying]::text[])),
+  discount_value numeric NOT NULL DEFAULT 0.00,
+  discount_amount numeric NOT NULL DEFAULT 0.00,
+  tax_id uuid,
+  tax_rate numeric NOT NULL DEFAULT 0.0000,
+  tax_amount numeric NOT NULL DEFAULT 0.00,
+  amount numeric NOT NULL DEFAULT 0.00,
+  mrp numeric NOT NULL DEFAULT 0.00,
+  batch_id uuid,
+  warehouse_id uuid,
+  line_meta jsonb,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  hsn_code numeric NOT NULL,
+  accounts uuid NOT NULL,
+  pricelist character varying,
+  CONSTRAINT sales_order_items_pkey PRIMARY KEY (id),
+  CONSTRAINT sales_order_items_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(id),
+  CONSTRAINT sales_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT sales_order_items_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.tax_rates(id),
+  CONSTRAINT sales_order_items_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT sales_order_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT sales_order_items_accounts_fkey FOREIGN KEY (accounts) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.sales_orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  transaction_series character varying,
+  sale_number character varying UNIQUE,
+  reference character varying,
+  sale_date timestamp without time zone DEFAULT now(),
+  expected_shipment_date timestamp without time zone,
+  delivery_method character varying,
+  payment_terms character varying,
+  payment_term_id uuid,
+  salesperson_id character varying,
+  salesperson_name character varying,
+  warehouse_id uuid,
+  warehouse_name character varying,
+  price_list_id uuid,
+  place_of_supply character varying,
+  document_type character varying NOT NULL,
+  status character varying DEFAULT 'Draft'::character varying,
+  sub_total numeric NOT NULL DEFAULT 0.00,
+  tax_total numeric NOT NULL DEFAULT 0.00,
+  discount_total numeric NOT NULL DEFAULT 0.00,
+  shipping_charges numeric NOT NULL DEFAULT 0.00,
+  tds_tcs_type character varying DEFAULT 'TDS'::character varying CHECK (tds_tcs_type::text = ANY (ARRAY['TDS'::character varying, 'TCS'::character varying]::text[])),
+  tds_tcs_tax_id uuid,
+  tds_tcs_amount numeric NOT NULL DEFAULT 0.00,
+  adjustment numeric NOT NULL DEFAULT 0.00,
+  round_off numeric NOT NULL DEFAULT 0.00,
+  total_quantity numeric NOT NULL DEFAULT 0.000,
+  total numeric NOT NULL DEFAULT 0.00,
+  currency character varying DEFAULT 'INR'::character varying,
+  customer_notes text,
+  terms_and_conditions text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  is_delete boolean NOT NULL,
+  CONSTRAINT sales_orders_pkey PRIMARY KEY (id),
+  CONSTRAINT sales_orders_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT sales_orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT sales_orders_payment_term_id_fkey FOREIGN KEY (payment_term_id) REFERENCES public.payment_terms(id),
+  CONSTRAINT sales_orders_price_list_id_fkey FOREIGN KEY (price_list_id) REFERENCES public.price_lists(id),
+  CONSTRAINT sales_orders_tds_tcs_tax_id_fkey FOREIGN KEY (tds_tcs_tax_id) REFERENCES public.tds_rates(id),
+  CONSTRAINT sales_orders_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.sales_payment_links (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  amount numeric NOT NULL,
+  link_url text NOT NULL,
+  status character varying DEFAULT 'active'::character varying,
+  created_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT sales_payment_links_pkey PRIMARY KEY (id),
+  CONSTRAINT sales_payment_links_customer_id_customers_id_fk FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT sales_payment_links_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.sales_payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  payment_number character varying UNIQUE,
+  payment_date timestamp without time zone DEFAULT now(),
+  payment_mode character varying,
+  amount numeric NOT NULL,
+  bank_charges numeric DEFAULT 0.00,
+  reference character varying,
+  deposit_to character varying,
+  notes text,
+  created_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT sales_payments_pkey PRIMARY KEY (id),
+  CONSTRAINT sales_payments_customer_id_customers_id_fk FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT sales_payments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.sales_return_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sales_return_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  sales_invoice_item_id uuid,
+  invoiced_qty numeric DEFAULT 0,
+  already_returned_qty numeric DEFAULT 0,
+  return_qty numeric DEFAULT 0,
+  receivable_qty numeric DEFAULT 0,
+  credit_only_qty numeric DEFAULT 0,
+  remarks text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT sales_return_items_pkey PRIMARY KEY (id),
+  CONSTRAINT sales_return_items_sales_return_id_fkey FOREIGN KEY (sales_return_id) REFERENCES public.sales_returns(id)
+);
+CREATE TABLE public.sales_returns (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  customer_id uuid NOT NULL,
+  rma_number character varying NOT NULL,
+  return_date date NOT NULL,
+  warehouse_id uuid NOT NULL,
+  reason text,
+  reference_number character varying,
+  contains_credit_only_goods boolean NOT NULL DEFAULT false,
+  status character varying NOT NULL DEFAULT 'draft'::character varying,
+  notes text,
+  created_by uuid,
+  approved_by uuid,
+  approved_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT sales_returns_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.states (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  state_id uuid NOT NULL,
+  name character varying NOT NULL,
+  code character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT states_pkey PRIMARY KEY (id),
+  CONSTRAINT states_state_id_fkey FOREIGN KEY (state_id) REFERENCES public.countries(id)
+);
+CREATE TABLE public.storage_conditions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  location_name character varying NOT NULL UNIQUE,
+  temperature_range character varying,
+  description text,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  display_text character varying,
+  common_examples text,
+  min_temp_c numeric,
+  max_temp_c numeric,
+  is_cold_chain boolean NOT NULL DEFAULT false,
+  requires_fridge boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 0,
+  storage_type character varying,
+  CONSTRAINT storage_conditions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tax_group_rates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tax_group_id uuid,
+  tax_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tax_group_rates_pkey PRIMARY KEY (id),
+  CONSTRAINT tax_group_taxes_tax_group_id_fkey FOREIGN KEY (tax_group_id) REFERENCES public.tax_groups(id),
+  CONSTRAINT tax_group_taxes_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.tax_rates(id)
+);
+CREATE TABLE public.tax_groups (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tax_group_name character varying NOT NULL UNIQUE,
+  tax_rate numeric NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tax_groups_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tax_rates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tax_name character varying NOT NULL UNIQUE,
+  tax_rate numeric NOT NULL,
+  tax_type USER-DEFINED,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT tax_rates_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tds_group_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tds_group_id uuid,
+  tds_rate_id uuid,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT tds_group_items_pkey PRIMARY KEY (id),
+  CONSTRAINT tds_group_items_tds_group_id_fkey FOREIGN KEY (tds_group_id) REFERENCES public.tds_groups(id),
+  CONSTRAINT tds_group_items_tds_rate_id_fkey FOREIGN KEY (tds_rate_id) REFERENCES public.tds_rates(id)
+);
+CREATE TABLE public.tds_groups (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  group_name character varying NOT NULL UNIQUE,
+  applicable_from timestamp without time zone,
+  applicable_to timestamp without time zone,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT tds_groups_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tds_rates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tax_name character varying NOT NULL UNIQUE,
+  section_id uuid,
+  base_rate numeric NOT NULL,
+  surcharge_rate numeric DEFAULT 0.00,
+  cess_rate numeric DEFAULT 0.00,
+  payable_account_id uuid,
+  receivable_account_id uuid,
+  is_higher_rate boolean DEFAULT false,
+  reason_higher_rate text,
+  applicable_from timestamp without time zone,
+  applicable_to timestamp without time zone,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT tds_rates_pkey PRIMARY KEY (id),
+  CONSTRAINT tds_rates_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.tds_sections(id),
+  CONSTRAINT tds_rates_payable_account_id_fkey FOREIGN KEY (payable_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT tds_rates_receivable_account_id_fkey FOREIGN KEY (receivable_account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.tds_sections (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  section_name character varying NOT NULL UNIQUE,
+  description text,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT tds_sections_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.timezones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  tzdb_name character varying NOT NULL,
+  utc_offset character varying NOT NULL,
+  display character varying NOT NULL,
+  country_id uuid,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order smallint NOT NULL DEFAULT 0,
+  CONSTRAINT timezones_pkey PRIMARY KEY (id),
+  CONSTRAINT timezones_country_id_fkey FOREIGN KEY (country_id) REFERENCES public.countries(id)
+);
+CREATE TABLE public.transaction_locks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  module_name character varying NOT NULL,
+  lock_date timestamp without time zone NOT NULL,
+  reason text,
+  updated_at timestamp without time zone DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT transaction_locks_pkey PRIMARY KEY (id),
+  CONSTRAINT transaction_locks_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.transaction_series (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  org_id uuid,
+  name character varying NOT NULL,
+  modules jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  code character varying,
+  branch_code character varying,
+  warehouse_code character varying,
+  entity_id uuid NOT NULL,
+  CONSTRAINT transaction_series_pkey PRIMARY KEY (id),
+  CONSTRAINT transaction_series_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.transaction_series_modules (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  label character varying NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT transaction_series_modules_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transaction_series_placeholders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  token character varying NOT NULL UNIQUE,
+  label character varying NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT transaction_series_placeholders_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transaction_series_restart_options (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code character varying NOT NULL UNIQUE,
+  label character varying NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT transaction_series_restart_options_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transactional_sequences (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  module character varying NOT NULL,
+  prefix character varying NOT NULL DEFAULT ''::character varying,
+  suffix character varying DEFAULT ''::character varying,
+  next_number integer NOT NULL DEFAULT 1,
+  padding integer NOT NULL DEFAULT 5,
+  is_active boolean NOT NULL DEFAULT true,
+  entity_id uuid NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT transactional_sequences_pkey PRIMARY KEY (id),
+  CONSTRAINT transactional_sequences_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.transfer_order_destination_batches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transfer_item_id uuid NOT NULL,
+  source_batch_id uuid NOT NULL,
+  destination_batch_id uuid NOT NULL,
+  destination_warehouse_id uuid NOT NULL,
+  destination_bin_id uuid NOT NULL,
+  qty numeric NOT NULL CHECK (qty > 0::numeric),
+  CONSTRAINT transfer_order_destination_batches_pkey PRIMARY KEY (id),
+  CONSTRAINT transfer_order_destination_batches_wh_fkey FOREIGN KEY (destination_warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT transfer_order_destination_batches_item_fkey FOREIGN KEY (transfer_item_id) REFERENCES public.transfer_order_items(id),
+  CONSTRAINT transfer_order_destination_batches_bin_fkey FOREIGN KEY (destination_bin_id) REFERENCES public.bin_master(id)
+);
+CREATE TABLE public.transfer_order_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transfer_order_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  qty_requested numeric NOT NULL CHECK (qty_requested > 0::numeric),
+  qty_transferred numeric NOT NULL DEFAULT 0 CHECK (qty_transferred >= 0::numeric),
+  unit character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT transfer_order_items_pkey PRIMARY KEY (id),
+  CONSTRAINT transfer_order_items_transfer_order_fkey FOREIGN KEY (transfer_order_id) REFERENCES public.transfer_order_master(id),
+  CONSTRAINT transfer_order_items_product_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.transfer_order_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transfer_order_id uuid NOT NULL,
+  action character varying NOT NULL,
+  action_by uuid,
+  action_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT transfer_order_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT transfer_order_logs_transfer_order_fkey FOREIGN KEY (transfer_order_id) REFERENCES public.transfer_order_master(id)
+);
+CREATE TABLE public.transfer_order_master (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transfer_no character varying NOT NULL,
+  transfer_date date NOT NULL,
+  entity_id uuid NOT NULL,
+  source_warehouse_id uuid NOT NULL,
+  destination_warehouse_id uuid NOT NULL,
+  status character varying NOT NULL DEFAULT 'DRAFT'::character varying CHECK (status::text = ANY (ARRAY['DRAFT'::character varying, 'INITIATED'::character varying, 'RECEIVED'::character varying, 'CANCELLED'::character varying]::text[])),
+  reason text,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT transfer_order_master_pkey PRIMARY KEY (id),
+  CONSTRAINT transfer_order_master_entity_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT transfer_order_master_source_wh_fkey FOREIGN KEY (source_warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT transfer_order_master_destination_wh_fkey FOREIGN KEY (destination_warehouse_id) REFERENCES public.warehouses(id)
+);
+CREATE TABLE public.transfer_order_source_batches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transfer_item_id uuid NOT NULL,
+  batch_id uuid NOT NULL,
+  layer_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  bin_id uuid NOT NULL,
+  qty numeric NOT NULL CHECK (qty > 0::numeric),
+  CONSTRAINT transfer_order_source_batches_pkey PRIMARY KEY (id),
+  CONSTRAINT transfer_order_source_batches_item_fkey FOREIGN KEY (transfer_item_id) REFERENCES public.transfer_order_items(id),
+  CONSTRAINT transfer_order_source_batches_layer_fkey FOREIGN KEY (layer_id) REFERENCES public.batch_stock_layers(id),
+  CONSTRAINT transfer_order_source_batches_wh_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT transfer_order_source_batches_bin_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id),
+  CONSTRAINT transfer_order_source_batches_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
+);
+CREATE TABLE public.units (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  unit_name character varying NOT NULL UNIQUE,
+  unit_type USER-DEFINED,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  unit_symbol character varying,
+  uqc_id uuid,
+  CONSTRAINT units_pkey PRIMARY KEY (id),
+  CONSTRAINT units_uqc_id_fkey FOREIGN KEY (uqc_id) REFERENCES public.uqc(id)
+);
+CREATE TABLE public.uqc (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  uqc_code character varying NOT NULL UNIQUE,
+  description character varying NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT uqc_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.user_branch_access (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  is_default_business boolean NOT NULL DEFAULT false,
+  is_default_warehouse boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  CONSTRAINT user_branch_access_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_user_location_access_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
+  CONSTRAINT user_branch_access_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.users (
+  id uuid NOT NULL,
+  email character varying NOT NULL UNIQUE,
+  full_name character varying NOT NULL,
+  role character varying NOT NULL DEFAULT 'user'::character varying,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  entity_id uuid NOT NULL,
+  default_warehouse_id uuid,
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT users_default_warehouse_id_fkey FOREIGN KEY (default_warehouse_id) REFERENCES public.warehouses(id)
+);
+CREATE TABLE public.vendor_bank_accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vendor_id uuid,
+  holder_name text,
+  bank_name text,
+  account_number text,
+  ifsc text,
+  is_primary boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT vendor_bank_accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT vendor_bank_accounts_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id)
+);
+CREATE TABLE public.vendor_contact_persons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vendor_id uuid,
+  salutation text,
+  first_name text,
+  last_name text,
+  email text,
+  work_phone text,
+  mobile_phone text,
+  designation text,
+  department text,
+  is_primary boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT vendor_contact_persons_pkey PRIMARY KEY (id),
+  CONSTRAINT vendor_contact_persons_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id)
+);
+CREATE TABLE public.vendors (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vendor_number character varying UNIQUE,
+  display_name character varying NOT NULL,
+  salutation character varying,
+  first_name character varying,
+  last_name character varying,
+  company_name character varying,
+  email character varying,
+  phone character varying,
+  mobile_phone character varying,
+  designation character varying,
+  department character varying,
+  website character varying,
+  vendor_language character varying DEFAULT 'English'::character varying,
+  gst_treatment character varying,
+  gstin character varying,
+  source_of_supply character varying,
+  pan character varying,
+  currency character varying DEFAULT 'INR'::character varying,
+  payment_terms character varying,
+  is_msme_registered boolean DEFAULT false,
+  msme_registration_type character varying,
+  msme_registration_number character varying,
+  is_drug_registered boolean DEFAULT false,
+  drug_licence_type character varying,
+  drug_license_20 character varying,
+  drug_license_21 character varying,
+  drug_license_20b character varying,
+  drug_license_21b character varying,
+  is_fssai_registered boolean DEFAULT false,
+  fssai_number character varying,
+  tds_rate_id character varying,
+  enable_portal boolean DEFAULT false,
+  remarks text,
+  x_handle character varying,
+  facebook_handle character varying,
+  whatsapp_number character varying,
+  source character varying DEFAULT 'User'::character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  billing_attention text,
+  billing_address_street text,
+  billing_address_place text,
+  billing_city text,
+  billing_state text,
+  billing_pincode text,
+  billing_country_region text,
+  billing_phone text,
+  billing_fax text,
+  shipping_attention text,
+  shipping_address_street text,
+  shipping_address_place text,
+  shipping_city text,
+  shipping_state text,
+  shipping_pincode text,
+  shipping_country_region text,
+  shipping_phone text,
+  shipping_fax text,
+  price_list_id uuid,
+  entity_id uuid NOT NULL,
+  CONSTRAINT vendors_pkey PRIMARY KEY (id),
+  CONSTRAINT vendors_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.warehouses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  attention text,
+  street text,
+  place text,
+  city text,
+  state text,
+  phone character varying,
+  email character varying,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  updated_at timestamp without time zone NOT NULL DEFAULT now(),
+  warehouse_code character varying,
+  pincode character varying,
+  country character varying NOT NULL DEFAULT 'India'::character varying,
+  customer_id uuid,
+  vendor_id uuid,
+  district_id uuid,
+  local_body_id uuid,
+  ward_id uuid,
+  assembly_id uuid,
+  entity_id uuid NOT NULL,
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  source_branch_id uuid,
+  is_default_for_branch boolean NOT NULL DEFAULT false,
+  CONSTRAINT warehouses_pkey PRIMARY KEY (id),
+  CONSTRAINT warehouses_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT warehouses_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id),
+  CONSTRAINT warehouses_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id),
+  CONSTRAINT warehouses_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.lsgd_local_bodies(id),
+  CONSTRAINT warehouses_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.lsgd_wards(id),
+  CONSTRAINT warehouses_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.assemblies_constituencies(id),
+  CONSTRAINT warehouses_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT warehouses_source_branch_id_fkey FOREIGN KEY (source_branch_id) REFERENCES public.branches(id)
+);
+CREATE TABLE public.zone_levels (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  zone_id uuid NOT NULL,
+  level_no integer NOT NULL,
+  level_name character varying,
+  alias character varying,
+  delimiter character varying DEFAULT '-'::character varying,
+  total integer NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT zone_levels_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_zone FOREIGN KEY (zone_id) REFERENCES public.zone_master(id)
+);
+CREATE TABLE public.zone_master (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  zone_name character varying NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT zone_master_pkey PRIMARY KEY (id)
+);

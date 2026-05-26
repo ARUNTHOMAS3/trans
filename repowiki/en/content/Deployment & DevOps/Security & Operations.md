@@ -1,4 +1,4 @@
-# Security & Operations
+﻿# Security & Operations
 **Last Updated: 2026-04-20 12:46:08**
 
 <cite>
@@ -214,7 +214,7 @@ Recommendations:
 - [PRD/prd_monitoring.md](file://PRD/prd_monitoring.md#L48-L68)
 
 ### Security Audit Procedures and Vulnerability Assessment
-- Conduct quarterly audits aligned with PRD’s risk mitigation guidelines.
+- Conduct quarterly audits aligned with PRDâ€™s risk mitigation guidelines.
 - Validate RLS policies and tenant isolation.
 - Review Supabase Auth configuration and JWT handling.
 - Perform dependency security scans and update to latest stable versions.
@@ -233,11 +233,11 @@ Recommendations:
 - [PRD/prd_disaster_recovery.md](file://PRD/prd_disaster_recovery.md#L333-L344)
 
 ### Monitoring, Threat Detection, and Incident Response
-- Monitoring stack: Sentry, Vercel Analytics, UptimeRobot, Vercel Logs, Google Analytics 4.
+- Monitoring stack: Sentry, Railway/Cloudflare Pages Analytics, UptimeRobot, Railway/Cloudflare Pages Logs, Google Analytics 4.
 - Metrics and thresholds: Error rate, API response time, page load time, database query latency.
 - Health checks: /api/health endpoint monitored every 5 minutes.
 - Alerting: Slack alerts and PagerDuty escalation for P0/P1 incidents.
-- Dashboards: Sentry, Vercel Analytics, custom business dashboards.
+- Dashboards: Sentry, Railway/Cloudflare Pages Analytics, custom business dashboards.
 
 **Section sources**
 - [PRD/prd_monitoring.md](file://PRD/prd_monitoring.md#L1-L181)
@@ -297,7 +297,7 @@ Common issues and resolutions:
 - [backend/src/common/middleware/tenant.middleware.ts](file://backend/src/common/middleware/tenant.middleware.ts#L41-L67)
 
 ## Conclusion
-ZerpAI ERP is “Auth-Ready” with a multi-tenant schema and middleware foundation. Security hardening requires enabling RLS, implementing JWT-based authentication and RBAC, tightening CORS, and establishing robust monitoring and incident response. Disaster recovery and compliance must be integrated with Supabase-managed backups and legal retention requirements.
+ZerpAI ERP is â€œAuth-Readyâ€ with a multi-tenant schema and middleware foundation. Security hardening requires enabling RLS, implementing JWT-based authentication and RBAC, tightening CORS, and establishing robust monitoring and incident response. Disaster recovery and compliance must be integrated with Supabase-managed backups and legal retention requirements.
 
 [No sources needed since this section summarizes without analyzing specific files]
 

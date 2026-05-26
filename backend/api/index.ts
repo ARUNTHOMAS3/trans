@@ -26,30 +26,57 @@ async function bootstrap() {
     "http://localhost:3000",
     "http://localhost:8080",
     "http://localhost:3001",
-    "https://zerpai-erp-one.vercel.app",
-    "https://zerpai-erp-git-master-k4nn4ns-projects.vercel.app",
-    "https://zerpai-erp-k4nn4ns-projects.vercel.app",
-    "https://*.vercel.app",
+    "https://zerpai.pages.dev",
+    "https://*.zerpai.pages.dev",
+    "https://*.pages.dev",
   ];
+
+  const isOriginAllowed = (origin: string): boolean =>
+    corsOrigins.some((allowedOrigin) => {
+      if (allowedOrigin.includes("*")) {
+        const regex = new RegExp(
+          "^" + allowedOrigin.replace(/\*/g, ".*") + "$",
+        );
+        return regex.test(origin);
+      }
+      return allowedOrigin === origin;
+    }) ||
+    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+    /^https:\/\/[^\/]+\.pages\.dev$/.test(origin) ||
+    /^https:\/\/[^\/]+\.netlify\.app$/.test(origin) ||
+    /^https:\/\/[^\/]+\.github\.io$/.test(origin);
+
+  // Handle browser preflight early so OPTIONS never fails with network-layer errors.
+  app.use((req, res, next) => {
+    if (req.method !== "OPTIONS") {
+      return next();
+    }
+
+    const origin = req.headers.origin as string | undefined;
+
+    if (origin && isOriginAllowed(origin)) {
+      res.header("Access-Control-Allow-Origin", origin);
+      res.header("Vary", "Origin");
+      res.header("Access-Control-Allow-Credentials", "true");
+      res.header(
+        "Access-Control-Allow-Methods",
+        "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+      );
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type,Authorization,Accept,X-Org-Id,X-Branch-Id,X-Outlet-Id,X-Request-ID,x-entity-id,x-tenant-id,x-tenant-type,X-Entity-Id,X-Tenant-Id,X-Tenant-Type",
+      );
+      return res.status(204).send();
+    }
+
+    return next();
+  });
 
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
 
-      const isAllowed =
-        corsOrigins.some((allowedOrigin) => {
-          if (allowedOrigin.includes("*")) {
-            const regex = new RegExp(
-              "^" + allowedOrigin.replace(/\*/g, ".*") + "$",
-            );
-            return regex.test(origin);
-          }
-          return allowedOrigin === origin;
-        }) ||
-        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
-        /^https:\/\/[^\/]+\.vercel\.app$/.test(origin) ||
-        /^https:\/\/[^\/]+\.netlify\.app$/.test(origin) ||
-        /^https:\/\/[^\/]+\.github\.io$/.test(origin);
+      const isAllowed = isOriginAllowed(origin);
 
       if (isAllowed) {
         callback(null, true);

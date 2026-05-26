@@ -5,12 +5,12 @@ Use this exact prompt with codev:
 ---
 You have today’s updates on your machine that I need to pull into my repo.
 
-Please prepare an **inbound handoff package** for April 22, 2026, focused on Purchase Receives and directly related flows.
+Please prepare an **inbound handoff package** for April 23 -24, 2026.
 
 ## What to send
 
 1. Your updated source files (frontend + backend) for today.
-2. Your `log.md` entries created today (April 22, 2026).
+2. Your `log_A.md` entries created today (April 23 -24, 2026).
 3. A short changelog mapping:
    - file path
    - what changed
@@ -28,11 +28,11 @@ Example:
 ## Package structure to send
 
 Create a folder like:
-`handoff/inbound_2026-04-22_from_codev/`
+`handoff/inbound_2026-04-23 -24_from_codev/`
 
 Inside it include:
 - `source_snapshot/` (all changed files with original relative paths)
-- `LOG_ENTRIES_2026-04-22.md` (copied from your log.md for today)
+- `LOG_ENTRIES_2026-04-23 -24.md` (copied from your log.md for today)
 - `FILES_CHANGED.md`
 - `IMPLEMENTATION_SUMMARY.md`
 - `PRECAUTIONS.md`
@@ -48,7 +48,7 @@ Inside it include:
 
 - Do not squash/remove paths.
 - Do not send only snippets; send full files.
-- Include both Purchase Receives files and any dependent files (purchase orders filters, endpoints, providers, models, DTO/service/controller changes).
+- Include both files and any dependent files ( filters, endpoints, providers, models, DTO/service/controller changes).
 
 After packaging, send me:
 - package folder path

@@ -8,7 +8,7 @@
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart)
 - [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart)
 - [report_model.dart](file://lib/modules/reports/models/report_model.dart)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart)
 - [app_router.dart](file://lib/core/routing/app_router.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 </cite>
@@ -66,7 +66,7 @@ PL -. "valuation inputs" .-> RIM
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
 - [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart#L1-L2)
 - [report_model.dart](file://lib/modules/reports/models/report_model.dart#L1-L2)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [app_router.dart](file://lib/core/routing/app_router.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 
@@ -77,7 +77,7 @@ PL -. "valuation inputs" .-> RIM
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
 - [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart#L1-L2)
 - [report_model.dart](file://lib/modules/reports/models/report_model.dart#L1-L2)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [app_router.dart](file://lib/core/routing/app_router.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 
@@ -115,7 +115,7 @@ PL -. "valuation inputs" .-> RIM
 
 - Price List Model (Valuation Inputs)
   - Supports pricing schemes and rounding preferences used in valuation contexts.
-  - Reference: [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+  - Reference: [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 **Section sources**
 - [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L1-L214)
@@ -124,7 +124,7 @@ PL -. "valuation inputs" .-> RIM
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
 - [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart#L1-L2)
 - [report_model.dart](file://lib/modules/reports/models/report_model.dart#L1-L2)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 ## Architecture Overview
 The reporting architecture follows a layered pattern:
@@ -281,11 +281,11 @@ SalesOrderController --> SalesOrder : "manages list"
   - Pricing schemes and rounding preferences can inform valuation methods.
 - References:
   - Placeholder file: [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart#L1-L2)
-  - Pricing model: [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+  - Pricing model: [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 **Section sources**
 - [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart#L1-L2)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 
 ### Financial Statement Generation
 - Current State: Not implemented in the referenced files.
@@ -353,7 +353,7 @@ RD --> AL
 ## Troubleshooting Guide
 - Empty or Missing Data
   - Verify that the invoices provider resolves to a non-empty list.
-  - Confirm that the Sales Controller’s load method executes successfully.
+  - Confirm that the Sales Controllerâ€™s load method executes successfully.
   - References:
     - Provider watch and empty-state handling: [reports_sales_sales_daily.dart](file://lib/modules/reports/presentation/reports_sales_sales_daily.dart#L23-L32)
     - Controller load method: [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L76-L84)
@@ -422,7 +422,7 @@ The Financial Reporting system currently provides a dashboard for report discove
   - Pricing schemes and rounding preferences impact valuation and tax calculations.
   - References:
     - Sales model fields: [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L16-L21)
-    - Pricing model: [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L21-L28)
+    - Pricing model: [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L21-L28)
 
 - KPI Calculations and Trend Analysis
   - Daily invoice count and total sales per day.
@@ -435,3 +435,5 @@ The Financial Reporting system currently provides a dashboard for report discove
   - Maintain audit trails and versioned report snapshots.
   - References:
     - Sales model timestamps: [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L26-L27)
+
+

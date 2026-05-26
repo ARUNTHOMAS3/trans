@@ -5,7 +5,7 @@
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart)
 - [item_model.dart](file://lib/modules/items/models/item_model.dart)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart)
 - [sales_order_item_model.dart](file://lib/modules/sales/models/sales_order_item_model.dart)
 - [sales_payment_model.dart](file://lib/modules/sales/models/sales_payment_model.dart)
@@ -72,7 +72,7 @@ SCH --> DB
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L2172)
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L1-L461)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L1-L200)
 - [sales.service.ts](file://backend/src/sales/sales.service.ts#L1-L300)
 - [sales.controller.ts](file://backend/src/sales/sales.controller.ts#L1-L200)
@@ -84,7 +84,7 @@ SCH --> DB
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L2172)
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L1-L461)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L1-L200)
 - [sales.service.ts](file://backend/src/sales/sales.service.ts#L1-L300)
 - [sales.controller.ts](file://backend/src/sales/sales.controller.ts#L1-L200)
@@ -103,13 +103,13 @@ Key implementation locations:
 - Currency metadata: [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L2172)
 - Item currency fields: [item_model.dart](file://lib/modules/items/models/item_model.dart#L34-L46)
 - Sales order totals: [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L16-L21)
-- Price list currency: [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L18-L19)
+- Price list currency: [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L18-L19)
 
 **Section sources**
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L2172)
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L34-L46)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L16-L21)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L18-L19)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L18-L19)
 
 ## Architecture Overview
 The multi-currency architecture integrates frontend currency metadata with backend persistence and retrieval. Currency-aware models propagate currency codes alongside monetary values. Controllers orchestrate requests, services handle business logic, and Supabase-backed repositories manage database operations.
@@ -170,7 +170,7 @@ Practical example references:
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L126-L132)
 
 ### Sales Order Totals and Line Items
-- Purpose: Maintain subTotal, taxTotal, discountTotal, shippingCharges, adjustment, and total in the order’s currency.
+- Purpose: Maintain subTotal, taxTotal, discountTotal, shippingCharges, adjustment, and total in the orderâ€™s currency.
 - Implications:
   - Supports multi-currency sales documents.
   - Requires conversion logic when aggregating across currencies.
@@ -191,26 +191,26 @@ Practical example references:
   - roundOffPreference: rounding policy applied during pricing calculations.
 
 Practical example references:
-- Price list model and currency field: [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L8-L50)
-- Pricing scheme enum: [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L106-L122)
-- Round off preference enum: [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L125-L149)
+- Price list model and currency field: [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L8-L50)
+- Pricing scheme enum: [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L106-L122)
+- Round off preference enum: [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L125-L149)
 
 **Section sources**
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L8-L50)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L106-L122)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L125-L149)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L8-L50)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L106-L122)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L125-L149)
 
 ### Exchange Rate Handling and Conversion Algorithms
 - Exchange rate updates:
   - Fetch exchange rates from external providers or internal lookup tables.
   - Store rates with effective date and base/target currency pair.
 - Conversion algorithms:
-  - Amount in foreign currency × exchange rate = converted amount.
+  - Amount in foreign currency Ã— exchange rate = converted amount.
   - Round according to currency decimals and configured round-off preference.
   - Accumulate totals per currency to maintain accuracy.
 - Practical example references:
   - Currency metadata and decimals: [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L2172)
-  - Price list rounding policy: [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L125-L149)
+  - Price list rounding policy: [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L125-L149)
 
 Note: The repository does not include explicit exchange rate service code. The above outlines the recommended approach for integrating exchange rate updates and conversions.
 
@@ -290,7 +290,7 @@ SCH["Schema<br/>schema.ts"] --> DB
 **Diagram sources**
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L2172)
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L1-L461)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L1-L200)
 - [sales.controller.ts](file://backend/src/sales/sales.controller.ts#L1-L200)
@@ -302,7 +302,7 @@ SCH["Schema<br/>schema.ts"] --> DB
 **Section sources**
 - [currency_constants.dart](file://lib/shared/constants/currency_constants.dart#L1-L2172)
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L1-L461)
-- [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
+- [pricelist_model.dart](file://lib/modules/pricelists/models/pricelist_model.dart#L1-L150)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L1-L200)
 - [sales.controller.ts](file://backend/src/sales/sales.controller.ts#L1-L200)
@@ -333,3 +333,4 @@ Common issues and resolutions:
 
 ## Conclusion
 The Zerpai ERP system incorporates multi-currency support through standardized currency metadata, per-item and per-document currency fields, and robust sales order totals. While the repository demonstrates currency-aware models and constants, explicit exchange rate services and conversion utilities are not present and should be integrated to complete the multi-currency workflow. By aligning frontend formatting with backend persistence and implementing proper conversion and reporting logic, the system can meet internationalization and compliance requirements across diverse markets.
+

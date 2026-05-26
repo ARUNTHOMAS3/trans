@@ -47,7 +47,84 @@ No authentication setup is allowed until production. The application must run wi
 
 ---
 
-## 2. First-Time User Experience (FTUE)
+## 1.5 Settings & Organization Setup Flow
+This flow defines the hierarchical setup of Organization, Branches, Warehouses, and Bins, and the restricted access for branch-level users.
+
+### 1.5.1 Mermaid Diagram
+```mermaid
+graph TD
+    ih4SYIJJuXqu["Create Branch"] --> |Creates branch data| ih4SexGSHM.n["Auto-load Branch Profile Data"]
+    ih4SmypelxWk["Enable Bin Locations by Default"] --> |Enables bin tracking| jh4SibNKgxQn["Rule: Bin tracking is mandatory at branch level"]
+    eM1SFEnpH-~T["Default Warehouse (Auto)"] --> eM1S~c8l_mt7["Branch warehouses have bin-level tracking enabled"]
+    eM1SZBS~-Iuj["Branch A"] --> |Default Warehouse| eM1SFEnpH-~T["Default Warehouse (Auto)"]
+    ih4SkEmw5ZvN["Auto-create Default Warehouse [Org Location + Name]"] --> |Generates hierarchy| ih4SLq1-Zbl8["Hierarchy: Organization → Branch → Warehouse → Bin"]
+    ih4S4_sTZfPe["Profile Fields (View Only / Limited Edit)"] --> |Read-only / Limited Edit| ih4S4_sTZfPe["Profile Fields"]
+    ih4SU2zopfSf["Click Save?"] --> |Yes| ih4SWkIewEao["Create New Organization"]
+    ih4S18i_PUQ6["Open Settings Module"] --> ih4SexGSHM.n["Auto-load Branch Profile Data"]
+    ih4SexGSHM.n["Auto-load Branch Profile Data"] --> ih4S4_sTZfPe["Profile Fields"]
+    ih4Sa4h.7qYM["Branch User Login"] --> ih4S18i_PUQ6["Open Settings Module"]
+    dM1S35UwEOGP["Branch created?"] --> |Yes| dM1Sy~DqNk_W["Auto-create Branch Default Warehouse [Branch Location + 'Store']"]
+    ih4SU2zopfSf["Click Save?"] --> |No / Edit| ih4SPmOSa.gI["Fill Organization Profile"]
+    ih4SrAgl2aG5["Operate Within Assigned Warehouse/Bins"] --> |Subject to| jh4S2sc632KX["Rule: Branch operates only within its assigned warehouse"]
+    ih4SsvIRSO-0["Enter Settings Module (HO Login)"] --> ih4SPmOSa.gI["Fill Organization Profile"]
+    dM1SIER-k~Fy["Save successful?"] --> |No| dM1SaHXGop1y["Review / Correct Profile Details"]
+    eM1S76E.EhFn["Default Warehouse (Auto)"] --> eM1SlH62Jpk6["Bin 2 (Enabled)"]
+    ih4SrAgl2aG5["Operate Within Assigned Warehouse/Bins"] --> |Must place stock per| jh4SERHBt9e9["Rule: All stock must exist inside Warehouse/Bin"]
+    ih4SLq1-Zbl8["Hierarchy: Organization → Branch → Warehouse → Bin"] --> jh4SERHBt9e9["Rule: All stock must exist inside Warehouse/Bin"]
+    ih4S-BWnCGkV["Restricted Operational Access"] --> ih4SCZKVvAgX["Settings Workflow Complete"]
+    dM1SfwY3oYh~["Create Branch (Linked to Parent Org)"] --> dM1S35UwEOGP["Branch created?"]
+    ih4SrAgl2aG5["Operate Within Assigned Warehouse/Bins"] --> ih4S-BWnCGkV["Restricted Operational Access"]
+    ih4S18i_PUQ6["Open Settings Module"] --> ih4SK.a2aQBZ["Branch Management Module Not Available"]
+    ih4Ste8WF52a["Auto-create Branch Default Warehouse"] --> |Generates branch warehouse| ih4SLq1-Zbl8["Hierarchy: Organization → Branch → Warehouse → Bin"]
+    ih4SkEmw5ZvN["Auto-create Default Warehouse"] --> ih4SYIJJuXqu["Create Branch"]
+    jh4S2sc632KX["Rule: Branch operates only within assigned warehouse"] --> jh4SibNKgxQn["Rule: Bin tracking is mandatory"]
+    eM1S76E.EhFn["Default Warehouse (Auto)"] --> eM1S~c8l_mt7["Branch warehouses have bin-level tracking enabled"]
+    dM1Sy~DqNk_W["Auto-create Branch Default Warehouse"] --> dM1SPF-qybzC["Enable Bin Locations by Default"]
+    eM1S76E.EhFn["Default Warehouse (Auto)"] --> eM1SnDlq6Zwd["Bin 1 (Enabled)"]
+    ih4Ste8WF52a["Auto-create Branch Default Warehouse"] --> ih4SmypelxWk["Enable Bin Locations by Default"]
+    ih4SPmOSa.gI["Fill Organization Profile"] --> ih4SU2zopfSf["Click Save?"]
+    dM1SM.7v1CA.["User enters Settings Module"] --> dM1SqTqUN124["Fill Organization Profile"]
+    ih4SYIJJuXqu["Create Branch"] --> ih4Ste8WF52a["Auto-create Branch Default Warehouse"]
+    jh4SERHBt9e9["Rule: All stock must exist inside Warehouse/Bin"] --> jh4S2sc632KX["Rule: Branch operates only within assigned warehouse"]
+    dM1SrDaYEwdl["Auto-create Default Warehouse"] --> dM1SfwY3oYh~["Create Branch"]
+    ih4SWkIewEao["Create New Organization"] --> ih4SkEmw5ZvN["Auto-create Default Warehouse"]
+    dM1SIER-k~Fy["Save successful?"] --> |Yes| dM1SFIeDhaA1["Create Organization"]
+    eM1SFEnpH-~T["Default Warehouse (Auto)"] --> |Multiple Bins| eM1SVcFQvmOT["Bin 1 (Enabled)"]
+    dM1SPF-qybzC["Enable Bin Locations by Default"] --> dM1S~M9jaVao["Organization"]
+    ih4SkEmw5ZvN["Auto-create Default Warehouse"] --> |Auto-created| ih4SkEmw5ZvN["Auto-create Default Warehouse"]
+    dM1SqTqUN124["Fill Organization Profile"] --> dM1SIER-k~Fy["Save successful?"]
+    ih4S4_sTZfPe["Profile Fields"] --> ih4SrAgl2aG5["Operate Within Assigned Warehouse/Bins"]
+    ih4SmypelxWk["Enable Bin Locations by Default"] --> ih4SSjsxRJZS["Organization Setup Complete"]
+    ih4SSjsxRJZS["Organization Setup Complete"] --> ih4SCZKVvAgX["Settings Workflow Complete"]
+    dM1S35UwEOGP["Branch created?"] --> |No| dM1SfwY3oYh~["Create Branch"]
+    jh4SibNKgxQn["Rule: Bin tracking is mandatory"] --> ih4SCZKVvAgX["Settings Workflow Complete"]
+    dM1S~M9jaVao["Organization"] --> eM1Ss8DOjlE9["Path: Org -> Branch -> Warehouse -> Bin"]
+    eM1S335crnrp["Branch B"] --> |Default Warehouse| eM1S76E.EhFn["Default Warehouse (Auto)"]
+    dM1SaHXGop1y["Review / Correct Profile Details"] --> dM1SqTqUN124["Fill Organization Profile"]
+    eM1SFEnpH-~T["Default Warehouse (Auto)"] --> eM1SDTzfp.Hx["Bin 2 (Enabled)"]
+    dM1S~M9jaVao["Organization"] --> eM1S335crnrp["Branch B"]
+    dM1SFIeDhaA1["Create Organization"] --> dM1SrDaYEwdl["Auto-create Default Warehouse"]
+    eM1Ss8DOjlE9["Path: Org -> Branch -> Warehouse -> Bin"] --> eM1SdEaP99go["All transactions flow through Warehouse/Bin"]
+    dM1SPF-qybzC["Enable Bin Locations by Default"] --> dM1Su63LJeR1["End Flow"]
+    ih4SMQAOklYo["Restrictions: No Org mod, No branch edit, No structure change"] --> |Notes| ih4SrAgl2aG5["Operate Within Assigned Warehouse/Bins"]
+    dM1S~M9jaVao["Organization"] --> |Multiple Branches| eM1SZBS~-Iuj["Branch A"]
+    ih4SexGSHM.n["Auto-load Branch Profile Data"] --> |Uses hierarchy| ih4SLq1-Zbl8["Hierarchy: Organization → Branch → Warehouse → Bin"]
+    ih4SMQAOklYo["Restrictions"] --> |Notes| ih4S4_sTZfPe["Profile Fields"]
+    ih4Ste8WF52a["Auto-create Branch Default Warehouse"] --> |Auto-created| ih4Ste8WF52a["Auto-create Branch Default Warehouse"]
+```
+
+### 1.5.2 Procedural Steps
+- **HO Setup:** HO Login -> Fill Organization Profile -> Click Save.
+- **Auto-Provisioning:** System auto-creates Default Warehouse for the Organization (Name = Org Location + Org Name).
+- **Branch Creation:** Create Branch (HO or Outlet). System auto-creates Branch Default Warehouse (Name = Branch Location + "Store").
+- **Inventory Hierarchy:** Organization -> Branch -> Warehouse -> Bin.
+- **Rules & Governance:**
+    - Bin tracking is mandatory at branch level.
+    - Branches operate ONLY within their assigned warehouse/bins.
+    - All inventory transactions (receipts, sales, transfers) MUST flow through a Bin.
+- **Branch Access:** Branch users have restricted access (View-only profile, cannot modify Org/Branch structure).
+
+---
 
 ### Product Tour
 - Optional walkthrough on first app launch (auth-free pre-production)
@@ -259,3 +336,39 @@ FlatButton(
 
 **Document Owner:** Product Team  
 **Next Review Date:** 2026-04-20
+
+---
+
+## Strict Structure + Handoff Merge Governance (2026-05-24)
+
+1. Canonical placement mandatory:
+- Business code -> `lib/modules/<domain>/...`
+- App infra -> `lib/core/...` or `lib/app/...`
+- Cross-domain reusable UI -> `lib/shared/widgets/...`
+- Cross-domain services -> `lib/shared/services/...`
+
+2. File/folder creation controls:
+- Confirm owner domain before creating files/folders.
+- No new legacy roots or ambiguous sink files/folders.
+- New `shared/` items require real cross-domain reuse justification.
+
+3. Incoming handoff merge protocol:
+- Backup first: `backups/refactor-batches/<timestamp>-<scope>/`.
+- Map every inbound file/folder to canonical destination before merge.
+- Use compatibility shims for moved active paths until import-zero proof.
+- No destructive delete in same batch as move/rewire.
+
+4. Mandatory verification gates:
+- Frontend touched -> `dart analyze` touched scope.
+- Backend touched -> `npm.cmd run build` in `backend/`.
+- Route/deeplink-affecting changes -> route smoke checks.
+
+5. Mandatory audit trail:
+- Update root `log.md` with moved files, shim status, verifications, risks.
+- Keep handoff backups/handoff folders until explicit approval to delete.
+
+6. Auto-reject merge if any true:
+- analyze/build failures,
+- unresolved ownership ambiguity,
+- schema/DTO drift vs `current schema.md`,
+- route regression without safe fallback.

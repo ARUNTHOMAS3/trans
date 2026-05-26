@@ -1,4 +1,4 @@
-# ZERPAI ERP — Technology Stack
+﻿# ZERPAI ERP â€” Technology Stack
 
 ## Frontend
 
@@ -54,11 +54,11 @@
 
 | Concern | Solution |
 |---|---|
-| Frontend hosting | Vercel (Flutter web build) |
-| Backend hosting | Vercel (serverless NestJS via `api/index.ts`) |
+| Frontend hosting | Railway/Cloudflare Pages (Flutter web build) |
+| Backend hosting | Railway/Cloudflare Pages (serverless NestJS via `api/index.ts`) |
 | Database | Supabase cloud |
 | Error tracking | Sentry (both frontend and backend) |
-| CI/CD | Vercel auto-deploy on push |
+| CI/CD | Railway/Cloudflare Pages auto-deploy on push |
 
 ## Environment Variables
 
@@ -116,3 +116,4 @@ npm run db:pull                    # Pull schema from DB
 - Response envelope: `{ data, message, statusCode }` via `StandardResponseInterceptor`
 - Validation: `ValidationPipe` with `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`
 - Use `@Tenant()` or `@Tenant('entityId')` decorator in controllers to access resolved `TenantContext`
+
