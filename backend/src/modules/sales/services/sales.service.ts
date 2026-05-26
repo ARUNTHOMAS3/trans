@@ -904,6 +904,10 @@ export class SalesService {
             id,
             batch_no,
             expiry_date
+          ),
+          bin:bin_master(
+            id,
+            bin_code
           )
         `,
         )

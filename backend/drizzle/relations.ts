@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { products, batchMaster, organisationBranchMaster, purchaseReceives, binMaster, warehouses, taxGroups, taxGroupRates, taxRates, batchStockLayers, vendors, invoiceMaster, transactionLocks, billItemBatches, billItems, purchaseReceiveItems, countries, states, customers, salesPaymentLinks, invoiceItems, purchaseReceiveItemBatches, purchaseOrderItems, accounts, purchaseOrders, inventoryAdjustments, inventoryAdjustmentValueItems, purchaseOrderAttachments, brands, buyingRules, categories, manufacturers, racks, reorderTerms, drugSchedules, storageConditions, units, salesOrders, paymentTerms, priceLists, tdsRates, inventoryAdjustmentAccountEntries, invoiceItemBatches, bills, billLandedCosts, fiscalYears, manualJournals, recurringJournals, journalNumberSettings, journalTemplates, invoiceSalesOrders, salesOrderAttachments, inventoryAdjustmentItems, invoiceShipments, inventoryShipments, manualJournalAttachments, accountTransactions, branchTransactionSeries, transactionSeries, contents, productContents, drugStrengths, branchUsers, users, lsgdLocalBodies, lsgdWards, vendorContactPersons, picklistBatchAllocation, picklistItems, carrier, lsgdDistricts, auditLogsArchive, salesPayments, invoiceAttachments, salesReturns, salesReturnReceives, compositeItemParts, compositeItems, vendorBankAccounts, auditLogs, tdsSections, uqc, timezones, tdsGroups, tdsGroupItems, recurringJournalItems, journalTemplateItems, inventoryAdjustmentAttachments, manualJournalItems, inventoryPackages, transferOrderMaster, branches, currencies, productVendorMappings, customerContactPersons, creditNotes, assembliesConstituencies, branding, zoneMaster, zoneLevels, transferOrderItems, inventoryPackageItems, picklistMaster, transactionalSequences, roles, organization, userBranchAccess, inventoryAdjustmentReasons, inventoryAdjustmentItemBatches, creditNoteItems, businessTypes, gstTreatments, gstinRegistrationTypes, branchUserAccess, reportingTags, creditNoteItemBatches, salesReturnReceiveItems, salesReturnItems, compositeItemBranchInventorySettings, productBranchInventorySettings, transferOrderSourceBatches, transferOrderDestinationBatches, transferOrderLogs, invoicePackages, salesReturnReceiveBatches, inventoryMoveOrders, inventoryMoveOrderItems, inventoryMoveOrderSourceBatches, inventoryMoveOrderDestinationBins, moveOrderAttachments, salesOrderItems, priceListItems, branchPriceListAssignments, priceListVolumeRanges, productEntitySettings, productBinMappings, manualJournalTagMappings, inventoryShipmentSalesOrders, inventoryShipmentPackages, inventoryPackageSalesOrders } from "./schema";
+import { products, batchMaster, organisationBranchMaster, purchaseReceives, binMaster, warehouses, taxGroups, taxGroupRates, taxRates, batchStockLayers, vendors, invoiceMaster, transactionLocks, billItemBatches, billItems, purchaseReceiveItems, countries, states, customers, salesPaymentLinks, invoiceItems, purchaseReceiveItemBatches, purchaseOrderItems, accounts, purchaseOrders, inventoryAdjustments, inventoryAdjustmentValueItems, purchaseOrderAttachments, brands, buyingRules, categories, manufacturers, racks, reorderTerms, drugSchedules, storageConditions, units, salesOrders, paymentTerms, priceLists, tdsRates, inventoryAdjustmentAccountEntries, invoiceItemBatches, bills, billLandedCosts, fiscalYears, manualJournals, recurringJournals, journalNumberSettings, journalTemplates, invoiceSalesOrders, salesOrderAttachments, inventoryAdjustmentItems, invoiceShipments, inventoryShipments, manualJournalAttachments, accountTransactions, branchTransactionSeries, transactionSeries, contents, productContents, drugStrengths, branchUsers, users, lsgdLocalBodies, lsgdWards, vendorContactPersons, picklistBatchAllocation, picklistItems, carrier, lsgdDistricts, auditLogsArchive, salesPayments, invoiceAttachments, salesReturns, salesReturnReceives, compositeItemParts, compositeItems, vendorBankAccounts, auditLogs, tdsSections, uqc, timezones, tdsGroups, tdsGroupItems, recurringJournalItems, journalTemplateItems, inventoryAdjustmentAttachments, manualJournalItems, inventoryPackages, transferOrderMaster, branches, currencies, productVendorMappings, customerContactPersons, creditNotes, assembliesConstituencies, branding, zoneMaster, zoneLevels, transferOrderItems, inventoryPackageItems, picklistMaster, transactionalSequences, roles, organization, userBranchAccess, inventoryAdjustmentReasons, inventoryAdjustmentItemBatches, creditNoteItems, businessTypes, gstTreatments, gstinRegistrationTypes, branchUserAccess, reportingTags, creditNoteItemBatches, salesReturnReceiveItems, salesReturnItems, compositeItemBranchInventorySettings, productBranchInventorySettings, transferOrderSourceBatches, transferOrderDestinationBatches, transferOrderLogs, invoicePackages, salesReturnReceiveBatches, inventoryMoveOrders, inventoryMoveOrderItems, inventoryMoveOrderSourceBatches, inventoryMoveOrderDestinationBins, moveOrderAttachments, paymentReceivedAllocations, paymentsReceived, salesOrderItems, priceListItems, branchPriceListAssignments, priceListVolumeRanges, productEntitySettings, productBinMappings, manualJournalTagMappings, inventoryShipmentSalesOrders, inventoryShipmentPackages, inventoryPackageSalesOrders } from "./schema";
 
 export const batchMasterRelations = relations(batchMaster, ({one, many}) => ({
 	product: one(products, {
@@ -167,10 +167,10 @@ export const organisationBranchMasterRelations = relations(organisationBranchMas
 	inventoryAdjustments: many(inventoryAdjustments),
 	inventoryAdjustmentReasons: many(inventoryAdjustmentReasons),
 	inventoryAdjustmentItemBatches: many(inventoryAdjustmentItemBatches),
-	organizations: many(organization),
 	branches: many(branches),
 	branchUserAccesses: many(branchUserAccess),
 	reportingTags: many(reportingTags),
+	organizations: many(organization),
 	compositeItemBranchInventorySettings: many(compositeItemBranchInventorySettings),
 	productBranchInventorySettings: many(productBranchInventorySettings),
 	warehouses: many(warehouses),
@@ -356,6 +356,7 @@ export const invoiceMasterRelations = relations(invoiceMaster, ({one, many}) => 
 	invoiceShipments: many(invoiceShipments),
 	invoiceAttachments: many(invoiceAttachments),
 	invoicePackages: many(invoicePackages),
+	paymentReceivedAllocations: many(paymentReceivedAllocations),
 }));
 
 export const transactionLocksRelations = relations(transactionLocks, ({one}) => ({
@@ -523,6 +524,7 @@ export const customersRelations = relations(customers, ({one, many}) => ({
 	warehouses: many(warehouses),
 	inventoryShipments: many(inventoryShipments),
 	salesReturns: many(salesReturns),
+	paymentsReceiveds: many(paymentsReceived),
 }));
 
 export const invoiceItemsRelations = relations(invoiceItems, ({one, many}) => ({
@@ -1142,13 +1144,13 @@ export const lsgdWardsRelations = relations(lsgdWards, ({one, many}) => ({
 		fields: [lsgdWards.localBodyId],
 		references: [lsgdLocalBodies.id]
 	}),
+	branches: many(branches),
 	organizations_paymentStubWardId: many(organization, {
 		relationName: "organization_paymentStubWardId_lsgdWards_id"
 	}),
 	organizations_wardId: many(organization, {
 		relationName: "organization_wardId_lsgdWards_id"
 	}),
-	branches: many(branches),
 	warehouses: many(warehouses),
 }));
 
@@ -1158,13 +1160,13 @@ export const lsgdLocalBodiesRelations = relations(lsgdLocalBodies, ({one, many})
 		fields: [lsgdLocalBodies.districtId],
 		references: [lsgdDistricts.id]
 	}),
+	branches: many(branches),
 	organizations_localBodyId: many(organization, {
 		relationName: "organization_localBodyId_lsgdLocalBodies_id"
 	}),
 	organizations_paymentStubLocalBodyId: many(organization, {
 		relationName: "organization_paymentStubLocalBodyId_lsgdLocalBodies_id"
 	}),
-	branches: many(branches),
 	warehouses: many(warehouses),
 }));
 
@@ -1205,13 +1207,13 @@ export const lsgdDistrictsRelations = relations(lsgdDistricts, ({one, many}) => 
 	}),
 	assembliesConstituencies: many(assembliesConstituencies),
 	lsgdLocalBodies: many(lsgdLocalBodies),
+	branches: many(branches),
 	organizations_districtId: many(organization, {
 		relationName: "organization_districtId_lsgdDistricts_id"
 	}),
 	organizations_paymentStubDistrictId: many(organization, {
 		relationName: "organization_paymentStubDistrictId_lsgdDistricts_id"
 	}),
-	branches: many(branches),
 	warehouses: many(warehouses),
 }));
 
@@ -1571,17 +1573,17 @@ export const assembliesConstituenciesRelations = relations(assembliesConstituenc
 		fields: [assembliesConstituencies.districtId],
 		references: [lsgdDistricts.id]
 	}),
-	organizations_assemblyId: many(organization, {
-		relationName: "organization_assemblyId_assembliesConstituencies_id"
-	}),
-	organizations_paymentStubAssemblyId: many(organization, {
-		relationName: "organization_paymentStubAssemblyId_assembliesConstituencies_id"
-	}),
 	branches_assemblyId: many(branches, {
 		relationName: "branches_assemblyId_assembliesConstituencies_id"
 	}),
 	branches_paymentStubAssemblyId: many(branches, {
 		relationName: "branches_paymentStubAssemblyId_assembliesConstituencies_id"
+	}),
+	organizations_assemblyId: many(organization, {
+		relationName: "organization_assemblyId_assembliesConstituencies_id"
+	}),
+	organizations_paymentStubAssemblyId: many(organization, {
+		relationName: "organization_paymentStubAssemblyId_assembliesConstituencies_id"
 	}),
 	warehouses: many(warehouses),
 }));
@@ -1669,6 +1671,7 @@ export const userBranchAccessRelations = relations(userBranchAccess, ({one}) => 
 
 export const organizationRelations = relations(organization, ({one, many}) => ({
 	userBranchAccesses: many(userBranchAccess),
+	branches: many(branches),
 	assembliesConstituency_assemblyId: one(assembliesConstituencies, {
 		fields: [organization.assemblyId],
 		references: [assembliesConstituencies.id],
@@ -1717,7 +1720,6 @@ export const organizationRelations = relations(organization, ({one, many}) => ({
 		references: [lsgdWards.id],
 		relationName: "organization_wardId_lsgdWards_id"
 	}),
-	branches: many(branches),
 }));
 
 export const inventoryAdjustmentReasonsRelations = relations(inventoryAdjustmentReasons, ({one, many}) => ({
@@ -1998,6 +2000,25 @@ export const moveOrderAttachmentsRelations = relations(moveOrderAttachments, ({o
 	inventoryMoveOrder: one(inventoryMoveOrders, {
 		fields: [moveOrderAttachments.moveOrderId],
 		references: [inventoryMoveOrders.id]
+	}),
+}));
+
+export const paymentReceivedAllocationsRelations = relations(paymentReceivedAllocations, ({one}) => ({
+	invoiceMaster: one(invoiceMaster, {
+		fields: [paymentReceivedAllocations.salesInvoiceId],
+		references: [invoiceMaster.id]
+	}),
+	paymentsReceived: one(paymentsReceived, {
+		fields: [paymentReceivedAllocations.paymentReceivedId],
+		references: [paymentsReceived.id]
+	}),
+}));
+
+export const paymentsReceivedRelations = relations(paymentsReceived, ({one, many}) => ({
+	paymentReceivedAllocations: many(paymentReceivedAllocations),
+	customer: one(customers, {
+		fields: [paymentsReceived.customerId],
+		references: [customers.id]
 	}),
 }));
 

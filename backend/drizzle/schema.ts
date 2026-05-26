@@ -3208,123 +3208,6 @@ export const creditNoteItems = pgTable("credit_note_items", {
 		}),
 ]);
 
-export const organization = pgTable("organization", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	name: varchar({ length: 255 }).notNull(),
-	slug: varchar({ length: 100 }).notNull(),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
-	stateId: uuid("state_id"),
-	industry: varchar({ length: 255 }),
-	logoUrl: text("logo_url"),
-	baseCurrency: varchar("base_currency", { length: 10 }),
-	fiscalYear: varchar("fiscal_year", { length: 50 }),
-	timezone: varchar({ length: 100 }),
-	dateFormat: varchar("date_format", { length: 50 }),
-	dateSeparator: varchar("date_separator", { length: 5 }),
-	companyIdLabel: varchar("company_id_label", { length: 50 }),
-	companyIdValue: varchar("company_id_value", { length: 100 }),
-	paymentStubAddress: text("payment_stub_address"),
-	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
-	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
-	baseCurrencyDecimals: smallint("base_currency_decimals"),
-	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
-	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
-	communicationLanguages: text("communication_languages").array().default(["RAY['English'::tex"]).notNull(),
-	paymentStubDistrictId: uuid("payment_stub_district_id"),
-	paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
-	paymentStubWardId: uuid("payment_stub_ward_id"),
-	isDrugRegistered: boolean("is_drug_registered").default(false).notNull(),
-	drugLicenceType: varchar("drug_licence_type"),
-	drugLicense20: varchar("drug_license_20"),
-	drugLicense21: varchar("drug_license_21"),
-	drugLicense20B: varchar("drug_license_20b"),
-	drugLicense21B: varchar("drug_license_21b"),
-	isFssaiRegistered: boolean("is_fssai_registered").default(false).notNull(),
-	fssaiNumber: varchar("fssai_number"),
-	isMsmeRegistered: boolean("is_msme_registered").default(false).notNull(),
-	msmeRegistrationType: varchar("msme_registration_type"),
-	msmeNumber: varchar("msme_number"),
-	paymentStubAssemblyId: uuid("payment_stub_assembly_id"),
-	attention: text(),
-	street: text(),
-	place: text(),
-	city: varchar({ length: 100 }),
-	pincode: varchar({ length: 20 }),
-	phone: varchar({ length: 50 }),
-	districtId: uuid("district_id"),
-	localBodyId: uuid("local_body_id"),
-	assemblyId: uuid("assembly_id"),
-	wardId: uuid("ward_id"),
-	reportBasis: varchar("report_basis", { length: 50 }).default('accrual'),
-	drugLicense20Url: text("drug_license_20_url"),
-	drugLicense21Url: text("drug_license_21_url"),
-	drugLicense20BUrl: text("drug_license_20b_url"),
-	drugLicense21BUrl: text("drug_license_21b_url"),
-	fssaiUrl: text("fssai_url"),
-	msmeUrl: text("msme_url"),
-	additionalFields: jsonb("additional_fields"),
-}, (table) => [
-	index("idx_organization_assembly_id").using("btree", table.assemblyId.asc().nullsLast().op("uuid_ops")),
-	index("idx_organization_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
-	index("idx_organization_local_body_id").using("btree", table.localBodyId.asc().nullsLast().op("uuid_ops")),
-	index("idx_organization_payment_stub_assembly_id").using("btree", table.paymentStubAssemblyId.asc().nullsLast().op("uuid_ops")),
-	index("idx_organization_ward_id").using("btree", table.wardId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("organization_system_id_key").using("btree", table.systemId.asc().nullsLast().op("text_ops")),
-	foreignKey({
-			columns: [table.assemblyId],
-			foreignColumns: [assembliesConstituencies.id],
-			name: "organization_assembly_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.districtId],
-			foreignColumns: [lsgdDistricts.id],
-			name: "organization_district_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.id],
-			foreignColumns: [organisationBranchMaster.refId],
-			name: "organization_id_to_registry_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.localBodyId],
-			foreignColumns: [lsgdLocalBodies.id],
-			name: "organization_local_body_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.paymentStubAssemblyId],
-			foreignColumns: [assembliesConstituencies.id],
-			name: "organization_payment_stub_assembly_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.paymentStubDistrictId],
-			foreignColumns: [lsgdDistricts.id],
-			name: "organization_payment_stub_district_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.paymentStubLocalBodyId],
-			foreignColumns: [lsgdLocalBodies.id],
-			name: "organization_payment_stub_local_body_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.paymentStubWardId],
-			foreignColumns: [lsgdWards.id],
-			name: "organization_payment_stub_ward_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.stateId],
-			foreignColumns: [states.id],
-			name: "organization_state_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.wardId],
-			foreignColumns: [lsgdWards.id],
-			name: "organization_ward_id_fkey"
-		}).onDelete("set null"),
-	unique("organization_slug_key").on(table.slug),
-]);
-
 export const branches = pgTable("branches", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	orgId: uuid("org_id").notNull(),
@@ -3547,6 +3430,124 @@ export const creditNoteItemBatches = pgTable("credit_note_item_batches", {
 			foreignColumns: [warehouses.id],
 			name: "credit_note_item_batches_warehouse_id_fkey"
 		}),
+]);
+
+export const organization = pgTable("organization", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	slug: varchar({ length: 100 }).notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+	stateId: uuid("state_id"),
+	industry: varchar({ length: 255 }),
+	logoUrl: text("logo_url"),
+	baseCurrency: varchar("base_currency", { length: 10 }),
+	fiscalYear: varchar("fiscal_year", { length: 50 }),
+	timezone: varchar({ length: 100 }),
+	dateFormat: varchar("date_format", { length: 50 }),
+	dateSeparator: varchar("date_separator", { length: 5 }),
+	companyIdLabel: varchar("company_id_label", { length: 50 }),
+	companyIdValue: varchar("company_id_value", { length: 100 }),
+	paymentStubAddress: text("payment_stub_address"),
+	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
+	baseCurrencyDecimals: smallint("base_currency_decimals"),
+	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
+	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
+	communicationLanguages: text("communication_languages").array().default(["RAY['English'::tex"]).notNull(),
+	paymentStubDistrictId: uuid("payment_stub_district_id"),
+	paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
+	paymentStubWardId: uuid("payment_stub_ward_id"),
+	isDrugRegistered: boolean("is_drug_registered").default(false).notNull(),
+	drugLicenceType: varchar("drug_licence_type"),
+	drugLicense20: varchar("drug_license_20"),
+	drugLicense21: varchar("drug_license_21"),
+	drugLicense20B: varchar("drug_license_20b"),
+	drugLicense21B: varchar("drug_license_21b"),
+	isFssaiRegistered: boolean("is_fssai_registered").default(false).notNull(),
+	fssaiNumber: varchar("fssai_number"),
+	isMsmeRegistered: boolean("is_msme_registered").default(false).notNull(),
+	msmeRegistrationType: varchar("msme_registration_type"),
+	msmeNumber: varchar("msme_number"),
+	paymentStubAssemblyId: uuid("payment_stub_assembly_id"),
+	attention: text(),
+	street: text(),
+	place: text(),
+	city: varchar({ length: 100 }),
+	pincode: varchar({ length: 20 }),
+	phone: varchar({ length: 50 }),
+	districtId: uuid("district_id"),
+	localBodyId: uuid("local_body_id"),
+	assemblyId: uuid("assembly_id"),
+	wardId: uuid("ward_id"),
+	reportBasis: varchar("report_basis", { length: 50 }).default('accrual'),
+	drugLicense20Url: text("drug_license_20_url"),
+	drugLicense21Url: text("drug_license_21_url"),
+	drugLicense20BUrl: text("drug_license_20b_url"),
+	drugLicense21BUrl: text("drug_license_21b_url"),
+	fssaiUrl: text("fssai_url"),
+	msmeUrl: text("msme_url"),
+	additionalFields: jsonb("additional_fields"),
+	email: varchar(),
+}, (table) => [
+	index("idx_organization_assembly_id").using("btree", table.assemblyId.asc().nullsLast().op("uuid_ops")),
+	index("idx_organization_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
+	index("idx_organization_local_body_id").using("btree", table.localBodyId.asc().nullsLast().op("uuid_ops")),
+	index("idx_organization_payment_stub_assembly_id").using("btree", table.paymentStubAssemblyId.asc().nullsLast().op("uuid_ops")),
+	index("idx_organization_ward_id").using("btree", table.wardId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("organization_system_id_key").using("btree", table.systemId.asc().nullsLast().op("text_ops")),
+	foreignKey({
+			columns: [table.assemblyId],
+			foreignColumns: [assembliesConstituencies.id],
+			name: "organization_assembly_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.districtId],
+			foreignColumns: [lsgdDistricts.id],
+			name: "organization_district_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.id],
+			foreignColumns: [organisationBranchMaster.refId],
+			name: "organization_id_to_registry_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.localBodyId],
+			foreignColumns: [lsgdLocalBodies.id],
+			name: "organization_local_body_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.paymentStubAssemblyId],
+			foreignColumns: [assembliesConstituencies.id],
+			name: "organization_payment_stub_assembly_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.paymentStubDistrictId],
+			foreignColumns: [lsgdDistricts.id],
+			name: "organization_payment_stub_district_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.paymentStubLocalBodyId],
+			foreignColumns: [lsgdLocalBodies.id],
+			name: "organization_payment_stub_local_body_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.paymentStubWardId],
+			foreignColumns: [lsgdWards.id],
+			name: "organization_payment_stub_ward_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.stateId],
+			foreignColumns: [states.id],
+			name: "organization_state_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.wardId],
+			foreignColumns: [lsgdWards.id],
+			name: "organization_ward_id_fkey"
+		}).onDelete("set null"),
+	unique("organization_slug_key").on(table.slug),
 ]);
 
 export const salesReturnReceiveItems = pgTable("sales_return_receive_items", {
@@ -3986,6 +3987,28 @@ export const moveOrderAttachments = pgTable("move_order_attachments", {
 		}).onDelete("cascade"),
 ]);
 
+export const paymentReceivedAllocations = pgTable("payment_received_allocations", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	paymentReceivedId: uuid("payment_received_id").notNull(),
+	salesInvoiceId: uuid("sales_invoice_id").notNull(),
+	allocatedAmount: numeric("allocated_amount", { precision: 15, scale:  2 }).default('0').notNull(),
+	allocationDate: date("allocation_date").notNull(),
+	remarks: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.salesInvoiceId],
+			foreignColumns: [invoiceMaster.id],
+			name: "payment_received_allocations_invoice_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.paymentReceivedId],
+			foreignColumns: [paymentsReceived.id],
+			name: "payment_received_allocations_payment_id_fkey"
+		}).onDelete("cascade"),
+]);
+
 export const inventoryStockCommitments = pgTable("inventory_stock_commitments", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	entityId: uuid("entity_id").notNull(),
@@ -4373,6 +4396,39 @@ export const billItems = pgTable("bill_items", {
 			columns: [table.productId],
 			foreignColumns: [products.id],
 			name: "bill_items_product_id_fkey"
+		}),
+]);
+
+export const paymentsReceived = pgTable("payments_received", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	customerId: uuid("customer_id").notNull(),
+	paymentNumber: varchar("payment_number", { length: 50 }).notNull(),
+	paymentType: varchar("payment_type", { length: 30 }).notNull(),
+	paymentDate: date("payment_date").notNull(),
+	paymentMode: varchar("payment_mode", { length: 30 }),
+	depositAccountId: uuid("deposit_account_id").notNull(),
+	currencyId: uuid("currency_id"),
+	exchangeRate: numeric("exchange_rate", { precision: 15, scale:  6 }).default('1'),
+	amountReceived: numeric("amount_received", { precision: 15, scale:  2 }).default('0').notNull(),
+	amountAllocated: numeric("amount_allocated", { precision: 15, scale:  2 }).default('0'),
+	excessAmount: numeric("excess_amount", { precision: 15, scale:  2 }).default('0'),
+	refundedAmount: numeric("refunded_amount", { precision: 15, scale:  2 }).default('0'),
+	bankCharges: numeric("bank_charges", { precision: 15, scale:  2 }).default('0'),
+	tdsAmount: numeric("tds_amount", { precision: 15, scale:  2 }).default('0'),
+	referenceNumber: varchar("reference_number", { length: 100 }),
+	notes: text(),
+	status: varchar({ length: 30 }).default('draft'),
+	createdBy: uuid("created_by"),
+	approvedBy: uuid("approved_by"),
+	approvedAt: timestamp("approved_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.customerId],
+			foreignColumns: [customers.id],
+			name: "payments_received_customer_id_fkey"
 		}),
 ]);
 

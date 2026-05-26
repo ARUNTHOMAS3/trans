@@ -18,6 +18,7 @@ class SalesOrderItem {
   final String? accountId;
   final String? priceListId;
   final double taxPercentage;
+  final List<dynamic>? batches;
 
   SalesOrderItem({
     this.id,
@@ -37,6 +38,7 @@ class SalesOrderItem {
     this.accountId,
     this.priceListId,
     this.taxPercentage = 0.0,
+    this.batches,
   });
 
   factory SalesOrderItem.fromJson(Map<String, dynamic> json) {
@@ -65,6 +67,7 @@ class SalesOrderItem {
       accountId: json['accounts'] ?? json['account_id'] ?? json['accountId'],
       priceListId: json['pricelist'] ?? json['price_list_id'] ?? json['priceListId'],
       taxPercentage: (json['tax_percentage'] ?? json['taxPercentage'] ?? json['tax_rate'] ?? json['taxRate'] ?? 0.0).toDouble(),
+      batches: json['batches'],
     );
   }
 

@@ -68,6 +68,24 @@ const _kBg = Color(0xFFF9FAFB);
 const _kWhite = Colors.white;
 const _kDropdownHeight = 32.0;
 
+String _normalizeDateForUi(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return '';
+  try {
+    if (value.contains('-') && value.length >= 10) {
+      final parsed = DateTime.tryParse(value.substring(0, 10));
+      if (parsed != null) {
+        return intl.DateFormat('dd-MM-yyyy').format(parsed);
+      }
+    }
+    return intl.DateFormat(
+      'dd-MM-yyyy',
+    ).format(intl.DateFormat('dd-MM-yyyy').parse(value));
+  } catch (_) {
+    return value;
+  }
+}
+
 String _getGstTreatmentLabel(String? value) {
   if (value == null) return '';
   const map = {
@@ -261,9 +279,14 @@ class _SalesInvoiceCreateScreenState
   Future<void> _loadInitialOrder(String orderId) async {
     setState(() => _isHydratingInitialOrder = true);
     try {
-      final order = await ref
-          .read(salesOrderApiServiceProvider)
-          .getSalesOrderById(orderId);
+      final api = ref.read(salesOrderApiServiceProvider);
+      final SalesOrder order;
+      if (widget.initialOrderId != null && widget.initialOrderId == orderId) {
+        final raw = await api.getInvoiceById(orderId);
+        order = SalesOrder.fromJson(raw);
+      } else {
+        order = await api.getSalesOrderById(orderId);
+      }
       if (!mounted) return;
       setState(() {
         rows.clear();
@@ -278,7 +301,7 @@ class _SalesInvoiceCreateScreenState
         }
         _isHydratingInitialOrder = false;
       });
-      ZerpaiToast.error(context, 'Failed to load sales order: $e');
+      ZerpaiToast.error(context, 'Failed to load: $e');
     }
   }
 
@@ -1142,6 +1165,8 @@ class _SalesInvoiceCreateScreenState
     bool isHeader = false,
     bool isFromSalesOrder = false,
   }) {
+    final resolvedAccountId = accountId ?? item?.salesAccountId;
+    final resolvedAccountName = accountName ?? item?.salesAccountName;
     final row = SalesOrderItemRow(
       quantityCtrl: TextEditingController(text: quantity),
       rateCtrl: TextEditingController(text: rate),
@@ -1154,8 +1179,8 @@ class _SalesInvoiceCreateScreenState
       discountType: discountType,
       taxId: taxId,
       priceListId: priceListId,
-      accountId: accountId,
-      accountName: accountName,
+      accountId: resolvedAccountId,
+      accountName: resolvedAccountName,
       warehouseId: warehouseId,
       isHeader: isHeader,
     );
@@ -1191,7 +1216,7 @@ class _SalesInvoiceCreateScreenState
   }
 
   SalesOrderItemRow _createItemRowFromOrderItem(SalesOrderItem item) {
-    return _createItemRow(
+    final row = _createItemRow(
       quantity: item.quantity.toString(),
       rate: item.rate.toString(),
       discount: item.discount.toString(),
@@ -1205,6 +1230,41 @@ class _SalesInvoiceCreateScreenState
       accountId: item.accountId,
       warehouseId: item.warehouseId,
     );
+
+    if (item.batches != null && item.batches!.isNotEmpty) {
+      row.hasBatchData = true;
+      row.batchCount = item.batches!.length;
+      row.batchDataList = item.batches!.map<Map<String, String>>((b) {
+        final batchObj = b['batch'] as Map<String, dynamic>?;
+        final binObj = b['bin'] as Map<String, dynamic>?;
+        final bNo = (batchObj?['batch_no'] ?? b['batch_no'] ?? b['batch_reference'] ?? '').toString();
+        final binLoc = (binObj?['bin_code'] ?? b['bin_code'] ?? b['bin_location'] ?? '').toString();
+        
+        String expD = '';
+        final rawExp = b['expiry_date'] ?? batchObj?['expiry_date'];
+        if (rawExp != null) {
+          expD = _normalizeDateForUi(rawExp.toString());
+        }
+
+        return {
+          'batchId': (b['batch_id'] ?? '').toString(),
+          'layerId': (b['batch_stock_layer_id'] ?? '').toString(),
+          'binId': (b['bin_id'] ?? '').toString(),
+          'binLocation': binLoc,
+          'batchNo': bNo,
+          'batchRef': bNo,
+          'qtyOut': (b['quantity'] ?? '').toString(),
+          'foc': (b['foc_quantity'] ?? '').toString(),
+          'mrp': (b['mrp'] ?? '').toString(),
+          'prate': (b['purchase_rate'] ?? b['ptr'] ?? b['purchaseRate'] ?? '').toString(),
+          'expDate': expD,
+          'mfgDate': '',
+          'mfgBatch': (b['manufacturer_batch'] ?? '').toString(),
+        };
+      }).toList();
+    }
+
+    return row;
   }
 
   Future<void> _showSelectBatchesDialog(SalesOrderItemRow row) async {
@@ -3238,6 +3298,8 @@ class _SalesInvoiceCreateScreenState
                                                 setState(() {
                                                   row.itemId = v;
                                                   row.item = p;
+                                                  row.accountId = p.salesAccountId;
+                                                  row.accountName = p.salesAccountName;
                                                   final r = p.sellingPrice ?? 0;
                                                   row.rateCtrl.text = r == 0
                                                       ? ''
@@ -11403,23 +11465,7 @@ class _InvoiceSelectBatchesDialogState
     }
   }
 
-  String _normalizeDateForUi(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) return '';
-    try {
-      if (value.contains('-') && value.length >= 10) {
-        final parsed = DateTime.tryParse(value.substring(0, 10));
-        if (parsed != null) {
-          return intl.DateFormat('dd-MM-yyyy').format(parsed);
-        }
-      }
-      return intl.DateFormat(
-        'dd-MM-yyyy',
-      ).format(intl.DateFormat('dd-MM-yyyy').parse(value));
-    } catch (_) {
-      return value;
-    }
-  }
+
 
   Future<void> _loadBins() async {
     if (widget.warehouseId.isEmpty) {

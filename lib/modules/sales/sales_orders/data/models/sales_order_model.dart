@@ -104,7 +104,7 @@ class SalesOrder {
     final invoiceAdjustment = json['adjustment_amount'] ?? json['adjustment'];
     final invoicePaymentTerms = json['payment_terms'] ?? json['paymentTerms'];
     final invoiceSalesperson =
-        json['salesperson_name'] ?? json['salesperson'] ?? json['salespersonId'];
+        json['salesperson_name'] ?? json['salesperson'] ?? json['salespersonId'] ?? json['salesperson_id'];
 
     return SalesOrder(
       id: json['id']?.toString() ?? '',

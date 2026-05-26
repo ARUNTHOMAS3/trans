@@ -4,7 +4,8 @@ import * as dotenv from "dotenv";
 dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
 
-const drizzleDatabaseUrl = process.env.DRIZZLE_DATABASE_URL || process.env.DATABASE_URL;
+const drizzleDatabaseUrl =
+  process.env.DRIZZLE_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!drizzleDatabaseUrl) {
   throw new Error(
@@ -16,9 +17,15 @@ export default defineConfig({
   dialect: "postgresql",
   schema: "./src/db/schema.ts",
   out: "./drizzle",
+
   dbCredentials: {
     url: drizzleDatabaseUrl,
+
+    ssl: {
+      rejectUnauthorized: false,
+    },
   },
+
   verbose: true,
   strict: true,
 });
