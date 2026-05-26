@@ -10,7 +10,7 @@ jobs:
   frontend-budget:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Hardcoded color guard (migration governance)
         shell: bash
         run: |
@@ -30,7 +30,7 @@ jobs:
   backend-budget:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Basic N+1 / non-paginated list heuristic
         run: |
           if grep -R -n -E "findAll\(|SELECT \*" backend/src/modules 2>/dev/null; then

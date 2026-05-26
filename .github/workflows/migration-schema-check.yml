@@ -12,7 +12,7 @@ jobs:
   schema-guard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Detect schema-sensitive backend changes
         id: changed
         uses: tj-actions/changed-files@v45
