@@ -1,9 +1,0 @@
-lib/app/routing/app_router.dart
-lib/modules/inventory/picklists/presentation/pages/inventory_picklists_create.dart
-lib/modules/inventory/picklists/presentation/pages/inventory_picklists_edit.dart
-lib/modules/purchases/bills/models/purchases_bills_bill_model.dart
-lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart
-lib/modules/purchases/bills/presentation/pages/purchases_bills_list.dart
-lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart
-lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart
-lib/modules/sales/sales_orders/data/services/sales_order_api_service.dart
