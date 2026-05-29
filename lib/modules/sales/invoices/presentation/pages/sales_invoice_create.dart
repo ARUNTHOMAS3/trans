@@ -231,6 +231,43 @@ class _SalesInvoiceCreateScreenState
       widget.initialOrder != null ||
       (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty);
 
+  bool get _isSaveAndSendEnabled {
+    if (_selectedCustomerId == null) return false;
+    if (salesperson == null || salesperson!.trim().isEmpty) return false;
+
+    final activeRows = rows.where((r) => r.itemId.isNotEmpty).toList();
+    if (activeRows.isEmpty) return false;
+
+    for (final row in activeRows) {
+      final hsn = row.hsnCode ?? row.item?.hsnCode;
+      if (hsn == null || hsn.trim().isEmpty) return false;
+
+      if (row.accountId == null || row.accountId!.trim().isEmpty) return false;
+
+      final qty = double.tryParse(row.quantityCtrl.text) ?? 0;
+      if (qty <= 0) return false;
+
+      final rate = double.tryParse(row.rateCtrl.text) ?? 0;
+      if (rate <= 0) return false;
+
+      if (!row.hasBatchData || row.batchDataList.isEmpty) return false;
+
+      final totalQtyOut = row.batchDataList.fold<double>(
+        0.0,
+        (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+      );
+      final totalFoc = row.batchDataList.fold<double>(
+        0.0,
+        (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+      );
+      final expectedQty = totalQtyOut + totalFoc;
+      if ((expectedQty - qty).abs() > 0.0001) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1332,7 +1369,15 @@ class _SalesInvoiceCreateScreenState
       row.hasBatchData = true;
       row.batchCount = result.batchCount;
       row.batchDataList = result.batchDataList ?? [];
-      row.quantityCtrl.text = result.appliedQuantity.toInt().toString();
+      final totalFoc = row.batchDataList.fold<double>(
+        0.0,
+        (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+      );
+      if (totalFoc > 0) {
+        row.quantityCtrl.text = result.totalIncludingFoc.toInt().toString();
+      } else {
+        row.quantityCtrl.text = result.appliedQuantity.toInt().toString();
+      }
       _calculateTotals();
     });
   }
@@ -3249,6 +3294,16 @@ class _SalesInvoiceCreateScreenState
     final r = double.tryParse(row.rateCtrl.text) ?? 0;
     final d = double.tryParse(row.discountCtrl.text) ?? 0;
 
+    final totalQtyOut = row.batchDataList.fold<double>(
+      0.0,
+      (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+    );
+    final totalFoc = row.batchDataList.fold<double>(
+      0.0,
+      (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+    );
+    final hasFocValue = totalFoc > 0;
+
     double rowBase = q * r;
     double rowDiscounted = rowBase;
     if (row.discountType == '%') {
@@ -3487,6 +3542,18 @@ class _SalesInvoiceCreateScreenState
                                       ),
                                   onChanged: (_) => _calculateTotals(),
                                 ),
+                                if (row.itemId.isNotEmpty && row.hasBatchData && hasFocValue) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${totalQtyOut.toInt()} pcs + ${totalFoc.toInt()} foc',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF4B5563),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ],
                                 if (_showAvailableStock &&
                                     row.itemId.isNotEmpty) ...[
                                   const SizedBox(height: 4),
@@ -3549,7 +3616,8 @@ class _SalesInvoiceCreateScreenState
                                       ],
                                     ),
                                   ),
-                                  if (row.itemId.isNotEmpty) ...[
+                                  if (row.itemId.isNotEmpty &&
+                                      (double.tryParse(row.quantityCtrl.text) ?? 0.0) > 0) ...[
                                     const SizedBox(height: 4),
                                     Align(
                                       alignment: Alignment.centerRight,
@@ -3571,7 +3639,7 @@ class _SalesInvoiceCreateScreenState
                                             ],
                                             Text(
                                               row.hasBatchData
-                                                  ? '${row.batchDataList.fold<int>(0, (sum, b) => sum + (int.tryParse(b['qtyOut'] ?? '') ?? double.tryParse(b['qtyOut'] ?? '')?.toInt() ?? 0))} pcs taken from\n${row.batchCount} ${row.batchCount <= 1 ? "batch" : "batches"}.'
+                                                  ? '${(totalQtyOut + totalFoc).toInt()} pcs taken from\n${row.batchCount} ${row.batchCount <= 1 ? "batch" : "batches"}.'
                                                   : 'Select Batch',
                                               textAlign: TextAlign.right,
                                               style: const TextStyle(
@@ -6180,22 +6248,24 @@ class _SalesInvoiceCreateScreenState
           Container(
             height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981), // Emerald-500
+              color: _isSaveAndSendEnabled ? const Color(0xFF10B981) : const Color(0xFFE5E7EB), // Emerald-500 or Disabled Grey
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 InkWell(
-                  onTap: () => _saveSalesInvoice(
-                    status: widget.initialOrder?.status ?? 'sent',
-                  ),
+                  onTap: _isSaveAndSendEnabled
+                      ? () => _saveSalesInvoice(
+                            status: widget.initialOrder?.status ?? 'sent',
+                          )
+                      : null,
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       _isEditMode ? 'Update' : 'Save and Send',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _isSaveAndSendEnabled ? Colors.white : const Color(0xFF9CA3AF),
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
@@ -6205,15 +6275,15 @@ class _SalesInvoiceCreateScreenState
                 Container(
                   width: 1,
                   height: 24,
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: _isSaveAndSendEnabled ? Colors.white.withValues(alpha: 0.3) : const Color(0xFFD1D5DB),
                 ),
                 InkWell(
-                  onTap: () {},
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
+                  onTap: _isSaveAndSendEnabled ? () {} : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Icon(
                       Icons.arrow_drop_down,
-                      color: Colors.white,
+                      color: _isSaveAndSendEnabled ? Colors.white : const Color(0xFF9CA3AF),
                       size: 20,
                     ),
                   ),
@@ -6298,8 +6368,23 @@ class _SalesInvoiceCreateScreenState
       return;
     }
 
-    // Validate that every row has batch data selected
+    // Validate that every row has batch data, HSN code, and Account selected
     for (final row in rows.where((r) => r.itemId.isNotEmpty)) {
+      final hsn = row.hsnCode ?? row.item?.hsnCode;
+      if (hsn == null || hsn.trim().isEmpty) {
+        ZerpaiToast.error(
+          context,
+          'Please select HSN code for item: ${row.item?.productName ?? "selected item"}',
+        );
+        return;
+      }
+      if (row.accountId == null || row.accountId!.trim().isEmpty) {
+        ZerpaiToast.error(
+          context,
+          'Please select account for item: ${row.item?.productName ?? "selected item"}',
+        );
+        return;
+      }
       if (!row.hasBatchData || row.batchDataList.isEmpty) {
         ZerpaiToast.error(
           context,
@@ -6518,6 +6603,7 @@ class _SalesInvoiceCreateScreenState
           'lineTotal': lineTotal,
           'focQuantity': focQuantity,
           'hsnCode': row.hsnCode ?? row.item?.hsnCode,
+          'accounts': row.accountId,
           'batches': itemBatches,
         });
       }
@@ -6579,6 +6665,7 @@ class _SalesInvoiceCreateScreenState
           context,
           _isEditMode ? 'Sales invoice updated' : 'Sales invoice created',
         );
+        ref.invalidate(salesInvoicesProvider);
         context.go('/sales/invoices');
       }
     } catch (e) {

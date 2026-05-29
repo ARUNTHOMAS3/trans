@@ -296,14 +296,15 @@ class Vendor {
 
     // Check if at least one field is non-null
     if (json['${prefix}attention'] == null &&
-        json['${prefix}address_street_1'] == null) {
+        json['${prefix}address_street_1'] == null &&
+        json['${prefix}address_street'] == null) {
       return null;
     }
 
     return {
       'attention': json['${prefix}attention'],
-      'street1': json['${prefix}address_street_1'],
-      'street2': json['${prefix}address_street_2'],
+      'street1': json['${prefix}address_street'] ?? json['${prefix}address_street_1'],
+      'street2': json['${prefix}address_place'] ?? json['${prefix}address_street_2'],
       'city': json['${prefix}city'],
       'state': json['${prefix}state'],
       'zip': json['${prefix}pincode'],

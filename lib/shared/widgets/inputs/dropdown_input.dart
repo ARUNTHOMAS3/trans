@@ -144,9 +144,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
   static const double _fieldHeight = 40.0;
   double get _rowHeight =>
-      widget.itemEstimatedHeight ??
-      widget.itemHeight ??
-      40.0;
+      widget.itemEstimatedHeight ?? widget.itemHeight ?? 40.0;
   double get _maxOverlayHeight => widget.menuMaxHeight ?? 320.0;
   static const double _searchBlockHeight = 56.0;
   static const double _settingsRowHeight = 40.0;
@@ -249,7 +247,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     }
 
     final indexedMatches =
-        baseItems.toList()
+        baseItems
+            .toList()
             .asMap()
             .entries
             .where((entry) => _matchesQuery(entry.value, normalized))
@@ -470,7 +469,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
         overlayBox.size.height - (targetGlobal.dy + fieldSize.height);
     final double spaceAbove = targetGlobal.dy;
     final bool showAbove =
-        !widget.forceDownward && spaceBelow < overlayHeight && spaceAbove > spaceBelow;
+        !widget.forceDownward &&
+        spaceBelow < overlayHeight &&
+        spaceAbove > spaceBelow;
     final rightOverflow =
         (targetGlobal.dx + fieldSize.width) - overlayBox.size.width;
 
@@ -493,22 +494,27 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     final overlay = Overlay.of(context);
     final overlayBox = overlay.context.findRenderObject() as RenderBox?;
     if (overlayBox != null && overlayBox.hasSize) {
-      final targetGlobal = renderObject.localToGlobal(Offset.zero, ancestor: overlayBox);
-      final double spaceBelow = overlayBox.size.height - (targetGlobal.dy + size.height) - 8;
+      final targetGlobal = renderObject.localToGlobal(
+        Offset.zero,
+        ancestor: overlayBox,
+      );
+      final double spaceBelow =
+          overlayBox.size.height - (targetGlobal.dy + size.height) - 8;
       if (widget.forceDownward && spaceBelow < effectiveMaxHeight) {
         effectiveMaxHeight = math.max(60, spaceBelow);
       }
     }
 
     final bool isSearchActive =
-      widget.showSearch && _searchCtrl.text.trim().isNotEmpty;
+        widget.showSearch && _searchCtrl.text.trim().isNotEmpty;
 
-    final double searchRowHeight = widget.itemEstimatedHeight ??
-      widget.itemHeight ??
-      (widget.itemBuilder != null ? 56.0 : _rowHeight);
+    final double searchRowHeight =
+        widget.itemEstimatedHeight ??
+        widget.itemHeight ??
+        (widget.itemBuilder != null ? 56.0 : _rowHeight);
     final double effectiveRowHeight = isSearchActive
-      ? searchRowHeight
-      : _rowHeight;
+        ? searchRowHeight
+        : _rowHeight;
 
     final bool showCustomValueAction =
         widget.showCustomValueAction &&
@@ -534,35 +540,43 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
     const double _borderWidth = 2.0; // 1px top + 1px bottom from Border.all
     final double effectiveMaxHeightInner = effectiveMaxHeight - _borderWidth;
-    final double maxListHeight = math.max(effectiveRowHeight, effectiveMaxHeightInner);
-    final double availableListHeight = (effectiveMaxHeightInner - reservedHeight)
-        .clamp(effectiveRowHeight, maxListHeight)
-        .toDouble();
+    final double maxListHeight = math.max(
+      effectiveRowHeight,
+      effectiveMaxHeightInner,
+    );
+    final double availableListHeight =
+        (effectiveMaxHeightInner - reservedHeight)
+            .clamp(effectiveRowHeight, maxListHeight)
+            .toDouble();
     final bool isEmptyState = _filteredItems.isEmpty;
     final bool hasMaxVisibleItems =
-      widget.maxVisibleItems != null && widget.maxVisibleItems! > 0;
+        widget.maxVisibleItems != null && widget.maxVisibleItems! > 0;
     final int itemCount = _filteredItems.length;
     final int cappedVisibleCount = hasMaxVisibleItems
-      ? itemCount.clamp(1, math.max(1, widget.maxVisibleItems!))
-      : math.max(1, itemCount);
+        ? itemCount.clamp(1, math.max(1, widget.maxVisibleItems!))
+        : math.max(1, itemCount);
 
     final double dynamicHeight = (_filteredItems.length * effectiveRowHeight)
-      .clamp(effectiveRowHeight, availableListHeight)
-      .toDouble();
+        .clamp(effectiveRowHeight, availableListHeight)
+        .toDouble();
     final double cappedHeight = (cappedVisibleCount * effectiveRowHeight)
-      .clamp(effectiveRowHeight, availableListHeight)
-      .toDouble();
+        .clamp(effectiveRowHeight, availableListHeight)
+        .toDouble();
     final double listHeight = (!isSearchActive && hasMaxVisibleItems)
-      ? cappedHeight
-      : dynamicHeight;
+        ? cappedHeight
+        : dynamicHeight;
     final double emptyStateHeight = availableListHeight
         .clamp(64.0, 80.0)
         .toDouble();
-    final double contentListHeight = isEmptyState ? emptyStateHeight : listHeight;
+    final double contentListHeight = isEmptyState
+        ? emptyStateHeight
+        : listHeight;
     final bool shouldShowListScrollbar =
-      (_filteredItems.length * effectiveRowHeight) > contentListHeight;
+        (_filteredItems.length * effectiveRowHeight) > contentListHeight;
     final double overlayHeight =
-        (reservedHeight + contentListHeight + _borderWidth).clamp(0, effectiveMaxHeight).toDouble();
+        (reservedHeight + contentListHeight + _borderWidth)
+            .clamp(0, effectiveMaxHeight)
+            .toDouble();
 
     return Stack(
       children: [
@@ -611,7 +625,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           style: const TextStyle(fontSize: 13),
                           decoration: InputDecoration(
                             isDense: true,
-                            hintText: widget.placeholder ?? widget.hint ?? 'Search',
+                            hintText:
+                                widget.placeholder ?? widget.hint ?? 'Search',
                             hintStyle: const TextStyle(
                               color: AppTheme.textMuted,
                               fontSize: 13,
@@ -705,45 +720,45 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         child: SingleChildScrollView(
                           controller: _listScrollCtrl,
                           child: widget.listBuilder!(_filteredItems, (item) {
-                        final int index = _filteredItems.indexOf(item);
-                        final bool isSelected = widget.multiSelect
-                          ? widget.selectedValues.contains(item)
-                            : item == widget.value;
-                        final bool isHovered = _hoveredIndex == index;
-                        final bool enabled =
-                            widget.isItemEnabled?.call(item) ?? true;
+                            final int index = _filteredItems.indexOf(item);
+                            final bool isSelected = widget.multiSelect
+                                ? widget.selectedValues.contains(item)
+                                : item == widget.value;
+                            final bool isHovered = _hoveredIndex == index;
+                            final bool enabled =
+                                widget.isItemEnabled?.call(item) ?? true;
 
-                        return MouseRegion(
-                          onEnter: (_) {
-                            if (!enabled) return;
-                            setState(() => _hoveredIndex = index);
-                            _markOverlayNeedsBuild();
-                          },
-                          onExit: (_) {
-                            if (!enabled) return;
-                            setState(() => _hoveredIndex = null);
-                            _markOverlayNeedsBuild();
-                          },
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: enabled
-                                  ? () => _handleItemTap(item)
-                                  : null,
-                              hoverColor: AppTheme.infoBg,
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              child: widget.itemBuilder!(
-                                item,
-                                isSelected,
-                                isHovered,
+                            return MouseRegion(
+                              onEnter: (_) {
+                                if (!enabled) return;
+                                setState(() => _hoveredIndex = index);
+                                _markOverlayNeedsBuild();
+                              },
+                              onExit: (_) {
+                                if (!enabled) return;
+                                setState(() => _hoveredIndex = null);
+                                _markOverlayNeedsBuild();
+                              },
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: enabled
+                                      ? () => _handleItemTap(item)
+                                      : null,
+                                  hoverColor: AppTheme.infoBg,
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                  child: widget.itemBuilder!(
+                                    item,
+                                    isSelected,
+                                    isHovered,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        );
-                      }),
+                            );
+                          }),
                         ),
-                      )
+                      ),
                     )
                   else
                     SizedBox(
@@ -976,65 +991,65 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
       runSpacing: 6,
       children: widget.selectedValues.map((item) {
         final String label = widget.displayStringForValue != null
-              ? widget.displayStringForValue!(item)
-              : item.toString();
-          final bool canRemove =
-              widget.isSelectedValueRemovable?.call(item) ?? true;
-          final bool isHovered = _hoveredSelectedChips.contains(item);
+            ? widget.displayStringForValue!(item)
+            : item.toString();
+        final bool canRemove =
+            widget.isSelectedValueRemovable?.call(item) ?? true;
+        final bool isHovered = _hoveredSelectedChips.contains(item);
 
-          return MouseRegion(
-            onEnter: (_) => setState(() => _hoveredSelectedChips.add(item)),
-            onExit: (_) => setState(() => _hoveredSelectedChips.remove(item)),
-            child: Container(
-              margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: isHovered ? Colors.white : AppTheme.bgDisabled,
-                borderRadius: BorderRadius.circular(4),
-                border: isHovered
-                    ? Border.all(color: AppTheme.borderColor)
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 140),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textPrimary,
-                      ),
+        return MouseRegion(
+          onEnter: (_) => setState(() => _hoveredSelectedChips.add(item)),
+          onExit: (_) => setState(() => _hoveredSelectedChips.remove(item)),
+          child: Container(
+            margin: const EdgeInsets.only(right: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isHovered ? Colors.white : AppTheme.bgDisabled,
+              borderRadius: BorderRadius.circular(4),
+              border: isHovered
+                  ? Border.all(color: AppTheme.borderColor)
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
-                  if (canRemove) ...[
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: widget.enabled
-                          ? () {
-                              final List<T> nextValues = List<T>.from(
-                                widget.selectedValues,
-                              )..remove(item);
-                              widget.onSelectedValuesChanged?.call(nextValues);
-                            }
-                          : null,
-                      child: Icon(
-                        Icons.close,
-                        size: 14,
-                        color: isHovered
-                            ? AppTheme.errorRed
-                            : AppTheme.textSecondary,
-                      ),
+                ),
+                if (canRemove) ...[
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: widget.enabled
+                        ? () {
+                            final List<T> nextValues = List<T>.from(
+                              widget.selectedValues,
+                            )..remove(item);
+                            widget.onSelectedValuesChanged?.call(nextValues);
+                          }
+                        : null,
+                    child: Icon(
+                      Icons.close,
+                      size: 14,
+                      color: isHovered
+                          ? AppTheme.errorRed
+                          : AppTheme.textSecondary,
                     ),
-                  ],
+                  ),
                 ],
-              ),
+              ],
             ),
-          );
-        }).toList(),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -1066,7 +1081,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
             constraints: widget.multiSelect
                 ? BoxConstraints(minHeight: effectiveHeight)
                 : null,
-            padding: widget.padding ?? const EdgeInsets.symmetric(horizontal: 10),
+            padding:
+                widget.padding ?? const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: widget.fillColor ?? Colors.white,
               borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
@@ -1102,7 +1118,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                               : (widget.hint ?? ''),
                           textAlign: widget.textAlign,
                           overflow: TextOverflow.ellipsis,
-                          style: widget.textStyle ??
+                          style:
+                              widget.textStyle ??
                               TextStyle(
                                 fontSize: 13,
                                 color: hasValue
@@ -1139,10 +1156,13 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                 if (widget.showArrowOnSelection || !hasValue) ...[
                   const SizedBox(width: 6),
                   Icon(
-                    _isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    _isOpen
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     size: widget.iconSize ?? 18,
-                    color:
-                        _isOpen ? AppTheme.primaryBlueDark : AppTheme.textSecondary,
+                    color: _isOpen
+                        ? AppTheme.primaryBlueDark
+                        : AppTheme.textSecondary,
                   ),
                 ],
               ],
@@ -1166,7 +1186,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
           : hasError
           ? AppTheme.errorRed
           : (_isOpen || isHovered)
-          ? AppTheme.infoBlue
+          ? AppTheme.primaryBlue
           : AppTheme.borderColor,
       width: isActiveBorder
           ? AppTheme.inputActiveBorderWidth

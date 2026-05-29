@@ -129,8 +129,8 @@ export class VendorsService {
       entity_id: tenant.entityId,
       // Flattened Address fields
       billing_attention: billingAddress?.attention,
-      billing_address_street: billingAddress?.street,
-      billing_address_place: billingAddress?.place,
+      billing_address_street: billingAddress?.street ?? billingAddress?.street1,
+      billing_address_place: billingAddress?.place ?? billingAddress?.street2,
       billing_city: billingAddress?.city,
       billing_state: billingAddress?.state,
       billing_pincode: billingAddress?.zip,
@@ -138,8 +138,8 @@ export class VendorsService {
       billing_phone: billingAddress?.phone,
       billing_fax: billingAddress?.fax,
       shipping_attention: shippingAddress?.attention,
-      shipping_address_street: shippingAddress?.street,
-      shipping_address_place: shippingAddress?.place,
+      shipping_address_street: shippingAddress?.street ?? shippingAddress?.street1,
+      shipping_address_place: shippingAddress?.place ?? shippingAddress?.street2,
       shipping_city: shippingAddress?.city,
       shipping_state: shippingAddress?.state,
       shipping_pincode: shippingAddress?.zip,
@@ -263,8 +263,8 @@ export class VendorsService {
     // Flatten address fields in update as well
     if (billingAddress) {
       updateData.billing_attention = billingAddress.attention;
-      updateData.billing_address_street = billingAddress.street;
-      updateData.billing_address_place = billingAddress.place;
+      updateData.billing_address_street = billingAddress.street ?? billingAddress.street1;
+      updateData.billing_address_place = billingAddress.place ?? billingAddress.street2;
       updateData.billing_city = billingAddress.city;
       updateData.billing_state = billingAddress.state;
       updateData.billing_pincode = billingAddress.zip;
@@ -274,8 +274,8 @@ export class VendorsService {
     }
     if (shippingAddress) {
       updateData.shipping_attention = shippingAddress.attention;
-      updateData.shipping_address_street = shippingAddress.street;
-      updateData.shipping_address_place = shippingAddress.place;
+      updateData.shipping_address_street = shippingAddress.street ?? shippingAddress.street1;
+      updateData.shipping_address_place = shippingAddress.place ?? shippingAddress.street2;
       updateData.shipping_city = shippingAddress.city;
       updateData.shipping_state = shippingAddress.state;
       updateData.shipping_pincode = shippingAddress.zip;

@@ -38,7 +38,8 @@ part '../sections/purchases_vendors_helpers.dart';
 part '../sections/purchases_vendors_dialogs.dart';
 
 class PurchasesVendorsVendorCreateScreen extends ConsumerStatefulWidget {
-  const PurchasesVendorsVendorCreateScreen({super.key});
+  final bool isDialog;
+  const PurchasesVendorsVendorCreateScreen({super.key, this.isDialog = false});
 
   @override
   ConsumerState<PurchasesVendorsVendorCreateScreen> createState() =>
@@ -625,18 +626,90 @@ class _PurchasesVendorsVendorCreateScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isDialog) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Column(
+          children: [
+            // Dialog Header with grey shade + X button
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    'New Vendor',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2563EB),
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(
+                      LucideIcons.x,
+                      size: 20,
+                      color: Color(0xFFEF4444),
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => context.pop(),
+                  ),
+                ],
+              ),
+            ),
+            // Dialog Content (scrollable)
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 24.0,
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 32.0),
+                        child: _buildPrimaryInfo(),
+                      ),
+                      const SizedBox(height: 32),
+                      _buildTabSection(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Footer
+            _buildFooter(),
+          ],
+        ),
+      );
+    }
+
     return ZerpaiLayout(
       pageTitle: 'New Vendor',
       enableBodyScroll: true,
       footer: _buildFooter(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPrimaryInfo(),
+              Padding(
+                padding: const EdgeInsets.only(left: 32.0),
+                child: _buildPrimaryInfo(),
+              ),
               const SizedBox(height: 32),
               _buildTabSection(),
             ],
@@ -662,7 +735,7 @@ class _PurchasesVendorsVendorCreateScreenState
             indicatorColor: const Color(0xFF2563EB),
             indicatorWeight: 2,
             indicatorSize: TabBarIndicatorSize.label,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 28),
             labelStyle: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -685,26 +758,38 @@ class _PurchasesVendorsVendorCreateScreenState
   }
 
   Widget _buildTabContent(int index) {
+    Widget content;
     switch (index) {
       case 0:
-        return _buildOtherDetails();
+        content = _buildOtherDetails();
+        break;
       case 1:
-        return _buildLicenseSection();
+        content = _buildLicenseSection();
+        break;
       case 2:
-        return _buildAddressSection();
+        content = _buildAddressSection();
+        break;
       case 3:
         return _buildContactPersons();
       case 4:
-        return _buildBankDetails();
+        content = _buildBankDetails();
+        break;
       case 5:
-        return _buildCustomFields();
+        content = _buildCustomFields();
+        break;
       case 6:
-        return _buildReportingTags();
+        content = _buildReportingTags();
+        break;
       case 7:
-        return _buildRemarks();
+        content = _buildRemarks();
+        break;
       default:
-        return const SizedBox.shrink();
+        content = const SizedBox.shrink();
     }
+    return Padding(
+      padding: const EdgeInsets.only(left: 32.0),
+      child: content,
+    );
   }
 
   Widget _buildFooter() {

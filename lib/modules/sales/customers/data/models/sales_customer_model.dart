@@ -439,9 +439,17 @@ class SalesCustomer {
       billingAddressStreet1,
       billingAddressStreet2,
       billingAddressCity,
+      if (billingAddressStateId != null &&
+          billingAddressStateId!.trim().isNotEmpty &&
+          !_looksLikeUuid(billingAddressStateId))
+        billingAddressStateId!.trim(),
       billingAddressZip,
+      if (billingAddressCountryId != null &&
+          billingAddressCountryId!.trim().isNotEmpty &&
+          !_looksLikeUuid(billingAddressCountryId))
+        billingAddressCountryId!.trim(),
     ].where((p) => p != null && p.isNotEmpty).toList();
-    return parts.isEmpty ? 'N/A' : parts.join(', ');
+    return parts.isEmpty ? 'N/A' : parts.join('\n');
   }
 
   String get fullShippingAddress {
@@ -449,9 +457,17 @@ class SalesCustomer {
       shippingAddressStreet1,
       shippingAddressStreet2,
       shippingAddressCity,
+      if (shippingAddressStateId != null &&
+          shippingAddressStateId!.trim().isNotEmpty &&
+          !_looksLikeUuid(shippingAddressStateId))
+        shippingAddressStateId!.trim(),
       shippingAddressZip,
+      if (shippingAddressCountryId != null &&
+          shippingAddressCountryId!.trim().isNotEmpty &&
+          !_looksLikeUuid(shippingAddressCountryId))
+        shippingAddressCountryId!.trim(),
     ].where((p) => p != null && p.isNotEmpty).toList();
-    return parts.isEmpty ? 'N/A' : parts.join(', ');
+    return parts.isEmpty ? 'N/A' : parts.join('\n');
   }
 
   Map<String, dynamic> toJson() {

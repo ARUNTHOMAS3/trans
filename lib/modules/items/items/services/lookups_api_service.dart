@@ -183,6 +183,7 @@ class LookupsApiService {
         return taxGroups;
       }
 
+
       return [];
     } catch (e) {
       return [];
@@ -218,14 +219,25 @@ class LookupsApiService {
   Future<List<Map<String, dynamic>>> getManufacturers() async {
     try {
       final response = await _apiClient.get('/products/lookups/manufacturers');
-
       if (response.statusCode == 200) {
         return List<Map<String, dynamic>>.from(response.data);
       }
-
       return [];
     } catch (e) {
-      // Silent in production
+      debugPrint('❌ Error loading manufacturers: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getGstTreatments() async {
+    try {
+      final response = await _apiClient.get('/lookups/gst-treatments');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ Error loading GST treatments: $e');
       return [];
     }
   }

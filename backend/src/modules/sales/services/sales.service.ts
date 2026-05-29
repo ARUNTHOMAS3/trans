@@ -150,12 +150,25 @@ export class SalesService {
           shipping_address_zip:shipping_address_zip,
           shipping_address_state_id:shipping_address_state_id,
           shipping_address_country_id:shipping_address_country_id,
-          shipping_address_phone:shipping_address_phone
+          shipping_address_phone:shipping_address_phone,
+          billing_state:states!customers_billing_address_state_id_states_id_fk(name),
+          billing_country:countries!customers_billing_address_country_id_fkey(name),
+          shipping_state:states!customers_shipping_address_state_id_states_id_fk(name),
+          shipping_country:countries!customers_shipping_address_country_id_fkey(name)
         `,
         )
         .eq("id", order.customer_id)
         .maybeSingle();
-      customer = customerData ?? null;
+
+      if (customerData) {
+        customer = {
+          ...customerData,
+          billing_address_state_id: (customerData as any).billing_state?.name || customerData.billing_address_state_id,
+          billing_address_country_id: (customerData as any).billing_country?.name || customerData.billing_address_country_id,
+          shipping_address_state_id: (customerData as any).shipping_state?.name || customerData.shipping_address_state_id,
+          shipping_address_country_id: (customerData as any).shipping_country?.name || customerData.shipping_address_country_id,
+        };
+      }
     }
 
     const { data: items, error: itemsError } = await client
@@ -854,12 +867,25 @@ export class SalesService {
           shipping_address_zip:shipping_address_zip,
           shipping_address_state_id:shipping_address_state_id,
           shipping_address_country_id:shipping_address_country_id,
-          shipping_address_phone:shipping_address_phone
+          shipping_address_phone:shipping_address_phone,
+          billing_state:states!customers_billing_address_state_id_states_id_fk(name),
+          billing_country:countries!customers_billing_address_country_id_fkey(name),
+          shipping_state:states!customers_shipping_address_state_id_states_id_fk(name),
+          shipping_country:countries!customers_shipping_address_country_id_fkey(name)
         `,
         )
         .eq("id", invoice.customer_id)
         .maybeSingle();
-      customer = customerData ?? null;
+
+      if (customerData) {
+        customer = {
+          ...customerData,
+          billing_address_state_id: (customerData as any).billing_state?.name || customerData.billing_address_state_id,
+          billing_address_country_id: (customerData as any).billing_country?.name || customerData.billing_address_country_id,
+          shipping_address_state_id: (customerData as any).shipping_state?.name || customerData.shipping_address_state_id,
+          shipping_address_country_id: (customerData as any).shipping_country?.name || customerData.shipping_address_country_id,
+        };
+      }
     }
 
     const { data: items, error: itemsError } = await client
@@ -1393,14 +1419,14 @@ export class SalesService {
     const { data: oldTx } = await client
       .from("batch_transactions")
       .select("*")
-      .eq("document_id", id)
-      .eq("document_type", "sales_invoice");
+      .eq("ref_id", id)
+      .eq("trans_type", "INVOICE");
 
     const revertedLayers: { layerId: string; quantitySubtracted: number }[] = [];
     try {
       if (oldTx && oldTx.length > 0) {
         for (const tx of oldTx) {
-          if (tx.layer_id && tx.quantity) {
+          if (tx.layer_id && tx.qty_out) {
             const { data: layer } = await client
               .from("batch_stock_layers")
               .select("qty")
@@ -1408,7 +1434,7 @@ export class SalesService {
               .maybeSingle();
             if (layer) {
               const currentQty = Number(layer.qty) || 0;
-              const txQty = Number(tx.quantity) || 0;
+              const txQty = Number(tx.qty_out) || 0;
               await client
                 .from("batch_stock_layers")
                 .update({ qty: currentQty + txQty })
@@ -1423,8 +1449,8 @@ export class SalesService {
       await client
         .from("batch_transactions")
         .delete()
-        .eq("document_id", id)
-        .eq("document_type", "sales_invoice");
+        .eq("ref_id", id)
+        .eq("trans_type", "INVOICE");
 
       await client
         .from("invoice_items")
@@ -1523,18 +1549,22 @@ export class SalesService {
 
             if (itemBatchError) throw itemBatchError;
 
-            const { error: transError } = await client
+             const { error: transError } = await client
               .from("batch_transactions")
               .insert({
                 batch_id: batch.batchId,
                 layer_id: batch.layerId || null,
                 product_id: item.productId || item.itemId,
                 entity_id: orgId,
-                transaction_type: "OUT",
-                document_type: "sales_invoice",
-                document_id: id,
-                quantity: totalOutQty,
-                transaction_date: invoiceDate,
+                warehouse_id: batch.warehouseId || warehouseId,
+                bin_id: batch.binId || null,
+                trans_type: "INVOICE",
+                ref_id: id,
+                ref_no: invoiceNumber,
+                qty_in: 0,
+                qty_out: totalOutQty,
+                rate: batch.salesRate ? Number(batch.salesRate) : null,
+                trans_date: invoiceDate,
               });
 
             if (transError) throw transError;

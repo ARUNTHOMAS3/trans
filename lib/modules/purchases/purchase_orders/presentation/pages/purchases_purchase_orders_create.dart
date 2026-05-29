@@ -29,12 +29,15 @@ import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 
+import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import '../../notifiers/purchase_order_notifier.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
@@ -70,6 +73,11 @@ class _ItemRowController {
   final TextEditingController discountCtrl = TextEditingController();
   final TextEditingController descCtrl = TextEditingController();
   final FocusNode rateFocus = FocusNode();
+  Map<String, String> reportingTags = {
+    'adgf': 'None',
+    'schedule': 'None',
+    'demo_tag': 'None',
+  };
   final LayerLink nameLink = LayerLink();
   final LayerLink taxLink = LayerLink();
   final LayerLink accountLink = LayerLink();
@@ -81,6 +89,7 @@ class _ItemRowController {
   final LayerLink itemDetailsMenuLink = LayerLink();
   final LayerLink rowActionsMenuLink = LayerLink();
   final LayerLink priceListLink = LayerLink();
+  final LayerLink reportingTagsLink = LayerLink();
 
   void dispose() {
     nameCtrl.dispose();
@@ -139,6 +148,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   final GlobalKey _deliveryDateFieldKey = GlobalKey();
 
   OverlayEntry? _gstOverlay;
+  OverlayEntry? _gstinOverlay;
   OverlayEntry? _poOverlay;
   OverlayEntry? _vendorSidebarOverlay;
   OverlayEntry? _itemDetailsSidebarOverlay;
@@ -153,6 +163,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   final LayerLink _uploadLink = LayerLink();
   OverlayEntry? _itemMenuOverlay;
   final LayerLink _gstLink = LayerLink();
+  final LayerLink _gstinLink = LayerLink();
   final LayerLink _poLink = LayerLink();
   final LayerLink _deliveryChangeLink = LayerLink();
   final LayerLink _totalTaxAmountLink = LayerLink();
@@ -173,6 +184,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   String? _selectedPriceListId;
   bool _isUploadButtonHovered = false;
   OverlayEntry? _valueTooltipOverlay;
+  OverlayEntry? _reportingTagsOverlay;
   final LayerLink _priceListTooltipLink = LayerLink();
   bool _isAdjustmentLabelHovered = false;
 
@@ -241,7 +253,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
+                    icon: const Icon(
+                      LucideIcons.x,
+                      size: 16,
+                      color: AppTheme.errorRed,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => context.pop(),
@@ -250,7 +266,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               ),
             ),
             const Divider(height: 1, color: AppTheme.borderColor),
-            
+
             // Content
             Expanded(
               child: Padding(
@@ -293,9 +309,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ),
               ),
             ),
-            
+
             const Divider(height: 1, color: AppTheme.borderColor),
-            
+
             // Footer
             Padding(
               padding: const EdgeInsets.all(16),
@@ -304,15 +320,22 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
-                      final poState = ref.read(purchaseOrderFormNotifierProvider);
+                      final notifier = ref.read(
+                        purchaseOrderFormNotifierProvider.notifier,
+                      );
+                      final poState = ref.read(
+                        purchaseOrderFormNotifierProvider,
+                      );
                       for (int i = 0; i < poState.items.length; i++) {
                         final item = poState.items[i];
                         if (item.productId.isNotEmpty && !item.isHeader) {
-                          notifier.updateItem(i, item.copyWith(
-                            accountId: _selectedPopupAccount?.id,
-                            accountName: _selectedPopupAccount?.name,
-                          ));
+                          notifier.updateItem(
+                            i,
+                            item.copyWith(
+                              accountId: _selectedPopupAccount?.id,
+                              accountName: _selectedPopupAccount?.name,
+                            ),
+                          );
                         }
                       }
                       context.pop();
@@ -378,13 +401,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.only(top: 0, bottom: 24, left: 100, right: 100),
+        insetPadding: const EdgeInsets.only(
+          top: 0,
+          bottom: 24,
+          left: 40,
+          right: 40,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+          constraints: const BoxConstraints(maxWidth: 1300),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: const PurchasesVendorsVendorCreateScreen(),
+            child: const PurchasesVendorsVendorCreateScreen(isDialog: true),
           ),
         ),
       ),
@@ -452,7 +480,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       return;
     }
 
-    final validItems = poState.items.where((i) => i.productId.isNotEmpty).toList();
+    final validItems = poState.items
+        .where((i) => i.productId.isNotEmpty)
+        .toList();
     if (validItems.isEmpty) {
       ZerpaiToast.error(context, 'Please add at least one item');
       return;
@@ -480,7 +510,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
 
     notifier.updateField(isSaving: true);
-    
+
     // Save to repository and get the saved object with its ID
     PurchaseOrder? savedPo;
 
@@ -528,10 +558,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       final updatedItems = poState.items
           .where((i) => i.productId.isNotEmpty)
           .map((item) {
-            final pl = activePriceLists.where((p) => p.id == item.priceListId).firstOrNull;
-            return item.copyWith(
-              pricelist: pl?.name,
-            );
+            final pl = activePriceLists
+                .where((p) => p.id == item.priceListId)
+                .firstOrNull;
+            return item.copyWith(pricelist: pl?.name);
           })
           .toList();
 
@@ -585,7 +615,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
         ZerpaiToast.success(
           context,
-          _isEditMode ? 'Purchase Order updated successfully' : 'Purchase Order saved successfully',
+          _isEditMode
+              ? 'Purchase Order updated successfully'
+              : 'Purchase Order saved successfully',
         );
         if (savedPo != null && savedPo.id != null) {
           context.go('/purchases/purchase-orders/${savedPo.id}/email');
@@ -620,21 +652,28 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
       for (var file in _attachedFiles) {
         if (file.bytes == null) {
-          AppLogger.warning('Skipping file ${file.name} because bytes are null', module: 'purchases');
+          AppLogger.warning(
+            'Skipping file ${file.name} because bytes are null',
+            module: 'purchases',
+          );
           continue;
         }
 
         final base64Data = base64Encode(file.bytes!);
 
         // Upload to Cloudflare R2 via backend
-        final response = await apiClient.post('/lookups/uploads', data: {
-          'fileName': file.name,
-          'fileData': base64Data,
-          'mimeType': 'application/octet-stream',
-          'prefix': 'purchase_orders',
-        });
+        final response = await apiClient.post(
+          '/lookups/uploads',
+          data: {
+            'fileName': file.name,
+            'fileData': base64Data,
+            'mimeType': 'application/octet-stream',
+            'prefix': 'purchase_orders',
+          },
+        );
 
-        final fileKey = response.data['fileKey'] ?? 'purchase_orders/${file.name}';
+        final fileKey =
+            response.data['fileKey'] ?? 'purchase_orders/${file.name}';
 
         final double sizeInKb = file.size / 1024;
         final String formattedSize = sizeInKb >= 1024
@@ -650,7 +689,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         });
       }
     } catch (e) {
-      AppLogger.error('Error saving attachments', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error saving attachments',
+        error: e,
+        module: 'purchases',
+      );
       if (mounted) {
         ZerpaiToast.error(context, 'Failed to save attachments: $e');
       }
@@ -745,7 +788,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _refCtrl.text = order.referenceNumber ?? '';
     _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(order.orderDate);
     if (order.expectedDeliveryDate != null) {
-      _deliveryDateCtrl.text = DateFormat('dd-MM-yyyy').format(order.expectedDeliveryDate!);
+      _deliveryDateCtrl.text = DateFormat(
+        'dd-MM-yyyy',
+      ).format(order.expectedDeliveryDate!);
     }
     _notesCtrl.text = order.notes ?? '';
     _termsCtrl.text = order.termsAndConditions ?? '';
@@ -776,12 +821,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             if (sizeVal is int) {
               parsedSize = sizeVal;
             } else if (sizeVal is String) {
-              parsedSize = int.tryParse(sizeVal.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+              parsedSize =
+                  int.tryParse(sizeVal.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
             }
-            return PlatformFile(
-              name: row['file_name'] ?? '',
-              size: parsedSize,
-            );
+            return PlatformFile(name: row['file_name'] ?? '', size: parsedSize);
           }).toList();
         });
       }
@@ -811,12 +854,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             if (sizeVal is int) {
               parsedSize = sizeVal;
             } else if (sizeVal is String) {
-              parsedSize = int.tryParse(sizeVal.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+              parsedSize =
+                  int.tryParse(sizeVal.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
             }
-            return PlatformFile(
-              name: row['file_name'] ?? '',
-              size: parsedSize,
-            );
+            return PlatformFile(name: row['file_name'] ?? '', size: parsedSize);
           }).toList();
         });
       }
@@ -838,13 +879,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       _loadSourceOfSupply();
       _loadPaymentTerms();
       _loadShipmentPreferences();
-      
+
       if (widget.initialOrder != null) {
         _hydrateFromInitialOrder(widget.initialOrder!);
         if (widget.initialOrder!.id != null) {
           _loadAttachmentsForOrder(widget.initialOrder!.id!);
         }
-      } else if (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty) {
+      } else if (widget.initialOrderId != null &&
+          widget.initialOrderId!.isNotEmpty) {
         _loadInitialOrder(widget.initialOrderId!);
       } else {
         ref.read(purchaseOrderFormNotifierProvider.notifier).reset();
@@ -1081,148 +1123,167 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         String? hoveredItem;
         return Stack(
           children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                _itemMenuOverlay?.remove();
-                _itemMenuOverlay = null;
-              },
-              behavior: HitTestBehavior.translucent,
-              child: const ColoredBox(color: Colors.transparent),
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  _itemMenuOverlay?.remove();
+                  _itemMenuOverlay = null;
+                },
+                behavior: HitTestBehavior.translucent,
+                child: const ColoredBox(color: Colors.transparent),
+              ),
             ),
-          ),
-          CompositedTransformFollower(
-            link: link,
-            showWhenUnlinked: false,
-            targetAnchor: Alignment.bottomRight,
-            followerAnchor: Alignment.topRight,
-            offset: const Offset(0, 4),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: 180,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: _borderCol),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+            CompositedTransformFollower(
+              link: link,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.bottomRight,
+              followerAnchor: Alignment.topRight,
+              offset: const Offset(0, 4),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 180,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _borderCol),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: StatefulBuilder(
+                      builder: (context, setOverlayState) {
+                        final isHidden = _hiddenDetails.contains(index);
+                        final notifier = ref.read(
+                          purchaseOrderFormNotifierProvider.notifier,
+                        );
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildSettingsOverlayItem(
+                              label: isHidden
+                                  ? 'Show Additional Information'
+                                  : 'Hide Additional Information',
+                              showHighlight: hoveredItem == 'toggle_info',
+                              onHover: (v) => setOverlayState(
+                                () => hoveredItem = v ? 'toggle_info' : null,
+                              ),
+                              onTap: () {
+                                setState(() {
+                                  if (_hiddenDetails.contains(index)) {
+                                    _hiddenDetails.remove(index);
+                                  } else {
+                                    _hiddenDetails.add(index);
+                                  }
+                                });
+                                _itemMenuOverlay?.remove();
+                                _itemMenuOverlay = null;
+                              },
+                            ),
+                            const SizedBox(height: 4),
+                            _buildSettingsOverlayItem(
+                              label: 'Clone',
+                              showHighlight: hoveredItem == 'clone',
+                              onHover: (v) => setOverlayState(
+                                () => hoveredItem = v ? 'clone' : null,
+                              ),
+                              onTap: () {
+                                notifier.addItemRow(
+                                  index: index + 1,
+                                  item: item.copyWith(),
+                                );
+                                _itemMenuOverlay?.remove();
+                                _itemMenuOverlay = null;
+                              },
+                            ),
+                            const SizedBox(height: 4),
+                            _buildSettingsOverlayItem(
+                              label: 'Insert New Row',
+                              showHighlight: hoveredItem == 'insert_row',
+                              onHover: (v) => setOverlayState(
+                                () => hoveredItem = v ? 'insert_row' : null,
+                              ),
+                              onTap: () {
+                                notifier.addItemRow(index: index + 1);
+                                _itemMenuOverlay?.remove();
+                                _itemMenuOverlay = null;
+                              },
+                            ),
+                            const SizedBox(height: 4),
+                            _buildSettingsOverlayItem(
+                              label: 'Insert Items in Bulk',
+                              showHighlight: hoveredItem == 'bulk',
+                              onHover: (v) => setOverlayState(
+                                () => hoveredItem = v ? 'bulk' : null,
+                              ),
+                              onTap: () {
+                                _itemMenuOverlay?.remove();
+                                _itemMenuOverlay = null;
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => BulkItemsDialog(
+                                    products: allItems,
+                                    onItemsSelected: (selectedItems) {
+                                      final List<PurchaseOrderItem> newItems =
+                                          [];
+                                      selectedItems.forEach((item, quantity) {
+                                        newItems.add(
+                                          PurchaseOrderItem(
+                                            productId: item.id ?? '',
+                                            productName: item.productName,
+                                            quantity: quantity.toDouble(),
+                                            rate: item.costPrice ?? 0.0,
+                                            amount:
+                                                (item.costPrice ?? 0.0) *
+                                                quantity,
+                                          ),
+                                        );
+                                      });
+                                      notifier.addItemsInBulk(newItems);
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 4),
+                            _buildSettingsOverlayItem(
+                              label: 'Insert New Header',
+                              showHighlight: hoveredItem == 'insert_header',
+                              onHover: (v) => setOverlayState(
+                                () => hoveredItem = v ? 'insert_header' : null,
+                              ),
+                              onTap: () {
+                                notifier.addHeaderRow(index: index + 1);
+                                _itemMenuOverlay?.remove();
+                                _itemMenuOverlay = null;
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: StatefulBuilder(
-                    builder: (context, setOverlayState) {
-                      final isHidden = _hiddenDetails.contains(index);
-                      final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildSettingsOverlayItem(
-                            label: isHidden ? 'Show Additional Information' : 'Hide Additional Information',
-                            showHighlight: hoveredItem == 'toggle_info',
-                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'toggle_info' : null),
-                            onTap: () {
-                              setState(() {
-                                if (_hiddenDetails.contains(index)) {
-                                  _hiddenDetails.remove(index);
-                                } else {
-                                  _hiddenDetails.add(index);
-                                }
-                              });
-                              _itemMenuOverlay?.remove();
-                              _itemMenuOverlay = null;
-                            },
-                          ),
-                          const SizedBox(height: 4),
-                          _buildSettingsOverlayItem(
-                            label: 'Clone',
-                            showHighlight: hoveredItem == 'clone',
-                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'clone' : null),
-                            onTap: () {
-                              notifier.addItemRow(
-                                index: index + 1,
-                                item: item.copyWith(),
-                              );
-                              _itemMenuOverlay?.remove();
-                              _itemMenuOverlay = null;
-                            },
-                          ),
-                          const SizedBox(height: 4),
-                          _buildSettingsOverlayItem(
-                            label: 'Insert New Row',
-                            showHighlight: hoveredItem == 'insert_row',
-                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'insert_row' : null),
-                            onTap: () {
-                              notifier.addItemRow(index: index + 1);
-                              _itemMenuOverlay?.remove();
-                              _itemMenuOverlay = null;
-                            },
-                          ),
-                          const SizedBox(height: 4),
-                          _buildSettingsOverlayItem(
-                            label: 'Insert Items in Bulk',
-                            showHighlight: hoveredItem == 'bulk',
-                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'bulk' : null),
-                            onTap: () {
-                              _itemMenuOverlay?.remove();
-                              _itemMenuOverlay = null;
-                              showDialog(
-                                context: context,
-                                builder: (context) => BulkItemsDialog(
-                                  products: allItems,
-                                  onItemsSelected: (selectedItems) {
-                                    final List<PurchaseOrderItem> newItems = [];
-                                    selectedItems.forEach((item, quantity) {
-                                      newItems.add(
-                                        PurchaseOrderItem(
-                                          productId: item.id ?? '',
-                                          productName: item.productName,
-                                          quantity: quantity.toDouble(),
-                                          rate: item.costPrice ?? 0.0,
-                                          amount: (item.costPrice ?? 0.0) * quantity,
-                                        ),
-                                      );
-                                    });
-                                    notifier.addItemsInBulk(newItems);
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 4),
-                          _buildSettingsOverlayItem(
-                            label: 'Insert New Header',
-                            showHighlight: hoveredItem == 'insert_header',
-                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'insert_header' : null),
-                            onTap: () {
-                              notifier.addHeaderRow(index: index + 1);
-                              _itemMenuOverlay?.remove();
-                              _itemMenuOverlay = null;
-                            },
-                          ),
-                        ],
-                      );
-                    },
                   ),
                 ),
               ),
             ),
-          ),
-        ],
-      );
-    });
+          ],
+        );
+      },
+    );
     Overlay.of(context).insert(_itemMenuOverlay!);
   }
 
   void _closeGstOverlay() {
     _gstOverlay?.remove();
     _gstOverlay = null;
+    _closeGstinOverlay();
   }
 
   void _closePoOverlay() {
@@ -1235,7 +1296,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _vendorSidebarOverlay = null;
   }
 
-  void _showItemDetailsSidebar(PurchaseOrderItem row, {int initialTabIndex = 0}) {
+  void _showItemDetailsSidebar(
+    PurchaseOrderItem row, {
+    int initialTabIndex = 0,
+  }) {
     if (_itemDetailsSidebarOverlay != null) {
       _itemDetailsSidebarOverlay!.remove();
       _itemDetailsSidebarOverlay = null;
@@ -1267,7 +1331,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               child: _ItemDetailsSidebar(
                 row: row,
                 initialTabIndex: initialTabIndex,
-                vendorName: selectedVendor.id.isNotEmpty ? selectedVendor.displayName : null,
+                vendorName: selectedVendor.id.isNotEmpty
+                    ? selectedVendor.displayName
+                    : null,
                 onClose: () {
                   _itemDetailsSidebarOverlay?.remove();
                   _itemDetailsSidebarOverlay = null;
@@ -1421,7 +1487,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final itemsState = ref.watch(itemsControllerProvider);
     final allItems = itemsState.items;
 
-    final activePriceLists = ref.watch(activePriceListsProvider)
+    final activePriceLists = ref
+        .watch(activePriceListsProvider)
         .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
         .toList();
 
@@ -1512,7 +1579,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
 
     if (_isHydratingInitialOrder) {
-      return const Scaffold(backgroundColor: Colors.white, body: FormSkeleton());
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: FormSkeleton(),
+      );
     }
 
     return ZerpaiLayout(
@@ -1521,7 +1591,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       useHorizontalPadding: false,
       useTopPadding: false,
       footer: _stickyFooter(poState),
-      
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1557,7 +1627,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               )
                               .name,
                           hint: 'Select Warehouse',
-                          onChanged: (id) => notifier.updateField(warehouseId: id),
+                          onChanged: (id) =>
+                              notifier.updateField(warehouseId: id),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: _fieldBorder),
                           itemBuilder: (id, isSelected, isHovered) =>
@@ -1593,9 +1664,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         link: _priceListTooltipLink,
                         child: MouseRegion(
                           onEnter: (_) {
-                            final pl = activePriceLists.where((pl) => pl.id == _selectedPriceListId).firstOrNull;
+                            final pl = activePriceLists
+                                .where((pl) => pl.id == _selectedPriceListId)
+                                .firstOrNull;
                             if (pl != null) {
-                              _showValueTooltip(context, pl.name, _priceListTooltipLink);
+                              _showValueTooltip(
+                                context,
+                                pl.name,
+                                _priceListTooltipLink,
+                              );
                             }
                           },
                           onExit: (_) => _hideValueTooltip(),
@@ -1604,19 +1681,35 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             child: FormDropdown<PriceList>(
                               height: 32,
                               hint: 'Select Price List',
-                              value: activePriceLists.where((pl) => pl.id == _selectedPriceListId).firstOrNull,
+                              value: activePriceLists
+                                  .where((pl) => pl.id == _selectedPriceListId)
+                                  .firstOrNull,
                               items: activePriceLists,
                               displayStringForValue: (pl) => pl.name,
                               onChanged: (pl) {
                                 if (pl != null) {
                                   setState(() => _selectedPriceListId = pl.id);
-                                  final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
-                                  final state = ref.read(purchaseOrderFormNotifierProvider);
+                                  final notifier = ref.read(
+                                    purchaseOrderFormNotifierProvider.notifier,
+                                  );
+                                  final state = ref.read(
+                                    purchaseOrderFormNotifierProvider,
+                                  );
                                   for (int i = 0; i < state.items.length; i++) {
                                     final item = state.items[i];
                                     if (!item.isHeader) {
-                                      final newRate = pl.calculatePrice(item.productId, item.rate, quantity: item.quantity);
-                                      notifier.updateItem(i, item.copyWith(rate: newRate, priceListId: pl.id));
+                                      final newRate = pl.calculatePrice(
+                                        item.productId,
+                                        item.rate,
+                                        quantity: item.quantity,
+                                      );
+                                      notifier.updateItem(
+                                        i,
+                                        item.copyWith(
+                                          rate: newRate,
+                                          priceListId: pl.id,
+                                        ),
+                                      );
                                     }
                                   }
                                 }
@@ -1693,7 +1786,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               ),
                             ),
                             items: () {
-                              final expenseAccounts = availableAccounts.where((node) {
+                              final expenseAccounts = availableAccounts.where((
+                                node,
+                              ) {
                                 final group = node.accountGroup.toLowerCase();
                                 return group.contains('expense');
                               }).toList();
@@ -1701,31 +1796,37 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               // Group by accountType
                               final Map<String, List<AccountNode>> grouped = {};
                               for (final acc in expenseAccounts) {
-                                grouped.putIfAbsent(acc.accountType, () => []).add(acc);
+                                grouped
+                                    .putIfAbsent(acc.accountType, () => [])
+                                    .add(acc);
                               }
 
                               // Flatten with headers
                               final List<AccountNode> flattened = [];
                               grouped.forEach((type, list) {
                                 // Add a header dummy node
-                                flattened.add(AccountNode(
-                                  id: 'header_$type',
-                                  systemAccountName: type,
-                                  userAccountName: type,
-                                  name: type,
-                                  accountGroup: 'Expenses',
-                                  accountType: type,
-                                  isSystem: false,
-                                  isDeletable: false,
-                                  isActive: false,
-                                ));
+                                flattened.add(
+                                  AccountNode(
+                                    id: 'header_$type',
+                                    systemAccountName: type,
+                                    userAccountName: type,
+                                    name: type,
+                                    accountGroup: 'Expenses',
+                                    accountType: type,
+                                    isSystem: false,
+                                    isDeletable: false,
+                                    isActive: false,
+                                  ),
+                                );
                                 flattened.addAll(list);
                               });
                               return flattened;
                             }(),
                             displayStringForValue: (a) => a.name.isEmpty
                                 ? 'Select Discount Account'
-                                : (a.id.startsWith('header_') ? a.accountType : a.name),
+                                : (a.id.startsWith('header_')
+                                      ? a.accountType
+                                      : a.name),
                             onChanged: (v) {
                               if (v != null && !v.id.startsWith('header_')) {
                                 notifier.updateField(discountAccountId: v.id);
@@ -1736,10 +1837,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             itemBuilder: (account, isSelected, isHovered) {
                               if (account.id.startsWith('header_')) {
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   child: Text(
                                     account.accountType,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6B7280), fontSize: 12),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF6B7280),
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 );
                               }
@@ -1772,8 +1880,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: SizedBox(
-                        width: poState.discountLevel == 'item' ? 1365.0 : 1190.0,
-                        child: _itemTableSection(allItems, availableAccounts, poState),
+                        width: poState.discountLevel == 'item'
+                            ? 1365.0
+                            : 1190.0,
+                        child: _itemTableSection(
+                          allItems,
+                          availableAccounts,
+                          poState,
+                        ),
                       ),
                     ),
                   ),
@@ -1921,7 +2035,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         readOnly: poState.isNumberingAuto || _isEditMode,
                         onChanged: (poState.isNumberingAuto || _isEditMode)
                             ? null
-                            : (value) => notifier.updateField(orderNumber: value),
+                            : (value) =>
+                                  notifier.updateField(orderNumber: value),
                         suffixIcon: IconButton(
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -1932,7 +2047,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           ),
                           onPressed: _isEditMode
                               ? null
-                              : () => _showNumberingPreferences(poState, notifier),
+                              : () => _showNumberingPreferences(
+                                  poState,
+                                  notifier,
+                                ),
                         ),
                       ),
                     ),
@@ -1941,10 +2059,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               ),
               const SizedBox(height: 16),
               // ── Reference ──
-              _zFormRow(
-                label: 'Reference#',
-                child: _zField(_refCtrl),
-              ),
+              _zFormRow(label: 'Reference#', child: _zField(_refCtrl)),
               const SizedBox(height: 16),
               // ── Date ──
               _zFormRow(
@@ -2028,8 +2143,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   hint: 'Choose the shipment preference or type to add',
                   allowCustomValue: true,
                   iconSize: 12,
-                  onChanged: (v) =>
-                      notifier.updateField(shipmentPreference: v),
+                  onChanged: (v) => notifier.updateField(shipmentPreference: v),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: _fieldBorder),
                   itemBuilder: (item, isSelected, isHovered) =>
@@ -2352,7 +2466,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     allowClear: hasVendor && !_isEditMode,
                     menuWidth: 480,
                     onChanged: (v) =>
-                        notifier.updateField(vendorId: v?.id ?? ''),
+                        notifier.updateField(
+                          vendorId: v?.id ?? '',
+                          destinationOfSupply: (v?.sourceOfSupply != null && v!.sourceOfSupply!.isNotEmpty)
+                              ? v.sourceOfSupply!
+                              : '',
+                        ),
                     showSettings: !_isEditMode,
                     settingsLabel: 'New Vendor',
                     settingsIcon: LucideIcons.plus,
@@ -2471,14 +2590,65 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   ) {
     showDialog(
       context: context,
-      builder: (ctx) => _AdvancedVendorSearchDialog(
+      builder: (ctx) => AdvancedVendorSearchDialog(
         vendors: vendors,
         onSelect: (v) {
-          notifier.updateField(vendorId: v.id);
+          notifier.updateField(
+            vendorId: v.id,
+            destinationOfSupply: (v.sourceOfSupply != null && v.sourceOfSupply!.isNotEmpty)
+                ? v.sourceOfSupply!
+                : '',
+          );
           Navigator.pop(ctx);
         },
       ),
     );
+  }
+
+  void _toggleGstinOverlay(Vendor vendor, String activeGstin) {
+    if (_gstinOverlay != null) {
+      _closeGstinOverlay();
+      return;
+    }
+
+    final overlay = Overlay.of(context);
+    _gstinOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeGstinOverlay,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _gstinLink,
+            showWhenUnlinked: false,
+            offset: const Offset(-200, 20), // Align properly above/below the GSTIN pencil
+            child: Material(
+              color: Colors.transparent,
+              child: _GstinPopover(
+                gstin: activeGstin,
+                onUpdate: (newGstin) {
+                  final updatedVendor = vendor.copyWith(gstin: newGstin);
+                  ref
+                      .read(vendorProvider.notifier)
+                      .updateVendor(vendor.id, updatedVendor);
+                  _closeGstinOverlay();
+                },
+                onCancel: _closeGstinOverlay,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    overlay.insert(_gstinOverlay!);
+  }
+
+  void _closeGstinOverlay() {
+    _gstinOverlay?.remove();
+    _gstinOverlay = null;
   }
 
   void _showTaxPreferencesDialog(Vendor vendor) {
@@ -2572,7 +2742,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         const SizedBox(height: 16),
         // Indented section for addresses and GST
         Padding(
-          padding: const EdgeInsets.only(left: 32 + 180 + 24), // Align with input fields
+          padding: const EdgeInsets.only(
+            left: 32 + 180 + 24,
+          ), // Align with input fields
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2846,19 +3018,25 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 'GSTIN: ',
                 style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
               ),
-              Text(
-                vendor.gstin!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827),
+              CompositedTransformTarget(
+                link: _gstinLink,
+                child: Text(
+                  vendor.gstin!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
-                LucideIcons.pencil,
-                size: 11,
-                color: Color(0xFF2563EB),
+              InkWell(
+                onTap: () => _toggleGstinOverlay(vendor, vendor.gstin!),
+                child: const Icon(
+                  LucideIcons.pencil,
+                  size: 11,
+                  color: Color(0xFF2563EB),
+                ),
               ),
             ],
           ),
@@ -2904,47 +3082,47 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ),
                 )
               : warehouseAsync.hasError
-                  ? Container(
-                      height: 32,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.3),
-                        ),
-                        borderRadius: BorderRadius.circular(3),
-                        color: Colors.red.withValues(alpha: 0.05),
-                      ),
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(
-                        'Error loading data: ${warehouseAsync.error}',
-                        style: const TextStyle(fontSize: 12, color: Colors.red),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    )
-                  : FormDropdown<WarehouseModel>(
-                      height: 32,
-                      value: wh.id.isEmpty ? null : wh,
-                      items: liveWarehouses,
-                      hint: liveWarehouses.isEmpty
-                          ? 'No warehouses found'
-                          : 'Select Warehouse',
-                      showSearch: true,
-                      displayStringForValue: (w) => w.name,
-                      searchStringForValue: (w) =>
-                          '${w.name} ${w.city ?? ''} ${w.state ?? ''} ${w.addressStreet1 ?? ''}',
-                      itemBuilder: (w, isSelected, isHovered) =>
-                          _buildWarehouseDropdownItem(w, isSelected, isHovered),
-                      onChanged: (w) {
-                        notifier.updateField(
-                          deliveryWarehouseId: w?.id ?? '',
-                          deliveryAddressName: w?.name ?? '',
-                        );
-                        _deliveryNameCtrl.text = w?.name ?? '';
-                      },
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: _fieldBorder),
+              ? Container(
+                  height: 32,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
                     ),
+                    borderRadius: BorderRadius.circular(3),
+                    color: Colors.red.withValues(alpha: 0.05),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    'Error loading data: ${warehouseAsync.error}',
+                    style: const TextStyle(fontSize: 12, color: Colors.red),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )
+              : FormDropdown<WarehouseModel>(
+                  height: 32,
+                  value: wh.id.isEmpty ? null : wh,
+                  items: liveWarehouses,
+                  hint: liveWarehouses.isEmpty
+                      ? 'No warehouses found'
+                      : 'Select Warehouse',
+                  showSearch: true,
+                  displayStringForValue: (w) => w.name,
+                  searchStringForValue: (w) =>
+                      '${w.name} ${w.city ?? ''} ${w.state ?? ''} ${w.addressStreet1 ?? ''}',
+                  itemBuilder: (w, isSelected, isHovered) =>
+                      _buildWarehouseDropdownItem(w, isSelected, isHovered),
+                  onChanged: (w) {
+                    notifier.updateField(
+                      deliveryWarehouseId: w?.id ?? '',
+                      deliveryAddressName: w?.name ?? '',
+                    );
+                    _deliveryNameCtrl.text = w?.name ?? '';
+                  },
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: _fieldBorder),
+                ),
           if (wh.id.isNotEmpty) ...[
             const SizedBox(height: 14),
             _warehouseAddressCard(wh, notifier, liveWarehouses, poState),
@@ -3193,12 +3371,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           child: Stack(
             children: [
               const SizedBox.expand(),
-          CompositedTransformFollower(
-            link: _deliveryChangeLink,
-            showWhenUnlinked: false,
-            targetAnchor: Alignment.bottomLeft,
-            followerAnchor: Alignment.topLeft,
-            offset: const Offset(0, 4),
+              CompositedTransformFollower(
+                link: _deliveryChangeLink,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: const Offset(0, 4),
                 child: GestureDetector(
                   onTap: () {},
                   child: Material(
@@ -3424,8 +3602,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 color: hov
                                     ? Colors.white
                                     : (isSelected
-                                        ? Colors.black
-                                        : (line.isBold ? primaryCol : secondaryCol)),
+                                          ? Colors.black
+                                          : (line.isBold
+                                                ? primaryCol
+                                                : secondaryCol)),
                                 fontWeight: line.isBold
                                     ? FontWeight.w700
                                     : FontWeight.normal,
@@ -3528,7 +3708,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
                     borderRadius: const BorderRadius.only(
@@ -3589,15 +3772,26 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           ),
                           onSelected: (val) {
                             setState(() {
-                              if (val == 'stock') _showStockInfo = !_showStockInfo;
-                              if (val == 'recent') _showRecentTransactions = !_showRecentTransactions;
-                              if (val == 'pricelist') _showPriceList = !_showPriceList;
+                              if (val == 'stock')
+                                _showStockInfo = !_showStockInfo;
+                              if (val == 'recent')
+                                _showRecentTransactions =
+                                    !_showRecentTransactions;
+                              if (val == 'pricelist')
+                                _showPriceList = !_showPriceList;
                               if (val == 'hide_all') {
-                                final allHidden = poState.items.asMap().keys.every((i) => _hiddenDetails.contains(i));
+                                final allHidden = poState.items
+                                    .asMap()
+                                    .keys
+                                    .every((i) => _hiddenDetails.contains(i));
                                 if (allHidden) {
                                   _hiddenDetails.clear();
                                 } else {
-                                  for (int i = 0; i < poState.items.length; i++) {
+                                  for (
+                                    int i = 0;
+                                    i < poState.items.length;
+                                    i++
+                                  ) {
                                     _hiddenDetails.add(i);
                                   }
                                 }
@@ -3605,14 +3799,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             });
                           },
                           itemBuilder: (_) {
-                            final allHidden = poState.items.asMap().keys.every((i) => _hiddenDetails.contains(i));
+                            final allHidden = poState.items.asMap().keys.every(
+                              (i) => _hiddenDetails.contains(i),
+                            );
                             return [
                               PopupMenuItem(
                                 value: 'stock',
                                 padding: EdgeInsets.zero,
                                 height: 40,
                                 child: _HoverableToggleMenuItem(
-                                  _showStockInfo ? 'Hide Available Stock' : 'Show Available Stock',
+                                  _showStockInfo
+                                      ? 'Hide Available Stock'
+                                      : 'Show Available Stock',
                                   _showStockInfo,
                                 ),
                               ),
@@ -3621,7 +3819,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 padding: EdgeInsets.zero,
                                 height: 40,
                                 child: _HoverableToggleMenuItem(
-                                  _showRecentTransactions ? 'Hide Recent Transactions' : 'Show Recent Transactions',
+                                  _showRecentTransactions
+                                      ? 'Hide Recent Transactions'
+                                      : 'Show Recent Transactions',
                                   _showRecentTransactions,
                                 ),
                               ),
@@ -3630,7 +3830,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 padding: EdgeInsets.zero,
                                 height: 40,
                                 child: _HoverableToggleMenuItem(
-                                  _showPriceList ? 'Hide Price List' : 'Show Price List',
+                                  _showPriceList
+                                      ? 'Hide Price List'
+                                      : 'Show Price List',
                                   _showPriceList,
                                 ),
                               ),
@@ -3639,14 +3841,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 padding: EdgeInsets.zero,
                                 height: 40,
                                 child: _HoverableToggleMenuItem(
-                                  allHidden ? 'Show All Additional Information' : 'Hide All Additional Information',
+                                  allHidden
+                                      ? 'Show All Additional Information'
+                                      : 'Hide All Additional Information',
                                   !allHidden,
                                 ),
                               ),
                             ];
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF3F4F6),
                               borderRadius: BorderRadius.circular(4),
@@ -3655,8 +3862,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(LucideIcons.settings, size: 16, color: Color(0xFF4B5563)),
-                                Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF4B5563)),
+                                Icon(
+                                  LucideIcons.settings,
+                                  size: 16,
+                                  color: Color(0xFF4B5563),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  size: 16,
+                                  color: Color(0xFF4B5563),
+                                ),
                               ],
                             ),
                           ),
@@ -3675,7 +3890,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50.withValues(alpha: 0.4),
                     borderRadius: const BorderRadius.only(
@@ -3693,7 +3911,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         onTap: () {
                           showDialog(
                             context: context,
-                            builder: (context) => _buildUpdateAccountDialog(availableAccounts),
+                            builder: (context) =>
+                                _buildUpdateAccountDialog(availableAccounts),
                           );
                         },
                       ),
@@ -3751,11 +3970,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             child: Transform.scale(
                               scale: 0.85,
                               child: Checkbox(
-                                value: _selectedRows.length == poState.items.length && poState.items.isNotEmpty,
+                                value:
+                                    _selectedRows.length ==
+                                        poState.items.length &&
+                                    poState.items.isNotEmpty,
                                 onChanged: (v) {
                                   setState(() {
                                     if (v == true) {
-                                      for (int i = 0; i < poState.items.length; i++) {
+                                      for (
+                                        int i = 0;
+                                        i < poState.items.length;
+                                        i++
+                                      ) {
                                         _selectedRows.add(i);
                                       }
                                     } else {
@@ -3763,8 +3989,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     }
                                   });
                                 },
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                side: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
                                 activeColor: const Color(0xFF2563EB),
                               ),
                             ),
@@ -3789,7 +4019,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             isSearchVisible: _showSearchItemDetails,
                             onToggle: () {
                               setState(() {
-                                _showSearchItemDetails = !_showSearchItemDetails;
+                                _showSearchItemDetails =
+                                    !_showSearchItemDetails;
                                 if (!_showSearchItemDetails) {
                                   _itemDetailsSearchCtrl.clear();
                                   _itemDetailsSearchQuery = '';
@@ -3803,7 +4034,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       Expanded(
                         flex: 5,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: const Text(
                             'ACCOUNT',
                             style: TextStyle(
@@ -3818,7 +4052,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       Expanded(
                         flex: 5,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: const Text(
                             'QUANTITY',
                             textAlign: TextAlign.right,
@@ -3834,7 +4071,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       Expanded(
                         flex: 5,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -3848,12 +4088,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               ),
                               const SizedBox(width: 4),
                               ZTooltip(
-                                message: 'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
+                                message:
+                                    'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
                                 child: SvgPicture.string(
                                   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
                                   width: 13,
                                   height: 13,
-                                  colorFilter: const ColorFilter.mode(Color(0xFF0088FF), BlendMode.srcIn),
+                                  colorFilter: const ColorFilter.mode(
+                                    Color(0xFF0088FF),
+                                    BlendMode.srcIn,
+                                  ),
                                 ),
                               ),
                             ],
@@ -3865,7 +4109,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         Expanded(
                           flex: 5,
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
@@ -3878,7 +4125,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Icon(Icons.info_outline, size: 12, color: _hintColor.withValues(alpha: 0.7)),
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 12,
+                                  color: _hintColor.withValues(alpha: 0.7),
+                                ),
                               ],
                             ),
                           ),
@@ -3888,7 +4139,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       Expanded(
                         flex: 5,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -3902,8 +4156,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               ),
                               const SizedBox(width: 4),
                               ZTooltip(
-                                message: 'Applicable tax for the items. You can select a tax rate from the list.',
-                                child: const Icon(LucideIcons.helpCircle, size: 14, color: Color(0xFF9CA3AF)),
+                                message:
+                                    'Applicable tax for the items. You can select a tax rate from the list.',
+                                child: const Icon(
+                                  LucideIcons.helpCircle,
+                                  size: 14,
+                                  color: Color(0xFF9CA3AF),
+                                ),
                               ),
                             ],
                           ),
@@ -3913,7 +4172,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       Expanded(
                         flex: 4,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: const Text(
                             'AMOUNT',
                             textAlign: TextAlign.right,
@@ -3949,7 +4211,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               if (newIndex > oldIndex) newIndex -= 1;
               notifier.reorderItems(oldIndex, newIndex);
               setState(() {
-                if (oldIndex < _rowControllers.length && newIndex <= _rowControllers.length) {
+                if (oldIndex < _rowControllers.length &&
+                    newIndex <= _rowControllers.length) {
                   final ctrl = _rowControllers.removeAt(oldIndex);
                   _rowControllers.insert(newIndex, ctrl);
                 }
@@ -4016,7 +4279,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        _addRowController(initialQty: 1.0, initialRate: 0.0, initialDiscount: 0.0);
+                        _addRowController(
+                          initialQty: 1.0,
+                          initialRate: 0.0,
+                          initialDiscount: 0.0,
+                        );
                         notifier.addItemRow();
                       },
                       child: const Padding(
@@ -4024,22 +4291,38 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.add_circle_outline, size: 14, color: Color(0xFF2563EB)),
+                            Icon(
+                              Icons.add_circle_outline,
+                              size: 14,
+                              color: Color(0xFF2563EB),
+                            ),
                             SizedBox(width: 6),
                             Text(
                               'Add New Row',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF374151), fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF374151),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
+                    Container(
+                      width: 1,
+                      height: 20,
+                      color: const Color(0xFFE5E7EB),
+                    ),
                     GestureDetector(
                       onTap: () => _toggleAddRowDropdown(notifier),
                       child: const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(Icons.keyboard_arrow_down, size: 16, color: Color(0xFF6B7280)),
+                        child: Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 16,
+                          color: Color(0xFF6B7280),
+                        ),
                       ),
                     ),
                   ],
@@ -4081,11 +4364,20 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     children: [
                       const Text(
                         'Bulk Update Line Items',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827), fontFamily: 'Inter'),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111827),
+                          fontFamily: 'Inter',
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(LucideIcons.x, size: 16, color: Color(0xFFEF4444)),
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: Color(0xFFEF4444),
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () => context.pop(),
@@ -4103,17 +4395,30 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: _zRadio('Percentage (%)', 'percentage', discountType, (v) => setModalState(() => discountType = v)),
+                              child: _zRadio(
+                                'Percentage (%)',
+                                'percentage',
+                                discountType,
+                                (v) => setModalState(() => discountType = v),
+                              ),
                             ),
                             Expanded(
-                              child: _zRadio('Flat (₹)', 'fixed', discountType, (v) => setModalState(() => discountType = v)),
+                              child: _zRadio(
+                                'Flat (₹)',
+                                'fixed',
+                                discountType,
+                                (v) => setModalState(() => discountType = v),
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
                         Container(
                           height: 32,
-                          decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE5E7EB)), borderRadius: BorderRadius.circular(4)),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                           child: Row(
                             children: [
                               Expanded(
@@ -4122,10 +4427,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   textAlign: TextAlign.right,
                                   decoration: const InputDecoration(
                                     border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
                                     hintText: '0',
                                   ),
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                 ),
                               ),
                               Container(
@@ -4133,10 +4443,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 height: 32,
                                 alignment: Alignment.center,
                                 decoration: const BoxDecoration(
-                                  border: Border(left: BorderSide(color: Color(0xFFE5E7EB))),
+                                  border: Border(
+                                    left: BorderSide(color: Color(0xFFE5E7EB)),
+                                  ),
                                   color: Color(0xFFF9FAFB),
                                 ),
-                                child: Text(discountType == 'percentage' ? '%' : '₹', style: const TextStyle(color: Color(0xFF6B7280))),
+                                child: Text(
+                                  discountType == 'percentage' ? '%' : '₹',
+                                  style: const TextStyle(
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -4152,24 +4469,42 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
-                          final currentState = ref.read(purchaseOrderFormNotifierProvider);
+                          final notifier = ref.read(
+                            purchaseOrderFormNotifierProvider.notifier,
+                          );
+                          final currentState = ref.read(
+                            purchaseOrderFormNotifierProvider,
+                          );
                           final discVal = double.tryParse(controller.text) ?? 0;
                           for (int i = 0; i < currentState.items.length; i++) {
                             final item = currentState.items[i];
                             if (item.productId.isNotEmpty && !item.isHeader) {
-                              notifier.updateItem(i, item.copyWith(discount: discVal, discountType: discountType));
+                              notifier.updateItem(
+                                i,
+                                item.copyWith(
+                                  discount: discVal,
+                                  discountType: discountType,
+                                ),
+                              );
                             }
                           }
-                          setState(() { _bulkMode = false; _selectedRows.clear(); });
+                          setState(() {
+                            _bulkMode = false;
+                            _selectedRows.clear();
+                          });
                           context.pop();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF10B981),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
                         child: const Text('Update'),
                       ),
@@ -4179,8 +4514,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF374151),
                           side: const BorderSide(color: Color(0xFFD1D5DB)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
                         child: const Text('Cancel'),
                       ),
@@ -4194,8 +4534,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       ),
     );
   }
-
-
 
   Widget _buildItemRow(
     int index,
@@ -4216,16 +4554,23 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
     final ctrl = _rowControllers[index];
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
-    final activePriceLists = ref.watch(activePriceListsProvider)
+    final activePriceLists = ref
+        .watch(activePriceListsProvider)
         .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
         .toList();
 
     final currentPriceListId = item.priceListId;
-    final currentPriceList = activePriceLists.where((pl) => pl.id == currentPriceListId).firstOrNull;
+    final currentPriceList = activePriceLists
+        .where((pl) => pl.id == currentPriceListId)
+        .firstOrNull;
     bool notIncluded = false;
     if (currentPriceList != null && item.productId.isNotEmpty) {
       if (currentPriceList.priceListType == 'individual_items') {
-        notIncluded = !(currentPriceList.itemRates?.any((r) => r.itemId == item.productId) ?? false);
+        notIncluded =
+            !(currentPriceList.itemRates?.any(
+                  (r) => r.itemId == item.productId,
+                ) ??
+                false);
       }
     } else if (currentPriceListId != null && item.productId.isNotEmpty) {
       notIncluded = true;
@@ -4276,7 +4621,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       child: TextField(
                         controller: _headerTextControllers[index],
                         onChanged: (v) => notifier.updateHeaderText(index, v),
@@ -4287,7 +4635,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         ),
                         decoration: InputDecoration(
                           hintText: 'Add New Header',
-                          hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
+                          hintStyle: const TextStyle(
+                            color: _hintColor,
+                            fontSize: 13,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(3),
                             borderSide: const BorderSide(color: _fieldBorder),
@@ -4298,7 +4649,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(3),
-                            borderSide: const BorderSide(color: Color(0xFF0088FF)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF0088FF),
+                            ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -4379,9 +4732,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                                side: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
                                 activeColor: const Color(0xFF2563EB),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                                 visualDensity: VisualDensity.compact,
                               ),
                             ),
@@ -4440,18 +4796,27 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       child: FormDropdown<Item>(
                                         value: null,
                                         height: 32,
-                                        hint: 'Type or click to select an item.',
+                                        hint:
+                                            'Type or click to select an item.',
                                         hideBorderDefault: true,
                                         items: allItems.take(20).toList(),
-                                        displayStringForValue: (i) => i.productName,
+                                        displayStringForValue: (i) =>
+                                            i.productName,
                                         onSearch: (query) async {
                                           if (query.length < 2) return [];
                                           return await ref
-                                              .read(itemsControllerProvider.notifier)
+                                              .read(
+                                                itemsControllerProvider
+                                                    .notifier,
+                                              )
                                               .searchProductsNoState(query);
                                         },
-                                        itemBuilder: (i, isSelected, isHovered) =>
-                                            _buildStandardLookupRow(
+                                        itemBuilder:
+                                            (
+                                              i,
+                                              isSelected,
+                                              isHovered,
+                                            ) => _buildStandardLookupRow(
                                               i.productName,
                                               isSelected,
                                               isHovered,
@@ -4463,40 +4828,66 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                           if (i == null) return;
 
                                           int targetIndex = index;
-                                          if (index > 0 && poState.items[index - 1].productId.isEmpty) {
-                                            _rowControllers[index - 1].dispose();
+                                          if (index > 0 &&
+                                              poState
+                                                  .items[index - 1]
+                                                  .productId
+                                                  .isEmpty) {
+                                            _rowControllers[index - 1]
+                                                .dispose();
                                             _rowControllers.removeAt(index - 1);
                                             notifier.removeItemRow(index - 1);
                                             targetIndex = index - 1;
                                           }
 
-                                          final targetCtrl = _rowControllers[targetIndex];
-                                          targetCtrl.nameCtrl.text = i.productName;
+                                          final targetCtrl =
+                                              _rowControllers[targetIndex];
+                                          targetCtrl.nameCtrl.text =
+                                              i.productName;
                                           targetCtrl.qtyCtrl.text = '1.00';
                                           targetCtrl.rateCtrl.text =
                                               (i.costPrice ?? 0.0) % 1 == 0
-                                                  ? (i.costPrice ?? 0.0).toInt().toString()
-                                                  : (i.costPrice ?? 0.0).toStringAsFixed(2);
+                                              ? (i.costPrice ?? 0.0)
+                                                    .toInt()
+                                                    .toString()
+                                              : (i.costPrice ?? 0.0)
+                                                    .toStringAsFixed(2);
                                           targetCtrl.discountCtrl.text = '0.00';
-                                          targetCtrl.descCtrl.text = i.purchaseDescription ?? '';
+                                          targetCtrl.descCtrl.text =
+                                              i.purchaseDescription ?? '';
 
                                           await notifier.selectProductForItem(
                                             targetIndex,
                                             i,
                                             poState.warehouseId ?? '',
                                           );
-                                          
+
                                           if (_selectedPriceListId != null) {
-                                            final currentState = ref.read(purchaseOrderFormNotifierProvider);
-                                            final updatedItem = currentState.items[targetIndex];
-                                            final pl = activePriceLists.where((p) => p.id == _selectedPriceListId).firstOrNull;
+                                            final currentState = ref.read(
+                                              purchaseOrderFormNotifierProvider,
+                                            );
+                                            final updatedItem =
+                                                currentState.items[targetIndex];
+                                            final pl = activePriceLists
+                                                .where(
+                                                  (p) =>
+                                                      p.id ==
+                                                      _selectedPriceListId,
+                                                )
+                                                .firstOrNull;
                                             if (pl != null) {
-                                              final newRate = pl.calculatePrice(i.id ?? '', i.costPrice ?? 0.0, quantity: 1.0);
-                                              targetCtrl.rateCtrl.text = newRate.toStringAsFixed(2);
+                                              final newRate = pl.calculatePrice(
+                                                i.id ?? '',
+                                                i.costPrice ?? 0.0,
+                                                quantity: 1.0,
+                                              );
+                                              targetCtrl.rateCtrl.text = newRate
+                                                  .toStringAsFixed(2);
                                               notifier.updateItem(
                                                 targetIndex,
                                                 updatedItem.copyWith(
-                                                  priceListId: _selectedPriceListId,
+                                                  priceListId:
+                                                      _selectedPriceListId,
                                                   rate: newRate,
                                                 ),
                                               );
@@ -4520,12 +4911,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       ),
                                     );
                                     return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         // Top row: image + name + ⋯ + ×
                                         Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             // Image thumbnail (32×32)
                                             Container(
@@ -4533,21 +4926,37 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                               height: 32,
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFF3F4F6),
-                                                border: Border.all(color: _borderCol),
-                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(
+                                                  color: _borderCol,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
-                                              child: selectedItem.primaryImageUrl != null &&
-                                                      selectedItem.primaryImageUrl!.isNotEmpty
+                                              child:
+                                                  selectedItem.primaryImageUrl !=
+                                                          null &&
+                                                      selectedItem
+                                                          .primaryImageUrl!
+                                                          .isNotEmpty
                                                   ? ClipRRect(
-                                                      borderRadius: BorderRadius.circular(4),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            4,
+                                                          ),
                                                       child: Image.network(
-                                                        selectedItem.primaryImageUrl!,
+                                                        selectedItem
+                                                            .primaryImageUrl!,
                                                         fit: BoxFit.cover,
-                                                        errorBuilder: (_, __, ___) => const Icon(
-                                                          LucideIcons.image,
-                                                          size: 16,
-                                                          color: _hintColor,
-                                                        ),
+                                                        errorBuilder:
+                                                            (
+                                                              _,
+                                                              __,
+                                                              ___,
+                                                            ) => const Icon(
+                                                              LucideIcons.image,
+                                                              size: 16,
+                                                              color: _hintColor,
+                                                            ),
                                                       ),
                                                     )
                                                   : const Icon(
@@ -4559,90 +4968,142 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   // Name row
                                                   Row(
-                                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .center,
                                                     children: [
                                                       Expanded(
                                                         child: Text(
-                                                          item.productName ?? '',
+                                                          item.productName ??
+                                                              '',
                                                           style: const TextStyle(
                                                             fontSize: 13,
-                                                            fontWeight: FontWeight.w600,
+                                                            fontWeight:
+                                                                FontWeight.w600,
                                                             color: _textPrimary,
                                                           ),
-                                                          overflow: TextOverflow.ellipsis,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                         ),
                                                       ),
                                                       // ⋯ menu
                                                       Theme(
-                                                        data: Theme.of(context).copyWith(hoverColor: Colors.transparent),
+                                                        data: Theme.of(context)
+                                                            .copyWith(
+                                                              hoverColor: Colors
+                                                                  .transparent,
+                                                            ),
                                                         child: PopupMenuButton<String>(
-                                                          tooltip: 'Show more actions',
-                                                          padding: EdgeInsets.zero,
-                                                          offset: const Offset(0, 30),
+                                                          tooltip:
+                                                              'Show more actions',
+                                                          padding:
+                                                              EdgeInsets.zero,
+                                                          offset: const Offset(
+                                                            0,
+                                                            30,
+                                                          ),
                                                           shape: RoundedRectangleBorder(
-                                                            borderRadius: BorderRadius.circular(8),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  8,
+                                                                ),
                                                           ),
                                                           onSelected: (v) {
                                                             if (v == 'edit') {
                                                               final selectedItem = allItems.firstWhere(
-                                                                (i) => i.id == item.productId,
+                                                                (i) =>
+                                                                    i.id ==
+                                                                    item.productId,
                                                                 orElse: () => Item(
-                                                                  productName: item.productName ?? '',
-                                                                  itemCode: item.itemCode ?? '',
-                                                                  type: item.productType ?? 'goods',
+                                                                  productName:
+                                                                      item.productName ??
+                                                                      '',
+                                                                  itemCode:
+                                                                      item.itemCode ??
+                                                                      '',
+                                                                  type:
+                                                                      item.productType ??
+                                                                      'goods',
                                                                   unitId: '',
                                                                 ),
                                                               );
                                                               showDialog(
-                                                                context: context,
+                                                                context:
+                                                                    context,
                                                                 builder: (ctx) => SalesItemQuickEditDialog(
-                                                                  item: selectedItem,
+                                                                  item:
+                                                                      selectedItem,
                                                                   onUpdated: (newItem) {
                                                                     setState(() {
                                                                       notifier.selectProductForItem(
                                                                         index,
                                                                         newItem,
-                                                                        poState.warehouseId ?? '',
+                                                                        poState.warehouseId ??
+                                                                            '',
                                                                       );
-                                                                      ctrl.rateCtrl.text = newItem.costPrice?.toString() ?? '0';
+                                                                      ctrl.rateCtrl.text =
+                                                                          newItem
+                                                                              .costPrice
+                                                                              ?.toString() ??
+                                                                          '0';
                                                                     });
                                                                   },
                                                                 ),
                                                               );
                                                             }
-                                                            if (v == 'details') {
-                                                              _showItemDetailsSidebar(item, initialTabIndex: 0);
+                                                            if (v ==
+                                                                'details') {
+                                                              _showItemDetailsSidebar(
+                                                                item,
+                                                                initialTabIndex:
+                                                                    0,
+                                                              );
                                                             }
                                                           },
                                                           itemBuilder: (ctx) {
                                                             return [
-                                                              PopupMenuItem<String>(
+                                                              PopupMenuItem<
+                                                                String
+                                                              >(
                                                                 value: 'edit',
-                                                                padding: EdgeInsets.zero,
+                                                                padding:
+                                                                    EdgeInsets
+                                                                        .zero,
                                                                 height: 40,
                                                                 child: _MenuHoverItem(
-                                                                  icon: LucideIcons.pencil,
-                                                                  label: 'Edit Item',
+                                                                  icon: LucideIcons
+                                                                      .pencil,
+                                                                  label:
+                                                                      'Edit Item',
                                                                 ),
                                                               ),
-                                                              PopupMenuItem<String>(
-                                                                value: 'details',
-                                                                padding: EdgeInsets.zero,
+                                                              PopupMenuItem<
+                                                                String
+                                                              >(
+                                                                value:
+                                                                    'details',
+                                                                padding:
+                                                                    EdgeInsets
+                                                                        .zero,
                                                                 height: 40,
                                                                 child: _MenuHoverItem(
-                                                                  icon: LucideIcons.shoppingBag,
-                                                                  label: 'View Item Details',
+                                                                  icon: LucideIcons
+                                                                      .shoppingBag,
+                                                                  label:
+                                                                      'View Item Details',
                                                                 ),
                                                               ),
                                                             ];
                                                           },
                                                           child: _buildIconAction(
-                                                            LucideIcons.moreHorizontal,
+                                                            LucideIcons
+                                                                .moreHorizontal,
                                                             size: 10,
                                                             onTap: null,
                                                           ),
@@ -4654,11 +5115,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                         LucideIcons.x,
                                                         size: 10,
                                                         onTap: () {
-                                                          notifier.clearItemRow(index);
+                                                          notifier.clearItemRow(
+                                                            index,
+                                                          );
                                                           ctrl.nameCtrl.clear();
-                                                          ctrl.qtyCtrl.text = '1.00';
-                                                          ctrl.rateCtrl.text = '0';
-                                                          ctrl.discountCtrl.text = '0';
+                                                          ctrl.qtyCtrl.text =
+                                                              '1.00';
+                                                          ctrl.rateCtrl.text =
+                                                              '0';
+                                                          ctrl
+                                                                  .discountCtrl
+                                                                  .text =
+                                                              '0';
                                                           ctrl.descCtrl.clear();
                                                           setState(() {});
                                                         },
@@ -4666,40 +5134,56 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                     ],
                                                   ),
                                                   // Description (if not hidden)
-                                                  if (!_hiddenDetails.contains(index)) ...[
+                                                  if (!_hiddenDetails.contains(
+                                                    index,
+                                                  )) ...[
                                                     const SizedBox(height: 4),
                                                     Container(
                                                       height: 72,
                                                       decoration: BoxDecoration(
-                                                        border: Border.all(color: _borderCol),
-                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(
+                                                          color: _borderCol,
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              4,
+                                                            ),
                                                       ),
                                                       child: TextField(
-                                                        controller: ctrl.descCtrl,
+                                                        controller:
+                                                            ctrl.descCtrl,
                                                         maxLines: null,
                                                         expands: true,
-                                                        textAlignVertical: TextAlignVertical.top,
+                                                        textAlignVertical:
+                                                            TextAlignVertical
+                                                                .top,
                                                         style: const TextStyle(
                                                           fontSize: 12,
                                                           color: _textPrimary,
                                                         ),
                                                         decoration: const InputDecoration(
                                                           isDense: true,
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                            horizontal: 8,
-                                                            vertical: 6,
-                                                          ),
-                                                          border: InputBorder.none,
-                                                          hintText: 'Add a description to your item',
+                                                          contentPadding:
+                                                              EdgeInsets.symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 6,
+                                                              ),
+                                                          border:
+                                                              InputBorder.none,
+                                                          hintText:
+                                                              'Add a description to your item',
                                                           hintStyle: TextStyle(
                                                             fontSize: 12,
                                                             color: _hintColor,
                                                           ),
                                                         ),
-                                                        onChanged: (v) => notifier.updateItem(
-                                                          index,
-                                                          item.copyWith(description: v),
-                                                        ),
+                                                        onChanged: (v) =>
+                                                            notifier.updateItem(
+                                                              index,
+                                                              item.copyWith(
+                                                                description: v,
+                                                              ),
+                                                            ),
                                                       ),
                                                     ),
                                                   ],
@@ -4708,10 +5192,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                   Row(
                                                     children: [
                                                       _infoChip(
-                                                        (item.productType ?? 'goods').toUpperCase(),
-                                                        item.productType == 'service'
-                                                            ? const Color(0xFF7C3AED)
-                                                            : const Color(0xFF0088FF),
+                                                        (item.productType ??
+                                                                'goods')
+                                                            .toUpperCase(),
+                                                        item.productType ==
+                                                                'service'
+                                                            ? const Color(
+                                                                0xFF7C3AED,
+                                                              )
+                                                            : const Color(
+                                                                0xFF0088FF,
+                                                              ),
                                                         Colors.white,
                                                       ),
                                                       const SizedBox(width: 8),
@@ -4723,30 +5214,47 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                         ),
                                                       ),
                                                       CompositedTransformTarget(
-                                                        link: _rowControllers[index].hsnLink,
+                                                        link:
+                                                            _rowControllers[index]
+                                                                .hsnLink,
                                                         child: GestureDetector(
-                                                          onTap: () => _showHsnEditDialog(
-                                                            context,
-                                                            index,
-                                                            item,
-                                                            _rowControllers[index].hsnLink,
-                                                          ),
+                                                          onTap: () =>
+                                                              _showHsnEditDialog(
+                                                                context,
+                                                                index,
+                                                                item,
+                                                                _rowControllers[index]
+                                                                    .hsnLink,
+                                                              ),
                                                           child: Row(
-                                                            mainAxisSize: MainAxisSize.min,
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
                                                             children: [
                                                               const Icon(
-                                                                Icons.edit_outlined,
+                                                                Icons
+                                                                    .edit_outlined,
                                                                 size: 12,
-                                                                color: Color(0xFF0088FF),
+                                                                color: Color(
+                                                                  0xFF0088FF,
+                                                                ),
                                                               ),
-                                                              const SizedBox(width: 3),
+                                                              const SizedBox(
+                                                                width: 3,
+                                                              ),
                                                               Text(
-                                                                (item.hsnCode != null && item.hsnCode!.isNotEmpty)
+                                                                (item.hsnCode !=
+                                                                            null &&
+                                                                        item
+                                                                            .hsnCode!
+                                                                            .isNotEmpty)
                                                                     ? item.hsnCode!
                                                                     : 'Update',
                                                                 style: const TextStyle(
                                                                   fontSize: 11,
-                                                                  color: Color(0xFF0088FF),
+                                                                  color: Color(
+                                                                    0xFF0088FF,
+                                                                  ),
                                                                 ),
                                                               ),
                                                             ],
@@ -4788,28 +5296,52 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   );
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
+                                  ),
                                   child: Row(
                                     children: [
                                       Expanded(
                                         child: () {
-                                          final displayAccountName = (item.accountName != null && item.accountName!.isNotEmpty)
+                                          final displayAccountName =
+                                              (item.accountName != null &&
+                                                  item.accountName!.isNotEmpty)
                                               ? item.accountName!
-                                              : (item.accountId != null && item.accountId!.isNotEmpty
-                                                  ? availableAccounts.where((a) => a.id == item.accountId).firstOrNull?.name
-                                                  : null) ?? 'Select Account';
-                                          final isPlaceholder = displayAccountName == 'Select Account';
+                                              : (item.accountId != null &&
+                                                            item
+                                                                .accountId!
+                                                                .isNotEmpty
+                                                        ? availableAccounts
+                                                              .where(
+                                                                (a) =>
+                                                                    a.id ==
+                                                                    item.accountId,
+                                                              )
+                                                              .firstOrNull
+                                                              ?.name
+                                                        : null) ??
+                                                    'Select Account';
+                                          final isPlaceholder =
+                                              displayAccountName ==
+                                              'Select Account';
                                           return Text(
                                             displayAccountName,
                                             style: TextStyle(
                                               fontSize: 13,
-                                              color: isPlaceholder ? _hintColor : _textPrimary,
+                                              color: isPlaceholder
+                                                  ? _hintColor
+                                                  : _textPrimary,
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           );
                                         }(),
                                       ),
-                                      const Icon(Icons.arrow_drop_down, size: 16, color: _hintColor),
+                                      const Icon(
+                                        Icons.arrow_drop_down,
+                                        size: 16,
+                                        color: _hintColor,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -4847,13 +5379,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   );
                                 },
                               ),
-                              if (item.productId.isNotEmpty && _showStockInfo) ...[
+                              if (item.productId.isNotEmpty &&
+                                  _showStockInfo) ...[
                                 const SizedBox(height: 4),
                                 Builder(
                                   builder: (context) {
-                                    final warehouses = ref.watch(warehousesProvider).value ?? [];
+                                    final warehouses =
+                                        ref.watch(warehousesProvider).value ??
+                                        [];
                                     final wh = warehouses.firstWhere(
-                                      (w) => w.id == (poState.warehouseId ?? ''),
+                                      (w) =>
+                                          w.id == (poState.warehouseId ?? ''),
                                       orElse: () => warehouses.isNotEmpty
                                           ? warehouses.first
                                           : WarehouseModel(
@@ -4863,54 +5399,75 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                             ),
                                     );
                                     final isSOH = _stockView == 'stockOnHand';
-                                    final stockValue = isSOH ? item.stockOnHand : item.availableStock;
+                                    final stockValue = isSOH
+                                        ? item.stockOnHand
+                                        : item.availableStock;
                                     return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
                                           '${isSOH ? 'Stock on Hand:' : 'Available for Sale:'} ${stockValue?.toStringAsFixed(0) ?? '0'} pcs',
                                           textAlign: TextAlign.right,
-                                          style: const TextStyle(fontSize: 10, color: _textPrimary),
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: _textPrimary,
+                                          ),
                                         ),
                                         if (wh.name.isNotEmpty)
                                           Row(
-                                              mainAxisAlignment: MainAxisAlignment.end,
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                const Icon(
-                                                  LucideIcons.home,
-                                                  size: 12,
-                                                  color: Color(0xFF2563EB),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Flexible(
-                                                  child: WarehouseHoverPopover(
-                                                    warehouseName: wh.name,
-                                                    selectedView: 'Available for Sale',
-                                                    onViewChanged: (v) {},
-                                                    onWarehouseChanged: (newName) {
-                                                      final selectedWh = warehouses.firstWhere((w) => w.name == newName);
-                                                      ref
-                                                          .read(purchaseOrderFormNotifierProvider.notifier)
-                                                          .updateField(warehouseId: selectedWh.id);
-                                                    },
-                                                    child: Text(
-                                                      wh.name.toUpperCase(),
-                                                      textAlign: TextAlign.right,
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: Color(0xFF2563EB),
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                      maxLines: 2,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const Icon(
+                                                LucideIcons.home,
+                                                size: 12,
+                                                color: Color(0xFF2563EB),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Flexible(
+                                                child: WarehouseHoverPopover(
+                                                  warehouseName: wh.name,
+                                                  selectedView:
+                                                      'Available for Sale',
+                                                  onViewChanged: (v) {},
+                                                  onWarehouseChanged: (newName) {
+                                                    final selectedWh =
+                                                        warehouses.firstWhere(
+                                                          (w) =>
+                                                              w.name == newName,
+                                                        );
+                                                    ref
+                                                        .read(
+                                                          purchaseOrderFormNotifierProvider
+                                                              .notifier,
+                                                        )
+                                                        .updateField(
+                                                          warehouseId:
+                                                              selectedWh.id,
+                                                        );
+                                                  },
+                                                  child: Text(
+                                                    wh.name.toUpperCase(),
+                                                    textAlign: TextAlign.right,
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Color(0xFF2563EB),
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                     ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    maxLines: 2,
                                                   ),
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
+                                          ),
                                       ],
                                     );
                                   },
@@ -4939,7 +5496,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               _gridField(
                                 ctrl.rateCtrl,
                                 focusNode: ctrl.rateFocus,
-                                onSubmitted: (_) => _handleRateCalculation(ctrl),
+                                onSubmitted: (_) =>
+                                    _handleRateCalculation(ctrl),
                                 hint: '0',
                                 textAlign: TextAlign.right,
                                 valueFontWeight: FontWeight.w400,
@@ -4954,7 +5512,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               if (item.productId.isNotEmpty) ...[
                                 if (_showPriceList || _showRecentTransactions)
                                   const SizedBox(height: 4),
-                                if (_showPriceList && activePriceLists.isNotEmpty)
+                                if (_showPriceList &&
+                                    activePriceLists.isNotEmpty)
                                   Transform.translate(
                                     offset: Offset(notIncluded ? 0 : 0, 0),
                                     child: Stack(
@@ -4965,8 +5524,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                           Transform.translate(
                                             offset: const Offset(-24, 0),
                                             child: ZTooltip(
-                                              message: "This item has not been included in the selected price list. So, the item's default rate has been used.",
-                                              child: const Icon(LucideIcons.alertCircle, size: 16, color: Colors.orange),
+                                              message:
+                                                  "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                              child: const Icon(
+                                                LucideIcons.alertCircle,
+                                                size: 16,
+                                                color: Colors.orange,
+                                              ),
                                             ),
                                           ),
                                         CompositedTransformTarget(
@@ -4974,9 +5538,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                           child: MouseRegion(
                                             onEnter: (_) {
                                               if (item.priceListId != null) {
-                                                final pl = activePriceLists.where((pl) => pl.id == item.priceListId).firstOrNull;
+                                                final pl = activePriceLists
+                                                    .where(
+                                                      (pl) =>
+                                                          pl.id ==
+                                                          item.priceListId,
+                                                    )
+                                                    .firstOrNull;
                                                 if (pl != null) {
-                                                  _showValueTooltip(context, pl.name, ctrl.priceListLink);
+                                                  _showValueTooltip(
+                                                    context,
+                                                    pl.name,
+                                                    ctrl.priceListLink,
+                                                  );
                                                 }
                                               }
                                             },
@@ -4988,50 +5562,100 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                 padding: EdgeInsets.zero,
                                                 child: Container(
                                                   height: 32,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                      ),
                                                   decoration: BoxDecoration(
-                                                    border: Border.all(color: _borderCol),
-                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(
+                                                      color: _borderCol,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
                                                     color: Colors.white,
                                                   ),
                                                   child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
                                                     children: [
                                                       Expanded(
                                                         child: Text(
-                                                          item.priceListId != null
-                                                              ? activePriceLists.where((pl) => pl.id == item.priceListId).firstOrNull?.name ?? 'Apply Price List'
+                                                          item.priceListId !=
+                                                                  null
+                                                              ? activePriceLists
+                                                                        .where(
+                                                                          (
+                                                                            pl,
+                                                                          ) =>
+                                                                              pl.id ==
+                                                                              item.priceListId,
+                                                                        )
+                                                                        .firstOrNull
+                                                                        ?.name ??
+                                                                    'Apply Price List'
                                                               : 'Apply Price List',
-                                                          style: const TextStyle(fontSize: 11, color: _textPrimary, fontFamily: 'Inter'),
-                                                          overflow: TextOverflow.ellipsis,
+                                                          style: const TextStyle(
+                                                            fontSize: 11,
+                                                            color: _textPrimary,
+                                                            fontFamily: 'Inter',
+                                                          ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                         ),
                                                       ),
-                                                      const Icon(Icons.arrow_drop_down, size: 16, color: _hintColor),
+                                                      const Icon(
+                                                        Icons.arrow_drop_down,
+                                                        size: 16,
+                                                        color: _hintColor,
+                                                      ),
                                                     ],
                                                   ),
                                                 ),
                                                 onSelected: (pl) {
-                                                  setState(() => _selectedPriceListId = pl.id);
-                                                  final newRate = pl.calculatePrice(
-                                                    item.productId,
-                                                    item.rate,
-                                                    quantity: item.quantity,
+                                                  setState(
+                                                    () => _selectedPriceListId =
+                                                        pl.id,
                                                   );
-                                                  ctrl.rateCtrl.text = newRate.toStringAsFixed(2);
+                                                  final newRate = pl
+                                                      .calculatePrice(
+                                                        item.productId,
+                                                        item.rate,
+                                                        quantity: item.quantity,
+                                                      );
+                                                  ctrl.rateCtrl.text = newRate
+                                                      .toStringAsFixed(2);
                                                   notifier.updateItem(
                                                     index,
-                                                    item.copyWith(rate: newRate, priceListId: pl.id),
+                                                    item.copyWith(
+                                                      rate: newRate,
+                                                      priceListId: pl.id,
+                                                    ),
                                                   );
                                                 },
-                                                itemBuilder: (context) => activePriceLists
-                                                    .where((pl) => pl.transactionType == 'purchase')
-                                                    .map(
-                                                      (pl) => PopupMenuItem(
-                                                        value: pl,
-                                                        child: Text(pl.name, style: const TextStyle(fontSize: 12)),
-                                                      ),
-                                                    )
-                                                    .toList(),
+                                                itemBuilder: (context) =>
+                                                    activePriceLists
+                                                        .where(
+                                                          (pl) =>
+                                                              pl.transactionType ==
+                                                              'purchase',
+                                                        )
+                                                        .map(
+                                                          (pl) => PopupMenuItem(
+                                                            value: pl,
+                                                            child: Text(
+                                                              pl.name,
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        12,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                        )
+                                                        .toList(),
                                               ),
                                             ),
                                           ),
@@ -5043,11 +5667,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   Builder(
                                     builder: (innerContext) => GestureDetector(
                                       onTap: () {
-                                        _showItemDetailsSidebar(item, initialTabIndex: 2);
+                                        _showItemDetailsSidebar(
+                                          item,
+                                          initialTabIndex: 2,
+                                        );
                                       },
                                       child: const Text(
                                         'Recent Transactions',
-                                        style: TextStyle(fontSize: 10, color: Color(0xFF0088FF)),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF0088FF),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -5099,14 +5729,23 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       child: CompositedTransformTarget(
                                         link: ctrl.discountTypeLink,
                                         child: GestureDetector(
-                                          onTap: () => _showDiscountMenu(context, index, item),
+                                          onTap: () => _showDiscountMenu(
+                                            context,
+                                            index,
+                                            item,
+                                          ),
                                           child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                            ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 Text(
-                                                  item.discountType == 'percentage' ? '%' : '₹',
+                                                  item.discountType ==
+                                                          'percentage'
+                                                      ? '%'
+                                                      : '₹',
                                                   style: const TextStyle(
                                                     fontSize: 12,
                                                     color: _textPrimary,
@@ -5114,7 +5753,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                   ),
                                                 ),
                                                 const SizedBox(width: 2),
-                                                const Icon(Icons.arrow_drop_down, size: 14, color: _hintColor),
+                                                const Icon(
+                                                  Icons.arrow_drop_down,
+                                                  size: 14,
+                                                  color: _hintColor,
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -5141,11 +5784,21 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               link: ctrl.taxLink,
                               child: GestureDetector(
                                 onTap: () {
-                                  final itemsState = ref.read(itemsControllerProvider);
-                                  _showTaxPopover(context, index, item, itemsState.taxGroups);
+                                  final itemsState = ref.read(
+                                    itemsControllerProvider,
+                                  );
+                                  _showTaxPopover(
+                                    context,
+                                    index,
+                                    item,
+                                    itemsState.taxGroups,
+                                  );
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
+                                  ),
                                   child: Row(
                                     children: [
                                       Expanded(
@@ -5155,7 +5808,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                               : '${item.taxName} [${item.taxRate}%]',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: item.taxId == null ? _hintColor : _textPrimary,
+                                            color: item.taxId == null
+                                                ? _hintColor
+                                                : _textPrimary,
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -5169,11 +5824,21 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                             );
                                           },
                                           child: const Padding(
-                                            padding: EdgeInsets.symmetric(horizontal: 4),
-                                            child: Icon(Icons.close, size: 14, color: _dangerRed),
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                            ),
+                                            child: Icon(
+                                              Icons.close,
+                                              size: 14,
+                                              color: _dangerRed,
+                                            ),
                                           ),
                                         ),
-                                      const Icon(Icons.arrow_drop_down, size: 16, color: _hintColor),
+                                      const Icon(
+                                        Icons.arrow_drop_down,
+                                        size: 16,
+                                        color: _hintColor,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -5189,7 +5854,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       Expanded(
                         flex: 4,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: Text(
@@ -5230,7 +5898,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         ),
                         child: const Padding(
                           padding: EdgeInsets.all(4),
-                          child: Icon(LucideIcons.moreVertical, size: 16, color: _hintColor),
+                          child: Icon(
+                            LucideIcons.moreVertical,
+                            size: 16,
+                            color: _hintColor,
+                          ),
                         ),
                       ),
                     ),
@@ -5262,7 +5934,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF3F4F6),
                     border: Border(
@@ -5290,8 +5965,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _taxOverlay?.remove();
     _taxOverlay = null;
   }
-
-
 
   void _closeHsnOverlay() {
     _hsnOverlay?.remove();
@@ -5395,8 +6068,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     Overlay.of(context).insert(_taxOverlay!);
   }
 
-
-
   // ── HSN Edit Dialog ──────────────────────────────────────────────────────────
   void _showHsnEditDialog(
     BuildContext context,
@@ -5498,7 +6169,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 onChanged: onChanged,
                 onSubmitted: onSubmitted,
                 textAlign: textAlign,
-                style: TextStyle(fontSize: 14, fontWeight: valueFontWeight, color: _textPrimary),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: valueFontWeight,
+                  color: _textPrimary,
+                ),
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: hint,
@@ -5518,32 +6193,203 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-
   Widget _vLine() =>
       const VerticalDivider(width: 1, color: _borderCol, thickness: 1);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // REPORTING TAGS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  void _closeReportingTagsOverlay() {
+    _reportingTagsOverlay?.remove();
+    _reportingTagsOverlay = null;
+  }
+
+  void _toggleReportingTagsOverlay(BuildContext context, dynamic row, LayerLink link) {
+    if (_reportingTagsOverlay != null) {
+      _closeReportingTagsOverlay();
+      return;
+    }
+
+    final Map<String, String> localTags = Map<String, String>.from(row.reportingTags);
+
+    _reportingTagsOverlay = OverlayEntry(
+      builder: (ctx) {
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _closeReportingTagsOverlay,
+          child: Stack(
+            children: [
+              Positioned.fill(child: Container(color: Colors.transparent)),
+              CompositedTransformFollower(
+                link: link,
+                showWhenUnlinked: false,
+                offset: const Offset(0, 32),
+                child: Material(
+                  elevation: 8,
+                  shadowColor: Colors.black26,
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  child: StatefulBuilder(
+                    builder: (context, setOverlayState) {
+                      return Container(
+                        width: 320,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Reporting Tags',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1F2937),
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: _closeReportingTagsOverlay,
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'ADGF',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF374151),
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            FormDropdown<String>(
+                              value: localTags['adgf'],
+                              items: const ['None', 'Option 1', 'Option 2'],
+                              hint: 'None',
+                              height: 32,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setOverlayState(() {
+                                    localTags['adgf'] = val;
+                                  });
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Schedule',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF374151),
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            FormDropdown<String>(
+                              value: localTags['schedule'],
+                              items: const ['None', 'Option 1', 'Option 2'],
+                              hint: 'None',
+                              height: 32,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setOverlayState(() {
+                                    localTags['schedule'] = val;
+                                  });
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Demo advanced reporting tag',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF374151),
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            FormDropdown<String>(
+                              value: localTags['demo_tag'],
+                              items: const ['None', 'Option 1', 'Option 2'],
+                              hint: 'None',
+                              height: 32,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setOverlayState(() {
+                                    localTags['demo_tag'] = val;
+                                  });
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                ZButton.secondary(
+                                  label: 'Cancel',
+                                  onPressed: _closeReportingTagsOverlay,
+                                ),
+                                const SizedBox(width: 8),
+                                ZButton.primary(
+                                  label: 'Update',
+                                  onPressed: () {
+                                    setState(() {
+                                      row.reportingTags['adgf'] = localTags['adgf']!;
+                                      row.reportingTags['schedule'] = localTags['schedule']!;
+                                      row.reportingTags['demo_tag'] = localTags['demo_tag']!;
+                                    });
+                                    _closeReportingTagsOverlay();
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_reportingTagsOverlay!);
+  }
+
   Widget _itemExpandedProperties(
     int index,
     PurchaseOrderItem item,
     List<AccountNode> accounts,
     PurchaseOrderState poState,
   ) {
-
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Reporting Tags
         _propertyButton(
+          link: _rowControllers[index].reportingTagsLink,
           iconWidget: SvgPicture.string(
             '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"/><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"/><circle cx="10.5" cy="6.5" r=".5" fill="#22C55E"/></svg>',
             width: 16,
             height: 16,
           ),
           label: 'Reporting Tags',
-          onTap: () {},
+          onTap: () => _toggleReportingTagsOverlay(context, _rowControllers[index], _rowControllers[index].reportingTagsLink),
         ),
       ],
     );
@@ -5604,8 +6450,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
     return content;
   }
-
-
 
   void _showAccountMenu(
     BuildContext context,
@@ -5741,11 +6585,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             _discountRow(poState),
           ],
           const SizedBox(height: 12),
-          // TDS / TCS
-          _tdsTcsRow(poState),
-          const SizedBox(height: 12),
-          // Adjustment
-          _adjustmentRow(),
+          // TDS / TCS dynamically swapped with Adjustment based on selected type
+          if (poState.tdsTcsType != 'tcs') ...[
+            _tdsTcsRow(poState),
+            const SizedBox(height: 12),
+            _adjustmentRow(),
+          ] else ...[
+            _adjustmentRow(),
+            const SizedBox(height: 12),
+            _tdsTcsRow(poState),
+          ],
           const Divider(height: 32),
           // Total
           _totalLine(
@@ -5859,27 +6708,37 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           link: _totalTaxAmountLink,
           child: GestureDetector(
             onTap: () => _showTaxAmountEditPopover(context, poState),
-            child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF0088FF)),
+            child: const Icon(
+              Icons.edit_outlined,
+              size: 14,
+              color: Color(0xFF0088FF),
+            ),
           ),
         ),
       ],
     );
   }
 
-  void _showTaxAmountEditPopover(BuildContext context, PurchaseOrderState poState) {
+  void _showTaxAmountEditPopover(
+    BuildContext context,
+    PurchaseOrderState poState,
+  ) {
     _closeTaxAmountOverlay();
-    
-    final Map<String, ({String name, double rate, double amount})> initialTaxes = {};
-    for (final item in poState.items.where((i) => !i.isHeader && i.taxAmount > 0)) {
+
+    final Map<String, ({String name, double rate, double amount})>
+    initialTaxes = {};
+    for (final item in poState.items.where(
+      (i) => !i.isHeader && i.taxAmount > 0,
+    )) {
       final key = item.taxId ?? item.taxName ?? '';
       if (key.isEmpty) continue;
-      
+
       final half = item.taxRate / 2;
       final halfAmt = item.taxAmount / 2;
       final halfStr = half % 1 == 0
           ? half.toInt().toString()
           : half.toStringAsFixed(1);
-          
+
       // Add CGST
       final cgstKey = '${key}_CGST';
       if (initialTaxes.containsKey(cgstKey)) {
@@ -5896,7 +6755,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           amount: halfAmt,
         );
       }
-      
+
       // Add SGST
       final sgstKey = '${key}_SGST';
       if (initialTaxes.containsKey(sgstKey)) {
@@ -6003,9 +6862,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       children: [
                         Text(
                           s.discountType == 'percentage' ? '%' : '₹',
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937)),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF1F2937),
+                          ),
                         ),
-                        const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF1F2937)),
+                        const Icon(
+                          Icons.arrow_drop_down,
+                          size: 16,
+                          color: Color(0xFF1F2937),
+                        ),
                       ],
                     ),
                   ),
@@ -6025,10 +6891,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }
 
   OverlayEntry? _discountTypeOverlay;
-  
+
   void _showDiscountTypePopover() {
     _closeDiscountTypeOverlay();
-    
+
     final poState = ref.read(purchaseOrderFormNotifierProvider);
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
 
@@ -6098,7 +6964,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   Widget _tdsTcsRow(PurchaseOrderState s) {
     return RadioGroup<String>(
       groupValue: s.tdsTcsType ?? 'none',
-      onChanged: (_) {},
+      onChanged: (val) {
+        if (val != null) {
+          ref
+              .read(purchaseOrderFormNotifierProvider.notifier)
+              .updateField(tdsTcsType: val);
+        }
+      },
       child: Row(
         children: [
           Row(
@@ -6138,10 +7010,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          const Text(
-            '- 0.00',
+          Text(
+            s.tdsTcsType == 'tcs' ? '0.00' : '- 0.00',
             textAlign: TextAlign.right,
-            style: TextStyle(fontSize: 13),
+            style: const TextStyle(fontSize: 13),
           ),
         ],
       ),
@@ -6157,7 +7029,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           onExit: (_) => setState(() => _isAdjustmentLabelHovered = false),
           child: CustomPaint(
             foregroundPainter: _DashedBorderPainter(
-              color: (_adjustmentLabelFocusNode.hasFocus || _isAdjustmentLabelHovered)
+              color:
+                  (_adjustmentLabelFocusNode.hasFocus ||
+                      _isAdjustmentLabelHovered)
                   ? const Color(0xFF0088FF)
                   : const Color(0xFFCBD5E1),
               isFocused: _adjustmentLabelFocusNode.hasFocus,
@@ -6614,7 +7488,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         file.name,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isHovered ? Colors.white : const Color(0xFF374151),
+                          color: isHovered
+                              ? Colors.white
+                              : const Color(0xFF374151),
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -6644,7 +7520,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       });
                       _attachmentListOverlay?.markNeedsBuild();
                     },
-                    child: const Icon(LucideIcons.trash, size: 14, color: Colors.white),
+                    child: const Icon(
+                      LucideIcons.trash,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                   ),
               ],
             ),
@@ -6673,8 +7553,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         }
 
         // Check file size (5MB = 5 * 1024 * 1024 bytes)
-        final oversizedFiles =
-            result.files.where((f) => f.size > 5 * 1024 * 1024).toList();
+        final oversizedFiles = result.files
+            .where((f) => f.size > 5 * 1024 * 1024)
+            .toList();
         if (oversizedFiles.isNotEmpty) {
           ZerpaiToast.error(
             context,
@@ -6801,7 +7682,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       },
     );
   }
-
 
   // ═══════════════════════════════════════════════════════════════════════════
   // STICKY FOOTER (Zoho style)
@@ -7076,9 +7956,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                         .toList(),
                                     hint: 'Select State',
                                     showSearch: true,
-                                    onChanged: (v) => setDialogState(
-                                      () => stateValue = v,
-                                    ),
+                                    onChanged: (v) =>
+                                        setDialogState(() => stateValue = v),
                                   ),
                           ),
                           _addressFormRow('ZIP/Postal Code', _zField(pinCtrl)),
@@ -7129,7 +8008,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       children: [
                         ElevatedButton(
                           onPressed: () {
-                            final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+                            final notifier = ref.read(
+                              purchaseOrderFormNotifierProvider.notifier,
+                            );
                             final data = <String, dynamic>{
                               'attention': attCtrl.text.trim(),
                               'street1': s1Ctrl.text.trim(),
@@ -7158,7 +8039,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             } else {
                               // New Address - Update the current PO state delivery address
                               notifier.updateField(
-                                deliveryAddressName: attCtrl.text.trim().isNotEmpty
+                                deliveryAddressName:
+                                    attCtrl.text.trim().isNotEmpty
                                     ? attCtrl.text.trim()
                                     : 'New Address',
                                 // We can store the rest in a temporary address field or just set the name
@@ -7227,10 +8109,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF4B5563),
-                ),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
               ),
             ),
           ),
@@ -7239,8 +8118,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       ),
     );
   }
-
-
 
   Widget _buildHeaderSearchField({
     required String label,
@@ -7318,7 +8195,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               onChanged('');
               onToggle();
             },
-            child: const Icon(LucideIcons.x, size: 12, color: Color(0xFF6B7280)),
+            child: const Icon(
+              LucideIcons.x,
+              size: 12,
+              color: Color(0xFF6B7280),
+            ),
           ),
         ],
       ),
@@ -7350,7 +8231,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
 
     return Container(
-      padding: EdgeInsets.only(left: 12 + indentation, right: 12, top: 8, bottom: 8),
+      padding: EdgeInsets.only(
+        left: 12 + indentation,
+        right: 12,
+        top: 8,
+        bottom: 8,
+      ),
       color: bg,
       child: Row(
         children: [
@@ -7408,7 +8294,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               child: Material(
                 color: Colors.transparent,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(4),
@@ -7464,40 +8353,40 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       width: double.infinity,
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: Row(
-      crossAxisAlignment: crossStart
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 180,
-          child: RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isRequired ? _requiredLabel : _labelColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (isRequired)
-                  const TextSpan(
-                    text: '*',
+        crossAxisAlignment: crossStart
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 180,
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: label,
                     style: TextStyle(
-                      color: _requiredLabel,
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      color: isRequired ? _requiredLabel : _labelColor,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-              ],
+                  if (isRequired)
+                    const TextSpan(
+                      text: '*',
+                      style: TextStyle(
+                        color: _requiredLabel,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-        SizedBox(width: gap),
-        Expanded(child: child),
-      ],
-    ),
+          SizedBox(width: gap),
+          Expanded(child: child),
+        ],
+      ),
     );
   }
 
@@ -7580,8 +8469,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       ),
     );
   }
-
-
 
   Widget _zRadio(
     String label,
@@ -8342,437 +9229,7 @@ class _BulkAddModalState extends State<_BulkAddModal> {
   }
 }
 
-class _AdvancedVendorSearchDialog extends StatefulWidget {
-  final List<Vendor> vendors;
-  final Function(Vendor) onSelect;
 
-  const _AdvancedVendorSearchDialog({
-    required this.vendors,
-    required this.onSelect,
-  });
-
-  @override
-  State<_AdvancedVendorSearchDialog> createState() =>
-      _AdvancedVendorSearchDialogState();
-}
-
-class _AdvancedVendorSearchDialogState
-    extends State<_AdvancedVendorSearchDialog> {
-  String _selectedCategory = 'Vendor Number';
-  final TextEditingController _searchCtrl = TextEditingController();
-  List<Vendor> _filteredVendors = [];
-
-  final List<String> _categories = [
-    'Vendor Number',
-    'Display Name',
-    'Company Name',
-    'First Name',
-    'Last Name',
-    'Email',
-    'Phone',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _filteredVendors = widget.vendors;
-  }
-
-  void _onSearch() {
-    setState(() {
-      final query = _searchCtrl.text.toLowerCase();
-      if (query.isEmpty) {
-        _filteredVendors = widget.vendors;
-        return;
-      }
-
-      _filteredVendors = widget.vendors.where((v) {
-        switch (_selectedCategory) {
-          case 'Vendor Number':
-            return (v.vendorNumber ?? '').toLowerCase().contains(query);
-          case 'Display Name':
-            return v.displayName.toLowerCase().contains(query);
-          case 'Company Name':
-            return (v.companyName ?? '').toLowerCase().contains(query);
-          case 'First Name':
-            return (v.firstName ?? '').toLowerCase().contains(query);
-          case 'Last Name':
-            return (v.lastName ?? '').toLowerCase().contains(query);
-          case 'Email':
-            return (v.email ?? '').toLowerCase().contains(query);
-          case 'Phone':
-            return (v.phone ?? '').toLowerCase().contains(query);
-          default:
-            return false;
-        }
-      }).toList();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Padding(
-        padding: EdgeInsets.zero,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 1000,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Advanced Vendor Search',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textBody,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, size: 20),
-                        splashRadius: 20,
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 580,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFD1D5DB)),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              children: [
-                                Theme(
-                                  data: Theme.of(context).copyWith(
-                                    hoverColor: Colors.transparent,
-                                    splashColor: Colors.transparent,
-                                  ),
-                                  child: PopupMenuButton<String>(
-                                    padding: EdgeInsets.zero,
-                                    onSelected: (val) =>
-                                        setState(() => _selectedCategory = val),
-                                    itemBuilder: (ctx) => _categories
-                                        .map((c) => PopupMenuItem(
-                                              value: c,
-                                              padding: EdgeInsets.zero,
-                                              height: 38,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 16),
-                                                child: Text(
-                                                  c,
-                                                  style:
-                                                      const TextStyle(fontSize: 13),
-                                                ),
-                                              ),
-                                            ))
-                                        .toList(),
-                                    child: Container(
-                                      width: 190,
-                                      height: 32,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12),
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.bgLight,
-                                        borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(5),
-                                          bottomLeft: Radius.circular(5),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              _selectedCategory,
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                color: AppTheme.textBody,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          const Icon(
-                                            Icons.arrow_drop_down,
-                                            color: AppTheme.textSecondary,
-                                            size: 20,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const VerticalDivider(
-                                  width: 1,
-                                  color: Color(0xFFD1D5DB),
-                                ),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _searchCtrl,
-                                    onChanged: (_) => _onSearch(),
-                                    onSubmitted: (_) => _onSearch(),
-                                    style: const TextStyle(fontSize: 14),
-                                    decoration: const InputDecoration(
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                      ),
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF16A34A),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              minimumSize: const Size(90, 32),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                            onPressed: _onSearch,
-                            child: const Text(
-                              'Search',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        color: AppTheme.bgLight,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        child: const Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                'VENDOR NAME',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 5,
-                              child: Text(
-                                'EMAIL',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                'COMPANY NAME',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                'PHONE',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 400),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: _filteredVendors.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                          itemBuilder: (ctx, index) {
-                            final v = _filteredVendors[index];
-                            return InkWell(
-                              onTap: () {
-                                widget.onSelect(v);
-                                Navigator.pop(context);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 14,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            v.displayName,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppTheme.primaryBlueDark,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          if (v.vendorNumber != null)
-                                            Text(
-                                              v.vendorNumber!,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: AppTheme.textSecondary,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 5,
-                                      child: Text(
-                                        v.email ?? '',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.textSubtle,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 3,
-                                      child: Text(
-                                        v.companyName ?? '-',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.textSubtle,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        v.phone ?? v.mobilePhone ?? '-',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.textSubtle,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      // Pagination Footer
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                border:
-                                    Border.all(color: const Color(0xFFE5E7EB)),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    LucideIcons.chevronLeft,
-                                    size: 16,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    '1 - ${_filteredVendors.length}',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF111827),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Icon(
-                                    LucideIcons.chevronRight,
-                                    size: 16,
-                                    color: Colors.grey[400],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _ConfigureTaxPreferencesDialog extends StatefulWidget {
   final String initialTreatment;
@@ -10032,7 +10489,9 @@ class _WarehouseStockDialogState extends ConsumerState<_WarehouseStockDialog> {
                     height: 32,
                     value: _stockView,
                     items: const ['stockOnHand', 'availableForSale'],
-                    displayStringForValue: (v) => v == 'stockOnHand' ? 'Stock on Hand' : 'Available for Sale',
+                    displayStringForValue: (v) => v == 'stockOnHand'
+                        ? 'Stock on Hand'
+                        : 'Available for Sale',
                     onChanged: (v) {
                       if (v == null) return;
                       setState(() => _stockView = v);
@@ -10042,7 +10501,9 @@ class _WarehouseStockDialogState extends ConsumerState<_WarehouseStockDialog> {
                     border: Border.all(color: _blue),
                     itemBuilder: (val, isSelected, isHovered) =>
                         _buildStandardLookupRow(
-                          val == 'stockOnHand' ? 'Stock on Hand' : 'Available for Sale',
+                          val == 'stockOnHand'
+                              ? 'Stock on Hand'
+                              : 'Available for Sale',
                           isSelected,
                           isHovered,
                         ),
@@ -10288,14 +10749,14 @@ class _WarehouseStockDialogState extends ConsumerState<_WarehouseStockDialog> {
     Color check = const Color(0xFF2563EB);
 
     if (isHovered) {
-      bg = const Color(0xFF0088FF);
+      bg = const Color(0xFF3B82F6);
       text = Colors.white;
       subtext = Colors.white70;
       check = Colors.white;
     } else if (isSelected) {
-      bg = const Color(0xFFEFF6FF);
-      text = const Color(0xFF2563EB);
-      subtext = const Color(0xFF2563EB).withValues(alpha: 0.7);
+      bg = const Color(0xFFF3F4F6);
+      text = const Color(0xFF111827);
+      subtext = const Color(0xFF6B7280);
       check = const Color(0xFF2563EB);
     }
 
@@ -10323,10 +10784,7 @@ class _WarehouseStockDialogState extends ConsumerState<_WarehouseStockDialog> {
                   const SizedBox(height: 2),
                   Text(
                     sublabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: subtext,
-                    ),
+                    style: TextStyle(fontSize: 11, color: subtext),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -10334,12 +10792,7 @@ class _WarehouseStockDialogState extends ConsumerState<_WarehouseStockDialog> {
               ],
             ),
           ),
-          if (isSelected)
-            Icon(
-              Icons.check,
-              size: 16,
-              color: check,
-            ),
+          if (isSelected) Icon(Icons.check, size: 16, color: check),
         ],
       ),
     );
@@ -10471,10 +10924,7 @@ class _TaxSelectionPopover extends ConsumerWidget {
   final String? selectedTaxId;
   final ValueChanged<TaxRate> onTaxSelected;
 
-  const _TaxSelectionPopover({
-    this.selectedTaxId,
-    required this.onTaxSelected,
-  });
+  const _TaxSelectionPopover({this.selectedTaxId, required this.onTaxSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -10482,9 +10932,21 @@ class _TaxSelectionPopover extends ConsumerWidget {
     final taxes = itemsState.taxGroups;
 
     // Create dummy objects for special options
-    final nonTaxable = TaxRate(id: 'non_taxable', taxName: 'Non-Taxable', taxRate: 0);
-    final outOfScope = TaxRate(id: 'out_of_scope', taxName: 'Out of Scope', taxRate: 0);
-    final nonGst = TaxRate(id: 'non_gst', taxName: 'Non-GST Supply', taxRate: 0);
+    final nonTaxable = TaxRate(
+      id: 'non_taxable',
+      taxName: 'Non-Taxable',
+      taxRate: 0,
+    );
+    final outOfScope = TaxRate(
+      id: 'out_of_scope',
+      taxName: 'Out of Scope',
+      taxRate: 0,
+    );
+    final nonGst = TaxRate(
+      id: 'non_gst',
+      taxName: 'Non-GST Supply',
+      taxRate: 0,
+    );
 
     return Container(
       width: 280,
@@ -10518,13 +10980,15 @@ class _TaxSelectionPopover extends ConsumerWidget {
                   ),
                   _SpecialPopoverListItem(
                     title: "Out of Scope",
-                    description: "Supplies on which you don't charge any GST or include them in the returns.",
+                    description:
+                        "Supplies on which you don't charge any GST or include them in the returns.",
                     isSelected: selectedTaxId == 'out_of_scope',
                     onTap: () => onTaxSelected(outOfScope),
                   ),
                   _SpecialPopoverListItem(
                     title: "Non-GST Supply",
-                    description: "Supplies which do not come under GST such as petroleum products and liquor.",
+                    description:
+                        "Supplies which do not come under GST such as petroleum products and liquor.",
                     isSelected: selectedTaxId == 'non_gst',
                     onTap: () => onTaxSelected(nonGst),
                   ),
@@ -10574,7 +11038,8 @@ class _SpecialPopoverListItem extends StatefulWidget {
   });
 
   @override
-  State<_SpecialPopoverListItem> createState() => _SpecialPopoverListItemState();
+  State<_SpecialPopoverListItem> createState() =>
+      _SpecialPopoverListItemState();
 }
 
 class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
@@ -10610,7 +11075,11 @@ class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
             children: [
               Text(
                 widget.title,
-                style: TextStyle(fontSize: 13, color: text, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: text,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               if (widget.description != null) ...[
                 const SizedBox(height: 2),
@@ -10731,7 +11200,7 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: _hintColor,
+                          color: _textPrimary,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -10821,12 +11290,12 @@ class _PopoverListItemState extends State<_PopoverListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isSelected || _hover
-        ? const Color(0xFF3B82F6)
-        : Colors.transparent;
-    final text = widget.isSelected || _hover
-        ? Colors.white
-        : const Color(0xFF333333);
+    final bg = widget.isSelected
+        ? const Color(0xFFF3F4F6)
+        : _hover
+            ? const Color(0xFF3B82F6)
+            : Colors.transparent;
+    final text = _hover ? Colors.white : const Color(0xFF111827);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -10971,10 +11440,8 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
     final result = await showDialog<HsnSacCode>(
       context: context,
       useSafeArea: false,
-      builder: (context) => HsnSacSearchModal(
-        type: 'HSN',
-        initialQuery: _ctrl.text,
-      ),
+      builder: (context) =>
+          HsnSacSearchModal(type: 'HSN', initialQuery: _ctrl.text),
     );
 
     if (result != null) {
@@ -11047,12 +11514,13 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
                       borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
                     ),
                     hintText: 'Enter HSN Code',
-                    hintStyle: const TextStyle(
-                      color: _hintColor,
-                      fontSize: 13,
-                    ),
+                    hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
                     suffixIcon: IconButton(
-                      icon: const Icon(Icons.search, color: Color(0xFF6B7280), size: 20),
+                      icon: const Icon(
+                        Icons.search,
+                        color: Color(0xFF6B7280),
+                        size: 20,
+                      ),
                       onPressed: _openHsnSearch,
                       splashRadius: 16,
                     ),
@@ -11097,7 +11565,10 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      child: const Text('Close', style: TextStyle(fontSize: 13)),
+                      child: const Text(
+                        'Close',
+                        style: TextStyle(fontSize: 13),
+                      ),
                     ),
                   ],
                 ),
@@ -11136,36 +11607,36 @@ Widget _buildIconAction(
   );
 }
 
-  Widget _buildSettingsOverlayItem({
-    required String label,
-    required bool showHighlight,
-    required ValueChanged<bool> onHover,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onHover: onHover,
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: showHighlight ? const Color(0xFF3B82F6) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: showHighlight
-                ? Colors.white
-                : const Color(0xFF1F2937).withValues(alpha: 0.8),
-          ),
+Widget _buildSettingsOverlayItem({
+  required String label,
+  required bool showHighlight,
+  required ValueChanged<bool> onHover,
+  required VoidCallback onTap,
+}) {
+  return InkWell(
+    onHover: onHover,
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(6),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: showHighlight ? const Color(0xFF3B82F6) : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: showHighlight
+              ? Colors.white
+              : const Color(0xFF1F2937).withValues(alpha: 0.8),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
 class _MenuHoverItem extends StatefulWidget {
   final IconData icon;
@@ -11246,7 +11717,6 @@ class _MenuHoverItemNoIconState extends State<_MenuHoverItemNoIcon> {
     );
   }
 }
-
 
 class _TaxAmountEditPopover extends StatefulWidget {
   final Map<String, ({String name, double rate, double amount})> initialTaxes;
@@ -11338,7 +11808,10 @@ class _TaxAmountEditPopoverState extends State<_TaxAmountEditPopover> {
                   Expanded(
                     child: Text(
                       '${tax.name} [${tax.rate % 1 == 0 ? tax.rate.toInt().toString() : tax.rate.toStringAsFixed(1)}%]',
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF4B5563),
+                      ),
                     ),
                   ),
                   SizedBox(
@@ -11348,21 +11821,30 @@ class _TaxAmountEditPopoverState extends State<_TaxAmountEditPopover> {
                       controller: ctrl,
                       textAlign: TextAlign.right,
                       style: const TextStyle(fontSize: 13),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       onChanged: (v) {
                         final amt = double.tryParse(v) ?? 0;
                         _editedAmounts[key] = amt;
                         _calculateTotal();
                       },
                       decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Color(0xFF0088FF)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF0088FF),
+                          ),
                         ),
                       ),
                     ),
@@ -11381,7 +11863,10 @@ class _TaxAmountEditPopoverState extends State<_TaxAmountEditPopover> {
               ),
               Text(
                 _total.toStringAsFixed(2),
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -11399,7 +11884,11 @@ class _TaxAmountEditPopoverState extends State<_TaxAmountEditPopover> {
               ),
               child: const Text(
                 'Update',
-                style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -11413,7 +11902,11 @@ class _DiscountTypeItem extends StatefulWidget {
   final String text;
   final bool isSelected;
   final VoidCallback onTap;
-  const _DiscountTypeItem({required this.text, required this.isSelected, required this.onTap});
+  const _DiscountTypeItem({
+    required this.text,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   _DiscountTypeItemState createState() => _DiscountTypeItemState();
@@ -11433,9 +11926,7 @@ class _DiscountTypeItemState extends State<_DiscountTypeItem> {
           alignment: Alignment.center,
           height: 32,
           decoration: BoxDecoration(
-            color: _isHovered
-                ? const Color(0xFF0088FF)
-                : Colors.transparent,
+            color: _isHovered ? const Color(0xFF0088FF) : Colors.transparent,
           ),
           child: Text(
             widget.text,
@@ -11449,7 +11940,6 @@ class _DiscountTypeItemState extends State<_DiscountTypeItem> {
     );
   }
 }
-
 
 class _ItemDetailsSidebar extends ConsumerStatefulWidget {
   final PurchaseOrderItem row;
@@ -11465,7 +11955,8 @@ class _ItemDetailsSidebar extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ItemDetailsSidebar> createState() => _ItemDetailsSidebarState();
+  ConsumerState<_ItemDetailsSidebar> createState() =>
+      _ItemDetailsSidebarState();
 }
 
 class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
@@ -11566,7 +12057,16 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Flexible(child: Text(widget.row.productName ?? "Select Item", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF111827)))),
+                            Flexible(
+                              child: Text(
+                                widget.row.productName ?? "Select Item",
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                            ),
                             const SizedBox(width: 4),
                             const Icon(
                               Icons.open_in_new,
@@ -11732,7 +12232,11 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
           const SizedBox(height: 24),
           const Text(
             'Sales Information',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
           ),
           const SizedBox(height: 12),
           _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
@@ -11740,7 +12244,11 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
           const SizedBox(height: 24),
           const Text(
             'Purchase Information',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
           ),
           const SizedBox(height: 12),
           _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
@@ -11766,11 +12274,21 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
             children: [
               Icon(icon, size: 16, color: const Color(0xFF2563EB)),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
+          ),
         ],
       ),
     );
@@ -11783,13 +12301,20 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          ),
           const SizedBox(width: 16),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF111827)),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF111827),
+              ),
             ),
           ),
         ],
@@ -11798,7 +12323,9 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
   }
 
   Widget _buildStockLocationsTab() {
-    final stockAsync = ref.watch(itemWarehouseStocksProvider(widget.row.productId));
+    final stockAsync = ref.watch(
+      itemWarehouseStocksProvider(widget.row.productId),
+    );
     return stockAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.all(16),
@@ -11813,7 +12340,11 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
             children: [
               const Text(
                 'Physical Stock',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 12),
               Table(
@@ -11841,7 +12372,10 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                           child: Row(
                             children: [
                               Flexible(
-                                child: Text(wh.name, style: const TextStyle(fontSize: 12)),
+                                child: Text(
+                                  wh.name,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ),
                             ],
                           ),
@@ -11866,7 +12400,11 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
       padding: const EdgeInsets.all(8.0),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF6B7280),
+        ),
       ),
     );
   }
@@ -11882,5 +12420,200 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
   }
 }
 
+class _GstinPopover extends StatefulWidget {
+  final String gstin;
+  final ValueChanged<String> onUpdate;
+  final VoidCallback onCancel;
 
+  const _GstinPopover({
+    required this.gstin,
+    required this.onUpdate,
+    required this.onCancel,
+  });
 
+  @override
+  State<_GstinPopover> createState() => _GstinPopoverState();
+}
+
+class _GstinPopoverState extends State<_GstinPopover> {
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.gstin);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 30),
+          child: CustomPaint(
+            size: const Size(14, 8),
+            painter: _TrianglePainter(
+              color: Colors.white,
+              isUp: true,
+              hasBorder: true,
+            ),
+          ),
+        ),
+        Container(
+          width: 320,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFFDDDDDD)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.alertTriangle,
+                          color: Color(0xFFEAB308),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Update GSTIN / UIN',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F2937),
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF4B5563),
+                                fontFamily: 'Inter',
+                                height: 1.4,
+                              ),
+                              children: [
+                                TextSpan(text: 'Updating the GSTIN will '),
+                                TextSpan(
+                                  text: 'overwrite the existing GSTIN ',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                TextSpan(text: 'for this vendor in the database.'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const SizedBox(width: 24),
+                        const Text(
+                          'Primary GSTIN',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'GSTIN / UIN',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 32,
+                      child: CustomTextField(
+                        controller: _ctrl,
+                        hintText: 'Enter GSTIN',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: widget.onCancel,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFDDDDDD)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Color(0xFF333333), fontSize: 12, fontFamily: 'Inter'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => widget.onUpdate(_ctrl.text.trim()),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF19A05E),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Save',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Inter'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

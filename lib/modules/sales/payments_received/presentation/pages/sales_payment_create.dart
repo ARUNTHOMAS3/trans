@@ -17,6 +17,7 @@ import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/app/routing/app_router.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 
 class SalesPaymentCreateScreen extends ConsumerStatefulWidget {
   /// Deep-link support: pre-select a customer by ID.
@@ -61,6 +62,7 @@ class _SalesPaymentCreateScreenState
   DateTime paymentDate = DateTime.now();
   String paymentMode = 'Cash';
   String? depositTo = 'Petty Cash';
+  bool _isTaxDeducted = false;
 
   void _markDirty() {
     if (!_isDirty && mounted) {
@@ -281,14 +283,11 @@ class _SalesPaymentCreateScreenState
               const SizedBox(height: 8),
               _labeledField(
                 'Tax deducted?',
-                Row(
-                  children: [
-                    Radio<bool>(value: false, groupValue: false, onChanged: (_) {}),
-                    const Text('No Tax deducted', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 16),
-                    Radio<bool>(value: true, groupValue: false, onChanged: (_) {}),
-                    const Text('Yes, TDS (Income Tax)', style: TextStyle(fontSize: 13)),
-                  ],
+                ZerpaiRadioGroup<bool>(
+                  options: const [false, true],
+                  current: _isTaxDeducted,
+                  onChanged: (val) => setState(() => _isTaxDeducted = val),
+                  labelBuilder: (val) => val ? 'Yes, TDS (Income Tax)' : 'No Tax deducted',
                 ),
               ),
               const SizedBox(height: 24),
