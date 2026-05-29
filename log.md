@@ -286,3 +286,324 @@ Resolved a critical backend 500 error on fetching sales invoices (`GET /sales/in
   - **Independent Customer Queries in getInvoices**: Refactored `getInvoices(orgId)` to execute simple, unjoined queries on the `invoice_master` table. Used a separate batch select on `customers` based on distinct customer IDs, matching records back in TypeScript memory. This avoids joining tables directly in the Supabase API call, bypasses relational schema cache problems entirely, and replicates the successful pattern used in `getInvoiceById`.
 
 Timestamp of Log Update: May 22, 2026 - 11:15 PM (IST)
+
+## 9. Purchases Bills Items Table UI Refactoring & Dialog Integration (May 27, 2026)
+
+### Summary
+Unified the Purchases Bills items table and batch selection dialog flows with the standardized sales invoice interfaces. Resolved compile-time type issues, missing utility imports, and redundant class declarations, ensuring zero compiler errors/warnings under touched scopes.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - **Standardized Imports**: Imported `package:flutter/services.dart` for input formatters, `package:zerpai_erp/modules/inventory/models/warehouse_model.dart` and its provider for warehouse details resolution, and `package:zerpai_erp/shared/utils/zerpai_toast.dart` for validation feedback.
+  - **Prefixed Date Formatting**: Imported `package:intl/intl.dart` as `intl` to align date-parsing operations within the batch dialog.
+  - **Batch Controller Integration**: Declared the private class `_InvoiceBatchRowController` locally within the bills module to govern individual batch form fields.
+  - **Color Tokens Alignment**: Declared specific theme-compliant `_dlg` color constants locally to enforce standardized surface and text styling in dialog forms.
+  - **Dead Code and Duplicate Elimination**: Pruned duplicate overrides of `_TaxSelectionPopover`, `_SpecialPopoverListItem`, and `_SpecialPopoverListItemState` classes. Sanitized dead/redundant null-aware coalescing operations on non-nullable warehouse and batch futures.
+
+Timestamp of Log Update: May 27, 2026 - 9:55 AM (IST)
+
+
+## 10. Purchases Bills Close Button & Sales Invoices HSN Popover Integration (May 27, 2026)
+
+### Summary
+Aligned the Purchases Bills item row controls and close buttons to standardized layouts. Fully ported the advanced _HSNCodeEditPopover class and supporting caret canvas rendering to the Sales Invoices creation interface, enabling robust inline HSN code lookup and updating.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **SKU Row Cleanup**: Removed redundant SKU visual rows in the item layout cell to match the high-density ERP look.
+  - **Close Button Standardisation**: Updated the item row's delete/close button foreground color to neutral black to match the design specifications.
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart:
+  - **Caret Painter Enhancement**: Upgraded _TrianglePainter to support configurable isUp direction and hasBorder lines, retaining backwards-compatible drawing.
+  - **Inline HSN Editing Popover**: Appended _HSNCodeEditPopover class definition to the end of the file. Integrates inline text controller editing, auto-focus, standard green Save action button, and external HsnSacSearchModal lookup functionality triggered via search suffix icon.
+
+Timestamp of Log Update: May 27, 2026 - 10:10 AM (IST)
+
+## 11. Sales Orders HSN Popover UI Harmonisation (May 27, 2026)
+
+### Summary
+Harmonized the Sales Orders creation HSN popover interface by porting the standardized _HSNCodeEditPopover from purchase orders. Replaced the legacy double-text-field and separate external search icon layouts with the unified high-density single text field and inline search suffix icon interface, ensuring complete design system parity and flawless compilation.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - **Caret Painter Directionality**: Upgraded the local _TrianglePainter to support directional isUp flags for caret positioning.
+  - **Popover Overlay Refactoring**: Updated _toggleHsnOverlay to mount _HSNCodeEditPopover with standard MouseRegion boundary detection and auto-dimming gestures.
+  - **Widget Definition Porting**: Appended the standardized stateful _HSNCodeEditPopover class definition to the bottom of the module file.
+
+Timestamp of Log Update: May 27, 2026 - 11:05 AM (IST)
+
+## 12. Purchases Bills HSN Popover UI Harmonisation (May 27, 2026)
+
+### Summary
+Harmonized the Purchases Bills creation HSN popover interface by refactoring the manual overlay creation to use the unified stateful _HSNCodeEditPopover class. This replaces the raw container and non-clickable icon rows with a high-fidelity single text field with an inline search suffix icon, enabling full HsnSacSearchModal lookup support.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Popover Overlay Refactoring**: Refactored _showHsnEditOverlay to mount _HSNCodeEditPopover in the followers layer.
+  - **Close Button Standardisation**: Updated _HSNCodeEditPopover button label from 'Cancel' to 'Close' for design alignment.
+
+Timestamp of Log Update: May 27, 2026 - 11:28 AM (IST)
+
+## 13. Purchases Bills popover alignment, Rate Actions, and Item Details Sidebar (May 27, 2026)
+
+### Summary
+Adjusted the Purchases Bills HSN popover horizontal offset and arrow position to prevent screen clipping. Added interactive Recent Transactions action link beneath the item Rate field, and implemented the full stateful item details sidebar layout with physical stock/warehouse locations tab to mirror purchase order module parity.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **HSN Popover Offset Adjustment**: Repositioned CompositedTransformFollower horizontally with Offset(-20, 2) and adjusted internal arrow caret padding left: 30 to avoid screen clipping.
+  - **Rate Column Recent Transactions Link**: Integrated _showRecentTransactions check under item rate field to display a "Recent Transactions" button triggering item details sidebar.
+  - **Item Details Sidebar Overlay**: Declared overlay states and instantiated _ItemDetailsSidebar supporting details, warehouse stock location tables, and transaction histories.
+
+Timestamp of Log Update: May 27, 2026 - 11:46 AM (IST)
+
+## 14. Purchases Bills UI Parity and Dropdown Refinement (May 27, 2026)
+
+### Summary
+Harmonized the Purchases Bills creation item grid layout and dropdown parameters with purchase order parity. Removed the duplicate SKU/Type badge row in the selected item cell, standardized the clear row button color to black, and filtered active price lists to match the purchase transaction type.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **SKU/Type Badges Removal**: Removed the secondary item code/type Row under _richItemDisplay to declutter the item grid cell.
+  - **Clear Button Color Adjustment**: Updated the Row deletion cross button icon color to Colors.black to match the visual standard of the ERP.
+  - **Pricelist Transaction Type Filtering**: Filtered active price lists in the rate cell PopupMenuButton to only display entries with transactionType == 'purchase'.
+
+Timestamp of Log Update: May 27, 2026 - 12:15 PM (IST)
+
+## 15. Purchases Bills Rate Column, HSN Popover Tip, Customer Dropdown, and UI Refinements (May 27, 2026)
+
+### Summary
+Harmonized the Purchases Bills creation page with multiple UI refinements: enabled price list/recent transactions/stock info by default in the rate column, removed the HSN popover arrow tip, simplified customer dropdown to show only display name without bold text, updated item table textbox outlines to match Subject field border thickness, and right-aligned quantity values.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Show Flags Initialization**: Changed _showStockInfo, _showRecentTransactions, _showPriceList from false to true to match PO create parity.
+  - **HSN Popover Tip Removal**: Removed the _TrianglePainter arrow caret from _HSNCodeEditPopover build method.
+  - **Customer Dropdown Simplification**: Removed customer code sub-line and changed fontWeight from w600 to w400 for the customer display name.
+  - **InCellWrapper Border Standardization**: Updated to always show a visible border with borderRadius: 4, matching Subject field outline style (thin _fieldBorder default, blue on hover/focus).
+  - **Quantity Text Alignment**: Added textAlign parameter to _buildCompactNumberField and set TextAlign.right for the quantity cell.
+
+Timestamp of Log Update: May 27, 2026 - 12:35 PM (IST)
+
+## 16. Purchases Bills Textbox Outline Fix, ITC Eligibility Popover, and Price List Dropdown (May 27, 2026)
+
+### Summary
+Fixed the double textbox border visual bug in in-cell inputs by making inner TextField outlines transparent. Added an "Eligible for ITC" clickable text button to the tax cell displaying an overlay popover with input tax credit eligibility options. Implemented a Price List dropdown to the right of the transaction-level Discount field above the table.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Inner Outlines Transparency**: Configured all state specific borders (focusedBorder, enabledBorder, errorBorder, disabledBorder) to InputBorder.none in compact text fields to eliminate the double-outline thickness visual bug.
+  - **ITC Eligibility Button and Popover**: Added itcEligibility string state and itcLayerLink to _BillLineItemRow. Implemented CompositedTransformTarget in _taxCell to show "Eligible for ITC" button inline with edit icon, opening a custom white _ItcEligibilityPopover containing Radio button selection options ('Eligible for ITC', 'Ineligible - As per Section 17 (5)', 'Ineligible - Others') and an OK action button.
+  - **Price List Dropdown Layout**: Watched activePriceListsProvider and placed the Price List dropdown next to the Discount field above the items table, allowing bulk price recalculation for items in the invoice upon selection.
+
+Timestamp of Log Update: May 27, 2026 - 12:50 PM (IST)
+
+
+## 17. Purchases Bills Responsive Table Scroll, Wrap, and Focus Border Alignment (May 27, 2026)
+
+### Summary
+Enhanced the Purchases Bills creation screen (`purchases_bills_create.dart`) by wrapping the items table in a horizontal scrollable view and setting a dynamically scaling width. Replaced the Discount/Price List horizontal row with a responsive wrap. Wrapped the ITC text inside an Expanded widget to prevent horizontal layout overflow. Standardized focused and hovered cell outline highlights to use the standard active blue shade (`_linkBlue` / `Color(0xFF3B82F6)`), and set cell dimensions to 32px height to match dropdown inputs.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - **Horizontal Scrollable Item Table**: Wrapped `_buildItemTable` in an `Align`, `ConstrainedBox`, `SingleChildScrollView(scrollDirection: Axis.horizontal)`, and `SizedBox` with a width constraint of `1365.0` (when 'At Line Item Level' discount is selected) and `1190.0` otherwise. This prevents columns from squeezing when the discount column is added.
+  - **Responsive Discount/Price List Wrap**: Replaced the horizontal `Row` with a `Wrap` component. Nested Price List label and field in an inline `Row` inside the wrap to flow to the next line on narrow screens without overflow.
+  - **ITC Bounding and Ellipsis**: Wrapped the ITC eligibility text button inside `_taxCell` with `Expanded` inside the Row, enabling auto-ellipsis wrapping for long selection values.
+  - **Standardized Border Color and Sizing**: Changed `InCellWrapper` and custom cells (`_accountCell`, `_taxCell`, `_customerCell`, and `_discountCell` toggle) hover/focus border highlights to use `_linkBlue` (`Color(0xFF3B82F6)`). Added `height` parameter to `InCellWrapper` (constrained to `32` for text/date inputs, batch dropdown, and discount type selector) and adjusted `contentPadding` vertical value to `8.0` to keep input texts vertically centered without clipping.
+
+Timestamp of Log Update: May 27, 2026 - 1:55 PM (IST)
+
+
+## 18. Sales Invoice Validation, FOC Calculations, and List Auto-Reload (May 27, 2026)
+
+### Summary
+Enhanced the Sales Invoice creation screen (`sales_invoice_create.dart`) to support mandatory HSN code and Account selection validation without adding any labels/colors to the UI. If mandatory fields are empty or if there is a mismatch between the manually entered quantity and the sum of selected batch quantity + FOC, the "Save and Send" split button disables itself automatically. Also displayed FOC breakdowns and total counts in the item table. Finally, ensured the list screen (`sales_invoice_list.dart`) auto-reloads new/updated invoices on redirect by invalidating `salesInvoicesProvider`.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`:
+  - **Save & Send Button Disabling**: Implemented `_isSaveAndSendEnabled` getter which checks validation criteria (Customer selected, Salesperson selected, HSN code present on each row, Account ID present on each row, Quantity and Rate > 0, and batch quantities + FOC sum matches quantity textbox exactly). Disabled Split Button and dropdown inside footer by making `onTap: null` and changing color states.
+  - **HSN & Account Validation Toast**: Added validations inside `_saveSalesInvoice` to show a toast message error for HSN code and Account if they are missing when attempting to save/update.
+  - **FOC & Quantity Updates**: Updated `_showSelectBatchesDialog` result callback to populate `quantityCtrl.text` with `qtyOut + foc` sum if FOC > 0.
+  - **Breakdown and Quantity Display**: Rendered a `Text` widget under the quantity textbox in the table if FOC > 0 to display `(sum of qtyOut) pcs + (sum of foc) foc`. Also updated the blue clickable link text to display `qtyOut + foc` sum before `pcs`.
+  - **Auto-reload on redirect**: Call `ref.invalidate(salesInvoicesProvider)` inside `_saveSalesInvoice` right before `context.go('/sales/invoices')` to clear the list cache and load fresh data.
+
+Timestamp of Log Update: May 27, 2026 - 3:15 PM (IST)
+
+## 19. Purchases Vendors Dialog Layout Shifts (May 27, 2026)
+
+### Summary
+Enhanced the visual layout of the "New Vendor" dialog and page view (`purchases_vendors_vendor_create.dart`) by adding left padding to shift the primary information fields and non-table tab contents slightly to the right, improving the user interface aesthetics while keeping the wide "Contact Persons" table layout completely undisturbed.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/vendors/presentation/pages/purchases_vendors_vendor_create.dart`:
+  - **Primary Info Alignment**: Wrapped `_buildPrimaryInfo()` call with `Padding(padding: const EdgeInsets.only(left: 32.0), ...)` in both the scrollable dialog and standard layouts.
+  - **Tab Content Alignment**: Refactored `_buildTabContent` to assign non-table tab widgets to a local `Widget content` variable and wrap it in `Padding(padding: const EdgeInsets.only(left: 32.0), ...)` before returning. Case 3 (`_buildContactPersons()`) is explicitly exempted from this padding to keep its wide grid layout intact.
+
+Timestamp of Log Update: May 27, 2026 - 5:25 PM (IST)
+
+
+
+## 20. Purchases Bills Warehouse Dropdown, Invoice Total, Price List Alignment, and Hover Triggers (May 27, 2026)
+
+### Summary
+Enhanced the Purchases Bills creation screen (`purchases_bills_create.dart`) to fetch warehouse listings from database-backed `warehousesProvider`, added a numeric-only "Invoice Total" field inline with Bill Date, aligned the "Price List" dropdown inline with the Discount field matching the Payment Terms layout, and implemented MouseRegion hover triggers to show/hide cell-level item actions and row-level delete/menu buttons only when hovering over rows/cells.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - **DB-backed Warehouse Dropdown**: Integrated `ref.watch(warehousesProvider)` inside `_buildWarehouseDropdown` to dynamically fetch and display warehouse names from `warehouses` master database table instead of hardcoded strings.
+  - **Invoice Total Input**: Added `_invoiceTotalCtrl` controller. Increased the Bill Date container width to `924` and placed a numeric-only "Invoice Total" text field to the right of the Bill Date field.
+  - **Price List Alignment**: Moved Price List dropdown inline on the right side of the Discount row with standard label (180px), gap (32px), field (396px), gap (32px), label, gap (12px), dropdown (180px) to mirror the Due Date/Payment Terms layout.
+  - **Row & Cell Hover Triggers**: Wrapped item cells and action cells inside `StatefulBuilder` and `MouseRegion` to dynamically toggle action indicators (such as the 3-dots menu button and X clear/delete button) only under active mouse hover.
+  - **Warning Cleanups**: Relocated `_isItemHovered` and `_isActionHovered` hover state variables outside of the local `builder` closures to resolve `dead_code` compiler warnings.
+
+Timestamp of Log Update: May 27, 2026 - 5:45 PM (IST)
+
+## 21. Purchases Bills Dynamic Lookups & Premium Discount Alignments (May 27, 2026)
+
+### Summary
+Refactored state list and GST treatments on the Purchases Bills creation screen to load dynamically from lookups database API. Standardized the Discount dropdown using premium lookup UI and added a dynamic discount account selection dropdown next to it when line-item discount is selected. Added a dynamic fallback for place of supply based on organisation profile and restored corrupted methods in LookupsApiService.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/items/items/services/lookups_api_service.dart:
+  - **Restore Corrupted API Calls**: Restored getCountries, getStates, and getManufacturers lookups that were previously deleted/corrupted.
+  - **GST Treatments API**: Added getGstTreatments() lookup method to fetch GST treatments from the database-backed endpoint.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Dynamic State & GST Treatments**: Replaced hardcoded arrays _statesList and _gstTreatments with empty state lists loaded dynamically via new _loadLookups() calling getStates('IN') and getGstTreatments().
+  - **Premium Discount Selection**: Refactored _buildDiscountDropdown to use _buildStandardLookupRow and support showing a vertical divider and a discount account selector (width 191px) next to it if "At Line Item Level" is active (fitting exactly the 396px row limit).
+  - **Dynamic Warehouse Loading**: Refactored _buildWarehouseDropdown to dynamically resolve the default warehouse from warehousesProvider instead of a hardcoded default string.
+  - **Supply State Dynamic Defaults**: Added dynamic defaults fetching organization profile states and GST treatments as default fallbacks when vendor data is empty.
+
+Timestamp of Log Update: May 27, 2026 - 6:00 PM (IST)
+
+
+## 22. Purchases Bills Vendor dropdown, Pricelist selection, and Invoice Total alignment (May 27, 2026)
+
+### Summary
+Aligned the Purchases Bills creation page (`purchases_bills_create.dart`) vendor, new vendor dialog, pricelist selection, and invoice total textbox layouts and behavior with the purchase order module's features. Enforced strict vertical alignment constraints for right-side fields and numeric-only input validation.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - **Vendor Dropdown Refactoring**: Migrated the custom gesture-based vendor overlay selector to the standardized `FormDropdown<Vendor>` component.
+  - **New Vendor Dialog Parity**: Integrated `PurchasesVendorsVendorCreateScreen(isDialog: true)` inside a standard `showDialog` configured with `maxWidth: 1300` insets.
+  - **Pricelist Dropdown Placement**: Added a "Price List" dropdown on the right side of the Discount row, showing all purchase-related pricelists and applying chosen pricelist rates to all item rows.
+  - **Invoice Total textbox**: Added a numeric-only "Invoice Total" field on the right side of the Bill Date field, using a numeric-only input formatter.
+  - **Vertical Alignment Grid**: Wrapped "Invoice Total", "Payment Terms", and "Price List" labels in a `SizedBox(width: 110)` parent to align the respective right-side inputs perfectly.
+
+Timestamp of Log Update: May 27, 2026 - 10:15 PM (IST)
+
+## 23. Purchases Bills UI Polish, Hover Trigger Actions, and Item Details Sidebar (May 27, 2026)
+
+### Summary
+Fixed the form layout overflow issue on standard screen sizes. Wrapped line item rows in mouse hover regions to show/hide right-side actions. Right-aligned the quantity column field and defaulted its value to 0 as hint text. Removed redundant SKU details and goods badges from underneath selected item names, adding circular black clear buttons and more-action buttons next to them. Added the "Recent Transactions" trigger link and integrated the full-screen Item Details sidebar overlay.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - **Layout Overflow Fix**: Reduced the first input field container width from `396` to `370` and gap size from `32` to `24` in the Bill Date, Due Date, and Discount form rows to cleanly fit the 720px horizontal child constraint.
+  - **Hover-Triggered Actions**: Declared `_hoveredRowIndex` and wrapped the main row list item in a `MouseRegion` to show the 3-dots and delete buttons in the actions cell only when hovering over that specific row.
+  - **Quantity Cell Polish**: Updated `quantityCtrl` inside `_BillLineItemRow` to start empty. Added alignment (`TextAlign.right`) and hint text (`0`) options to `_buildCompactNumberField` helper.
+  - **Selected Item Clear & Popup Actions**: Added 3-dots actions popup and black clear circular `(x)` button next to item name inside `_richItemDisplay`. Removed HSN/SKU details and type badges underneath the item name.
+  - **Rate Column Recent Transactions Link**: Added clickable "Recent Transactions" text link under the rate input field when `_showRecentTransactions` is true.
+  - **Item Details Sidebar**: Defined `_showItemDetailsSidebar` overlay presentation, `_ItemDetailsSidebar` consumer stateful widget, `_MenuHoverItem` custom popover list item, and `_buildIconAction` circular button helper at the bottom of the file.
+
+Timestamp of Log Update: May 27, 2026 - 10:35 PM (IST)
+
+
+## 24. Purchases Bills Sidebar Relocation Bugfix (May 27, 2026)
+
+### Summary
+Fixed a scoping compilation issue where the _showItemDetailsSidebar method was mistakenly appended to the end of _BulkAddModalState instead of its correct parent class _PurchasesBillCreateScreenState. Relocated the method to the correct scope, resolving all 12 compilation errors across the frontend module.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Scope Relocation**: Relocated _showItemDetailsSidebar method from the end of _BulkAddModalState back inside the main _PurchasesBillCreateScreenState class.
+
+Timestamp of Log Update: May 27, 2026 - 10:40 PM (IST)
+
+## 25. Purchases Bills Key Assignment Bugfix (May 27, 2026)
+
+### Summary
+Fixed a runtime crash where the line item table threw a "Every item of ReorderableListView must have a key" assertion error on load. Moved the key: ValueKey(row) assignment to the outermost MouseRegion widget returned by _buildLineItemRow (which acts as the direct child builder of ReorderableListView.builder), satisfying Flutter's strict key presence check.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Key Assignment Fix**: Shifted the key: ValueKey(row) parameter from the nested Column to the parent MouseRegion returned by _buildLineItemRow.
+
+Timestamp of Log Update: May 27, 2026 - 10:45 PM (IST)
+
+## 26. Purchases Bills Layout and Dropdown Improvements (May 27, 2026)
+
+### Summary
+Fixed the form layout overflow issues on the Purchases Bills creation screen (purchases_bills_create.dart). Standardized the Bill Date, Due Date, and Discount left-hand inputs to 300px width. Replaced static gaps with Spacer widgets to push Invoice Total, Payment Terms, and Price List fields cleanly to the right. Removed the redundant vertical line next to the drag handle in the line item row, and offset the rate cell pricelist popup menu to render below the dropdown box instead of overlapping it.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Left Field Width Standardizing**: Resized the first column container widths from 370px to 300px in the Bill Date, Due Date, and Discount rows to align with Bill# and Order Number fields.
+  - **Dynamic Spacer Alignment**: Substituted the fixed 24px column gaps with Spacer() widgets to dynamically push the right-hand widgets (Invoice Total, Payment Terms, and Price List) to the right edge.
+  - **Discount Dropdown Adjustments**: Resized the default dropdown width in _buildDiscountDropdown() from 396px to 300px (when At Transaction Level), and reduced inner dropdown widths from 180px and 191px to 130px and 145px (when At Line Item Level) to stay within the 300px limit.
+  - **Redundant Divider Removal**: Removed _vLine() call next to the drag handle inside _buildLineItemRow().
+  - **Pricelist Dropdown Offset**: Added offset: const Offset(0, 34) to the PopupMenuButton in _rateCell() to show the pricelist dropdown list below the rate field's dropdown box.
+
+Timestamp of Log Update: May 27, 2026 - 11:00 PM (IST)
+
+## 27. Purchases Bills Date Width Standardization (May 27, 2026)
+
+### Summary
+Aligned the Bill Date input field width to match the standard 300px constraint of the Order Number, Bill#, and Due Date input fields on the Purchases Bills creation page (purchases_bills_create.dart).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Bill Date Width Alignment**: Changed the SizedBox width wrapping _zDateField in the Bill Date row from 400px to 300px.
+
+Timestamp of Log Update: May 27, 2026 - 11:05 PM (IST)
+
+## 27. Purchases Bills Validations, Warehouse ID, and Batch Selection UI Porting (May 29, 2026)
+
+### Summary
+Implemented robust popup validation checks during Purchases Bills saving, populated the missing warehouseId property in database records, and ported the premium batch selection UI logic from the Sales Invoices quantity column to the Purchases Bills quantity column.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Save validations popup dialog**: Added the state-private _showValidationError method to display a clean, white-themed dialog for validation errors. Added validation triggers at the start of _saveBill checking for missing vendor selection, empty bill number, empty bill date, empty items table, and unselected batches.
+  - **Warehouse ID resolution**: Resolved the selected warehouse object from the database-backed warehousesProvider using the _warehouse name, and mapped warehouseId and warehouseName to the PurchasesBill instance creation.
+  - **Batch selection UI and empty qty checks**: Hid the "Select Batch" textbutton if the quantity field is empty or zero. Ported the "pcs + foc" quantity summary and the blue, underlined, clickable batch details link text below the warehouse name matching the Sales Invoices layout.
+
+Timestamp of Log Update: May 29, 2026 - 10:15 AM (IST)

@@ -190,45 +190,6 @@ export const contents = pgTable("contents", {
 	unique("contents_content_name_key").on(table.contentName),
 ]);
 
-export const invoiceMaster = pgTable("invoice_master", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	entityId: uuid("entity_id").notNull(),
-	customerId: uuid("customer_id").notNull(),
-	warehouseId: uuid("warehouse_id"),
-	invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
-	invoiceDate: date("invoice_date").notNull(),
-	dueDate: date("due_date"),
-	paymentTerms: varchar("payment_terms", { length: 100 }),
-	salespersonId: uuid("salesperson_id"),
-	subject: text(),
-	customerNotes: text("customer_notes"),
-	termsConditions: text("terms_conditions"),
-	priceListId: uuid("price_list_id"),
-	shippingCharges: numeric("shipping_charges", { precision: 15, scale:  2 }).default('0'),
-	adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale:  2 }).default('0'),
-	roundOff: numeric("round_off", { precision: 15, scale:  2 }).default('0'),
-	subtotal: numeric({ precision: 15, scale:  2 }).default('0'),
-	taxTotal: numeric("tax_total", { precision: 15, scale:  2 }).default('0'),
-	tdsTotal: numeric("tds_total", { precision: 15, scale:  2 }).default('0'),
-	tcsTotal: numeric("tcs_total", { precision: 15, scale:  2 }).default('0'),
-	grandTotal: numeric("grand_total", { precision: 15, scale:  2 }).default('0'),
-	inventoryFlowType: varchar("inventory_flow_type", { length: 50 }),
-	status: varchar({ length: 30 }).default('draft'),
-	isBatchAllocated: boolean("is_batch_allocated").default(false),
-	placeOfSupply: varchar("place_of_supply", { length: 100 }),
-	createdBy: uuid("created_by"),
-	approvedBy: uuid("approved_by"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	isDelete: boolean("is_delete").notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.entityId],
-			foreignColumns: [organisationBranchMaster.id],
-			name: "invoice_master_entity_id_fkey"
-		}),
-]);
-
 export const drugStrengths = pgTable("drug_strengths", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	strengthName: varchar("strength_name", { length: 100 }).notNull(),
@@ -300,6 +261,46 @@ export const billItemBatches = pgTable("bill_item_batches", {
 			foreignColumns: [warehouses.id],
 			name: "bill_item_batches_warehouse_id_fkey"
 		}),
+]);
+
+export const invoiceMaster = pgTable("invoice_master", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	customerId: uuid("customer_id").notNull(),
+	warehouseId: uuid("warehouse_id"),
+	invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
+	invoiceDate: date("invoice_date").notNull(),
+	dueDate: date("due_date"),
+	paymentTerms: varchar("payment_terms", { length: 100 }),
+	salespersonId: uuid("salesperson_id"),
+	subject: text(),
+	customerNotes: text("customer_notes"),
+	termsConditions: text("terms_conditions"),
+	priceListId: uuid("price_list_id"),
+	shippingCharges: numeric("shipping_charges", { precision: 15, scale:  2 }).default('0'),
+	adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale:  2 }).default('0'),
+	roundOff: numeric("round_off", { precision: 15, scale:  2 }).default('0'),
+	subtotal: numeric({ precision: 15, scale:  2 }).default('0'),
+	taxTotal: numeric("tax_total", { precision: 15, scale:  2 }).default('0'),
+	tdsTotal: numeric("tds_total", { precision: 15, scale:  2 }).default('0'),
+	tcsTotal: numeric("tcs_total", { precision: 15, scale:  2 }).default('0'),
+	grandTotal: numeric("grand_total", { precision: 15, scale:  2 }).default('0'),
+	inventoryFlowType: varchar("inventory_flow_type", { length: 50 }),
+	status: varchar({ length: 30 }).default('draft'),
+	isBatchAllocated: boolean("is_batch_allocated").default(false),
+	createdBy: uuid("created_by"),
+	approvedBy: uuid("approved_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	isDelete: boolean("is_delete").notNull(),
+	placeOfSupply: varchar("place_of_supply"),
+}, (table) => [
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "invoice_master_entity_id_fkey"
+		}),
+	unique("invoice_master_invoice_number_key").on(table.invoiceNumber),
 ]);
 
 export const purchaseReceiveItems = pgTable("purchase_receive_items", {
@@ -2007,7 +2008,7 @@ export const tdsGroups = pgTable("tds_groups", {
 	pgPolicy("Allow all operations on tds_groups", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
 ]);
 
-export const countries: any = pgTable("countries", {
+export const countries = pgTable("countries", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 100 }).notNull(),
 	fullLabel: varchar("full_label", { length: 255 }),
@@ -2019,7 +2020,7 @@ export const countries: any = pgTable("countries", {
 }, (table) => [
 	foreignKey({
 			columns: [table.primaryTimezoneId],
-			foreignColumns: [timezones.id as any],
+			foreignColumns: [timezones.id],
 			name: "countries_primary_timezone_id_fkey"
 		}).onDelete("set null"),
 	unique("countries_name_key").on(table.name),
@@ -2658,7 +2659,7 @@ export const customerContactPersons = pgTable("customer_contact_persons", {
 		}),
 ]);
 
-export const timezones: any = pgTable("timezones", {
+export const timezones = pgTable("timezones", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 150 }).notNull(),
 	tzdbName: varchar("tzdb_name", { length: 100 }).notNull(),
@@ -2670,7 +2671,7 @@ export const timezones: any = pgTable("timezones", {
 }, (table) => [
 	foreignKey({
 			columns: [table.countryId],
-			foreignColumns: [countries.id as any],
+			foreignColumns: [countries.id],
 			name: "timezones_country_id_fkey"
 		}).onDelete("set null"),
 	unique("timezones_name_key").on(table.name),
@@ -2790,7 +2791,7 @@ export const businessTypes = pgTable("business_types", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	code: varchar().notNull(),
 	label: varchar().notNull(),
-	description: text().default('').notNull(),
+	description: text().default(').notNull(),
 	sortOrder: integer("sort_order").default(0).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2931,8 +2932,8 @@ export const lsgdLocalBodies = pgTable("lsgd_local_bodies", {
 export const transactionalSequences = pgTable("transactional_sequences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	module: varchar().notNull(),
-	prefix: varchar().default('').notNull(),
-	suffix: varchar().default(''),
+	prefix: varchar().default(').notNull(),
+	suffix: varchar().default('),
 	nextNumber: integer("next_number").default(1).notNull(),
 	padding: integer().default(5).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
@@ -2953,7 +2954,7 @@ export const transactionalSequences = pgTable("transactional_sequences", {
 export const roles = pgTable("roles", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	label: varchar({ length: 100 }).notNull(),
-	description: text().default('').notNull(),
+	description: text().default(').notNull(),
 	permissions: jsonb().default({}).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -3248,7 +3249,7 @@ export const branches = pgTable("branches", {
 	districtId: uuid("district_id"),
 	localBodyId: uuid("local_body_id"),
 	wardId: uuid("ward_id"),
-	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('branches_system_id_seq')`).notNull(),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'branches_system_id_seq').notNull(),
 	pan: varchar(),
 	industry: varchar(),
 	gstTreatment: varchar("gst_treatment"),
@@ -3453,11 +3454,11 @@ export const organization = pgTable("organization", {
 	companyIdValue: varchar("company_id_value", { length: 100 }),
 	paymentStubAddress: text("payment_stub_address"),
 	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
-	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('organization_system_id_seq')`).notNull(),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
 	baseCurrencyDecimals: smallint("base_currency_decimals"),
 	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
 	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
-	communicationLanguages: text("communication_languages").array().default(sql`ARRAY['English'::text]`).notNull(),
+	communicationLanguages: text("communication_languages").array().default(["RAY['English'::tex"]).notNull(),
 	paymentStubDistrictId: uuid("payment_stub_district_id"),
 	paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
 	paymentStubWardId: uuid("payment_stub_ward_id"),
@@ -4011,6 +4012,112 @@ export const paymentReceivedAllocations = pgTable("payment_received_allocations"
 		}).onDelete("cascade"),
 ]);
 
+export const purchaseReturnItems = pgTable("purchase_return_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	purchaseReturnId: uuid("purchase_return_id").notNull(),
+	productId: uuid("product_id").notNull(),
+	billItemId: uuid("bill_item_id"),
+	accountId: uuid("account_id"),
+	invoicedQty: numeric("invoiced_qty", { precision: 15, scale:  3 }).default('0'),
+	alreadyReturnedQty: numeric("already_returned_qty", { precision: 15, scale:  3 }).default('0'),
+	returnQty: numeric("return_qty", { precision: 15, scale:  3 }).default('0'),
+	creditedQty: numeric("credited_qty", { precision: 15, scale:  3 }).default('0'),
+	pendingCreditQty: numeric("pending_credit_qty", { precision: 15, scale:  3 }).default('0'),
+	rate: numeric({ precision: 15, scale:  2 }).default('0'),
+	discountPercent: numeric("discount_percent", { precision: 8, scale:  2 }).default('0'),
+	discountAmount: numeric("discount_amount", { precision: 15, scale:  2 }).default('0'),
+	taxId: uuid("tax_id"),
+	taxAmount: numeric("tax_amount", { precision: 15, scale:  2 }).default('0'),
+	lineTotal: numeric("line_total", { precision: 15, scale:  2 }).default('0'),
+	remarks: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.purchaseReturnId],
+			foreignColumns: [purchaseReturns.id],
+			name: "fk_purchase_return_items_master"
+		}).onDelete("cascade"),
+]);
+
+export const vendorCreditItemBatches = pgTable("vendor_credit_item_batches", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	vendorCreditItemId: uuid("vendor_credit_item_id").notNull(),
+	batchId: uuid("batch_id").notNull(),
+	layerId: uuid("layer_id").notNull(),
+	warehouseId: uuid("warehouse_id").notNull(),
+	binId: uuid("bin_id"),
+	quantityOut: numeric("quantity_out", { precision: 15, scale:  3 }).notNull(),
+	focQty: numeric("foc_qty", { precision: 15, scale:  3 }).default('0'),
+	unitPack: varchar("unit_pack", { length: 50 }),
+	mrp: numeric({ precision: 15, scale:  2 }),
+	purchaseRate: numeric("purchase_rate", { precision: 15, scale:  2 }),
+	expiryDate: date("expiry_date"),
+	manufactureDate: date("manufacture_date"),
+	manufactureBatchNo: varchar("manufacture_batch_no", { length: 100 }),
+	remarks: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.vendorCreditItemId],
+			foreignColumns: [vendorCreditItems.id],
+			name: "fk_vendor_credit_batch_item"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.layerId],
+			foreignColumns: [batchStockLayers.id],
+			name: "fk_vendor_credit_batch_layer"
+		}),
+	foreignKey({
+			columns: [table.batchId],
+			foreignColumns: [batchMaster.id],
+			name: "fk_vendor_credit_batch_master"
+		}),
+]);
+
+export const vendorCredits = pgTable("vendor_credits", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	vendorId: uuid("vendor_id").notNull(),
+	warehouseId: uuid("warehouse_id"),
+	vendorCreditNumber: varchar("vendor_credit_number", { length: 50 }).notNull(),
+	vendorCreditDate: date("vendor_credit_date").notNull(),
+	sourceType: varchar("source_type", { length: 30 }).default('DIRECT'),
+	purchaseReturnId: uuid("purchase_return_id"),
+	billId: uuid("bill_id"),
+	referenceNumber: varchar("reference_number", { length: 100 }),
+	subject: text(),
+	notes: text(),
+	reverseChargeApplicable: boolean("reverse_charge_applicable").default(false),
+	subtotal: numeric({ precision: 15, scale:  2 }).default('0'),
+	discountAmount: numeric("discount_amount", { precision: 15, scale:  2 }).default('0'),
+	taxAmount: numeric("tax_amount", { precision: 15, scale:  2 }).default('0'),
+	adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale:  2 }).default('0'),
+	totalAmount: numeric("total_amount", { precision: 15, scale:  2 }).default('0'),
+	status: varchar({ length: 30 }).default('draft'),
+	createdBy: uuid("created_by"),
+	approvedBy: uuid("approved_by"),
+	approvedAt: timestamp("approved_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.billId],
+			foreignColumns: [bills.id],
+			name: "fk_vendor_credit_bill"
+		}),
+	foreignKey({
+			columns: [table.purchaseReturnId],
+			foreignColumns: [purchaseReturns.id],
+			name: "fk_vendor_credit_purchase_return"
+		}),
+	foreignKey({
+			columns: [table.vendorId],
+			foreignColumns: [vendors.id],
+			name: "fk_vendor_credit_vendor"
+		}),
+]);
+
 export const inventoryStockCommitments = pgTable("inventory_stock_commitments", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	entityId: uuid("entity_id").notNull(),
@@ -4115,10 +4222,10 @@ export const priceListItems = pgTable("price_list_items", {
 export const priceLists = pgTable("price_lists", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
-	description: text().default(''),
+	description: text().default('),
 	currency: varchar({ length: 20 }).default('INR'),
 	pricingScheme: varchar("pricing_scheme", { length: 50 }).notNull(),
-	details: text().default(''),
+	details: text().default('),
 	roundOffPreference: varchar("round_off_preference", { length: 50 }).default('never_mind'),
 	status: varchar({ length: 20 }).default('active'),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
@@ -4431,6 +4538,104 @@ export const paymentsReceived = pgTable("payments_received", {
 			columns: [table.customerId],
 			foreignColumns: [customers.id],
 			name: "payments_received_customer_id_fkey"
+		}),
+]);
+
+export const purchaseReturns = pgTable("purchase_returns", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	vendorId: uuid("vendor_id").notNull(),
+	warehouseId: uuid("warehouse_id"),
+	purchaseReturnNumber: varchar("purchase_return_number", { length: 50 }).notNull(),
+	purchaseReturnDate: date("purchase_return_date").notNull(),
+	billId: uuid("bill_id"),
+	referenceNumber: varchar("reference_number", { length: 100 }),
+	reason: text(),
+	subject: text(),
+	notes: text(),
+	subtotal: numeric({ precision: 15, scale:  2 }).default('0'),
+	discountAmount: numeric("discount_amount", { precision: 15, scale:  2 }).default('0'),
+	taxAmount: numeric("tax_amount", { precision: 15, scale:  2 }).default('0'),
+	adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale:  2 }).default('0'),
+	totalAmount: numeric("total_amount", { precision: 15, scale:  2 }).default('0'),
+	creditStatus: varchar("credit_status", { length: 30 }).default('pending'),
+	status: varchar({ length: 30 }).default('draft'),
+	createdBy: uuid("created_by"),
+	approvedBy: uuid("approved_by"),
+	approvedAt: timestamp("approved_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.billId],
+			foreignColumns: [bills.id],
+			name: "fk_purchase_return_bill"
+		}),
+	foreignKey({
+			columns: [table.vendorId],
+			foreignColumns: [vendors.id],
+			name: "fk_purchase_return_vendor"
+		}),
+]);
+
+export const vendorCreditItems = pgTable("vendor_credit_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	vendorCreditId: uuid("vendor_credit_id").notNull(),
+	purchaseReturnItemId: uuid("purchase_return_item_id"),
+	productId: uuid("product_id").notNull(),
+	billItemId: uuid("bill_item_id"),
+	accountId: uuid("account_id"),
+	quantity: numeric({ precision: 15, scale:  3 }).default('0'),
+	rate: numeric({ precision: 15, scale:  2 }).default('0'),
+	discountPercent: numeric("discount_percent", { precision: 8, scale:  2 }).default('0'),
+	discountAmount: numeric("discount_amount", { precision: 15, scale:  2 }).default('0'),
+	taxId: uuid("tax_id"),
+	taxAmount: numeric("tax_amount", { precision: 15, scale:  2 }).default('0'),
+	lineTotal: numeric("line_total", { precision: 15, scale:  2 }).default('0'),
+	remarks: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.vendorCreditId],
+			foreignColumns: [vendorCredits.id],
+			name: "fk_vendor_credit_items_master"
+		}).onDelete("cascade"),
+]);
+
+export const purchaseReturnItemBatches = pgTable("purchase_return_item_batches", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	purchaseReturnItemId: uuid("purchase_return_item_id").notNull(),
+	batchId: uuid("batch_id").notNull(),
+	layerId: uuid("layer_id").notNull(),
+	warehouseId: uuid("warehouse_id").notNull(),
+	binId: uuid("bin_id"),
+	quantityOut: numeric("quantity_out", { precision: 15, scale:  3 }).notNull(),
+	focQty: numeric("foc_qty", { precision: 15, scale:  3 }).default('0'),
+	damageQty: numeric("damage_qty", { precision: 15, scale:  3 }).default('0'),
+	unitPack: varchar("unit_pack", { length: 50 }),
+	mrp: numeric({ precision: 15, scale:  2 }),
+	purchaseRate: numeric("purchase_rate", { precision: 15, scale:  2 }),
+	expiryDate: date("expiry_date"),
+	manufactureDate: date("manufacture_date"),
+	manufactureBatchNo: varchar("manufacture_batch_no", { length: 100 }),
+	remarks: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.purchaseReturnItemId],
+			foreignColumns: [purchaseReturnItems.id],
+			name: "fk_purchase_return_batch_item"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.layerId],
+			foreignColumns: [batchStockLayers.id],
+			name: "fk_purchase_return_batch_layer"
+		}),
+	foreignKey({
+			columns: [table.batchId],
+			foreignColumns: [batchMaster.id],
+			name: "fk_purchase_return_batch_master"
 		}),
 ]);
 

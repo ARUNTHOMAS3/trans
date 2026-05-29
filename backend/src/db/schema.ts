@@ -2049,3 +2049,94 @@ export const auditLogsArchive = pgTable("audit_logs_archive", {
 });
 
 
+// =====================================
+// PURCHASES MODULE - BILLS
+// =====================================
+
+export const bills = pgTable("bills", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
+  vendorId: uuid("vendor_id").notNull().references(() => vendor.id),
+  billNumber: varchar("bill_number", { length: 50 }).notNull(),
+  orderNumber: varchar("order_number", { length: 100 }),
+  billDate: date("bill_date").notNull(),
+  dueDate: date("due_date"),
+  paymentTermId: uuid("payment_term_id"),
+  reverseChargeApplicable: boolean("reverse_charge_applicable").default(false),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  priceListId: uuid("price_list_id"),
+
+  landedCostAllocationType: varchar("landed_cost_allocation_type", { length: 30 }),
+  subject: text("subject"),
+  notes: text("notes"),
+  
+  subtotal: numeric("subtotal", { precision: 15, scale: 2 }).default("0"),
+  discountTotal: numeric("discount_total", { precision: 15, scale: 2 }).default("0"),
+  taxTotal: numeric("tax_total", { precision: 15, scale: 2 }).default("0"),
+  shippingCharges: numeric("shipping_charges", { precision: 15, scale: 2 }).default("0"),
+  tdsTotal: numeric("tds_total", { precision: 15, scale: 2 }).default("0"),
+  tcsTotal: numeric("tcs_total", { precision: 15, scale: 2 }).default("0"),
+  adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale: 2 }).default("0"),
+  roundOff: numeric("round_off", { precision: 15, scale: 2 }).default("0"),
+  grandTotal: numeric("grand_total", { precision: 15, scale: 2 }).default("0"),
+  
+  sourceType: varchar("source_type", { length: 30 }), // PURCHASE_RECEIVE / DIRECT
+  sourceId: uuid("source_id"),
+  status: varchar("status", { length: 30 }).default("draft"),
+  
+  createdBy: uuid("created_by"),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const billItems = pgTable("bill_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  billId: uuid("bill_id").notNull().references(() => bills.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull().references(() => product.id),
+  purchaseReceiveItemId: uuid("purchase_receive_item_id"),
+  accountId: uuid("account_id").references(() => account.id),
+  customerId: uuid("customer_id").references(() => customer.id),
+  description: text("description"),
+  quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull().default("0"),
+  rate: numeric("rate", { precision: 15, scale: 2 }).notNull().default("0"),
+  discountType: varchar("discount_type", { length: 20 }),
+  discountValue: numeric("discount_value", { precision: 15, scale: 2 }).default("0"),
+  discountAmount: numeric("discount_amount", { precision: 15, scale: 2 }).default("0"),
+  taxId: uuid("tax_id"),
+  taxPercentage: numeric("tax_percentage", { precision: 8, scale: 2 }).default("0"),
+  taxAmount: numeric("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  lineTotal: numeric("line_total", { precision: 15, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const billItemBatches = pgTable("bill_item_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  billItemId: uuid("bill_item_id").notNull().references(() => billItems.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id").notNull(),
+  layerId: uuid("layer_id").references(() => batchStockLayers.id),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  binId: uuid("bin_id").references(() => bin.id),
+  quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull().default("0"),
+  focQuantity: numeric("foc_quantity", { precision: 15, scale: 3 }).default("0"),
+  damageQuantity: numeric("damage_quantity", { precision: 15, scale: 3 }).default("0"),
+  purchaseRate: numeric("purchase_rate", { precision: 15, scale: 2 }),
+  mrp: numeric("mrp", { precision: 15, scale: 2 }),
+  expiryDate: date("expiry_date"),
+  manufactureDate: date("manufacture_date"),
+  manufactureBatchNo: varchar("manufacture_batch_no", { length: 100 }),
+  isDirectBill: boolean("is_direct_bill").default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const billLandedCosts = pgTable("bill_landed_costs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  billId: uuid("bill_id").notNull().references(() => bills.id, { onDelete: "cascade" }),
+  expenseAccountId: uuid("expense_account_id").notNull().references(() => account.id),
+  amount: numeric("amount", { precision: 15, scale: 2 }).notNull(),
+  allocationMethod: varchar("allocation_method", { length: 30 }),
+  description: text("description"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});

@@ -415,3 +415,5 @@ jules env.md
 DEPLOY_ENV.md
 .lean-ctx/graph.db
 .lean-ctx/graph.meta.json
+.history
+handoff_arun_29
