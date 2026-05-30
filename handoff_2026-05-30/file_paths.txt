@@ -1,0 +1,52 @@
+========================================================================
+ZERPAI ERP HANDOFF FILE INDEX (2026-05-30)
+========================================================================
+
+Below is the complete list of files included in the handoff package, along 
+with their relative paths from the root of the project folder:
+
+------------------------------------------------------------------------
+A. FRONTEND FILES (lib/)
+------------------------------------------------------------------------
+1.  lib/app/layout/zerpai_navbar.dart
+2.  lib/app/routing/app_router.dart
+3.  lib/core/routing/app_routes.dart
+4.  lib/core/theme/app_theme.dart
+5.  lib/modules/purchases/bills/models/purchases_bills_bill_model.dart
+6.  lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart
+7.  lib/modules/purchases/bills/presentation/pages/purchases_bills_list.dart
+8.  lib/modules/purchases/bills/providers/purchases_bills_provider.dart
+9.  lib/modules/purchases/bills/repositories/purchases_bills_repository.dart
+10. lib/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create_page.dart
+11. lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart
+12. lib/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_add.dart
+13. lib/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_overview.dart
+14. lib/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_report.dart
+15. lib/modules/purchases/vendor_credits/providers/vendor_credits_tax_provider.dart
+16. lib/modules/sales/customers/providers/customers_provider.dart
+17. lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart
+18. lib/shared/widgets/dialogs/advanced_customer_search_modal.dart
+19. lib/shared/widgets/dialogs/inventory_bin_batch_foc.dart
+20. lib/shared/widgets/skeleton.dart
+
+------------------------------------------------------------------------
+B. BACKEND FILES (backend/)
+------------------------------------------------------------------------
+21. backend/drizzle/schema.ts
+22. backend/src/db/schema.ts
+23. backend/src/db/add_constraint.ts
+24. backend/sql/2026-05-29_bill_attachments.sql
+25. backend/src/modules/purchases/bills/controllers/bills.controller.ts
+26. backend/src/modules/purchases/bills/dto/create-bill.dto.ts
+27. backend/src/modules/purchases/bills/services/bills.service.ts
+
+------------------------------------------------------------------------
+C. DOCUMENTATION & LOGS
+------------------------------------------------------------------------
+28. log.md
+29. handoff_2026-05-30/instructions.txt
+30. handoff_2026-05-30/file_paths.txt
+
+========================================================================
+Total Files: 30
+========================================================================
