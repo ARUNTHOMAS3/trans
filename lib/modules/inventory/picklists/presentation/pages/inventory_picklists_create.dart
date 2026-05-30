@@ -2123,64 +2123,66 @@ class _InventoryPicklistsCreateScreenState
                                                         });
                                                       },
                                                     ),
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          _showSelectBatchesDialog(
-                                                            item,
-                                                          ),
-                                                      style: TextButton.styleFrom(
-                                                        padding:
-                                                            EdgeInsets.zero,
-                                                        minimumSize: const Size(
-                                                          0,
-                                                          0,
-                                                        ),
-                                                        tapTargetSize:
-                                                            MaterialTapTargetSize
-                                                                .shrinkWrap,
-                                                      ),
-                                                      child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          if (!_savedBatchKeys
-                                                              .contains(rowKey))
-                                                            const Padding(
-                                                              padding:
-                                                                  EdgeInsets.only(
-                                                                    right: 4,
-                                                                  ),
-                                                              child: Icon(
-                                                                LucideIcons
-                                                                    .alertTriangle,
-                                                                size: 10,
-                                                                color: Color(
-                                                                  0xFFEF4444,
+                                                    _currentPickedQty(item) <= 0
+                                                        ? const SizedBox.shrink()
+                                                        : TextButton(
+                                                            onPressed: () =>
+                                                                _showSelectBatchesDialog(
+                                                                  item,
                                                                 ),
+                                                            style: TextButton.styleFrom(
+                                                              padding:
+                                                                  EdgeInsets.zero,
+                                                              minimumSize: const Size(
+                                                                0,
+                                                                0,
                                                               ),
+                                                              tapTargetSize:
+                                                                  MaterialTapTargetSize
+                                                                      .shrinkWrap,
                                                             ),
-                                                          Text(
-                                                            _savedBatchKeys
-                                                                    .contains(
-                                                                      rowKey,
-                                                                    )
-                                                                ? _buildBatchSummaryText(
-                                                                    item,
-                                                                  )
-                                                                : 'Select Batch and Bin',
-                                                            style: const TextStyle(
-                                                              fontSize: 10,
-                                                              color: Color(
-                                                                0xFF2563EB,
-                                                              ),
-                                                              decoration:
-                                                                  TextDecoration
-                                                                      .underline,
+                                                            child: Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize.min,
+                                                              children: [
+                                                                if (!_savedBatchKeys
+                                                                    .contains(rowKey))
+                                                                  const Padding(
+                                                                    padding:
+                                                                        EdgeInsets.only(
+                                                                          right: 4,
+                                                                        ),
+                                                                    child: Icon(
+                                                                      LucideIcons
+                                                                          .alertTriangle,
+                                                                      size: 10,
+                                                                      color: Color(
+                                                                        0xFFEF4444,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                Text(
+                                                                  _savedBatchKeys
+                                                                          .contains(
+                                                                            rowKey,
+                                                                          )
+                                                                      ? _buildBatchSummaryText(
+                                                                          item,
+                                                                        )
+                                                                      : 'Select Batch and Bin',
+                                                                  style: const TextStyle(
+                                                                    fontSize: 10,
+                                                                    color: Color(
+                                                                      0xFF2563EB,
+                                                                    ),
+                                                                    decoration:
+                                                                        TextDecoration
+                                                                            .underline,
+                                                                  ),
+                                                                ),
+                                                              ],
                                                             ),
                                                           ),
-                                                        ],
-                                                      ),
-                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -2641,64 +2643,66 @@ class _InventoryPicklistsCreateScreenState
                                                         });
                                                       },
                                                     ),
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          _showSelectBatchesDialog(
-                                                            item,
-                                                          ),
-                                                      style: TextButton.styleFrom(
-                                                        padding:
-                                                            EdgeInsets.zero,
-                                                        minimumSize: const Size(
-                                                          0,
-                                                          0,
-                                                        ),
-                                                        tapTargetSize:
-                                                            MaterialTapTargetSize
-                                                                .shrinkWrap,
-                                                      ),
-                                                      child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          if (!_savedBatchKeys
-                                                              .contains(rowKey))
-                                                            const Padding(
-                                                              padding:
-                                                                  EdgeInsets.only(
-                                                                    right: 4,
-                                                                  ),
-                                                              child: Icon(
-                                                                LucideIcons
-                                                                    .alertTriangle,
-                                                                size: 10,
-                                                                color: Color(
-                                                                  0xFFEF4444,
+                                                    _currentPickedQty(item) <= 0
+                                                        ? const SizedBox.shrink()
+                                                        : TextButton(
+                                                            onPressed: () =>
+                                                                _showSelectBatchesDialog(
+                                                                  item,
                                                                 ),
+                                                            style: TextButton.styleFrom(
+                                                              padding:
+                                                                  EdgeInsets.zero,
+                                                              minimumSize: const Size(
+                                                                0,
+                                                                0,
                                                               ),
+                                                              tapTargetSize:
+                                                                  MaterialTapTargetSize
+                                                                      .shrinkWrap,
                                                             ),
-                                                          Text(
-                                                            _savedBatchKeys
-                                                                    .contains(
-                                                                      rowKey,
-                                                                    )
-                                                                ? _buildBatchSummaryText(
-                                                                    item,
-                                                                  )
-                                                                : 'Select Batch and Bin',
-                                                            style: const TextStyle(
-                                                              fontSize: 10,
-                                                              color: Color(
-                                                                0xFF2563EB,
-                                                              ),
-                                                              decoration:
-                                                                  TextDecoration
-                                                                      .underline,
+                                                            child: Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize.min,
+                                                              children: [
+                                                                if (!_savedBatchKeys
+                                                                    .contains(rowKey))
+                                                                  const Padding(
+                                                                    padding:
+                                                                        EdgeInsets.only(
+                                                                          right: 4,
+                                                                        ),
+                                                                    child: Icon(
+                                                                      LucideIcons
+                                                                          .alertTriangle,
+                                                                      size: 10,
+                                                                      color: Color(
+                                                                        0xFFEF4444,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                Text(
+                                                                  _savedBatchKeys
+                                                                          .contains(
+                                                                            rowKey,
+                                                                          )
+                                                                      ? _buildBatchSummaryText(
+                                                                          item,
+                                                                        )
+                                                                      : 'Select Batch and Bin',
+                                                                  style: const TextStyle(
+                                                                    fontSize: 10,
+                                                                    color: Color(
+                                                                      0xFF2563EB,
+                                                                    ),
+                                                                    decoration:
+                                                                        TextDecoration
+                                                                            .underline,
+                                                                  ),
+                                                                ),
+                                                              ],
                                                             ),
                                                           ),
-                                                        ],
-                                                      ),
-                                                    ),
                                                   ],
                                                 ),
                                               ),
