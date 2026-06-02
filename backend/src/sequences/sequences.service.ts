@@ -42,18 +42,51 @@ export class SequencesService {
       };
 
       if (tableMapping[module]) {
-        const { table } = tableMapping[module];
-        const { count, error: countError } = await client
+        const { table, column } = tableMapping[module];
+        const prefix = data.prefix;
+        const { data: latestItems, error: fetchError } = await client
           .from(table)
-          .select("*", { count: "exact", head: true })
-          .eq("entity_id", tenant.entityId);
+          .select(column)
+          .ilike(column, `${prefix}%`)
+          .eq("entity_id", tenant.entityId)
+          .order(column, { ascending: false })
+          .limit(10);
 
-        if (!countError && count === 0) {
-          data.next_number = 1;
-          await client
-            .from("transactional_sequences")
-            .update({ next_number: 1 })
-            .eq("id", data.id);
+        if (!fetchError && latestItems && latestItems.length > 0) {
+          let maxNum = 0;
+          for (const item of latestItems) {
+            const val = item[column] as string;
+            if (val && val.toLowerCase().startsWith(prefix.toLowerCase())) {
+              let numPart = val.substring(prefix.length);
+              if (data.suffix) {
+                numPart = numPart.replace(new RegExp(data.suffix, "i"), "");
+              }
+              const parsed = parseInt(numPart, 10);
+              if (!isNaN(parsed) && parsed > maxNum) {
+                maxNum = parsed;
+              }
+            }
+          }
+          if (maxNum >= data.next_number) {
+            data.next_number = maxNum + 1;
+            await client
+              .from("transactional_sequences")
+              .update({ next_number: data.next_number, updated_at: new Date() })
+              .eq("id", data.id);
+          }
+        } else {
+          const { count, error: countError } = await client
+            .from(table)
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", tenant.entityId);
+
+          if (!countError && count === 0 && data.next_number !== 1) {
+            data.next_number = 1;
+            await client
+              .from("transactional_sequences")
+              .update({ next_number: 1, updated_at: new Date() })
+              .eq("id", data.id);
+          }
         }
       }
       return data;

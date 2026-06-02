@@ -2310,15 +2310,56 @@ export class ProductsService {
 
     if (error) throw new Error(error.message);
 
-    return (data ?? []).map((warehouse: any) => ({
-      id: warehouse.id,
-      warehouse_id: warehouse.id,
-      name: warehouse.name,
-      opening_stock: 0,
-      opening_stock_value: 0,
-      accounting: { onHand: 0, committed: 0 },
-      physical: { onHand: 0, committed: 0 },
-    }));
+    // Fetch dynamic stock levels from database views
+    const { data: accountingStock } = await supabase
+      .from("v_accounting_stock")
+      .select("warehouse_id, stock_on_hand, committed_stock")
+      .eq("product_id", productId);
+
+    const { data: physicalStock } = await supabase
+      .from("v_physical_stock")
+      .select("warehouse_id, stock_on_hand, committed_stock")
+      .eq("product_id", productId);
+
+    const accMap = new Map<string, { onHand: number; committed: number }>();
+    if (accountingStock) {
+      for (const row of accountingStock) {
+        accMap.set(row.warehouse_id, {
+          onHand: parseFloat(row.stock_on_hand ?? "0"),
+          committed: parseFloat(row.committed_stock ?? "0"),
+        });
+      }
+    }
+
+    const physMap = new Map<string, { onHand: number; committed: number }>();
+    if (physicalStock) {
+      for (const row of physicalStock) {
+        physMap.set(row.warehouse_id, {
+          onHand: parseFloat(row.stock_on_hand ?? "0"),
+          committed: parseFloat(row.committed_stock ?? "0"),
+        });
+      }
+    }
+
+    return (data ?? []).map((warehouse: any) => {
+      const acc = accMap.get(warehouse.id) || { onHand: 0, committed: 0 };
+      const phys = physMap.get(warehouse.id) || { onHand: 0, committed: 0 };
+      return {
+        id: warehouse.id,
+        warehouse_id: warehouse.id,
+        name: warehouse.name,
+        opening_stock: 0,
+        opening_stock_value: 0,
+        accounting: {
+          onHand: acc.onHand,
+          committed: acc.committed,
+        },
+        physical: {
+          onHand: phys.onHand,
+          committed: phys.committed,
+        },
+      };
+    });
   }
 
   async getProductHistory(productId: string) {

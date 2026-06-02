@@ -65,7 +65,7 @@ class _PurchasesPurchaseReceivesListScreenState
   Map<String, double>? _customColumnWidths;
   final ScrollController _horizontalScrollController = ScrollController();
 
-  String _sortField = 'created_time';
+  String _sortField = 'date';
   bool _sortAscending = false;
 
   final Map<String, String> _columnLabels = {
@@ -109,7 +109,12 @@ class _PurchasesPurchaseReceivesListScreenState
         isLocked: true,
       ),
       ColumnConfig(id: 'po#', label: 'PURCHASE ORDER#', orderIndex: 2),
-      ColumnConfig(id: 'vendor', label: 'VENDOR NAME', orderIndex: 3),
+      ColumnConfig(
+        id: 'vendor',
+        label: 'VENDOR NAME',
+        orderIndex: 3,
+        isLocked: true,
+      ),
       ColumnConfig(
         id: 'status',
         label: 'STATUS',
@@ -803,7 +808,7 @@ class _PurchasesPurchaseReceivesListScreenState
             _sortAscending = !_sortAscending;
           } else {
             _sortField = field;
-            _sortAscending = true;
+            _sortAscending = false;
           }
         });
       },

@@ -42,12 +42,17 @@ export class SalesService {
       .filter(Boolean);
     const productMap = new Map<
       string,
-      { hsn_code: string | null; sales_account_id: string | null }
+      {
+        hsn_code: string | null;
+        sales_account_id: string | null;
+        type: string | null;
+        is_track_inventory: boolean;
+      }
     >();
     if (productIds.length > 0) {
       const { data: productsData } = await client
         .from("products")
-        .select("id, hsn_code, sales_account_id")
+        .select("id, hsn_code, sales_account_id, type, is_track_inventory")
         .in("id", productIds);
 
       if (productsData) {
@@ -55,6 +60,8 @@ export class SalesService {
           productMap.set(p.id, {
             hsn_code: p.hsn_code,
             sales_account_id: p.sales_account_id,
+            type: p.type,
+            is_track_inventory: p.is_track_inventory !== false,
           });
         }
       }
@@ -92,6 +99,8 @@ export class SalesService {
       const prodInfo = productMap.get(prodId) || {
         hsn_code: null,
         sales_account_id: null,
+        type: null,
+        is_track_inventory: false,
       };
 
       // hsn fallback
@@ -112,6 +121,8 @@ export class SalesService {
         ...item,
         hsnCode: resolvedHsn,
         accounts: resolvedAccount,
+        type: prodInfo.type,
+        isTrackInventory: prodInfo.is_track_inventory,
       };
     });
   }
@@ -571,6 +582,39 @@ export class SalesService {
         await client.from("sales_orders").delete().eq("id", order.id);
         throw itemsError;
       }
+
+      // Now insert stock commitments
+      const commitments = [];
+      for (let i = 0; i < processedItems.length; i++) {
+        const processedItem = processedItems[i];
+        const rawItem = items[i];
+        if (rawItem.type === "goods" && rawItem.isTrackInventory !== false) {
+          commitments.push({
+            entity_id: orgId,
+            warehouse_id: warehouseId || null,
+            product_id: processedItem.product_id,
+            source_type: "SALES_ORDER",
+            source_id: order.id,
+            committed_qty: processedItem.quantity,
+            status: "OPEN",
+          });
+        }
+      }
+
+      if (commitments.length > 0) {
+        const { error: commitError } = await client
+          .from("inventory_stock_commitments")
+          .insert(commitments);
+
+        if (commitError) {
+          await client
+            .from("sales_order_items")
+            .delete()
+            .eq("sales_order_id", order.id);
+          await client.from("sales_orders").delete().eq("id", order.id);
+          throw commitError;
+        }
+      }
     }
 
     return order;
@@ -749,6 +793,37 @@ export class SalesService {
         .insert(processedItems);
 
       if (itemsError) throw itemsError;
+    }
+
+    // Sync inventory stock commitments
+    await client
+      .from("inventory_stock_commitments")
+      .delete()
+      .eq("source_id", id)
+      .eq("source_type", "SALES_ORDER");
+
+    const commitments = [];
+    for (let i = 0; i < processedItems.length; i++) {
+      const processedItem = processedItems[i];
+      const rawItem = items[i];
+      if (rawItem.type === "goods" && rawItem.isTrackInventory !== false) {
+        commitments.push({
+          entity_id: orgId,
+          warehouse_id: warehouseId || null,
+          product_id: processedItem.product_id,
+          source_type: "SALES_ORDER",
+          source_id: id,
+          committed_qty: processedItem.quantity,
+          status: "OPEN",
+        });
+      }
+    }
+
+    if (commitments.length > 0) {
+      const { error: commitError } = await client
+        .from("inventory_stock_commitments")
+        .insert(commitments);
+      if (commitError) throw commitError;
     }
 
     return order;

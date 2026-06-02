@@ -30,6 +30,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
@@ -425,7 +426,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   // Lookup lists
   List<Map<String, dynamic>> _paymentTermsList = [];
   List<Map<String, dynamic>> _shipmentPreferencesList = [];
-  List<Map<String, dynamic>> _countriesList = [];
   List<String> _sourceOfSupplyList = [];
   // ignore: unused_field
   List<String> _phoneCodesList = [];
@@ -1377,7 +1377,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             if (b['name'] == 'India') return 1;
             return (a['name'] as String).compareTo(b['name'] as String);
           });
-          _countriesList = countries;
           final codes = countries
               .map((c) => c['phone_code']?.toString())
               .where((c) => c != null && c.isNotEmpty)
@@ -7821,300 +7820,77 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           : (vendor.shippingAddress ?? {});
     }
 
-    String attentionValue = existingAddress['attention'] ?? '';
-    String street1Value = existingAddress['street1'] ?? '';
-    String street2Value = existingAddress['street2'] ?? '';
-    String cityValue = existingAddress['city'] ?? '';
-    String? countryValue = existingAddress['country'] ?? 'India';
-    String? stateValue = existingAddress['state'] ?? '';
-    String pinCodeValue = existingAddress['zip'] ?? '';
-    String phoneCodeValue = existingAddress['phoneCode'] ?? '+91';
-    String phoneValue =
-        existingAddress['phone']?.toString().split(' ').last ?? '';
-    String faxValue = existingAddress['fax'] ?? '';
+    String dialogTitle = 'New address';
+    if (wh != null)
+      dialogTitle = 'Edit Warehouse Address';
+    else if (cust != null)
+      dialogTitle = 'Edit Shipping Address';
+    else if (vendor != null)
+      dialogTitle = isBilling ? 'Billing Address' : 'Shipping Address';
 
-    List<Map<String, dynamic>> localStates = [];
-    bool isLoadingStates = false;
-
-    // Stable controllers to avoid cursor reset
-    final attCtrl = TextEditingController(text: attentionValue);
-    final s1Ctrl = TextEditingController(text: street1Value);
-    final s2Ctrl = TextEditingController(text: street2Value);
-    final cityCtrl = TextEditingController(text: cityValue);
-    final pinCtrl = TextEditingController(text: pinCodeValue);
-    final phoneCtrl = TextEditingController(text: phoneValue);
-    final faxCtrl = TextEditingController(text: faxValue);
-
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          Future<void> fetchStates(String countryName) async {
-            final country = _countriesList.firstWhere(
-              (c) => c['name'] == countryName,
-              orElse: () => <String, dynamic>{},
+      barrierDismissible: true,
+      barrierLabel: 'Address Dialog',
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (ctx, _, __) {
+        return AddressDialog(
+          title: dialogTitle,
+          initialAddress: existingAddress,
+          onSave: (val) async {
+            final notifier = ref.read(
+              purchaseOrderFormNotifierProvider.notifier,
             );
-            final countryCode = country['short_code'] ?? 'IN';
+            final data = <String, dynamic>{
+              'attention': val['attention'] ?? '',
+              'street1': val['street1'] ?? '',
+              'street2': val['street2'] ?? '',
+              'city': val['city'] ?? '',
+              'state': val['stateName'] ?? val['state'] ?? '', // Use Name if available
+              'zip': val['zip'] ?? '',
+              'country': val['countryName'] ?? val['country'] ?? '', // Use Name if available
+              'phone': val['phone'] ?? '',
+              'phoneCode': val['phoneCode'] ?? '+91',
+              'fax': val['fax'] ?? '',
+            };
 
-            setDialogState(() => isLoadingStates = true);
-            try {
-              final lookupsService = LookupsApiService();
-              final states = await lookupsService.getStates(countryCode);
-              setDialogState(() {
-                localStates = states;
-                isLoadingStates = false;
-              });
-            } catch (e) {
-              setDialogState(() => isLoadingStates = false);
+            if (vendor != null) {
+              final updated = isBilling
+                  ? vendor.copyWith(billingAddress: data)
+                  : vendor.copyWith(shippingAddress: data);
+              try {
+                await ref
+                    .read(vendorProvider.notifier)
+                    .updateVendor(vendor.id, updated);
+                if (context.mounted) {
+                  ZerpaiToast.success(context, 'Vendor address updated in database');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ZerpaiToast.error(context, 'Failed to update address in database: $e');
+                }
+              }
+            } else if (wh != null) {
+              // Update warehouse
+            } else if (cust != null) {
+              // Update customer
+            } else {
+              // New Address - Update the current PO state delivery address
+              notifier.updateField(
+                deliveryAddressName:
+                    (val['attention'] as String?)?.trim().isNotEmpty == true
+                    ? (val['attention'] as String).trim()
+                    : 'New Address',
+              );
+              _deliveryNameCtrl.text = (val['attention'] as String?)?.trim() ?? '';
             }
-          }
-
-          if (localStates.isEmpty && !isLoadingStates && countryValue != null) {
-            fetchStates(countryValue!);
-          }
-
-          String dialogTitle = 'New address';
-          if (wh != null)
-            dialogTitle = 'Edit Warehouse Address';
-          else if (cust != null)
-            dialogTitle = 'Edit Shipping Address';
-          else if (vendor != null)
-            dialogTitle = isBilling ? 'Billing Address' : 'Shipping Address';
-
-          return Dialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.transparent,
-            alignment: Alignment.topCenter,
-            insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 580),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 12, 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            dialogTitle,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          icon: const Icon(
-                            Icons.close,
-                            size: 18,
-                            color: Color(0xFFEF4444),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 20,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _addressFormRow('Attention', _zField(attCtrl)),
-                          _addressFormRow('Street 1', _zField(s1Ctrl)),
-                          _addressFormRow('Street 2', _zField(s2Ctrl)),
-                          _addressFormRow('City', _zField(cityCtrl)),
-                          _addressFormRow(
-                            'State/Province',
-                            isLoadingStates
-                                ? const SizedBox(
-                                    height: 32,
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : FormDropdown<String>(
-                                    value: stateValue?.isEmpty == true
-                                        ? null
-                                        : stateValue,
-                                    items: localStates
-                                        .map((s) => s['name'] as String)
-                                        .toList(),
-                                    hint: 'Select State',
-                                    showSearch: true,
-                                    onChanged: (v) =>
-                                        setDialogState(() => stateValue = v),
-                                  ),
-                          ),
-                          _addressFormRow('ZIP/Postal Code', _zField(pinCtrl)),
-                          _addressFormRow(
-                            'Country/Region',
-                            FormDropdown<String>(
-                              value: countryValue,
-                              items: _countriesList
-                                  .map((c) => c['name'] as String)
-                                  .toList(),
-                              hint: 'Select or type to add',
-                              showSearch: true,
-                              showSearchIcon: true,
-                              onChanged: (v) {
-                                if (v == null) return;
-                                setDialogState(() {
-                                  countryValue = v;
-                                  stateValue = null;
-                                  localStates = [];
-                                });
-                                fetchStates(v);
-                              },
-                            ),
-                          ),
-                          _addressFormRow('Phone', _zField(phoneCtrl)),
-                          if (vendor != null || wh != null || cust != null) ...[
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Note: Changes made here will be updated for this entity.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF6B7280),
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            final notifier = ref.read(
-                              purchaseOrderFormNotifierProvider.notifier,
-                            );
-                            final data = <String, dynamic>{
-                              'attention': attCtrl.text.trim(),
-                              'street1': s1Ctrl.text.trim(),
-                              'street2': s2Ctrl.text.trim(),
-                              'city': cityCtrl.text.trim(),
-                              'state': stateValue ?? '',
-                              'zip': pinCtrl.text.trim(),
-                              'country': countryValue ?? '',
-                              'phone':
-                                  '$phoneCodeValue ${phoneCtrl.text.trim()}',
-                              'phoneCode': phoneCodeValue,
-                              'fax': faxCtrl.text.trim(),
-                            };
-
-                            if (vendor != null) {
-                              final updated = isBilling
-                                  ? vendor.copyWith(billingAddress: data)
-                                  : vendor.copyWith(shippingAddress: data);
-                              ref
-                                  .read(vendorProvider.notifier)
-                                  .updateVendor(vendor.id, updated);
-                            } else if (wh != null) {
-                              // Update warehouse
-                            } else if (cust != null) {
-                              // Update customer
-                            } else {
-                              // New Address - Update the current PO state delivery address
-                              notifier.updateField(
-                                deliveryAddressName:
-                                    attCtrl.text.trim().isNotEmpty
-                                    ? attCtrl.text.trim()
-                                    : 'New Address',
-                                // We can store the rest in a temporary address field or just set the name
-                              );
-                              _deliveryNameCtrl.text = attCtrl.text.trim();
-                            }
-
-                            Navigator.pop(ctx);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF22C55E),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          child: const Text(
-                            'Save',
-                            style: TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                            side: const BorderSide(color: Color(0xFFD1D5DB)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(color: Color(0xFF374151)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _addressFormRow(String label, Widget field) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 130,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
-              ),
-            ),
-          ),
-          Expanded(child: field),
-        ],
+          },
+        );
+      },
+      transitionBuilder: (ctx, anim, _, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+        child: child,
       ),
     );
   }

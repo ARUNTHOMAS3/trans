@@ -98,7 +98,8 @@ export class PurchaseOrdersService {
       .select(
         `
         *,
-        vendor:vendors(display_name, company_name)
+        vendor:vendors(display_name, company_name),
+        warehouse:warehouses!warehouse_id(name)
       `,
         { count: "exact" },
       )
@@ -144,6 +145,7 @@ export class PurchaseOrdersService {
         `
         *,
         vendor:vendors(*),
+        warehouse:warehouses!warehouse_id(name),
         items:purchase_order_items(*, product:products(*))
       `,
       )
@@ -171,8 +173,30 @@ export class PurchaseOrdersService {
       tenant,
       createPurchaseOrderDto,
     );
+
+    let resolvedWarehouseId = createPurchaseOrderDto.warehouse_id;
+    if (!resolvedWarehouseId) {
+      if (
+        createPurchaseOrderDto.delivery_type === "warehouse" &&
+        createPurchaseOrderDto.delivery_warehouse_id
+      ) {
+        resolvedWarehouseId = createPurchaseOrderDto.delivery_warehouse_id;
+      } else {
+        const { data: wh } = await this.supabaseService
+          .getClient()
+          .from("warehouses")
+          .select("id")
+          .eq("entity_id", tenant.entityId)
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+        resolvedWarehouseId = wh?.id || null;
+      }
+    }
+
     const payload = {
       ...(poData as any),
+      warehouse_id: resolvedWarehouseId,
       discount_account_id: resolvedDiscountAccountId,
       is_delete: false,
       entity_id: tenant.entityId,
@@ -238,10 +262,35 @@ export class PurchaseOrdersService {
       tenant,
       updatePurchaseOrderDto,
     );
-    const payload = {
+
+    let resolvedWarehouseId = updatePurchaseOrderDto.warehouse_id;
+    if (updatePurchaseOrderDto.hasOwnProperty("warehouse_id") && !resolvedWarehouseId) {
+      if (
+        updatePurchaseOrderDto.delivery_type === "warehouse" &&
+        updatePurchaseOrderDto.delivery_warehouse_id
+      ) {
+        resolvedWarehouseId = updatePurchaseOrderDto.delivery_warehouse_id;
+      } else {
+        const { data: wh } = await this.supabaseService
+          .getClient()
+          .from("warehouses")
+          .select("id")
+          .eq("entity_id", tenant.entityId)
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+        resolvedWarehouseId = wh?.id || null;
+      }
+    }
+
+    const payload: any = {
       ...(poData as any),
       discount_account_id: resolvedDiscountAccountId,
     };
+
+    if (resolvedWarehouseId) {
+      payload.warehouse_id = resolvedWarehouseId;
+    }
     const { data, error } = await this.supabaseService
       .getClient()
       .from("purchase_orders")

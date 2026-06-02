@@ -113,24 +113,34 @@ class _PurchasesBillsListScreenState
 
   void _initializeColumns() {
     _allColumns = [
-      ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0),
+      ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0, isLocked: true),
       ColumnConfig(
         id: 'location',
         label: 'WAREHOUSE',
         orderIndex: 1,
         isVisible: true,
       ),
-      ColumnConfig(id: 'bill_number', label: 'BILL#', orderIndex: 2),
+      ColumnConfig(
+        id: 'bill_number',
+        label: 'BILL#',
+        orderIndex: 2,
+        isLocked: true,
+      ),
       ColumnConfig(
         id: 'order_number',
         label: 'REFERENCE NUMBER',
         orderIndex: 3,
         isVisible: true,
       ),
-      ColumnConfig(id: 'vendor_name', label: 'VENDOR NAME', orderIndex: 4),
-      ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 5),
+      ColumnConfig(
+        id: 'vendor_name',
+        label: 'VENDOR NAME',
+        orderIndex: 4,
+        isLocked: true,
+      ),
+      ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 5, isLocked: true),
       ColumnConfig(id: 'due_date', label: 'DUE DATE', orderIndex: 6),
-      ColumnConfig(id: 'amount', label: 'AMOUNT', orderIndex: 7),
+      ColumnConfig(id: 'amount', label: 'AMOUNT', orderIndex: 7, isLocked: true),
       ColumnConfig(id: 'balance_due', label: 'BALANCE DUE', orderIndex: 8),
     ];
     _updateVisibleColumns();

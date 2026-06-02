@@ -823,3 +823,294 @@ Merged missing code snippets and updated outdated definitions from `handoff_2026
 **Verifications**: Verified touched scopes pass analysis cleanly with `flutter analyze`.
 
 Timestamp of Log Update: May 30, 2026 - 2:30 PM (IST)
+
+## 30. Sales Order Stock Commitments Integration (June 1, 2026)
+
+### Summary
+Integrated inventory stock commitments creation and update flows for Sales Orders, mapping eligible goods details to `inventory_stock_commitments` database records upon save/update actions.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- `backend/src/modules/sales/services/sales.service.ts`:
+  - **resolveItemFields Enrichment**: Expanded product mapping queries to select `type` and `is_track_inventory` fields.
+  - **createSalesOrder Commitment Insertion**: Filtered line items by `'goods'` type and tracking eligibility, inserting them into `inventory_stock_commitments` with transaction safety rollbacks on insertion failure.
+  - **updateSalesOrder Commitment Sync**: Added deletion of existing commitments and insertion of updated commitments to keep records in sync.
+
+**Verifications**: Ran production compilation successfully using `npm run build`.
+
+Timestamp of Log Update: June 1, 2026 - 9:55 AM (IST)
+
+## 31. Purchase Orders Warehouse Name Fetching (June 1, 2026)
+
+### Summary
+Resolved an issue where the warehouse name was not displayed (showing as `-` instead) in the Purchase Orders list and detail views. Modified the NestJS backend to select the related warehouse name via PostgREST join.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- `backend/src/modules/purchases/purchase-orders/services/purchase-orders.service.ts`:
+  - **findAll Warehouse Fetching**: Updated the PostgREST `select` query to join the `warehouses` table on `warehouse_id` and alias it as `warehouse(name)`, ensuring that `warehouseName` gets populated correctly in the JSON list response.
+  - **findOne Warehouse Fetching**: Added the `warehouse:warehouses!warehouse_id(name)` relation join to the single purchase order retrieval query to support the detail view and PDF export generation.
+
+**Verifications**: Verified compilation successfully with `npm run build` in the `backend/` directory.
+
+Timestamp of Log Update: June 1, 2026 - 10:15 AM (IST)
+
+## 32. Purchase Orders Warehouse ID Fallback Validation (June 1, 2026)
+
+### Summary
+Resolved a database constraint violation error where creating or updating a Purchase Order without an explicit warehouse ID failed because the warehouse_id column is defined as NOT NULL in the database. Added automatic backend fallback logic to resolve a default warehouse ID for the tenant if omitted by the client.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- backend/src/modules/purchases/purchase-orders/services/purchase-orders.service.ts:
+  - create Fallback Logic: Added automatic resolution of warehouse_id. If omitted, it falls back to delivery_warehouse_id (if delivery type is warehouse), or resolves the first active warehouse from the warehouses table for the tenant.
+  - update Fallback Logic: Added identical fallback logic during updates if warehouse_id is updated to a null/falsy value.
+
+**Verifications**: Verified compilation successfully with npm run build in the backend/ directory.
+
+Timestamp of Log Update: June 1, 2026 - 10:20 AM (IST)
+
+## 33. Sales Order Address Integration & Column Customization with Pinning (June 1, 2026)
+
+### Summary
+Enhanced Sales Order address display and editing, vendor address update notification, and implemented customizable column settings with pinning support in the Sales Order list screen.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - **UUID Address Resolution**: Resolved state and country UUID values to human-readable names inside customer billing/shipping display containers.
+  - **Inline Customer Address Editing**: Pre-populated country/state fields in _AddressDialogState when loading and calling updateCustomer notifier with mapped database keys (street2 to 'place'), showing ZerpaiToast success/error alerts.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - **Vendor Address Update Toasts**: Wrapped the vendor address update call in a try-catch block to display appropriate success or failure ZerpaiToast notifications.
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart:
+  - **Extended Column Configuration**: Added isPinned and orderIndex fields to the local _SalesOrderColumnConfig class with JSON serialization methods (toJson/fromJson).
+  - **Settings Persistence**: Wired _loadColumnSettings and _saveColumnSettings to save/load column configurations to/from SharedPreferences under so_table_columns_config.
+  - **Interactive Pinning Dialog**: Added a pin toggle button next to column list items in the customization dialog, sorting pinned columns first.
+  - **Ordered Table Column Rendering**: Sorted visible columns based on isPinned and orderIndex in the list view, ensuring correct table header and cell layout rendering.
+
+Timestamp of Log Update: June 1, 2026 - 11:20 AM (IST)
+
+## 34. Sorting Options & Static Column Headers (June 1, 2026)
+
+### Summary
+Updated "Sort by" menu options in both Sales Order and Purchase Order list screens to match visual mockups, set default sorting to "Created Time" descending on first load, and made Sales Order column headers static (non-sortable by click).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart`:
+  - **Static Column Headers**: Replaced sortable interactive header widgets inside `_buildHeaderForColumn` with static text labels (removing arrow icons, selection blue color, and onTap gestures).
+  - **Default Sort**: Changed initial sorting fields to default to `createdTime` descending.
+  - **Sort Menu Options Alignment**: Configured toolbar and sidebar submenu Sort by items to exactly list: Sales Order#, Date, Customer Name, Amount, Created Time, Last Modified Time, Expected Shipment Date.
+  - **Unused Code Cleanup**: Removed unused `_sortFieldForColumn` element declaration.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - **Default Sort**: Configured initial sorting fields to default to `'created_at'` descending.
+  - **Custom Sort by Actions**: Updated `_getSortedList` logic to support sorting lists by `delivery_date` (expectedDeliveryDate), `created_at` (createdAt), and `updated_at` (updatedAt).
+  - **Sort Menu Options Alignment**: Configured toolbar and sidebar submenu Sort by items to exactly list: Purchase Order#, Date, Vendor Name, Amount, Delivery Date, Created Time, Last Modified Time.
+
+**Verifications**: Verified compilation successfully with `flutter analyze` on modified scopes.
+
+Timestamp of Log Update: June 1, 2026 - 2:55 PM (IST)
+
+
+## 29. Default Sort Alignment, Column Customizer Conversions, and Lock Configurations (June 1, 2026)
+
+### Summary
+Aligned default sort orders to date descending across 8 list modules, converted custom column customization dialogues to the shared ColumnCustomizerDialog reusable widget, and locked critical columns from being customized/removed.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/inventory/packages/presentation/pages/inventory_packages_list.dart:
+  - Defaulted sort provider to sort by Package Date descending.
+  - Locked package_date, package#, and sales_order# in initial configurations.
+  - Hooked up _buildMoreMenuOptions to dynamic consumer state to watch and toggle the active sort.
+- lib/modules/inventory/picklists/presentation/pages/inventory_picklists_list.dart:
+  - Added picklistSortProvider to maintain date-descending sort by default.
+  - Enabled picklists list sorting inside _buildVirtualizedTable.
+  - Hooked up more menu options to watch and toggle active sorting state.
+  - Locked picklist# column in initial configurations.
+- lib/modules/inventory/shipments/presentation/pages/inventory_shipments_list.dart:
+  - Converted the custom inline AlertDialog to the shared ColumnCustomizerDialog reusable widget.
+  - Set default sorting to shipment date descending.
+  - Added local _allColumns model management and SharedPreferences state sync.
+  - Locked date, shipment_number, sales_order#, and package# columns.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - Changed default sorting field from created_at to order_date descending.
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart:
+  - Changed default sorting field from created_time to date descending.
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart:
+  - Changed default sorting field from invoiceNumber (ascending) to date descending.
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart:
+  - Changed default sorting field from createdTime to date descending.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_list.dart:
+  - Locked DATE, BILL#, VENDOR NAME, STATUS, and AMOUNT columns.
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart:
+  - Locked DATE, PURCHASE RECEIVE#, VENDOR NAME, and STATUS columns.
+  - Set sort menu default direction to descending when switching fields.
+
+Timestamp of Log Update: June 1, 2026 - 3:45 PM (IST)
+
+## 30. FEFO Bin & Batch Expiry Recommendations in Picklist Creation (June 1, 2026)
+
+### Summary
+Implemented a dynamic FEFO (First Expired, First Out) bin and batch recommendation system for the picklist creation page to show picker-optimized bin/batch selections and reduce inventory waste due to batch expiration.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/inventory/picklists/presentation/pages/inventory_picklists_create.dart:
+  - **Dynamic Expiry Recommendation**: Introduced inExpiryRecommendationProvider which queries the atch_stock_layers database table to retrieve batch-level stocks, filters available balance, maps references client-side using existing cached providers (insLookupProvider, atchLookupProvider), and sorts them by expiry date ascending.
+  - **FefoBinRecommendationCell Widget**: Implemented a reusable private consumer cell widget that dynamically watches the expiry recommendation provider, filters out bins where available batch stock is less than the item's ordered quantity, formats the outputs as BinCode (BatchNo: Qty), and presents multiple options via a hover tooltip using the custom _BinHoverBox overlay.
+  - **Table Layout Integrations**: Replaced the static item preferredBin display in the items selection table (_buildItemsTable) and all three grouping layouts of the selected items table (_buildTableNoGrouping, _buildTableByItem, and _buildTableBySalesOrder) with the new FEFO recommendation cell.
+  - **Supabase Flutter Import**: Imported package:supabase_flutter/supabase_flutter.dart to support query execution.
+
+Timestamp of Log Update: June 1, 2026 - 4:25 PM (IST)
+
+## 31. FEFO Preferred Bin Suggestion in Picklist Creation (June 1, 2026)
+
+### Summary
+Implemented a dynamic FEFO (First Expired, First Out) batch/bin suggestion logic in the preferred bin column of the picklist creation item selection table. The suggestion automatically queries active product batches sorted by expiry date ascending, aggregates warehouse bin stock levels from batch stock layers, filters out bins with insufficient available quantities (< ordered quantity), formats qualifying bins as \BinCode (Qty)\, and updates lazily in all table views (No Grouping, By Item, By Sales Orders).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- \lib/modules/inventory/picklists/presentation/pages/inventory_picklists_create.dart\:
+  - **Dynamic Bin Resolution**: Added state maps \_resolvedPreferredBins\ and \_loadingPreferredBins\ to cache suggestions dynamically per row key.
+  - **FEFO Database Query**: Implemented \_fetchPreferredBinForProduct\ to perform asynchronous queries on \atch_master\ (ordering by \expiry_date\ ascending) and \atch_stock_layers\ to check available stock (\qty - reserved_qty\) against the ordered quantity of the product.
+  - **Dropdown State Refresh**: Updated the warehouse selection onChanged callback to clear the cached preferred bins when the selected warehouse changes.
+  - **Table View Lazy-Load Integration**: Integrated lazy-loading and state rendering into \_buildTableNoGrouping\, \_buildTableByItem\, and \_buildTableBySalesOrder\ to display the dynamic suggestion string seamlessly.
+
+Timestamp of Log Update: June 1, 2026 - 4:25 PM (IST)
+
+## 35. FEFO Preferred Bins in Add Items Dialog & Dynamic Batch Sizing (June 1, 2026)
+
+### Summary
+Aligned the First Expired, First Out (FEFO) preferred bin suggestions format to "BinCode - Qty" (e.g. `Bin A - 50`) across both the main selected items list and the "Add Items" popup dialog. Refactored the batch details greenbox card layout in the Purchase Receives create screen to dynamically size horizontally, fully displaying long batch numbers without truncation.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/inventory/picklists/presentation/pages/inventory_picklists_create.dart:
+  - **Preferred Bin Formatting Alignment**: Changed formatting from `BinCode (Qty)` to `BinCode - Qty` (e.g., `Bin A - 50`) in the main table layout views and the popup table.
+  - **Add Items Dialog FEFO Integration**: Implemented state caching Maps (`_resolvedPreferredBins` and `_loadingPreferredBins`) and dynamic fetch logic (`_fetchPreferredBinForProduct`) inside _AddItemsDialogContentState. Integrated lazy-loading and dynamic display of suggestions inside the Add Items dialog items list table.
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **Dynamic Batch Card Sizing**: Substituted the hardcoded `width: 94` constraint on the green batch detail cards with `constraints: const BoxConstraints(minWidth: 94)`, allowing horizontal size expansion based on child text length.
+  - **Batch Text Truncation Removal**: Refactored `_batchText` to remove `maxLines: 1` and `overflow: TextOverflow.ellipsis` constraints, allowing the card to render the full length of the batch number inside horizontal scrolling containers.
+
+**Verifications**: Verified compilation successfully with lutter analyze on modified scopes.
+
+Timestamp of Log Update: June 1, 2026 - 5:25 PM (IST)
+
+## 36. Precise Batch Box Width Tracking & Bin Dropdown Heights (June 1, 2026)
+
+### Summary
+Enhanced QUANTITY TO RECEIVE column auto-scaling in the Purchase Receives create screen using dynamic TextPainter text measurement of batch card lines to fully display greenbox batch details without clipping. Resized the row bin dropdown box heights in both manual and PO items table layouts from 44px to 32px to match visual standards.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **Dynamic Card Sizing Helper**: Introduced _measureBatchLineWidth paint-width estimator and _batchCardWidth card size calculator.
+  - **Auto-Scaling Column Width**: Replaced static width clamp configurations in _dynamicQtyToReceiveColumnWidth() with dynamic measurement aggregation of active batch cards to guarantee that the column cell has sufficient width to fully show the greenboxes.
+  - **Bin Dropdown Box Sizing**: Changed height constraint from 44 to 32 in manual and PO row wrapping SizedBox widgets, and set FormDropdown height parameter to 32.
+
+**Verifications**: Verified compilation successfully with lutter analyze on modified scopes.
+
+Timestamp of Log Update: June 1, 2026 - 6:00 PM (IST)
+  - **Explicit Measured Container Width**: Updated green box batch cards inside _buildItemRow and _buildManualRow to use the explicit dynamically-measured TextPainter width (width: _batchCardWidth(batch)) to completely prevent any text clipping/truncating inside card borders.
+  - **Dynamic Card Sizing and Max Width Clamp**: Configured _batchCardWidth to clamp batch card width calculation between 94.0 and 180.0 and set the green box batch card Container constraints to minWidth: 94 and maxWidth: 180 in both table row templates. This enables long batch numbers to wrap naturally while shrink-wrapping the green box perfectly to eliminate empty space.
+  - **Hint Text Default for Quantity**: Updated _buildQtyControl to use "0" as hintText and custom grey hintStyle. Cleaned up row controller initialization and empty Qty field assignments so that text fields are initialized empty ('') rather than with a literal '0', enabling clean hint-text display.
+  - **Vertical Sizing and Padding**: Configured the outer row Container in _buildItemRow and _buildPOItemRow to enforce a minimum height of 132px (minHeight: hasBatches ? 132 : 0) when batches are present. Added a top and bottom margin of 4px (margin: const EdgeInsets.only(right: 2, top: 4, bottom: 4)) to the green box batch card Container, ensuring that the bottom border of the green boxes is fully drawn and never clipped by cell boundaries.
+
+## 37. Batch Card Sizing Refinements, Horizontal Scroll Padding, & Quantity Input Hints (June 1, 2026)
+
+### Summary
+Addressed layout and sizing imperfections in the Purchase Receives screen. Corrected vertical border clipping on green batch boxes by adding vertical padding inside horizontal scroll containers. Tightened greenbox constraints from 180px to 145px to eliminate excess empty spacing when long text wraps. Configured default grey hint text "0" in quantity inputs when empty.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Batch Card Width Clamp Reduction**: Decreased maximum clamp limit in `_batchCardWidth` from 180.0 to 145.0. Reduced maximum constraints width of greenbox batch detail cards inside `_buildManualRow` and `_buildItemRow` from 180 to 145 to ensure the greenboxes tightly wrap wrapped batch texts, eliminating horizontal white space.
+  - **Vertical Scroll View Padding Integration**: Wrapped the child Row of the horizontal `SingleChildScrollView` inside `_buildManualRow` and `_buildItemRow` in a `Padding` widget with `const EdgeInsets.symmetric(vertical: 6)`. This expands vertical scrolling boundaries, preventing the bottom borders and margins of active batch cards from being clipped by scroll-view boundaries.
+  - **Quantity Input Hint Configurations**: Wired up standard dynamic input fields in `_buildQtyInputField` to display a gray "0" hint text (`hintText: "0"`, with `_hintColor` `TextStyle`) when empty, matching the default style of manual quantity controls.
+
+**Verifications**: Verified compilation successfully with `dart analyze` on modified scopes.
+
+Timestamp of Log Update: June 1, 2026 - 6:15 PM (IST)
+
+## 38. Batch Card Sizing Refinements & Vertical Scroll Sizing Fixes (June 1, 2026)
+
+### Summary
+Further optimized Purchase Receives batch card visual density. Corrected vertical card clipping under multi-line text wrapping by increasing row minHeight constraints to 156px. Reduced the greenbox maxWidth limit to 120px to perfectly shrink-wrap wrapped batch UUID tokens and remove trailing whitespace.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Whitespace Sizing Tightening**: Reduced maximum batch card width in `_batchCardWidth()` clamp and Container constraints inside `_buildManualRow` and `_buildItemRow` from 145px to 120px. Ensures that the container size tightly hugs the widest wrapped token (e.g. 102px), leaving no trailing blank area.
+  - **Height Expansion Fix**: Raised the outer row `BoxConstraints` minimum height constraint (`minHeight`) from 132px to 156px in `_buildManualRow` and `_buildItemRow` when batches are present. This provides sufficient vertical layout scope for scroll view viewports to render up to 9-10 lines of wrapped batch content without clipping bottom borders.
+
+**Verifications**: Verified compilation successfully with `dart analyze` on modified scopes.
+
+Timestamp of Log Update: June 1, 2026 - 6:38 PM (IST)
+
+## 39. Rich Vendor Dropdown Selection & Row Padding Sizing Adjustments (June 1, 2026)
+
+### Summary
+Harmonized Vendor Name selection dropdown overlay inside the Purchase Receives create screen with Purchase Orders, presenting rich list items containing avatar initials, name, code, and company name under a 480px width dropdown menu. Resolved vertical clipping of batch cards by dynamically tightening row vertical padding to 4px when batches are present.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Rich Vendor Dropdown**: Replaced standard overlay items in `FormDropdown<Vendor>` with the stateful `_buildVendorDropdownItem` custom renderer. Added `menuWidth: 480` to cleanly display avatar initials, full display names, vendor numbers, and company names without text squeezing or overflow.
+  - **Dynamic Row Padding Adjustments**: Refactored the `padding` parameter of outer container blocks inside `_buildManualRow` and `_buildItemRow` from `const EdgeInsets.symmetric(vertical: 12)` to `EdgeInsets.symmetric(vertical: hasBatches ? 4 : 12)`. This preserves standard vertical padding for normal rows while reclaiming 16px of vertical layout space for batch-carrying rows to fully present batch details without clipping.
+
+**Verifications**: Verified compilation successfully with `dart analyze` on modified scopes.
+
+Timestamp of Log Update: June 1, 2026 - 6:45 PM (IST)
+
+## 40. Batch Card Sizing Refinements (June 1, 2026)
+
+### Summary
+Optimized the batch card visual formatting and height density. Decreased text line-height from 1.35 to 1.1 inside the batch cards, and reduced card margins and viewport scroll padding. Tightened card maxWidth limit from 120px to 114px. These changes eliminate horizontal whitespace and provide plenty of vertical room for cards to display fully without clipping.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Text Line Height Optimization**: Changed `height` parameter of `_batchText` from `1.35` to `1.1` to compress text layout and save `18px` of vertical height for wrapped cards.
+  - **Sizing Bounds Adjustments**: Reduced `_batchCardWidth()` clamp limit and card constraints inside `_buildManualRow` and `_buildItemRow` from `120px` to `114px`. Long UUID batch strings wrap naturally without horizontal trailing empty space.
+  - **Padding and Margins Compression**: Decreased scroll view padding to `vertical: 4` (down from `6`) and card container margins to `vertical: 2` (down from `4`) to prevent vertical border clipping.
+
+**Verifications**: Verified compilation successfully with `dart analyze` on modified scopes.
+
+Timestamp of Log Update: June 1, 2026 - 6:49 PM (IST)
+
+## 32. Fix Purchase Receives Green Box Clipping and Width Layout (June 1, 2026)
+
+### Summary
+Fixed a critical layout issue in the Purchase Receives creation page (purchases_purchase_receives_create.dart) where the green batch details cards were vertically clipped and had excess blank space.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **Vertical Stretching Fix**: Passed lignment: null to the _tableBodyCell that wraps the quantity column cell. This prevents the Container from wrapping its child in an Align widget, allowing the cell contents to expand to the full height of the table row.
+  - **Inner Row crossAxisAlignment**: Set the inner Row's crossAxisAlignment to CrossAxisAlignment.stretch so that the horizontal SingleChildScrollView (containing the green batch cards) stretches to the full cell height.
+  - **Vertical Centering of Qty Input**: Added mainAxisAlignment: MainAxisAlignment.center to the Column inside the quantity input SizedBox to keep the input text box vertically centered within the stretched row.
+  - **Tighter Batch Card Width Clamp**: Reduced _batchCardWidth clamp upper bound from 114.0 to 110.0 and dynamic horizontal card margin/padding constants (maxLineWidth + 14 instead of 18) to hug the text closer and eliminate trailing blank space. Mapped BoxConstraints to _batchCardWidth(batch) dynamically instead of using a hardcoded maxWidth: 114.
+
+Timestamp of Log Update: June 1, 2026 - 5:55 PM (IST)
+- **Quantity Column Width Expansion**: Increased aseWidth from 124.0 to 160.0 and ixedContentWidth from 116.0 to 140.0 in _dynamicQtyToReceiveColumnWidth() to give the batch cards more horizontal space and prevent overflow/tight layouts.
+
+Timestamp of Log Update: June 1, 2026 - 6:01 PM (IST)
+- **Batch Dialog Overwrite Logic Fix**: Configured the dialog Save onPressed callback to bypass exceeds and mismatch validation errors when _overwriteLineItem is enabled. Wired the checkbox onChanged event to immediately clear any existing mismatch or exceeds error messages. Changed the error banner text to dynamically display the active _dialogErrorMessage instead of the hardcoded _quantityMismatchMessage string.
+
+Timestamp of Log Update: June 1, 2026 - 6:05 PM (IST)

@@ -347,32 +347,47 @@ class SalesCustomer {
       priceList: json['priceList'] ?? json['price_list'],
       receivables: _parseDouble(json['receivables']),
       billingAddressStreet1:
-          json['billingAddressStreet1'] ?? json['billing_address_street1'],
+          json['billingAddressStreet1'] ??
+          json['billing_address_street1'] ??
+          json['billing_address_street'],
       billingAddressStreet2:
-          json['billingAddressStreet2'] ?? json['billing_address_street2'],
+          json['billingAddressStreet2'] ??
+          json['billing_address_street2'] ??
+          json['billing_address_place'],
       billingAddressCity:
           json['billingAddressCity'] ?? json['billing_address_city'],
       billingAddressStateId:
-          json['billingAddressStateId'] ?? json['billing_address_state_id'],
+          json['billingAddressStateId'] ??
+          json['billing_address_state_id'] ??
+          json['billing_address_state'],
       billingAddressZip:
           json['billingAddressZip'] ?? json['billing_address_zip'],
       billingAddressCountryId:
-          json['billingAddressCountryId'] ?? json['billing_address_country_id'],
+          json['billingAddressCountryId'] ??
+          json['billing_address_country_id'] ??
+          json['billing_address_country'],
       billingAddressPhone:
           json['billingAddressPhone'] ?? json['billing_address_phone'],
       shippingAddressStreet1:
-          json['shippingAddressStreet1'] ?? json['shipping_address_street1'],
+          json['shippingAddressStreet1'] ??
+          json['shipping_address_street1'] ??
+          json['shipping_address_street'],
       shippingAddressStreet2:
-          json['shippingAddressStreet2'] ?? json['shipping_address_street2'],
+          json['shippingAddressStreet2'] ??
+          json['shipping_address_street2'] ??
+          json['shipping_address_place'],
       shippingAddressCity:
           json['shippingAddressCity'] ?? json['shipping_address_city'],
       shippingAddressStateId:
-          json['shippingAddressStateId'] ?? json['shipping_address_state_id'],
+          json['shippingAddressStateId'] ??
+          json['shipping_address_state_id'] ??
+          json['shipping_address_state'],
       shippingAddressZip:
           json['shippingAddressZip'] ?? json['shipping_address_zip'],
       shippingAddressCountryId:
           json['shippingAddressCountryId'] ??
-          json['shipping_address_country_id'],
+          json['shipping_address_country_id'] ??
+          json['shipping_address_country'],
       shippingAddressPhone:
           json['shippingAddressPhone'] ?? json['shipping_address_phone'],
       enablePortal: json['enablePortal'] ?? json['enable_portal'],

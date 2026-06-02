@@ -109,20 +109,20 @@ class _PurchaseOrderOverviewScreenState
 
   void _initializeColumns() {
     _allColumns = [
-      ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0),
+      ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0, isLocked: true),
       ColumnConfig(id: 'location', label: 'WAREHOUSE', orderIndex: 1),
-      ColumnConfig(id: 'order_number', label: 'ORDER NUMBER', orderIndex: 2),
+      ColumnConfig(id: 'order_number', label: 'ORDER NUMBER', orderIndex: 2, isLocked: true),
       ColumnConfig(
         id: 'reference_number',
         label: 'REFERENCE NUMBER',
         orderIndex: 3,
         isVisible: false,
       ),
-      ColumnConfig(id: 'vendor_name', label: 'VENDOR NAME', orderIndex: 4),
-      ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 5),
+      ColumnConfig(id: 'vendor_name', label: 'VENDOR NAME', orderIndex: 4, isLocked: true),
+      ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 5, isLocked: true),
       ColumnConfig(id: 'received', label: 'RECEIVED', orderIndex: 6),
       ColumnConfig(id: 'billed', label: 'BILLED', orderIndex: 7),
-      ColumnConfig(id: 'amount', label: 'AMOUNT', orderIndex: 8),
+      ColumnConfig(id: 'amount', label: 'AMOUNT', orderIndex: 8, isLocked: true),
       ColumnConfig(
         id: 'delivery_date',
         label: 'DELIVERY DATE',
@@ -406,6 +406,18 @@ class _PurchaseOrderOverviewScreenState
         case 'total':
           cmp = a.total.compareTo(b.total);
           break;
+        case 'delivery_date':
+          cmp = (a.expectedDeliveryDate ?? a.orderDate)
+              .compareTo(b.expectedDeliveryDate ?? b.orderDate);
+          break;
+        case 'created_at':
+          cmp = (a.createdAt ?? a.orderDate)
+              .compareTo(b.createdAt ?? b.orderDate);
+          break;
+        case 'updated_at':
+          cmp = (a.updatedAt ?? a.orderDate)
+              .compareTo(b.updatedAt ?? b.orderDate);
+          break;
         default:
           cmp = 0;
       }
@@ -535,10 +547,13 @@ class _PurchaseOrderOverviewScreenState
               SubmenuButton(
                 style: ZTableMoreMenu.menuItemButtonStyle(),
                 menuChildren: [
-                  _buildSortMenuItem('Date', 'order_date'),
                   _buildSortMenuItem('Purchase Order#', 'order_number'),
+                  _buildSortMenuItem('Date', 'order_date'),
                   _buildSortMenuItem('Vendor Name', 'vendor_name'),
                   _buildSortMenuItem('Amount', 'total'),
+                  _buildSortMenuItem('Delivery Date', 'delivery_date'),
+                  _buildSortMenuItem('Created Time', 'created_at'),
+                  _buildSortMenuItem('Last Modified Time', 'updated_at'),
                 ],
                 child: const Text('Sort by'),
               ),
@@ -689,13 +704,13 @@ class _PurchaseOrderOverviewScreenState
                         SubmenuButton(
                           style: ZTableMoreMenu.menuItemButtonStyle(),
                           menuChildren: [
+                            _buildSortMenuItem('Purchase Order#', 'order_number'),
                             _buildSortMenuItem('Date', 'order_date'),
-                            _buildSortMenuItem(
-                              'Purchase Order#',
-                              'order_number',
-                            ),
                             _buildSortMenuItem('Vendor Name', 'vendor_name'),
                             _buildSortMenuItem('Amount', 'total'),
+                            _buildSortMenuItem('Delivery Date', 'delivery_date'),
+                            _buildSortMenuItem('Created Time', 'created_at'),
+                            _buildSortMenuItem('Last Modified Time', 'updated_at'),
                           ],
                           child: const Text('Sort by'),
                         ),

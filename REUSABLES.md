@@ -98,12 +98,12 @@ standalone depending on the variant.
 |-------------------|------|-------------|
 | `showZerpaiConfirmationDialog()` | `dialogs/zerpai_confirmation_dialog.dart` | Standard confirmation dialog (warning / danger variants) |
 | `showUnsavedChangesDialog()` | `dialogs/unsaved_changes_dialog.dart` | Confirmation dialog specifically for unsaved changes prompts |
+| `AddressDialog` | `dialogs/address_dialog.dart` | Shared popup dialog for editing/creating billing, shipping, or warehouse addresses with inputs constraints, phone prefixes, and automatic lookup fallback matches |
 | `ManageListDialog` | `inputs/manage_list_dialog.dart` | Two-level dialog: view list → edit individual item |
 | `ManagePaymentTermsDialog` | `inputs/manage_payment_terms_dialog.dart` | Dialog for managing payment term schedules |
 | `ManageCategoriesDialog` | `inputs/manage_categories_dialog.dart` | Dialog for managing category hierarchy |
 | `InventoryBinBatchFOC` (`PicklistSelectBatchesDialog`) | `dialogs/inventory_bin_batch_foc.dart` | Shared Select Batches modal reused by Inventory Picklists and Credit Notes. Inputs: `itemName`, `productId`, `warehouseName`, `warehouseId`, `branchId?`, `totalQuantity`, `savedBatchData?`. Row fields: `binLocation`, `batchRef`, `batchNo`, `unitPack`, `mrp`, `prate`, `expDate`, `mfgDate`, `mfgBatch`, `qtyOut`, `foc`. Result: `PicklistBatchDialogResult` with `overwriteLineItem`, `batchCount`, `appliedQuantity`, `totalIncludingFoc`, `batchDataList`. |
 | `InventoryBatchBinSelectionDialog` | `dialogs/inventory_batch_bin_selection_dialog.dart` | Shared Select Batches + Bin Locations modal with quantity validation and row-based batch entry. |
-
 ### Loading / Error States
 
 | Widget | File | Description |

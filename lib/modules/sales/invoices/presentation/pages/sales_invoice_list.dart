@@ -250,8 +250,8 @@ class _SalesInvoiceOverviewScreenState
   final ScrollController _horizontalScrollController = ScrollController();
   String _searchQuery = '';
   _InvoiceView _activeView = _invoiceViews.first;
-  _InvSortField _activeSortField = _InvSortField.invoiceNumber;
-  bool _isAscending = true;
+  _InvSortField _activeSortField = _InvSortField.date;
+  bool _isAscending = false;
   bool _clipText = true;
   Set<String> _selectedIds = <String>{};
   late List<_InvColumnConfig> _columnConfigs;
@@ -352,7 +352,7 @@ class _SalesInvoiceOverviewScreenState
         key: _InvColumnKey.customerName,
         label: 'Customer Name',
         width: 220,
-        locked: true,
+        locked: false,
         visible: true,
       ),
       _InvColumnConfig(

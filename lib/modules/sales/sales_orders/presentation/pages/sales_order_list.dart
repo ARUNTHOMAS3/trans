@@ -30,6 +30,8 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
+import 'package:zerpai_erp/shared/models/column_config.dart';
+import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
 
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_item_model.dart';
@@ -123,50 +125,7 @@ enum _SalesOrderSortField {
   status,
 }
 
-enum _SalesOrderColumnKey {
-  date,
-  salesOrderNumber,
-  reference,
-  customerName,
-  orderStatus,
-  invoiced,
-  payment,
-  packed,
-  shipped,
-  amount,
-  deliveryMethod,
-  expectedShipmentDate,
-  companyName,
-  invoicedAmount,
-  location,
-  picked,
-  salesPerson,
-  status,
-}
 
-class _SalesOrderColumnConfig {
-  final _SalesOrderColumnKey key;
-  final String label;
-  final double width;
-  final bool locked;
-  bool visible;
-
-  _SalesOrderColumnConfig({
-    required this.key,
-    required this.label,
-    required this.width,
-    this.locked = false,
-    required this.visible,
-  });
-
-  _SalesOrderColumnConfig copy() => _SalesOrderColumnConfig(
-    key: key,
-    label: label,
-    width: width,
-    locked: locked,
-    visible: visible,
-  );
-}
 
 const List<String> _bulkUpdateFields = [
   'PDF Template',
@@ -233,15 +192,25 @@ class _SalesOrderOverviewScreenState
   final ScrollController _horizontalScrollController = ScrollController();
   String _searchQuery = '';
   _SalesOrderView _activeView = _salesOrderViews.first;
-  _SalesOrderSortField _activeSortField = _SalesOrderSortField.salesOrderNumber;
-  bool _isAscending = true;
+  _SalesOrderSortField _activeSortField = _SalesOrderSortField.date;
+  bool _isAscending = false;
   bool _clipText = true;
   Set<String> _selectedSaleIds = <String>{};
-  late List<_SalesOrderColumnConfig> _columnConfigs;
+  late List<ColumnConfig> _columnConfigs;
   Map<String, double>? _customColumnWidths;
 
-  List<_SalesOrderColumnConfig> get _visibleColumns =>
-      _columnConfigs.where((column) => column.visible).toList();
+  void _updateVisibleColumns() {
+    _columnConfigs.sort((a, b) {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return a.orderIndex.compareTo(b.orderIndex);
+    });
+  }
+
+  List<ColumnConfig> get _visibleColumns {
+    _updateVisibleColumns();
+    return _columnConfigs.where((column) => column.isVisible).toList();
+  }
 
   @override
   void initState() {
@@ -274,6 +243,34 @@ class _SalesOrderOverviewScreenState
           );
         });
       }
+
+      final configJson = prefs.getString('so_table_columns_config');
+      if (configJson != null) {
+        final List<dynamic> decoded = jsonDecode(configJson);
+        final Map<String, ColumnConfig> loadedMap = {
+          for (var c in decoded.map(
+            (e) => ColumnConfig.fromJson(Map<String, dynamic>.from(e)),
+          ))
+            c.id: c,
+        };
+
+        setState(() {
+          for (var col in _columnConfigs) {
+            final keyStr = col.id;
+            if (loadedMap.containsKey(keyStr)) {
+              col.isVisible = loadedMap[keyStr]!.isVisible;
+              col.orderIndex = loadedMap[keyStr]!.orderIndex;
+              col.isPinned = loadedMap[keyStr]!.isPinned;
+            }
+          }
+          _updateVisibleColumns();
+        });
+      } else {
+        // If no config saved, initialize orderIndex based on default list order
+        for (int i = 0; i < _columnConfigs.length; i++) {
+          _columnConfigs[i].orderIndex = i;
+        }
+      }
     } catch (e) {
       debugPrint('Error loading column settings: $e');
     }
@@ -281,12 +278,15 @@ class _SalesOrderOverviewScreenState
 
   Future<void> _saveColumnSettings() async {
     try {
-      if (_customColumnWidths == null) return;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        'sales_order_column_widths',
-        jsonEncode(_customColumnWidths),
-      );
+      if (_customColumnWidths != null) {
+        await prefs.setString(
+          'sales_order_column_widths',
+          jsonEncode(_customColumnWidths),
+        );
+      }
+      final jsonStr = jsonEncode(_columnConfigs.map((e) => e.toJson()).toList());
+      await prefs.setString('so_table_columns_config', jsonStr);
     } catch (e) {
       debugPrint('Error saving column settings: $e');
     }
@@ -328,120 +328,102 @@ class _SalesOrderOverviewScreenState
     }
   }
 
-  List<_SalesOrderColumnConfig> _defaultColumnConfigs() {
+  List<ColumnConfig> _defaultColumnConfigs() {
     return [
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.salesOrderNumber,
+      ColumnConfig(
+        id: 'sales_order_number',
         label: 'Sales Order#',
-        width: 130,
-        locked: true,
-        visible: true,
+        isLocked: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.invoiced,
+      ColumnConfig(
+        id: 'invoiced',
         label: 'Invoiced',
-        width: 90,
-        visible: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.date,
+      ColumnConfig(
+        id: 'date',
         label: 'Date',
-        width: 110,
-        locked: true,
-        visible: true,
+        isLocked: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.customerName,
+      ColumnConfig(
+        id: 'customer_name',
         label: 'Customer Name',
-        width: 180,
-        locked: true,
-        visible: true,
+        isLocked: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.orderStatus,
+      ColumnConfig(
+        id: 'order_status',
         label: 'Order Status',
-        width: 110,
-        locked: true,
-        visible: true,
+        isLocked: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.payment,
+      ColumnConfig(
+        id: 'payment',
         label: 'Payment',
-        width: 90,
-        visible: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.packed,
+      ColumnConfig(
+        id: 'packed',
         label: 'Packed',
-        width: 90,
-        visible: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.shipped,
+      ColumnConfig(
+        id: 'shipped',
         label: 'Shipped',
-        width: 90,
-        visible: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.amount,
+      ColumnConfig(
+        id: 'amount',
         label: 'Amount',
-        width: 120,
-        locked: true,
-        visible: true,
+        isLocked: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.deliveryMethod,
+      ColumnConfig(
+        id: 'delivery_method',
         label: 'Delivery Method',
-        width: 160,
-        visible: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.picked,
+      ColumnConfig(
+        id: 'picked',
         label: 'Picked',
-        width: 90,
-        visible: true,
+        isVisible: true,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.reference,
+      ColumnConfig(
+        id: 'reference',
         label: 'Reference#',
-        width: 120,
-        visible: false,
+        isVisible: false,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.expectedShipmentDate,
+      ColumnConfig(
+        id: 'expected_shipment_date',
         label: 'Expected Shipment Date',
-        width: 180,
-        visible: false,
+        isVisible: false,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.companyName,
+      ColumnConfig(
+        id: 'company_name',
         label: 'Company Name',
-        width: 170,
-        visible: false,
+        isVisible: false,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.invoicedAmount,
+      ColumnConfig(
+        id: 'invoiced_amount',
         label: 'Invoiced Amount',
-        width: 140,
-        visible: false,
+        isVisible: false,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.location,
+      ColumnConfig(
+        id: 'location',
         label: 'Location',
-        width: 160,
-        visible: false,
+        isVisible: false,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.salesPerson,
+      ColumnConfig(
+        id: 'sales_person',
         label: 'Sales person',
-        width: 140,
-        visible: false,
+        isVisible: false,
       ),
-      _SalesOrderColumnConfig(
-        key: _SalesOrderColumnKey.status,
+      ColumnConfig(
+        id: 'status',
         label: 'Status',
-        width: 110,
-        visible: false,
+        isVisible: false,
       ),
     ];
   }
@@ -615,6 +597,16 @@ class _SalesOrderOverviewScreenState
                   style: ZTableMoreMenu.menuItemButtonStyle(),
                   menuChildren: [
                     _buildSortMenuItem(
+                      'Sales Order#',
+                      _SalesOrderSortField.salesOrderNumber,
+                    ),
+                    _buildSortMenuItem('Date', _SalesOrderSortField.date),
+                    _buildSortMenuItem(
+                      'Customer Name',
+                      _SalesOrderSortField.customerName,
+                    ),
+                    _buildSortMenuItem('Amount', _SalesOrderSortField.amount),
+                    _buildSortMenuItem(
                       'Created Time',
                       _SalesOrderSortField.createdTime,
                     ),
@@ -622,14 +614,9 @@ class _SalesOrderOverviewScreenState
                       'Last Modified Time',
                       _SalesOrderSortField.lastModifiedTime,
                     ),
-                    _buildSortMenuItem('Date', _SalesOrderSortField.date),
                     _buildSortMenuItem(
-                      'Sales Order#',
-                      _SalesOrderSortField.salesOrderNumber,
-                    ),
-                    _buildSortMenuItem(
-                      'Reference#',
-                      _SalesOrderSortField.reference,
+                      'Expected Shipment Date',
+                      _SalesOrderSortField.expectedShipmentDate,
                     ),
                   ],
                   child: const Text('Sort by'),
@@ -866,17 +853,22 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  Future<void> _showCustomizeColumnsDialog() async {
-    final working = _columnConfigs.map((column) => column.copy()).toList();
-    final result = await showDialog<List<_SalesOrderColumnConfig>>(
+  void _showCustomizeColumnsDialog() {
+    showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.58),
-      builder: (dialogContext) =>
-          _SalesOrderCustomizeColumnsDialog(columns: working),
+      builder: (context) => ColumnCustomizerDialog(
+        columns: _columnConfigs,
+        onSave: (updated) {
+          setState(() {
+            _columnConfigs = updated;
+            _updateVisibleColumns();
+          });
+          _saveColumnSettings();
+          Navigator.pop(context);
+          ZerpaiToast.success(context, 'Column preferences saved');
+        },
+      ),
     );
-    if (result == null) return;
-    setState(() => _columnConfigs = result);
-    ZerpaiToast.success(context, 'Column preferences saved');
   }
 
   Future<void> _showNewCustomViewDialog() async {
@@ -961,6 +953,16 @@ class _SalesOrderOverviewScreenState
                           style: ZTableMoreMenu.menuItemButtonStyle(),
                           menuChildren: [
                             _buildSortMenuItem(
+                              'Sales Order#',
+                              _SalesOrderSortField.salesOrderNumber,
+                            ),
+                            _buildSortMenuItem('Date', _SalesOrderSortField.date),
+                            _buildSortMenuItem(
+                              'Customer Name',
+                              _SalesOrderSortField.customerName,
+                            ),
+                            _buildSortMenuItem('Amount', _SalesOrderSortField.amount),
+                            _buildSortMenuItem(
                               'Created Time',
                               _SalesOrderSortField.createdTime,
                             ),
@@ -969,16 +971,8 @@ class _SalesOrderOverviewScreenState
                               _SalesOrderSortField.lastModifiedTime,
                             ),
                             _buildSortMenuItem(
-                              'Date',
-                              _SalesOrderSortField.date,
-                            ),
-                            _buildSortMenuItem(
-                              'Sales Order#',
-                              _SalesOrderSortField.salesOrderNumber,
-                            ),
-                            _buildSortMenuItem(
-                              'Reference#',
-                              _SalesOrderSortField.reference,
+                              'Expected Shipment Date',
+                              _SalesOrderSortField.expectedShipmentDate,
                             ),
                           ],
                           child: const Text('Sort by'),
@@ -1898,22 +1892,22 @@ class _SalesOrderOverviewScreenState
     // min width + flex weight for each visible column
     final Map<String, ({double min, double flex})> metrics = {
       'date': (min: 100.0, flex: 1.0),
-      'salesOrderNumber': (min: 120.0, flex: 1.4),
+      'sales_order_number': (min: 120.0, flex: 1.4),
       'reference': (min: 110.0, flex: 1.2),
-      'customerName': (min: 150.0, flex: 2.0),
-      'orderStatus': (min: 110.0, flex: 1.2),
+      'customer_name': (min: 150.0, flex: 2.0),
+      'order_status': (min: 110.0, flex: 1.2),
       'invoiced': (min: 80.0, flex: 0.8),
       'payment': (min: 80.0, flex: 0.8),
       'packed': (min: 80.0, flex: 0.8),
       'shipped': (min: 80.0, flex: 0.8),
       'amount': (min: 110.0, flex: 1.2),
-      'deliveryMethod': (min: 130.0, flex: 1.5),
-      'expectedShipmentDate': (min: 130.0, flex: 1.5),
-      'companyName': (min: 150.0, flex: 2.0),
-      'invoicedAmount': (min: 120.0, flex: 1.2),
+      'delivery_method': (min: 130.0, flex: 1.5),
+      'expected_shipment_date': (min: 130.0, flex: 1.5),
+      'company_name': (min: 150.0, flex: 2.0),
+      'invoiced_amount': (min: 120.0, flex: 1.2),
       'location': (min: 120.0, flex: 1.2),
       'picked': (min: 80.0, flex: 0.8),
-      'salesPerson': (min: 120.0, flex: 1.2),
+      'sales_person': (min: 120.0, flex: 1.2),
       'status': (min: 100.0, flex: 1.0),
     };
 
@@ -1922,7 +1916,7 @@ class _SalesOrderOverviewScreenState
     double totalFlex = 0;
 
     for (final col in _visibleColumns) {
-      final colKey = col.key.name;
+      final colKey = col.id;
       final m = metrics[colKey] ?? (min: 120.0, flex: 1.0);
       totalMinWidth += m.min;
       totalFlex += m.flex;
@@ -1931,7 +1925,7 @@ class _SalesOrderOverviewScreenState
     final extraSpace = math.max(0.0, totalWidth - totalMinWidth);
     final results = <String, double>{};
     for (final col in _visibleColumns) {
-      final colKey = col.key.name;
+      final colKey = col.id;
       final m = metrics[colKey] ?? (min: 120.0, flex: 1.0);
       results[colKey] = m.min + (m.flex / totalFlex) * extraSpace;
     }
@@ -2033,10 +2027,10 @@ class _SalesOrderOverviewScreenState
           ),
           const SizedBox(width: 12),
           ..._visibleColumns.map((col) {
-            final w = columnWidths[col.key.name] ?? col.width;
+            final w = columnWidths[col.id] ?? 120.0;
             return _ResizableHeaderCell(
               width: w,
-              onResize: (dx) => _resizeColumn(col.key.name, dx),
+              onResize: (dx) => _resizeColumn(col.id, dx),
               child: _buildHeaderForColumn(col, w),
             );
           }),
@@ -2298,74 +2292,53 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  Widget _buildHeaderForColumn(_SalesOrderColumnConfig column, double width) {
-    final sortField = _sortFieldForColumn(column.key);
-    final isSorted = sortField != null && _activeSortField == sortField;
-    final align =
-        (column.key == _SalesOrderColumnKey.invoiced ||
-            column.key == _SalesOrderColumnKey.payment ||
-            column.key == _SalesOrderColumnKey.packed ||
-            column.key == _SalesOrderColumnKey.shipped ||
-            column.key == _SalesOrderColumnKey.picked ||
-            column.key == _SalesOrderColumnKey.salesOrderNumber ||
-            column.key == _SalesOrderColumnKey.orderStatus ||
-            column.key == _SalesOrderColumnKey.amount ||
-            column.key == _SalesOrderColumnKey.invoicedAmount ||
-            column.key == _SalesOrderColumnKey.deliveryMethod)
-        ? TextAlign.center
-        : TextAlign.left;
+  Widget _buildHeaderForColumn(ColumnConfig column, double width) {
+    final align = (column.id == 'amount' || column.id == 'invoiced_amount')
+        ? TextAlign.right
+        : (column.id == 'invoiced' ||
+                column.id == 'payment' ||
+                column.id == 'packed' ||
+                column.id == 'shipped' ||
+                column.id == 'picked' ||
+                column.id == 'sales_order_number' ||
+                column.id == 'order_status' ||
+                column.id == 'delivery_method')
+            ? TextAlign.center
+            : TextAlign.left;
     return SizedBox(
       width: width,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: InkWell(
-          onTap: sortField == null
-              ? null
-              : () => setState(() => _toggleSort(sortField)),
-          child: Row(
-            mainAxisAlignment: align == TextAlign.center
-                ? MainAxisAlignment.center
-                : (column.key == _SalesOrderColumnKey.amount ||
-                      column.key == _SalesOrderColumnKey.invoicedAmount)
-                ? MainAxisAlignment.end
-                : MainAxisAlignment.start,
-            children: [
-              Flexible(
+        child: align == TextAlign.center
+            ? Center(
                 child: Text(
                   column.label.toUpperCase(),
                   style: AppTheme.metaHelper.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: isSorted ? AppTheme.primaryBlue : null,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
+              )
+            : Text(
+                column.label.toUpperCase(),
+                style: AppTheme.metaHelper.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: align,
               ),
-              if (isSorted) ...[
-                const SizedBox(width: 4),
-                Icon(
-                  _isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
-                  size: 12,
-                  color: AppTheme.primaryBlue,
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildCellForColumn(
-    _SalesOrderColumnConfig column,
+    ColumnConfig column,
     SalesOrder sale,
     Map<String, double> columnWidths,
   ) {
-    final w = columnWidths[column.key.name] ?? column.width;
-    switch (column.key) {
-      case _SalesOrderColumnKey.date:
+    final w = columnWidths[column.id] ?? 120.0;
+    switch (column.id) {
+      case 'date':
         return _Cell(width: w, child: _tableText(_date(sale.saleDate)));
-      case _SalesOrderColumnKey.salesOrderNumber:
+      case 'sales_order_number':
         return _Cell(
           width: w,
           child: Text(
@@ -2378,12 +2351,12 @@ class _SalesOrderOverviewScreenState
           ),
           alignCenter: true,
         );
-      case _SalesOrderColumnKey.reference:
+      case 'reference':
         return _Cell(width: w, child: _tableText(sale.reference ?? '—'));
-      case _SalesOrderColumnKey.customerName:
+      case 'customer_name':
         return _Cell(width: w, child: _tableText(_customerName(sale)));
-      case _SalesOrderColumnKey.orderStatus:
-      case _SalesOrderColumnKey.status:
+      case 'order_status':
+      case 'status':
         return _Cell(
           width: w,
           child: Text(
@@ -2396,14 +2369,14 @@ class _SalesOrderOverviewScreenState
           ),
           alignCenter: true,
         );
-      case _SalesOrderColumnKey.invoiced:
+      case 'invoiced':
         return _StateDot(
           width: w,
           active: _isInvoiced(sale),
           tooltip: _invoiceLabel(sale),
           activeIcon: LucideIcons.fileText,
         );
-      case _SalesOrderColumnKey.payment:
+      case 'payment':
         return _StateDot(
           width: w,
           active: _isPaid(sale),
@@ -2411,21 +2384,21 @@ class _SalesOrderOverviewScreenState
           activeIcon: LucideIcons.creditCard,
         );
 
-      case _SalesOrderColumnKey.packed:
+      case 'packed':
         return _StateDot(
           width: w,
           active: _isPacked(sale),
           tooltip: _isPacked(sale) ? 'Packed' : 'Not Packed',
           activeIcon: LucideIcons.package,
         );
-      case _SalesOrderColumnKey.shipped:
+      case 'shipped':
         return _StateDot(
           width: w,
           active: _isShipped(sale),
           tooltip: _shipmentLabel(sale),
           activeIcon: LucideIcons.truck,
         );
-      case _SalesOrderColumnKey.amount:
+      case 'amount':
         return _Cell(
           width: w,
           alignRight: true,
@@ -2437,7 +2410,7 @@ class _SalesOrderOverviewScreenState
             ),
           ),
         );
-      case _SalesOrderColumnKey.deliveryMethod:
+      case 'delivery_method':
         return _Cell(
           width: w,
           alignCenter: true,
@@ -2446,7 +2419,7 @@ class _SalesOrderOverviewScreenState
             textAlign: TextAlign.center,
           ),
         );
-      case _SalesOrderColumnKey.expectedShipmentDate:
+      case 'expected_shipment_date':
         return _Cell(
           width: w,
           child: _tableText(
@@ -2455,12 +2428,12 @@ class _SalesOrderOverviewScreenState
                 : '—',
           ),
         );
-      case _SalesOrderColumnKey.companyName:
+      case 'company_name':
         return _Cell(
           width: w,
           child: _tableText(sale.customer?.companyName ?? '—'),
         );
-      case _SalesOrderColumnKey.invoicedAmount:
+      case 'invoiced_amount':
         return _Cell(
           width: w,
           alignRight: true,
@@ -2478,20 +2451,22 @@ class _SalesOrderOverviewScreenState
                   ),
           ),
         );
-      case _SalesOrderColumnKey.location:
+      case 'location':
         return _Cell(
           width: w,
           child: _tableText(sale.customer?.billingAddressStateId ?? '—'),
         );
-      case _SalesOrderColumnKey.picked:
+      case 'picked':
         return _StateDot(
           width: w,
           active: _isPacked(sale),
           tooltip: _isPacked(sale) ? 'Picked' : 'Not Picked',
           activeIcon: LucideIcons.checkSquare,
         );
-      case _SalesOrderColumnKey.salesPerson:
+      case 'sales_person':
         return _Cell(width: w, child: _tableText(sale.salesperson ?? '—'));
+      default:
+        return _Cell(width: w, child: _tableText('—'));
     }
   }
 
@@ -2506,46 +2481,6 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  _SalesOrderSortField? _sortFieldForColumn(_SalesOrderColumnKey key) {
-    switch (key) {
-      case _SalesOrderColumnKey.date:
-        return _SalesOrderSortField.date;
-      case _SalesOrderColumnKey.salesOrderNumber:
-        return _SalesOrderSortField.salesOrderNumber;
-      case _SalesOrderColumnKey.reference:
-        return _SalesOrderSortField.reference;
-      case _SalesOrderColumnKey.customerName:
-        return _SalesOrderSortField.customerName;
-      case _SalesOrderColumnKey.orderStatus:
-        return _SalesOrderSortField.orderStatus;
-      case _SalesOrderColumnKey.invoiced:
-        return _SalesOrderSortField.invoiced;
-      case _SalesOrderColumnKey.payment:
-        return _SalesOrderSortField.payment;
-      case _SalesOrderColumnKey.packed:
-        return _SalesOrderSortField.packed;
-      case _SalesOrderColumnKey.shipped:
-        return _SalesOrderSortField.shipped;
-      case _SalesOrderColumnKey.amount:
-        return _SalesOrderSortField.amount;
-      case _SalesOrderColumnKey.deliveryMethod:
-        return _SalesOrderSortField.deliveryMethod;
-      case _SalesOrderColumnKey.expectedShipmentDate:
-        return _SalesOrderSortField.expectedShipmentDate;
-      case _SalesOrderColumnKey.companyName:
-        return _SalesOrderSortField.companyName;
-      case _SalesOrderColumnKey.invoicedAmount:
-        return _SalesOrderSortField.invoicedAmount;
-      case _SalesOrderColumnKey.location:
-        return _SalesOrderSortField.location;
-      case _SalesOrderColumnKey.picked:
-        return _SalesOrderSortField.picked;
-      case _SalesOrderColumnKey.salesPerson:
-        return _SalesOrderSortField.salesPerson;
-      case _SalesOrderColumnKey.status:
-        return _SalesOrderSortField.status;
-    }
-  }
 
   Widget _detailCard(SalesOrder order, List<SalesOrderItem> items) {
     return Container(
@@ -4388,316 +4323,8 @@ class _SalesOrderNewCustomViewDialogState
   }
 }
 
-class _SalesOrderCustomizeColumnsDialog extends StatefulWidget {
-  final List<_SalesOrderColumnConfig> columns;
 
-  const _SalesOrderCustomizeColumnsDialog({required this.columns});
 
-  @override
-  State<_SalesOrderCustomizeColumnsDialog> createState() =>
-      _SalesOrderCustomizeColumnsDialogState();
-}
-
-class _SalesOrderCustomizeColumnsDialogState
-    extends State<_SalesOrderCustomizeColumnsDialog> {
-  late final List<_SalesOrderColumnConfig> _columns;
-  String _searchQuery = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _columns = widget.columns.map((column) => column.copy()).toList();
-  }
-
-  Widget _buildColumnTile(
-    _SalesOrderColumnConfig column, {
-    required Key key,
-    bool showDragHandle = true,
-  }) {
-    return Container(
-      key: key,
-      height: 38,
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 10),
-          if (showDragHandle)
-            ReorderableDragStartListener(
-              index: _columns.indexOf(column),
-              child: const Icon(
-                LucideIcons.gripVertical,
-                size: 14,
-                color: AppTheme.textMuted,
-              ),
-            )
-          else
-            const Icon(
-              LucideIcons.gripVertical,
-              size: 14,
-              color: AppTheme.borderLight,
-            ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 28,
-            child: Center(
-              child: column.locked
-                  ? const Icon(
-                      LucideIcons.lock,
-                      size: 14,
-                      color: AppTheme.textMuted,
-                    )
-                  : SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: Checkbox(
-                        value: column.visible,
-                        onChanged: (value) =>
-                            setState(() => column.visible = value ?? false),
-                        activeColor: AppTheme.primaryBlue,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              column.label,
-              style: AppTheme.bodyText.copyWith(fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filtered = _columns.where((column) {
-      final query = _searchQuery.trim().toLowerCase();
-      return query.isEmpty || column.label.toLowerCase().contains(query);
-    }).toList();
-    final selectedCount = _columns.where((column) => column.visible).length;
-
-    return Dialog(
-      alignment: Alignment.topCenter,
-      backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: SizedBox(
-        width: 520,
-        height: 610,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(18, 16, 14, 14),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.slidersHorizontal,
-                    size: 18,
-                    color: AppTheme.textBody,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Customize Columns',
-                    style: AppTheme.sectionHeader.copyWith(fontSize: 16),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '$selectedCount of ${_columns.length} Selected',
-                    style: AppTheme.bodyText.copyWith(
-                      fontSize: 13,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.primaryBlue),
-                      ),
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: 16,
-                        color: AppTheme.errorRed,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: Container(
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.borderColor),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 10),
-                    const Icon(
-                      LucideIcons.search,
-                      size: 15,
-                      color: AppTheme.textSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        onChanged: (value) =>
-                            setState(() => _searchQuery = value),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textPrimary,
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'Search',
-                          hintStyle: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textMuted,
-                          ),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          isDense: true,
-                          filled: true,
-                          fillColor: Colors.transparent,
-                          contentPadding: EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: _searchQuery.trim().isEmpty
-                  ? ReorderableListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _columns.length,
-                      onReorder: (oldIndex, newIndex) {
-                        setState(() {
-                          if (newIndex > oldIndex) newIndex -= 1;
-                          final item = _columns.removeAt(oldIndex);
-                          _columns.insert(newIndex, item);
-                        });
-                      },
-                      proxyDecorator: (child, index, animation) {
-                        return Material(
-                          color: Colors.transparent,
-                          child: AnimatedBuilder(
-                            animation: animation,
-                            builder: (context, child) {
-                              return Transform.scale(
-                                scale: 1.02,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(4),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: child,
-                          ),
-                        );
-                      },
-                      itemBuilder: (context, index) {
-                        final column = _columns[index];
-                        return _buildColumnTile(
-                          column,
-                          key: ValueKey(column.key),
-                        );
-                      },
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: filtered.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final column = filtered[index];
-                        return _buildColumnTile(
-                          column,
-                          key: ValueKey(column.key),
-                          showDragHandle: false,
-                        );
-                      },
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-              child: Row(
-                children: [
-                  SizedBox(
-                    height: 32,
-                    child: ZButton.primary(
-                      label: 'Save',
-                      onPressed: () => Navigator.of(context).pop(_columns),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    height: 32,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: AppTheme.borderLight),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: AppTheme.bodyText.copyWith(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 MenuStyle _menuStyle() {
   return MenuStyle(

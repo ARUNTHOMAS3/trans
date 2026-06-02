@@ -186,16 +186,55 @@ class _PRCreateState
   final Map<int, String> _rowSelectedWarehouses = {};
   final Map<int, String> _rowSelectedViews = {};
 
+  double _measureBatchLineWidth(String text) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          fontSize: 10,
+          height: 1.1,
+          color: _textPrimary,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Inter',
+        ),
+      ),
+      textDirection: Directionality.of(context),
+      maxLines: 1,
+    )..layout();
+    return painter.width;
+  }
+
+  double _batchCardWidth(BatchInfo batch) {
+    final lines = <String>[
+      'Batch: ${batch.batchNo}',
+      'Qty: ${_fmtPcs(batch.quantity)} pcs',
+      if (batch.foc > 0) 'FOC: ${_fmtPcs(batch.foc)} pcs',
+      'Pack: ${batch.unitPack}',
+      'MRP: ${batch.mrp}',
+      'P Rate: ${batch.ptr}',
+      'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
+    ];
+    final maxLineWidth = lines
+        .map(_measureBatchLineWidth)
+        .fold<double>(0, (maxWidth, width) => max(maxWidth, width));
+    return (maxLineWidth + 14).clamp(94.0, 110.0);
+  }
+
   double _dynamicQtyToReceiveColumnWidth() {
-    final maxBatches = _items.isEmpty
-        ? 0
-        : _items.map((i) => i.batches.length).fold<int>(0, (m, e) => max(m, e));
-    const baseWidth = 124.0;
-    const extraPerBatch = 102.0;
-    if (maxBatches > 0) {
-      return (116.0 + (maxBatches * extraPerBatch)).clamp(baseWidth, 700.0);
-    }
-    return baseWidth;
+    const baseWidth = 160.0;
+    const fixedContentWidth = 140.0;
+    if (_items.isEmpty) return baseWidth;
+    final requiredWidth = _items.fold<double>(baseWidth, (currentMax, item) {
+      if (item.batches.isEmpty) return currentMax;
+      final cardsWidth = item.batches
+          .map(_batchCardWidth)
+          .fold<double>(0, (sum, width) => sum + width);
+      return max(
+        currentMax,
+        fixedContentWidth + cardsWidth + (item.batches.length * 2.0),
+      );
+    });
+    return requiredWidth.clamp(baseWidth, 1500.0);
   }
 
   double _tableMinWidthFactor() {
@@ -938,43 +977,6 @@ class _PRCreateState
       final fullPO = await ref.read(purchaseOrderProvider(po.id!).future);
       if (!mounted) return;
 
-      /* // Resolve warehouse name explicitly
-      String? resolvedName;
-      final poToUse = fullPO ?? po;
-      
-      final idToLookup = (poToUse.deliveryWarehouseId?.trim() ?? 
-                         poToUse.warehouseId?.trim() ?? 
-                         poToUse.outletId?.trim())?.toLowerCase();
-
-      final warehouseList = await ref.read(warehousesProvider.future);
-      
-      AppLogger.debug('Resolving warehouse', data: {
-        'idToLookup': idToLookup,
-        'poWarehouseName': poToUse.warehouseName,
-        'availableCount': warehouseList.length,
-      }, module: 'purchases');
-
-      if (idToLookup != null && idToLookup.isNotEmpty) {
-        // 1. Try exact ID match (case-insensitive)
-        final match = warehouseList.where((w) => w.id.toLowerCase() == idToLookup).firstOrNull ??
-                      warehouseList.where((w) => w.parentOutletId?.toLowerCase() == idToLookup).firstOrNull;
-        
-        if (match != null) {
-          resolvedName = match.name;
-        } else if (poToUse.warehouseName != null && poToUse.warehouseName!.isNotEmpty) {
-          // 2. Try matching by name string if ID lookup failed
-          final nameMatch = warehouseList.where((w) => w.name.toLowerCase() == poToUse.warehouseName!.toLowerCase()).firstOrNull;
-          resolvedName = nameMatch?.name ?? poToUse.warehouseName;
-        } else {
-          resolvedName = 'Not Available';
-        }
-      } else {
-        // 3. No ID found, use name from PO directly or fallback
-        resolvedName = (poToUse.warehouseName != null && poToUse.warehouseName!.isNotEmpty)
-            ? poToUse.warehouseName
-            : 'Not Available';
-      } */
-
       setState(() {
         _selectedPO = fullPO ?? po;
 
@@ -995,7 +997,7 @@ class _PRCreateState
               ),
             );
             final controller = _ReceiveItemRowController();
-            controller.qtyCtrl.text = '0';
+            controller.qtyCtrl.text = '';
             _rowControllers.add(controller);
             _preferredBins.add(null);
             _damageControllers.add(TextEditingController());
@@ -1029,6 +1031,7 @@ class _PRCreateState
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 400),
                       child: FormDropdown<Vendor>(
+                        menuWidth: 480,
                         value: ref
                             .read(vendorProvider)
                             .vendors
@@ -1040,8 +1043,8 @@ class _PRCreateState
                         displayStringForValue: (v) => v.displayName,
                         searchStringForValue: (v) => v.displayName,
                         itemBuilder: (item, isSelected, isHovered) {
-                          return _buildDropdownOverlayItem(
-                            item.displayName,
+                          return _buildVendorDropdownItem(
+                            item,
                             isSelected,
                             isHovered,
                           );
@@ -1961,6 +1964,13 @@ class _PRCreateState
                 vertical: 10,
                 horizontal: 2,
               ),
+              hintText: "0",
+              hintStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _hintColor,
+                fontFamily: 'Inter',
+              ),
               enabledBorder: OutlineInputBorder(
                 borderSide: const BorderSide(
                   color: Color(0xFFBDBDBD),
@@ -2065,11 +2075,9 @@ class _PRCreateState
   Widget _batchText(String text) {
     return Text(
       text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
       style: const TextStyle(
         fontSize: 10,
-        height: 1.35,
+        height: 1.1,
         color: _textPrimary,
         fontWeight: FontWeight.w600,
         fontFamily: 'Inter',
@@ -2130,9 +2138,10 @@ class _PRCreateState
     required Widget child,
     bool isLastColumn = false,
     bool hideRightBorder = false,
+    AlignmentGeometry? alignment = Alignment.centerLeft,
   }) {
     Widget content = Container(
-      alignment: Alignment.centerLeft,
+      alignment: alignment,
       decoration: BoxDecoration(
         border: Border(
           right: (isLastColumn || hideRightBorder)
@@ -2226,6 +2235,13 @@ class _PRCreateState
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
+                      hintText: "0",
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _hintColor,
+                        fontFamily: 'Inter',
+                      ),
                     ),
                   ),
                 ),
@@ -2285,6 +2301,92 @@ class _PRCreateState
     );
   }
 
+  Widget _buildVendorDropdownItem(Vendor v, bool isSelected, bool isHovered) {
+    final firstName = (v.firstName ?? '').trim();
+    final initialSource = firstName.isNotEmpty
+        ? firstName
+        : (v.displayName.isNotEmpty ? v.displayName : '?');
+    final initial = initialSource.substring(0, 1).toUpperCase();
+
+    final backgroundColor = isHovered
+        ? const Color(0xFF3B82F6)
+        : (isSelected ? const Color(0xFFF3F4F6) : Colors.white);
+    final primaryTextColor = isHovered ? Colors.white : _textPrimary;
+    final secondaryTextColor = isHovered
+        ? Colors.white.withValues(alpha: 0.85)
+        : _hintColor;
+
+    final topLine = v.vendorNumber != null && v.vendorNumber!.isNotEmpty
+        ? '${v.displayName} | ${v.vendorNumber}'
+        : v.displayName;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isHovered
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : const Color(0xFFE5E7EB),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initial,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isHovered ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  topLine,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: primaryTextColor,
+                  ),
+                ),
+                if (v.companyName != null && v.companyName!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    v.companyName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildManualRow(
     int index,
     PurchaseReceiveItem item, {
@@ -2320,18 +2422,17 @@ class _PRCreateState
         : null;
     final hasBatches = !isEphemeral && item.batches.isNotEmpty;
 
-    if (ctrl.qtyCtrl.text.isEmpty) {
-      ctrl.qtyCtrl.text = '0';
-    }
+
 
     return Container(
+      constraints: BoxConstraints(minHeight: hasBatches ? 156 : 0),
       decoration: const BoxDecoration(
         border: Border(
           left: BorderSide(color: _borderCol, width: 0.8),
           bottom: BorderSide(color: _borderCol, width: 0.8),
         ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(vertical: hasBatches ? 4 : 12),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2492,7 +2593,7 @@ class _PRCreateState
                           ..add("manual-bin-$index");
                       }),
                       child: SizedBox(
-                        height: 44,
+                        height: 32,
                         child: Consumer(
                           builder: (context, ref, child) {
                             final warehousesAsync = ref.watch(allWarehousesProvider);
@@ -2510,6 +2611,7 @@ class _PRCreateState
                             final binItems = bins.map((b) => b['bin_code']!.toString()).toList();
 
                             return FormDropdown<String>(
+                              height: 32,
                               value: selectedBin,
                               items: binItems,
                               hint: "Select Bin",
@@ -2558,6 +2660,7 @@ class _PRCreateState
             _tableBodyCell(
               fixedWidth: _dynamicQtyToReceiveColumnWidth(),
               hideRightBorder: true,
+              alignment: null,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: WarehouseHoverPopover(
@@ -2566,12 +2669,13 @@ class _PRCreateState
                   onWarehouseChanged: (name) => setState(() => _rowSelectedWarehouses[index] = name),
                   onViewChanged: (view) => setState(() => _rowSelectedViews[index] = view),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       SizedBox(
                         width: 94,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             _buildQtyControl(
                               fieldKey: 'manual-$index',
@@ -2605,45 +2709,51 @@ class _PRCreateState
                         Expanded(
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: item.batches.map((batch) {
-                                return GestureDetector(
-                                  onTap: () => _showSelectBatchDialog(index),
-                                  child: Container(
-                                    width: 94,
-                                    margin: const EdgeInsets.only(right: 2),
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF3F9F5),
-                                      border: Border.all(
-                                        color: const Color(0xFFCFE9D8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: item.batches.map((batch) {
+                                  return GestureDetector(
+                                    onTap: () => _showSelectBatchDialog(index),
+                                    child: Container(
+                                      constraints: BoxConstraints(
+                                        minWidth: 94,
+                                        maxWidth: _batchCardWidth(batch),
                                       ),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        _batchText('Batch: ${batch.batchNo}'),
-                                        _batchText(
-                                          'Qty: ${_fmtPcs(batch.quantity)} pcs',
+                                      margin: const EdgeInsets.only(right: 2, top: 2, bottom: 2),
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF3F9F5),
+                                        border: Border.all(
+                                          color: const Color(0xFFCFE9D8),
                                         ),
-                                        if (batch.foc > 0)
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _batchText('Batch: ${batch.batchNo}'),
                                           _batchText(
-                                            'FOC: ${_fmtPcs(batch.foc)} pcs',
+                                            'Qty: ${_fmtPcs(batch.quantity)} pcs',
                                           ),
-                                        _batchText('Pack: ${batch.unitPack}'),
-                                        _batchText('MRP: ${batch.mrp}'),
-                                        _batchText('P Rate: ${batch.ptr}'),
-                                        _batchText(
-                                          'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
-                                        ),
-                                      ],
+                                          if (batch.foc > 0)
+                                            _batchText(
+                                              'FOC: ${_fmtPcs(batch.foc)} pcs',
+                                            ),
+                                          _batchText('Pack: ${batch.unitPack}'),
+                                          _batchText('MRP: ${batch.mrp}'),
+                                          _batchText('P Rate: ${batch.ptr}'),
+                                          _batchText(
+                                            'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }).toList(),
+                                  );
+                                }).toList(),
+                              ),
                             ),
                           ),
                         ),
@@ -2681,18 +2791,17 @@ class _PRCreateState
         : _ReceiveItemRowController();
     final hasBatches = item.batches.isNotEmpty;
 
-    if (ctrl.qtyCtrl.text.isEmpty) {
-      ctrl.qtyCtrl.text = '0';
-    }
+
 
     return Container(
+      constraints: BoxConstraints(minHeight: hasBatches ? 156 : 0),
       decoration: const BoxDecoration(
         border: Border(
           left: BorderSide(color: _borderCol, width: 0.8),
           bottom: BorderSide(color: _borderCol, width: 0.8),
         ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(vertical: hasBatches ? 4 : 12),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2825,7 +2934,7 @@ class _PRCreateState
                           ..add("po-bin-$index");
                       }),
                       child: SizedBox(
-                        height: 44,
+                        height: 32,
                         child: Consumer(
                           builder: (context, ref, child) {
                             final warehousesAsync = ref.watch(allWarehousesProvider);
@@ -2843,6 +2952,7 @@ class _PRCreateState
                             final binItems = bins.map((b) => b['bin_code']!.toString()).toList();
 
                             return FormDropdown<String>(
+                              height: 32,
                               value: index < _preferredBins.length
                                   ? _preferredBins[index]
                                   : null,
@@ -2893,6 +3003,7 @@ class _PRCreateState
             _tableBodyCell(
               fixedWidth: _dynamicQtyToReceiveColumnWidth(),
               hideRightBorder: true,
+              alignment: null,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: WarehouseHoverPopover(
@@ -2901,12 +3012,13 @@ class _PRCreateState
                   onWarehouseChanged: (name) => setState(() => _rowSelectedWarehouses[index] = name),
                   onViewChanged: (view) => setState(() => _rowSelectedViews[index] = view),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       SizedBox(
                         width: 94,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             _buildQtyInputField(
                               fieldKey: "item-$index",
@@ -2929,45 +3041,51 @@ class _PRCreateState
                         Expanded(
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: item.batches.map((batch) {
-                                return GestureDetector(
-                                  onTap: () => _showSelectBatchDialog(index),
-                                  child: Container(
-                                    width: 94,
-                                    margin: const EdgeInsets.only(right: 2),
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF3F9F5),
-                                      border: Border.all(
-                                        color: const Color(0xFFCFE9D8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: item.batches.map((batch) {
+                                  return GestureDetector(
+                                    onTap: () => _showSelectBatchDialog(index),
+                                    child: Container(
+                                      constraints: BoxConstraints(
+                                        minWidth: 94,
+                                        maxWidth: _batchCardWidth(batch),
                                       ),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        _batchText('Batch: ${batch.batchNo}'),
-                                        _batchText(
-                                          'Qty: ${_fmtPcs(batch.quantity)} pcs',
+                                      margin: const EdgeInsets.only(right: 2, top: 2, bottom: 2),
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF3F9F5),
+                                        border: Border.all(
+                                          color: const Color(0xFFCFE9D8),
                                         ),
-                                        if (batch.foc > 0)
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _batchText('Batch: ${batch.batchNo}'),
                                           _batchText(
-                                            'FOC: ${_fmtPcs(batch.foc)} pcs',
+                                            'Qty: ${_fmtPcs(batch.quantity)} pcs',
                                           ),
-                                        _batchText('Pack: ${batch.unitPack}'),
-                                        _batchText('MRP: ${batch.mrp}'),
-                                        _batchText('P Rate: ${batch.ptr}'),
-                                        _batchText(
-                                          'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
-                                        ),
-                                      ],
+                                          if (batch.foc > 0)
+                                            _batchText(
+                                              'FOC: ${_fmtPcs(batch.foc)} pcs',
+                                            ),
+                                          _batchText('Pack: ${batch.unitPack}'),
+                                          _batchText('MRP: ${batch.mrp}'),
+                                          _batchText('P Rate: ${batch.ptr}'),
+                                          _batchText(
+                                            'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }).toList(),
+                                  );
+                                }).toList(),
+                              ),
                             ),
                           ),
                         ),

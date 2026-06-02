@@ -29,6 +29,10 @@ import '../../../../../shared/models/column_config.dart';
 import '../../../../../shared/widgets/tables/table_header_menu.dart';
 import '../../../../../shared/widgets/skeleton.dart';
 
+final picklistSortProvider = StateProvider<({String field, bool isAscending})>((ref) {
+  return (field: 'Date', isAscending: false);
+});
+
 class _ClearPicklistSelectionIntent extends Intent {
   const _ClearPicklistSelectionIntent();
 }
@@ -77,7 +81,7 @@ class _InventoryPicklistsListScreenState
   void _initializeColumns() {
     _allColumns = [
       ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0),
-      ColumnConfig(id: 'picklist#', label: 'PICKLIST#', orderIndex: 1),
+      ColumnConfig(id: 'picklist#', label: 'PICKLIST#', orderIndex: 1, isLocked: true),
       ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 2),
       ColumnConfig(id: 'assignee', label: 'ASSIGNEE', orderIndex: 3),
       ColumnConfig(id: 'location', label: 'LOCATION', orderIndex: 4),
@@ -534,15 +538,16 @@ class _InventoryPicklistsListScreenState
   }
 
   Widget _buildCompactMoreMenu() {
+    final sort = ref.watch(picklistSortProvider);
     return ZTableMoreMenu(
       height: 28,
       width: 28,
       iconSize: 14,
-      menuChildren: [_buildMoreMenuOptions()],
+      menuChildren: [_buildMoreMenuOptions(sort)],
     );
   }
 
-  Widget _buildMoreMenuOptions() {
+  Widget _buildMoreMenuOptions(({String field, bool isAscending}) sort) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -559,10 +564,10 @@ class _InventoryPicklistsListScreenState
           ),
           style: ZTableMoreMenu.menuItemButtonStyle(isHeader: true),
           menuChildren: [
-            _buildSortMenuItem('Date'),
-            _buildSortMenuItem('Picklist#'),
-            _buildSortMenuItem('Created Time', isActive: true),
-            _buildSortMenuItem('Last Modified Time'),
+            _buildSortMenuItem(sort, 'Date'),
+            _buildSortMenuItem(sort, 'Picklist#'),
+            _buildSortMenuItem(sort, 'Created Time'),
+            _buildSortMenuItem(sort, 'Last Modified Time'),
           ],
           child: const Row(
             children: [
@@ -919,19 +924,27 @@ class _InventoryPicklistsListScreenState
   }
 
   Widget _buildMoreMenu() {
+    final sort = ref.watch(picklistSortProvider);
     return ZTableMoreMenu(
-      menuChildren: [_buildMoreMenuOptions()],
+      menuChildren: [_buildMoreMenuOptions(sort)],
     );
   }
 
-  Widget _buildSortMenuItem(String label, {bool isActive = false}) {
+  Widget _buildSortMenuItem(({String field, bool isAscending}) sort, String label) {
+    final isActive = sort.field == label;
     return MenuItemButton(
-      onPressed: () {},
+      onPressed: () {
+        if (isActive) {
+          ref.read(picklistSortProvider.notifier).state = (field: label, isAscending: !sort.isAscending);
+        } else {
+          ref.read(picklistSortProvider.notifier).state = (field: label, isAscending: false);
+        }
+      },
       style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive),
       child: Row(
         children: [
           Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
-          if (isActive) const Icon(LucideIcons.arrowUp, size: 16),
+          if (isActive) Icon(sort.isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown, size: 16),
         ],
       ),
     );
@@ -940,6 +953,7 @@ class _InventoryPicklistsListScreenState
 // Removed local _menuItemButtonStyle.
 
   Widget _buildVirtualizedTable(List<Picklist> allPicklists) {
+    final sort = ref.watch(picklistSortProvider);
     // Filter by selected view status and search queries
     final picklists = allPicklists.where((p) {
       // View Status Filter
@@ -974,6 +988,26 @@ class _InventoryPicklistsListScreenState
 
       return true;
     }).toList();
+
+    // Sort the list
+    picklists.sort((a, b) {
+      int cmp = 0;
+      switch (sort.field) {
+        case 'Date':
+          cmp = (a.date ?? DateTime(0)).compareTo(b.date ?? DateTime(0));
+          break;
+        case 'Picklist#':
+          cmp = a.picklistNumber.compareTo(b.picklistNumber);
+          break;
+        case 'Created Time':
+        case 'Last Modified Time':
+        default:
+          cmp = a.picklistNumber.compareTo(b.picklistNumber);
+          break;
+      }
+      return sort.isAscending ? cmp : -cmp;
+    });
+
     if (picklists.isEmpty) return _buildEmptyState();
 
     final isDetailOpen = widget.id != null;

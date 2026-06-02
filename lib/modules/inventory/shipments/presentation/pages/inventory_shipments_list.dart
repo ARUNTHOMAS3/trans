@@ -22,6 +22,9 @@ import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
+import 'package:zerpai_erp/shared/models/column_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final shipmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   print('[shipmentsProvider] Started');
@@ -88,73 +91,87 @@ class InventoryShipmentsListScreen extends ConsumerStatefulWidget {
 class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipmentsListScreen> {
   String? _activeShipmentId;
   final Set<String> _selectedIds = {};
-  String _sortField = 'created_at';
+  String _sortField = 'date';
   bool _sortAscending = false;
   bool _shouldWrapText = false;
   String _filterType = 'All';
-  Set<String> _visibleColumns = {
-    'date', 'shipment_number', 'customer_name', 'sales_order#', 'package#', 'carrier', 'tracking#', 'status', 'shipping_rate'
-  };
+  List<ColumnConfig> _allColumns = [];
+  final Set<String> _visibleColumns = {};
+
+  void _initializeColumns() {
+    _allColumns = [
+      ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0, isLocked: true),
+      ColumnConfig(id: 'shipment_number', label: 'SHIPMENT ORDER#', orderIndex: 1, isLocked: true),
+      ColumnConfig(id: 'customer_name', label: 'CUSTOMER NAME', orderIndex: 2),
+      ColumnConfig(id: 'sales_order#', label: 'SALES ORDER#', orderIndex: 3, isLocked: true),
+      ColumnConfig(id: 'package#', label: 'PACKAGE#', orderIndex: 4, isLocked: true),
+      ColumnConfig(id: 'carrier', label: 'CARRIER', orderIndex: 5),
+      ColumnConfig(id: 'tracking#', label: 'TRACKING#', orderIndex: 6),
+      ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 7),
+      ColumnConfig(id: 'shipping_rate', label: 'SHIPPING RATE', orderIndex: 8),
+    ];
+    _updateVisibleColumns();
+  }
+
+  void _updateVisibleColumns() {
+    _allColumns.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    _visibleColumns.clear();
+    for (var col in _allColumns) {
+      if (col.isVisible) {
+        _visibleColumns.add(col.id);
+      }
+    }
+  }
+
+  Future<void> _loadColumnSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString('shipments_table_columns_config');
+      if (jsonStr != null) {
+        final List<dynamic> decoded = jsonDecode(jsonStr);
+        final Map<String, ColumnConfig> loadedMap = {
+          for (var c in decoded.map((e) => ColumnConfig.fromJson(Map<String, dynamic>.from(e)))) c.id: c
+        };
+
+        setState(() {
+          for (var col in _allColumns) {
+            if (loadedMap.containsKey(col.id)) {
+              col.isVisible = loadedMap[col.id]!.isVisible;
+              col.orderIndex = loadedMap[col.id]!.orderIndex;
+            }
+          }
+          _updateVisibleColumns();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading column settings: $e');
+    }
+  }
+
+  Future<void> _saveColumnSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = jsonEncode(_allColumns.map((e) => e.toJson()).toList());
+      await prefs.setString('shipments_table_columns_config', jsonStr);
+    } catch (e) {
+      debugPrint('Error saving column settings: $e');
+    }
+  }
 
   void _showCustomColumnsDialog() {
     showDialog(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final allCols = [
-              {'key': 'date', 'label': 'DATE'},
-              {'key': 'shipment_number', 'label': 'SHIPMENT ORDER#'},
-              {'key': 'customer_name', 'label': 'CUSTOMER NAME'},
-              {'key': 'sales_order#', 'label': 'SALES ORDER#'},
-              {'key': 'package#', 'label': 'PACKAGE#'},
-              {'key': 'carrier', 'label': 'CARRIER'},
-              {'key': 'tracking#', 'label': 'TRACKING#'},
-              {'key': 'status', 'label': 'STATUS'},
-              {'key': 'shipping_rate', 'label': 'SHIPPING RATE'},
-            ];
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              title: const Text('Customize Columns', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              content: SizedBox(
-                width: 300,
-                child: ListView(
-                  shrinkWrap: true,
-                  children: allCols.map((col) {
-                    final key = col['key']!;
-                    final label = col['label']!;
-                    return CheckboxListTile(
-                      title: Text(label, style: const TextStyle(fontSize: 13)),
-                      value: _visibleColumns.contains(key),
-                      onChanged: (val) {
-                        setDialogState(() {
-                          if (val == true) {
-                            _visibleColumns.add(key);
-                          } else {
-                            if (_visibleColumns.length > 1) {
-                              _visibleColumns.remove(key);
-                            }
-                          }
-                        });
-                        setState(() {});
-                      },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      dense: true,
-                    );
-                  }).toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => ColumnCustomizerDialog(
+        columns: _allColumns,
+        onSave: (updated) {
+          setState(() {
+            _allColumns = updated;
+            _updateVisibleColumns();
+          });
+          _saveColumnSettings();
+          Navigator.pop(context);
+        },
+      ),
     );
   }
 
@@ -162,6 +179,8 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
   void initState() {
     super.initState();
     _activeShipmentId = widget.id;
+    _initializeColumns();
+    _loadColumnSettings();
   }
 
   Future<void> _deleteShipments(List<String> ids) async {

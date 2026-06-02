@@ -19,6 +19,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
 
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
@@ -451,7 +452,7 @@ class _SalesOrderCreateScreenState
   }
 
   SalesOrderItemRow _createItemRow({
-    String quantity = '1',
+    String quantity = '',
     String rate = '0',
     String discount = '0',
     String fQty = '0',
@@ -520,6 +521,7 @@ class _SalesOrderCreateScreenState
       taxId: item.taxId,
     );
     row.hsnCode = item.hsnCode ?? item.item?.hsnCode;
+    row.warehouseId = item.warehouseId;
     return row;
   }
 
@@ -2833,6 +2835,7 @@ class _SalesOrderCreateScreenState
                               children: [
                                 CustomTextField(
                                   controller: row.quantityCtrl,
+                                  hintText: '0',
                                   height: 32,
                                   hideBorderDefault: true,
                                   keyboardType:
@@ -2888,6 +2891,7 @@ class _SalesOrderCreateScreenState
                                           child: WarehouseHoverPopover(
                                             warehouseName: warehouse ?? 'hbnm',
                                             selectedView: 'Available for Sale',
+                                            productId: row.itemId,
                                             onViewChanged: (v) {},
                                             onWarehouseChanged: (newName) {
                                               setState(() {
@@ -3174,17 +3178,14 @@ class _SalesOrderCreateScreenState
                                                             : (row.taxId ==
                                                                       'non_gst'
                                                                   ? 'Non-GST Supply'
-                                                                  : taxRates
-                                                                            .where(
-                                                                              (
-                                                                                t,
-                                                                              ) =>
-                                                                                  t.id ==
-                                                                                  row.taxId,
-                                                                            )
-                                                                            .firstOrNull
-                                                                            ?.taxName ??
-                                                                        'Select Tax'))),
+                                                                  : () {
+                                                                      final t = taxRates
+                                                                          .where((x) => x.id == row.taxId)
+                                                                          .firstOrNull;
+                                                                      return t != null
+                                                                          ? '${t.taxName} [${t.taxRate}%]'
+                                                                          : 'Select Tax';
+                                                                    }()))),
                                             style: TextStyle(
                                               fontSize: 13,
                                               color: row.taxId == null
@@ -3442,7 +3443,7 @@ class _SalesOrderCreateScreenState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    item.type == 'goods' ? 'HSN ' : 'SAC ',
+                    item.type == 'goods' ? 'HSN Code' : 'SAC ',
                     style: const TextStyle(fontSize: 12, color: _kBodyText),
                   ),
                   CompositedTransformTarget(
@@ -5654,6 +5655,62 @@ class _SalesOrderCreateScreenState
       c.shippingAddressCountryId,
     ].any((v) => v != null && v.isNotEmpty);
 
+    final countries = ref.watch(countriesProvider(null)).value ?? [];
+
+    // Resolve billing country
+    final billingCountryMap = countries.firstWhere(
+      (item) =>
+          item['id'] == c.billingAddressCountryId ||
+          item['shortCode'] == c.billingAddressCountryId,
+      orElse: () => <String, String>{},
+    );
+    final billingCountryName =
+        billingCountryMap['name'] ?? c.billingAddressCountryId;
+
+    // Resolve shipping country
+    final shippingCountryMap = countries.firstWhere(
+      (item) =>
+          item['id'] == c.shippingAddressCountryId ||
+          item['shortCode'] == c.shippingAddressCountryId,
+      orElse: () => <String, String>{},
+    );
+    final shippingCountryName =
+        shippingCountryMap['name'] ?? c.shippingAddressCountryId;
+
+    // Resolve billing state
+    final billingStates =
+        (c.billingAddressCountryId != null &&
+            c.billingAddressCountryId!.isNotEmpty)
+        ? (ref.watch(statesProvider(c.billingAddressCountryId!)).value ?? [])
+        : [];
+    final billingStateMap = billingStates
+        .where(
+          (item) =>
+              item['id'] == c.billingAddressStateId ||
+              item['code'] == c.billingAddressStateId,
+        )
+        .firstOrNull;
+    final billingStateName = billingStateMap != null
+        ? billingStateMap['name']
+        : c.billingAddressStateId;
+
+    // Resolve shipping state
+    final shippingStates =
+        (c.shippingAddressCountryId != null &&
+            c.shippingAddressCountryId!.isNotEmpty)
+        ? (ref.watch(statesProvider(c.shippingAddressCountryId!)).value ?? [])
+        : [];
+    final shippingStateMap = shippingStates
+        .where(
+          (item) =>
+              item['id'] == c.shippingAddressStateId ||
+              item['code'] == c.shippingAddressStateId,
+        )
+        .firstOrNull;
+    final shippingStateName = shippingStateMap != null
+        ? shippingStateMap['name']
+        : c.shippingAddressStateId;
+
     final gst = c.gstTreatment;
 
     return Column(
@@ -5673,9 +5730,9 @@ class _SalesOrderCreateScreenState
                 street1: c.billingAddressStreet1,
                 street2: c.billingAddressStreet2,
                 city: c.billingAddressCity,
-                state: c.billingAddressStateId,
+                state: billingStateName,
                 zip: c.billingAddressZip,
-                country: c.billingAddressCountryId,
+                country: billingCountryName,
                 phone: c.billingAddressPhone,
               ),
             ),
@@ -5690,9 +5747,9 @@ class _SalesOrderCreateScreenState
                 street1: c.shippingAddressStreet1,
                 street2: c.shippingAddressStreet2,
                 city: c.shippingAddressCity,
-                state: c.shippingAddressStateId,
+                state: shippingStateName,
                 zip: c.shippingAddressZip,
-                country: c.shippingAddressCountryId,
+                country: shippingCountryName,
                 phone: c.shippingAddressPhone,
               ),
             ),
@@ -5931,35 +5988,127 @@ class _SalesOrderCreateScreenState
           'city': isBilling ? c?.billingAddressCity : c?.shippingAddressCity,
           'zip': isBilling ? c?.billingAddressZip : c?.shippingAddressZip,
           'phone': isBilling ? c?.billingAddressPhone : c?.shippingAddressPhone,
+          'country': isBilling ? c?.billingAddressCountryId : c?.shippingAddressCountryId,
+          'state': isBilling ? c?.billingAddressStateId : c?.shippingAddressStateId,
         };
 
-        return _AddressDialog(
+        return AddressDialog(
           title: title,
           initialAddress: initialAddress,
-          onSave: (val) {
+          onSave: (val) async {
+            if (c == null) return;
+            
+            final street1 = val['street1'] as String?;
+            final street2 = val['street2'] as String?;
+            final city = val['city'] as String?;
+            final state = val['state'] as String?; // UUID
+            final stateName = val['stateName'] as String?; // Name
+            final zip = val['zip'] as String?;
+            final country = val['country'] as String?; // UUID
+            final countryName = val['countryName'] as String?; // Name
+            final phone = val['phone'] as String?;
+
+            // Resolve billing & shipping country UUIDs
+            final countriesList = ref.read(countriesProvider(null)).value ?? [];
+            final billingCountryObj = countriesList.firstWhere(
+              (item) => item['id'] == c.billingAddressCountryId ||
+                        item['name']?.toLowerCase() == c.billingAddressCountryId?.toLowerCase() ||
+                        item['shortCode']?.toLowerCase() == c.billingAddressCountryId?.toLowerCase(),
+              orElse: () => <String, String>{},
+            );
+            final billingCountryUuid = billingCountryObj['id'] ?? c.billingAddressCountryId;
+
+            final shippingCountryObj = countriesList.firstWhere(
+              (item) => item['id'] == c.shippingAddressCountryId ||
+                        item['name']?.toLowerCase() == c.shippingAddressCountryId?.toLowerCase() ||
+                        item['shortCode']?.toLowerCase() == c.shippingAddressCountryId?.toLowerCase(),
+              orElse: () => <String, String>{},
+            );
+            final shippingCountryUuid = shippingCountryObj['id'] ?? c.shippingAddressCountryId;
+
+            // Resolve billing & shipping state UUIDs
+            final billingStates = (billingCountryUuid != null && billingCountryUuid.isNotEmpty)
+                ? (ref.read(statesProvider(billingCountryUuid)).value ?? [])
+                : [];
+            final billingStateObj = billingStates.firstWhere(
+              (item) => item['id'] == c.billingAddressStateId ||
+                        item['name']?.toLowerCase() == c.billingAddressStateId?.toLowerCase() ||
+                        item['code']?.toLowerCase() == c.billingAddressStateId?.toLowerCase(),
+              orElse: () => <String, String>{},
+            );
+            final billingStateUuid = billingStateObj['id'] ?? c.billingAddressStateId;
+
+            final shippingStates = (shippingCountryUuid != null && shippingCountryUuid.isNotEmpty)
+                ? (ref.read(statesProvider(shippingCountryUuid)).value ?? [])
+                : [];
+            final shippingStateObj = shippingStates.firstWhere(
+              (item) => item['id'] == c.shippingAddressStateId ||
+                        item['name']?.toLowerCase() == c.shippingAddressStateId?.toLowerCase() ||
+                        item['code']?.toLowerCase() == c.shippingAddressStateId?.toLowerCase(),
+              orElse: () => <String, String>{},
+            );
+            final shippingStateUuid = shippingStateObj['id'] ?? c.shippingAddressStateId;
+
             setState(() {
               if (isBilling) {
                 _selectedCustomer = _selectedCustomer?.copyWith(
-                  billingAddressStreet1: val['street1'],
-                  billingAddressStreet2: val['street2'],
-                  billingAddressCity: val['city'],
-                  billingAddressStateId: val['state'],
-                  billingAddressZip: val['zip'],
-                  billingAddressCountryId: val['country'],
-                  billingAddressPhone: val['phone'],
+                  billingAddressStreet1: street1,
+                  billingAddressStreet2: street2,
+                  billingAddressCity: city,
+                  billingAddressStateId: stateName, // Use name string locally for UI
+                  billingAddressZip: zip,
+                  billingAddressCountryId: countryName, // Use name string locally for UI
+                  billingAddressPhone: phone,
                 );
               } else {
                 _selectedCustomer = _selectedCustomer?.copyWith(
-                  shippingAddressStreet1: val['street1'],
-                  shippingAddressStreet2: val['street2'],
-                  shippingAddressCity: val['city'],
-                  shippingAddressStateId: val['state'],
-                  shippingAddressZip: val['zip'],
-                  shippingAddressCountryId: val['country'],
-                  shippingAddressPhone: val['phone'],
+                  shippingAddressStreet1: street1,
+                  shippingAddressStreet2: street2,
+                  shippingAddressCity: city,
+                  shippingAddressStateId: stateName, // Use name string locally for UI
+                  shippingAddressZip: zip,
+                  shippingAddressCountryId: countryName, // Use name string locally for UI
+                  shippingAddressPhone: phone,
                 );
               }
             });
+
+            try {
+              final billingAddressPayload = {
+                'street1': isBilling ? street1 : c.billingAddressStreet1,
+                'place': isBilling ? street2 : c.billingAddressStreet2,
+                'city': isBilling ? city : c.billingAddressCity,
+                'stateId': isBilling ? state : billingStateUuid, // UUID
+                'zip': isBilling ? zip : c.billingAddressZip,
+                'countryId': isBilling ? country : billingCountryUuid, // UUID
+                'phone': isBilling ? phone : c.billingAddressPhone,
+              };
+
+              final shippingAddressPayload = {
+                'street1': !isBilling ? street1 : c.shippingAddressStreet1,
+                'place': !isBilling ? street2 : c.shippingAddressStreet2,
+                'city': !isBilling ? city : c.shippingAddressCity,
+                'stateId': !isBilling ? state : shippingStateUuid, // UUID
+                'zip': !isBilling ? zip : c.shippingAddressZip,
+                'countryId': !isBilling ? country : shippingCountryUuid, // UUID
+                'phone': !isBilling ? phone : c.shippingAddressPhone,
+              };
+
+              await ref.read(salesOrderControllerProvider.notifier).updateCustomer(
+                c.id,
+                {
+                  'billingAddress': billingAddressPayload,
+                  'shippingAddress': shippingAddressPayload,
+                },
+              );
+              if (mounted) {
+                ZerpaiToast.success(context, 'Customer address updated in database');
+              }
+            } catch (e) {
+              if (mounted) {
+                ZerpaiToast.error(context, 'Failed to update address in database: $e');
+              }
+            }
           },
         );
       },
@@ -7408,499 +7557,7 @@ Widget _vLine() =>
 // ─────────────────────────────────────────────────────────────────────────────
 // Address Dialog — top-aligned popup matching the screenshot
 // ─────────────────────────────────────────────────────────────────────────────
-class _AddressDialog extends ConsumerStatefulWidget {
-  final String title;
-  final Map<String, dynamic> initialAddress;
-  final ValueChanged<Map<String, dynamic>> onSave;
-
-  const _AddressDialog({
-    required this.title,
-    required this.initialAddress,
-    required this.onSave,
-  });
-
-  @override
-  ConsumerState<_AddressDialog> createState() => _AddressDialogState();
-}
-
-class _AddressDialogState extends ConsumerState<_AddressDialog> {
-  final _companyNameCtrl = TextEditingController();
-  final _attentionCtrl = TextEditingController();
-  final _street1Ctrl = TextEditingController();
-  final _street2Ctrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
-  final _pinCtrl = TextEditingController();
-  final _faxCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-
-  Map<String, String>? _selectedCountry;
-  Map<String, String>? _selectedState;
-  String _phoneCode = '+91';
-
-  static const _phoneCodes = [
-    '+91',
-    '+1',
-    '+44',
-    '+971',
-    '+61',
-    '+1-CA',
-    '+65',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    final init = widget.initialAddress;
-    _companyNameCtrl.text = init['companyName'] ?? '';
-    _attentionCtrl.text = init['attention'] ?? '';
-    _street1Ctrl.text = init['street1'] ?? '';
-    _street2Ctrl.text = init['street2'] ?? '';
-    _cityCtrl.text = init['city'] ?? '';
-    _pinCtrl.text = init['zip'] ?? '';
-    _phoneCtrl.text = init['phone'] ?? '';
-  }
-
-  @override
-  void dispose() {
-    _companyNameCtrl.dispose();
-    _attentionCtrl.dispose();
-    _street1Ctrl.dispose();
-    _street2Ctrl.dispose();
-    _cityCtrl.dispose();
-    _pinCtrl.dispose();
-    _faxCtrl.dispose();
-    _phoneCtrl.dispose();
-    super.dispose();
-  }
-
-  InputDecoration _inputDec({String? hint, bool multiline = false}) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
-      isDense: true,
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: multiline ? 10 : 9,
-      ),
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: _kBlue),
-      ),
-    );
-  }
-
-  Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: _kBodyText,
-      ),
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final dialogTitle = widget.title.contains('BILLING')
-        ? 'Billing Address'
-        : widget.title.contains('SHIPPING')
-        ? 'Shipping Address'
-        : widget.title;
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 0),
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 480,
-            constraints: const BoxConstraints(maxHeight: 680),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
-                  child: Row(
-                    children: [
-                      Text(
-                        dialogTitle,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: _kBodyText,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.close,
-                          size: 18,
-                          color: Color(0xFFEF4444),
-                        ),
-                        splashRadius: 18,
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: _kBorder),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (dialogTitle == 'Drop Shipping Address') ...[
-                          _label('Company Name'),
-                          TextField(
-                            controller: _companyNameCtrl,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: _kBodyText,
-                            ),
-                            decoration: _inputDec(),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        _label('Attention'),
-                        TextField(
-                          controller: _attentionCtrl,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _kBodyText,
-                          ),
-                          decoration: _inputDec(),
-                        ),
-                        const SizedBox(height: 16),
-                        _label('Country/Region'),
-                        Builder(
-                          builder: (context) {
-                            final countriesAsync = ref.watch(
-                              countriesProvider(null),
-                            );
-                            final countries = countriesAsync.value ?? [];
-                            return FormDropdown<Map<String, String>>(
-                              height: 32,
-                              value: _selectedCountry,
-                              hint: 'Select',
-                              isLoading: countriesAsync.isLoading,
-                              items: countries,
-                              displayStringForValue: (c) => c['name'] ?? '',
-                              itemBuilder: (c, isSelected, isHovered) =>
-                                  _dropdownItemBuilder(
-                                    c['name'] ?? '',
-                                    isSelected,
-                                    isHovered,
-                                  ),
-                              onChanged: (v) =>
-                                  setState(() => _selectedCountry = v),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _label('Address'),
-                        TextField(
-                          controller: _street1Ctrl,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _kBodyText,
-                          ),
-                          maxLines: 2,
-                          minLines: 2,
-                          decoration: _inputDec(
-                            hint: 'Street 1',
-                            multiline: true,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: _street2Ctrl,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _kBodyText,
-                          ),
-                          maxLines: 2,
-                          minLines: 2,
-                          decoration: _inputDec(
-                            hint: 'Street 2',
-                            multiline: true,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _label('City'),
-                        TextField(
-                          controller: _cityCtrl,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _kBodyText,
-                          ),
-                          decoration: _inputDec(),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _label('State'),
-                                  Builder(
-                                    builder: (context) {
-                                      final countryId =
-                                          _selectedCountry?['id'] ?? '';
-                                      final statesAsync = ref.watch(
-                                        statesProvider(countryId),
-                                      );
-                                      final states = statesAsync.value ?? [];
-                                      return FormDropdown<Map<String, String>>(
-                                        height: 32,
-                                        value: _selectedState,
-                                        hint: 'Select or type to add',
-                                        isLoading: statesAsync.isLoading,
-                                        items: states,
-                                        displayStringForValue: (s) =>
-                                            s['name'] ?? '',
-                                        itemBuilder:
-                                            (s, isSelected, isHovered) =>
-                                                _dropdownItemBuilder(
-                                                  s['name'] ?? '',
-                                                  isSelected,
-                                                  isHovered,
-                                                ),
-                                        onChanged: (v) =>
-                                            setState(() => _selectedState = v),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _label('Pin Code'),
-                                  TextField(
-                                    controller: _pinCtrl,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _kBodyText,
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                    decoration: _inputDec(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _label('Phone'),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          border: Border.all(
-                                            color: const Color(0xFFD1D5DB),
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        alignment: Alignment.center,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                        ),
-                                        child: DropdownButtonHideUnderline(
-                                          child: DropdownButton<String>(
-                                            value: _phoneCode,
-                                            isDense: true,
-                                            alignment: Alignment.center,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontFamily: 'Inter',
-                                              color: _kBodyText,
-                                            ),
-                                            items: _phoneCodes
-                                                .map(
-                                                  (c) => DropdownMenuItem(
-                                                    value: c,
-                                                    alignment: Alignment.center,
-                                                    child: Text(c),
-                                                  ),
-                                                )
-                                                .toList(),
-                                            onChanged: (v) =>
-                                                setState(() => _phoneCode = v!),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _phoneCtrl,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: _kBodyText,
-                                          ),
-                                          keyboardType: TextInputType.phone,
-                                          decoration: _inputDec(),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _label('Fax Number'),
-                                  TextField(
-                                    controller: _faxCtrl,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _kBodyText,
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                    decoration: _inputDec(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        RichText(
-                          text: TextSpan(
-                            style: const TextStyle(fontSize: 12),
-                            children: [
-                              const TextSpan(
-                                text: 'Note: ',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: _kBodyText,
-                                ),
-                              ),
-                              TextSpan(
-                                text:
-                                    'Changes made here will be updated for this customer.',
-                                style: const TextStyle(color: _kLabelGrey),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-                  ),
-                ),
-                const Divider(height: 1, color: _kBorder),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 16),
-                  child: Row(
-                    children: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _kGreen,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        ),
-                        onPressed: () {
-                          widget.onSave({
-                            'companyName': _companyNameCtrl.text,
-                            'street1': _street1Ctrl.text,
-                            'street2': _street2Ctrl.text,
-                            'city': _cityCtrl.text,
-                            'zip': _pinCtrl.text,
-                            'phone': _phoneCtrl.text,
-                            'country': _selectedCountry?['id'],
-                            'state': _selectedState?['id'],
-                          });
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text(
-                          'Save',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _kBodyText,
-                          side: const BorderSide(color: _kBorder),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+// _AddressDialog removed in favor of shared AddressDialog widget.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tax Preference Dialog — small flyout matching the screenshot

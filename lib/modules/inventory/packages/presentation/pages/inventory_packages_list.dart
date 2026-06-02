@@ -38,7 +38,7 @@ final pendingDispatchedPicklistsProvider = StateProvider<List<Picklist>>(
 );
 
 final packageSortProvider = StateProvider<({String field, bool isAscending})>((ref) {
-  return (field: 'Created Time', isAscending: false);
+  return (field: 'Package Date', isAscending: false);
 });
 
 class InventoryPackagesListScreen extends ConsumerStatefulWidget {
@@ -127,11 +127,11 @@ class _InventoryPackagesListScreenState
 
   void _initializeColumns() {
     _allColumns = [
-      ColumnConfig(id: 'package_date', label: 'PACKAGE DATE', orderIndex: 0),
-      ColumnConfig(id: 'package#', label: 'PACKAGE#', orderIndex: 1),
+      ColumnConfig(id: 'package_date', label: 'PACKAGE DATE', orderIndex: 0, isLocked: true),
+      ColumnConfig(id: 'package#', label: 'PACKAGE#', orderIndex: 1, isLocked: true),
       ColumnConfig(id: 'carrier', label: 'CARRIER', orderIndex: 2),
       ColumnConfig(id: 'tracking#', label: 'TRACKING#', orderIndex: 3),
-      ColumnConfig(id: 'sales_order#', label: 'SALES ORDER#', orderIndex: 4),
+      ColumnConfig(id: 'sales_order#', label: 'SALES ORDER#', orderIndex: 4, isLocked: true),
       ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 5),
       ColumnConfig(id: 'shipment_date', label: 'SHIPMENT DATE', orderIndex: 6),
       ColumnConfig(id: 'customer_name', label: 'CUSTOMER NAME', orderIndex: 7),
@@ -659,12 +659,17 @@ class _InventoryPackagesListScreenState
   }
 
   Widget _buildMoreMenu() {
-    return ZTableMoreMenu(
-      menuChildren: [_buildMoreMenuOptions()],
+    return Consumer(
+      builder: (context, ref, child) {
+        final sort = ref.watch(packageSortProvider);
+        return ZTableMoreMenu(
+          menuChildren: [_buildMoreMenuOptions(ref, sort)],
+        );
+      },
     );
   }
 
-  Widget _buildMoreMenuOptions() {
+  Widget _buildMoreMenuOptions(WidgetRef ref, ({String field, bool isAscending}) sort) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -677,15 +682,15 @@ class _InventoryPackagesListScreenState
           ),
           style: ZTableMoreMenu.menuItemButtonStyle(isHeader: true),
           menuChildren: [
-            _buildSortMenuItem('Package Date'),
-            _buildSortMenuItem('Package#'),
-            _buildSortMenuItem('Carrier'),
-            _buildSortMenuItem('Sales Order#'),
-            _buildSortMenuItem('Shipment Date'),
-            _buildSortMenuItem('Customer Name'),
-            _buildSortMenuItem('Quantity'),
-            _buildSortMenuItem('Created Time', isActive: true),
-            _buildSortMenuItem('Last Modified Time'),
+            _buildSortMenuItem(ref, sort, 'Package Date'),
+            _buildSortMenuItem(ref, sort, 'Package#'),
+            _buildSortMenuItem(ref, sort, 'Carrier'),
+            _buildSortMenuItem(ref, sort, 'Sales Order#'),
+            _buildSortMenuItem(ref, sort, 'Shipment Date'),
+            _buildSortMenuItem(ref, sort, 'Customer Name'),
+            _buildSortMenuItem(ref, sort, 'Quantity'),
+            _buildSortMenuItem(ref, sort, 'Created Time'),
+            _buildSortMenuItem(ref, sort, 'Last Modified Time'),
           ],
           child: Row(
             children: const [
@@ -753,14 +758,21 @@ class _InventoryPackagesListScreenState
     );
   }
 
-  Widget _buildSortMenuItem(String label, {bool isActive = false}) {
+  Widget _buildSortMenuItem(WidgetRef ref, ({String field, bool isAscending}) sort, String label) {
+    final isActive = sort.field == label;
     return MenuItemButton(
-      onPressed: () {},
+      onPressed: () {
+        if (isActive) {
+          ref.read(packageSortProvider.notifier).state = (field: label, isAscending: !sort.isAscending);
+        } else {
+          ref.read(packageSortProvider.notifier).state = (field: label, isAscending: false);
+        }
+      },
       style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive),
       child: Row(
         children: [
           Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
-          if (isActive) const Icon(LucideIcons.arrowDown, size: 16),
+          if (isActive) Icon(sort.isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown, size: 16),
         ],
       ),
     );

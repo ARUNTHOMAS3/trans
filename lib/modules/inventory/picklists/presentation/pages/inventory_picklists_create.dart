@@ -25,6 +25,7 @@ import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
 const _textPrimary = Color(0xFF1F2937);
 const _textSecondary = Color(0xFF6B7280);
@@ -49,6 +50,8 @@ class _InventoryPicklistsCreateScreenState
   final _notesCtrl = TextEditingController();
   final _itemNameSearchCtrl = TextEditingController();
   final _salesOrderSearchCtrl = TextEditingController();
+  final Map<String, String> _resolvedPreferredBins = {};
+  final Set<String> _loadingPreferredBins = {};
   String _itemNameSearchQuery = '';
   String _salesOrderSearchQuery = '';
   bool _salesOrderSortAscending = true;
@@ -187,6 +190,107 @@ class _InventoryPicklistsCreateScreenState
 
   String _buildRowKey(WarehouseStockData item) {
     return '${item.productId}_${item.batchNo ?? ''}_${item.salesOrderId ?? ''}';
+  }
+
+  Future<void> _fetchPreferredBinForProduct(WarehouseStockData item) async {
+    final rowKey = _buildRowKey(item);
+    if (_loadingPreferredBins.contains(rowKey) ||
+        _resolvedPreferredBins.containsKey(rowKey)) {
+      return;
+    }
+    _loadingPreferredBins.add(rowKey);
+
+    final warehouseId = _selectedWarehouse?.id;
+    if (warehouseId == null) {
+      setState(() {
+        _resolvedPreferredBins[rowKey] = '--';
+        _loadingPreferredBins.remove(rowKey);
+      });
+      return;
+    }
+
+    final productId = item.productId;
+    final orderedQty = item.quantityOrdered ?? 1.0;
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      final batchesRes = await supabase
+          .from('batch_master')
+          .select('id, batch_no, expiry_date')
+          .eq('product_id', productId)
+          .eq('is_active', true)
+          .order('expiry_date', ascending: true);
+
+      final batches = List<Map<String, dynamic>>.from(batchesRes);
+
+      if (batches.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _resolvedPreferredBins[rowKey] = '--';
+            _loadingPreferredBins.remove(rowKey);
+          });
+        }
+        return;
+      }
+
+      final layersRes = await supabase
+          .from('batch_stock_layers')
+          .select('batch_id, qty, reserved_qty, bin_master(bin_code)')
+          .eq('product_id', productId)
+          .eq('warehouse_id', warehouseId);
+
+      final layers = List<Map<String, dynamic>>.from(layersRes);
+
+      final layersByBatch = <String, List<Map<String, dynamic>>>{};
+      for (final layer in layers) {
+        final batchId = layer['batch_id']?.toString();
+        if (batchId != null) {
+          layersByBatch.putIfAbsent(batchId, () => []).add(layer);
+        }
+      }
+
+      String? foundPreferredBinString;
+
+      for (final batch in batches) {
+        final batchId = batch['id']?.toString();
+        if (batchId == null) continue;
+
+        final batchLayers = layersByBatch[batchId] ?? [];
+        final qualifyingBins = <String>[];
+
+        for (final layer in batchLayers) {
+          final qty = (layer['qty'] as num?)?.toDouble() ?? 0.0;
+          final reservedQty = (layer['reserved_qty'] as num?)?.toDouble() ?? 0.0;
+          final available = qty - reservedQty;
+
+          if (available >= orderedQty) {
+            final binData = layer['bin_master'] as Map<String, dynamic>?;
+            final binCode = binData?['bin_code']?.toString() ?? 'Unknown';
+            qualifyingBins.add('$binCode - ${available.toInt()}');
+          }
+        }
+
+        if (qualifyingBins.isNotEmpty) {
+          foundPreferredBinString = qualifyingBins.join(', ');
+          break;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _resolvedPreferredBins[rowKey] = foundPreferredBinString ?? '--';
+          _loadingPreferredBins.remove(rowKey);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _resolvedPreferredBins[rowKey] = '--';
+          _loadingPreferredBins.remove(rowKey);
+        });
+      }
+    }
   }
 
   double _currentPickedQty(WarehouseStockData item) {
@@ -900,6 +1004,8 @@ class _InventoryPicklistsCreateScreenState
                                   _savedBatchCounts.clear();
                                   _savedBatchData.clear();
                                   _qtyPickedOverrideKeys.clear();
+                                  _resolvedPreferredBins.clear();
+                                  _loadingPreferredBins.clear();
                                 });
                               }
                             },
@@ -1525,14 +1631,27 @@ class _InventoryPicklistsCreateScreenState
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Center(
-                            child: Text(
-                              item.preferredBin ?? '--',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: _textPrimary,
-                              ),
-                            ),
+                            child: (() {
+                              final resolved = _resolvedPreferredBins[rowKey];
+                              if (resolved == null) {
+                                _fetchPreferredBinForProduct(item);
+                                return const Text(
+                                  'Loading...',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: _textSecondary,
+                                  ),
+                                );
+                              }
+                              return Text(
+                                resolved,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: _textPrimary,
+                                ),
+                              );
+                            })(),
                           ),
                         ),
                       ),
@@ -2000,13 +2119,27 @@ class _InventoryPicklistsCreateScreenState
                                                   8,
                                                 ),
                                                 child: Center(
-                                                  child: Text(
-                                                    item.preferredBin ?? 'N/A',
-                                                    textAlign: TextAlign.center,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                    ),
-                                                  ),
+                                                  child: (() {
+                                                    final resolved = _resolvedPreferredBins[rowKey];
+                                                    if (resolved == null) {
+                                                      _fetchPreferredBinForProduct(item);
+                                                      return const Text(
+                                                        'Loading...',
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          color: _textSecondary,
+                                                        ),
+                                                      );
+                                                    }
+                                                    return Text(
+                                                      resolved,
+                                                      textAlign: TextAlign.center,
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        color: _textPrimary,
+                                                      ),
+                                                    );
+                                                  })(),
                                                 ),
                                               ),
                                             ),
@@ -2520,13 +2653,27 @@ class _InventoryPicklistsCreateScreenState
                                                   8,
                                                 ),
                                                 child: Center(
-                                                  child: Text(
-                                                    item.preferredBin ?? 'N/A',
-                                                    textAlign: TextAlign.center,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                    ),
-                                                  ),
+                                                  child: (() {
+                                                    final resolved = _resolvedPreferredBins[rowKey];
+                                                    if (resolved == null) {
+                                                      _fetchPreferredBinForProduct(item);
+                                                      return const Text(
+                                                        'Loading...',
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          color: _textSecondary,
+                                                        ),
+                                                      );
+                                                    }
+                                                    return Text(
+                                                      resolved,
+                                                      textAlign: TextAlign.center,
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        color: _textPrimary,
+                                                      ),
+                                                    );
+                                                  })(),
                                                 ),
                                               ),
                                             ),
@@ -3056,9 +3203,104 @@ class _AddItemsDialogContent extends ConsumerStatefulWidget {
 class _AddItemsDialogContentState
     extends ConsumerState<_AddItemsDialogContent> {
   final Set<String> selectedRowKeys = {};
+  final Map<String, String> _resolvedPreferredBins = {};
+  final Set<String> _loadingPreferredBins = {};
   bool _isCustomerFilterHovered = false;
   bool _isItemsFilterHovered = false;
   bool _isSalesOrdersFilterHovered = false;
+
+  Future<void> _fetchPreferredBinForProduct(WarehouseStockData item) async {
+    final rowKey = _buildRowKey(item);
+    if (_loadingPreferredBins.contains(rowKey) ||
+        _resolvedPreferredBins.containsKey(rowKey)) {
+      return;
+    }
+    _loadingPreferredBins.add(rowKey);
+
+    final warehouseId = widget.warehouseId;
+    final productId = item.productId;
+    final orderedQty = item.quantityOrdered ?? 1.0;
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      final batchesRes = await supabase
+          .from('batch_master')
+          .select('id, batch_no, expiry_date')
+          .eq('product_id', productId)
+          .eq('is_active', true)
+          .order('expiry_date', ascending: true);
+
+      final batches = List<Map<String, dynamic>>.from(batchesRes);
+
+      if (batches.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _resolvedPreferredBins[rowKey] = '--';
+            _loadingPreferredBins.remove(rowKey);
+          });
+        }
+        return;
+      }
+
+      final layersRes = await supabase
+          .from('batch_stock_layers')
+          .select('batch_id, qty, reserved_qty, bin_master(bin_code)')
+          .eq('product_id', productId)
+          .eq('warehouse_id', warehouseId);
+
+      final layers = List<Map<String, dynamic>>.from(layersRes);
+
+      final layersByBatch = <String, List<Map<String, dynamic>>>{};
+      for (final layer in layers) {
+        final batchId = layer['batch_id']?.toString();
+        if (batchId != null) {
+          layersByBatch.putIfAbsent(batchId, () => []).add(layer);
+        }
+      }
+
+      String? foundPreferredBinString;
+
+      for (final batch in batches) {
+        final batchId = batch['id']?.toString();
+        if (batchId == null) continue;
+
+        final batchLayers = layersByBatch[batchId] ?? [];
+        final qualifyingBins = <String>[];
+
+        for (final layer in batchLayers) {
+          final qty = (layer['qty'] as num?)?.toDouble() ?? 0.0;
+          final reservedQty = (layer['reserved_qty'] as num?)?.toDouble() ?? 0.0;
+          final available = qty - reservedQty;
+
+          if (available >= orderedQty) {
+            final binData = layer['bin_master'] as Map<String, dynamic>?;
+            final binCode = binData?['bin_code']?.toString() ?? 'Unknown';
+            qualifyingBins.add('$binCode - ${available.toInt()}');
+          }
+        }
+
+        if (qualifyingBins.isNotEmpty) {
+          foundPreferredBinString = qualifyingBins.join(', ');
+          break;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _resolvedPreferredBins[rowKey] = foundPreferredBinString ?? '--';
+          _loadingPreferredBins.remove(rowKey);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _resolvedPreferredBins[rowKey] = '--';
+          _loadingPreferredBins.remove(rowKey);
+        });
+      }
+    }
+  }
 
   String _buildRowKey(WarehouseStockData item) {
     return item.id ??
@@ -4139,13 +4381,26 @@ class _AddItemsDialogContentState
                     ),
                     Expanded(
                       flex: 2,
-                      child: Text(
-                        item.preferredBin ?? 'N/A',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
+                      child: (() {
+                        final resolved = _resolvedPreferredBins[rowKey];
+                        if (resolved == null) {
+                          _fetchPreferredBinForProduct(item);
+                          return const Text(
+                            'Loading...',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
+                          );
+                        }
+                        return Text(
+                          resolved,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
+                        );
+                      })(),
                     ),
                     Expanded(
                       flex: 2,

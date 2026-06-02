@@ -127,8 +127,14 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   @override
   Future<Map<String, dynamic>> getPurchaseOrderSettings() async {
     try {
-      final response = await _apiClient.get(ApiEndpoints.purchaseOrderSettings);
-      return response.data as Map<String, dynamic>;
+      final response = await _apiClient.get('sequences/purchase/settings');
+      final data = response.data as Map<String, dynamic>;
+      return {
+        'isAuto': data['is_active'] ?? data['isActive'] ?? true,
+        'prefix': data['prefix'] ?? 'PO-',
+        'nextNumber': data['next_number'] ?? data['nextNumber'] ?? 1,
+        'padding': data['padding'] ?? 5,
+      };
     } catch (e) {
       AppLogger.error('getPurchaseOrderSettings error', error: e, module: 'purchases');
       return {'isAuto': true, 'prefix': 'PO-', 'nextNumber': 1, 'padding': 5};
@@ -140,7 +146,12 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     Map<String, dynamic> settings,
   ) async {
     try {
-      await _apiClient.post(ApiEndpoints.purchaseOrderSettings, data: settings);
+      final payload = {
+        'prefix': settings['prefix'],
+        'nextNumber': settings['nextNumber'],
+        'padding': settings['padding'],
+      };
+      await _apiClient.patch('sequences/purchase/settings', data: payload);
     } catch (e) {
       AppLogger.error('updatePurchaseOrderSettings error', error: e, module: 'purchases');
       throw Exception('Failed to update settings: $e');

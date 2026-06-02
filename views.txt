@@ -1,0 +1,130 @@
+-- =========================================================
+-- 1. PHYSICAL STOCK VIEW
+-- Source : batch_stock_layers
+-- =========================================================
+
+CREATE OR REPLACE VIEW public.v_physical_stock AS
+SELECT
+    bsl.product_id,
+    bsl.entity_id,
+    bsl.warehouse_id,
+    SUM(bsl.qty) AS stock_on_hand,
+    SUM(bsl.reserved_qty) AS committed_stock,
+    SUM(bsl.qty - bsl.reserved_qty) AS available_stock
+FROM public.batch_stock_layers bsl
+GROUP BY
+    bsl.product_id,
+    bsl.entity_id,
+    bsl.warehouse_id;
+
+
+
+-- =========================================================
+-- 2. ACCOUNTING STOCK VIEW
+-- Source : batch_transactions
+-- =========================================================
+
+CREATE OR REPLACE VIEW public.v_accounting_stock AS
+SELECT
+    bt.product_id,
+    bt.entity_id,
+    bt.warehouse_id,
+   SUM(bt.qty_in - bt.qty_out) AS stock_on_hand,
+
+    0::numeric AS committed_stock,
+    SUM(bt.qty_in - bt.qty_out) AS available_stock
+FROM public.batch_transactions bt
+WHERE bt.trans_type IN (
+    'BILL',
+    'INVOICE',
+    'CREDIT_NOTE',
+    'VENDOR_CREDIT',
+    'ADJUSTMENT',
+    'TRANSFER_IN',
+    'TRANSFER_OUT'
+)
+GROUP BY
+    bt.product_id,
+    bt.entity_id,
+    bt.warehouse_id;
+
+
+
+-- =========================================================
+-- 3. BIN WISE STOCK VIEW
+-- =========================================================
+
+CREATE OR REPLACE VIEW public.v_bin_wise_stock AS
+SELECT
+    bsl.product_id,
+    bsl.entity_id,
+    bsl.warehouse_id,
+    bsl.bin_id,
+
+    SUM(bsl.qty) AS stock_on_hand,
+    SUM(bsl.reserved_qty) AS committed_stock,
+    SUM(bsl.qty - bsl.reserved_qty) AS available_stock
+FROM public.batch_stock_layers bsl
+GROUP BY
+    bsl.product_id,
+    bsl.entity_id,
+    bsl.warehouse_id,
+    bsl.bin_id;
+
+
+
+-- =========================================================
+-- 4. BATCH WISE STOCK VIEW
+-- =========================================================
+
+CREATE OR REPLACE VIEW public.v_batch_wise_stock AS
+SELECT
+    bsl.batch_id,
+    bm.batch_no,
+    bm.expiry_date,
+    bsl.product_id,
+    bsl.entity_id,
+    bsl.warehouse_id,
+    SUM(bsl.qty) AS stock_on_hand,
+    SUM(bsl.reserved_qty) AS committed_stock,
+    SUM(bsl.qty - bsl.reserved_qty) AS available_stock
+FROM public.batch_stock_layers bsl
+JOIN public.batch_master bm
+     ON bm.id = bsl.batch_id
+GROUP BY
+
+    bsl.batch_id,
+    bm.batch_no,
+    bm.expiry_date,
+    bsl.product_id,
+    bsl.entity_id,
+    bsl.warehouse_id;
+
+
+-- =========================================================
+-- 5. PRODUCT STOCK SUMMARY VIEW
+-- =========================================================
+
+CREATE OR REPLACE VIEW public.v_product_stock_summary AS
+SELECT
+    p.id AS product_id,
+    p.product_name,
+    ps.entity_id,
+    ps.warehouse_id,
+    COALESCE(ps.stock_on_hand, 0) AS physical_stock,
+    COALESCE(ac.stock_on_hand, 0) AS accounting_stock,
+    COALESCE(ps.committed_stock, 0) AS committed_stock,
+    COALESCE(ps.available_stock, 0) AS available_stock,
+    (
+        COALESCE(ps.stock_on_hand, 0)
+        -
+        COALESCE(ac.stock_on_hand, 0)
+    ) AS stock_variance
+FROM public.products p
+LEFT JOIN public.v_physical_stock ps
+       ON ps.product_id = p.id
+
+LEFT JOIN public.v_accounting_stock ac
+       ON ac.product_id = p.id
+      AND ac.entity_id = ps.entity_id
+      AND ac.warehouse_id = ps.warehouse_id;

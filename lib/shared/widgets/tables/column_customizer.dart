@@ -71,14 +71,11 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 24),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(12),
-          bottomRight: Radius.circular(12),
-        ),
+        borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
       child: Container(
         width: 480,
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
