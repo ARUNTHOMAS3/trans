@@ -1820,7 +1820,6 @@ class _SalesInvoiceCreateScreenState
 
         double rowTaxRate = 0.0;
         if (_selectedCustomerId != null &&
-            row.hasBatchData &&
             row.taxId != null &&
             row.taxId != 'non_taxable' &&
             row.taxId != 'out_of_scope' &&
@@ -3908,27 +3907,7 @@ class _SalesInvoiceCreateScreenState
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          row.taxId == null
-                                              ? 'Select Tax'
-                                              : (row.taxId == 'non_taxable'
-                                                    ? 'Non-Taxable'
-                                                    : (row.taxId ==
-                                                              'out_of_scope'
-                                                          ? 'Out of Scope'
-                                                          : (row.taxId ==
-                                                                    'non_gst'
-                                                                ? 'Non-GST Supply'
-                                                                : taxRates
-                                                                          .where(
-                                                                            (
-                                                                              t,
-                                                                            ) =>
-                                                                                t.id ==
-                                                                                row.taxId,
-                                                                          )
-                                                                          .firstOrNull
-                                                                          ?.taxName ??
-                                                                      'Select Tax'))),
+                                          _getTaxDisplayLabel(row.taxId, taxRates),
                                           style: TextStyle(
                                             fontSize: 13,
                                             color: row.taxId == null
@@ -8096,6 +8075,18 @@ class _SalesInvoiceCreateScreenState
       _valueTooltipOverlay = null;
       setState(() {});
     }
+  }
+
+  String _getTaxDisplayLabel(String? taxId, List<TaxRate> taxRates) {
+    if (taxId == null) return 'Select Tax';
+    if (taxId == 'non_taxable') return 'Non-Taxable';
+    if (taxId == 'out_of_scope') return 'Out of Scope';
+    if (taxId == 'non_gst') return 'Non-GST Supply';
+    final t = taxRates.where((x) => x.id == taxId).firstOrNull;
+    if (t != null) {
+      return '${t.taxName} [${t.taxRate}%]';
+    }
+    return 'Select Tax';
   }
 }
 

@@ -1114,3 +1114,29 @@ Timestamp of Log Update: June 1, 2026 - 6:01 PM (IST)
 - **Batch Dialog Overwrite Logic Fix**: Configured the dialog Save onPressed callback to bypass exceeds and mismatch validation errors when _overwriteLineItem is enabled. Wired the checkbox onChanged event to immediately clear any existing mismatch or exceeds error messages. Changed the error banner text to dynamically display the active _dialogErrorMessage instead of the hardcoded _quantityMismatchMessage string.
 
 Timestamp of Log Update: June 1, 2026 - 6:05 PM (IST)
+
+## 33. Sales Order & Invoice Tax Enhancements + Bill Radio Deprecations (June 2, 2026)
+
+### Summary
+Implemented dynamic tax breakdowns (CGST/SGST/IGST) in Sales Order and Sales Invoice creation pages, updated tax dropdown cell format to show tax rate, resolved deprecated Radio properties in Bills creation page, and cleaned up the handoff directory.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - **Dynamic Tax Lines State**: Declared `taxLines` state, modified `_calculateTotals()` to group row taxes by rates and check if `placeOfSupply` contains `"kerala"` to split taxes into CGST/SGST (intrastate) or IGST (interstate).
+  - **Totals Box Rendering**: Rendered dynamic tax breakdown lines below shipping charges with dividing lines.
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart:
+  - **Dynamic Tax Lines Rendering**: Rendered `taxLines` in the invoice totals box.
+  - **Tax Cell Label formatting**: Implemented `_getTaxDisplayLabel` to format selected taxes in the items table as `TaxName [TaxRate%]`.
+  - **Instant Tax Calculation**: Removed the `row.hasBatchData` check to compute and display taxes immediately for items/services before batch selection.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Radio Deprecations**: Wrapped `Radio` widgets with `RadioGroup<String>` to resolve deprecated Flutter properties.
+
+#### Cleanup
+- Removed unused `handoff_2026-05-30` local files.
+
+**Verifications**: Verified code compiles successfully with zero warnings using `dart analyze`.
+
+Timestamp of Log Update: June 2, 2026 - 11:15 AM (IST)
+

@@ -10650,11 +10650,13 @@ class _PurchasesBillCreateScreenState
           children: [
             Transform.scale(
               scale: 0.85,
-              child: Radio<String>(
-                value: value,
+              child: RadioGroup<String>(
                 groupValue: groupValue,
                 onChanged: onChanged,
-                activeColor: const Color(0xFF2563EB),
+                child: Radio<String>(
+                  value: value,
+                  activeColor: const Color(0xFF2563EB),
+                ),
               ),
             ),
             const SizedBox(width: 4),

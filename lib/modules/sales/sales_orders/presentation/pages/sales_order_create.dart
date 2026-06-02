@@ -122,6 +122,7 @@ class _SalesOrderCreateScreenState
   double taxTotal = 0.0;
   double total = 0.0;
   double _roundOff = 0.0;
+  List<Map<String, dynamic>> taxLines = [];
   String _tdsTcsType = 'TDS';
   String? _selectedTdsId;
   List<Map<String, dynamic>> _tdsList = [];
@@ -936,6 +937,10 @@ class _SalesOrderCreateScreenState
 
   void _calculateTotals() {
     double st = 0;
+    final itemsState = ref.read(itemsControllerProvider);
+    final taxRates = [...itemsState.taxGroups, ...itemsState.taxRates];
+    final Map<double, double> localTaxGroups = {};
+
     for (var row in rows) {
       if (row.itemId.isNotEmpty) {
         final q = double.tryParse(row.quantityCtrl.text) ?? 0;
@@ -945,17 +950,71 @@ class _SalesOrderCreateScreenState
         final cost = (row.item?.costPrice ?? 0).toDouble();
 
         row.profit = (r - cost) * q;
-        st += (q * r) - discAmt;
+        final rowSubtotal = (q * r) - discAmt;
+        st += rowSubtotal;
+
+        double rowTaxRate = 0.0;
+        if (_selectedCustomerId != null &&
+            row.taxId != null &&
+            row.taxId != 'non_taxable' &&
+            row.taxId != 'out_of_scope' &&
+            row.taxId != 'non_gst') {
+          final taxGroup = taxRates.where((t) => t.id == row.taxId).firstOrNull;
+          if (taxGroup != null) {
+            rowTaxRate = taxGroup.taxRate.toDouble();
+          }
+        }
+
+        if (rowTaxRate > 0) {
+          localTaxGroups[rowTaxRate] = (localTaxGroups[rowTaxRate] ?? 0.0) + rowSubtotal;
+        }
       }
     }
 
     final shipping = double.tryParse(shippingCtrl.text) ?? 0.0;
     final adjustment = double.tryParse(adjustmentCtrl.text) ?? 0.0;
 
-    // Sample tax calculation (2.5% CGST + 2.5% SGST as per screenshot)
-    double cgst = (st * 0.025);
-    double sgst = (st * 0.025);
-    double currentTaxTotal = cgst + sgst;
+    double currentTaxTotal = 0.0;
+    final customerFromList = _selectedCustomerId == null
+        ? null
+        : ref
+            .read(salesCustomersProvider)
+            .asData
+            ?.value
+            .where((c) => c.id == _selectedCustomerId)
+            .firstOrNull;
+    final pos = (placeOfSupply ??
+            _selectedCustomer?.placeOfSupply ??
+            customerFromList?.placeOfSupply ??
+            '')
+        .trim()
+        .toLowerCase();
+    final isKerala = pos.contains('kerala');
+    final List<Map<String, dynamic>> calculatedTaxLines = [];
+
+    localTaxGroups.forEach((rate, taxableAmount) {
+      final totalTaxForRate = taxableAmount * (rate / 100);
+      currentTaxTotal += totalTaxForRate;
+
+      if (isKerala) {
+        final halfRate = rate / 2;
+        final rateStr = halfRate % 1 == 0 ? halfRate.toInt().toString() : halfRate.toString();
+        calculatedTaxLines.add({
+          'label': 'CGST$rateStr [$rateStr%]',
+          'amount': totalTaxForRate / 2,
+        });
+        calculatedTaxLines.add({
+          'label': 'SGST$rateStr [$rateStr%]',
+          'amount': totalTaxForRate / 2,
+        });
+      } else {
+        final rateStr = rate % 1 == 0 ? rate.toInt().toString() : rate.toString();
+        calculatedTaxLines.add({
+          'label': 'IGST$rateStr [$rateStr%]',
+          'amount': totalTaxForRate,
+        });
+      }
+    });
 
     double rawTotal = st + currentTaxTotal + shipping + adjustment;
     double roundedTotal = rawTotal.roundToDouble();
@@ -966,6 +1025,7 @@ class _SalesOrderCreateScreenState
       taxTotal = currentTaxTotal;
       _roundOff = ro;
       total = roundedTotal;
+      taxLines = calculatedTaxLines;
     });
   }
 
@@ -4040,6 +4100,16 @@ class _SalesOrderCreateScreenState
                       shippingCtrl,
                       tooltip: 'Amount spent on shipping the goods.',
                     ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const SizedBox(height: 16),
+                    ...taxLines.map((line) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _summaryRow(line['label'] as String, line['amount'] as double),
+                        const SizedBox(height: 16),
+                      ],
+                    )).toList(),
                     const SizedBox(height: 16),
                     const Divider(height: 1, color: Color(0xFFE5E7EB)),
                     const SizedBox(height: 16),
