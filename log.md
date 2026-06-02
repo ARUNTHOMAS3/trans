@@ -1140,3 +1140,40 @@ Implemented dynamic tax breakdowns (CGST/SGST/IGST) in Sales Order and Sales Inv
 
 Timestamp of Log Update: June 2, 2026 - 11:15 AM (IST)
 
+## 34. Sales Order Price List Dropdown Enhancements (June 2, 2026)
+
+### Summary
+Enhanced the price list dropdown inputs in the Sales Order creation page to load names as items, search by both ID and name, and filter the items list per the specified sales and item type conditions.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - **Header Dropdown**: Updated the header price list dropdown to load `salesPriceLists.map((p) => p.name)` as items.
+  - **Item-Level Dropdown**: Configured the item-level price list dropdown to match active values by both `id` and `name` and store the name of the price list on selection.
+  - **Price List Filtering**: Updated `applicablePriceLists` and `currentPriceList` lookups to match by name or ID.
+
+**Verifications**: Verified compilation successfully with `dart analyze`.
+
+Timestamp of Log Update: June 2, 2026 - 1:15 PM (IST)
+
+## 35. Resolve PostgREST product_contents Relationship Embedding Error (June 2, 2026)
+
+### Summary
+Resolved a critical backend error where querying products failed due to a missing foreign key constraint between `product_contents.content_id` and `contents.id` in the schema cache. Fixed this programmatically in NestJS code without modifying the database schema.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- backend/src/modules/products/products.service.ts:
+  - **PRODUCT_SELECT_STRING query update**: Removed the nested `content:contents(id, content_name)` resource embedding from the supabase select string to prevent PostgREST from failing.
+  - **getContentsMapForProducts helper**: Implemented a private batch-loading helper method to retrieve all required content details matching `content_id` values in a single database lookup.
+  - **mapProduct mapping logic**: Injected `contentsMap` into `mapProduct` mapping step. The method maps content details from the map, with a lazy-loading fallback for single mappings (e.g. `findOne`).
+  - **Controller and query injections**: Passed `contentsMap` to `mapProduct` in all query collections (`findAll`, `findAllCursor`, and `searchProducts`).
+
+**Verifications**: Verified backend compiles successfully using `npm run build` and lints pass.
+
+Timestamp of Log Update: June 2, 2026 - 1:50 PM (IST)
+
+
+

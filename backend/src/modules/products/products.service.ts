@@ -55,7 +55,6 @@ export class ProductsService {
       content_id,
       strength_id,
       display_order,
-      content:contents(id, content_name),
       strength:drug_strengths(id, strength_name)
     )
   `;
@@ -696,7 +695,10 @@ export class ProductsService {
     }
 
     const products = data || [];
-    return Promise.all(products.map((p) => this.mapProduct(p)));
+    const contentsMap = await this.getContentsMapForProducts(products);
+    return Promise.all(
+      products.map((p) => this.mapProduct(p, undefined, contentsMap)),
+    );
   }
 
   async findAllCursor(limit?: number, cursor?: string) {
@@ -731,8 +733,14 @@ export class ProductsService {
       `[findAllCursor] cursor=${cursor ?? "START"} fetched=${data?.length ?? 0} next=${next_cursor ? "yes" : "null"}`,
     );
 
+    const contentsMap = await this.getContentsMapForProducts(data || []);
+
     return {
-      items: data ? await Promise.all(data.map((p) => this.mapProduct(p))) : [],
+      items: data
+        ? await Promise.all(
+            data.map((p) => this.mapProduct(p, undefined, contentsMap)),
+          )
+        : [],
       next_cursor,
     };
   }
@@ -834,7 +842,10 @@ export class ProductsService {
       })
       .slice(0, limit);
 
-    return Promise.all(ranked.map((p) => this.mapProduct(p)));
+    const contentsMap = await this.getContentsMapForProducts(ranked);
+    return Promise.all(
+      ranked.map((p) => this.mapProduct(p, undefined, contentsMap)),
+    );
   }
 
   async getBulkStock(productIds: string[], tenant: TenantContext) {
@@ -2768,7 +2779,11 @@ export class ProductsService {
     return data;
   }
 
-  private async mapProduct(product: any, tenant?: TenantContext) {
+  private async mapProduct(
+    product: any,
+    tenant?: TenantContext,
+    contentsMap?: Map<string, any>,
+  ) {
     if (!product) return null;
 
     // Sign Primary Image if it exists
@@ -2821,7 +2836,75 @@ export class ProductsService {
       );
     }
 
+    // Map compositions contents
+    if (product && Array.isArray(product.compositions)) {
+      for (const comp of product.compositions) {
+        if (comp.content_id) {
+          if (contentsMap && contentsMap.has(comp.content_id)) {
+            comp.content = contentsMap.get(comp.content_id);
+          } else {
+            // Lazy load single content if map not present (e.g. findOne)
+            try {
+              const supabase = this.supabaseService.getClient();
+              const { data, error } = await supabase
+                .from("contents")
+                .select("id, content_name")
+                .eq("id", comp.content_id)
+                .maybeSingle();
+              if (data && !error) {
+                comp.content = { id: data.id, content_name: data.content_name };
+              }
+            } catch (e) {
+              console.error(
+                `Failed to lazy load content ${comp.content_id}`,
+                e,
+              );
+            }
+          }
+        }
+      }
+    }
+
     return product;
+  }
+
+  private async getContentsMapForProducts(
+    products: any[],
+  ): Promise<Map<string, any>> {
+    const map = new Map<string, any>();
+    const contentIds = new Set<string>();
+    for (const p of products) {
+      if (p && Array.isArray(p.compositions)) {
+        for (const comp of p.compositions) {
+          if (comp.content_id) {
+            contentIds.add(comp.content_id);
+          }
+        }
+      }
+    }
+    if (contentIds.size === 0) return map;
+
+    try {
+      const supabase = this.supabaseService.getClient();
+      const { data, error } = await supabase
+        .from("contents")
+        .select("id, content_name")
+        .in("id", Array.from(contentIds));
+
+      if (error) {
+        console.error("Failed to fetch contents for mapping:", error);
+        return map;
+      }
+
+      if (data) {
+        for (const row of data) {
+          map.set(row.id, { id: row.id, content_name: row.content_name });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to batch fetch contents:", e);
+    }
+    return map;
   }
 
   private async mapCompositeItem(compositeItem: any, tenant?: TenantContext) {

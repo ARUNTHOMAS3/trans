@@ -2139,7 +2139,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   items: _shipmentPreferencesList
                       .map((p) => p['name'] as String)
                       .toList(),
-                  hint: 'Choose the shipment preference or type to add',
+                  hint: 'Choose the shipment preference',
                   allowCustomValue: true,
                   iconSize: 12,
                   onChanged: (v) => notifier.updateField(shipmentPreference: v),
