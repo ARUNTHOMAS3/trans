@@ -42,6 +42,7 @@ class PurchaseOrderState {
   final String poPrefix;
   final int poNextNumber;
   final int poPadding;
+  final String taxType; // 'exclusive' | 'inclusive'
 
   PurchaseOrderState({
     this.items = const [],
@@ -59,7 +60,7 @@ class PurchaseOrderState {
     this.deliveryAddressName,
     this.discount = 0.0,
     this.discountType = 'percentage',
-    this.tdsTcsType = 'none',
+    this.tdsTcsType = 'tds',
     this.tdsTcsId,
     this.adjustment = 0.0,
     this.notes,
@@ -74,6 +75,7 @@ class PurchaseOrderState {
     this.poPrefix = 'PO-',
     this.poNextNumber = 1,
     this.poPadding = 5,
+    this.taxType = 'exclusive',
   });
 
   double get subTotal => items
@@ -94,7 +96,9 @@ class PurchaseOrderState {
         .fold(0.0, (sum, item) => sum + item.taxAmount);
   }
 
-  double get total => subTotal - discountValue + taxAmount + adjustment;
+  double get total => taxType == 'inclusive'
+      ? subTotal - discountValue + adjustment
+      : subTotal - discountValue + taxAmount + adjustment;
 
   PurchaseOrderState copyWith({
     List<PurchaseOrderItem>? items,
@@ -128,6 +132,7 @@ class PurchaseOrderState {
     String? poPrefix,
     int? poNextNumber,
     int? poPadding,
+    String? taxType,
   }) {
     return PurchaseOrderState(
       items: items ?? this.items,
@@ -162,6 +167,7 @@ class PurchaseOrderState {
       poPrefix: poPrefix ?? this.poPrefix,
       poNextNumber: poNextNumber ?? this.poNextNumber,
       poPadding: poPadding ?? this.poPadding,
+      taxType: taxType ?? this.taxType,
     );
   }
 }
@@ -250,6 +256,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       discountAccountId: order.discountAccountId,
       isReverseCharge: order.isReverseCharge,
       isNumberingAuto: false,
+      taxType: order.taxType,
     );
   }
 
@@ -257,7 +264,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     final List<PurchaseOrderItem> newItems = List.from(state.items);
     final newItem =
         item ??
-        PurchaseOrderItem(productId: '', quantity: 1.0, rate: 0.0, amount: 0.0);
+        PurchaseOrderItem(productId: '', quantity: 0.0, rate: 0.0, amount: 0.0);
     if (index != null && index >= 0 && index <= newItems.length) {
       newItems.insert(index, newItem);
     } else {
@@ -303,7 +310,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     final newItems = List<PurchaseOrderItem>.from(state.items);
     newItems[index] = PurchaseOrderItem(
       productId: '',
-      quantity: 1.0,
+      quantity: 0.0,
       rate: 0.0,
       amount: 0.0,
       discount: 0.0,
@@ -424,13 +431,13 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       hsnCode: product.hsnCode,
       accountId: product.purchaseAccountId,
       accountName: accountName,
-      quantity: 1.0,
+      quantity: 0.0,
       rate: initialRate,
-      amount: initialRate,
+      amount: 0.0,
       taxId: product.intraStateTaxId,
       taxName: taxName,
       taxRate: taxRate,
-      taxAmount: initialRate * (taxRate / 100),
+      taxAmount: 0.0,
       productType: product.type,
       availableStock: availableStock,
       stockOnHand: stockOnHand,
@@ -474,7 +481,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
         net = base - item.discount;
       }
     }
-    double taxAmount = net * (item.taxRate / 100);
+    double taxAmount = state.taxType == 'inclusive'
+        ? net * item.taxRate / (100 + item.taxRate)
+        : net * (item.taxRate / 100);
     return item.copyWith(amount: net, taxAmount: taxAmount);
   }
 
@@ -509,9 +518,11 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     String? poPrefix,
     int? poNextNumber,
     int? poPadding,
+    String? taxType,
   }) {
     final oldLevel = state.discountLevel;
     final oldWarehouse = state.warehouseId;
+    final oldTaxType = state.taxType;
     state = state.copyWith(
       orderNumber: orderNumber,
       orderDate: orderDate,
@@ -543,11 +554,13 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       poPrefix: poPrefix,
       poNextNumber: poNextNumber,
       poPadding: poPadding,
+      taxType: taxType,
     );
 
-    if (discountLevel != null && discountLevel != oldLevel) {
+    if ((discountLevel != null && discountLevel != oldLevel) ||
+        (taxType != null && taxType != oldTaxType)) {
       final newItems = state.items
-          .map((i) => _recalculateItem(i, discountLevel))
+          .map((i) => _recalculateItem(i, state.discountLevel))
           .toList();
       state = state.copyWith(items: newItems);
     }

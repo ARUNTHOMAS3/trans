@@ -61,6 +61,7 @@ export class TenantMiddleware implements NestMiddleware {
     { prefix: "/api/v1/users", moduleKey: "users_roles" },
 
     { prefix: "/api/v1/branches", moduleKey: "branches" },
+    { prefix: "/api/v1/outlets", moduleKey: "branches" },
     { prefix: "/api/v1/warehouses-settings", moduleKey: "warehouses" },
     { prefix: "/api/v1/zones", moduleKey: "zones" },
 
@@ -134,6 +135,7 @@ export class TenantMiddleware implements NestMiddleware {
     { prefix: "/api/v1/transaction-series", moduleKey: "transaction_series" },
     { prefix: "/api/v1/sequences", moduleKey: "transaction_series" },
     { prefix: "/api/v1/currencies", moduleKey: "general_prefs" },
+    { prefix: "/api/v1/shipment-preferences", moduleKey: "general_prefs" },
     { prefix: "/api/v1/gst", moduleKey: "general_prefs" },
   ];
 

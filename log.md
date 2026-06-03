@@ -1171,9 +1171,57 @@ Resolved a critical backend error where querying products failed due to a missin
   - **mapProduct mapping logic**: Injected `contentsMap` into `mapProduct` mapping step. The method maps content details from the map, with a lazy-loading fallback for single mappings (e.g. `findOne`).
   - **Controller and query injections**: Passed `contentsMap` to `mapProduct` in all query collections (`findAll`, `findAllCursor`, and `searchProducts`).
 
+
 **Verifications**: Verified backend compiles successfully using `npm run build` and lints pass.
 
 Timestamp of Log Update: June 2, 2026 - 1:50 PM (IST)
 
+## 36. Fix Sales Order & Sales Invoice Tax Breakdown Visibility (June 3, 2026)
+
+### Summary
+Fixed an issue where the GST tax breakdown (CGST/SGST or IGST) was not displaying in the subtotal box in Sales Order Create and Sales Invoice Create pages upon customer selection or place of supply change, due to missing totals recalculation calls in the callbacks.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - **Customer Dropdown onChanged**: Added a `_calculateTotals()` call to trigger immediate recalculation when a customer is selected.
+  - **Place of Supply onChanged**: Updated the `placeOfSupply` dropdown onChanged callback to call `_calculateTotals()`.
+  - **New Customer Save Success**: Added `_calculateTotals()` call upon successful customer creation and pre-selection.
+  - **Advanced Customer Search**: Added `_calculateTotals()` to the customer selection callback in the advanced search dialog.
+  - **State Check/Format**: Standardized `isKerala` check in `_calculateTotals()` to match `pos.contains('[kl]') || pos.contains('kerala')` for robustness.
+  - **Subtotal Divider**: Removed unnecessary second Divider and vertical space below mapped taxLines to align with invoice subtotal layout.
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart:
+  - **State Check/Format**: Standardized `isKerala` check to match `pos.contains('[kl]') || pos.contains('kerala')` and fallback to `customerFromList?.placeOfSupply`.
+  - **Advanced Customer Search**: Added `_calculateTotals()` to the customer selection callback in the advanced search dialog.
+  - **New Customer Save Success**: Added `_calculateTotals()` call upon successful customer creation.
+
+**Verifications**: Verified code compiles successfully with `dart analyze`.
+
+Timestamp of Log Update: June 3, 2026 - 10:45 AM (IST)
+
+
+## 37. Resolve Outlets and Shipment-Preferences 404/Schema Cache Errors (June 3, 2026)
+
+### Summary
+Resolved backend 404 errors for the `/api/v1/outlets` and `/api/v1/shipment-preferences` endpoints. Fixed a database index naming conflict on the `carrier` table constraints in PostgreSQL that blocked the creation of the `shipment_preferences` table.
+
+### Detailed Engineering Changes
+
+#### Database / Backend
+- **Database Schema**: Renamed the conflicting constraints on the `carrier` table in PostgreSQL from `shipment_preferences_pkey` / `shipment_preferences_name_key` to `carrier_pkey` / `carrier_name_key`, then created the `shipment_preferences` table in the database and reloaded the PostgREST cache.
+- **Drizzle Schema** ([schema.ts](file:///C:/Users/User/Documents/work/test/zerpai-new/backend/src/db/schema.ts)): Appended the Drizzle schema definition mapping for the `shipment_preferences` table.
+- **Tenant Middleware** ([tenant.middleware.ts](file:///C:/Users/User/Documents/work/test/zerpai-new/backend/src/common/middleware/tenant.middleware.ts)): Added mapping rules to authorize `/api/v1/outlets` and `/api/v1/shipment-preferences` requests.
+- **Branches Module**:
+  - Created [outlets.controller.ts](file:///C:/Users/User/Documents/work/test/zerpai-new/backend/src/modules/branches/outlets.controller.ts) mapping GET `/outlets` to `BranchesService.findAll`.
+  - Registered `OutletsController` in [branches.module.ts](file:///C:/Users/User/Documents/work/test/zerpai-new/backend/src/modules/branches/branches.module.ts).
+- **Lookups Module**:
+  - Created [shipment-preferences.controller.ts](file:///C:/Users/User/Documents/work/test/zerpai-new/backend/src/modules/lookups/shipment-preferences.controller.ts) to manage fetching and syncing shipment preferences.
+  - Registered `ShipmentPreferencesController` in [lookups.module.ts](file:///C:/Users/User/Documents/work/test/zerpai-new/backend/src/modules/lookups/lookups.module.ts).
+- **Vendors Service** ([vendors.service.ts](file:///C:/Users/User/Documents/work/test/zerpai-new/backend/src/modules/purchases/vendors/services/vendors.service.ts)): Updated `findAll` select query to embed `vendor_contact_persons` and `vendor_bank_accounts` in list results, resolving the empty contact list in the vendor sidebar.
+
+**Verifications**: Verified backend builds successfully with `npm run build` and endpoints respond correctly with 401 Unauthorized under auth-checks.
+
+Timestamp of Log Update: June 3, 2026 - 5:35 PM (IST)
 
 

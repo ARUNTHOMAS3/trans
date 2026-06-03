@@ -489,7 +489,7 @@ class _SalesOrderCreateScreenState
           orElse: () => customers.first,
         );
         final priceLists =
-            ref.read(filteredPriceListsProvider).asData?.value ?? [];
+            ref.read(activeSalesPriceListsAsyncProvider).asData?.value ?? [];
         _updateRowRate(row, customer.priceList, priceLists);
       }
       _calculateTotals();
@@ -682,6 +682,7 @@ class _SalesOrderCreateScreenState
                 // ignore: unused_result
                 ref.refresh(salesCustomersProvider);
               });
+              _calculateTotals();
             },
           ),
         ),
@@ -989,32 +990,34 @@ class _SalesOrderCreateScreenState
             '')
         .trim()
         .toLowerCase();
-    final isKerala = pos.contains('kerala');
+    final isKerala = pos.contains('[kl]') || pos.contains('kerala');
     final List<Map<String, dynamic>> calculatedTaxLines = [];
 
-    localTaxGroups.forEach((rate, taxableAmount) {
-      final totalTaxForRate = taxableAmount * (rate / 100);
-      currentTaxTotal += totalTaxForRate;
+    if (_selectedCustomerId != null && _selectedCustomerId!.isNotEmpty) {
+      localTaxGroups.forEach((rate, taxableAmount) {
+        final totalTaxForRate = taxableAmount * (rate / 100);
+        currentTaxTotal += totalTaxForRate;
 
-      if (isKerala) {
-        final halfRate = rate / 2;
-        final rateStr = halfRate % 1 == 0 ? halfRate.toInt().toString() : halfRate.toString();
-        calculatedTaxLines.add({
-          'label': 'CGST$rateStr [$rateStr%]',
-          'amount': totalTaxForRate / 2,
-        });
-        calculatedTaxLines.add({
-          'label': 'SGST$rateStr [$rateStr%]',
-          'amount': totalTaxForRate / 2,
-        });
-      } else {
-        final rateStr = rate % 1 == 0 ? rate.toInt().toString() : rate.toString();
-        calculatedTaxLines.add({
-          'label': 'IGST$rateStr [$rateStr%]',
-          'amount': totalTaxForRate,
-        });
-      }
-    });
+        if (isKerala) {
+          final halfRate = rate / 2;
+          final rateStr = halfRate % 1 == 0 ? halfRate.toInt().toString() : halfRate.toString();
+          calculatedTaxLines.add({
+            'label': 'CGST$rateStr [$rateStr%]',
+            'amount': totalTaxForRate / 2,
+          });
+          calculatedTaxLines.add({
+            'label': 'SGST$rateStr [$rateStr%]',
+            'amount': totalTaxForRate / 2,
+          });
+        } else {
+          final rateStr = rate % 1 == 0 ? rate.toInt().toString() : rate.toString();
+          calculatedTaxLines.add({
+            'label': 'IGST$rateStr [$rateStr%]',
+            'amount': totalTaxForRate,
+          });
+        }
+      });
+    }
 
     double rawTotal = st + currentTaxTotal + shipping + adjustment;
     double roundedTotal = rawTotal.roundToDouble();
@@ -1075,7 +1078,7 @@ class _SalesOrderCreateScreenState
   Widget build(BuildContext context) {
     final customersAsync = ref.watch(salesCustomersProvider);
     final itemsState = ref.watch(itemsControllerProvider);
-    final priceListsAsync = ref.watch(filteredPriceListsProvider);
+    final priceListsAsync = ref.watch(activeSalesPriceListsAsyncProvider);
     final currenciesAsync = ref.watch(currenciesProvider(null));
 
     ref.listen<AsyncValue<List<Warehouse>>>(warehousesProvider, (
@@ -1325,6 +1328,7 @@ class _SalesOrderCreateScreenState
                                       }
                                     }
                                   });
+                                  _calculateTotals();
                                 },
                               ),
                             ),
@@ -1490,7 +1494,12 @@ class _SalesOrderCreateScreenState
                                   isSelected,
                                   isHovered,
                                 ),
-                            onChanged: (v) => setState(() => placeOfSupply = v),
+                            onChanged: (v) {
+                              setState(() {
+                                placeOfSupply = v;
+                              });
+                              _calculateTotals();
+                            },
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -4110,9 +4119,6 @@ class _SalesOrderCreateScreenState
                         const SizedBox(height: 16),
                       ],
                     )).toList(),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                    const SizedBox(height: 16),
                     if (_tdsTcsType == 'TDS') ...[
                       _summaryRadioRow(),
                       const SizedBox(height: 16),
@@ -6929,13 +6935,14 @@ class _SalesOrderCreateScreenState
 
             // Trigger rate update for all rows when customer changes
             final priceLists =
-                ref.read(filteredPriceListsProvider).asData?.value ?? [];
+                ref.read(activeSalesPriceListsAsyncProvider).asData?.value ?? [];
             for (var row in rows) {
               if (row.itemId.isNotEmpty && row.item != null) {
                 _updateRowRate(row, c.priceList, priceLists);
               }
             }
           });
+          _calculateTotals();
         },
       ),
       transitionBuilder: (ctx, anim, _, child) => FadeTransition(

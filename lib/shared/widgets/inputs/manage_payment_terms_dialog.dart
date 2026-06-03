@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:uuid/uuid.dart';
 
 class ManagePaymentTermsDialog extends StatefulWidget {
   final List<dynamic> items;
@@ -161,6 +162,8 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
 
           if (row['id'] != null && !row['id'].toString().startsWith('new_')) {
             cleaned['id'] = row['id'];
+          } else {
+            cleaned['id'] = const Uuid().v4();
           }
           cleaned['term_name'] = row['term_name'];
           cleaned['number_of_days'] = row['number_of_days'];

@@ -1263,7 +1263,7 @@ class _SalesInvoiceCreateScreenState
           orElse: () => customers.first,
         );
         final priceLists =
-            ref.read(filteredPriceListsProvider).asData?.value ?? [];
+            ref.read(activeSalesPriceListsAsyncProvider).asData?.value ?? [];
         _updateRowRate(row, customer.priceList, priceLists);
       }
       _calculateTotals();
@@ -1543,6 +1543,7 @@ class _SalesInvoiceCreateScreenState
                 // ignore: unused_result
                 ref.refresh(salesCustomersProvider);
               });
+              _calculateTotals();
               _loadConfirmedCustomerOrders();
             },
           ),
@@ -1836,8 +1837,21 @@ class _SalesInvoiceCreateScreenState
       }
     }
 
-    final pos = (placeOfSupply ?? _selectedCustomer?.placeOfSupply ?? '').trim().toLowerCase();
-    final isKerala = pos.contains('kerala');
+    final customerFromList = _selectedCustomerId == null
+        ? null
+        : ref
+            .read(salesCustomersProvider)
+            .asData
+            ?.value
+            .where((c) => c.id == _selectedCustomerId)
+            .firstOrNull;
+    final pos = (placeOfSupply ??
+            _selectedCustomer?.placeOfSupply ??
+            customerFromList?.placeOfSupply ??
+            '')
+        .trim()
+        .toLowerCase();
+    final isKerala = pos.contains('[kl]') || pos.contains('kerala');
     final List<Map<String, dynamic>> calculatedTaxLines = [];
 
     localTaxGroups.forEach((rate, taxableAmount) {
@@ -1884,7 +1898,7 @@ class _SalesInvoiceCreateScreenState
   Widget build(BuildContext context) {
     final customersAsync = ref.watch(salesCustomersProvider);
     final itemsState = ref.watch(itemsControllerProvider);
-    final priceListsAsync = ref.watch(filteredPriceListsProvider);
+    final priceListsAsync = ref.watch(activeSalesPriceListsAsyncProvider);
     final currenciesAsync = ref.watch(currenciesProvider(null));
 
     final accountsState = ref.watch(chartOfAccountsProvider);
@@ -7982,13 +7996,14 @@ class _SalesInvoiceCreateScreenState
 
             // Trigger rate update for all rows when customer changes
             final priceLists =
-                ref.read(filteredPriceListsProvider).asData?.value ?? [];
+                ref.read(activeSalesPriceListsAsyncProvider).asData?.value ?? [];
             for (var row in rows) {
               if (row.itemId.isNotEmpty && row.item != null) {
                 _updateRowRate(row, c.priceList, priceLists);
               }
             }
           });
+          _calculateTotals();
           _loadConfirmedCustomerOrders();
         },
       ),

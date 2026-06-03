@@ -13,7 +13,9 @@ import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_m
 import 'package:zerpai_erp/modules/purchases/bills/providers/purchases_bills_provider.dart';
 import 'package:zerpai_erp/modules/purchases/bills/repositories/purchases_bills_repository.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
@@ -2849,62 +2851,35 @@ class _PurchasesBillCreateScreenState
     }
   }
 
-  void _showVendorDetailsSidebar() {
+  void _showVendorDetailsSidebar() async {
     _removeVendorOverlay();
     _removeItemOverlay();
     _removeMoreOverlay();
 
+    if (_selectedVendor == null) return;
+
+    final originalVendor = _selectedVendor!;
+    Vendor displayVendor = originalVendor;
+
+    try {
+      final repo = ref.read(vendorRepositoryProvider);
+      final fetched = await repo.getVendorById(originalVendor.id);
+      if (fetched != null) {
+        displayVendor = fetched;
+      }
+    } catch (e) {
+      debugPrint('Error fetching full vendor details: $e');
+    }
+
+    if (!mounted) return;
+
     final overlay = Overlay.of(context);
     _sidebarOverlayEntry = OverlayEntry(
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSidebarState) {
-            return Stack(
-              children: [
-                GestureDetector(
-                  onTap: _closeVendorDetailsSidebar,
-                  child: Container(color: Colors.black.withValues(alpha: 0.05)),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Material(
-                    elevation: 16,
-                    color: Colors.white,
-                    child: Container(
-                      width: MediaQuery.of(context).size.width * 0.35,
-                      height: MediaQuery.of(context).size.height,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        border: Border(left: BorderSide(color: _borderColor)),
-                      ),
-                      child: Column(
-                        children: [
-                          _buildSidebarHeader(setSidebarState),
-                          _buildSidebarTabs(setSidebarState),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                children: [
-                                  _buildSidebarSummaryCards(),
-                                  const SizedBox(height: 24),
-                                  _buildSidebarContactDetailsSection(),
-                                  const SizedBox(height: 24),
-                                  _buildSidebarAccordions(setSidebarState),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => VendorSidebar(
+        vendor: displayVendor,
+        onClose: _closeVendorDetailsSidebar,
+        paymentTermsList: _paymentTermsList,
+      ),
     );
     overlay.insert(_sidebarOverlayEntry!);
   }
@@ -2917,512 +2892,6 @@ class _PurchasesBillCreateScreenState
     }
   }
 
-  Widget _buildSidebarHeader(StateSetter setSidebarState) {
-    if (_selectedVendor == null) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.all(20),
-      color: const Color(0xFFFBFBFB),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                _selectedVendor!.displayName.isNotEmpty
-                    ? _selectedVendor!.displayName[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Vendor',
-                  style: TextStyle(fontSize: 12, color: _textMuted),
-                ),
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _selectedVendor!.displayName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.open_in_new,
-                      size: 16,
-                      color: _primaryBlue,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: _closeVendorDetailsSidebar,
-            icon: const Icon(Icons.close, color: _dangerRed),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarTabs(StateSetter setSidebarState) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _borderColor)),
-      ),
-      child: Row(
-        children: ['Details', 'Activity Log'].map((tab) {
-          final isActive = _activeSidebarTab == tab;
-          return Expanded(
-            child: InkWell(
-              onTap: () {
-                setSidebarState(() => _activeSidebarTab = tab);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isActive ? _primaryBlue : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  tab,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    color: isActive ? _primaryBlue : _textMuted,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildSidebarSummaryCards() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildSummaryCard(
-            icon: Icons.warning_amber_rounded,
-            iconColor: Colors.orange,
-            label: 'Outstanding Payables',
-            value: '₹ 0.00',
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildSummaryCard(
-            icon: Icons.track_changes,
-            iconColor: _primaryGreen,
-            label: 'Unused Credits',
-            value: '₹ 0.00',
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryCard({
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: _borderColor),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: iconColor, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: _textMuted),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: _textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarContactDetailsSection() {
-    if (_selectedVendor == null) return const SizedBox.shrink();
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: _borderColor),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Contact Details',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-          ),
-          const Divider(height: 1, color: _borderColor),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildSidebarDetailRow(
-                  'Currency',
-                  _selectedVendor!.currency ?? 'INR',
-                ),
-                _buildSidebarDetailRow(
-                  'Payment Terms',
-                  _selectedVendor!.paymentTerms ?? 'Net 360',
-                ),
-                _buildSidebarDetailRow(
-                  'Portal Status',
-                  _selectedVendor!.enablePortal == true
-                      ? 'Enabled'
-                      : 'Disabled',
-                ),
-                _buildSidebarDetailRow(
-                  'Vendor Language',
-                  'English',
-                  showInfo: true,
-                ),
-                _buildSidebarDetailRow(
-                  'GST Treatment',
-                  _selectedVendor!.gstTreatment ?? 'Unregistered Business',
-                ),
-                _buildSidebarDetailRow(
-                  'Source of Supply',
-                  _selectedVendor!.sourceOfSupply ?? 'Kerala',
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarDetailRow(
-    String label,
-    String value, {
-    bool showInfo = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: Row(
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 13, color: _textMuted),
-                ),
-                if (showInfo) ...[
-                  const SizedBox(width: 4),
-                  const Icon(Icons.info_outline, size: 14, color: _textMuted),
-                ],
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 6,
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: _textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarAccordions(StateSetter setSidebarState) {
-    return Column(
-      children: [
-        _buildSidebarAccordion(
-          title: 'Contact Persons',
-          badge: '1',
-          isExpanded: _isContactPersonsExpanded,
-          onExpansionChanged: (expanded) =>
-              setSidebarState(() => _isContactPersonsExpanded = expanded),
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Stack(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF1F5F9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            _selectedVendor!.displayName.isNotEmpty
-                                ? _selectedVendor!.displayName[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF94A3B8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          padding: const EdgeInsets.all(1),
-                          child: const Icon(
-                            Icons.stars,
-                            color: _primaryGreen,
-                            size: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _selectedVendor!.displayName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.email_outlined,
-                            size: 12,
-                            color: _textMuted,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            '-',
-                            style: TextStyle(fontSize: 12, color: _textMuted),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.phone_outlined,
-                            size: 12,
-                            color: _textMuted,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _selectedVendor!.phone ?? '+91-08129542640',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: _textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildSidebarAccordion(
-          title: 'Address',
-          isExpanded: _isAddressExpanded,
-          onExpansionChanged: (expanded) =>
-              setSidebarState(() => _isAddressExpanded = expanded),
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.description_outlined,
-                        size: 14,
-                        color: _textMuted,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Billing Address',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: _textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_selectedVendor!.billingAddress != null) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20),
-                      child: Text(
-                        "${_selectedVendor!.billingAddress!['attention'] ?? ''}\n"
-                        "${_selectedVendor!.billingAddress!['street1'] ?? ''}\n"
-                        "${_selectedVendor!.billingAddress!['city'] ?? ''}, ${_selectedVendor!.billingAddress!['state'] ?? ''} ${_selectedVendor!.billingAddress!['zip'] ?? ''}\n"
-                        "${_selectedVendor!.billingAddress!['country'] ?? ''}\n"
-                        "Phone: ${_selectedVendor!.billingAddress!['phone'] ?? ''}",
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Shipping Address',
-                    style: TextStyle(fontSize: 12, color: _textMuted),
-                  ),
-                  const SizedBox(height: 8),
-                  const Center(
-                    child: Text(
-                      'No Shipping Address',
-                      style: TextStyle(fontSize: 13, color: _textMuted),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSidebarAccordion({
-    required String title,
-    String? badge,
-    required bool isExpanded,
-    required void Function(bool) onExpansionChanged,
-    required List<Widget> children,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(
-          color: isExpanded ? _primaryBlue : _borderColor,
-          width: isExpanded ? 1.5 : 1,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: isExpanded,
-          onExpansionChanged: onExpansionChanged,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-          title: Row(
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              if (badge != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    badge,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          trailing: Icon(
-            isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-            color: _textMuted,
-            size: 20,
-          ),
-          children: children,
-        ),
-      ),
-    );
-  }
 
   void _showVendorOverlay(VendorState vendorState, double width) {
     _removeVendorOverlay();
@@ -8771,6 +8240,9 @@ class _PurchasesBillCreateScreenState
   }
 
   List<Widget> _buildTaxBreakdownRows() {
+    if (_selectedVendor == null) {
+      return [];
+    }
     final Map<double, double> rateToTax = {};
     for (final row in _lineItems) {
       if (row.itemId != null && row.taxRate > 0) {
@@ -8904,6 +8376,7 @@ class _PurchasesBillCreateScreenState
   }
 
   void _showTaxAmountEditPopover(BuildContext context) {
+    if (_selectedVendor == null) return;
     _closeTaxAmountOverlay();
 
     final Map<String, ({String name, double rate, double amount})>

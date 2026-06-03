@@ -35,6 +35,18 @@ final activePriceListsProvider = Provider<List<PriceList>>((ref) {
       );
 });
 
+/// Provider for Active Sales Price Lists only (used by Sales modules)
+final activeSalesPriceListsAsyncProvider = Provider<AsyncValue<List<PriceList>>>((ref) {
+  final priceListsAsync = ref.watch(priceListNotifierProvider);
+  return priceListsAsync.whenData(
+    (priceLists) => priceLists
+        .where((pl) =>
+            pl.status == 'active' &&
+            pl.transactionType.toLowerCase() == 'sales')
+        .toList(),
+  );
+});
+
 /// Provider for a specific Price List by ID
 final priceListByIdProvider = Provider.family<PriceList?, String>((ref, id) {
   return ref

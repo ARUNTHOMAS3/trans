@@ -8,7 +8,6 @@ const _kBorder = Color(0xFFE5E7EB);
 const _kLabelGrey = AppTheme.textSecondary;
 const _kBodyText = Color(0xFF111827);
 const _kBlue = AppTheme.primaryBlueDark;
-const _kGreen = Color(0xFF16A34A);
 
 class AdvancedCustomerSearchDialog extends StatefulWidget {
   final List<SalesCustomer> customers;
@@ -44,12 +43,20 @@ class _AdvancedCustomerSearchDialogState
         if (query.isEmpty) return true;
         if (_filterBy == 'Customer Number') {
           return c.customerNumber?.toLowerCase().contains(query) ?? false;
-        } else if (_filterBy == 'Customer Name') {
+        } else if (_filterBy == 'Customer Name' || _filterBy == 'Display Name') {
           return c.displayName.toLowerCase().contains(query);
+        } else if (_filterBy == 'Company Name') {
+          return c.companyName?.toLowerCase().contains(query) ?? false;
+        } else if (_filterBy == 'First Name') {
+          return c.firstName?.toLowerCase().contains(query) ?? false;
+        } else if (_filterBy == 'Last Name') {
+          return c.lastName?.toLowerCase().contains(query) ?? false;
         } else if (_filterBy == 'Email') {
           return c.email?.toLowerCase().contains(query) ?? false;
         } else if (_filterBy == 'Phone') {
           return c.phone?.toLowerCase().contains(query) ?? false;
+        } else if (_filterBy == 'GSTIN') {
+          return c.gstin?.toLowerCase().contains(query) ?? false;
         }
         return true;
       }).toList();
@@ -123,124 +130,153 @@ class _AdvancedCustomerSearchDialogState
                       // Combined Filter + Input
                       Row(
                         children: [
-                          Container(
-                            width: 580,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: const Color(0xFFD1D5DB),
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              children: [
-                                PopupMenuButton<String>(
-                                  padding: EdgeInsets.zero,
-                                  onSelected: (v) =>
-                                      setState(() => _filterBy = v),
-                                  itemBuilder: (ctx) =>
-                                      [
-                                            'Customer Number',
-                                            'Customer Name',
-                                            'Email',
-                                            'Phone',
-                                          ]
-                                          .map(
-                                            (e) => PopupMenuItem(
-                                              value: e,
-                                              padding: EdgeInsets.zero,
-                                              height: 38,
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                    ),
-                                                child: Text(
-                                                  e,
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                  child: Container(
-                                    width: 190,
-                                    height: 32,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.bgLight,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: Radius.circular(5),
-                                        bottomLeft: Radius.circular(5),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            _filterBy,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: AppTheme.textBody,
-                                            ),
-                                          ),
-                                        ),
-                                        const Icon(
-                                          Icons.arrow_drop_down,
-                                          color: AppTheme.textSecondary,
-                                          size: 20,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                          SizedBox(
+                            width: 480,
+                            child: Container(
+                              height: 32,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: const Color(0xFFD1D5DB),
                                 ),
-                                const VerticalDivider(
-                                  width: 1,
-                                  color: Color(0xFFD1D5DB),
-                                ),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _searchCtrl,
-                                    style: const TextStyle(fontSize: 14),
-                                    decoration: const InputDecoration(
-                                      hintText: null,
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                      ),
-                                    ),
-                                    onSubmitted: (_) => _onSearch(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _kGreen,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              minimumSize: const Size(90, 32),
-                              shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                            ),
-                            onPressed: _onSearch,
-                            child: const Text(
-                              'Search',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                              child: Row(
+                                children: [
+                                  Theme(
+                                    data: Theme.of(context).copyWith(
+                                      hoverColor: Colors.transparent,
+                                      splashColor: Colors.transparent,
+                                    ),
+                                    child: PopupMenuButton<String>(
+                                      padding: EdgeInsets.zero,
+                                      offset: const Offset(0, 34), // Displays on the bottom of selection list bar nicely
+                                      constraints: const BoxConstraints(
+                                        minWidth: 190,
+                                        maxWidth: 190,
+                                      ),
+                                      onSelected: (val) =>
+                                          setState(() => _filterBy = val),
+                                      itemBuilder: (ctx) => [
+                                            'Customer Number',
+                                            'Display Name',
+                                            'Company Name',
+                                            'First Name',
+                                            'Last Name',
+                                            'Email',
+                                            'Phone',
+                                            'GSTIN',
+                                          ]
+                                          .map((c) {
+                                            bool isHovered = false;
+                                            return PopupMenuItem<String>(
+                                              value: c,
+                                              padding: EdgeInsets.zero,
+                                              height: 38,
+                                              child: StatefulBuilder(
+                                                builder: (ctx, setStateItem) {
+                                                  return MouseRegion(
+                                                    onEnter: (_) => setStateItem(() => isHovered = true),
+                                                    onExit: (_) => setStateItem(() => isHovered = false),
+                                                    child: Container(
+                                                      width: double.infinity,
+                                                      height: 38,
+                                                      alignment: Alignment.centerLeft,
+                                                      color: isHovered
+                                                          ? const Color(0xFF0052CC)
+                                                          : Colors.transparent,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                                      child: Text(
+                                                        c,
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          color: isHovered
+                                                              ? Colors.white
+                                                              : AppTheme.textBody,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            );
+                                          })
+                                          .toList(),
+                                      child: Container(
+                                        width: 190,
+                                        height: 32,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        decoration: const BoxDecoration(
+                                          color: AppTheme.bgLight,
+                                          borderRadius: BorderRadius.only(
+                                            topLeft: Radius.circular(5),
+                                            bottomLeft: Radius.circular(5),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                _filterBy,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  color: AppTheme.textBody,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.arrow_drop_down,
+                                              color: AppTheme.textSecondary,
+                                              size: 20,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const VerticalDivider(
+                                    width: 1,
+                                    color: Color(0xFFD1D5DB),
+                                  ),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchCtrl,
+                                      onChanged: (_) => _onSearch(),
+                                      onSubmitted: (_) => _onSearch(),
+                                      style: const TextStyle(fontSize: 14),
+                                      decoration: InputDecoration(
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 8,
+                                        ),
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                        suffixIcon: _searchCtrl.text.isNotEmpty
+                                            ? IconButton(
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                                icon: const Icon(
+                                                  Icons.clear,
+                                                  size: 16,
+                                                  color: AppTheme.textSecondary,
+                                                ),
+                                                onPressed: () {
+                                                  _searchCtrl.clear();
+                                                  _onSearch();
+                                                },
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
+                          const Spacer(),
                         ],
                       ),
                       const SizedBox(height: 24),

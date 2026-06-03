@@ -264,6 +264,7 @@ class Vendor {
               'mobilePhone': i['mobile_phone'] ?? i['mobilePhone'],
               'designation': i['designation'],
               'department': i['department'],
+              'isPrimary': i['is_primary'] ?? i['isPrimary'],
             },
           )
           .toList(),

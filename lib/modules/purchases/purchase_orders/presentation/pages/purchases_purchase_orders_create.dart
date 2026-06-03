@@ -8,7 +8,9 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
@@ -30,10 +32,12 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/advanced_customer_search_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/services/lookup_service.dart';
 
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
@@ -431,6 +435,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   List<String> _phoneCodesList = [];
   // ignore: unused_field
   Map<String, String> _phoneCodeToLabel = {};
+  Map<String, String> _stateIdToName = {};
+  Map<String, String> _countryIdToName = {};
 
   Future<void> _loadPaymentTerms() async {
     try {
@@ -592,6 +598,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         isReverseCharge: poState.isReverseCharge,
         discountLevel: poState.discountLevel,
         discountAccountId: poState.discountAccountId,
+        taxType: poState.taxType,
         isDelete: false,
         items: updatedItems,
       );
@@ -772,6 +779,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
   void _hydrateFromInitialOrder(PurchaseOrder order) {
     ref.read(purchaseOrderFormNotifierProvider.notifier).hydrate(order);
+    final firstItemWithPriceList = order.items.firstWhere(
+      (item) => item.priceListId != null && item.priceListId!.isNotEmpty,
+      orElse: () => PurchaseOrderItem(productId: '', quantity: 0, rate: 0, amount: 0),
+    );
+    if (firstItemWithPriceList.priceListId != null) {
+      _selectedPriceListId = firstItemWithPriceList.priceListId;
+    }
     // Hydrate row controllers
     _rowControllers.clear();
     for (final item in order.items) {
@@ -890,6 +904,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         _loadInitialOrder(widget.initialOrderId!);
       } else {
         ref.read(purchaseOrderFormNotifierProvider.notifier).reset();
+        setState(() => _selectedPriceListId = null);
         final s = ref.read(purchaseOrderFormNotifierProvider);
         _rowControllers.clear();
         for (int i = 0; i < s.items.length; i++) {
@@ -925,10 +940,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final ctrl = _ItemRowController();
     if (initialName != null) ctrl.nameCtrl.text = initialName;
     if (initialDesc != null) ctrl.descCtrl.text = initialDesc;
-    if (initialQty != null) {
+    if (initialQty != null && initialQty != 0) {
       ctrl.qtyCtrl.text = initialQty.toStringAsFixed(
         initialQty % 1 == 0 ? 0 : 2,
       );
+    } else {
+      ctrl.qtyCtrl.text = '';
     }
     if (initialRate != null && initialRate != 0) {
       ctrl.rateCtrl.text = initialRate % 1 == 0
@@ -1402,6 +1419,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             }
           }
           _phoneCodeToLabel = labels;
+          for (var c in countries) {
+            final id = c['id']?.toString();
+            final name = c['name']?.toString();
+            if (id != null && name != null) {
+              _countryIdToName[id] = name;
+            }
+          }
         });
       }
     } catch (e) {
@@ -1424,6 +1448,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             final name = s['name']?.toString() ?? '';
             return '[$code] - $name';
           }).toList();
+          for (var s in states) {
+            final id = s['id']?.toString();
+            final name = s['name']?.toString();
+            if (id != null && name != null) {
+              _stateIdToName[id] = name;
+            }
+          }
         });
       }
     } catch (e) {
@@ -1481,6 +1512,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
     final vendorState = ref.watch(vendorProvider);
     final vendors = vendorState.vendors;
+    final selectedVendor = vendors.firstWhere(
+      (v) => v.id == poState.vendorId,
+      orElse: () => Vendor(id: '', displayName: ''),
+    );
+    final isUnregistered = selectedVendor.id.isNotEmpty &&
+        (selectedVendor.gstTreatment == null ||
+            selectedVendor.gstTreatment!.toLowerCase().contains('unregistered') ||
+            selectedVendor.gstTreatment! == 'Unregistered Business');
     final customers = ref.watch(salesCustomersProvider).value ?? [];
     final warehouses = ref.watch(warehousesProvider).value ?? [];
     final itemsState = ref.watch(itemsControllerProvider);
@@ -1603,266 +1642,337 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── WAREHOUSE ──
+                // ── WAREHOUSE LOCATION ──
                 _zFormRow(
-                  label: 'Warehouse',
-                  maxWidth: 1000,
+                  label: 'Warehouse Location',
+                  maxWidth: 1300,
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: 320,
-                        child: FormDropdown<String>(
-                          height: 32,
-                          value: poState.warehouseId,
-                          items: warehouses.map((w) => w.id).toList(),
-                          displayStringForValue: (id) => warehouses
-                              .firstWhere(
-                                (w) => w.id == id,
-                                orElse: () => WarehouseModel(
-                                  id: '',
-                                  name: 'Not selected',
-                                  countryRegion: '',
-                                ),
-                              )
-                              .name,
-                          hint: 'Select Warehouse',
-                          onChanged: (id) =>
-                              notifier.updateField(warehouseId: id),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: _fieldBorder),
-                          itemBuilder: (id, isSelected, isHovered) =>
-                              _buildStandardLookupRow(
-                                warehouses
+                      Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // 1. Warehouse
+                            SizedBox(
+                              width: 240,
+                              child: FormDropdown<String>(
+                                height: 34,
+                                value: poState.warehouseId,
+                                items: warehouses.map((w) => w.id).toList(),
+                                displayStringForValue: (id) => warehouses
                                     .firstWhere(
                                       (w) => w.id == id,
                                       orElse: () => WarehouseModel(
                                         id: '',
-                                        name: '',
+                                        name: 'Not selected',
                                         countryRegion: '',
                                       ),
                                     )
                                     .name,
-                                isSelected,
-                                isHovered,
+                                hint: 'Select Warehouse',
+                                onChanged: (id) =>
+                                    notifier.updateField(warehouseId: id),
+                                borderRadius: BorderRadius.zero,
+                                border: const Border(),
+                                itemBuilder: (id, isSelected, isHovered) =>
+                                    _buildStandardLookupRow(
+                                      warehouses
+                                          .firstWhere(
+                                            (w) => w.id == id,
+                                            orElse: () => WarehouseModel(
+                                              id: '',
+                                              name: '',
+                                              countryRegion: '',
+                                            ),
+                                          )
+                                          .name,
+                                      isSelected,
+                                      isHovered,
+                                    ),
                               ),
-                        ),
-                      ),
-                      const SizedBox(width: 32),
-                      const SizedBox(
-                        width: 100,
-                        child: Text(
-                          'Price List',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                      ),
-                      CompositedTransformTarget(
-                        link: _priceListTooltipLink,
-                        child: MouseRegion(
-                          onEnter: (_) {
-                            final pl = activePriceLists
-                                .where((pl) => pl.id == _selectedPriceListId)
-                                .firstOrNull;
-                            if (pl != null) {
-                              _showValueTooltip(
-                                context,
-                                pl.name,
-                                _priceListTooltipLink,
-                              );
-                            }
-                          },
-                          onExit: (_) => _hideValueTooltip(),
-                          child: SizedBox(
-                            width: 320,
-                            child: FormDropdown<PriceList>(
-                              height: 32,
-                              hint: 'Select Price List',
-                              value: activePriceLists
-                                  .where((pl) => pl.id == _selectedPriceListId)
-                                  .firstOrNull,
-                              items: activePriceLists,
-                              displayStringForValue: (pl) => pl.name,
-                              onChanged: (pl) {
-                                if (pl != null) {
-                                  setState(() => _selectedPriceListId = pl.id);
-                                  final notifier = ref.read(
-                                    purchaseOrderFormNotifierProvider.notifier,
-                                  );
-                                  final state = ref.read(
-                                    purchaseOrderFormNotifierProvider,
-                                  );
-                                  for (int i = 0; i < state.items.length; i++) {
-                                    final item = state.items[i];
-                                    if (!item.isHeader) {
-                                      final newRate = pl.calculatePrice(
-                                        item.productId,
-                                        item.rate,
-                                        quantity: item.quantity,
+                            ),
+
+                            // 2. Tax Preference (only if not unregistered)
+                            if (!isUnregistered) ...[
+                              Container(width: 1, color: const Color(0xFFE5E7EB)),
+                              SizedBox(
+                                width: 150,
+                                child: FormDropdown<String>(
+                                  height: 34,
+                                  value: poState.taxType == 'inclusive'
+                                      ? 'Tax Inclusive'
+                                      : 'Tax Exclusive',
+                                  items: const ['Tax Exclusive', 'Tax Inclusive'],
+                                  onChanged: (v) {
+                                    if (v != null) {
+                                      notifier.updateField(
+                                        taxType: v == 'Tax Inclusive'
+                                            ? 'inclusive'
+                                            : 'exclusive',
                                       );
-                                      notifier.updateItem(
-                                        i,
-                                        item.copyWith(
-                                          rate: newRate,
-                                          priceListId: pl.id,
+                                    }
+                                  },
+                                  displayStringForValue: (v) => v,
+                                  borderRadius: BorderRadius.zero,
+                                  border: const Border(),
+                                  prefixWidget: const Icon(
+                                    LucideIcons.shoppingBag,
+                                    size: 16,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                  itemBuilder: (item, isSelected, isHovered) {
+                                    Color bgColor = Colors.white;
+                                    Color textColor = _textPrimary;
+
+                                    if (isHovered) {
+                                      bgColor = _linkBlue;
+                                      textColor = Colors.white;
+                                    } else if (isSelected) {
+                                      bgColor = const Color(0xFFF3F4F6); // light grey
+                                      textColor = _textPrimary; // black text
+                                    }
+
+                                    return Container(
+                                      height: 44,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      alignment: Alignment.centerLeft,
+                                      color: bgColor,
+                                      child: Text(
+                                        item,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          color: textColor,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+
+                            // 3. Discount Level
+                            Container(width: 1, color: const Color(0xFFE5E7EB)),
+                            SizedBox(
+                              width: 180,
+                              child: FormDropdown<String>(
+                                height: 34,
+                                value: poState.discountLevel,
+                                items: const ['transaction', 'item'],
+                                displayStringForValue: (v) => v == 'transaction'
+                                    ? 'At Transaction Level'
+                                    : 'At Line Item Level',
+                                onChanged: (v) =>
+                                    notifier.updateField(discountLevel: v),
+                                borderRadius: BorderRadius.zero,
+                                border: const Border(),
+                                prefixWidget: const Icon(
+                                  LucideIcons.percent,
+                                  size: 16,
+                                  color: Color(0xFF6B7280),
+                                ),
+                                itemBuilder: (id, isSelected, isHovered) =>
+                                    _buildStandardLookupRow(
+                                      id == 'transaction'
+                                          ? 'At Transaction Level'
+                                          : 'At Line Item Level',
+                                      isSelected,
+                                      isHovered,
+                                    ),
+                              ),
+                            ),
+
+                            // 4. Discount Account (only if Level is 'item')
+                            if (poState.discountLevel == 'item') ...[
+                              Container(width: 1, color: const Color(0xFFE5E7EB)),
+                              SizedBox(
+                                width: 200,
+                                child: FormDropdown<AccountNode>(
+                                  height: 34,
+                                  value: availableAccounts.firstWhere(
+                                    (a) => a.id == poState.discountAccountId,
+                                    orElse: () => const AccountNode(
+                                      id: '',
+                                      systemAccountName: '',
+                                      userAccountName: '',
+                                      name: '',
+                                      accountGroup: '',
+                                      accountType: '',
+                                      isSystem: false,
+                                      isDeletable: true,
+                                      isActive: true,
+                                    ),
+                                  ),
+                                  items: () {
+                                    final expenseAccounts = availableAccounts.where((
+                                      node,
+                                    ) {
+                                      final group = node.accountGroup.toLowerCase();
+                                      return group.contains('expense');
+                                    }).toList();
+
+                                    // Group by accountType
+                                    final Map<String, List<AccountNode>> grouped = {};
+                                    for (final acc in expenseAccounts) {
+                                      grouped
+                                          .putIfAbsent(acc.accountType, () => [])
+                                          .add(acc);
+                                    }
+
+                                    // Flatten with headers
+                                    final List<AccountNode> flattened = [];
+                                    grouped.forEach((type, list) {
+                                      flattened.add(
+                                        AccountNode(
+                                          id: 'header_$type',
+                                          systemAccountName: type,
+                                          userAccountName: type,
+                                          name: type,
+                                          accountGroup: 'Expenses',
+                                          accountType: type,
+                                          isSystem: false,
+                                          isDeletable: false,
+                                          isActive: false,
+                                        ),
+                                      );
+                                      flattened.addAll(list);
+                                    });
+                                    return flattened;
+                                  }(),
+                                  displayStringForValue: (a) => a.name.isEmpty
+                                      ? 'Discount Account'
+                                      : (a.id.startsWith('header_')
+                                            ? a.accountType
+                                            : a.name),
+                                  onChanged: (v) {
+                                    if (v != null && !v.id.startsWith('header_')) {
+                                      notifier.updateField(discountAccountId: v.id);
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.zero,
+                                  border: const Border(),
+                                  prefixWidget: const Icon(
+                                    LucideIcons.shoppingBag,
+                                    size: 16,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                  itemBuilder: (account, isSelected, isHovered) {
+                                    if (account.id.startsWith('header_')) {
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        child: Text(
+                                          account.accountType,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF6B7280),
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       );
                                     }
-                                  }
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: _fieldBorder),
-                              itemBuilder: (pl, isSelected, isHovered) =>
-                                  _buildStandardLookupRow(
-                                    pl.name,
-                                    isSelected,
-                                    isHovered,
-                                  ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Divider(height: 1, color: Color(0xFFE5E7EB)),
-                ),
-                // ── DISCOUNT TYPE SELECTION ──
-                _zFormRow(
-                  label: 'Discount',
-                  maxWidth: 900,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 180,
-                        child: FormDropdown<String>(
-                          height: 32,
-                          value: poState.discountLevel,
-                          items: const ['transaction', 'item'],
-                          displayStringForValue: (v) => v == 'transaction'
-                              ? 'At Transaction Level'
-                              : 'At Line Item Level',
-                          onChanged: (v) =>
-                              notifier.updateField(discountLevel: v),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: _fieldBorder),
-                          itemBuilder: (id, isSelected, isHovered) =>
-                              _buildStandardLookupRow(
-                                id == 'transaction'
-                                    ? 'At Transaction Level'
-                                    : 'At Line Item Level',
-                                isSelected,
-                                isHovered,
+                                    final name = account.userAccountName.isNotEmpty
+                                        ? account.userAccountName
+                                        : account.systemAccountName;
+                                    return _buildStandardLookupRow(
+                                      name,
+                                      isSelected,
+                                      isHovered,
+                                      indentation: 16,
+                                    );
+                                  },
+                                ),
                               ),
-                        ),
-                      ),
+                            ],
 
-                      if (poState.discountLevel == 'item') ...[
-                        const SizedBox(width: 12),
-                        Container(width: 1, height: 24, color: _borderCol),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 250,
-                          child: FormDropdown<AccountNode>(
-                            height: 32,
-                            value: availableAccounts.firstWhere(
-                              (a) => a.id == poState.discountAccountId,
-                              orElse: () => const AccountNode(
-                                id: '',
-                                systemAccountName: '',
-                                userAccountName: '',
-                                name: '',
-                                accountGroup: '',
-                                accountType: '',
-                                isSystem: false,
-                                isDeletable: true,
-                                isActive: true,
-                              ),
-                            ),
-                            items: () {
-                              final expenseAccounts = availableAccounts.where((
-                                node,
-                              ) {
-                                final group = node.accountGroup.toLowerCase();
-                                return group.contains('expense');
-                              }).toList();
-
-                              // Group by accountType
-                              final Map<String, List<AccountNode>> grouped = {};
-                              for (final acc in expenseAccounts) {
-                                grouped
-                                    .putIfAbsent(acc.accountType, () => [])
-                                    .add(acc);
-                              }
-
-                              // Flatten with headers
-                              final List<AccountNode> flattened = [];
-                              grouped.forEach((type, list) {
-                                // Add a header dummy node
-                                flattened.add(
-                                  AccountNode(
-                                    id: 'header_$type',
-                                    systemAccountName: type,
-                                    userAccountName: type,
-                                    name: type,
-                                    accountGroup: 'Expenses',
-                                    accountType: type,
-                                    isSystem: false,
-                                    isDeletable: false,
-                                    isActive: false,
-                                  ),
-                                );
-                                flattened.addAll(list);
-                              });
-                              return flattened;
-                            }(),
-                            displayStringForValue: (a) => a.name.isEmpty
-                                ? 'Select Discount Account'
-                                : (a.id.startsWith('header_')
-                                      ? a.accountType
-                                      : a.name),
-                            onChanged: (v) {
-                              if (v != null && !v.id.startsWith('header_')) {
-                                notifier.updateField(discountAccountId: v.id);
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: _fieldBorder),
-                            itemBuilder: (account, isSelected, isHovered) {
-                              if (account.id.startsWith('header_')) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  child: Text(
-                                    account.accountType,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
+                            // 5. Price List
+                            Container(width: 1, color: const Color(0xFFE5E7EB)),
+                            SizedBox(
+                              width: 160,
+                              child: CompositedTransformTarget(
+                                link: _priceListTooltipLink,
+                                child: MouseRegion(
+                                  onEnter: (_) {
+                                    final pl = activePriceLists
+                                        .where((pl) => pl.id == _selectedPriceListId)
+                                        .firstOrNull;
+                                    if (pl != null) {
+                                      _showValueTooltip(
+                                        context,
+                                        pl.name,
+                                        _priceListTooltipLink,
+                                      );
+                                    }
+                                  },
+                                  onExit: (_) => _hideValueTooltip(),
+                                  child: FormDropdown<PriceList>(
+                                    height: 34,
+                                    hint: 'Select Price List',
+                                    value: activePriceLists
+                                        .where((pl) => pl.id == _selectedPriceListId)
+                                        .firstOrNull,
+                                    items: activePriceLists,
+                                    displayStringForValue: (pl) => pl.name,
+                                    onChanged: (pl) {
+                                      if (pl != null) {
+                                        setState(() => _selectedPriceListId = pl.id);
+                                        final notifier = ref.read(
+                                          purchaseOrderFormNotifierProvider.notifier,
+                                        );
+                                        final state = ref.read(
+                                          purchaseOrderFormNotifierProvider,
+                                        );
+                                        for (int i = 0; i < state.items.length; i++) {
+                                          final item = state.items[i];
+                                          if (!item.isHeader) {
+                                            final newRate = pl.calculatePrice(
+                                              item.productId,
+                                              item.rate,
+                                              quantity: item.quantity,
+                                            );
+                                            notifier.updateItem(
+                                              i,
+                                              item.copyWith(
+                                                rate: newRate,
+                                                priceListId: pl.id,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.zero,
+                                    border: const Border(),
+                                    prefixWidget: const Icon(
+                                      LucideIcons.clipboard,
+                                      size: 16,
                                       color: Color(0xFF6B7280),
-                                      fontSize: 12,
                                     ),
+                                    itemBuilder: (pl, isSelected, isHovered) =>
+                                        _buildStandardLookupRow(
+                                          pl.name,
+                                          isSelected,
+                                          isHovered,
+                                        ),
                                   ),
-                                );
-                              }
-                              final name = account.userAccountName.isNotEmpty
-                                  ? account.userAccountName
-                                  : account.systemAccountName;
-                              return _buildStandardLookupRow(
-                                name,
-                                isSelected,
-                                isHovered,
-                                indentation: 16,
-                              );
-                            },
-                          ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
@@ -2136,12 +2246,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 child: FormDropdown<String>(
                   height: 32,
                   value: poState.shipmentPreference,
-                  items: _shipmentPreferencesList
-                      .map((p) => p['name'] as String)
-                      .toList(),
+                  items: const ['SPEED AND SAFE', 'DHL', 'FedEx'],
                   hint: 'Choose the shipment preference',
                   allowCustomValue: true,
-                  iconSize: 12,
                   onChanged: (v) => notifier.updateField(shipmentPreference: v),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: _fieldBorder),
@@ -2463,7 +2570,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     hint: 'Select a Vendor',
                     showSearch: true,
                     allowClear: hasVendor && !_isEditMode,
-                    menuWidth: 480,
+                    menuWidth: 550,
                     onChanged: (v) =>
                         notifier.updateField(
                           vendorId: v?.id ?? '',
@@ -2704,10 +2811,38 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             link: _poLink,
             showWhenUnlinked: false,
             offset: const Offset(-20, 20),
-            child: const Material(
+            child: Material(
               color: Colors.transparent,
-              child: _OpenPurchaseOrdersPopover(
-                orders: [], // Empty state
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final poState = ref.read(purchaseOrderFormNotifierProvider);
+                  if (poState.vendorId == null || poState.vendorId!.isEmpty) {
+                    return const _OpenPurchaseOrdersPopover(orders: []);
+                  }
+                  final purchaseOrdersAsync = ref.watch(
+                    purchaseOrdersProvider(
+                      PurchaseOrderFilter(vendorId: poState.vendorId),
+                    ),
+                  );
+                  return purchaseOrdersAsync.when(
+                    data: (ordersList) {
+                      final mappedOrders = ordersList.map((po) {
+                        return {
+                          'po': po.orderNumber,
+                          'date': DateFormat('dd-MM-yyyy').format(po.orderDate),
+                          'amount': NumberFormat.currency(
+                            locale: 'en_IN',
+                            symbol: '₹',
+                          ).format(po.total),
+                          'status': po.status,
+                        };
+                      }).toList();
+                      return _OpenPurchaseOrdersPopover(orders: mappedOrders);
+                    },
+                    loading: () => const _OpenPurchaseOrdersPopover(orders: []),
+                    error: (err, stack) => const _OpenPurchaseOrdersPopover(orders: []),
+                  );
+                },
               ),
             ),
           ),
@@ -2717,12 +2852,29 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     overlay.insert(_poOverlay!);
   }
 
-  void _showVendorSidebar(Vendor vendor) {
+  void _showVendorSidebar(Vendor vendor) async {
     _closeVendorSidebar();
+    
+    Vendor displayVendor = vendor;
+    try {
+      final repo = ref.read(vendorRepositoryProvider);
+      final fetched = await repo.getVendorById(vendor.id);
+      if (fetched != null) {
+        displayVendor = fetched;
+      }
+    } catch (e) {
+      debugPrint('Error fetching full vendor details: $e');
+    }
+
+    if (!mounted) return;
+
     final overlay = Overlay.of(context);
     _vendorSidebarOverlay = OverlayEntry(
-      builder: (ctx) =>
-          _VendorSidebar(vendor: vendor, onClose: _closeVendorSidebar),
+      builder: (ctx) => VendorSidebar(
+        vendor: displayVendor,
+        onClose: _closeVendorSidebar,
+        paymentTermsList: _paymentTermsList,
+      ),
     );
     overlay.insert(_vendorSidebarOverlay!);
   }
@@ -3136,19 +3288,62 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FormDropdown<SalesCustomer>(
-            value: cust.id.isEmpty ? null : cust,
-            items: customers,
-            hint: 'Select Customer',
-            showSearch: true,
-            displayStringForValue: (c) => c.displayName,
-            onChanged: (c) =>
-                notifier.updateField(deliveryCustomerId: c?.id ?? ''),
+          Row(
+            children: [
+              SizedBox(
+                width: 320,
+                child: FormDropdown<SalesCustomer>(
+                  height: 32,
+                  value: cust.id.isEmpty ? null : cust,
+                  items: customers,
+                  hint: 'Select Customer',
+                  showSearch: true,
+                  displayStringForValue: (c) => c.displayName,
+                  onChanged: (c) =>
+                      notifier.updateField(deliveryCustomerId: c?.id ?? ''),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    bottomLeft: Radius.circular(4),
+                  ),
+                  showRightBorder: false,
+                  border: Border.all(color: _fieldBorder),
+                ),
+              ),
+              Container(
+                height: 32,
+                width: 32,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF10B981),
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(4),
+                    bottomRight: Radius.circular(4),
+                  ),
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    LucideIcons.search,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  onPressed: () => _showAdvancedCustomerSearch(customers),
+                ),
+              ),
+            ],
           ),
           if (cust.id.isNotEmpty) ...[
             const SizedBox(height: 10),
             _customerAddressCard(cust, notifier, liveWarehouses, poState),
           ],
+          const SizedBox(height: 16),
+          const Text(
+            'Stock on Hand will not be affected only in case of dropshipments. Selecting the Customer option in the Deliver To field of a normal purchase order will have an effect on your stock level',
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xFF6B7280), // grey-500
+              height: 1.4,
+            ),
+          ),
         ],
       );
     }
@@ -3261,6 +3456,23 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
+  void _showAdvancedCustomerSearch(List<SalesCustomer> customers) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Advanced Customer Search',
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (ctx, _, __) => AdvancedCustomerSearchDialog(
+        customers: customers,
+        onSelect: (c) {
+          final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+          notifier.updateField(deliveryCustomerId: c.id);
+        },
+      ),
+    );
+  }
+
   // ─── Customer address card ──────────────────────────────────────────────────
   Widget _customerAddressCard(
     SalesCustomer cust,
@@ -3268,81 +3480,163 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     List<WarehouseModel> allWarehouses,
     PurchaseOrderState poState,
   ) {
-    const addrColor = Color(0xFF1A73C8);
-    const addrDark = Color(0xFF1A3A5C);
+    final countries = ref.watch(countriesProvider(null)).value ?? [];
+
+    // Resolve shipping country
+    final shippingCountryMap = countries.firstWhere(
+      (item) =>
+          item['id'] == cust.shippingAddressCountryId ||
+          item['shortCode'] == cust.shippingAddressCountryId,
+      orElse: () => <String, String>{},
+    );
+    final shippingCountryName =
+        shippingCountryMap['name'] ?? cust.shippingAddressCountryId;
+
+    // Resolve shipping state
+    final shippingStates =
+        (cust.shippingAddressCountryId != null &&
+            cust.shippingAddressCountryId!.isNotEmpty)
+        ? (ref.watch(statesProvider(cust.shippingAddressCountryId!)).value ?? [])
+        : [];
+    final shippingStateMap = shippingStates
+        .where(
+          (item) =>
+              item['id'] == cust.shippingAddressStateId ||
+              item['code'] == cust.shippingAddressStateId,
+        )
+        .firstOrNull;
+    final shippingStateName = shippingStateMap != null
+        ? shippingStateMap['name']
+        : cust.shippingAddressStateId;
+
     final lines = <_AddrLine>[
+      if ((cust.displayName).isNotEmpty)
+        _AddrLine(cust.displayName, isBold: true),
       if ((cust.shippingAddressStreet1 ?? '').isNotEmpty)
-        _AddrLine(cust.shippingAddressStreet1!, isBold: true),
+        _AddrLine(cust.shippingAddressStreet1!),
+      if ((cust.shippingAddressStreet2 ?? '').isNotEmpty)
+        _AddrLine(cust.shippingAddressStreet2!),
       if ((cust.shippingAddressCity ?? '').isNotEmpty)
         _AddrLine(cust.shippingAddressCity!),
-      if ((cust.shippingAddressStateId ?? '').isNotEmpty)
-        _AddrLine(cust.shippingAddressStateId!),
+      if ((shippingStateName ?? '').isNotEmpty)
+        _AddrLine(shippingStateName!),
       if ((cust.shippingAddressZip ?? '').isNotEmpty)
         _AddrLine(cust.shippingAddressZip!),
-      if ((cust.phone ?? '').isNotEmpty) _AddrLine(cust.phone!, isPhone: true),
+      if ((shippingCountryName ?? '').isNotEmpty)
+        _AddrLine(shippingCountryName!),
+      if ((cust.phone ?? '').isNotEmpty)
+        _AddrLine('Phone: ${cust.phone!}', isPhone: true),
     ];
+
+    // Find the currently selected warehouse location in the dropdown
+    final selectedWh = allWarehouses.firstWhere(
+      (w) => w.id == poState.deliveryWarehouseId,
+      orElse: () => allWarehouses.isNotEmpty
+          ? allWarehouses.first
+          : WarehouseModel(id: '', name: 'Not selected', countryRegion: ''),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _HoverableField(
-          builder: (isHovered) => TextFormField(
-            initialValue: cust.displayName,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: _textPrimary,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Text(
+              'SHIPPING ADDRESS',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF4B5563), // grey-600
+                letterSpacing: 0.5,
+              ),
             ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 9,
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () {
+                _showAddressModal(cust: cust, isBilling: false);
+              },
+              child: const Icon(
+                Icons.edit_outlined,
+                size: 14,
+                color: Color(0xFF6B7280), // grey-500
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(3),
-                borderSide: BorderSide(
-                  color: isHovered ? _linkBlue : _fieldBorder,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(3),
-                borderSide: const BorderSide(color: _linkBlue, width: 1.5),
-              ),
-              fillColor: _bgWhite,
-              filled: true,
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         ...lines.map(
           (line) => Padding(
-            padding: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               line.text,
               style: TextStyle(
                 fontSize: 13,
-                height: 1.5,
-                color: line.isPhone
-                    ? _labelColor
-                    : (line.isBold ? addrDark : addrColor),
-                fontWeight: line.isBold ? FontWeight.w600 : FontWeight.normal,
+                height: 1.4,
+                color: line.isBold ? const Color(0xFF111827) : const Color(0xFF374151),
+                fontWeight: line.isBold ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        CompositedTransformTarget(
-          link: _deliveryChangeLink,
-          child: GestureDetector(
-            onTap: () => _showDeliveryPopover(allWarehouses, poState, notifier),
-            child: const Text(
-              'Change destination to deliver',
-              style: TextStyle(
-                color: _linkBlue,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+        const SizedBox(height: 18),
+        const Text(
+          'Select the location to be updated',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 320,
+          child: FormDropdown<WarehouseModel>(
+            height: 32,
+            value: selectedWh.id.isEmpty ? null : selectedWh,
+            items: allWarehouses,
+            hint: 'Select the location to be updated',
+            displayStringForValue: (w) => '${w.name} (warehouse)',
+            menuWidth: 320,
+            itemBuilder: (w, isSelected, isHovered) {
+              Color bg = Colors.transparent;
+              Color textColor = const Color(0xFF111827); // black text
+              if (isHovered) {
+                bg = const Color(0xFF0052CC); // blue background
+                textColor = Colors.white; // white text
+              } else if (isSelected) {
+                bg = const Color(0xFFE5E7EB); // grey background
+                textColor = const Color(0xFF111827); // black text
+              }
+              return Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                color: bg,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${w.name} (warehouse)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: textColor,
+                          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+            onChanged: (w) {
+              notifier.updateField(
+                deliveryWarehouseId: w?.id ?? '',
+              );
+            },
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: _fieldBorder),
           ),
         ),
       ],
@@ -3485,38 +3779,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               },
                             ),
                           ),
-                          const Divider(height: 1, color: Color(0xFFE0E0E0)),
-                          // + New Address
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            child: GestureDetector(
-                              onTap: () {
-                                _closeDeliveryOverlay();
-                                _showAddressModal();
-                              },
-                              child: Row(
-                                children: const [
-                                  Icon(
-                                    Icons.add_circle_outline,
-                                    size: 15,
-                                    color: _linkBlue,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'New Address',
-                                    style: TextStyle(
-                                      color: _linkBlue,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -3614,33 +3876,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           .toList(),
                     ),
                   ),
-                  if (!isSelected) ...[
-                    GestureDetector(
-                      onTap: () {
-                        _closeDeliveryOverlay();
-                        _showAddressModal(wh: w);
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: 6),
-                        child: Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: Color(0xFF666666),
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {},
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: 4),
-                        child: Icon(
-                          Icons.delete_outline,
-                          size: 14,
-                          color: Color(0xFF666666),
-                        ),
-                      ),
-                    ),
-                  ],
+                  // Edit and delete icons removed
                 ],
               ),
             ),
@@ -4145,9 +4381,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              const Text(
-                                'TAX',
-                                style: TextStyle(
+                              Text(
+                                poState.isReverseCharge
+                                    ? 'Tax ( Reverse Charge )'
+                                    : 'TAX',
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF6B7280),
@@ -4843,7 +5081,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                               _rowControllers[targetIndex];
                                           targetCtrl.nameCtrl.text =
                                               i.productName;
-                                          targetCtrl.qtyCtrl.text = '1.00';
+                                          targetCtrl.qtyCtrl.text = '';
                                           targetCtrl.rateCtrl.text =
                                               (i.costPrice ?? 0.0) % 1 == 0
                                               ? (i.costPrice ?? 0.0)
@@ -5119,7 +5357,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                           );
                                                           ctrl.nameCtrl.clear();
                                                           ctrl.qtyCtrl.text =
-                                                              '1.00';
+                                                              '';
                                                           ctrl.rateCtrl.text =
                                                               '0';
                                                           ctrl
@@ -5367,7 +5605,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             children: [
                               _gridField(
                                 ctrl.qtyCtrl,
-                                hint: '1.00',
+                                hint: '0',
                                 textAlign: TextAlign.right,
                                 valueFontWeight: FontWeight.w400,
                                 onChanged: (v) {
@@ -6608,6 +6846,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }
 
   List<Widget> _buildTaxBreakdownRows(PurchaseOrderState poState) {
+    if (poState.vendorId == null || poState.vendorId!.isEmpty) {
+      return [];
+    }
+
     final Map<String, ({String name, double rate, double amount})> groups = {};
     for (final item in poState.items.where(
       (i) => !i.isHeader && i.taxAmount > 0,
@@ -6630,46 +6872,72 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       }
     }
 
+    final destination = poState.destinationOfSupply.toLowerCase();
+    final isKerala = destination.contains('[kl]') || destination.contains('kerala');
+
     final widgets = <Widget>[];
     for (final tax in groups.values) {
-      final half = tax.rate / 2;
-      final halfAmt = tax.amount / 2;
-      final halfStr = half % 1 == 0
-          ? half.toInt().toString()
-          : half.toStringAsFixed(1);
+      if (isKerala) {
+        final half = tax.rate / 2;
+        final halfAmt = tax.amount / 2;
+        final halfStr = half % 1 == 0
+            ? half.toInt().toString()
+            : half.toStringAsFixed(1);
 
-      widgets.add(
-        Row(
-          children: [
-            Text(
-              'CGST$halfStr [$halfStr%]',
-              style: const TextStyle(fontSize: 13, color: _labelColor),
-            ),
-            const Spacer(),
-            Text(
-              halfAmt.toStringAsFixed(2),
-              style: const TextStyle(fontSize: 13),
-            ),
-          ],
-        ),
-      );
-      widgets.add(const SizedBox(height: 8));
-      widgets.add(
-        Row(
-          children: [
-            Text(
-              'SGST$halfStr [$halfStr%]',
-              style: const TextStyle(fontSize: 13, color: _labelColor),
-            ),
-            const Spacer(),
-            Text(
-              halfAmt.toStringAsFixed(2),
-              style: const TextStyle(fontSize: 13),
-            ),
-          ],
-        ),
-      );
-      widgets.add(const SizedBox(height: 12));
+        widgets.add(
+          Row(
+            children: [
+              Text(
+                'CGST$halfStr [$halfStr%]',
+                style: const TextStyle(fontSize: 13, color: _labelColor),
+              ),
+              const Spacer(),
+              Text(
+                halfAmt.toStringAsFixed(2),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+        );
+        widgets.add(const SizedBox(height: 8));
+        widgets.add(
+          Row(
+            children: [
+              Text(
+                'SGST$halfStr [$halfStr%]',
+                style: const TextStyle(fontSize: 13, color: _labelColor),
+              ),
+              const Spacer(),
+              Text(
+                halfAmt.toStringAsFixed(2),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+        );
+        widgets.add(const SizedBox(height: 12));
+      } else {
+        final rateStr = tax.rate % 1 == 0
+            ? tax.rate.toInt().toString()
+            : tax.rate.toStringAsFixed(1);
+
+        widgets.add(
+          Row(
+            children: [
+              Text(
+                'IGST$rateStr [$rateStr%]',
+                style: const TextStyle(fontSize: 13, color: _labelColor),
+              ),
+              const Spacer(),
+              Text(
+                tax.amount.toStringAsFixed(2),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+        );
+        widgets.add(const SizedBox(height: 12));
+      }
     }
     return widgets;
   }
@@ -6724,6 +6992,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   ) {
     _closeTaxAmountOverlay();
 
+    final destination = poState.destinationOfSupply.toLowerCase();
+    final isKerala = destination.contains('[kl]') || destination.contains('kerala');
+
     final Map<String, ({String name, double rate, double amount})>
     initialTaxes = {};
     for (final item in poState.items.where(
@@ -6732,44 +7003,65 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       final key = item.taxId ?? item.taxName ?? '';
       if (key.isEmpty) continue;
 
-      final half = item.taxRate / 2;
-      final halfAmt = item.taxAmount / 2;
-      final halfStr = half % 1 == 0
-          ? half.toInt().toString()
-          : half.toStringAsFixed(1);
+      if (isKerala) {
+        final half = item.taxRate / 2;
+        final halfAmt = item.taxAmount / 2;
+        final halfStr = half % 1 == 0
+            ? half.toInt().toString()
+            : half.toStringAsFixed(1);
 
-      // Add CGST
-      final cgstKey = '${key}_CGST';
-      if (initialTaxes.containsKey(cgstKey)) {
-        final e = initialTaxes[cgstKey]!;
-        initialTaxes[cgstKey] = (
-          name: e.name,
-          rate: e.rate,
-          amount: e.amount + halfAmt,
-        );
-      } else {
-        initialTaxes[cgstKey] = (
-          name: 'CGST$halfStr',
-          rate: half,
-          amount: halfAmt,
-        );
-      }
+        // Add CGST
+        final cgstKey = '${key}_CGST';
+        if (initialTaxes.containsKey(cgstKey)) {
+          final e = initialTaxes[cgstKey]!;
+          initialTaxes[cgstKey] = (
+            name: e.name,
+            rate: e.rate,
+            amount: e.amount + halfAmt,
+          );
+        } else {
+          initialTaxes[cgstKey] = (
+            name: 'CGST$halfStr',
+            rate: half,
+            amount: halfAmt,
+          );
+        }
 
-      // Add SGST
-      final sgstKey = '${key}_SGST';
-      if (initialTaxes.containsKey(sgstKey)) {
-        final e = initialTaxes[sgstKey]!;
-        initialTaxes[sgstKey] = (
-          name: e.name,
-          rate: e.rate,
-          amount: e.amount + halfAmt,
-        );
+        // Add SGST
+        final sgstKey = '${key}_SGST';
+        if (initialTaxes.containsKey(sgstKey)) {
+          final e = initialTaxes[sgstKey]!;
+          initialTaxes[sgstKey] = (
+            name: e.name,
+            rate: e.rate,
+            amount: e.amount + halfAmt,
+          );
+        } else {
+          initialTaxes[sgstKey] = (
+            name: 'SGST$halfStr',
+            rate: half,
+            amount: halfAmt,
+          );
+        }
       } else {
-        initialTaxes[sgstKey] = (
-          name: 'SGST$halfStr',
-          rate: half,
-          amount: halfAmt,
-        );
+        final rateStr = item.taxRate % 1 == 0
+            ? item.taxRate.toInt().toString()
+            : item.taxRate.toStringAsFixed(1);
+
+        if (initialTaxes.containsKey(key)) {
+          final e = initialTaxes[key]!;
+          initialTaxes[key] = (
+            name: e.name,
+            rate: e.rate,
+            amount: e.amount + item.taxAmount,
+          );
+        } else {
+          initialTaxes[key] = (
+            name: 'IGST$rateStr',
+            rate: item.taxRate,
+            amount: item.taxAmount,
+          );
+        }
       }
     }
 
@@ -7992,18 +8284,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     Color bg = Colors.transparent;
     Color text = const Color(0xFF111827);
     Color subtext = const Color(0xFF6B7280);
-    Color check = const Color(0xFF2563EB);
 
     if (isHovered) {
       bg = const Color(0xFF0088FF);
       text = Colors.white;
       subtext = Colors.white70;
-      check = Colors.white;
     } else if (isSelected) {
-      bg = const Color(0xFFEFF6FF);
-      text = const Color(0xFF2563EB);
-      subtext = const Color(0xFF2563EB).withValues(alpha: 0.7);
-      check = const Color(0xFF2563EB);
+      bg = const Color(0xFFE5E7EB);
+      text = const Color(0xFF111827);
+      subtext = const Color(0xFF6B7280);
     }
 
     return Container(
@@ -8045,7 +8334,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               ],
             ),
           ),
-          if (isSelected) Icon(Icons.check, size: 14, color: check),
         ],
       ),
     );
@@ -8225,10 +8513,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         hint: hint,
         readOnly: true,
         onTap: () async {
+          final today = DateTime.now();
+          final startOfToday = DateTime(today.year, today.month, today.day);
           final selected = await ZerpaiDatePicker.show(
             context,
-            initialDate: value ?? DateTime.now(),
-            firstDate: DateTime(2000),
+            initialDate: (value != null && !value.isBefore(startOfToday))
+                ? value
+                : startOfToday,
+            firstDate: startOfToday,
             lastDate: DateTime(2100),
             targetKey: targetKey,
           );
@@ -8347,30 +8639,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       color: isHovered
-          ? const Color(0xFF2563EB)
-          : (isSelected ? const Color(0xFFEFF6FF) : Colors.transparent),
+          ? const Color(0xFF0088FF)
+          : (isSelected ? const Color(0xFFE5E7EB) : Colors.transparent),
       child: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: isHovered
-                  ? Colors.white.withValues(alpha: 0.2)
-                  : (isSelected
-                        ? const Color(0xFFDCFCE7)
-                        : const Color(0xFFF3F4F6)),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(
-              Icons.warehouse_outlined,
-              size: 16,
-              color: isHovered
-                  ? Colors.white
-                  : (isSelected ? _greenBtn : _hintColor),
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -8383,7 +8655,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     fontWeight: FontWeight.w600,
                     color: isHovered
                         ? Colors.white
-                        : (isSelected ? _linkBlue : _textPrimary),
+                        : _textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -8403,12 +8675,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               ],
             ),
           ),
-          if (isSelected)
-            Icon(
-              Icons.check,
-              size: 14,
-              color: isHovered ? Colors.white : _linkBlue,
-            ),
         ],
       ),
     );
@@ -9504,556 +9770,7 @@ class _DashedBorderPainter extends CustomPainter {
       oldDelegate.isHovered != isHovered;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// VENDOR DETAILS SIDEBAR
-// ═════════════════════════════════════════════════════════════════════════════
-class _VendorSidebar extends StatefulWidget {
-  final Vendor vendor;
-  final VoidCallback onClose;
 
-  const _VendorSidebar({required this.vendor, required this.onClose});
-
-  @override
-  State<_VendorSidebar> createState() => _VendorSidebarState();
-}
-
-class _VendorSidebarState extends State<_VendorSidebar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _offsetAnimation;
-  bool _isContactPersonsOpen = false;
-  bool _isAddressOpen = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _offsetAnimation = Tween<Offset>(
-      begin: const Offset(1, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleClose() {
-    _controller.reverse().then((_) => widget.onClose());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: _handleClose,
-            child: Container(color: Colors.black.withValues(alpha: 0.2)),
-          ),
-        ),
-        SlideTransition(
-          position: _offsetAnimation,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              width: 450,
-              height: double.infinity,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF9FAFB),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: Offset(-2, 0),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    const Divider(height: 1),
-                    _buildTabs(),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildFinancialSummary(),
-                            const SizedBox(height: 24),
-                            _buildContactDetails(),
-                            const SizedBox(height: 24),
-                            _buildCollapsibleSection(
-                              title: 'Contact Persons',
-                              count: widget.vendor.contactPersons?.length ?? 0,
-                              isOpen: _isContactPersonsOpen,
-                              onToggle: () => setState(
-                                () => _isContactPersonsOpen =
-                                    !_isContactPersonsOpen,
-                              ),
-                              child: _buildContactPersonsList(),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildCollapsibleSection(
-                              title: 'Address',
-                              isOpen: _isAddressOpen,
-                              onToggle: () => setState(
-                                () => _isAddressOpen = !_isAddressOpen,
-                              ),
-                              child: _buildAddressSection(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeader() {
-    final initials = widget.vendor.displayName.isNotEmpty
-        ? widget.vendor.displayName[0].toUpperCase()
-        : '?';
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF6B7280),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Row(
-              children: [
-                Text(
-                  widget.vendor.displayName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.open_in_new,
-                  size: 14,
-                  color: Color(0xFF3B82F6),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: _handleClose,
-            child: const Icon(Icons.close, size: 20, color: Colors.redAccent),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabs() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          _buildTabItem('Details', true),
-          _buildTabItem('Activity Log', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabItem(String title, bool isActive) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: isActive
-            ? const Border(
-                bottom: BorderSide(color: Color(0xFF3B82F6), width: 2),
-              )
-            : null,
-      ),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          color: isActive ? const Color(0xFF3B82F6) : const Color(0xFF6B7280),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFinancialSummary() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  size: 16,
-                  color: Colors.orange,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Outstanding Payables',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '₹0.00',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              children: [
-                const Icon(Icons.adjust, size: 16, color: Colors.green),
-                const SizedBox(height: 8),
-                const Text(
-                  'Unused Credits',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '₹0.00',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContactDetails() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Contact Details',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          _buildDetailRow('Currency', widget.vendor.currency ?? 'INR'),
-          _buildDetailRow(
-            'Payment Terms',
-            widget.vendor.paymentTerms ?? 'Net 360',
-          ),
-          _buildDetailRow(
-            'Portal Status',
-            widget.vendor.enablePortal == true ? 'Enabled' : 'Disabled',
-          ),
-          _buildDetailRow(
-            'Vendor Language',
-            widget.vendor.vendorLanguage ?? 'English',
-          ),
-          _buildDetailRow(
-            'GST Treatment',
-            widget.vendor.gstTreatment ?? 'Unregistered Business',
-          ),
-          _buildDetailRow(
-            'Source of Supply',
-            widget.vendor.sourceOfSupply ?? 'Kerala',
-            isLast: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, {bool isLast = false}) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF111827),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCollapsibleSection({
-    required String title,
-    int? count,
-    required bool isOpen,
-    required VoidCallback onToggle,
-    required Widget child,
-  }) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: onToggle,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (count != null && count > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E7EB),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      count.toString(),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                Icon(
-                  isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  size: 20,
-                  color: const Color(0xFF6B7280),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (isOpen) child,
-      ],
-    );
-  }
-
-  Widget _buildContactPersonsList() {
-    final list = widget.vendor.contactPersons ?? [];
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: list.isEmpty
-          ? const Center(
-              child: Text(
-                'No contact persons',
-                style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
-              ),
-            )
-          : Column(
-              children: list.map((p) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF3F4F6),
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          p['firstName']?[0].toUpperCase() ?? '?',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${p['firstName'] ?? ''} ${p['lastName'] ?? ''}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (p['email'] != null)
-                            Text(
-                              p['email'],
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-    );
-  }
-
-  Widget _buildAddressSection() {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildAddressBlock('Billing Address', widget.vendor.billingAddress),
-          const SizedBox(height: 24),
-          _buildAddressBlock('Shipping Address', widget.vendor.shippingAddress),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddressBlock(String title, Map<String, dynamic>? address) {
-    String content = 'No address provided';
-    if (address != null) {
-      final List<String> lines = [];
-      if (address['attention'] != null &&
-          address['attention'].toString().trim().isNotEmpty)
-        lines.add(address['attention']);
-      if (address['street1'] != null &&
-          address['street1'].toString().trim().isNotEmpty)
-        lines.add(address['street1']);
-      if (address['street2'] != null &&
-          address['street2'].toString().trim().isNotEmpty)
-        lines.add(address['street2']);
-      final cityStateZip = [
-        address['city'],
-        address['state'],
-        address['zip'],
-      ].where((s) => s != null && s.toString().trim().isNotEmpty).join(', ');
-      if (cityStateZip.isNotEmpty) lines.add(cityStateZip);
-      if (address['country'] != null &&
-          address['country'].toString().trim().isNotEmpty)
-        lines.add(address['country']);
-
-      if (lines.isNotEmpty) {
-        content = lines.join('\n');
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF6B7280),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          content,
-          style: const TextStyle(
-            fontSize: 13,
-            color: Color(0xFF111827),
-            height: 1.5,
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _MathParser {
   _MathParser(this.input);

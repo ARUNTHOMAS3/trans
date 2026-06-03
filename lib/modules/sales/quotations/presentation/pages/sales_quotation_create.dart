@@ -123,7 +123,7 @@ class _SalesQuoteCreateScreenState
           orElse: () => customers.first,
         );
         final priceLists =
-            ref.read(filteredPriceListsProvider).asData?.value ?? [];
+            ref.read(activeSalesPriceListsAsyncProvider).asData?.value ?? [];
         _updateRowRate(row, customer, priceLists);
         _calculateTotals();
       });
@@ -182,7 +182,7 @@ class _SalesQuoteCreateScreenState
   Widget build(BuildContext context) {
     final customersAsync = ref.watch(salesCustomersProvider);
     final itemsState = ref.watch(itemsControllerProvider);
-    final priceListsAsync = ref.watch(filteredPriceListsProvider);
+    final priceListsAsync = ref.watch(activeSalesPriceListsAsyncProvider);
 
     return ZerpaiLayout(
       pageTitle: 'New Quote',

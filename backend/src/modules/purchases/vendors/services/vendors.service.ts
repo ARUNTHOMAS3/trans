@@ -12,6 +12,39 @@ import { TenantContext } from "../../../../common/middleware/tenant.middleware";
 export class VendorsService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
+  private mapVendorAddresses(vendor: any): any {
+    if (!vendor) return vendor;
+    const billing = vendor.vendor_addresses?.find(
+      (a: any) => a.address_type === "billing" || a.is_default_billing,
+    );
+    const shipping = vendor.vendor_addresses?.find(
+      (a: any) => a.address_type === "shipping" || a.is_default_shipping,
+    );
+
+    return {
+      ...vendor,
+      billing_attention: billing?.attention || null,
+      billing_address_street: billing?.address_street || null,
+      billing_address_place: billing?.address_place || null,
+      billing_city: billing?.city || null,
+      billing_state: billing?.state || null,
+      billing_pincode: billing?.pincode || null,
+      billing_country_region: billing?.country_region || null,
+      billing_phone: billing?.phone || null,
+      billing_fax: billing?.fax || null,
+
+      shipping_attention: shipping?.attention || null,
+      shipping_address_street: shipping?.address_street || null,
+      shipping_address_place: shipping?.address_place || null,
+      shipping_city: shipping?.city || null,
+      shipping_state: shipping?.state || null,
+      shipping_pincode: shipping?.pincode || null,
+      shipping_country_region: shipping?.country_region || null,
+      shipping_phone: shipping?.phone || null,
+      shipping_fax: shipping?.fax || null,
+    };
+  }
+
   async findAll(
     tenant: TenantContext,
     page: number = 1,
@@ -23,7 +56,7 @@ export class VendorsService {
     let query = this.supabaseService
       .getClient()
       .from("vendors")
-      .select("*", { count: "exact" })
+      .select("*, vendor_addresses(*), vendor_contact_persons(*), vendor_bank_accounts(*)", { count: "exact" })
       .eq("entity_id", tenant.entityId)
       .range(offset, offset + limit - 1);
 
@@ -39,8 +72,10 @@ export class VendorsService {
       throw new Error(`Failed to fetch vendors: ${error.message}`);
     }
 
+    const mappedData = data?.map((v) => this.mapVendorAddresses(v)) || [];
+
     return {
-      data,
+      data: mappedData,
       meta: {
         total: count,
         page,
@@ -58,7 +93,8 @@ export class VendorsService {
         `
         *,
         vendor_contact_persons(*),
-        vendor_bank_accounts(*)
+        vendor_bank_accounts(*),
+        vendor_addresses(*)
       `,
       )
       .eq("id", id)
@@ -69,7 +105,7 @@ export class VendorsService {
       throw new NotFoundException(`Vendor with ID ${id} not found`);
     }
 
-    return data;
+    return this.mapVendorAddresses(data);
   }
 
   async create(createVendorDto: CreateVendorDto, tenant: TenantContext) {
@@ -83,7 +119,6 @@ export class VendorsService {
 
     const vendorData = {
       display_name: vendorFields.displayName,
-      // vendor_type: vendorFields.vendorType,
       vendor_number: vendorFields.vendorNumber,
       salutation: vendorFields.salutation,
       first_name: vendorFields.firstName,
@@ -100,9 +135,6 @@ export class VendorsService {
       gstin: vendorFields.gstin,
       source_of_supply: vendorFields.sourceOfSupply,
       pan: vendorFields.pan,
-      // tax_preference: vendorFields.taxPreference,
-      // exemption_reason: vendorFields.exemptionReason,
-      // drug_license_no: vendorFields.drugLicenseNo,
       currency: vendorFields.currency,
       payment_terms: vendorFields.paymentTerms,
       price_list_id: vendorFields.priceListId,
@@ -127,25 +159,6 @@ export class VendorsService {
       is_active:
         vendorFields.isActive !== undefined ? vendorFields.isActive : true,
       entity_id: tenant.entityId,
-      // Flattened Address fields
-      billing_attention: billingAddress?.attention,
-      billing_address_street: billingAddress?.street ?? billingAddress?.street1,
-      billing_address_place: billingAddress?.place ?? billingAddress?.street2,
-      billing_city: billingAddress?.city,
-      billing_state: billingAddress?.state,
-      billing_pincode: billingAddress?.zip,
-      billing_country_region: billingAddress?.country,
-      billing_phone: billingAddress?.phone,
-      billing_fax: billingAddress?.fax,
-      shipping_attention: shippingAddress?.attention,
-      shipping_address_street: shippingAddress?.street ?? shippingAddress?.street1,
-      shipping_address_place: shippingAddress?.place ?? shippingAddress?.street2,
-      shipping_city: shippingAddress?.city,
-      shipping_state: shippingAddress?.state,
-      shipping_pincode: shippingAddress?.zip,
-      shipping_country_region: shippingAddress?.country,
-      shipping_phone: shippingAddress?.phone,
-      shipping_fax: shippingAddress?.fax,
     };
 
     const client = this.supabaseService.getClient();
@@ -167,7 +180,66 @@ export class VendorsService {
 
     const vendorId = vendor.id;
 
-    // 2. Insert Contacts
+    // 2. Insert Addresses
+    const addresses = [];
+    if (billingAddress && (billingAddress.attention || billingAddress.street1 || billingAddress.street || billingAddress.city)) {
+      addresses.push({
+        entity_id: tenant.entityId,
+        vendor_id: vendorId,
+        address_type: "billing",
+        attention: billingAddress.attention || null,
+        address_street: billingAddress.street ?? billingAddress.street1 ?? null,
+        address_place: billingAddress.place ?? billingAddress.street2 ?? null,
+        city: billingAddress.city || null,
+        state: billingAddress.state || null,
+        pincode: billingAddress.zip || null,
+        country_region: billingAddress.country || "India",
+        phone: billingAddress.phone || null,
+        fax: billingAddress.fax || null,
+        email: billingAddress.email || null,
+        mobile: billingAddress.mobile || null,
+        gstin: billingAddress.gstin || null,
+        gst_treatment: billingAddress.gstTreatment || null,
+        is_default_billing: true,
+        is_default_shipping: false,
+        is_active: true,
+      });
+    }
+
+    if (shippingAddress && (shippingAddress.attention || shippingAddress.street1 || shippingAddress.street || shippingAddress.city)) {
+      addresses.push({
+        entity_id: tenant.entityId,
+        vendor_id: vendorId,
+        address_type: "shipping",
+        attention: shippingAddress.attention || null,
+        address_street: shippingAddress.street ?? shippingAddress.street1 ?? null,
+        address_place: shippingAddress.place ?? shippingAddress.street2 ?? null,
+        city: shippingAddress.city || null,
+        state: shippingAddress.state || null,
+        pincode: shippingAddress.zip || null,
+        country_region: shippingAddress.country || "India",
+        phone: shippingAddress.phone || null,
+        fax: shippingAddress.fax || null,
+        email: shippingAddress.email || null,
+        mobile: shippingAddress.mobile || null,
+        gstin: shippingAddress.gstin || null,
+        gst_treatment: shippingAddress.gstTreatment || null,
+        is_default_billing: false,
+        is_default_shipping: true,
+        is_active: true,
+      });
+    }
+
+    if (addresses.length > 0) {
+      const { error: addressError } = await client
+        .from("vendor_addresses")
+        .insert(addresses);
+      if (addressError) {
+        console.error("❌ Supabase Error creating vendor addresses:", addressError);
+      }
+    }
+
+    // 3. Insert Contacts
     if (contactPersons && contactPersons.length > 0) {
       const contacts = contactPersons.map((c) => ({
         vendor_id: vendorId,
@@ -183,7 +255,7 @@ export class VendorsService {
       await client.from("vendor_contact_persons").insert(contacts);
     }
 
-    // 3. Insert Banks
+    // 4. Insert Banks
     if (bankDetails && bankDetails.length > 0) {
       const banks = bankDetails.map((b) => ({
         vendor_id: vendorId,
@@ -195,7 +267,7 @@ export class VendorsService {
       await client.from("vendor_bank_accounts").insert(banks);
     }
 
-    return vendor;
+    return this.findOne(vendorId, tenant);
   }
 
   async update(
@@ -213,7 +285,6 @@ export class VendorsService {
 
     const fieldMapping: Record<string, string> = {
       displayName: "display_name",
-      // vendorType: "vendor_type",
       vendorNumber: "vendor_number",
       salutation: "salutation",
       firstName: "first_name",
@@ -230,9 +301,6 @@ export class VendorsService {
       gstin: "gstin",
       sourceOfSupply: "source_of_supply",
       pan: "pan",
-      // taxPreference: "tax_preference",
-      // exemptionReason: "exemption_reason",
-      // drugLicenseNo: "drug_license_no",
       currency: "currency",
       paymentTerms: "payment_terms",
       priceListId: "price_list_id",
@@ -260,30 +328,6 @@ export class VendorsService {
       updated_at: new Date(),
     };
 
-    // Flatten address fields in update as well
-    if (billingAddress) {
-      updateData.billing_attention = billingAddress.attention;
-      updateData.billing_address_street = billingAddress.street ?? billingAddress.street1;
-      updateData.billing_address_place = billingAddress.place ?? billingAddress.street2;
-      updateData.billing_city = billingAddress.city;
-      updateData.billing_state = billingAddress.state;
-      updateData.billing_pincode = billingAddress.zip;
-      updateData.billing_country_region = billingAddress.country;
-      updateData.billing_phone = billingAddress.phone;
-      updateData.billing_fax = billingAddress.fax;
-    }
-    if (shippingAddress) {
-      updateData.shipping_attention = shippingAddress.attention;
-      updateData.shipping_address_street = shippingAddress.street ?? shippingAddress.street1;
-      updateData.shipping_address_place = shippingAddress.place ?? shippingAddress.street2;
-      updateData.shipping_city = shippingAddress.city;
-      updateData.shipping_state = shippingAddress.state;
-      updateData.shipping_pincode = shippingAddress.zip;
-      updateData.shipping_country_region = shippingAddress.country;
-      updateData.shipping_phone = shippingAddress.phone;
-      updateData.shipping_fax = shippingAddress.fax;
-    }
-
     for (const [key, value] of Object.entries(vendorFields)) {
       if (fieldMapping[key]) {
         updateData[fieldMapping[key]] = value;
@@ -293,19 +337,79 @@ export class VendorsService {
     const client = this.supabaseService.getClient();
 
     // 1. Update main table
-    const { data: vendor, error: vendorError } = await client
+    const { error: vendorError } = await client
       .from("vendors")
       .update(updateData)
       .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .select()
-      .single();
+      .eq("entity_id", tenant.entityId);
 
     if (vendorError) {
       throw new Error(`Failed to update vendor: ${vendorError.message}`);
     }
 
-    // 2. Update Contacts (Delete and re-insert for simplicity/consistency)
+    // 2. Update Addresses (Delete and re-insert billing/shipping)
+    if (billingAddress || shippingAddress) {
+      await client
+        .from("vendor_addresses")
+        .delete()
+        .eq("vendor_id", id)
+        .in("address_type", ["billing", "shipping"]);
+
+      const addresses = [];
+      if (billingAddress && (billingAddress.attention || billingAddress.street1 || billingAddress.street || billingAddress.city)) {
+        addresses.push({
+          entity_id: tenant.entityId,
+          vendor_id: id,
+          address_type: "billing",
+          attention: billingAddress.attention || null,
+          address_street: billingAddress.street ?? billingAddress.street1 ?? null,
+          address_place: billingAddress.place ?? billingAddress.street2 ?? null,
+          city: billingAddress.city || null,
+          state: billingAddress.state || null,
+          pincode: billingAddress.zip || null,
+          country_region: billingAddress.country || "India",
+          phone: billingAddress.phone || null,
+          fax: billingAddress.fax || null,
+          email: billingAddress.email || null,
+          mobile: billingAddress.mobile || null,
+          gstin: billingAddress.gstin || null,
+          gst_treatment: billingAddress.gstTreatment || null,
+          is_default_billing: true,
+          is_default_shipping: false,
+          is_active: true,
+        });
+      }
+
+      if (shippingAddress && (shippingAddress.attention || shippingAddress.street1 || shippingAddress.street || shippingAddress.city)) {
+        addresses.push({
+          entity_id: tenant.entityId,
+          vendor_id: id,
+          address_type: "shipping",
+          attention: shippingAddress.attention || null,
+          address_street: shippingAddress.street ?? shippingAddress.street1 ?? null,
+          address_place: shippingAddress.place ?? shippingAddress.street2 ?? null,
+          city: shippingAddress.city || null,
+          state: shippingAddress.state || null,
+          pincode: shippingAddress.zip || null,
+          country_region: shippingAddress.country || "India",
+          phone: shippingAddress.phone || null,
+          fax: shippingAddress.fax || null,
+          email: shippingAddress.email || null,
+          mobile: shippingAddress.mobile || null,
+          gstin: shippingAddress.gstin || null,
+          gst_treatment: shippingAddress.gstTreatment || null,
+          is_default_billing: false,
+          is_default_shipping: true,
+          is_active: true,
+        });
+      }
+
+      if (addresses.length > 0) {
+        await client.from("vendor_addresses").insert(addresses);
+      }
+    }
+
+    // 3. Update Contacts (Delete and re-insert)
     if (contactPersons) {
       await client.from("vendor_contact_persons").delete().eq("vendor_id", id);
       const contacts = contactPersons.map((c) => ({
@@ -322,7 +426,7 @@ export class VendorsService {
       await client.from("vendor_contact_persons").insert(contacts);
     }
 
-    // 3. Update Banks (Delete and re-insert)
+    // 4. Update Banks (Delete and re-insert)
     if (bankDetails) {
       await client.from("vendor_bank_accounts").delete().eq("vendor_id", id);
       const banks = bankDetails.map((b) => ({
@@ -335,7 +439,7 @@ export class VendorsService {
       await client.from("vendor_bank_accounts").insert(banks);
     }
 
-    return vendor;
+    return this.findOne(id, tenant);
   }
 
   async remove(id: string, tenant: TenantContext) {

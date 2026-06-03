@@ -2069,7 +2069,7 @@ export const bills = pgTable("bills", {
   landedCostAllocationType: varchar("landed_cost_allocation_type", { length: 30 }),
   subject: text("subject"),
   notes: text("notes"),
-  
+
   subtotal: numeric("subtotal", { precision: 15, scale: 2 }).default("0"),
   discountTotal: numeric("discount_total", { precision: 15, scale: 2 }).default("0"),
   taxTotal: numeric("tax_total", { precision: 15, scale: 2 }).default("0"),
@@ -2079,12 +2079,12 @@ export const bills = pgTable("bills", {
   adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale: 2 }).default("0"),
   roundOff: numeric("round_off", { precision: 15, scale: 2 }).default("0"),
   grandTotal: numeric("grand_total", { precision: 15, scale: 2 }).default("0"),
-  
+
   sourceType: varchar("source_type", { length: 30 }), // PURCHASE_RECEIVE / DIRECT
   sourceId: uuid("source_id"),
   status: varchar("status", { length: 30 }).default("draft"),
   isDelete: boolean("is_delete").notNull().default(false),
-  
+
   createdBy: uuid("created_by"),
   approvedBy: uuid("approved_by"),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
@@ -2142,3 +2142,886 @@ export const billLandedCosts = pgTable("bill_landed_costs", {
   description: text("description"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+// =====================================
+// TRANSFER ORDERS MODULE
+// =====================================
+
+export const transferOrderMaster = pgTable("transfer_order_master", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  transferNo: varchar("transfer_no").notNull(),
+  transferDate: date("transfer_date").notNull(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  sourceWarehouseId: uuid("source_warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  destinationWarehouseId: uuid("destination_warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  status: varchar("status").notNull().default("DRAFT"),
+  reason: text("reason"),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const transferOrderItems = pgTable("transfer_order_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  transferOrderId: uuid("transfer_order_id")
+    .notNull()
+    .references(() => transferOrderMaster.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  qtyRequested: numeric("qty_requested", { precision: 15, scale: 3 }).notNull(),
+  qtyTransferred: numeric("qty_transferred", { precision: 15, scale: 3 })
+    .notNull()
+    .default("0"),
+  unit: varchar("unit"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const transferOrderSourceBatches = pgTable("transfer_order_source_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  transferItemId: uuid("transfer_item_id")
+    .notNull()
+    .references(() => transferOrderItems.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id),
+  layerId: uuid("layer_id")
+    .notNull()
+    .references(() => batchStockLayers.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  binId: uuid("bin_id")
+    .notNull()
+    .references(() => bin.id),
+  qty: numeric("qty", { precision: 15, scale: 3 }).notNull(),
+});
+
+export const transferOrderDestinationBatches = pgTable("transfer_order_destination_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  transferItemId: uuid("transfer_item_id")
+    .notNull()
+    .references(() => transferOrderItems.id, { onDelete: "cascade" }),
+  sourceBatchId: uuid("source_batch_id").notNull(),
+  destinationBatchId: uuid("destination_batch_id").notNull(),
+  destinationWarehouseId: uuid("destination_warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  destinationBinId: uuid("destination_bin_id")
+    .notNull()
+    .references(() => bin.id),
+  qty: numeric("qty", { precision: 15, scale: 3 }).notNull(),
+});
+
+export const transferOrderLogs = pgTable("transfer_order_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  transferOrderId: uuid("transfer_order_id")
+    .notNull()
+    .references(() => transferOrderMaster.id, { onDelete: "cascade" }),
+  action: varchar("action").notNull(),
+  actionBy: uuid("action_by"),
+  actionAt: timestamp("action_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// =====================================
+// SHIPMENTS & MOVE ORDERS
+// =====================================
+
+export const inventoryShipments = pgTable("inventory_shipments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  shipmentNumber: varchar("shipment_number").notNull().unique(),
+  customerId: uuid("customer_id").references(() => customer.id),
+  date: date("date").notNull(),
+  deliveredDate: timestamp("delivered_date"),
+  carrier: varchar("carrier"),
+  trackingNumber: varchar("tracking_number"),
+  trackingUrl: text("tracking_url"),
+  shippingCharges: numeric("shipping_charges", { precision: 15, scale: 2 })
+    .notNull()
+    .default("0"),
+  notes: text("notes"),
+  isDelivered: boolean("is_delivered").notNull().default(false),
+  sendNotification: boolean("send_notification").notNull().default(false),
+  isDelete: boolean("is_delete").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const inventoryShipmentSalesOrders = pgTable(
+  "inventory_shipment_sales_orders",
+  {
+    shipmentId: uuid("shipment_id")
+      .notNull()
+      .references(() => inventoryShipments.id, { onDelete: "cascade" }),
+    salesOrderId: uuid("sales_order_id")
+      .notNull()
+      .references(() => salesOrder.id),
+  },
+  (table) => [
+    unique("inventory_shipment_sales_orders_pkey").on(table.shipmentId, table.salesOrderId),
+  ],
+);
+
+export const inventoryShipmentPackages = pgTable(
+  "inventory_shipment_packages",
+  {
+    shipmentId: uuid("shipment_id")
+      .notNull()
+      .references(() => inventoryShipments.id, { onDelete: "cascade" }),
+    packageId: uuid("package_id")
+      .notNull()
+      .references(() => inventoryPackages.id),
+  },
+  (table) => [
+    unique("inventory_shipment_packages_pkey").on(table.shipmentId, table.packageId),
+  ],
+);
+
+export const inventoryMoveOrders = pgTable("inventory_move_orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  moveOrderNumber: varchar("move_order_number").notNull().unique(),
+  moveDate: timestamp("move_date").notNull(),
+  assigneeId: uuid("assignee_id").references(() => users.id),
+  notes: text("notes"),
+  status: varchar("status").notNull().default("draft"),
+  createdBy: uuid("created_by"),
+  completedBy: uuid("completed_by"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const inventoryMoveOrderItems = pgTable("inventory_move_order_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  moveOrderId: uuid("move_order_id")
+    .notNull()
+    .references(() => inventoryMoveOrders.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  qty: numeric("qty", { precision: 15, scale: 3 }).notNull(),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const inventoryMoveOrderSourceBatches = pgTable(
+  "inventory_move_order_source_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    moveOrderItemId: uuid("move_order_item_id")
+      .notNull()
+      .references(() => inventoryMoveOrderItems.id, { onDelete: "cascade" }),
+    sourceLayerId: uuid("source_layer_id")
+      .notNull()
+      .references(() => batchStockLayers.id),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => batches.id),
+    sourceBinId: uuid("source_bin_id")
+      .notNull()
+      .references(() => bin.id),
+    qtyOut: numeric("qty_out", { precision: 15, scale: 3 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+);
+
+export const inventoryMoveOrderDestinationBins = pgTable(
+  "inventory_move_order_destination_bins",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceBatchRowId: uuid("source_batch_row_id")
+      .notNull()
+      .references(() => inventoryMoveOrderSourceBatches.id, { onDelete: "cascade" }),
+    destinationBinId: uuid("destination_bin_id")
+      .notNull()
+      .references(() => bin.id),
+    qtyIn: numeric("qty_in", { precision: 15, scale: 3 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+);
+
+export const moveOrderAttachments = pgTable("move_order_attachments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  moveOrderId: uuid("move_order_id")
+    .notNull()
+    .references(() => inventoryMoveOrders.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name").notNull(),
+  originalFileName: varchar("original_file_name"),
+  fileUrl: text("file_url").notNull(),
+  fileSize: bigint("file_size", { mode: "number" }),
+  fileType: varchar("file_type"),
+  uploadedBy: uuid("uploaded_by"),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).defaultNow(),
+});
+
+export const inventoryStockCommitments = pgTable("inventory_stock_commitments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  sourceType: varchar("source_type").notNull(),
+  sourceId: uuid("source_id").notNull(),
+  committedQty: numeric("committed_qty", { precision: 15, scale: 3 })
+    .notNull()
+    .default("0"),
+  status: varchar("status").notNull().default("OPEN"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const branchPriceListAssignments = pgTable("branch_price_list_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  priceListId: uuid("price_list_id")
+    .notNull()
+    .references(() => priceList.id, { onDelete: "cascade" }),
+  branchEntityId: uuid("branch_entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// =====================================
+// RETURNS & SALES INVOICES
+// =====================================
+
+export const salesReturns = pgTable("sales_returns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => customer.id),
+  rmaNumber: varchar("rma_number").notNull(),
+  returnDate: date("return_date").notNull(),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  reason: text("reason"),
+  referenceNumber: varchar("reference_number"),
+  containsCreditOnlyGoods: boolean("contains_credit_only_goods")
+    .notNull()
+    .default(false),
+  status: varchar("status").notNull().default("draft"),
+  notes: text("notes"),
+  createdBy: uuid("created_by"),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const salesReturnItems = pgTable("sales_return_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  salesReturnId: uuid("sales_return_id")
+    .notNull()
+    .references(() => salesReturns.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  salesInvoiceItemId: uuid("sales_invoice_item_id"),
+  invoicedQty: numeric("invoiced_qty", { precision: 15, scale: 3 }).default("0"),
+  alreadyReturnedQty: numeric("already_returned_qty", { precision: 15, scale: 3 }).default("0"),
+  returnQty: numeric("return_qty", { precision: 15, scale: 3 }).default("0"),
+  receivableQty: numeric("receivable_qty", { precision: 15, scale: 3 }).default("0"),
+  creditOnlyQty: numeric("credit_only_qty", { precision: 15, scale: 3 }).default("0"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const productEntitySettings = pgTable("product_entity_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  sku: varchar("sku"),
+  reorderPoint: integer("reorder_point").default(0),
+  reorderTermId: uuid("reorder_term_id").references(() => reorderTerm.id),
+  inventoryValuationMethod: inventoryValuationMethodEnum("inventory_valuation_method"),
+  preferredVendorId: uuid("preferred_vendor_id").references(() => vendor.id),
+  isActive: boolean("is_active").default(true),
+  createdById: uuid("created_by_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedById: uuid("updated_by_id"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const productBinMappings = pgTable("product_bin_mappings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  binId: uuid("bin_id")
+    .notNull()
+    .references(() => bin.id),
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  minQty: integer("min_qty"),
+  maxQty: integer("max_qty"),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdById: uuid("created_by_id"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedById: uuid("updated_by_id"),
+});
+
+export const invoiceMaster = pgTable("invoice_master", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => customer.id),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  invoiceNumber: varchar("invoice_number").notNull().unique(),
+  invoiceDate: date("invoice_date").notNull(),
+  dueDate: date("due_date"),
+  paymentTerms: varchar("payment_terms"),
+  salespersonId: uuid("salesperson_id"),
+  subject: text("subject"),
+  customerNotes: text("customer_notes"),
+  termsConditions: text("terms_conditions"),
+  priceListId: uuid("price_list_id"),
+  shippingCharges: numeric("shipping_charges", { precision: 15, scale: 2 }).default("0"),
+  adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale: 2 }).default("0"),
+  roundOff: numeric("round_off", { precision: 15, scale: 2 }).default("0"),
+  subtotal: numeric("subtotal", { precision: 15, scale: 2 }).default("0"),
+  taxTotal: numeric("tax_total", { precision: 15, scale: 2 }).default("0"),
+  tdsTotal: numeric("tds_total", { precision: 15, scale: 2 }).default("0"),
+  tcsTotal: numeric("tcs_total", { precision: 15, scale: 2 }).default("0"),
+  grandTotal: numeric("grand_total", { precision: 15, scale: 2 }).default("0"),
+  inventoryFlowType: varchar("inventory_flow_type"),
+  status: varchar("status").default("draft"),
+  isBatchAllocated: boolean("is_batch_allocated").default(false),
+  createdBy: uuid("created_by"),
+  approvedBy: uuid("approved_by"),
+  isDelete: boolean("is_delete").notNull().default(false),
+  placeOfSupply: varchar("place_of_supply"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const invoiceItems = pgTable("invoice_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoiceMaster.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  description: text("description"),
+  quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull(),
+  rate: numeric("rate", { precision: 15, scale: 2 }).notNull(),
+  discountType: varchar("discount_type"),
+  discountValue: numeric("discount_value", { precision: 15, scale: 2 }).default("0"),
+  taxId: uuid("tax_id"),
+  taxPercentage: numeric("tax_percentage", { precision: 8, scale: 2 }).default("0"),
+  taxableAmount: numeric("taxable_amount", { precision: 15, scale: 2 }).default("0"),
+  taxAmount: numeric("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  lineTotal: numeric("line_total", { precision: 15, scale: 2 }).default("0"),
+  focQuantity: numeric("foc_quantity", { precision: 15, scale: 3 }).default("0"),
+  hsnCode: numeric("hsn_code", { precision: 15, scale: 0 }).notNull(),
+  accounts: uuid("accounts").references(() => account.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const invoiceItemBatches = pgTable("invoice_item_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceItemId: uuid("invoice_item_id")
+    .notNull()
+    .references(() => invoiceItems.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id),
+  layerId: uuid("layer_id").references(() => batchStockLayers.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  binId: uuid("bin_id").references(() => bin.id),
+  quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull(),
+  focQuantity: numeric("foc_quantity", { precision: 15, scale: 3 }).default("0"),
+  purchaseRate: numeric("purchase_rate", { precision: 15, scale: 2 }),
+  salesRate: numeric("sales_rate", { precision: 15, scale: 2 }),
+  mrp: numeric("mrp", { precision: 15, scale: 2 }),
+  expiryDate: date("expiry_date"),
+  manufacturerBatch: varchar("manufacturer_batch"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const invoiceSalesOrders = pgTable("invoice_sales_orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoiceMaster.id, { onDelete: "cascade" }),
+  salesOrderId: uuid("sales_order_id")
+    .notNull()
+    .references(() => salesOrder.id),
+});
+
+export const invoiceShipments = pgTable("invoice_shipments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoiceMaster.id, { onDelete: "cascade" }),
+  shipmentId: uuid("shipment_id")
+    .notNull()
+    .references(() => inventoryShipments.id),
+});
+
+export const invoiceAttachments = pgTable("invoice_attachments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoiceMaster.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name"),
+  filePath: text("file_path"),
+  uploadedBy: uuid("uploaded_by"),
+  fileSize: varchar("file_size").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const creditNotes = pgTable("credit_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => customer.id),
+  creditNoteNumber: varchar("credit_note_number").notNull().unique(),
+  referenceNumber: varchar("reference_number"),
+  creditNoteDate: date("credit_note_date").notNull(),
+  reason: varchar("reason"),
+  salespersonId: uuid("salesperson_id"),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  priceListId: uuid("price_list_id").references(() => priceList.id),
+  subject: text("subject"),
+  customerNotes: text("customer_notes"),
+  termsConditions: text("terms_conditions"),
+  subtotal: numeric("subtotal", { precision: 15, scale: 2 }).default("0"),
+  discountTotal: numeric("discount_total", { precision: 15, scale: 2 }).default("0"),
+  taxTotal: numeric("tax_total", { precision: 15, scale: 2 }).default("0"),
+  shippingCharges: numeric("shipping_charges", { precision: 15, scale: 2 }).default("0"),
+  tdsTotal: numeric("tds_total", { precision: 15, scale: 2 }).default("0"),
+  tcsTotal: numeric("tcs_total", { precision: 15, scale: 2 }).default("0"),
+  adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale: 2 }).default("0"),
+  roundOff: numeric("round_off", { precision: 15, scale: 2 }).default("0"),
+  grandTotal: numeric("grand_total", { precision: 15, scale: 2 }).default("0"),
+  sourceType: varchar("source_type"),
+  sourceId: uuid("source_id"),
+  status: varchar("status").notNull().default("draft"),
+  createdBy: uuid("created_by"),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const creditNoteItems = pgTable("credit_note_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  creditNoteId: uuid("credit_note_id")
+    .notNull()
+    .references(() => creditNotes.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  invoiceItemId: uuid("invoice_item_id"),
+  salesReturnItemId: uuid("sales_return_item_id"),
+  accountId: uuid("account_id").references(() => account.id),
+  description: text("description"),
+  quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull().default("0"),
+  rate: numeric("rate", { precision: 15, scale: 2 }).notNull().default("0"),
+  discountType: varchar("discount_type"),
+  discountValue: numeric("discount_value", { precision: 15, scale: 2 }).default("0"),
+  discountAmount: numeric("discount_amount", { precision: 15, scale: 2 }).default("0"),
+  taxId: uuid("tax_id"),
+  taxPercentage: numeric("tax_percentage", { precision: 8, scale: 2 }).default("0"),
+  taxAmount: numeric("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  taxableAmount: numeric("taxable_amount", { precision: 15, scale: 2 }).default("0"),
+  lineTotal: numeric("line_total", { precision: 15, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const creditNoteItemBatches = pgTable("credit_note_item_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  creditNoteItemId: uuid("credit_note_item_id")
+    .notNull()
+    .references(() => creditNoteItems.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id),
+  layerId: uuid("layer_id").references(() => batchStockLayers.id),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  binId: uuid("bin_id").references(() => bin.id),
+  quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull().default("0"),
+  rate: numeric("rate", { precision: 15, scale: 2 }),
+  mrp: numeric("mrp", { precision: 15, scale: 2 }),
+  refType: varchar("ref_type"),
+  refId: uuid("ref_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const invoicePackages = pgTable("invoice_packages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoiceMaster.id, { onDelete: "cascade" }),
+  packageId: uuid("package_id")
+    .notNull()
+    .references(() => inventoryPackages.id),
+});
+
+// =====================================
+// RETURN RECEIVES & PAYMENTS
+// =====================================
+
+export const salesReturnReceives = pgTable("sales_return_receives", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  salesReturnId: uuid("sales_return_id")
+    .notNull()
+    .references(() => salesReturns.id, { onDelete: "cascade" }),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  receiveNumber: varchar("receive_number").notNull(),
+  receiveDate: date("receive_date").notNull(),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  notes: text("notes"),
+  status: varchar("status").default("received"),
+  createdBy: uuid("created_by"),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const salesReturnReceiveItems = pgTable("sales_return_receive_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  salesReturnReceiveId: uuid("sales_return_receive_id")
+    .notNull()
+    .references(() => salesReturnReceives.id, { onDelete: "cascade" }),
+  salesReturnItemId: uuid("sales_return_item_id").references(() => salesReturnItems.id),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  returnQty: numeric("return_qty", { precision: 15, scale: 3 }).default("0"),
+  alreadyReceivedQty: numeric("already_received_qty", { precision: 15, scale: 3 }).default("0"),
+  receivingQty: numeric("receiving_qty", { precision: 15, scale: 3 }).default("0"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const salesReturnReceiveBatches = pgTable("sales_return_receive_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  salesReturnReceiveItemId: uuid("sales_return_receive_item_id")
+    .notNull()
+    .references(() => salesReturnReceiveItems.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id),
+  layerId: uuid("layer_id").references(() => batchStockLayers.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  binId: uuid("bin_id")
+    .notNull()
+    .references(() => bin.id),
+  quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull().default("0"),
+  focQuantity: numeric("foc_quantity", { precision: 15, scale: 3 }).default("0"),
+  purchaseRate: numeric("purchase_rate", { precision: 15, scale: 2 }),
+  mrp: numeric("mrp", { precision: 15, scale: 2 }),
+  expiryDate: date("expiry_date"),
+  manufactureDate: date("manufacture_date"),
+  manufactureBatchNo: varchar("manufacture_batch_no"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const paymentsReceived = pgTable("payments_received", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => customer.id),
+  paymentNumber: varchar("payment_number").notNull(),
+  paymentType: varchar("payment_type").notNull(),
+  paymentDate: date("payment_date").notNull(),
+  paymentMode: varchar("payment_mode"),
+  depositAccountId: uuid("deposit_account_id")
+    .notNull()
+    .references(() => account.id),
+  currencyId: uuid("currency_id"),
+  exchangeRate: numeric("exchange_rate", { precision: 15, scale: 6 }).default("1"),
+  amountReceived: numeric("amount_received", { precision: 15, scale: 2 })
+    .notNull()
+    .default("0"),
+  amountAllocated: numeric("amount_allocated", { precision: 15, scale: 2 }).default("0"),
+  excessAmount: numeric("excess_amount", { precision: 15, scale: 2 }).default("0"),
+  refundedAmount: numeric("refunded_amount", { precision: 15, scale: 2 }).default("0"),
+  bankCharges: numeric("bank_charges", { precision: 15, scale: 2 }).default("0"),
+  tdsAmount: numeric("tds_amount", { precision: 15, scale: 2 }).default("0"),
+  referenceNumber: varchar("reference_number"),
+  notes: text("notes"),
+  status: varchar("status").default("draft"),
+  createdBy: uuid("created_by"),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const paymentReceivedAllocations = pgTable("payment_received_allocations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  paymentReceivedId: uuid("payment_received_id")
+    .notNull()
+    .references(() => paymentsReceived.id, { onDelete: "cascade" }),
+  salesInvoiceId: uuid("sales_invoice_id")
+    .notNull()
+    .references(() => invoiceMaster.id),
+  allocatedAmount: numeric("allocated_amount", { precision: 15, scale: 2 })
+    .notNull()
+    .default("0"),
+  allocationDate: date("allocation_date").notNull(),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// =====================================
+// PURCHASE RETURNS & VENDOR CREDITS
+// =====================================
+
+export const purchaseReturns = pgTable("purchase_returns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  vendorId: uuid("vendor_id")
+    .notNull()
+    .references(() => vendor.id),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  purchaseReturnNumber: varchar("purchase_return_number").notNull(),
+  purchaseReturnDate: date("purchase_return_date").notNull(),
+  billId: uuid("bill_id").references(() => bills.id),
+  referenceNumber: varchar("reference_number"),
+  reason: text("reason"),
+  subject: text("subject"),
+  notes: text("notes"),
+  subtotal: numeric("subtotal", { precision: 15, scale: 2 }).default("0"),
+  discountAmount: numeric("discount_amount", { precision: 15, scale: 2 }).default("0"),
+  taxAmount: numeric("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale: 2 }).default("0"),
+  totalAmount: numeric("total_amount", { precision: 15, scale: 2 }).default("0"),
+  creditStatus: varchar("credit_status").default("pending"),
+  status: varchar("status").default("draft"),
+  createdBy: uuid("created_by"),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const purchaseReturnItems = pgTable("purchase_return_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  purchaseReturnId: uuid("purchase_return_id")
+    .notNull()
+    .references(() => purchaseReturns.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  billItemId: uuid("bill_item_id"),
+  accountId: uuid("account_id").references(() => account.id),
+  invoicedQty: numeric("invoiced_qty", { precision: 15, scale: 3 }).default("0"),
+  alreadyReturnedQty: numeric("already_returned_qty", { precision: 15, scale: 3 }).default("0"),
+  returnQty: numeric("return_qty", { precision: 15, scale: 3 }).default("0"),
+  creditedQty: numeric("credited_qty", { precision: 15, scale: 3 }).default("0"),
+  pendingCreditQty: numeric("pending_credit_qty", { precision: 15, scale: 3 }).default("0"),
+  rate: numeric("rate", { precision: 15, scale: 2 }).default("0"),
+  discountPercent: numeric("discount_percent", { precision: 8, scale: 2 }).default("0"),
+  discountAmount: numeric("discount_amount", { precision: 15, scale: 2 }).default("0"),
+  taxId: uuid("tax_id"),
+  taxAmount: numeric("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  lineTotal: numeric("line_total", { precision: 15, scale: 2 }).default("0"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const purchaseReturnItemBatches = pgTable("purchase_return_item_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  purchaseReturnItemId: uuid("purchase_return_item_id")
+    .notNull()
+    .references(() => purchaseReturnItems.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id),
+  layerId: uuid("layer_id")
+    .notNull()
+    .references(() => batchStockLayers.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  binId: uuid("bin_id").references(() => bin.id),
+  quantityOut: numeric("quantity_out", { precision: 15, scale: 3 }).notNull(),
+  focQty: numeric("foc_qty", { precision: 15, scale: 3 }).default("0"),
+  damageQty: numeric("damage_qty", { precision: 15, scale: 3 }).default("0"),
+  unitPack: varchar("unit_pack"),
+  mrp: numeric("mrp", { precision: 15, scale: 2 }),
+  purchaseRate: numeric("purchase_rate", { precision: 15, scale: 2 }),
+  expiryDate: date("expiry_date"),
+  manufactureDate: date("manufacture_date"),
+  manufactureBatchNo: varchar("manufacture_batch_no"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const vendorCredits = pgTable("vendor_credits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  vendorId: uuid("vendor_id")
+    .notNull()
+    .references(() => vendor.id),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+  vendorCreditNumber: varchar("vendor_credit_number").notNull(),
+  vendorCreditDate: date("vendor_credit_date").notNull(),
+  sourceType: varchar("source_type").default("DIRECT"),
+  purchaseReturnId: uuid("purchase_return_id").references(() => purchaseReturns.id),
+  billId: uuid("bill_id").references(() => bills.id),
+  referenceNumber: varchar("reference_number"),
+  subject: text("subject"),
+  notes: text("notes"),
+  reverseChargeApplicable: boolean("reverse_charge_applicable").default(false),
+  subtotal: numeric("subtotal", { precision: 15, scale: 2 }).default("0"),
+  discountAmount: numeric("discount_amount", { precision: 15, scale: 2 }).default("0"),
+  taxAmount: numeric("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale: 2 }).default("0"),
+  totalAmount: numeric("total_amount", { precision: 15, scale: 2 }).default("0"),
+  status: varchar("status").default("draft"),
+  createdBy: uuid("created_by"),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const vendorCreditItems = pgTable("vendor_credit_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  vendorCreditId: uuid("vendor_credit_id")
+    .notNull()
+    .references(() => vendorCredits.id, { onDelete: "cascade" }),
+  purchaseReturnItemId: uuid("purchase_return_item_id"),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  billItemId: uuid("bill_item_id"),
+  accountId: uuid("account_id").references(() => account.id),
+  quantity: numeric("quantity", { precision: 15, scale: 3 }).default("0"),
+  rate: numeric("rate", { precision: 15, scale: 2 }).default("0"),
+  discountPercent: numeric("discount_percent", { precision: 8, scale: 2 }).default("0"),
+  discountAmount: numeric("discount_amount", { precision: 15, scale: 2 }).default("0"),
+  taxId: uuid("tax_id"),
+  taxAmount: numeric("tax_amount", { precision: 15, scale: 2 }).default("0"),
+  lineTotal: numeric("line_total", { precision: 15, scale: 2 }).default("0"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const vendorCreditItemBatches = pgTable("vendor_credit_item_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  vendorCreditItemId: uuid("vendor_credit_item_id")
+    .notNull()
+    .references(() => vendorCreditItems.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id),
+  layerId: uuid("layer_id")
+    .notNull()
+    .references(() => batchStockLayers.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  binId: uuid("bin_id").references(() => bin.id),
+  quantityOut: numeric("quantity_out", { precision: 15, scale: 3 }).notNull(),
+  focQty: numeric("foc_qty", { precision: 15, scale: 3 }).default("0"),
+  unitPack: varchar("unit_pack"),
+  mrp: numeric("mrp", { precision: 15, scale: 2 }),
+  purchaseRate: numeric("purchase_rate", { precision: 15, scale: 2 }),
+  expiryDate: date("expiry_date"),
+  manufactureDate: date("manufacture_date"),
+  manufactureBatchNo: varchar("manufacture_batch_no"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const billAttachments = pgTable("bill_attachments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  billId: uuid("bill_id")
+    .notNull()
+    .references(() => bills.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name").notNull(),
+  originalFileName: varchar("original_file_name"),
+  fileUrl: text("file_url").notNull(),
+  fileType: varchar("file_type"),
+  fileSize: bigint("file_size", { mode: "number" }),
+  uploadedBy: uuid("uploaded_by"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const salesReps = pgTable("sales_reps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .default("00000000-0000-0000-0000-000000000000"),
+  entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
+  name: varchar("name").notNull(),
+  number: varchar("number"),
+  brandId: uuid("brand_id").references(() => brand.id),
+  division: varchar("division"),
+  area: varchar("area"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const shipmentPreferences = pgTable("shipment_preferences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name").notNull().unique(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
