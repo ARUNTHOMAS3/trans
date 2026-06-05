@@ -1,0 +1,28 @@
+# CODEOWNERS
+# Full repository owners/maintainers only:
+# - frpboy12@gmail.com
+# - Zabnixprivatelimited@gmail.com
+# - platformcatalystzabnix@gmail.com
+#
+# NOTE: CODEOWNERS supports GitHub usernames/teams, not email addresses.
+
+* @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+
+# Frontend
+/lib/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/lib/shared/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/lib/core/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/lib/modules/inventory/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/lib/modules/accountant/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/lib/modules/auth/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/lib/modules/reports/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+
+# Backend and DB
+/backend/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/supabase/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/current schema.md @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/PRD/prd_schema.md @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+
+# Infrastructure and policy
+/.github/** @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix
+/*.md @frpboy @Zabnix-Private-Limited @PlatformCatalyst-Zabnix

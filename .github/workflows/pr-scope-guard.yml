@@ -1,0 +1,64 @@
+name: PR Scope Guard
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  scope-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect changed files
+        id: changed
+        uses: tj-actions/changed-files@v45
+        with:
+          separator: ","
+
+      - name: Enforce per-commit staged scope budget (server-side)
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.sha }}"
+          MAX_FILES_PER_COMMIT=25
+          echo "Checking commits in range: $BASE..$HEAD"
+          COMMITS=$(git rev-list --no-merges "$BASE..$HEAD")
+          if [ -z "$COMMITS" ]; then
+            echo "No commits to validate."
+            exit 0
+          fi
+
+          FAIL=0
+          for C in $COMMITS; do
+            COUNT=$(git diff-tree --no-commit-id --name-only -r "$C" | sed '/^$/d' | wc -l | tr -d ' ')
+            echo "Commit $C changed files: $COUNT"
+            if [ "$COUNT" -gt "$MAX_FILES_PER_COMMIT" ]; then
+              echo "Commit $C exceeds per-commit file budget ($MAX_FILES_PER_COMMIT). Split into focused commits."
+              FAIL=1
+            fi
+          done
+
+          if [ "$FAIL" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Require explicit per-file scope rationale in PR body
+        run: |
+          BODY='${{ github.event.pull_request.body }}'
+          if [[ "$BODY" != *"Why each changed file is required"* ]]; then
+            echo "PR body must include: 'Why each changed file is required'."
+            exit 1
+          fi
+
+      - name: Block repository-wide sweeps in non-maintainer PRs
+        run: |
+          ACTOR="${{ github.actor }}"
+          FILES='${{ steps.changed.outputs.all_changed_files }}'
+          if [[ "$ACTOR" != "frpboy" && "$ACTOR" != "Zabnix-Private-Limited" && "$ACTOR" != "PlatformCatalyst-Zabnix" ]]; then
+            if echo "$FILES" | grep -E '(^|,)(AGENTS\.md|CLAUDE\.md|GEMINI\.md|current schema\.md|\.github/workflows/|backend/|lib/)' >/dev/null; then
+              echo "Non-maintainer PR touches broad governance/core paths. Use focused PRs and maintainer review."
+              exit 1
+            fi
+          fi

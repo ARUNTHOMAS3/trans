@@ -1,0 +1,1176 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
+// import 'sales_item_quick_edit_dialog.dart';
+
+class BulkItemsDialog extends ConsumerStatefulWidget {
+  final List<Item> products;
+  final Function(Map<Item, int>) onItemsSelected;
+
+  const BulkItemsDialog({
+    Key? key,
+    required this.products,
+    required this.onItemsSelected,
+  }) : super(key: key);
+
+  @override
+  ConsumerState<BulkItemsDialog> createState() => _BulkItemsDialogState();
+}
+
+class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
+  String _searchQuery = '';
+  Set<String> _selectedCategoryIds = {};
+  bool _includeSubCategories = false;
+
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+  bool _isMenuOpen = false;
+  List<Item> _selectedItems = [];
+  Map<String, int> _itemQuantities = {};
+  Map<String, double> _itemRates = {};
+  Map<String, double> _itemDiscounts = {};
+  Map<String, bool> _itemDiscountIsPercent = {};
+  String? _hoveredItemId;
+  String? _hoveredSelectedItemId;
+  String? _hoveredQuantityBoxItemId;
+  bool _isCategoryHovered = false;
+
+  List<Map<String, String>> get _categoryOptions {
+    final allCategories = ref.read(itemsControllerProvider).categories;
+    final categories = allCategories.where((c) {
+      final parentId = c['parent_id'];
+      if (_includeSubCategories) {
+        return true;
+      } else {
+        return parentId != null && parentId.toString().trim().isNotEmpty;
+      }
+    }).map((c) => {
+      'id': c['id']?.toString() ?? '',
+      'name': c['name']?.toString() ?? '',
+    }).toList();
+
+    categories.sort(
+      (a, b) => (a['name'] ?? '').toLowerCase().compareTo(
+        (b['name'] ?? '').toLowerCase(),
+      ),
+    );
+    return categories;
+  }
+
+  Map<String, String> get _categoryNameById {
+    final map = <String, String>{};
+    final allCategories = ref.read(itemsControllerProvider).categories;
+    for (final c in allCategories) {
+      final id = c['id']?.toString() ?? '';
+      final name = c['name']?.toString() ?? '';
+      if (id.isNotEmpty) {
+        map[id] = name;
+      }
+    }
+    return map;
+  }
+
+  bool _isSubCategoryOf(String categoryName, String selectedCategoryName) {
+    final child = categoryName.trim().toLowerCase();
+    final parent = selectedCategoryName.trim().toLowerCase();
+    if (child.isEmpty || parent.isEmpty || child == parent) return false;
+
+    const separators = <String>['>', '/', '\\', '-', '|', ':'];
+    for (final separator in separators) {
+      final marker = '$parent$separator';
+      if (child.startsWith(marker)) return true;
+      final markerSpaced = '$parent $separator';
+      if (child.startsWith(markerSpaced)) return true;
+    }
+    return child.startsWith('$parent ');
+  }
+
+  List<Item> get _filteredProducts {
+    var results = widget.products;
+
+    if (_selectedCategoryIds.isNotEmpty) {
+      final categoryNameById = _categoryNameById;
+      final selectedCategoryNames = _selectedCategoryIds
+          .map((id) => categoryNameById[id]?.trim() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toSet();
+
+      results = results.where((product) {
+        final categoryName = product.categoryName?.trim();
+        if (categoryName == null || categoryName.isEmpty) return false;
+        final categoryId = product.categoryId?.trim().isNotEmpty == true
+            ? product.categoryId!.trim()
+            : categoryName.toLowerCase();
+        if (_selectedCategoryIds.contains(categoryId)) return true;
+        if (!_includeSubCategories) return false;
+        return selectedCategoryNames.any(
+          (selectedName) => _isSubCategoryOf(categoryName, selectedName),
+        );
+      }).toList();
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return results.take(20).toList();
+    if (query.length < 3) return [];
+
+    bool matches(Item p) {
+      final fields = <String?>[
+        p.productName,
+        p.itemCode,
+        p.sku,
+      ].whereType<String>();
+      return fields.any((f) => f.toLowerCase().contains(query));
+    }
+
+    return results.where(matches).toList();
+  }
+
+  void _toggleCategoryFilterMenu() {
+    if (_isMenuOpen) {
+      _closeCategoryFilterMenu();
+    } else {
+      _openCategoryFilterMenu();
+    }
+  }
+
+  void _openCategoryFilterMenu() {
+    final categories = _categoryOptions
+        .map((category) => Map<String, dynamic>.from(category))
+        .toList();
+    final overlay = Overlay.of(context);
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _closeCategoryFilterMenu,
+        child: Stack(
+          children: [
+            Positioned.fill(child: Container(color: Colors.transparent)),
+            CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 36),
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.white,
+                child: Container(
+                  width: 280,
+                  padding: const EdgeInsets.all(12),
+                  child: _CategoryFilterMenu(
+                    categories: categories,
+                    initialSelected: _selectedCategoryIds,
+                    onApply: (selected) {
+                      setState(() {
+                        _selectedCategoryIds = selected;
+                        if (_selectedCategoryIds.isEmpty) {
+                          _includeSubCategories = false;
+                        }
+                      });
+                      _closeCategoryFilterMenu();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    overlay.insert(_overlayEntry!);
+    setState(() => _isMenuOpen = true);
+  }
+
+  void _closeCategoryFilterMenu() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    if (mounted) {
+      setState(() => _isMenuOpen = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalQty = _itemQuantities.values.fold(0, (sum, q) => sum + q);
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: const EdgeInsets.only(
+        top: 0,
+        left: 24,
+        right: 24,
+        bottom: 24,
+      ),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      child: Container(
+        width: 800,
+        height: 600,
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Add Items in Bulk',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: const Icon(Icons.close, color: Colors.red, size: 20),
+                  ),
+                ],
+              ),
+            ),
+            // Body
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left Pane
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          right: BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.filter,
+                                      size: 20,
+                                      color: Color(0xFF3B82F6),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    CompositedTransformTarget(
+                                      link: _layerLink,
+                                      child: MouseRegion(
+                                        onEnter: (_) => setState(
+                                          () => _isCategoryHovered = true,
+                                        ),
+                                        onExit: (_) => setState(
+                                          () => _isCategoryHovered = false,
+                                        ),
+                                        child: GestureDetector(
+                                          onTap: _toggleCategoryFilterMenu,
+                                          child: CustomPaint(
+                                            painter: DashedBorderPainter(
+                                              color: _isCategoryHovered
+                                                  ? const Color(0xFF3B82F6)
+                                                  : const Color(0xFFD1D5DB),
+                                              borderRadius: 4,
+                                              strokeWidth: 2,
+                                            ),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text(
+                                                    'Category',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: Color(0xFF6B7280),
+                                                    ),
+                                                  ),
+                                                  if (_selectedCategoryIds
+                                                      .isNotEmpty)
+                                                    Text(
+                                                      ' (${_selectedCategoryIds.length})',
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        color: Color(
+                                                          0xFF3B82F6,
+                                                        ),
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  const SizedBox(width: 4),
+                                                  Icon(
+                                                    _isMenuOpen
+                                                        ? Icons
+                                                              .keyboard_arrow_up
+                                                        : Icons
+                                                              .keyboard_arrow_down,
+                                                    size: 16,
+                                                    color: _isCategoryHovered
+                                                        ? const Color(
+                                                            0xFF3B82F6,
+                                                          )
+                                                        : const Color(
+                                                            0xFF6B7280,
+                                                          ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    InkWell(
+                                      onTap: _selectedCategoryIds.isEmpty
+                                          ? null
+                                          : () => setState(
+                                              () => _includeSubCategories =
+                                                  !_includeSubCategories,
+                                            ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: Checkbox(
+                                              value: _includeSubCategories,
+                                              onChanged:
+                                                  _selectedCategoryIds.isEmpty
+                                                  ? null
+                                                  : (v) => setState(
+                                                      () =>
+                                                          _includeSubCategories =
+                                                              v ?? false,
+                                                    ),
+                                              side: const BorderSide(
+                                                color: Color(0xFFD1D5DB),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Include sub-categories',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color:
+                                                  _selectedCategoryIds.isEmpty
+                                                  ? Color(0xFF9CA3AF)
+                                                  : Color(0xFF4B5563),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFF3B82F6,
+                                      ).withAlpha(128),
+                                      width: 1.5,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: TextField(
+                                    onChanged: (val) =>
+                                        setState(() => _searchQuery = val),
+                                    style: const TextStyle(fontSize: 13),
+                                    decoration: const InputDecoration(
+                                      hintText:
+                                          'Type to search or scan the barcode of the item',
+                                      hintStyle: TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF9CA3AF),
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (_searchQuery.isNotEmpty && _searchQuery.length < 3) ...[
+                                  const SizedBox(height: 8),
+                                  const Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'atleast 3 letter should be typed to display values',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.orange,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: _filteredProducts.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      'No matching items found',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    itemCount: _filteredProducts.length,
+                                    itemBuilder: (context, index) {
+                                      final item = _filteredProducts[index];
+                                      final isSelected = _selectedItems.any(
+                                        (i) => i.id == item.id,
+                                      );
+                                      final isHovered =
+                                          _hoveredItemId == item.id;
+
+                                      return InkWell(
+                                        onHover: (hovering) {
+                                          setState(() {
+                                            _hoveredItemId = hovering
+                                                ? item.id
+                                                : null;
+                                          });
+                                        },
+                                        onTap: () {
+                                          setState(() {
+                                            if (isSelected) {
+                                              _selectedItems.removeWhere(
+                                                (i) => i.id == item.id,
+                                              );
+                                              _itemQuantities.remove(item.id!);
+                                              _itemRates.remove(item.id!);
+                                              _itemDiscounts.remove(item.id!);
+                                              _itemDiscountIsPercent.remove(
+                                                item.id!,
+                                              );
+                                            } else {
+                                              _selectedItems.add(item);
+                                              _itemQuantities[item.id!] = 1;
+                                              _itemRates[item.id!] =
+                                                  item.sellingPrice ?? 0.0;
+                                              _itemDiscounts[item.id!] = 0.0;
+                                              _itemDiscountIsPercent[item.id!] =
+                                                  true;
+                                            }
+                                          });
+                                        },
+                                        child: Container(
+                                          color: isSelected
+                                              ? const Color(0xFFEFF6FF)
+                                              : isHovered
+                                              ? const Color(0xFFF3F4F6)
+                                              : Colors.transparent,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 12,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      item.productName,
+                                                      style: TextStyle(
+                                                        fontSize: 15,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            (isSelected ||
+                                                                isHovered)
+                                                            ? const Color(
+                                                                0xFF3B82F6,
+                                                              )
+                                                            : const Color(
+                                                                0xFF111827,
+                                                              ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      'Rate: ₹${item.sellingPrice?.toStringAsFixed(2) ?? "0.00"}',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: Color(
+                                                          0xFF6B7280,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              if (isSelected) ...[
+                                                const SizedBox(width: 8),
+                                                const Icon(
+                                                  Icons.check_circle,
+                                                  color: Color.fromARGB(
+                                                    255,
+                                                    41,
+                                                    214,
+                                                    104,
+                                                  ),
+                                                  size: 22,
+                                                ),
+                                              ] else if (isHovered) ...[
+                                                const SizedBox(width: 8),
+                                                const Icon(
+                                                  Icons.check_circle,
+                                                  color: Color(0xFFD1D5DB),
+                                                  size: 22,
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Right Pane
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Selected Items',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: const Color(0xFFD1D5DB),
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '${_selectedItems.length}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                'Total Quantity: $totalQty',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: _selectedItems.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'Click the item names from the left pane to\nselect them',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  itemCount: _selectedItems.length,
+                                  separatorBuilder: (_, __) =>
+                                      const Divider(height: 1),
+                                  itemBuilder: (context, index) {
+                                    final item = _selectedItems[index];
+                                    final isHovered =
+                                        _hoveredSelectedItemId == item.id;
+                                    return MouseRegion(
+                                      onEnter: (_) => setState(
+                                        () => _hoveredSelectedItemId = item.id,
+                                      ),
+                                      onExit: (_) => setState(
+                                        () => _hoveredSelectedItemId = null,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                item.productName,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Color(0xFF111827),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            MouseRegion(
+                                              onEnter: (_) => setState(
+                                                () =>
+                                                    _hoveredQuantityBoxItemId =
+                                                        item.id,
+                                              ),
+                                              onExit: (_) => setState(
+                                                () =>
+                                                    _hoveredQuantityBoxItemId =
+                                                        null,
+                                              ),
+                                              child: Container(
+                                                height: 32,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  border: Border.all(
+                                                    color:
+                                                        _hoveredQuantityBoxItemId ==
+                                                            item.id
+                                                        ? const Color(
+                                                            0xFF3B82F6,
+                                                          )
+                                                        : const Color(
+                                                            0xFFD1D5DB,
+                                                          ),
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          int current =
+                                                              _itemQuantities[item
+                                                                  .id!] ??
+                                                              1;
+                                                          if (current > 1) {
+                                                            _itemQuantities[item
+                                                                    .id!] =
+                                                                current - 1;
+                                                          } else {
+                                                            _selectedItems
+                                                                .removeWhere(
+                                                                  (i) =>
+                                                                      i.id ==
+                                                                      item.id,
+                                                                );
+                                                            _itemQuantities
+                                                                .remove(
+                                                                  item.id!,
+                                                                );
+                                                          }
+                                                        });
+                                                      },
+                                                      child: Container(
+                                                        width: 15,
+                                                        height: 15,
+                                                        decoration: BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          color:
+                                                              _hoveredQuantityBoxItemId ==
+                                                                  item.id
+                                                              ? const Color(
+                                                                  0xFF3B82F6,
+                                                                )
+                                                              : const Color(
+                                                                  0xFFE5E7EB,
+                                                                ),
+                                                        ),
+                                                        child: Center(
+                                                          child: Container(
+                                                            width: 7,
+                                                            height: 2,
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        1,
+                                                                      ),
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Container(
+                                                      width: 36,
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: Text(
+                                                        '${_itemQuantities[item.id!] ?? 1}',
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Color(
+                                                            0xFF374151,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          _itemQuantities[item
+                                                                  .id!] =
+                                                              (_itemQuantities[item
+                                                                      .id!] ??
+                                                                  1) +
+                                                              1;
+                                                        });
+                                                      },
+                                                      child: Container(
+                                                        width: 15,
+                                                        height: 15,
+                                                        decoration: BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          color:
+                                                              _hoveredQuantityBoxItemId ==
+                                                                  item.id
+                                                              ? const Color(
+                                                                  0xFF3B82F6,
+                                                                )
+                                                              : const Color(
+                                                                  0xFFE5E7EB,
+                                                                ),
+                                                        ),
+                                                        child: const Icon(
+                                                          Icons.add,
+                                                          size: 12,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            if (isHovered) ...[
+                                              const SizedBox(width: 12),
+                                              InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedItems.removeWhere(
+                                                      (i) => i.id == item.id,
+                                                    );
+                                                    _itemQuantities.remove(
+                                                      item.id!,
+                                                    );
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(
+                                                    0,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: Colors
+                                                          .orange
+                                                          .shade400,
+                                                    ),
+                                                  ),
+                                                  child: Icon(
+                                                    LucideIcons.x,
+                                                    size: 15,
+                                                    color:
+                                                        Colors.orange.shade400,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                        // Bottom Actions
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: _selectedItems.isEmpty
+                                    ? null
+                                    : () {
+                                        Map<Item, int> selectedWithQty = {};
+                                        for (var item in _selectedItems) {
+                                          selectedWithQty[item] =
+                                              _itemQuantities[item.id!] ?? 1;
+                                        }
+                                        widget.onItemsSelected(selectedWithQty);
+                                        Navigator.of(context).pop();
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(
+                                    0xFF10B981,
+                                  ), // Green Color
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Add Items',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFF3F4F6),
+                                  foregroundColor: const Color(0xFF374151),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryFilterMenu extends StatefulWidget {
+  final List<Map<String, dynamic>> categories;
+  final Set<String> initialSelected;
+  final ValueChanged<Set<String>> onApply;
+
+  const _CategoryFilterMenu({
+    required this.categories,
+    required this.initialSelected,
+    required this.onApply,
+  });
+
+  @override
+  State<_CategoryFilterMenu> createState() => _CategoryFilterMenuState();
+}
+
+class _CategoryFilterMenuState extends State<_CategoryFilterMenu> {
+  late Set<String> _tempSelected;
+  String _menuSearch = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _tempSelected = Set.from(widget.initialSelected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = widget.categories.where((c) {
+      final name = c['name']?.toString().toLowerCase() ?? '';
+      return name.contains(_menuSearch.toLowerCase());
+    }).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Menu Search
+        Container(
+          height: 36,
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFF3B82F6).withAlpha(128)),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: TextField(
+            onChanged: (val) => setState(() => _menuSearch = val),
+            style: const TextStyle(fontSize: 13),
+            decoration: const InputDecoration(
+              hintText: 'Search',
+              prefixIcon: Icon(
+                Icons.search,
+                size: 16,
+                color: Color(0xFF9CA3AF),
+              ),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.only(bottom: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Category List
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 200),
+          child: SingleChildScrollView(
+            child: Column(
+              children: filtered.map((cat) {
+                final id = cat['id'].toString();
+                final isSelected = _tempSelected.contains(id);
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        _tempSelected.remove(id);
+                      } else {
+                        _tempSelected.add(id);
+                      }
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Checkbox(
+                            value: isSelected,
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _tempSelected.add(id);
+                                } else {
+                                  _tempSelected.remove(id);
+                                }
+                              });
+                            },
+                            activeColor: AppTheme.primaryBlue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            side: const BorderSide(color: Color(0xFFD1D5DB)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            cat['name']?.toString().toUpperCase() ?? '',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF4B5563),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Apply Button
+        ElevatedButton(
+          onPressed: () => widget.onApply(_tempSelected),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF10B981),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          child: const Text(
+            'Apply',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
+  final double dashWidth;
+  final double borderRadius;
+
+  DashedBorderPainter({
+    this.color = Colors.grey,
+    this.strokeWidth = 1.0,
+    this.gap = 3.0,
+    this.dashWidth = 3.0,
+    this.borderRadius = 4.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          Radius.circular(borderRadius),
+        ),
+      );
+
+    final Path dashedPath = Path();
+    for (final PathMetric metric in path.computeMetrics()) {
+      double distance = 0.0;
+      while (distance < metric.length) {
+        dashedPath.addPath(
+          metric.extractPath(distance, distance + dashWidth),
+          Offset.zero,
+        );
+        distance += dashWidth + gap;
+      }
+    }
+    canvas.drawPath(dashedPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _MenuHoverItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+
+  const _MenuHoverItem({required this.icon, required this.label});
+
+  @override
+  State<_MenuHoverItem> createState() => _MenuHoverItemState();
+}
+
+class _MenuHoverItemState extends State<_MenuHoverItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              widget.icon,
+              size: 16,
+              color: _isHovered ? Colors.white : const Color(0xFF6B7280),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 14,
+                color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+                fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

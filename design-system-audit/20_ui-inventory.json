@@ -1,0 +1,77 @@
+{
+  "project": "Zerpai ERP",
+  "version": "1.0.0",
+  "audit_date": "2026-05-15",
+  "design_system": {
+    "colors": {
+      "accentBase": "Dynamic",
+      "sidebarColor": "#1F2633",
+      "backgroundColor": "#FFFFFF",
+      "textBlack": "#000000",
+      "linkBlue": "#0000FF",
+      "requiredRed": "#FF0000",
+      "borderColor": "#D3D9E3"
+    },
+    "typography": {
+      "fontFamily": "Inter",
+      "scales": {
+        "pageTitle": { "size": 18, "weight": 600 },
+        "sectionHeader": { "size": 15, "weight": 600 },
+        "tableHeader": { "size": 13, "weight": 600 },
+        "tableCell": { "size": 13, "weight": 400 },
+        "metaHelper": { "size": 12, "weight": 400 }
+      }
+    },
+    "spacing": {
+      "base": 8,
+      "tokens": [4, 8, 12, 16, 24, 32]
+    }
+  },
+  "component_inventory": [
+    {
+      "name": "ZButton",
+      "path": "lib/shared/widgets/z_button.dart",
+      "type": "Atom",
+      "variants": ["primary", "secondary", "outline", "ghost"],
+      "reusability_score": 10
+    },
+    {
+      "name": "CustomTextField",
+      "path": "lib/shared/widgets/inputs/custom_text_field.dart",
+      "type": "Molecule",
+      "reusability_score": 10
+    },
+    {
+      "name": "FormDropdown",
+      "path": "lib/shared/widgets/inputs/dropdown_input.dart",
+      "type": "Molecule",
+      "features": ["search", "async", "multi-select"],
+      "reusability_score": 9
+    },
+    {
+      "name": "ZDataTableShell",
+      "path": "lib/shared/widgets/z_data_table_shell.dart",
+      "type": "Organism",
+      "features": ["resize", "scroll", "sort"],
+      "reusability_score": 10
+    },
+    {
+      "name": "ZerpaiLayout",
+      "path": "lib/shared/widgets/zerpai_layout.dart",
+      "type": "Template",
+      "reusability_score": 10
+    }
+  ],
+  "inconsistencies": [
+    {
+      "type": "Hardcoded Color",
+      "severity": "Critical",
+      "description": "Direct use of hex codes or Colors class in modules."
+    },
+    {
+      "type": "Casing Drift",
+      "severity": "Major",
+      "description": "Mixed Title Case and Sentence case in form labels."
+    }
+  ]
+}

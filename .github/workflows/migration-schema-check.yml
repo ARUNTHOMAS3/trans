@@ -1,0 +1,46 @@
+name: Migration and Schema Consistency
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'supabase/**'
+      - 'current schema.md'
+      - 'PRD/prd_schema.md'
+
+jobs:
+  schema-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect schema-sensitive backend changes
+        id: changed
+        uses: tj-actions/changed-files@v45
+        with:
+          files: |
+            backend/src/**
+            supabase/**
+            current schema.md
+            PRD/prd_schema.md
+      - name: Require migration note when schema-related files change
+        if: steps.changed.outputs.any_changed == 'true'
+        run: |
+          PR_BODY='${{ github.event.pull_request.body }}'
+          if [[ "$PR_BODY" != *"Migration"* && "$PR_BODY" != *"migration"* ]]; then
+            echo "PR body must include migration notes for schema-sensitive changes."
+            exit 1
+          fi
+      - name: Require current schema source-of-truth acknowledgment
+        if: steps.changed.outputs.any_changed == 'true'
+        run: |
+          PR_BODY='${{ github.event.pull_request.body }}'
+          if [[ "$PR_BODY" != *"current schema.md"* ]]; then
+            echo "PR body must reference 'current schema.md' as DB source of truth."
+            exit 1
+          fi
+      - name: Destructive migration guard
+        run: |
+          if grep -R -n -E "DROP TABLE|DROP COLUMN|TRUNCATE" supabase backend/sql 2>/dev/null; then
+            echo "Potential destructive migration statements found. Requires manual approval."
+            exit 1
+          fi
