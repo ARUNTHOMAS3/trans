@@ -882,6 +882,38 @@ export class GlobalLookupsController {
     };
   }
 
+  @Get("uploads/signed-url")
+  async getSignedUrl(
+    @Query("fileKey") fileKey: string,
+    @Query("mimeType") mimeType?: string,
+  ) {
+    if (!fileKey) {
+      throw new BadRequestException("fileKey is required.");
+    }
+    let resolvedMime = mimeType;
+    if (!resolvedMime) {
+      const ext = fileKey.split(".").pop()?.toLowerCase();
+      if (ext === "pdf") resolvedMime = "application/pdf";
+      else if (ext === "jpg" || ext === "jpeg") resolvedMime = "image/jpeg";
+      else if (ext === "png") resolvedMime = "image/png";
+      else if (ext === "gif") resolvedMime = "image/gif";
+      else if (ext === "webp") resolvedMime = "image/webp";
+      else if (ext === "txt") resolvedMime = "text/plain";
+    }
+    const signedUrl = await this.r2StorageService.getPresignedUrl(
+      fileKey,
+      3600,
+      resolvedMime,
+    );
+    return { signedUrl };
+  }
+
+  @Post("log")
+  async logMessage(@Body() body: { message: string }) {
+    console.log("[FRONTEND LOG]", body.message);
+    return { success: true };
+  }
+
   @Delete("uploads")
   async deleteUploadedFile(
     @Body()

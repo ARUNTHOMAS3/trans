@@ -25,6 +25,7 @@ import '../../../packages/presentation/inventory_packages_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../shared/widgets/tables/column_customizer.dart';
 import '../../../../../shared/widgets/tables/table_more_menu.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import '../../../../../shared/models/column_config.dart';
 import '../../../../../shared/widgets/tables/table_header_menu.dart';
 import '../../../../../shared/widgets/skeleton.dart';
@@ -35,6 +36,15 @@ class _ClearPicklistSelectionIntent extends Intent {
 
 /// Performance-optimized List Screen for Inventory Picklists.
 /// Supports master-detail view when [id] is provided.
+const _picklistFilterOptions = <FavoriteFilterOption>[
+  FavoriteFilterOption(label: 'All', value: 'all'),
+  FavoriteFilterOption(label: 'Yet to Start', value: 'Yet to Start'),
+  FavoriteFilterOption(label: 'In Progress', value: 'In Progress'),
+  FavoriteFilterOption(label: 'On Hold', value: 'On Hold'),
+  FavoriteFilterOption(label: 'Completed', value: 'Completed'),
+  FavoriteFilterOption(label: 'Force Complete', value: 'Force Complete'),
+  FavoriteFilterOption(label: 'Approved', value: 'Approved'),
+];
 class InventoryPicklistsListScreen extends ConsumerStatefulWidget {
   final String? id;
 
@@ -47,7 +57,7 @@ class InventoryPicklistsListScreen extends ConsumerStatefulWidget {
 
 class _InventoryPicklistsListScreenState
     extends ConsumerState<InventoryPicklistsListScreen> {
-  String _selectedView = 'All';
+  FavoriteFilterOption _activeOption = _picklistFilterOptions.first;
   final Set<String> _selectedPicklistIds = {};
   List<ColumnConfig> _allColumns = [];
   final List<String> _visibleColumns = [];
@@ -311,7 +321,16 @@ class _InventoryPicklistsListScreenState
       color: Colors.white,
       child: Row(
         children: [
-          _buildViewSelector(),
+          FavoriteFilterDropdown(
+            moduleName: 'picklists',
+            options: _picklistFilterOptions,
+            selectedOption: _activeOption,
+            onChanged: (opt) {
+              setState(() {
+                _activeOption = opt;
+              });
+            },
+          ),
           const Spacer(),
           IconButton(
             onPressed: () {
@@ -547,47 +566,24 @@ class _InventoryPicklistsListScreenState
       mainAxisSize: MainAxisSize.min,
       children: [
         SubmenuButton(
-          menuStyle: MenuStyle(
-            backgroundColor: const WidgetStatePropertyAll(
-              AppTheme.backgroundColor,
-            ),
-            surfaceTintColor: const WidgetStatePropertyAll(
-              AppTheme.backgroundColor,
-            ),
-            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-            elevation: const WidgetStatePropertyAll(8),
-          ),
-          style: ZTableMoreMenu.menuItemButtonStyle(isHeader: true),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+          alignmentOffset: const Offset(4, 0),
+          leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
           menuChildren: [
             _buildSortMenuItem('Date'),
             _buildSortMenuItem('Picklist#'),
             _buildSortMenuItem('Created Time', isActive: true),
             _buildSortMenuItem('Last Modified Time'),
           ],
-          child: const Row(
-            children: [
-              Icon(LucideIcons.arrowUpDown, size: 16),
-              SizedBox(width: 12),
-              Text(
-                'Sort by',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-              Spacer(),
-              Icon(LucideIcons.chevronRight, size: 16),
-            ],
-          ),
+          child: const Text('Sort by'),
         ),
         const Divider(height: 1, color: AppTheme.bgDisabled),
         MenuItemButton(
           onPressed: () => ref.read(picklistsProvider.notifier).refresh(),
           style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Row(
-            children: [
-              Icon(LucideIcons.refreshCw, size: 18),
-              SizedBox(width: 15),
-              Text('Refresh List', style: TextStyle(fontSize: 14)),
-            ],
-          ),
+          leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
+          child: const Text('Refresh List'),
         ),
       ],
     );
@@ -655,7 +651,16 @@ class _InventoryPicklistsListScreenState
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 20),
-            child: _buildViewSelector(),
+            child: FavoriteFilterDropdown(
+              moduleName: 'picklists',
+              options: _picklistFilterOptions,
+              selectedOption: _activeOption,
+              onChanged: (opt) {
+                setState(() {
+                  _activeOption = opt;
+                });
+              },
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -758,10 +763,20 @@ class _InventoryPicklistsListScreenState
     Color color,
     String viewName,
   ) {
-    final isSelected = _selectedView == viewName;
+    final isSelected = _activeOption.label == viewName;
     return InkWell(
-      onTap: () =>
-          setState(() => _selectedView = isSelected ? 'All' : viewName),
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _activeOption = _picklistFilterOptions.first;
+          } else {
+            final found = _picklistFilterOptions.where((opt) => opt.label == viewName);
+            if (found.isNotEmpty) {
+              _activeOption = found.first;
+            }
+          }
+        });
+      },
       borderRadius: BorderRadius.circular(4),
       child: Container(
         height: 38,
@@ -804,109 +819,7 @@ class _InventoryPicklistsListScreenState
     );
   }
 
-  Widget _buildViewSelector() {
-    return MenuAnchor(
-      alignmentOffset: const Offset(0, 4),
-      style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-        surfaceTintColor: const WidgetStatePropertyAll(
-          AppTheme.backgroundColor,
-        ),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        elevation: const WidgetStatePropertyAll(12),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-        ),
-      ),
-      builder: (context, controller, child) {
-        return InkWell(
-          onTap: () {
-            if (controller.isOpen)
-              controller.close();
-            else
-              controller.open();
-          },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _selectedView == 'All' ? 'All Picklists' : _selectedView,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                LucideIcons.chevronDown,
-                size: 18,
-                color: AppTheme.primaryBlue,
-              ),
-            ],
-          ),
-        );
-      },
-      menuChildren: [
-        _buildViewMenuItem('All'),
-        _buildViewMenuItem('Yet to Start'),
-        _buildViewMenuItem('In Progress'),
-        _buildViewMenuItem('On Hold'),
-        _buildViewMenuItem('Completed'),
-        _buildViewMenuItem('Force Complete'),
-        _buildViewMenuItem('Approved'),
-        const Divider(height: 1, color: AppTheme.borderColor),
-        MenuItemButton(
-          onPressed: () {
-            setState(() {
-              _isNewCustomViewOpen = true;
-            });
-          },
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: Row(
-            children: [
-              const Icon(
-                LucideIcons.plusCircle,
-                size: 16,
-                color: AppTheme.primaryBlue,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'New Custom View',
-                style: AppTheme.bodyText.copyWith(
-                  color: AppTheme.primaryBlue,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildViewMenuItem(String label) {
-    final isActive = _selectedView == label;
-    return MenuItemButton(
-      onPressed: () => setState(() => _selectedView = label),
-      style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
-          Icon(
-            LucideIcons.star,
-            size: 14,
-            color: isActive ? Colors.white70 : AppTheme.borderColor,
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildNewButton() {
     final orgId =
@@ -920,6 +833,8 @@ class _InventoryPicklistsListScreenState
 
   Widget _buildMoreMenu() {
     return ZTableMoreMenu(
+      height: 38,
+      width: 38,
       menuChildren: [_buildMoreMenuOptions()],
     );
   }
@@ -943,10 +858,10 @@ class _InventoryPicklistsListScreenState
     // Filter by selected view status and search queries
     final picklists = allPicklists.where((p) {
       // View Status Filter
-      if (_selectedView != 'All') {
+      if (_activeOption.value != 'all') {
         final statusUpper = p.status.toUpperCase().replaceAll(' ', '_');
         bool matchesView = false;
-        switch (_selectedView) {
+        switch (_activeOption.label) {
           case 'Yet to Start':
             matchesView =
                 statusUpper == 'YET_TO_START' || statusUpper == 'YET_TO_PICK';

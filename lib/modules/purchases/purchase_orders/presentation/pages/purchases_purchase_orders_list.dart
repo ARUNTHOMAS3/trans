@@ -27,34 +27,57 @@ import 'package:zerpai_erp/shared/widgets/z_expandable_tabs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../../shared/models/column_config.dart';
 import '../../../../../../shared/widgets/tables/column_customizer.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../../../../../core/providers/entity_provider.dart';
+import 'package:dotted_border/dotted_border.dart';
 
-class _PurchaseOrderView {
-  final String label;
-  final String? status;
-  const _PurchaseOrderView(this.label, {this.status});
-}
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:web/web.dart' as web;
 
-const _purchaseOrderViews = <_PurchaseOrderView>[
-  _PurchaseOrderView('All Purchase Orders'),
-  _PurchaseOrderView('All'),
-  _PurchaseOrderView('Draft', status: 'Draft'),
-  _PurchaseOrderView('Issued', status: 'Issued'),
-  _PurchaseOrderView('Partially Received', status: 'Partially Received'),
-  _PurchaseOrderView('Received', status: 'Received'),
-  _PurchaseOrderView('Pending', status: 'Pending'),
-  _PurchaseOrderView('Approved', status: 'Approved'),
-  _PurchaseOrderView('Closed', status: 'Closed'),
-  _PurchaseOrderView('Canceled', status: 'Canceled'),
+const _poFilterOptions = <FavoriteFilterOption>[
+  FavoriteFilterOption(label: 'All', value: 'all'),
+  FavoriteFilterOption(label: 'Draft', value: 'Draft'),
+  FavoriteFilterOption(label: 'Pending Approval', value: 'Pending'),
+  FavoriteFilterOption(label: 'Approved', value: 'Approved'),
+  FavoriteFilterOption(label: 'Issued', value: 'Issued'),
+  FavoriteFilterOption(label: 'Billed', value: 'Billed'),
+  FavoriteFilterOption(label: 'Partially Billed', value: 'Partially Billed'),
+  FavoriteFilterOption(label: 'Closed', value: 'Closed'),
+  FavoriteFilterOption(label: 'Canceled', value: 'Canceled'),
+  FavoriteFilterOption(
+    label: 'Partially Received',
+    value: 'Partially Received',
+  ),
+  FavoriteFilterOption(label: 'Received', value: 'Received'),
+  FavoriteFilterOption(label: 'Pending Received', value: 'Pending Received'),
+  FavoriteFilterOption(label: 'Dropshiped', value: 'Dropshiped'),
+  FavoriteFilterOption(label: 'Backorder', value: 'Backorder'),
+  FavoriteFilterOption(
+    label: 'Unbilled Backorder',
+    value: 'Unbilled Backorder',
+  ),
+  FavoriteFilterOption(
+    label: 'Billed & Not Received',
+    value: 'Billed & Not Received',
+  ),
+  FavoriteFilterOption(
+    label: 'Received & Not Billed',
+    value: 'Received & Not Billed',
+  ),
 ];
 
 class _PoTxnSummary {
   final List<Map<String, dynamic>> receives;
   final List<Map<String, dynamic>> bills;
+  final List<Map<String, dynamic>> attachments;
   final String receiveStatus;
   final String billStatus;
   const _PoTxnSummary({
     required this.receives,
     required this.bills,
+    required this.attachments,
     required this.receiveStatus,
     required this.billStatus,
   });
@@ -86,10 +109,15 @@ class _PurchaseOrderOverviewScreenState
   String _sortField = 'order_date';
   bool _sortAscending = false;
   bool _shouldWrapText = false;
-  _PurchaseOrderView _activeView = _purchaseOrderViews.first;
+  FavoriteFilterOption _activeOption = _poFilterOptions.first;
   Map<String, double>? _customColumnWidths;
   bool _showPdfView = false;
+  bool _showCommentsSidebar = false;
+  final LayerLink _attachmentBadgeLink = LayerLink();
+  OverlayEntry? _attachmentListOverlay;
   final ScrollController _horizontalScrollController = ScrollController();
+  Future<_PoTxnSummary>? _currentPoTxnSummaryFuture;
+  String? _currentPoTxnSummaryOrderId;
 
   List<ColumnConfig> _allColumns = [];
   final List<String> _visibleColumns = [];
@@ -111,18 +139,38 @@ class _PurchaseOrderOverviewScreenState
     _allColumns = [
       ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0, isLocked: true),
       ColumnConfig(id: 'location', label: 'WAREHOUSE', orderIndex: 1),
-      ColumnConfig(id: 'order_number', label: 'ORDER NUMBER', orderIndex: 2, isLocked: true),
+      ColumnConfig(
+        id: 'order_number',
+        label: 'ORDER NUMBER',
+        orderIndex: 2,
+        isLocked: true,
+      ),
       ColumnConfig(
         id: 'reference_number',
         label: 'REFERENCE NUMBER',
         orderIndex: 3,
         isVisible: false,
       ),
-      ColumnConfig(id: 'vendor_name', label: 'VENDOR NAME', orderIndex: 4, isLocked: true),
-      ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 5, isLocked: true),
+      ColumnConfig(
+        id: 'vendor_name',
+        label: 'VENDOR NAME',
+        orderIndex: 4,
+        isLocked: true,
+      ),
+      ColumnConfig(
+        id: 'status',
+        label: 'STATUS',
+        orderIndex: 5,
+        isLocked: true,
+      ),
       ColumnConfig(id: 'received', label: 'RECEIVED', orderIndex: 6),
       ColumnConfig(id: 'billed', label: 'BILLED', orderIndex: 7),
-      ColumnConfig(id: 'amount', label: 'AMOUNT', orderIndex: 8, isLocked: true),
+      ColumnConfig(
+        id: 'amount',
+        label: 'AMOUNT',
+        orderIndex: 8,
+        isLocked: true,
+      ),
       ColumnConfig(
         id: 'delivery_date',
         label: 'DELIVERY DATE',
@@ -205,24 +253,51 @@ class _PurchaseOrderOverviewScreenState
 
   Future<_PoTxnSummary> _loadPoTxnSummary(PurchaseOrder order) async {
     final supabase = Supabase.instance.client;
-    final receivesResp = await supabase
-        .from('purchases_purchase_receives')
-        .select(
-          'id,purchase_receive_number,received_date,status,billed,bill_no,purchase_order_id,purchases_purchase_receive_items(product_id,ordered,received)',
-        )
-        .eq('purchase_order_id', order.id ?? '')
-        .order('created_at', ascending: false);
+    List<dynamic> receivesList = [];
+    try {
+      final receivesResp = await supabase
+          .from('purchase_receives')
+          .select(
+            'id,purchase_receive_number,received_date,status,billed,bill_no,purchase_order_id,purchase_receive_items(item_id,ordered,received)',
+          )
+          .eq('purchase_order_id', order.id ?? '')
+          .order('created_at', ascending: false);
+      receivesList = receivesResp as List<dynamic>;
+    } catch (e) {
+      debugPrint('Error loading PO receives: $e');
+    }
 
-    final billsResp = await supabase
-        .from('purchases_bills')
-        .select('id,bill_number,bill_date,status,total,due_date,order_number')
-        .eq('order_number', order.orderNumber)
-        .order('created_at', ascending: false);
+    List<dynamic> billsList = [];
+    try {
+      final billsResp = await supabase
+          .from('bills')
+          .select('id,bill_number,bill_date,status,total,due_date,order_number')
+          .eq('order_number', order.orderNumber)
+          .order('created_at', ascending: false);
+      billsList = billsResp as List<dynamic>;
+    } catch (e) {
+      debugPrint('Error loading PO bills: $e');
+    }
 
-    final receives = (receivesResp as List<dynamic>)
+    List<dynamic> attachmentsList = [];
+    try {
+      final attachmentsResp = await supabase
+          .from('purchase_order_attachments')
+          .select('id,file_name,file_path,file_size,file_type,uploaded_at')
+          .eq('purchase_order_id', order.id ?? '')
+          .order('uploaded_at', ascending: false);
+      attachmentsList = attachmentsResp as List<dynamic>;
+    } catch (e) {
+      debugPrint('Error loading PO attachments: $e');
+    }
+
+    final receives = receivesList
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-    final bills = (billsResp as List<dynamic>)
+    final bills = billsList
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    final attachments = attachmentsList
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
@@ -233,7 +308,9 @@ class _PurchaseOrderOverviewScreenState
     double totalReceived = 0.0;
     for (final r in receives) {
       final itemsList =
-          r['purchases_purchase_receive_items'] as List<dynamic>? ?? [];
+          r['purchases_purchase_receive_items'] as List<dynamic>? ??
+          r['purchase_receive_items'] as List<dynamic>? ??
+          [];
       for (final item in itemsList) {
         totalReceived += (item['received'] as num?)?.toDouble() ?? 0.0;
       }
@@ -251,9 +328,18 @@ class _PurchaseOrderOverviewScreenState
     return _PoTxnSummary(
       receives: receives,
       bills: bills,
+      attachments: attachments,
       receiveStatus: receiveStatus,
       billStatus: billStatus,
     );
+  }
+
+  void _refreshPoTxnSummary(PurchaseOrder order) {
+    if (mounted) {
+      setState(() {
+        _currentPoTxnSummaryFuture = _loadPoTxnSummary(order);
+      });
+    }
   }
 
   @override
@@ -273,11 +359,11 @@ class _PurchaseOrderOverviewScreenState
       }
     });
     if (widget.initialFilter != null) {
-      final found = _purchaseOrderViews.where(
+      final found = _poFilterOptions.where(
         (v) => v.label.toLowerCase() == widget.initialFilter!.toLowerCase(),
       );
       if (found.isNotEmpty) {
-        _activeView = found.first;
+        _activeOption = found.first;
       }
     }
   }
@@ -346,16 +432,12 @@ class _PurchaseOrderOverviewScreenState
     var result = orders;
 
     // View filter
-    if (_activeView.label != 'All' &&
-        _activeView.label != 'All Purchase Orders') {
-      if (_activeView.status != null) {
-        result = result
-            .where(
-              (o) =>
-                  o.status.toLowerCase() == _activeView.status!.toLowerCase(),
-            )
-            .toList();
-      }
+    if (_activeOption.value != 'all') {
+      result = result
+          .where(
+            (o) => o.status.toLowerCase() == _activeOption.value.toLowerCase(),
+          )
+          .toList();
     }
 
     // Search filter
@@ -407,16 +489,19 @@ class _PurchaseOrderOverviewScreenState
           cmp = a.total.compareTo(b.total);
           break;
         case 'delivery_date':
-          cmp = (a.expectedDeliveryDate ?? a.orderDate)
-              .compareTo(b.expectedDeliveryDate ?? b.orderDate);
+          cmp = (a.expectedDeliveryDate ?? a.orderDate).compareTo(
+            b.expectedDeliveryDate ?? b.orderDate,
+          );
           break;
         case 'created_at':
-          cmp = (a.createdAt ?? a.orderDate)
-              .compareTo(b.createdAt ?? b.orderDate);
+          cmp = (a.createdAt ?? a.orderDate).compareTo(
+            b.createdAt ?? b.orderDate,
+          );
           break;
         case 'updated_at':
-          cmp = (a.updatedAt ?? a.orderDate)
-              .compareTo(b.updatedAt ?? b.orderDate);
+          cmp = (a.updatedAt ?? a.orderDate).compareTo(
+            b.updatedAt ?? b.orderDate,
+          );
           break;
         default:
           cmp = 0;
@@ -426,7 +511,11 @@ class _PurchaseOrderOverviewScreenState
     return list;
   }
 
-  Widget _buildMainToolbar(BuildContext context, bool hasSelection, List<PurchaseOrder> orders) {
+  Widget _buildMainToolbar(
+    BuildContext context,
+    bool hasSelection,
+    List<PurchaseOrder> orders,
+  ) {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -437,49 +526,15 @@ class _PurchaseOrderOverviewScreenState
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          MenuAnchor(
-            style: _viewMenuStyle(),
-            builder: (context, controller, child) {
-              return InkWell(
-                onTap: () =>
-                    controller.isOpen ? controller.close() : controller.open(),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 4,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _activeView.label,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        LucideIcons.chevronDown,
-                        size: 18,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ],
-                  ),
-                ),
-              );
+          FavoriteFilterDropdown(
+            moduleName: 'purchase_orders',
+            options: _poFilterOptions,
+            selectedOption: _activeOption,
+            onChanged: (opt) {
+              setState(() {
+                _activeOption = opt;
+              });
             },
-            menuChildren: _purchaseOrderViews.map((view) {
-              final isSelected = _activeView == view;
-              return MenuItemButton(
-                style: _viewMenuItemStyle(isSelected),
-                onPressed: () => setState(() => _activeView = view),
-                child: Text(view.label),
-              );
-            }).toList(),
           ),
           const Spacer(),
           // Segmented List/Split View Switcher
@@ -500,11 +555,15 @@ class _PurchaseOrderOverviewScreenState
                   child: Container(
                     width: 32,
                     height: 30,
-                    color: !hasSelection ? const Color(0xFFF3F4F6) : Colors.transparent,
+                    color: !hasSelection
+                        ? const Color(0xFFF3F4F6)
+                        : Colors.transparent,
                     child: Icon(
                       LucideIcons.menu,
                       size: 15,
-                      color: !hasSelection ? AppTheme.textPrimary : AppTheme.textSecondary,
+                      color: !hasSelection
+                          ? AppTheme.textPrimary
+                          : AppTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -512,19 +571,28 @@ class _PurchaseOrderOverviewScreenState
                 InkWell(
                   onTap: () {
                     if (orders.isNotEmpty) {
-                      context.go('/purchases/purchase-orders/${orders.first.id}');
+                      context.go(
+                        '/purchases/purchase-orders/${orders.first.id}',
+                      );
                     } else {
-                      ZerpaiToast.info(context, 'No purchase orders available to view detail.');
+                      ZerpaiToast.info(
+                        context,
+                        'No purchase orders available to view detail.',
+                      );
                     }
                   },
                   child: Container(
                     width: 32,
                     height: 30,
-                    color: hasSelection ? const Color(0xFFF3F4F6) : Colors.transparent,
+                    color: hasSelection
+                        ? const Color(0xFFF3F4F6)
+                        : Colors.transparent,
                     child: Icon(
                       LucideIcons.columns,
                       size: 15,
-                      color: hasSelection ? AppTheme.textPrimary : AppTheme.textSecondary,
+                      color: hasSelection
+                          ? AppTheme.textPrimary
+                          : AppTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -541,57 +609,12 @@ class _PurchaseOrderOverviewScreenState
           ),
           const SizedBox(width: 8),
           ZTableMoreMenu(
-            width: 32,
-            height: 32,
-            menuChildren: [
-              SubmenuButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                menuChildren: [
-                  _buildSortMenuItem('Purchase Order#', 'order_number'),
-                  _buildSortMenuItem('Date', 'order_date'),
-                  _buildSortMenuItem('Vendor Name', 'vendor_name'),
-                  _buildSortMenuItem('Amount', 'total'),
-                  _buildSortMenuItem('Delivery Date', 'delivery_date'),
-                  _buildSortMenuItem('Created Time', 'created_at'),
-                  _buildSortMenuItem('Last Modified Time', 'updated_at'),
-                ],
-                child: const Text('Sort by'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: const Text('Import Purchase Orders'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: const Text('Export Purchase Orders'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: const Text('Preferences'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                onPressed: () {
-                  ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(page: 1, limit: 100)));
-                },
-                child: const Text('Refresh List'),
-              ),
-            ],
+            width: 38,
+            height: 38,
+            menuChildren: _buildMoreMenuChildren(),
           ),
         ],
       ),
-    );
-  }
-
-  MenuStyle _viewMenuStyle() {
-    return MenuStyle(
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      elevation: const WidgetStatePropertyAll(8),
-      backgroundColor: const WidgetStatePropertyAll(Colors.white),
-      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
     );
   }
 
@@ -633,53 +656,26 @@ class _PurchaseOrderOverviewScreenState
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.borderLight),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    MenuAnchor(
-                      style: _viewMenuStyle(),
-                      builder: (context, controller, child) {
-                        return InkWell(
-                          onTap: () => controller.isOpen ? controller.close() : controller.open(),
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _activeView.label,
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimary,
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  LucideIcons.chevronDown,
-                                  size: 18,
-                                  color: AppTheme.primaryBlue,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
+                    FavoriteFilterDropdown(
+                      moduleName: 'purchase_orders',
+                      options: _poFilterOptions,
+                      selectedOption: _activeOption,
+                      onChanged: (opt) {
+                        setState(() {
+                          _activeOption = opt;
+                        });
                       },
-                      menuChildren: _purchaseOrderViews.map((view) {
-                        final isSelected = _activeView == view;
-                        return MenuItemButton(
-                          style: _viewMenuItemStyle(isSelected),
-                          onPressed: () => setState(() => _activeView = view),
-                          child: Text(view.label),
-                        );
-                      }).toList(),
                     ),
                     const Spacer(),
                     InkWell(
-                      onTap: () => context.go('/purchases/purchase-orders/create'),
+                      onTap: () =>
+                          context.go('/purchases/purchase-orders/create'),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
                         width: 28,
@@ -700,37 +696,7 @@ class _PurchaseOrderOverviewScreenState
                       width: 28,
                       height: 28,
                       iconSize: 14,
-                      menuChildren: [
-                        SubmenuButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          menuChildren: [
-                            _buildSortMenuItem('Purchase Order#', 'order_number'),
-                            _buildSortMenuItem('Date', 'order_date'),
-                            _buildSortMenuItem('Vendor Name', 'vendor_name'),
-                            _buildSortMenuItem('Amount', 'total'),
-                            _buildSortMenuItem('Delivery Date', 'delivery_date'),
-                            _buildSortMenuItem('Created Time', 'created_at'),
-                            _buildSortMenuItem('Last Modified Time', 'updated_at'),
-                          ],
-                          child: const Text('Sort by'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Import Purchase Orders'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Export Purchase Orders'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Preferences'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Refresh List'),
-                        ),
-                      ],
+                      menuChildren: _buildMoreMenuChildren(),
                     ),
                   ],
                 ),
@@ -1010,6 +976,9 @@ class _PurchaseOrderOverviewScreenState
 
   ButtonStyle _menuItemStyle({bool isActive = false}) {
     return ButtonStyle(
+      animationDuration: Duration.zero,
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
         final highlighted =
             states.contains(WidgetState.hovered) ||
@@ -1377,9 +1346,7 @@ class _PurchaseOrderOverviewScreenState
                       alignment: pw.Alignment.topRight,
                       child: pw.Text(
                         'Order Date : ${DateFormat('dd-MM-yyyy').format(order.orderDate)}',
-                        style: const pw.TextStyle(
-                          fontSize: 10,
-                        ),
+                        style: const pw.TextStyle(fontSize: 10),
                       ),
                     ),
                   ),
@@ -1590,14 +1557,20 @@ class _PurchaseOrderOverviewScreenState
                     width: 220,
                     child: pw.Column(
                       children: [
-                        _pwTotalRow('Sub Total', 'INR ${order.subTotal.toStringAsFixed(2)}'),
+                        _pwTotalRow(
+                          'Sub Total',
+                          'INR ${order.subTotal.toStringAsFixed(2)}',
+                        ),
                         if (order.discount > 0)
                           _pwTotalRow(
                             'Discount (${order.discountType == 'percentage' ? '${order.discount}%' : 'Fixed'})',
                             '-INR ${(order.discountType == 'percentage' ? (order.subTotal * order.discount / 100) : order.discount).toStringAsFixed(2)}',
                           ),
                         if (order.taxAmount > 0)
-                          _pwTotalRow('Tax', 'INR ${order.taxAmount.toStringAsFixed(2)}'),
+                          _pwTotalRow(
+                            'Tax',
+                            'INR ${order.taxAmount.toStringAsFixed(2)}',
+                          ),
                         if (order.adjustment != 0)
                           _pwTotalRow(
                             'Adjustment',
@@ -1606,7 +1579,10 @@ class _PurchaseOrderOverviewScreenState
                         pw.Divider(color: PdfColors.grey300),
                         pw.Container(
                           color: const PdfColor.fromInt(0xFFF9FAFB),
-                          padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                          padding: const pw.EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 8,
+                          ),
                           child: _pwTotalRow(
                             'Total',
                             'INR ${order.total.toStringAsFixed(2)}',
@@ -1623,14 +1599,14 @@ class _PurchaseOrderOverviewScreenState
                 children: [
                   pw.Text(
                     'Authorized Signature',
-                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                   pw.SizedBox(width: 12),
                   pw.Expanded(
-                    child: pw.Container(
-                      height: 1,
-                      color: PdfColors.black,
-                    ),
+                    child: pw.Container(height: 1, color: PdfColors.black),
                   ),
                   pw.Spacer(),
                 ],
@@ -1695,6 +1671,84 @@ class _PurchaseOrderOverviewScreenState
         ],
       ),
     );
+  }
+
+  List<Widget> _buildMoreMenuChildren() {
+    return [
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
+        menuChildren: [
+          _buildSortMenuItem('Purchase Order#', 'order_number'),
+          _buildSortMenuItem('Date', 'order_date'),
+          _buildSortMenuItem('Vendor Name', 'vendor_name'),
+          _buildSortMenuItem('Amount', 'total'),
+          _buildSortMenuItem('Delivery Date', 'delivery_date'),
+          _buildSortMenuItem('Created Time', 'created_at'),
+          _buildSortMenuItem('Last Modified Time', 'updated_at'),
+        ],
+        child: const Text('Sort by'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.download, size: 16),
+        onPressed: () {},
+        child: const Text('Import Purchase Orders'),
+      ),
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.upload, size: 16),
+        menuChildren: [
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            child: const Text('Export Purchase Orders'),
+          ),
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            child: const Text('Export Current View'),
+          ),
+        ],
+        child: const Text('Export'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.settings, size: 16),
+        onPressed: _showCustomizeColumnsDialog,
+        child: const Text('Preferences'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.columns, size: 16),
+        onPressed: () {},
+        child: const Text('Manage Custom Fields'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
+        onPressed: () {
+          ref.invalidate(
+            purchaseOrdersProvider(
+              PurchaseOrderFilter(page: 1, limit: 100),
+            ),
+          );
+        },
+        child: const Text('Refresh List'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.rotateCcw, size: 16),
+        onPressed: () async {
+          setState(() {
+            _customColumnWidths = null;
+          });
+        },
+        child: const Text('Reset Column Width'),
+      ),
+    ];
   }
 
   Widget _buildCheckboxWidget(
@@ -1985,10 +2039,7 @@ class _PurchaseOrderOverviewScreenState
         );
         break;
       case 'location':
-        content = Text(
-          order.warehouseName ?? '-',
-          style: AppTheme.tableCell,
-        );
+        content = Text(order.warehouseName ?? '-', style: AppTheme.tableCell);
         break;
       case 'order_number':
         content = InkWell(
@@ -2105,7 +2156,7 @@ class _PurchaseOrderOverviewScreenState
     );
   }
 
-  Widget _detailPane(String orderId, PurchaseOrder? summary) {
+  Widget _detailPane(String orderId, PurchaseOrder? poSummary) {
     final detailAsync = ref.watch(purchaseOrderProvider(orderId));
     return detailAsync.when(
       loading: () => const Padding(
@@ -2128,145 +2179,236 @@ class _PurchaseOrderOverviewScreenState
         if (order == null) return Center(child: const Text('Order not found'));
         final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
 
-        return StatefulBuilder(
-          builder: (context, setInnerState) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+        if (_currentPoTxnSummaryOrderId != order.id) {
+          _currentPoTxnSummaryOrderId = order.id;
+          _currentPoTxnSummaryFuture = _loadPoTxnSummary(order);
+        }
+
+        return FutureBuilder<_PoTxnSummary>(
+          future: _currentPoTxnSummaryFuture,
+          builder: (context, summarySnap) {
+            if (summarySnap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: DetailContentSkeleton(),
+              );
+            }
+            final summary =
+                summarySnap.data ??
+                const _PoTxnSummary(
+                  receives: [],
+                  bills: [],
+                  attachments: [],
+                  receiveStatus: 'Yet to be Received',
+                  billStatus: 'Yet to be Billed',
+                );
+
+            return StatefulBuilder(
+              builder: (context, setInnerState) {
+                // Compute displayStatus: check whether ordered value = received in purchase_receive_items
+                bool isFullyReceived = false;
+                if (order.items.isNotEmpty) {
+                  isFullyReceived = true;
+                  for (final poItem in order.items) {
+                    if (poItem.isHeader) continue;
+                    double totalReceivedForProduct = 0.0;
+                    for (final r in summary.receives) {
+                      final itemsList =
+                          r['purchases_purchase_receive_items']
+                              as List<dynamic>? ??
+                          r['purchase_receive_items']
+                              as List<dynamic>? ??
+                          [];
+                      for (final item in itemsList) {
+                        final recProdId =
+                            (item['item_id'] ?? item['product_id'])?.toString();
+                        if (recProdId == poItem.productId) {
+                          totalReceivedForProduct +=
+                              (item['received'] as num?)?.toDouble() ?? 0.0;
+                        }
+                      }
+                    }
+                    if (totalReceivedForProduct < poItem.quantity - 0.0001) {
+                      isFullyReceived = false;
+                      break;
+                    }
+                  }
+                }
+
+                String displayStatus = order.status;
+                if (order.status.toLowerCase() != 'draft' && isFullyReceived) {
+                  displayStatus = 'Closed';
+                }
+
+                Widget detailContent = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Vendor: ${order.vendorName ?? 'No Vendor'}',
-                            style: AppTheme.metaHelper.copyWith(fontSize: 12),
+                          Row(
+                            children: [
+                              Text(
+                                'Warehouse: ${order.warehouseName ?? '-'}',
+                                style: AppTheme.metaHelper.copyWith(
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const Spacer(),
+                              CompositedTransformTarget(
+                                link: _attachmentBadgeLink,
+                                child: InkWell(
+                                  onTap: () =>
+                                      _toggleAttachmentListOverlay(order),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    height: 34,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFFE5E7EB),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.paperclip,
+                                          size: 15,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                        if (summary.attachments.isNotEmpty) ...[
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '${summary.attachments.length}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppTheme.textPrimary,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _ActionSquare(
+                                icon: LucideIcons.messageSquare,
+                                color: AppTheme.textSecondary,
+                                onTap: () {
+                                  setInnerState(() {
+                                    _showCommentsSidebar =
+                                        !_showCommentsSidebar;
+                                  });
+                                  setState(() {});
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              _ActionSquare(
+                                icon: LucideIcons.x,
+                                color: AppTheme.errorRed,
+                                onTap: () =>
+                                    context.go('/purchases/purchase-orders'),
+                              ),
+                            ],
                           ),
-                          const Spacer(),
-                          _ActionSquare(
-                            icon: LucideIcons.paperclip,
-                            color: AppTheme.textSecondary,
-                            onTap: () {},
-                          ),
-                          const SizedBox(width: 8),
-                          _ActionSquare(
-                            icon: LucideIcons.messageSquare,
-                            color: AppTheme.textSecondary,
-                            onTap: () {},
-                          ),
-                          const SizedBox(width: 8),
-                          _ActionSquare(
-                            icon: LucideIcons.x,
-                            color: AppTheme.errorRed,
-                            onTap: () =>
-                                context.go('/purchases/purchase-orders'),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                order.orderNumber,
+                                style: AppTheme.sectionHeader.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildStatusBadge(displayStatus),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Row(
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
+                      child: Row(
                         children: [
-                          Text(
-                            order.orderNumber,
-                            style: AppTheme.sectionHeader.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                          _buildToolbarButton(
+                            LucideIcons.pencil,
+                            'Edit',
+                            onPressed: () => _editPurchaseOrder(order),
+                          ),
+                          _buildDivider(),
+                          _buildToolbarButton(
+                            LucideIcons.mail,
+                            'Send Email',
+                            onPressed: () {
+                              context.go(
+                                '/purchases/purchase-orders/${order.id}/email',
+                              );
+                            },
+                          ),
+                          _buildDivider(),
+                          _buildPdfPrintDropdown(order, orgSettings),
+                          _buildDivider(),
+                          if (order.status.toLowerCase() == 'closed' ||
+                              displayStatus.toLowerCase() == 'closed')
+                            _buildToolbarButton(
+                              LucideIcons.fileText,
+                              'Convert to Bill',
+                              onPressed: () {
+                                context.go(
+                                  '/purchases/bills/create?poId=${order.id}',
+                                );
+                              },
+                            )
+                          else
+                            _buildToolbarButton(
+                              LucideIcons.truck,
+                              'Receive',
+                              onPressed: () {
+                                context.go(
+                                  '/purchases/purchase-receives/create?poId=${order.id}',
+                                );
+                              },
                             ),
+                          _buildDivider(),
+                          MenuAnchor(
+                            style: _menuStyle(),
+                            builder: (context, controller, child) {
+                              return IconButton(
+                                onPressed: () => controller.isOpen
+                                    ? controller.close()
+                                    : controller.open(),
+                                icon: Icon(
+                                  LucideIcons.moreHorizontal,
+                                  size: 18,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              );
+                            },
+                            menuChildren: _menuChildrenForStatus(order),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
-                  child: Row(
-                    children: [
-                      _buildToolbarButton(
-                        LucideIcons.pencil,
-                        'Edit',
-                        onPressed: () => _editPurchaseOrder(order),
-                      ),
-                      _buildDivider(),
-                      _buildToolbarButton(
-                        LucideIcons.mail,
-                        'Send Email',
-                        onPressed: () {
-                          context.go(
-                            '/purchases/purchase-orders/${order.id}/email',
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      _buildPdfPrintDropdown(order, orgSettings),
-                      _buildDivider(),
-                      if (order.status.toLowerCase() == 'closed')
-                        _buildToolbarButton(
-                          LucideIcons.fileText,
-                          'Convert to Bill',
-                          onPressed: () {
-                            context.go(
-                              '/purchases/bills/create?poId=${order.id}',
-                            );
-                          },
-                        )
-                      else
-                        _buildToolbarButton(
-                          LucideIcons.truck,
-                          'Receive',
-                          onPressed: () {
-                            context.go(
-                              '/purchases/purchase-receives/create?poId=${order.id}',
-                            );
-                          },
-                        ),
-                      _buildDivider(),
-                      MenuAnchor(
-                        style: _menuStyle(),
-                        builder: (context, controller, child) {
-                          return IconButton(
-                            onPressed: () => controller.isOpen
-                                ? controller.close()
-                                : controller.open(),
-                            icon: Icon(
-                              LucideIcons.moreHorizontal,
-                              size: 18,
-                              color: AppTheme.textSecondary,
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          );
-                        },
-                        menuChildren: _menuChildrenForStatus(order),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: AppTheme.borderLight),
-                Expanded(
-                  child: FutureBuilder<_PoTxnSummary>(
-                    future: _loadPoTxnSummary(order),
-                    builder: (context, summarySnap) {
-                      final summary =
-                          summarySnap.data ??
-                          const _PoTxnSummary(
-                            receives: [],
-                            bills: [],
-                            receiveStatus: 'Yet to be Received',
-                            billStatus: 'Yet to be Billed',
-                          );
-                      final showIssuedTransitYetBilled =
-                          order.status.toLowerCase() == 'issued' &&
-                          summary.receiveStatus.toLowerCase() == 'in transit' &&
-                          summary.billStatus.toLowerCase() ==
-                              'yet to be billed';
-                      return SingleChildScrollView(
+                    ),
+                    const Divider(height: 1, color: AppTheme.borderLight),
+                    Expanded(
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2296,7 +2438,7 @@ class _PurchaseOrderOverviewScreenState
                                       child: RichText(
                                         text: TextSpan(
                                           style: AppTheme.bodyText,
-                                          children: [
+                                          children: const [
                                             TextSpan(
                                               text: 'WHAT\'S NEXT? ',
                                               style: TextStyle(
@@ -2367,7 +2509,8 @@ class _PurchaseOrderOverviewScreenState
                                 ),
                               ),
                             ],
-                            if (order.status.toLowerCase() == 'issued') ...[
+                            if (order.status.toLowerCase() == 'issued' ||
+                                displayStatus.toLowerCase() == 'issued') ...[
                               Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 padding: const EdgeInsets.symmetric(
@@ -2400,7 +2543,15 @@ class _PurchaseOrderOverviewScreenState
                                               ),
                                             ),
                                             TextSpan(
-                                              text: showIssuedTransitYetBilled
+                                              text:
+                                                  (order.status.toLowerCase() ==
+                                                          'issued' &&
+                                                      summary.receiveStatus
+                                                              .toLowerCase() ==
+                                                          'in transit' &&
+                                                      summary.billStatus
+                                                              .toLowerCase() ==
+                                                          'yet to be billed')
                                                   ? 'Convert this to a bill to complete your purchase.'
                                                   : 'Record a receive or create a bill for this purchase order.',
                                             ),
@@ -2409,7 +2560,12 @@ class _PurchaseOrderOverviewScreenState
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    if (!showIssuedTransitYetBilled)
+                                    if (!(order.status.toLowerCase() ==
+                                            'issued' &&
+                                        summary.receiveStatus.toLowerCase() ==
+                                            'in transit' &&
+                                        summary.billStatus.toLowerCase() ==
+                                            'yet to be billed'))
                                       SizedBox(
                                         height: 34,
                                         child: ZButton.primary(
@@ -2424,7 +2580,15 @@ class _PurchaseOrderOverviewScreenState
                                     const SizedBox(width: 10),
                                     SizedBox(
                                       height: 34,
-                                      child: showIssuedTransitYetBilled
+                                      child:
+                                          (order.status.toLowerCase() ==
+                                                  'issued' &&
+                                              summary.receiveStatus
+                                                      .toLowerCase() ==
+                                                  'in transit' &&
+                                              summary.billStatus
+                                                      .toLowerCase() ==
+                                                  'yet to be billed')
                                           ? ZButton.primary(
                                               label: 'Convert to Bill',
                                               onPressed: () {
@@ -2465,7 +2629,8 @@ class _PurchaseOrderOverviewScreenState
                               ),
                               const SizedBox(height: 12),
                             ],
-                            if (order.status.toLowerCase() == 'closed') ...[
+                            if (order.status.toLowerCase() == 'closed' ||
+                                displayStatus.toLowerCase() == 'closed') ...[
                               Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 padding: const EdgeInsets.symmetric(
@@ -2597,15 +2762,324 @@ class _PurchaseOrderOverviewScreenState
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                      ),
+                    ),
+                  ],
+                );
+
+                if (_showCommentsSidebar) {
+                  return Row(
+                    children: [
+                      Expanded(child: detailContent),
+                      const VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: AppTheme.borderLight,
+                      ),
+                      _buildCommentsSidebar(order, summary),
+                    ],
+                  );
+                } else {
+                  return detailContent;
+                }
+              },
             );
           },
         );
       },
+    );
+  }
+
+  void _toggleAttachmentListOverlay(PurchaseOrder order) {
+    if (_attachmentListOverlay != null) {
+      _attachmentListOverlay?.remove();
+      _attachmentListOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    _attachmentListOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _attachmentListOverlay?.remove();
+                _attachmentListOverlay = null;
+                setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _attachmentBadgeLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomRight,
+            followerAnchor: Alignment.topRight,
+            offset: const Offset(-8, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: _AttachmentOverlayContent(
+                order: order,
+                ref: ref,
+                onRefresh: () => _refreshPoTxnSummary(order),
+                onClose: () {
+                  _attachmentListOverlay?.remove();
+                  _attachmentListOverlay = null;
+                  setState(() {});
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_attachmentListOverlay!);
+    setState(() {});
+  }
+
+  Widget _buildCommentsSidebar(PurchaseOrder order, _PoTxnSummary summary) {
+    final List<_HistoryEvent> events = [];
+
+    events.add(
+      _HistoryEvent(
+        username: 'zabnixprivatelimited',
+        time: order.createdAt ?? order.orderDate,
+        content:
+            'Purchase Order created for ₹${order.total.toStringAsFixed(2)}',
+        icon: LucideIcons.fileSpreadsheet,
+      ),
+    );
+
+    if (order.updatedAt != null &&
+        order.createdAt != null &&
+        order.updatedAt!.difference(order.createdAt!).inSeconds.abs() > 1) {
+      events.add(
+        _HistoryEvent(
+          username: 'zabnixprivatelimited',
+          time: order.updatedAt!,
+          content: 'Purchase Order edited',
+          icon: LucideIcons.edit3,
+        ),
+      );
+    }
+
+    for (final a in summary.attachments) {
+      final uploadedAtStr = a['uploaded_at']?.toString();
+      final dt = uploadedAtStr != null
+          ? DateTime.tryParse(uploadedAtStr)
+          : null;
+      events.add(
+        _HistoryEvent(
+          username: 'zabnixprivatelimited',
+          time: dt ?? order.createdAt ?? order.orderDate,
+          content: 'Attachment modified',
+          icon: LucideIcons.fileText,
+        ),
+      );
+    }
+
+    for (final r in summary.receives) {
+      final createdAtStr =
+          r['created_at']?.toString() ?? r['received_date']?.toString();
+      final dt = createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
+      events.add(
+        _HistoryEvent(
+          username: 'zabnixprivatelimited',
+          time: dt ?? order.createdAt ?? order.orderDate,
+          content:
+              'Purchase Receive ${r['purchase_receive_number'] ?? ''} created.',
+          icon: LucideIcons.truck,
+        ),
+      );
+    }
+
+    for (final b in summary.bills) {
+      final createdAtStr =
+          b['created_at']?.toString() ?? b['bill_date']?.toString();
+      final dt = createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
+      events.add(
+        _HistoryEvent(
+          username: 'zabnixprivatelimited',
+          time: dt ?? order.createdAt ?? order.orderDate,
+          content:
+              'Bill ${b['bill_number'] ?? ''} created for ₹${(b['total'] as num?)?.toDouble().toStringAsFixed(2)}',
+          icon: LucideIcons.receipt,
+        ),
+      );
+    }
+
+    // Sort events by time DESCENDING (newest first)
+    events.sort((a, b) => b.time.compareTo(a.time));
+
+    return Container(
+      width: 320,
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                Text(
+                  'Comments & History',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 16),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _showCommentsSidebar = false;
+                    });
+                  },
+                  child: const Icon(
+                    LucideIcons.x,
+                    color: AppTheme.errorRed,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                Text(
+                  'ALL COMMENTS',
+                  style: AppTheme.metaHelper.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${events.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              itemCount: events.length,
+              itemBuilder: (context, index) {
+                final e = events[index];
+                final isLast = index == events.length - 1;
+
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Column(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: Icon(
+                              e.icon,
+                              size: 12,
+                              color: AppTheme.warningOrange,
+                            ),
+                          ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(
+                                width: 1.5,
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    e.username,
+                                    style: AppTheme.bodyText.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.circle,
+                                    size: 3,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat(
+                                      'dd-MM-yyyy hh:mm a',
+                                    ).format(e.time),
+                                    style: AppTheme.metaHelper.copyWith(
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF9FAFB),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  e.content,
+                                  style: AppTheme.bodyText.copyWith(
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3054,7 +3528,7 @@ class _PurchaseOrderOverviewScreenState
                         const SizedBox(height: 12),
                         _meta(
                           'PAYMENT TERMS',
-                          order.paymentTerms ?? 'Due on Receipt',
+                          order.paymentTermsName ?? order.paymentTerms ?? 'Due on Receipt',
                         ),
                       ],
                     ),
@@ -3223,7 +3697,11 @@ class _PurchaseOrderOverviewScreenState
     );
   }
 
-  Widget _itemsTable(List<PurchaseOrderItem> items, _PoTxnSummary summary, String? warehouseName) {
+  Widget _itemsTable(
+    List<PurchaseOrderItem> items,
+    _PoTxnSummary summary,
+    String? warehouseName,
+  ) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: AppTheme.borderLight),
@@ -3310,9 +3788,12 @@ class _PurchaseOrderOverviewScreenState
             double itemReceivedQty = 0.0;
             for (final r in summary.receives) {
               final itemsList =
-                  r['purchases_purchase_receive_items'] as List<dynamic>? ?? [];
+                  r['purchases_purchase_receive_items'] as List<dynamic>? ??
+                  r['purchase_receive_items'] as List<dynamic>? ??
+                  [];
               for (final recItem in itemsList) {
-                final recProdId = recItem['product_id']?.toString();
+                final recProdId = (recItem['item_id'] ?? recItem['product_id'])
+                    ?.toString();
                 if (recProdId == item.productId) {
                   itemReceivedQty +=
                       (recItem['received'] as num?)?.toDouble() ?? 0.0;
@@ -3546,19 +4027,6 @@ class _PurchaseOrderOverviewScreenState
       ),
     );
   }
-
-  ButtonStyle _viewMenuItemStyle(bool isSelected) {
-    return MenuItemButton.styleFrom(
-      foregroundColor: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimary,
-      backgroundColor: isSelected
-          ? AppTheme.primaryBlue.withValues(alpha: 0.05)
-          : Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      textStyle: AppTheme.bodyText.copyWith(
-        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-      ),
-    );
-  }
 }
 
 class _ResizableHeaderCell extends StatefulWidget {
@@ -3639,8 +4107,6 @@ class _ActionSquare extends StatelessWidget {
     );
   }
 }
-
-
 
 extension on _PurchaseOrderOverviewScreenState {
   Widget _pdfCard(
@@ -3807,7 +4273,7 @@ extension on _PurchaseOrderOverviewScreenState {
                     children: [
                       _infoPair(
                         'Payment Terms',
-                        order.paymentTerms ?? 'Net 30',
+                        order.paymentTermsName ?? order.paymentTerms ?? 'Net 30',
                       ),
                       _infoPair('Notes', order.notes ?? 'No notes available'),
                     ],
@@ -4567,5 +5033,607 @@ class _BulkDivider extends StatelessWidget {
   }
 }
 
+class _HistoryEvent {
+  final String username;
+  final DateTime time;
+  final String content;
+  final IconData icon;
 
+  const _HistoryEvent({
+    required this.username,
+    required this.time,
+    required this.content,
+    required this.icon,
+  });
+}
 
+class _AttachmentOverlayContent extends StatefulWidget {
+  final PurchaseOrder order;
+  final WidgetRef ref;
+  final VoidCallback onRefresh;
+  final VoidCallback onClose;
+
+  const _AttachmentOverlayContent({
+    required this.order,
+    required this.ref,
+    required this.onRefresh,
+    required this.onClose,
+  });
+
+  @override
+  State<_AttachmentOverlayContent> createState() =>
+      _AttachmentOverlayContentState();
+}
+
+class _AttachmentOverlayContentState extends State<_AttachmentOverlayContent> {
+  bool _isUploading = false;
+  List<Map<String, dynamic>> _attachments = [];
+  bool _isLoading = true;
+  bool _displayInPortal = false;
+  String? _expandedAttachmentId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttachments();
+  }
+
+  Future<void> _loadAttachments() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('purchase_order_attachments')
+          .select('id,file_name,file_path,file_size,file_type,uploaded_at')
+          .eq('purchase_order_id', widget.order.id ?? '')
+          .order('uploaded_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _attachments = (res as List<dynamic>)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatFileSize(dynamic size) {
+    if (size == null) return 'File Size: 0 KB';
+    if (size is num) {
+      if (size / 1024 > 1024) {
+        return 'File Size: ${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+      } else {
+        return 'File Size: ${(size / 1024).toStringAsFixed(1)} KB';
+      }
+    }
+    final sizeStr = size.toString().trim();
+    if (sizeStr.toLowerCase().contains('kb') ||
+        sizeStr.toLowerCase().contains('mb') ||
+        sizeStr.toLowerCase().contains('b')) {
+      return 'File Size: $sizeStr';
+    }
+    final parsed = num.tryParse(sizeStr);
+    if (parsed != null) {
+      if (parsed / 1024 > 1024) {
+        return 'File Size: ${(parsed / (1024 * 1024)).toStringAsFixed(1)} MB';
+      } else {
+        return 'File Size: ${(parsed / 1024).toStringAsFixed(1)} KB';
+      }
+    }
+    return 'File Size: $sizeStr';
+  }
+
+  Future<String?> _getSignedUrl(String fileKey) async {
+    try {
+      final apiClient = ApiClient();
+      final response = await apiClient.get(
+        '/lookups/uploads/signed-url',
+        queryParameters: {'fileKey': fileKey},
+        useCache: false,
+      );
+      if (response.data is Map && response.data['signedUrl'] != null) {
+        return response.data['signedUrl'].toString();
+      }
+    } catch (e) {
+      debugPrint('Error getting signed URL: $e');
+    }
+    return null;
+  }
+
+  Future<void> _downloadAttachment(Map<String, dynamic> attachment) async {
+    try {
+      final filePath = attachment['file_path']?.toString();
+      final fileName = attachment['file_name']?.toString() ?? 'download';
+      if (filePath == null) return;
+
+      final signedUrl = await _getSignedUrl(filePath);
+      if (signedUrl != null) {
+        final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
+        anchor.href = signedUrl;
+        anchor.download = fileName;
+        anchor.click();
+      } else {
+        if (mounted) {
+          ZerpaiToast.error(context, 'Failed to get download link');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Error downloading file: $e');
+      }
+    }
+  }
+
+  Future<void> _openAttachmentInNewTab(Map<String, dynamic> attachment) async {
+    try {
+      final filePath = attachment['file_path']?.toString();
+      final fileType = attachment['file_type']?.toString() ?? '';
+      if (filePath == null) return;
+
+      String? mimeType;
+      final ext = fileType.toLowerCase().replaceAll('.', '');
+      if (ext == 'pdf') {
+        mimeType = 'application/pdf';
+      } else if (ext == 'jpg' || ext == 'jpeg') {
+        mimeType = 'image/jpeg';
+      } else if (ext == 'png') {
+        mimeType = 'image/png';
+      } else if (ext == 'gif') {
+        mimeType = 'image/gif';
+      } else if (ext == 'webp') {
+        mimeType = 'image/webp';
+      } else if (ext == 'txt') {
+        mimeType = 'text/plain';
+      }
+
+      final apiClient = ApiClient();
+      final response = await apiClient.get(
+        '/lookups/uploads/signed-url',
+        queryParameters: {
+          'fileKey': filePath,
+          if (mimeType != null) 'mimeType': mimeType,
+        },
+        useCache: false,
+      );
+
+      if (response.data is Map && response.data['signedUrl'] != null) {
+        web.window.open(response.data['signedUrl'].toString(), '_blank');
+      } else {
+        if (mounted) {
+          ZerpaiToast.error(context, 'Failed to get file link');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Error opening file: $e');
+      }
+    }
+  }
+
+  Future<void> _uploadFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+      );
+      if (result == null || !mounted) return;
+
+      setState(() {
+        _isUploading = true;
+      });
+
+      final supabase = Supabase.instance.client;
+      final apiClient = ApiClient();
+      for (final file in result.files) {
+        if (file.bytes == null) continue;
+
+        final base64Data = base64Encode(file.bytes!);
+        final ext = file.extension?.toLowerCase() ?? '';
+        String mimeType = 'application/octet-stream';
+        if (ext == 'pdf') {
+          mimeType = 'application/pdf';
+        } else if (ext == 'jpg' || ext == 'jpeg') {
+          mimeType = 'image/jpeg';
+        } else if (ext == 'png') {
+          mimeType = 'image/png';
+        } else if (ext == 'gif') {
+          mimeType = 'image/gif';
+        } else if (ext == 'webp') {
+          mimeType = 'image/webp';
+        } else if (ext == 'txt') {
+          mimeType = 'text/plain';
+        }
+
+        // Upload to Cloudflare R2 via backend
+        final response = await apiClient.post(
+          '/lookups/uploads',
+          data: {
+            'fileName': file.name,
+            'fileData': base64Data,
+            'mimeType': mimeType,
+            'prefix': 'purchase_orders',
+          },
+        );
+
+        final fileKey =
+            response.data['fileKey'] ?? 'purchase_orders/${file.name}';
+
+        final double sizeInKb = file.size / 1024;
+        final String formattedSize = sizeInKb >= 1024
+            ? '${(sizeInKb / 1024).toStringAsFixed(2)} MB'
+            : '${sizeInKb.toStringAsFixed(2)} KB';
+
+        // Save to DB
+        await supabase.from('purchase_order_attachments').insert({
+          'purchase_order_id': widget.order.id,
+          'file_name': file.name,
+          'file_path': fileKey,
+          'file_size': formattedSize,
+          'file_type': file.extension ?? 'bin',
+          'entity_id':
+              widget.ref.read(entityProvider).entityId ??
+              '00000000-0000-0000-0000-000000000000',
+        });
+      }
+
+      await _loadAttachments();
+      widget.ref.invalidate(purchaseOrderProvider(widget.order.id!));
+      widget.onRefresh();
+      if (mounted) {
+        ZerpaiToast.success(context, 'Attachments uploaded successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to upload attachments: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteAttachment(Map<String, dynamic> attachment) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final id = attachment['id'];
+      final filePath = attachment['file_path']?.toString();
+
+      if (filePath != null) {
+        final apiClient = ApiClient();
+        await apiClient.delete(
+          '/lookups/uploads',
+          data: {'fileKey': filePath},
+        );
+      }
+
+      await supabase.from('purchase_order_attachments').delete().eq('id', id);
+
+      await _loadAttachments();
+      widget.ref.invalidate(purchaseOrderProvider(widget.order.id!));
+      widget.onRefresh();
+      if (mounted) {
+        ZerpaiToast.success(context, 'Attachment deleted successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to delete attachment: $e');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Text(
+                  'Attachments',
+                  style: AppTheme.bodyText.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                if (_isUploading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  InkWell(
+                    onTap: widget.onClose,
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(LucideIcons.x, color: Colors.red, size: 16),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_attachments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No attachments yet',
+                style: AppTheme.metaHelper,
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.all(12),
+                itemCount: _attachments.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final att = _attachments[index];
+                  final name = att['file_name']?.toString() ?? 'Unnamed';
+                  final isPdf = name.toLowerCase().endsWith('.pdf');
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: isPdf
+                                ? const Color(0xFFFEE2E2)
+                                : const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              LucideIcons.fileText,
+                              color: isPdf
+                                  ? Colors.red.shade700
+                                  : Colors.blue.shade700,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatFileSize(att['file_size']),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              if (_expandedAttachmentId == att['id']?.toString()) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () => _downloadAttachment(att),
+                                      child: const Text(
+                                        'Download',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF3B82F6),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    InkWell(
+                                      onTap: () => _deleteAttachment(att),
+                                      child: const Text(
+                                        'Remove',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF3B82F6),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    ZTooltip(
+                                      message: 'Open in new tab',
+                                      direction: ZTooltipDirection.bottom,
+                                      child: InkWell(
+                                        onTap: () => _openAttachmentInNewTab(att),
+                                        child: const Icon(
+                                          LucideIcons.externalLink,
+                                          size: 14,
+                                          color: Color(0xFF3B82F6),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(
+                            LucideIcons.trash2,
+                            size: 16,
+                            color: Colors.red,
+                          ),
+                          onPressed: () => _deleteAttachment(att),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(
+                            LucideIcons.moreVertical,
+                            size: 16,
+                            color: AppTheme.textSecondary,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              final idStr = att['id']?.toString();
+                              if (_expandedAttachmentId == idStr) {
+                                _expandedAttachmentId = null;
+                              } else {
+                                _expandedAttachmentId = idStr;
+                              }
+                            });
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 16,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Display attachments in vendor portal\nand emails',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textPrimary,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                Transform.scale(
+                  scale: 0.8,
+                  child: Switch(
+                    value: _displayInPortal,
+                    onChanged: (val) {
+                      setState(() {
+                        _displayInPortal = val;
+                      });
+                    },
+                    activeTrackColor: AppTheme.primaryBlue,
+                    activeThumbColor: Colors.white,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: DottedBorder(
+              color: const Color(0xFFD1D5DB),
+              strokeWidth: 1,
+              dashPattern: const [4, 4],
+              borderType: BorderType.RRect,
+              radius: const Radius.circular(8),
+              child: InkWell(
+                onTap: _uploadFile,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.uploadCloud,
+                        color: Color(0xFF3B82F6),
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Upload your Files',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(
+                        LucideIcons.chevronDown,
+                        color: AppTheme.textSecondary,
+                        size: 14,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Text(
+              'You can upload a maximum of 10 files, 10MB each',
+              style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -94,9 +94,13 @@ export class PurchaseOrdersService {
     const warehouseIds = Array.from(
       new Set(rows.map((row) => row.warehouse_id).filter(Boolean)),
     );
+    const paymentTermIds = Array.from(
+      new Set(rows.map((row) => row.payment_terms_id).filter(Boolean)),
+    );
 
     const vendorMap = new Map<string, { display_name?: string; company_name?: string }>();
     const warehouseMap = new Map<string, { name?: string }>();
+    const paymentTermMap = new Map<string, { term_name?: string }>();
 
     if (vendorIds.length) {
       const { data: vendors } = await client
@@ -121,11 +125,24 @@ export class PurchaseOrdersService {
       }
     }
 
+    if (paymentTermIds.length) {
+      const { data: terms } = await client
+        .from("payment_terms")
+        .select("id,term_name")
+        .in("id", paymentTermIds);
+      for (const term of terms ?? []) {
+        paymentTermMap.set(term.id, { term_name: term.term_name });
+      }
+    }
+
     return rows.map((row) => ({
       ...row,
       vendor: row.vendor_id ? vendorMap.get(row.vendor_id) ?? null : null,
       warehouse: row.warehouse_id
         ? warehouseMap.get(row.warehouse_id) ?? null
+        : null,
+      payment_term: row.payment_terms_id
+        ? paymentTermMap.get(row.payment_terms_id) ?? null
         : null,
     }));
   }
@@ -324,20 +341,21 @@ export class PurchaseOrdersService {
 
     if (items && items.length > 0) {
       const itemsPayload = items.map((item) => {
-        const accountId = item.account_id || item.accounts;
+        const { warehouse_id, ...restItem } = item;
+        const accountId = restItem.account_id || restItem.accounts;
         let hsnNumeric: number | null = null;
         if (
-          item.hsn_code !== undefined &&
-          item.hsn_code !== null &&
-          item.hsn_code !== ""
+          restItem.hsn_code !== undefined &&
+          restItem.hsn_code !== null &&
+          restItem.hsn_code !== ""
         ) {
-          const parsed = Number(item.hsn_code);
+          const parsed = Number(restItem.hsn_code);
           if (!isNaN(parsed)) {
             hsnNumeric = parsed;
           }
         }
         return {
-          ...(item as any),
+          ...(restItem as any),
           account_id: accountId,
           accounts: accountId,
           hsn_code: hsnNumeric,
@@ -395,6 +413,7 @@ export class PurchaseOrdersService {
     const payload: any = {
       ...(poData as any),
       discount_account_id: resolvedDiscountAccountId,
+      updated_at: new Date().toISOString(),
     };
     if (resolvedWarehouseId) {
       payload.warehouse_id = resolvedWarehouseId;
@@ -433,20 +452,21 @@ export class PurchaseOrdersService {
     // 2. Insert new / updated items
     if (items && items.length > 0) {
       const itemsPayload = items.map((item) => {
-        const accountId = item.account_id || item.accounts;
+        const { warehouse_id, ...restItem } = item;
+        const accountId = restItem.account_id || restItem.accounts;
         let hsnNumeric: number | null = null;
         if (
-          item.hsn_code !== undefined &&
-          item.hsn_code !== null &&
-          item.hsn_code !== ""
+          restItem.hsn_code !== undefined &&
+          restItem.hsn_code !== null &&
+          restItem.hsn_code !== ""
         ) {
-          const parsed = Number(item.hsn_code);
+          const parsed = Number(restItem.hsn_code);
           if (!isNaN(parsed)) {
             hsnNumeric = parsed;
           }
         }
         return {
-          ...(item as any),
+          ...(restItem as any),
           account_id: accountId,
           accounts: accountId,
           hsn_code: hsnNumeric,

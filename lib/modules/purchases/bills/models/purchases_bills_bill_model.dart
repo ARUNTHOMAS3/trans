@@ -25,6 +25,8 @@ class PurchasesBill {
   final String? adjustmentLabel;
   final double adjustment;
   final double total;
+  final double tdsTotal;
+  final double tcsTotal;
   final String? notes;
   final List<String> attachmentUrls;
   final String status; // 'draft', 'open', 'paid', 'overdue', 'void'
@@ -62,6 +64,8 @@ class PurchasesBill {
     this.adjustmentLabel = 'Adjustment',
     this.adjustment = 0,
     this.total = 0,
+    this.tdsTotal = 0,
+    this.tcsTotal = 0,
     this.notes,
     this.attachmentUrls = const [],
     this.status = 'draft',
@@ -168,6 +172,8 @@ class PurchasesBill {
       adjustmentLabel: json['adjustment_label'] ?? 'Adjustment',
       adjustment: _parseDouble(json['adjustment'] ?? json['adjustment_amount'] ?? 0),
       total: _parseDouble(json['total'] ?? json['grand_total'] ?? 0),
+      tdsTotal: _parseDouble(json['tds_total'] ?? json['tdsTotal'] ?? 0),
+      tcsTotal: _parseDouble(json['tcs_total'] ?? json['tcsTotal'] ?? 0),
       notes: json['notes'],
       attachmentUrls:
           (json['attachment_urls'] as List<dynamic>?)?.cast<String>() ?? [],
@@ -213,6 +219,8 @@ class PurchasesBill {
       'adjustmentLabel': adjustmentLabel ?? 'Adjustment',
       'adjustment': adjustment,
       'total': total,
+      'tdsTotal': tdsTotal,
+      'tcsTotal': tcsTotal,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
       'attachmentUrls': attachmentUrls,
       'status': status,

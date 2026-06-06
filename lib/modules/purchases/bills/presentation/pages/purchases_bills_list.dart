@@ -31,6 +31,7 @@ import '../../../../../shared/providers/lookup_providers.dart';
 import '../../../../../app/providers/org_settings_provider.dart';
 import '../../../../../core/models/org_settings_model.dart';
 import '../../../../../shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -43,21 +44,19 @@ class _ClearBillsSelectionIntent extends Intent {
 
 // ─── View filter options ────────────────────────────────────────────────────
 
-class _BillView {
-  final String label;
-  final String? status;
-  const _BillView(this.label, {this.status});
-}
-
-const _billViews = <_BillView>[
-  _BillView('All Bills'),
-  _BillView('All'),
-  _BillView('Draft', status: 'draft'),
-  _BillView('Open', status: 'open'),
-  _BillView('Overdue', status: 'overdue'),
-  _BillView('Paid', status: 'paid'),
-  _BillView('Partially Paid', status: 'partially_paid'),
-  _BillView('Void', status: 'void'),
+const _billFilterOptions = <FavoriteFilterOption>[
+  FavoriteFilterOption(label: 'All', value: 'all'),
+  FavoriteFilterOption(label: 'Draft', value: 'draft'),
+  FavoriteFilterOption(label: 'Pending Approval', value: 'pending_approval'),
+  FavoriteFilterOption(label: 'Open', value: 'open'),
+  FavoriteFilterOption(label: 'Overdue', value: 'overdue'),
+  FavoriteFilterOption(label: 'Unpaid', value: 'unpaid'),
+  FavoriteFilterOption(label: 'Partially Paid', value: 'partially_paid'),
+  FavoriteFilterOption(label: 'Paid', value: 'paid'),
+  FavoriteFilterOption(label: 'Void', value: 'void'),
+  FavoriteFilterOption(label: 'Yet To Be Received', value: 'yet_to_be_received'),
+  FavoriteFilterOption(label: 'Received', value: 'received'),
+  FavoriteFilterOption(label: 'MSME Vendor Bills Unpaid for 40+ Days', value: 'msme_unpaid_40'),
 ];
 
 // ─── Main screen ────────────────────────────────────────────────────────────
@@ -88,7 +87,7 @@ class _PurchasesBillsListScreenState
   String _sortField = 'bill_date';
   bool _sortAscending = false;
   bool _shouldWrapText = false;
-  _BillView _activeView = _billViews.first;
+  FavoriteFilterOption _activeOption = _billFilterOptions.first;
   Map<String, double>? _customColumnWidths;
   final ScrollController _horizontalScrollController = ScrollController();
   bool _showPdfView = false;
@@ -223,11 +222,11 @@ class _PurchasesBillsListScreenState
       }
     });
     if (widget.initialFilter != null) {
-      final found = _billViews.where(
+      final found = _billFilterOptions.where(
         (v) => v.label.toLowerCase() == widget.initialFilter!.toLowerCase(),
       );
       if (found.isNotEmpty) {
-        _activeView = found.first;
+        _activeOption = found.first;
       }
     }
     // Load bills
@@ -361,50 +360,15 @@ class _PurchasesBillsListScreenState
                 ),
                 child: Row(
                   children: [
-                    MenuAnchor(
-                      style: _viewMenuStyle(),
-                      builder: (context, controller, child) {
-                        return InkWell(
-                          onTap: () => controller.isOpen
-                              ? controller.close()
-                              : controller.open(),
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 4,
-                              horizontal: 4,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _activeView.label,
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimary,
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  LucideIcons.chevronDown,
-                                  size: 18,
-                                  color: AppTheme.primaryBlue,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
+                    FavoriteFilterDropdown(
+                      moduleName: 'bills',
+                      options: _billFilterOptions,
+                      selectedOption: _activeOption,
+                      onChanged: (opt) {
+                        setState(() {
+                          _activeOption = opt;
+                        });
                       },
-                      menuChildren: _billViews.map((view) {
-                        final isSelected = _activeView == view;
-                        return MenuItemButton(
-                          style: _viewMenuItemStyle(isSelected),
-                          onPressed: () => setState(() => _activeView = view),
-                          child: Text(view.label),
-                        );
-                      }).toList(),
                     ),
                     const Spacer(),
                     InkWell(
@@ -429,38 +393,7 @@ class _PurchasesBillsListScreenState
                       width: 28,
                       height: 28,
                       iconSize: 14,
-                      menuChildren: [
-                        SubmenuButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          menuChildren: [
-                            _buildSortMenuItem('Date', 'bill_date'),
-                            _buildSortMenuItem('Bill#', 'bill_number'),
-                            _buildSortMenuItem('Vendor Name', 'vendor_name'),
-                            _buildSortMenuItem('Amount', 'total'),
-                            _buildSortMenuItem('Due Date', 'due_date'),
-                          ],
-                          child: const Text('Sort by'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Import Bills'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Export Bills'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Preferences'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          onPressed: () {
-                            ref.read(billsProvider.notifier).loadBills();
-                          },
-                          child: const Text('Refresh List'),
-                        ),
-                      ],
+                      menuChildren: _buildMoreMenuChildren(),
                     ),
                   ],
                 ),
@@ -652,6 +585,9 @@ class _PurchasesBillsListScreenState
 
   ButtonStyle _menuItemStyle({bool isActive = false}) {
     return ButtonStyle(
+      animationDuration: Duration.zero,
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
         final highlighted =
             states.contains(WidgetState.hovered) ||
@@ -2276,15 +2212,13 @@ class _PurchasesBillsListScreenState
   List<PurchasesBill> _applyFilters(List<PurchasesBill> bills) {
     var result = bills;
 
-    if (_activeView.label != 'All' && _activeView.label != 'All Bills') {
-      if (_activeView.status != null) {
-        result = result
-            .where(
-              (b) =>
-                  b.status.toLowerCase() == _activeView.status!.toLowerCase(),
-            )
-            .toList();
-      }
+    if (_activeOption.value != 'all') {
+      result = result
+          .where(
+            (b) =>
+                b.status.toLowerCase() == _activeOption.value.toLowerCase(),
+          )
+          .toList();
     }
 
     if (_searchQuery.isNotEmpty) {
@@ -2323,6 +2257,19 @@ class _PurchasesBillsListScreenState
             b.dueDate ?? DateTime(2000),
           );
           break;
+        case 'created_at':
+          cmp = (a.createdAt ?? DateTime(2000)).compareTo(
+            b.createdAt ?? DateTime(2000),
+          );
+          break;
+        case 'updated_at':
+          cmp = (a.updatedAt ?? DateTime(2000)).compareTo(
+            b.updatedAt ?? DateTime(2000),
+          );
+          break;
+        case 'balance_due':
+          cmp = a.total.compareTo(b.total);
+          break;
         default:
           cmp = 0;
       }
@@ -2348,49 +2295,15 @@ class _PurchasesBillsListScreenState
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          MenuAnchor(
-            style: _viewMenuStyle(),
-            builder: (context, controller, child) {
-              return InkWell(
-                onTap: () =>
-                    controller.isOpen ? controller.close() : controller.open(),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 4,
-                    horizontal: 4,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _activeView.label,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        LucideIcons.chevronDown,
-                        size: 18,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ],
-                  ),
-                ),
-              );
+          FavoriteFilterDropdown(
+            moduleName: 'bills',
+            options: _billFilterOptions,
+            selectedOption: _activeOption,
+            onChanged: (opt) {
+              setState(() {
+                _activeOption = opt;
+              });
             },
-            menuChildren: _billViews.map((view) {
-              final isSelected = _activeView == view;
-              return MenuItemButton(
-                style: _viewMenuItemStyle(isSelected),
-                onPressed: () => setState(() => _activeView = view),
-                child: Text(view.label),
-              );
-            }).toList(),
           ),
           const Spacer(),
           Container(
@@ -2451,59 +2364,6 @@ class _PurchasesBillsListScreenState
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          MenuAnchor(
-            style: _menuStyle(),
-            builder: (context, controller, child) {
-              return InkWell(
-                onTap: () =>
-                    controller.isOpen ? controller.close() : controller.open(),
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: AppTheme.borderLight),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Upload Bill',
-                        style: AppTheme.bodyText.copyWith(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        LucideIcons.chevronDown,
-                        size: 14,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-            menuChildren: [
-              MenuItemButton(
-                onPressed: () {
-                  ZerpaiToast.info(context, 'Upload from local files');
-                },
-                child: const Text('From Desktop'),
-              ),
-              MenuItemButton(
-                onPressed: () {
-                  ZerpaiToast.info(context, 'Upload from documents scanner');
-                },
-                child: const Text('From Documents'),
-              ),
-            ],
           ),
           const SizedBox(width: 12),
           Container(
@@ -2586,38 +2446,7 @@ class _PurchasesBillsListScreenState
           ZTableMoreMenu(
             width: 32,
             height: 32,
-            menuChildren: [
-              SubmenuButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                menuChildren: [
-                  _buildSortMenuItem('Date', 'bill_date'),
-                  _buildSortMenuItem('Bill#', 'bill_number'),
-                  _buildSortMenuItem('Vendor Name', 'vendor_name'),
-                  _buildSortMenuItem('Amount', 'total'),
-                  _buildSortMenuItem('Due Date', 'due_date'),
-                ],
-                child: const Text('Sort by'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: const Text('Import Bills'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: const Text('Export Bills'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: const Text('Preferences'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                onPressed: () {
-                  ref.read(billsProvider.notifier).loadBills();
-                },
-                child: const Text('Refresh List'),
-              ),
-            ],
+            menuChildren: _buildMoreMenuChildren(),
           ),
         ],
       ),
@@ -2896,6 +2725,67 @@ class _PurchasesBillsListScreenState
   }
 
   // ─── Sort Menu Item ─────────────────────────────────────────────────────
+
+  List<Widget> _buildMoreMenuChildren() {
+    return [
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
+        menuChildren: [
+          _buildSortMenuItem('Created Time', 'created_at'),
+          _buildSortMenuItem('Date', 'bill_date'),
+          _buildSortMenuItem('Bill#', 'bill_number'),
+          _buildSortMenuItem('Vendor Name', 'vendor_name'),
+          _buildSortMenuItem('Due Date', 'due_date'),
+          _buildSortMenuItem('Amount', 'total'),
+          _buildSortMenuItem('Balance Due', 'balance_due'),
+          _buildSortMenuItem('Last Modified Time', 'updated_at'),
+        ],
+        child: const Text('Sort by'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.download, size: 16),
+        onPressed: () {},
+        child: const Text('Import Bills'),
+      ),
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.upload, size: 16),
+        menuChildren: [
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
+            child: const Text('Export Bills'),
+          ),
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
+            child: const Text('Export Current View'),
+          ),
+        ],
+        child: const Text('Export'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.settings, size: 16),
+        onPressed: _showCustomizeColumnsDialog,
+        child: const Text('Preferences'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
+        onPressed: () {
+          ref.read(billsProvider.notifier).loadBills();
+        },
+        child: const Text('Refresh List'),
+      ),
+    ];
+  }
 
   Widget _buildSortMenuItem(String label, String field) {
     final isSelected = _sortField == field;
@@ -3397,51 +3287,7 @@ class _PurchasesBillsListScreenState
     );
   }
 
-  MenuStyle _viewMenuStyle() {
-    return MenuStyle(
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      elevation: const WidgetStatePropertyAll(8),
-      backgroundColor: const WidgetStatePropertyAll(Colors.white),
-      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-    );
-  }
 
-  ButtonStyle _viewMenuItemStyle(bool isSelected) {
-    return ButtonStyle(
-      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-        final highlighted =
-            states.contains(WidgetState.hovered) ||
-            states.contains(WidgetState.focused);
-        if (isSelected) {
-          return const Color(0xFF3B82F6);
-        }
-        if (highlighted) {
-          return const Color(0xFF3B82F6);
-        }
-        return Colors.transparent;
-      }),
-      foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
-        final highlighted =
-            states.contains(WidgetState.hovered) ||
-            states.contains(WidgetState.focused);
-        if (isSelected || highlighted) {
-          return Colors.white;
-        }
-        return AppTheme.textPrimary;
-      }),
-      padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      textStyle: WidgetStateProperty.all<TextStyle>(
-        AppTheme.bodyText.copyWith(
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-        ),
-      ),
-    );
-  }
 
   Widget _detailBanners(PurchasesBill bill) {
     return Container(

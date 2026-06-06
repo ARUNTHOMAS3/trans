@@ -479,6 +479,9 @@ export class SalesService {
       warehouseId,
       priceListId,
       placeOfSupply,
+      tdsTcsType,
+      tdsTcsTaxId,
+      tdsTcsAmount,
     } = body;
 
     if (!customerId) throw new BadRequestException("customerId is required");
@@ -604,6 +607,9 @@ export class SalesService {
         warehouse_id: warehouseId || null,
         price_list_id: priceListId || null,
         place_of_supply: placeOfSupply || null,
+        tds_tcs_type: tdsTcsType || null,
+        tds_tcs_tax_id: tdsTcsTaxId || null,
+        tds_tcs_amount: tdsTcsAmount ? Number(tdsTcsAmount) : 0,
         is_delete: false,
       })
       .select()
@@ -664,6 +670,9 @@ export class SalesService {
       warehouseId,
       priceListId,
       placeOfSupply,
+      tdsTcsType,
+      tdsTcsTaxId,
+      tdsTcsAmount,
     } = body;
 
     const items = await this.resolveItemFields(rawItems, orgId);
@@ -784,6 +793,9 @@ export class SalesService {
         warehouse_id: warehouseId || null,
         price_list_id: priceListId || null,
         place_of_supply: placeOfSupply || null,
+        tds_tcs_type: tdsTcsType || null,
+        tds_tcs_tax_id: tdsTcsTaxId || null,
+        tds_tcs_amount: tdsTcsAmount ? Number(tdsTcsAmount) : 0,
       })
       .eq("id", id)
       .eq("entity_id", orgId)

@@ -26,6 +26,11 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_pu
 
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
+import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
@@ -169,6 +174,7 @@ class _PRCreateState
   final LayerLink _filePopupLayerLink = LayerLink();
   OverlayEntry? _filePopupOverlayEntry;
   OverlayEntry? _topErrorOverlayEntry;
+  OverlayEntry? _vendorSidebarOverlay;
   Timer? _topErrorTimer;
   String? _selectedTransactionBin;
   static const List<String> _manualBinList = [
@@ -580,6 +586,7 @@ class _PRCreateState
 
   @override
   void dispose() {
+    _closeVendorSidebar();
     _dismissTopError();
     _hideFilePopupOverlay();
     _attachmentListScrollController.dispose();
@@ -1047,42 +1054,153 @@ class _PRCreateState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFormRow(
-                  label: "Vendor Name",
-                  isRequired: true,
-                  child: Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
-                      child: FormDropdown<Vendor>(
-                        value: ref
-                            .read(vendorProvider)
-                            .vendors
-                            .where((v) => v.id == _selectedVendorId)
-                            .firstOrNull,
-                        items: ref.watch(vendorProvider).vendors,
-                        hint: "Select or type to search",
-                        showSearch: true,
-                        displayStringForValue: (v) => v.displayName,
-                        searchStringForValue: (v) => v.displayName,
-                        itemBuilder: (item, isSelected, isHovered) {
-                          return _buildDropdownOverlayItem(
-                            item.displayName,
-                            isSelected,
-                            isHovered,
-                          );
-                        },
-                        onChanged: (vendor) {
-                          if (vendor != null) {
-                            setState(() {
-                              _selectedVendorId = vendor.id;
-                              _selectedVendorName = vendor.displayName;
-                            });
-                            _fetchPOsForVendor(vendor.id);
-                          }
-                        },
+                Builder(
+                  builder: (context) {
+                    final selectedVendor = ref.watch(vendorProvider).vendors.firstWhere(
+                      (v) => v.id == _selectedVendorId,
+                      orElse: () => Vendor(id: '', displayName: ''),
+                    );
+                    final hasVendor = selectedVendor.id.isNotEmpty;
+                    return _buildFormRow(
+                      label: "Vendor Name",
+                      isRequired: true,
+                      child: Flexible(
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 550,
+                              child: FormDropdown<Vendor>(
+                                height: 32,
+                                value: hasVendor ? selectedVendor : null,
+                                items: ref.watch(vendorProvider).vendors,
+                                hint: "Select or type to search",
+                                showSearch: true,
+                                allowClear: hasVendor,
+                                menuWidth: 550,
+                                onChanged: (vendor) {
+                                  if (vendor != null) {
+                                    setState(() {
+                                      _selectedVendorId = vendor.id;
+                                      _selectedVendorName = vendor.displayName;
+                                    });
+                                    _fetchPOsForVendor(vendor.id);
+                                  } else {
+                                    setState(() {
+                                      _selectedVendorId = null;
+                                      _selectedVendorName = null;
+                                    });
+                                  }
+                                },
+                                showSettings: true,
+                                settingsLabel: 'New Vendor',
+                                settingsIcon: LucideIcons.plus,
+                                onSettingsTap: _showNewVendorDialog,
+                                displayStringForValue: (v) => v.displayName,
+                                itemBuilder: (v, isSelected, isHovered) =>
+                                    _buildVendorDropdownItem(v, isSelected, isHovered),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(4),
+                                  bottomLeft: Radius.circular(4),
+                                ),
+                                showRightBorder: false,
+                                border: Border.all(color: _fieldBorder),
+                              ),
+                            ),
+                            Container(
+                              height: 32,
+                              width: 32,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF10B981),
+                                borderRadius: BorderRadius.only(
+                                  topRight: Radius.circular(4),
+                                  bottomRight: Radius.circular(4),
+                                ),
+                              ),
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                  LucideIcons.search,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                onPressed: () => _showAdvancedSearch(
+                                  ref.read(vendorProvider).vendors,
+                                ),
+                              ),
+                            ),
+                            if (hasVendor) ...[
+                              const SizedBox(width: 8),
+                              // INR badge
+                              Container(
+                                height: 28,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.circleDollarSign,
+                                      size: 14,
+                                      color: Color(0xFF374151),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _getCurrencyLabel(selectedVendor.currency ?? 'INR'),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Vendor card button on the right
+                              GestureDetector(
+                                onTap: () => _showVendorSidebar(selectedVendor),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF475569),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        selectedVendor.displayName.length > 20
+                                            ? '${selectedVendor.displayName.substring(0, 20)}...'
+                                            : selectedVendor.displayName,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  }
                 ),
                 const SizedBox(height: 20),
                 _buildFormRow(
@@ -2306,6 +2424,174 @@ class _PRCreateState
           color: isHovered ? Colors.white : _textPrimary,
           fontFamily: 'Inter',
         ),
+      ),
+    );
+  }
+
+  void _showAdvancedSearch(List<Vendor> vendors) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AdvancedVendorSearchDialog(
+        vendors: vendors,
+        onSelect: (v) {
+          setState(() {
+            _selectedVendorId = v.id;
+            _selectedVendorName = v.displayName;
+          });
+          _fetchPOsForVendor(v.id);
+          Navigator.pop(ctx);
+        },
+      ),
+    );
+  }
+
+  void _closeVendorSidebar() {
+    _vendorSidebarOverlay?.remove();
+    _vendorSidebarOverlay = null;
+  }
+
+  void _showVendorSidebar(Vendor vendor) async {
+    _closeVendorSidebar();
+    
+    Vendor displayVendor = vendor;
+    try {
+      final repo = ref.read(vendorRepositoryProvider);
+      final fetched = await repo.getVendorById(vendor.id);
+      if (fetched != null) {
+        displayVendor = fetched;
+      }
+    } catch (e) {
+      debugPrint('Error fetching full vendor details: $e');
+    }
+
+    if (!mounted) return;
+
+    final overlay = Overlay.of(context);
+    _vendorSidebarOverlay = OverlayEntry(
+      builder: (ctx) => VendorSidebar(
+        vendor: displayVendor,
+        onClose: _closeVendorSidebar,
+        paymentTermsList: const [],
+      ),
+    );
+    overlay.insert(_vendorSidebarOverlay!);
+  }
+
+  String _getCurrencyLabel(String code) {
+    final option = defaultCurrencyOptions.firstWhere(
+      (c) => c.code == code,
+      orElse: () => defaultCurrencyOptions.first,
+    );
+    return option.label;
+  }
+
+  Future<void> _showNewVendorDialog() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.only(
+          top: 0,
+          bottom: 24,
+          left: 40,
+          right: 40,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1300),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: const PurchasesVendorsVendorCreateScreen(isDialog: true),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    ref.invalidate(vendorProvider);
+  }
+
+  Widget _buildVendorDropdownItem(Vendor v, bool isSelected, bool isHovered) {
+    final firstName = (v.firstName ?? '').trim();
+    final initialSource = firstName.isNotEmpty
+        ? firstName
+        : (v.displayName.isNotEmpty ? v.displayName : '?');
+    final initial = initialSource.substring(0, 1).toUpperCase();
+
+    final backgroundColor = isHovered
+        ? const Color(0xFF3B82F6)
+        : (isSelected ? const Color(0xFFF3F4F6) : Colors.white);
+    final primaryTextColor = isHovered ? Colors.white : _textPrimary;
+    final secondaryTextColor = isHovered
+        ? Colors.white.withValues(alpha: 0.85)
+        : _hintColor;
+
+    final topLine = v.vendorNumber != null && v.vendorNumber!.isNotEmpty
+        ? '${v.displayName} | ${v.vendorNumber}'
+        : v.displayName;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isHovered
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : const Color(0xFFE5E7EB),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initial,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isHovered ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  topLine,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: primaryTextColor,
+                  ),
+                ),
+                if (v.companyName != null && v.companyName!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    v.companyName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

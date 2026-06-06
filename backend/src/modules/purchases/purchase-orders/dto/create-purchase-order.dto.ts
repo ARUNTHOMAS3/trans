@@ -6,6 +6,7 @@ import {
   IsUUID,
   ValidateNested,
   ArrayMinSize,
+  IsBoolean,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -27,10 +28,12 @@ class PurchaseOrderItemDto {
   accounts?: string;
 
   @IsNumber()
-  quantity: number;
+  @IsOptional()
+  quantity?: number;
 
   @IsNumber()
-  rate: number;
+  @IsOptional()
+  rate?: number;
 
   @IsUUID()
   @IsOptional()
@@ -53,7 +56,8 @@ class PurchaseOrderItemDto {
   discount_type?: string;
 
   @IsNumber()
-  amount: number;
+  @IsOptional()
+  amount?: number;
 
   @IsString()
   @IsOptional()
@@ -62,6 +66,22 @@ class PurchaseOrderItemDto {
   @IsString()
   @IsOptional()
   pricelist?: string;
+
+  @IsString()
+  @IsOptional()
+  warehouse_id?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  is_header?: boolean;
+
+  @IsString()
+  @IsOptional()
+  header_text?: string;
+
+  @IsNumber()
+  @IsOptional()
+  sort_order?: number;
 }
 
 export class CreatePurchaseOrderDto {

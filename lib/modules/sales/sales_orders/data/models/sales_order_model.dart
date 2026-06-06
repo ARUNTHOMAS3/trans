@@ -31,6 +31,11 @@ class SalesOrder {
   final bool isDelete;
   final String? entityId;
   final String? salesOrderId;
+  final String? tdsTcsType; // 'tds' | 'tcs' | 'none'
+  final String? tdsTcsTaxId;
+  final double tdsTcsAmount;
+  final double tdsTotal;
+  final double tcsTotal;
 
   SalesOrder({
     required this.id,
@@ -62,6 +67,11 @@ class SalesOrder {
     this.isDelete = false,
     this.entityId,
     this.salesOrderId,
+    this.tdsTcsType = 'none',
+    this.tdsTcsTaxId,
+    this.tdsTcsAmount = 0.0,
+    this.tdsTotal = 0.0,
+    this.tcsTotal = 0.0,
   });
 
   factory SalesOrder.fromJson(Map<String, dynamic> json) {
@@ -135,6 +145,11 @@ class SalesOrder {
       entityId: json['entity_id'] ?? json['entityId'],
       salesOrderId: (json['sales_order_id'] ?? json['salesOrderId'])
           ?.toString(),
+      tdsTcsType: json['tds_tcs_type']?.toString() ?? 'none',
+      tdsTcsTaxId: json['tds_tcs_tax_id']?.toString() ?? json['tds_id']?.toString(),
+      tdsTcsAmount: (json['tds_tcs_amount'] ?? 0.0).toDouble(),
+      tdsTotal: (json['tds_total'] ?? json['tdsTotal'] ?? 0.0).toDouble(),
+      tcsTotal: (json['tcs_total'] ?? json['tcsTotal'] ?? 0.0).toDouble(),
     );
   }
 
@@ -165,6 +180,11 @@ class SalesOrder {
       'priceListId': priceListId,
       'entityId': entityId,
       'is_delete': isDelete,
+      'tdsTcsType': tdsTcsType,
+      'tdsTcsTaxId': tdsTcsTaxId,
+      'tdsTcsAmount': tdsTcsAmount,
+      'tdsTotal': tdsTotal,
+      'tcsTotal': tcsTotal,
     };
   }
 

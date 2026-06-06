@@ -22,6 +22,22 @@ import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
+
+const _shipmentFilterOptions = <FavoriteFilterOption>[
+  FavoriteFilterOption(label: 'All', value: 'all'),
+  FavoriteFilterOption(label: 'Shipped', value: 'shipped'),
+  FavoriteFilterOption(label: 'In Transit', value: 'in_transit'),
+  FavoriteFilterOption(label: 'Out For Delivery', value: 'out_for_delivery'),
+  FavoriteFilterOption(label: 'Failed Delivery Attempt', value: 'failed_delivery_attempt'),
+  FavoriteFilterOption(label: 'Customs Clearance', value: 'customs_clearance'),
+  FavoriteFilterOption(label: 'Ready For Pickup', value: 'ready_for_pickup'),
+  FavoriteFilterOption(label: 'Delayed', value: 'delayed'),
+  FavoriteFilterOption(label: 'Delivered', value: 'delivered'),
+  FavoriteFilterOption(label: 'Delivered to PO', value: 'delivered_to_po'),
+  FavoriteFilterOption(label: 'White Glove Delivery', value: 'white_glove_delivery'),
+  FavoriteFilterOption(label: 'Delivered from Pickup Point', value: 'delivered_from_pickup_point'),
+];
 
 final shipmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   print('[shipmentsProvider] Started');
@@ -91,7 +107,7 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
   String _sortField = 'created_at';
   bool _sortAscending = false;
   bool _shouldWrapText = false;
-  String _filterType = 'All';
+  FavoriteFilterOption _activeOption = _shipmentFilterOptions.first;
   Set<String> _visibleColumns = {
     'date', 'shipment_number', 'customer_name', 'sales_order#', 'package#', 'carrier', 'tracking#', 'status', 'shipping_rate'
   };
@@ -201,17 +217,27 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
       child: shipmentsAsync.when(
         data: (shipments) {
           if (shipments.isEmpty) {
-            return const _EmptyShipmentsView();
+            return _EmptyShipmentsView(
+              activeOption: _activeOption,
+              onOptionChanged: (opt) {
+                setState(() {
+                  _activeOption = opt;
+                });
+              },
+            );
           }
 
           final filtered = shipments.where((s) {
             if (s['is_delete'] == true) return false;
-            if (_filterType == 'All') return true;
-            final carrier = s['carrier'] as String?;
-            if (_filterType == 'Manual') return carrier == 'Manual';
-            if (_filterType == 'Aggregators') return carrier == 'Aggregators';
-            if (_filterType == 'Carrier') return carrier != null && carrier != 'Manual' && carrier != 'Aggregators';
-            return true;
+            final isDelivered = s['is_delivered'] == true;
+            final filterVal = _activeOption.value.toLowerCase();
+            if (filterVal == 'all') {
+              return true;
+            } else if (filterVal.startsWith('delivered') || filterVal == 'white_glove_delivery') {
+              return isDelivered;
+            } else {
+              return !isDelivered;
+            }
           }).toList();
 
           final sorted = _getSortedList(filtered);
@@ -222,7 +248,6 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                   ? Column(
                       children: [
                         _buildMainToolbar(context),
-                        _buildFilterBar(),
                         Expanded(child: _buildTableView(sorted)),
                       ],
                     )
@@ -286,16 +311,17 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
       ),
       child: Row(
         children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 20),
-            child: Text(
-              'All Shipments',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-                fontFamily: 'Inter',
-              ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: FavoriteFilterDropdown(
+              moduleName: 'shipments',
+              options: _shipmentFilterOptions,
+              selectedOption: _activeOption,
+              onChanged: (opt) {
+                setState(() {
+                  _activeOption = opt;
+                });
+              },
             ),
           ),
           const Spacer(),
@@ -308,11 +334,14 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
           ),
           const SizedBox(width: 4),
           ZTableMoreMenu(
-            width: 32,
-            height: 32,
+            width: 38,
+            height: 38,
             menuChildren: [
               SubmenuButton(
                 style: ZTableMoreMenu.menuItemButtonStyle(),
+                menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+                alignmentOffset: const Offset(4, 0),
+                leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
                 menuChildren: [
                   _buildSortMenuItem('Date', 'date'),
                   _buildSortMenuItem('Shipment Order#', 'shipment_number'),
@@ -325,18 +354,28 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
               ),
               MenuItemButton(
                 style: ZTableMoreMenu.menuItemButtonStyle(),
+                leadingIcon: const Icon(LucideIcons.download, size: 16),
+                onPressed: () {},
                 child: const Text('Import Shipments'),
               ),
               MenuItemButton(
                 style: ZTableMoreMenu.menuItemButtonStyle(),
+                leadingIcon: const Icon(LucideIcons.upload, size: 16),
+                onPressed: () {},
                 child: const Text('Export Shipments'),
               ),
               MenuItemButton(
                 style: ZTableMoreMenu.menuItemButtonStyle(),
+                leadingIcon: const Icon(LucideIcons.settings, size: 16),
+                onPressed: _showCustomColumnsDialog,
                 child: const Text('Preferences'),
               ),
               MenuItemButton(
                 style: ZTableMoreMenu.menuItemButtonStyle(),
+                leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
+                onPressed: () {
+                  ref.invalidate(shipmentsProvider);
+                },
                 child: const Text('Refresh List'),
               ),
             ],
@@ -373,60 +412,7 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
     );
   }
 
-  Widget _buildFilterBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-      ),
-      child: Row(
-        children: [
-          Text(
-            'Filter By :',
-            style: AppTheme.bodyText.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(width: 8),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              setState(() {
-                _filterType = value;
-              });
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'All', child: Text('All')),
-              const PopupMenuItem(value: 'Carrier', child: Text('Carrier')),
-              const PopupMenuItem(value: 'Manual', child: Text('Manual')),
-              const PopupMenuItem(value: 'Aggregators', child: Text('Aggregators')),
-            ],
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    'Type: $_filterType',
-                    style: AppTheme.bodyText.copyWith(
-                      fontSize: 13,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.textSecondary),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildCheckboxWidget(bool isSelected, {bool isPartially = false, VoidCallback? onTap}) {
     return InkWell(
@@ -709,19 +695,15 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
       ),
       child: Row(
         children: [
-          const Row(
-            children: [
-              Text(
-                'All Shipments',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              SizedBox(width: 4),
-              Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.textSecondary),
-            ],
+          FavoriteFilterDropdown(
+            moduleName: 'shipments',
+            options: _shipmentFilterOptions,
+            selectedOption: _activeOption,
+            onChanged: (opt) {
+              setState(() {
+                _activeOption = opt;
+              });
+            },
           ),
           const Spacer(),
           // Green Split Button
@@ -1020,7 +1002,13 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
 }
 
 class _EmptyShipmentsView extends StatelessWidget {
-  const _EmptyShipmentsView();
+  final FavoriteFilterOption activeOption;
+  final ValueChanged<FavoriteFilterOption> onOptionChanged;
+
+  const _EmptyShipmentsView({
+    required this.activeOption,
+    required this.onOptionChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1033,47 +1021,6 @@ class _EmptyShipmentsView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildToolbar(context),
-          
-          // Filter Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  'Filter By :',
-                  style: AppTheme.bodyText.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundColor,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppTheme.borderColor),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Type: All',
-                        style: AppTheme.bodyText.copyWith(
-                          fontSize: 13,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.textSecondary),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
           
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
@@ -1181,16 +1128,13 @@ class _EmptyShipmentsView extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 20),
-            child: Text(
-              'All Shipments',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-                fontFamily: 'Inter',
-              ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: FavoriteFilterDropdown(
+              moduleName: 'shipments',
+              options: _shipmentFilterOptions,
+              selectedOption: activeOption,
+              onChanged: onOptionChanged,
             ),
           ),
           const Spacer(),
@@ -1674,18 +1618,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               filename: '${shipment['shipment_number'] ?? 'shipment'}.pdf',
             );
           },
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.primaryBlue : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textPrimary),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.primaryBlue),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
-          ),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
           child: const Row(children: [
             Icon(LucideIcons.fileText, size: 16),
             SizedBox(width: 12),
@@ -1700,18 +1633,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               name: shipment['shipment_number'] ?? 'shipment',
             );
           },
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.primaryBlue : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textPrimary),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.primaryBlue),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
-          ),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
           child: const Row(children: [
             Icon(LucideIcons.printer, size: 16),
             SizedBox(width: 12),
@@ -1756,18 +1678,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
       menuChildren: [
         MenuItemButton(
           onPressed: () => _showMarkAsDeliveredDialog(shipment),
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.primaryBlue : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textPrimary),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.primaryBlue),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
-          ),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
           child: const Row(children: [
             Icon(LucideIcons.check, size: 16),
             SizedBox(width: 12),

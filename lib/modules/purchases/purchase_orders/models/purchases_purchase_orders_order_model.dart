@@ -95,9 +95,9 @@ class PurchaseOrderItem {
     );
   }
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toJson({int? index}) {
     return {
-      'product_id': productId,
+      'product_id': productId.isEmpty || productId == '__header__' ? null : productId,
       if (description != null) 'description': description,
       if (accountId != null) 'account_id': accountId,
       if (accountId != null) 'accounts': accountId,
@@ -113,6 +113,9 @@ class PurchaseOrderItem {
       if (hsnCode != null) 'hsn_code': hsnCode,
       if (warehouseId != null) 'warehouse_id': warehouseId,
       if (warehouseName != null) 'warehouse_name': warehouseName,
+      'is_header': isHeader,
+      if (headerText != null) 'header_text': headerText,
+      if (index != null) 'sort_order': index,
     };
   }
 
@@ -221,6 +224,7 @@ class PurchaseOrder {
   final String vendorId;
   final String? vendorName;
   final String? paymentTerms;
+  final String? paymentTermsName;
   final String? shipmentPreference;
   final String deliveryType; // 'warehouse' | 'customer'
   final String? deliveryWarehouseId;
@@ -263,6 +267,7 @@ class PurchaseOrder {
     required this.vendorId,
     this.vendorName,
     this.paymentTerms,
+    this.paymentTermsName,
     this.shipmentPreference,
     this.deliveryType = 'warehouse',
     this.deliveryWarehouseId,
@@ -315,6 +320,7 @@ class PurchaseOrder {
       vendorId: json['vendor_id'] as String? ?? '',
       vendorName: json['vendor']?['display_name'] as String?,
       paymentTerms: json['payment_terms_id'] as String? ?? json['payment_terms'] as String?,
+      paymentTermsName: json['payment_term']?['term_name'] as String? ?? json['payment_terms'] as String?,
       shipmentPreference: json['shipment_preference_id'] as String? ?? json['shipment_preference'] as String?,
       deliveryType: json['delivery_type'] as String? ?? 'warehouse',
       deliveryWarehouseId: json['delivery_warehouse_id'] as String?,
@@ -432,7 +438,7 @@ class PurchaseOrder {
       'currency': currency,
       'tax_type': taxType,
       'tds_tcs_amount': tdsTcsAmount,
-      'items': items.map((i) => i.toJson()).toList(),
+      'items': items.asMap().entries.map((entry) => entry.value.toJson(index: entry.key)).toList(),
     };
   }
 
@@ -447,6 +453,7 @@ class PurchaseOrder {
     String? vendorId,
     String? vendorName,
     String? paymentTerms,
+    String? paymentTermsName,
     String? shipmentPreference,
     String? deliveryType,
     String? deliveryWarehouseId,
@@ -464,6 +471,7 @@ class PurchaseOrder {
     String? status,
     String? notes,
     String? termsAndConditions,
+    String? discountLevel,
     String? discountAccountId,
     String? discountAccountName,
     Vendor? vendor,
@@ -487,6 +495,7 @@ class PurchaseOrder {
       vendorId: vendorId ?? this.vendorId,
       vendorName: vendorName ?? this.vendorName,
       paymentTerms: paymentTerms ?? this.paymentTerms,
+      paymentTermsName: paymentTermsName ?? this.paymentTermsName,
       shipmentPreference: shipmentPreference ?? this.shipmentPreference,
       deliveryType: deliveryType ?? this.deliveryType,
       deliveryWarehouseId: deliveryWarehouseId ?? this.deliveryWarehouseId,

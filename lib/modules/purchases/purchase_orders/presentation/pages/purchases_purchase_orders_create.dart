@@ -45,6 +45,7 @@ import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import '../../notifiers/purchase_order_notifier.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
@@ -165,6 +166,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   OverlayEntry? _accountOverlay;
   OverlayEntry? _discountOverlay;
   int? _activeDiscountRowIndex;
+  int? _activeTaxRowIndex;
+  int? _activeAccountRowIndex;
   int? _activeMenuRowIndex;
   OverlayEntry? _hsnOverlay;
   OverlayEntry? _addRowDropdownOverlay;
@@ -182,6 +185,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   OverlayEntry? _taxAmountOverlay;
   OverlayEntry? _attachmentListOverlay;
   List<PlatformFile> _attachedFiles = [];
+  List<Map<String, dynamic>> _tdsRatesList = [];
+  bool _isLoadingTdsRates = false;
+  Future<void>? _loadTdsFuture;
+  List<Map<String, dynamic>> _tdsSectionsList = [];
+  List<Map<String, dynamic>> _tcsRatesList = [];
+  List<Map<String, dynamic>> _tcsNaturesList = [];
+  OverlayEntry? _tdsOverlay;
+  bool _isTdsOpen = false;
+  final LayerLink _tdsLink = LayerLink();
   final List<_ItemRowController> _rowControllers = [];
   final Set<int> _hiddenDetails = {};
   final Set<int> _hoveredRows = {};
@@ -481,6 +493,41 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
   }
 
+  Future<void> _loadTdsRates() async {
+    if (_isLoadingTdsRates) {
+      await _loadTdsFuture;
+      return;
+    }
+    _isLoadingTdsRates = true;
+    _loadTdsFuture = _performLoadTdsRates();
+    await _loadTdsFuture;
+    _isLoadingTdsRates = false;
+  }
+
+  Future<void> _performLoadTdsRates() async {
+    try {
+      final lookupsService = LookupsApiService();
+      final rates = await lookupsService.getTdsRates();
+      final sections = await lookupsService.getTdsSections();
+      final tcsRates = await lookupsService.getTcsRates();
+      final tcsNatures = await lookupsService.getTcsNatures();
+      if (mounted) {
+        setState(() {
+          _tdsRatesList = rates;
+          _tdsSectionsList = sections;
+          _tcsRatesList = tcsRates;
+          _tcsNaturesList = tcsNatures;
+        });
+      }
+    } catch (e) {
+      AppLogger.error(
+        'Error loading TDS/TCS rates',
+        error: e,
+        module: 'purchases',
+      );
+    }
+  }
+
   Future<void> _handleSave(
     PurchaseOrderState poState, {
     String status = 'Draft',
@@ -494,16 +541,27 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
 
     final validItems = poState.items
-        .where((i) => i.productId.isNotEmpty)
+        .where((i) => (i.productId.isNotEmpty && i.productId != '__header__') || i.isHeader)
         .toList();
     if (validItems.isEmpty) {
       ZerpaiToast.error(context, 'Please add at least one item');
       return;
     }
 
-    // New validations for HSN Code and Account
+    // New validations for HSN Code, Account, and Quantity
     for (int i = 0; i < validItems.length; i++) {
       final item = validItems[i];
+      if (item.isHeader) {
+        if (item.headerText == null || item.headerText!.trim().isEmpty) {
+          ZerpaiToast.error(context, 'Please enter a value for header at row ${i + 1}');
+          return;
+        }
+        continue;
+      }
+      if (item.quantity <= 0) {
+        ZerpaiToast.error(context, 'Please enter a valid quantity for item ${i + 1}');
+        return;
+      }
       if (item.hsnCode == null || item.hsnCode!.isEmpty) {
         ZerpaiToast.error(context, 'Please select HSN Code for item ${i + 1}');
         return;
@@ -576,7 +634,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       final activePriceLists = ref.read(activePriceListsProvider);
 
       final updatedItems = poState.items
-          .where((i) => i.productId.isNotEmpty)
+          .where((i) => i.productId.isNotEmpty && !i.isHeader)
           .map((item) {
             final pl = activePriceLists
                 .where((p) => p.id == item.priceListId)
@@ -584,6 +642,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             return item.copyWith(pricelist: pl?.name);
           })
           .toList();
+
+      final double calculatedTdsTcsAmount = poState.tdsTcsAmount;
 
       final po = PurchaseOrder(
         id: _editingOrderId,
@@ -604,6 +664,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         discountType: poState.discountType,
         tdsTcsType: poState.tdsTcsType ?? 'none',
         tdsTcsId: poState.tdsTcsId,
+        tdsTcsAmount: calculatedTdsTcsAmount,
         adjustment: poState.adjustment,
         total: poState.total,
         status: status,
@@ -781,6 +842,112 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
+  void _showManageTdsRatesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ManageTdsTcsRatesDialog(
+        title: 'Manage TDS Rates',
+        isTcs: false,
+        items: _tdsRatesList,
+        sections: _tdsSectionsList,
+        selectedId: ref.read(purchaseOrderFormNotifierProvider).tdsTcsId,
+        onSelect: (value) {
+          final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+          notifier.updateField(
+            tdsTcsId: value['id']?.toString() ?? '',
+            tdsTcsRate: double.tryParse(value['base_rate']?.toString() ?? '0') ?? 0.0,
+          );
+        },
+        onSave: (items) async {
+          final lookupsService = LookupsApiService();
+          final updated = await lookupsService.syncTdsRates(items);
+          if (mounted) {
+            setState(() {
+              _tdsRatesList = updated;
+            });
+          }
+          return updated;
+        },
+        onDeleteCheck: (item) async {
+          if (item['id'] == null || item['id'].toString().startsWith('new_')) {
+            return null;
+          }
+          try {
+            final lookupsService = LookupsApiService();
+            final usage = await lookupsService.checkLookupUsage(
+              'tds-rates',
+              item['id'].toString(),
+            );
+            if (usage['inUse'] == true) {
+              return usage['message'] ??
+                  'This TDS rate is in use and cannot be deleted.';
+            }
+          } catch (e) {
+            AppLogger.error(
+              'Error checking TDS rate usage',
+              error: e,
+              module: 'purchases',
+            );
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  void _showManageTcsRatesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ManageTdsTcsRatesDialog(
+        title: 'Manage TCS Rates',
+        isTcs: true,
+        items: _tcsRatesList,
+        sections: _tcsNaturesList,
+        selectedId: ref.read(purchaseOrderFormNotifierProvider).tdsTcsId,
+        onSelect: (value) {
+          final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+          notifier.updateField(
+            tdsTcsId: value['id']?.toString() ?? '',
+            tdsTcsRate: double.tryParse(value['rate']?.toString() ?? '0') ?? 0.0,
+          );
+        },
+        onSave: (items) async {
+          final lookupsService = LookupsApiService();
+          final updated = await lookupsService.syncTcsRates(items);
+          if (mounted) {
+            setState(() {
+              _tcsRatesList = updated;
+            });
+          }
+          return updated;
+        },
+        onDeleteCheck: (item) async {
+          if (item['id'] == null || item['id'].toString().startsWith('new_')) {
+            return null;
+          }
+          try {
+            final lookupsService = LookupsApiService();
+            final usage = await lookupsService.checkLookupUsage(
+              'tcs-rates',
+              item['id'].toString(),
+            );
+            if (usage['inUse'] == true) {
+              return usage['message'] ??
+                  'This TCS rate is in use and cannot be deleted.';
+            }
+          } catch (e) {
+            AppLogger.error(
+              'Error checking TCS rate usage',
+              error: e,
+              module: 'purchases',
+            );
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
   Future<void> _showConfigurePaymentTermsDialog(
     PurchaseOrderState poState,
     PurchaseOrderNotifier notifier,
@@ -862,6 +1029,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
     // Hydrate row controllers
     _rowControllers.clear();
+    _headerTextControllers.clear();
     for (final item in order.items) {
       _addRowController(
         initialName: item.productName,
@@ -967,6 +1135,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       _loadSourceOfSupply();
       _loadPaymentTerms();
       _loadShipmentPreferences();
+      _loadTdsRates();
 
       if (widget.initialOrder != null) {
         _hydrateFromInitialOrder(widget.initialOrder!);
@@ -5355,53 +5524,69 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                     index,
                                                   )) ...[
                                                     const SizedBox(height: 4),
-                                                    Container(
-                                                      height: 72,
-                                                      decoration: BoxDecoration(
-                                                        border: Border.all(
-                                                          color: _borderCol,
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              4,
-                                                            ),
-                                                      ),
-                                                      child: TextField(
-                                                        controller:
-                                                            ctrl.descCtrl,
-                                                        maxLines: null,
-                                                        expands: true,
-                                                        textAlignVertical:
-                                                            TextAlignVertical
-                                                                .top,
-                                                        style: const TextStyle(
-                                                          fontSize: 12,
-                                                          color: _textPrimary,
-                                                        ),
-                                                        decoration: const InputDecoration(
-                                                          isDense: true,
-                                                          contentPadding:
-                                                              EdgeInsets.symmetric(
-                                                                horizontal: 8,
-                                                                vertical: 6,
-                                                              ),
-                                                          border:
-                                                              InputBorder.none,
-                                                          hintText:
-                                                              'Add a description to your item',
-                                                          hintStyle: TextStyle(
-                                                            fontSize: 12,
-                                                            color: _hintColor,
+                                                    _HoverableField(
+                                                      builder: (isDescHovered) {
+                                                        return Focus(
+                                                          onFocusChange: (_) => setState(() {}),
+                                                          child: Builder(
+                                                            builder: (focusCtx) {
+                                                              final isDescActive = isDescHovered || Focus.of(focusCtx).hasFocus;
+                                                              return AnimatedContainer(
+                                                                duration: const Duration(milliseconds: 120),
+                                                                height: 72,
+                                                                decoration: BoxDecoration(
+                                                                  border: Border.all(
+                                                                    color: isDescActive
+                                                                        ? const Color(0xFF0088FF)
+                                                                        : _borderCol,
+                                                                    width: 1,
+                                                                  ),
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        4,
+                                                                      ),
+                                                                ),
+                                                                child: TextField(
+                                                                  controller:
+                                                                      ctrl.descCtrl,
+                                                                  maxLines: null,
+                                                                  expands: true,
+                                                                  textAlignVertical:
+                                                                      TextAlignVertical
+                                                                          .top,
+                                                                  style: const TextStyle(
+                                                                    fontSize: 12,
+                                                                    color: _textPrimary,
+                                                                  ),
+                                                                  decoration: const InputDecoration(
+                                                                    isDense: true,
+                                                                    contentPadding:
+                                                                        EdgeInsets.symmetric(
+                                                                          horizontal: 8,
+                                                                          vertical: 6,
+                                                                        ),
+                                                                    border:
+                                                                        InputBorder.none,
+                                                                    hintText:
+                                                                        'Add a description to your item',
+                                                                    hintStyle: TextStyle(
+                                                                      fontSize: 12,
+                                                                      color: _hintColor,
+                                                                    ),
+                                                                  ),
+                                                                  onChanged: (v) =>
+                                                                      notifier.updateItem(
+                                                                        index,
+                                                                        item.copyWith(
+                                                                          description: v,
+                                                                        ),
+                                                                      ),
+                                                                ),
+                                                              );
+                                                            },
                                                           ),
-                                                        ),
-                                                        onChanged: (v) =>
-                                                            notifier.updateItem(
-                                                              index,
-                                                              item.copyWith(
-                                                                description: v,
-                                                              ),
-                                                            ),
-                                                      ),
+                                                        );
+                                                      },
                                                     ),
                                                   ],
                                                   const SizedBox(height: 6),
@@ -5518,56 +5703,76 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                         buttonOffset: offset,
                                       );
                                     },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: () {
-                                          final displayAccountName =
-                                              (item.accountName != null &&
-                                                  item.accountName!.isNotEmpty)
-                                              ? item.accountName!
-                                              : (item.accountId != null &&
-                                                            item
-                                                                .accountId!
-                                                                .isNotEmpty
-                                                        ? availableAccounts
-                                                              .where(
-                                                                (a) =>
-                                                                    a.id ==
-                                                                    item.accountId,
-                                                              )
-                                                              .firstOrNull
-                                                              ?.name
-                                                        : null) ??
-                                                    'Select Account';
-                                          final isPlaceholder =
-                                              displayAccountName ==
-                                              'Select Account';
-                                          return Text(
-                                            displayAccountName,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: isPlaceholder
-                                                  ? _hintColor
-                                                  : _textPrimary,
+                                    child: () {
+                                      bool isHovered = false;
+                                      return StatefulBuilder(
+                                        builder: (context, setOverlayState) {
+                                          return MouseRegion(
+                                            onEnter: (_) => setOverlayState(() => isHovered = true),
+                                            onExit: (_) => setOverlayState(() => isHovered = false),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(
+                                                  color: (isHovered || _activeAccountRowIndex == index)
+                                                      ? const Color(0xFF0088FF)
+                                                      : Colors.transparent,
+                                                  width: 1,
+                                                ),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 6,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: () {
+                                                      final displayAccountName =
+                                                          (item.accountName != null &&
+                                                              item.accountName!.isNotEmpty)
+                                                          ? item.accountName!
+                                                          : (item.accountId != null &&
+                                                                        item
+                                                                            .accountId!
+                                                                            .isNotEmpty
+                                                                    ? availableAccounts
+                                                                          .where(
+                                                                            (a) =>
+                                                                                a.id ==
+                                                                                item.accountId,
+                                                                          )
+                                                                          .firstOrNull
+                                                                          ?.name
+                                                                    : null) ??
+                                                                'Select Account';
+                                                      final isPlaceholder =
+                                                          displayAccountName ==
+                                                          'Select Account';
+                                                      return Text(
+                                                        displayAccountName,
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          color: isPlaceholder
+                                                              ? _hintColor
+                                                              : _textPrimary,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      );
+                                                    }(),
+                                                  ),
+                                                  const Icon(
+                                                    Icons.arrow_drop_down,
+                                                    size: 16,
+                                                    color: _hintColor,
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                            overflow: TextOverflow.ellipsis,
                                           );
-                                        }(),
-                                      ),
-                                      const Icon(
-                                        Icons.arrow_drop_down,
-                                        size: 16,
-                                        color: _hintColor,
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                        },
+                                      );
+                                    }(),
                                   );
                                 },
                               ),
@@ -5959,57 +6164,74 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                           itemsState.taxGroups,
                                         );
                                       },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          isUnregistered
-                                              ? 'Non-Taxable'
-                                              : (item.taxId == null
-                                                  ? 'Select Tax'
-                                                  : '${item.taxName} [${item.taxRate}%]'),
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: (isUnregistered || item.taxId == null)
-                                                ? _hintColor
-                                                : _textPrimary,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (item.taxId != null && !isUnregistered)
-                                        GestureDetector(
-                                          onTap: () {
-                                            notifier.updateItem(
-                                              index,
-                                              item.clearTax(),
-                                            );
-                                          },
-                                          child: const Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 4,
-                                            ),
-                                            child: Icon(
-                                              Icons.close,
-                                              size: 14,
-                                              color: _dangerRed,
+                                child: () {
+                                  bool isHovered = false;
+                                  return StatefulBuilder(
+                                    builder: (context, setOverlayState) {
+                                      return MouseRegion(
+                                        onEnter: (_) => setOverlayState(() => isHovered = true),
+                                        onExit: (_) => setOverlayState(() => isHovered = false),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: (!isUnregistered && (isHovered || _activeTaxRowIndex == index))
+                                                  ? const Color(0xFF0088FF)
+                                                  : Colors.transparent,
+                                              width: 1,
                                             ),
                                           ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 6,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  (isUnregistered || item.taxId == null)
+                                                      ? 'Select Tax'
+                                                      : '${item.taxName} [${item.taxRate}%]',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: (isUnregistered || item.taxId == null)
+                                                        ? _hintColor
+                                                        : _textPrimary,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              if (item.taxId != null && !isUnregistered)
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    notifier.updateItem(
+                                                      index,
+                                                      item.clearTax(),
+                                                    );
+                                                  },
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.close,
+                                                      size: 14,
+                                                      color: _dangerRed,
+                                                    ),
+                                                  ),
+                                                ),
+                                              const Icon(
+                                                Icons.arrow_drop_down,
+                                                size: 16,
+                                                color: _hintColor,
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      if (!isUnregistered)
-                                        const Icon(
-                                          Icons.arrow_drop_down,
-                                          size: 16,
-                                          color: _hintColor,
-                                        ),
-                                    ],
-                                  ),
-                                ),
+                                      );
+                                    },
+                                  );
+                                }(),
                               ),
                             ),
                           ),
@@ -6137,8 +6359,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 }
 
   void _closeTaxOverlay() {
-    _taxOverlay?.remove();
-    _taxOverlay = null;
+    if (_taxOverlay != null) {
+      _taxOverlay!.remove();
+      _taxOverlay = null;
+      setState(() {
+        _activeTaxRowIndex = null;
+      });
+    }
   }
 
   void _closeHsnOverlay() {
@@ -6210,6 +6437,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     List<TaxRate> taxes,
   ) {
     _closeTaxOverlay();
+    setState(() {
+      _activeTaxRowIndex = index;
+    });
     final ctrl = _rowControllers[index];
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
 
@@ -6634,6 +6864,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     return content;
   }
 
+  void _closeAccountOverlay() {
+    if (_accountOverlay != null) {
+      _accountOverlay!.remove();
+      _accountOverlay = null;
+      setState(() {
+        _activeAccountRowIndex = null;
+      });
+    }
+  }
+
   void _showAccountMenu(
     BuildContext context,
     int index,
@@ -6642,8 +6882,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     LayerLink? link,
     Offset? buttonOffset,
   }) {
-    _accountOverlay?.remove();
-    _accountOverlay = null;
+    _closeAccountOverlay();
+    setState(() {
+      _activeAccountRowIndex = index;
+    });
 
     final overlay = Overlay.of(context);
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
@@ -6661,10 +6903,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         children: [
           Positioned.fill(
             child: GestureDetector(
-              onTap: () {
-                _accountOverlay?.remove();
-                _accountOverlay = null;
-              },
+              onTap: _closeAccountOverlay,
               behavior: HitTestBehavior.translucent,
               child: Container(color: Colors.transparent),
             ),
@@ -6677,17 +6916,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             offset: Offset.zero,
             child: Material(
               color: Colors.transparent,
-              child: _AccountSelectionPopover(
-                accounts: accounts,
-                selectedAccountId: item.accountId,
-                onSelected: (acc) {
-                  notifier.updateItem(
-                    index,
-                    item.copyWith(accountId: acc.id, accountName: acc.name),
-                  );
-                  _accountOverlay?.remove();
-                  _accountOverlay = null;
-                },
+              child: TapRegion(
+                onTapOutside: (_) => _closeAccountOverlay(),
+                child: _AccountSelectionPopover(
+                  accounts: accounts,
+                  selectedAccountId: item.accountId,
+                  onSelected: (acc) {
+                    notifier.updateItem(
+                      index,
+                      item.copyWith(accountId: acc.id, accountName: acc.name),
+                    );
+                    _closeAccountOverlay();
+                  },
+                ),
               ),
             ),
           ),
@@ -6725,7 +6966,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
+        border: Border.all(color: _borderCol),
         borderRadius: BorderRadius.circular(4),
       ),
       padding: const EdgeInsets.all(24),
@@ -6907,25 +7148,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           style: TextStyle(fontSize: 13, color: _labelColor),
         ),
         const Spacer(),
-        SizedBox(
-          width: 80,
-          height: 32,
-          child: TextFormField(
-            initialValue: poState.taxAmount.toStringAsFixed(2),
-            textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 13),
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(3),
-                borderSide: const BorderSide(color: _fieldBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(3),
-                borderSide: const BorderSide(color: _linkBlue),
-              ),
-            ),
-          ),
+        StatefulBuilder(
+          builder: (context, setStateTax) {
+            return _TaxAmountField(
+              value: poState.taxAmount.toStringAsFixed(2),
+            );
+          },
         ),
         const SizedBox(width: 6),
         CompositedTransformTarget(
@@ -7210,13 +7438,44 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }
 
   Widget _tdsTcsRow(PurchaseOrderState s) {
+    final isTcs = s.tdsTcsType == 'tcs';
+    final selectedRate = isTcs
+        ? _tcsRatesList.firstWhere(
+            (r) => r['id'] == s.tdsTcsId,
+            orElse: () => <String, dynamic>{},
+          )
+        : _tdsRatesList.firstWhere(
+            (r) => r['id'] == s.tdsTcsId,
+            orElse: () => <String, dynamic>{},
+          );
+    String displayText = 'Select a Tax';
+    double ratePercent = 0.0;
+    if (selectedRate.isNotEmpty) {
+      final taxName = selectedRate['tax_name'] ?? '';
+      final d = double.tryParse(
+        (isTcs ? selectedRate['rate'] : selectedRate['base_rate'])?.toString() ?? '0',
+      );
+      ratePercent = d ?? 0.0;
+      final baseRateStr = (d == null) 
+          ? '' 
+          : (d == d.toInt() ? '${d.toInt()}%' : '$d%');
+      displayText = "$taxName [$baseRateStr]";
+    }
+
+    final double calculatedAmount = (s.subTotal - s.discountValue) * (ratePercent / 100);
+    final displayAmount = calculatedAmount.toStringAsFixed(2);
+
     return RadioGroup<String>(
       groupValue: s.tdsTcsType ?? 'none',
       onChanged: (val) {
         if (val != null) {
           ref
               .read(purchaseOrderFormNotifierProvider.notifier)
-              .updateField(tdsTcsType: val);
+              .updateField(
+                tdsTcsType: val,
+                tdsTcsId: '',
+                tdsTcsRate: 0.0,
+              );
         }
       },
       child: Row(
@@ -7249,23 +7508,167 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           const Spacer(),
           SizedBox(
             width: 180,
-            child: FormDropdown<String>(
-              height: 32,
-              value: null,
-              items: const ['TDS - 1%', 'TDS - 2%', 'TCS - 0.1%'],
-              hint: 'Select a Tax',
-              onChanged: (v) {},
+            child: CompositedTransformTarget(
+              link: _tdsLink,
+              child: Builder(
+                builder: (btnContext) {
+                  return GestureDetector(
+                    onTap: () async {
+                      if (s.tdsTcsType == 'tcs' ? _tcsRatesList.isEmpty : _tdsRatesList.isEmpty) {
+                        await _loadTdsRates();
+                      }
+                      if (!context.mounted) return;
+                      final renderBox = btnContext.findRenderObject() as RenderBox?;
+                      final offset = renderBox?.localToGlobal(Offset.zero);
+                      _showTdsMenu(context, s, offset);
+                    },
+                    child: () {
+                      bool isHovered = false;
+                      return StatefulBuilder(
+                        builder: (context, setStateDropdown) {
+                          return MouseRegion(
+                            onEnter: (_) => setStateDropdown(() => isHovered = true),
+                            onExit: (_) => setStateDropdown(() => isHovered = false),
+                            child: Container(
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: (isHovered || _isTdsOpen)
+                                      ? const Color(0xFF0088FF)
+                                      : const Color(0xFFD1D5DB),
+                                  width: 1,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      displayText,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: selectedRate.isNotEmpty
+                                            ? const Color(0xFF111827)
+                                            : _hintColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.arrow_drop_down,
+                                    size: 16,
+                                    color: _hintColor,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }(),
+                  );
+                },
+              ),
             ),
           ),
           const SizedBox(width: 12),
           Text(
-            s.tdsTcsType == 'tcs' ? '0.00' : '- 0.00',
+            calculatedAmount > 0 ? '- $displayAmount' : displayAmount,
             textAlign: TextAlign.right,
             style: const TextStyle(fontSize: 13),
           ),
         ],
       ),
     );
+  }
+
+  void _showTdsMenu(
+    BuildContext context,
+    PurchaseOrderState s,
+    Offset? buttonOffset,
+  ) {
+    _closeTdsOverlay();
+    setState(() {
+      _isTdsOpen = true;
+    });
+
+    final overlay = Overlay.of(context);
+    final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    bool showAbove = false;
+    if (buttonOffset != null) {
+      const double popoverHeight = 360.0;
+      final double spaceBelow = screenHeight - (buttonOffset.dy + 32) - 16;
+      final double spaceAbove = buttonOffset.dy - 16;
+      if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
+        showAbove = true;
+      }
+    }
+
+    _tdsOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeTdsOverlay,
+              behavior: HitTestBehavior.translucent,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _tdsLink,
+            showWhenUnlinked: false,
+            targetAnchor: showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+            followerAnchor: showAbove ? Alignment.bottomLeft : Alignment.topLeft,
+            offset: Offset.zero,
+            child: Material(
+              color: Colors.transparent,
+              child: TapRegion(
+                onTapOutside: (_) => _closeTdsOverlay(),
+                child: _TdsSelectionPopover(
+                  isTcs: s.tdsTcsType == 'tcs',
+                  tdsRates: s.tdsTcsType == 'tcs' ? _tcsRatesList : _tdsRatesList,
+                  tdsSections: s.tdsTcsType == 'tcs' ? _tcsNaturesList : _tdsSectionsList,
+                  selectedTdsId: s.tdsTcsId,
+                  onSelected: (rate) {
+                    final isTcs = s.tdsTcsType == 'tcs';
+                    notifier.updateField(
+                      tdsTcsId: rate['id']?.toString() ?? '',
+                      tdsTcsRate: double.tryParse((isTcs ? rate['rate'] : rate['base_rate'])?.toString() ?? '0') ?? 0.0,
+                    );
+                    _closeTdsOverlay();
+                  },
+                  onManageTds: () {
+                    _closeTdsOverlay();
+                    if (s.tdsTcsType == 'tcs') {
+                      _showManageTcsRatesDialog();
+                    } else {
+                      _showManageTdsRatesDialog();
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    overlay.insert(_tdsOverlay!);
+  }
+
+  void _closeTdsOverlay() {
+    if (_tdsOverlay != null) {
+      _tdsOverlay!.remove();
+      _tdsOverlay = null;
+      setState(() {
+        _isTdsOpen = false;
+      });
+    }
   }
 
   Widget _adjustmentRow() {
@@ -7312,19 +7715,56 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
         ),
         const Spacer(),
-        SizedBox(
-          width: 100,
-          child: _zField(
-            _adjustmentCtrl,
-            readOnly: false,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-              signed: true,
-            ),
-            onChanged: (v) =>
-                notifier.updateField(adjustment: double.tryParse(v) ?? 0),
-          ),
-        ),
+        (() {
+          bool isHovered = false;
+          bool isFocused = false;
+          return StatefulBuilder(
+            builder: (context, setStateAdj) {
+              return Focus(
+                onFocusChange: (focus) => setStateAdj(() => isFocused = focus),
+                child: MouseRegion(
+                  onEnter: (_) => setStateAdj(() => isHovered = true),
+                  onExit: (_) => setStateAdj(() => isHovered = false),
+                  child: Container(
+                    width: 100,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isFocused
+                            ? const Color(0xFF0088FF)
+                            : (isHovered ? const Color(0xFF0088FF) : const Color(0xFFD1D5DB)),
+                        width: isFocused ? 1.5 : 1,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _adjustmentCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                      textAlign: TextAlign.start,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937)),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        isDense: true,
+                        filled: false,
+                        contentPadding: EdgeInsets.fromLTRB(10, 8, 10, 8),
+                      ),
+                      onChanged: (v) {
+                        notifier.updateField(adjustment: double.tryParse(v) ?? 0);
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        })(),
         const SizedBox(width: 6),
         Icon(Icons.help_outline, size: 14, color: _hintColor),
         const SizedBox(width: 16),
@@ -7965,7 +8405,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ElevatedButton(
             onPressed: (_isSavingDraft || _isSavingOpen)
                 ? null
-                : () => _handleSave(poState, status: 'Open'),
+                : () => _handleSave(poState, status: 'Issued'),
             style: ElevatedButton.styleFrom(
               backgroundColor: _greenBtn,
               foregroundColor: Colors.white,
@@ -10192,6 +10632,208 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
   }
 }
 
+class _TdsSelectionPopover extends StatefulWidget {
+  final bool isTcs;
+  final List<Map<String, dynamic>> tdsRates;
+  final List<Map<String, dynamic>> tdsSections;
+  final String? selectedTdsId;
+  final ValueChanged<Map<String, dynamic>> onSelected;
+  final VoidCallback onManageTds;
+
+  const _TdsSelectionPopover({
+    this.isTcs = false,
+    required this.tdsRates,
+    required this.tdsSections,
+    this.selectedTdsId,
+    required this.onSelected,
+    required this.onManageTds,
+  });
+
+  @override
+  State<_TdsSelectionPopover> createState() => _TdsSelectionPopoverState();
+}
+
+class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+
+  Map<String, List<Map<String, dynamic>>> get _grouped {
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    
+    if (widget.isTcs) {
+      final natureMap = {
+        for (var n in widget.tdsSections) n['id']?.toString() ?? '': n['nature_name']?.toString() ?? 'Others'
+      };
+      for (var rate in widget.tdsRates) {
+        final taxName = rate['tax_name']?.toString() ?? '';
+        if (_search.isNotEmpty &&
+            !taxName.toLowerCase().contains(_search.toLowerCase())) {
+          continue;
+        }
+        final natureId = rate['nature_id']?.toString() ?? '';
+        final natureName = natureMap[natureId] ?? 'Others';
+        grouped.putIfAbsent(natureName, () => []).add(rate);
+      }
+    } else {
+      final sectionMap = {
+        for (var s in widget.tdsSections) s['id']?.toString() ?? '': s['section_name']?.toString() ?? 'Others'
+      };
+      for (var rate in widget.tdsRates) {
+        final taxName = rate['tax_name']?.toString() ?? '';
+        if (_search.isNotEmpty &&
+            !taxName.toLowerCase().contains(_search.toLowerCase())) {
+          continue;
+        }
+        final secId = rate['section_id']?.toString() ?? '';
+        final sectionName = sectionMap[secId] ?? 'Others';
+        grouped.putIfAbsent(sectionName, () => []).add(rate);
+      }
+    }
+    return grouped;
+  }
+
+  String _formatBaseRate(dynamic rate) {
+    if (rate == null) return '';
+    final d = double.tryParse(rate.toString());
+    if (d == null) return rate.toString();
+    if (d == d.toInt()) return '${d.toInt()}%';
+    return '$d%';
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _grouped;
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    autofocus: true,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: widget.isTcs ? 'Search TCS Rate' : 'Search TDS Rate',
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        size: 16,
+                        color: _hintColor,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    onChanged: (v) => setState(() => _search = v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: groups.entries.expand((entry) {
+                  return [
+                    // Group Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _textPrimary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    // Items
+                    ...entry.value.map((rate) {
+                      final isSelected = rate['id'] == widget.selectedTdsId;
+                      final baseRateStr = widget.isTcs 
+                          ? _formatBaseRate(rate['rate']) 
+                          : _formatBaseRate(rate['base_rate']);
+                      final displayLabel = "${rate['tax_name']} [$baseRateStr]";
+                      return _PopoverListItem(
+                        label: displayLabel,
+                        indent: 1,
+                        isSelected: isSelected,
+                        onTap: () => widget.onSelected(rate),
+                      );
+                    }),
+                  ];
+                }).toList(),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          InkWell(
+            onTap: widget.onManageTds,
+            hoverColor: const Color(0xFFF3F4F6),
+            child: SizedBox(
+              height: 36,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.settings,
+                      size: 14,
+                      color: Color(0xFF0088FF),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.isTcs ? 'Manage TCS' : 'Manage TDS',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0088FF),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DiscountTypePopover extends StatelessWidget {
   final String selectedType;
   final ValueChanged<String> onSelected;
@@ -11675,11 +12317,61 @@ class _HoverBorderContainerState extends State<_HoverBorderContainer> {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: (_hovered || widget.isSelected) ? const Color(0xFF3B82F6) : Colors.transparent,
+            color: (_hovered || widget.isSelected) ? const Color(0xFF0088FF) : Colors.transparent,
             width: 1,
           ),
         ),
         child: widget.child,
+      ),
+    );
+  }
+}
+
+class _TaxAmountField extends StatefulWidget {
+  final String value;
+  const _TaxAmountField({required this.value});
+
+  @override
+  State<_TaxAmountField> createState() => _TaxAmountFieldState();
+}
+
+class _TaxAmountFieldState extends State<_TaxAmountField> {
+  bool _isHovered = false;
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (focus) => setState(() => _isFocused = focus),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Container(
+          width: 100,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: _isFocused
+                  ? const Color(0xFF0088FF)
+                  : (_isHovered ? const Color(0xFF0088FF) : const Color(0xFFD1D5DB)),
+              width: _isFocused ? 1.5 : 1,
+            ),
+          ),
+          child: TextField(
+            controller: TextEditingController(text: widget.value),
+            textAlign: TextAlign.right,
+            readOnly: true,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937)),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              isDense: true,
+              filled: false,
+              contentPadding: EdgeInsets.fromLTRB(10, 8, 10, 8),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 import { Tenant } from "../../common/decorators/tenant.decorator";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
+import { randomUUID } from "crypto";
 
 @Controller("products/lookups")
 export class LookupsController {
@@ -39,6 +40,9 @@ export class LookupsController {
       "drug-schedules": { table: "drug_schedules", field: "shedule_name" },
       "tax-rates": { table: "tax_rates", field: "tax_name" },
       "tds-rates": { table: "tds_rates", field: "tax_name" },
+      "tds-sections": { table: "tds_sections", field: "section_name" },
+      "tcs-rates": { table: "tcs_rates", field: "tax_name" },
+      "tcs-natures": { table: "tcs_natures", field: "nature_name" },
       "payment-terms": { table: "payment_terms", field: "term_name" },
       "shipment-preferences": { table: "shipment_preferences", field: "name" },
       "price-lists": { table: "price_lists", field: "name" },
@@ -103,6 +107,9 @@ export class LookupsController {
       products: { table: "products", field: "product_name" },
       "tax-rates": { table: "tax_rates", field: "tax_name" },
       "tds-rates": { table: "tds_rates", field: "tax_name" },
+      "tds-sections": { table: "tds_sections", field: "section_name" },
+      "tcs-rates": { table: "tcs_rates", field: "tax_name" },
+      "tcs-natures": { table: "tcs_natures", field: "nature_name" },
       "payment-terms": { table: "payment_terms", field: "term_name" },
       "shipment-preferences": { table: "shipment_preferences", field: "name" },
       "price-lists": { table: "price_lists", field: "name" },
@@ -186,6 +193,9 @@ export class LookupsController {
       categories: "categories",
       "tax-rates": "tax_rates",
       "tds-rates": "tds_rates",
+      "tds-sections": "tds_sections",
+      "tcs-rates": "tcs_rates",
+      "tcs-natures": "tcs_natures",
       "payment-terms": "payment_terms",
       "shipment-preferences": "shipment_preferences",
       "price-lists": "price_lists",
@@ -210,6 +220,7 @@ export class LookupsController {
     const isEntityScoped = LookupsController.entityScopedTables.has(tableName);
     const syncedItems = items.map((item) => ({
       ...item,
+      id: item.id || randomUUID(),
       ...(isEntityScoped ? { entity_id: tenant.entityId } : {}),
     }));
 

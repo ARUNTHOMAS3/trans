@@ -27,10 +27,20 @@ import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
+
 class _ClearReceiveSelectionIntent extends Intent {
   const _ClearReceiveSelectionIntent();
 }
 // Removed redundant imports after reorganizing above
+
+const _receiveFilterOptions = <FavoriteFilterOption>[
+  FavoriteFilterOption(label: 'All', value: 'all'),
+  FavoriteFilterOption(label: 'In Transit', value: 'intransit'),
+  FavoriteFilterOption(label: 'Received', value: 'received'),
+  FavoriteFilterOption(label: 'Billed', value: 'billed'),
+  FavoriteFilterOption(label: 'Partially Billed', value: 'partially_billed'),
+];
 
 Color _getStatusColor(String status) {
   switch (status.toLowerCase()) {
@@ -55,7 +65,7 @@ class PurchasesPurchaseReceivesListScreen extends ConsumerStatefulWidget {
 
 class _PurchasesPurchaseReceivesListScreenState
     extends ConsumerState<PurchasesPurchaseReceivesListScreen> {
-  String _selectedView = 'All';
+  FavoriteFilterOption _activeOption = _receiveFilterOptions.first;
   final Set<String> _selectedIds = {};
   String? _activeReceiveId;
 
@@ -567,9 +577,16 @@ class _PurchasesPurchaseReceivesListScreenState
             useTopPadding: false,
             child: receivesAsync.when(
               data: (state) {
-                final sorted = _getSortedList(state.receives);
-                if (sorted.isEmpty) return _buildVirtualizedTable(sorted);
-
+                final filtered = state.receives.where((r) {
+                  final val = _activeOption.value;
+                  if (val == 'all') return true;
+                  if (val == 'intransit') return r.status.toLowerCase() == 'intransit';
+                  if (val == 'received') return r.status.toLowerCase() == 'received';
+                  if (val == 'billed') return r.billed == true;
+                  if (val == 'partially_billed') return r.status.toLowerCase() == 'received' && r.billed == false;
+                  return true;
+                }).toList();
+                final sorted = _getSortedList(filtered);
                 return Stack(
                   children: [
                     _activeReceiveId == null
@@ -830,105 +847,15 @@ class _PurchasesPurchaseReceivesListScreenState
   }
 
   Widget _buildViewSelector({bool isCompact = false}) {
-    return MenuAnchor(
-      alignmentOffset: const Offset(0, 4),
-      style: const MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
-        padding: WidgetStatePropertyAll(EdgeInsets.zero),
-        elevation: WidgetStatePropertyAll(8),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(4)),
-          ),
-        ),
-      ),
-      builder: (context, controller, child) {
-        return InkWell(
-          onTap: () {
-            if (controller.isOpen) {
-              controller.close();
-            } else {
-              controller.open();
-            }
-          },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _selectedView == 'All'
-                    ? 'All Purchase Receives'
-                    : _selectedView,
-                style: TextStyle(
-                  fontSize: isCompact ? 16 : 24,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1F2937),
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                LucideIcons.chevronDown,
-                size: 18,
-                color: Color(0xFF0088FF),
-              ),
-            ],
-          ),
-        );
-      },
-      menuChildren: [
-        _buildViewMenuItem('All'),
-        _buildViewMenuItem('In Transit'),
-        _buildViewMenuItem('Received'),
-        _buildViewMenuItem('Billed'),
-        _buildViewMenuItem('Partially Billed'),
-        const Divider(
-          height: 1,
-          indent: 0,
-          endIndent: 0,
-          color: Color(0xFFF3F4F6),
-        ),
-        MenuItemButton(
-          onPressed: () {},
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Row(
-            children: [
-              Icon(LucideIcons.plusCircle, size: 16, color: Color(0xFF0088FF)),
-              const SizedBox(width: 12),
-              Text(
-                'New Custom View',
-                style: TextStyle(
-                  color: Color(0xFF0088FF),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildViewMenuItem(String label) {
-    final isActive = _selectedView == label;
-    return MenuItemButton(
-      onPressed: () {
+    return FavoriteFilterDropdown(
+      moduleName: 'purchase_receives',
+      options: _receiveFilterOptions,
+      selectedOption: _activeOption,
+      onChanged: (opt) {
         setState(() {
-          _selectedView = label;
+          _activeOption = opt;
         });
       },
-      style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
-          Icon(
-            LucideIcons.star,
-            size: 14,
-            color: isActive ? Colors.white70 : const Color(0xFFD1D5DB),
-          ),
-        ],
-      ),
     );
   }
 

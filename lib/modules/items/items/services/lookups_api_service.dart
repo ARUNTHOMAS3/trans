@@ -687,9 +687,41 @@ class LookupsApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> syncTdsRates(
+    List<Map<String, dynamic>> items,
+  ) => _syncLookup('tds-rates', items);
+
   Future<List<Map<String, dynamic>>> getTdsSections() async {
     try {
       final response = await _apiClient.get('/products/lookups/tds-sections');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTcsRates() async {
+    try {
+      final response = await _apiClient.get('/products/lookups/tcs-rates');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> syncTcsRates(
+    List<Map<String, dynamic>> items,
+  ) => _syncLookup('tcs-rates', items);
+
+  Future<List<Map<String, dynamic>>> getTcsNatures() async {
+    try {
+      final response = await _apiClient.get('/products/lookups/tcs-natures');
       if (response.statusCode == 200) {
         return List<Map<String, dynamic>>.from(response.data);
       }

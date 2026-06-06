@@ -2150,3 +2150,12 @@ export const billLandedCosts = pgTable("bill_landed_costs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+export const favorites = pgTable("favorites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
+  usersId: uuid("users_id").notNull().references(() => users.id),
+  columnName: varchar("column_name", { length: 255 }).notNull(),
+  moduleName: varchar("module_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+});
+

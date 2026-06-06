@@ -46,6 +46,7 @@ class PurchaseOrderState {
   final int poNextNumber;
   final int poPadding;
   final String taxType; // 'exclusive' | 'inclusive'
+  final double tdsTcsRate;
 
   PurchaseOrderState({
     this.items = const [],
@@ -79,6 +80,7 @@ class PurchaseOrderState {
     this.poNextNumber = 1,
     this.poPadding = 5,
     this.taxType = 'exclusive',
+    this.tdsTcsRate = 0.0,
   });
 
   double get subTotal => items
@@ -99,9 +101,17 @@ class PurchaseOrderState {
         .fold(0.0, (sum, item) => sum + item.taxAmount);
   }
 
-  double get total => taxType == 'inclusive'
-      ? subTotal - discountValue + adjustment
-      : subTotal - discountValue + taxAmount + adjustment;
+  double get tdsTcsAmount => (subTotal - discountValue) * (tdsTcsRate / 100);
+
+  double get total {
+    final base = taxType == 'inclusive'
+        ? subTotal - discountValue + adjustment
+        : subTotal - discountValue + taxAmount + adjustment;
+    if (tdsTcsType == 'tds' || tdsTcsType == 'tcs') {
+      return base - tdsTcsAmount;
+    }
+    return base;
+  }
 
   PurchaseOrderState copyWith({
     List<PurchaseOrderItem>? items,
@@ -136,6 +146,7 @@ class PurchaseOrderState {
     int? poNextNumber,
     int? poPadding,
     String? taxType,
+    double? tdsTcsRate,
   }) {
     return PurchaseOrderState(
       items: items ?? this.items,
@@ -171,6 +182,7 @@ class PurchaseOrderState {
       poNextNumber: poNextNumber ?? this.poNextNumber,
       poPadding: poPadding ?? this.poPadding,
       taxType: taxType ?? this.taxType,
+      tdsTcsRate: tdsTcsRate ?? this.tdsTcsRate,
     );
   }
 }
@@ -682,6 +694,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     int? poNextNumber,
     int? poPadding,
     String? taxType,
+    double? tdsTcsRate,
   }) {
     final oldLevel = state.discountLevel;
     final oldWarehouse = state.warehouseId;
@@ -720,6 +733,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       poNextNumber: poNextNumber,
       poPadding: poPadding,
       taxType: taxType,
+      tdsTcsRate: tdsTcsRate,
     );
 
     if ((discountLevel != null && discountLevel != oldLevel) ||

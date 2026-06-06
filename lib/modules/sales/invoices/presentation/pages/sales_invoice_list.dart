@@ -22,6 +22,7 @@ import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/email_composer.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -160,14 +161,47 @@ const _invoiceViews = <_InvoiceView>[
   _InvoiceView('All Invoices'),
   _InvoiceView('All'),
   _InvoiceView('Draft', statuses: {'draft'}),
-  _InvoiceView('Pending Approval', statuses: {'pending approval'}),
+  _InvoiceView('Locked', statuses: {'locked'}),
+  _InvoiceView('Pending Approval', statuses: {'pending approval', 'pending_approval'}),
   _InvoiceView('Approved', statuses: {'approved'}),
-  _InvoiceView('Sent', statuses: {'sent'}),
-  _InvoiceView('Partially Paid', statuses: {'partially paid'}),
+  _InvoiceView('Customer Viewed', statuses: {'customer viewed', 'customer_viewed', 'sent'}),
+  _InvoiceView('Partially Paid', statuses: {'partially paid', 'partially_paid'}),
+  _InvoiceView('Unpaid', statuses: {'unpaid'}),
   _InvoiceView('Overdue', statuses: {'overdue'}),
+  _InvoiceView('Payment Initiated', statuses: {'payment initiated', 'payment_initiated', 'initiated'}),
   _InvoiceView('Paid', statuses: {'paid'}),
   _InvoiceView('Void', statuses: {'void'}),
-  _InvoiceView('Unpaid', statuses: {'unpaid'}),
+  _InvoiceView('Yet To Be Shipped', statuses: {'yet to be shipped', 'yet_to_be_shipped'}),
+  _InvoiceView('Shipped', statuses: {'shipped'}),
+  _InvoiceView('Invoices', statuses: {'invoice', 'invoices'}),
+  _InvoiceView('Bills Of Supply', statuses: {'bills of supply', 'bills_of_supply'}),
+  _InvoiceView('Debit Note', statuses: {'debit note', 'debit_note'}),
+  _InvoiceView('Write Off', statuses: {'write off', 'write_off'}),
+  _InvoiceView('Pending Collection Invoices', statuses: {'pending collection invoices', 'pending_collection_invoices', 'pending_collection'}),
+  _InvoiceView('Marketplace', statuses: {'marketplace'}),
+];
+
+const _invFilterOptions = <FavoriteFilterOption>[
+  FavoriteFilterOption(label: 'All', value: 'All'),
+  FavoriteFilterOption(label: 'Draft', value: 'Draft'),
+  FavoriteFilterOption(label: 'Locked', value: 'Locked'),
+  FavoriteFilterOption(label: 'Pending Approval', value: 'Pending Approval'),
+  FavoriteFilterOption(label: 'Approved', value: 'Approved'),
+  FavoriteFilterOption(label: 'Customer Viewed', value: 'Customer Viewed'),
+  FavoriteFilterOption(label: 'Partially Paid', value: 'Partially Paid'),
+  FavoriteFilterOption(label: 'Unpaid', value: 'Unpaid'),
+  FavoriteFilterOption(label: 'Overdue', value: 'Overdue'),
+  FavoriteFilterOption(label: 'Payment Initiated', value: 'Payment Initiated'),
+  FavoriteFilterOption(label: 'Paid', value: 'Paid'),
+  FavoriteFilterOption(label: 'Void', value: 'Void'),
+  FavoriteFilterOption(label: 'Yet To Be Shipped', value: 'Yet To Be Shipped'),
+  FavoriteFilterOption(label: 'Shipped', value: 'Shipped'),
+  FavoriteFilterOption(label: 'Invoices', value: 'Invoices'),
+  FavoriteFilterOption(label: 'Bills Of Supply', value: 'Bills Of Supply'),
+  FavoriteFilterOption(label: 'Debit Note', value: 'Debit Note'),
+  FavoriteFilterOption(label: 'Write Off', value: 'Write Off'),
+  FavoriteFilterOption(label: 'Pending Collection Invoices', value: 'Pending Collection Invoices'),
+  FavoriteFilterOption(label: 'Marketplace', value: 'Marketplace'),
 ];
 
 // ─────────────────────────────────────────────────
@@ -196,6 +230,8 @@ enum _InvSortField {
   amount,
   balanceDue,
   warehouse,
+  createdTime,
+  lastModifiedTime,
 }
 
 class _InvColumnConfig {
@@ -249,6 +285,7 @@ class _SalesInvoiceOverviewScreenState
   late final FocusNode _searchFocusNode;
   final ScrollController _horizontalScrollController = ScrollController();
   String _searchQuery = '';
+  FavoriteFilterOption _activeOption = _invFilterOptions.first;
   _InvoiceView _activeView = _invoiceViews.first;
   _InvSortField _activeSortField = _InvSortField.invoiceNumber;
   bool _isAscending = true;
@@ -277,12 +314,27 @@ class _SalesInvoiceOverviewScreenState
     });
 
     if (widget.initialFilter != null) {
-      final matched = _invoiceViews.firstWhere(
-        (v) => v.label.toLowerCase() == widget.initialFilter!.toLowerCase() ||
-               (v.statuses != null && v.statuses!.contains(widget.initialFilter!.toLowerCase())),
-        orElse: () => _invoiceViews.first,
+      final found = _invFilterOptions.where(
+        (v) => v.label.toLowerCase() == widget.initialFilter!.toLowerCase(),
       );
-      setState(() => _activeView = matched);
+      if (found.isNotEmpty) {
+        _activeOption = found.first;
+        _activeView = _invoiceViews.firstWhere(
+          (v) => v.label == (_activeOption.label == 'All' ? 'All Invoices' : _activeOption.label),
+          orElse: () => _invoiceViews.first,
+        );
+      } else {
+        final matched = _invoiceViews.firstWhere(
+          (v) => v.label.toLowerCase() == widget.initialFilter!.toLowerCase() ||
+                 (v.statuses != null && v.statuses!.contains(widget.initialFilter!.toLowerCase())),
+          orElse: () => _invoiceViews.first,
+        );
+        _activeView = matched;
+        final matchingOpt = _invFilterOptions.where((o) => o.label == (matched.label == 'All Invoices' ? 'All' : matched.label));
+        if (matchingOpt.isNotEmpty) {
+          _activeOption = matchingOpt.first;
+        }
+      }
     }
 
     _loadColumnSettings();
@@ -488,25 +540,42 @@ class _SalesInvoiceOverviewScreenState
       children: [
         _selectedIds.isNotEmpty
             ? _splitSelectionBanner()
-            : Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            : Container(
+                height: 64,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.borderLight),
+                  ),
+                ),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Invoices',
-                        style: AppTheme.sectionHeader.copyWith(fontSize: 18),
-                      ),
+                    FavoriteFilterDropdown(
+                      moduleName: 'sales_invoices',
+                      options: _invFilterOptions,
+                      selectedOption: _activeOption,
+                      showChevron: true,
+                      onChanged: (opt) {
+                        setState(() {
+                          _activeOption = opt;
+                          _activeView = _invoiceViews.firstWhere(
+                            (v) => v.label == (opt.label == 'All' ? 'All Invoices' : opt.label),
+                            orElse: () => _invoiceViews.first,
+                          );
+                        });
+                      },
                     ),
+                    const Spacer(),
                     InkWell(
                       onTap: () => context.go('/sales/invoices/create'),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
-                        width: 34,
-                        height: 34,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF28A745), // Success Green
-                          borderRadius: BorderRadius.circular(6),
+                          color: const Color(0xFF28A745),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Icon(
                           LucideIcons.plus,
@@ -517,32 +586,10 @@ class _SalesInvoiceOverviewScreenState
                     ),
                     const SizedBox(width: 8),
                     ZTableMoreMenu(
-                      width: 34,
-                      height: 34,
-                      menuChildren: [
-                        SubmenuButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          menuChildren: [
-                            _buildSortMenuItem('Date', _InvSortField.date),
-                            _buildSortMenuItem(
-                              'Invoice#',
-                              _InvSortField.invoiceNumber,
-                            ),
-                            _buildSortMenuItem(
-                              'Customer Name',
-                              _InvSortField.customerName,
-                            ),
-                            _buildSortMenuItem('Amount', _InvSortField.amount),
-                            _buildSortMenuItem('Status', _InvSortField.status),
-                          ],
-                          child: const Text('Sort by'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          onPressed: () => ref.invalidate(salesInvoicesProvider),
-                          child: const Text('Refresh List'),
-                        ),
-                      ],
+                      width: 28,
+                      height: 28,
+                      iconSize: 14,
+                      menuChildren: _buildMoreMenuChildren(),
                     ),
                   ],
                 ),
@@ -2957,71 +3004,20 @@ class _SalesInvoiceOverviewScreenState
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 20),
-            child: MenuAnchor(
-              style: _menuStyle(),
-              builder: (context, controller, child) {
-                return InkWell(
-                  onTap: () => controller.isOpen
-                      ? controller.close()
-                      : controller.open(),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _activeView.label == 'All'
-                              ? 'All Invoices'
-                              : _activeView.label,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(
-                          LucideIcons.chevronDown,
-                          size: 16,
-                          color: AppTheme.primaryBlue,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+            child: FavoriteFilterDropdown(
+              moduleName: 'sales_invoices',
+              options: _invFilterOptions,
+              selectedOption: _activeOption,
+              showChevron: true,
+              onChanged: (opt) {
+                setState(() {
+                  _activeOption = opt;
+                  _activeView = _invoiceViews.firstWhere(
+                    (v) => v.label == (opt.label == 'All' ? 'All Invoices' : opt.label),
+                    orElse: () => _invoiceViews.first,
+                  );
+                });
               },
-              menuChildren: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                  child: IgnorePointer(
-                    child: SizedBox(
-                      width: 250,
-                      child: TextField(
-                        decoration: _inputDecoration('Search views'),
-                      ),
-                    ),
-                  ),
-                ),
-                ..._invoiceViews.map(
-                  (view) => MenuItemButton(
-                    style: _menuItemStyle(
-                      isActive: _activeView.label == view.label,
-                    ),
-                    onPressed: () => setState(() => _activeView = view),
-                    trailingIcon: const Icon(
-                      LucideIcons.star,
-                      size: 14,
-                      color: AppTheme.textDisabled,
-                    ),
-                    child: SizedBox(width: 250, child: Text(view.label)),
-                  ),
-                ),
-              ],
             ),
           ),
           const Spacer(),
@@ -3032,54 +3028,9 @@ class _SalesInvoiceOverviewScreenState
           ),
           const SizedBox(width: 4),
           ZTableMoreMenu(
-            width: 32,
-            height: 32,
-            menuChildren: [
-              SubmenuButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                menuChildren: [
-                  _buildSortMenuItem('Date', _InvSortField.date),
-                  _buildSortMenuItem(
-                    'Invoice#',
-                    _InvSortField.invoiceNumber,
-                  ),
-                  _buildSortMenuItem(
-                    'Customer Name',
-                    _InvSortField.customerName,
-                  ),
-                  _buildSortMenuItem('Amount', _InvSortField.amount),
-                  _buildSortMenuItem('Status', _InvSortField.status),
-                ],
-                child: const Text('Sort by'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: const Text('Import Invoices'),
-              ),
-              SubmenuButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                menuChildren: [
-                  MenuItemButton(
-                    style: ZTableMoreMenu.menuItemButtonStyle(),
-                    child: const Text('Export Invoices'),
-                  ),
-                  MenuItemButton(
-                    style: ZTableMoreMenu.menuItemButtonStyle(),
-                    child: const Text('Export Current View'),
-                  ),
-                ],
-                child: const Text('Export'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: const Text('Preferences'),
-              ),
-              MenuItemButton(
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                onPressed: () => ref.invalidate(salesInvoicesProvider),
-                child: const Text('Refresh List'),
-              ),
-            ],
+            width: 38,
+            height: 38,
+            menuChildren: _buildMoreMenuChildren(),
           ),
           const SizedBox(width: 24),
         ],
@@ -3321,8 +3272,6 @@ class _SalesInvoiceOverviewScreenState
   }
 
   Widget _headerLabel(_InvColumnConfig col, double width) {
-    final sortField = _sortFieldForColumn(col.key);
-    final isSorted = sortField != null && _activeSortField == sortField;
     MainAxisAlignment alignment = MainAxisAlignment.start;
     if (col.key == _InvColumnKey.amount) {
       alignment = MainAxisAlignment.end;
@@ -3335,34 +3284,20 @@ class _SalesInvoiceOverviewScreenState
       width: width,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: InkWell(
-          onTap: sortField == null
-              ? null
-              : () => setState(() => _toggleSort(sortField)),
-          child: Row(
-            mainAxisAlignment: alignment,
-            children: [
-              Flexible(
-                child: Text(
-                  col.label.toUpperCase(),
-                  style: AppTheme.metaHelper.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isSorted ? AppTheme.primaryBlue : null,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        child: Row(
+          mainAxisAlignment: alignment,
+          children: [
+            Flexible(
+              child: Text(
+                col.label.toUpperCase(),
+                style: AppTheme.metaHelper.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              if (isSorted) ...[
-                const SizedBox(width: 4),
-                Icon(
-                  _isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
-                  size: 12,
-                  color: AppTheme.primaryBlue,
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -3839,27 +3774,103 @@ class _SalesInvoiceOverviewScreenState
 
   // ─── SORT ───────────────────────────────────────
 
-  _InvSortField? _sortFieldForColumn(_InvColumnKey key) {
-    switch (key) {
-      case _InvColumnKey.date:
-        return _InvSortField.date;
-      case _InvColumnKey.invoiceNumber:
-        return _InvSortField.invoiceNumber;
-      case _InvColumnKey.orderNumber:
-        return _InvSortField.orderNumber;
-      case _InvColumnKey.customerName:
-        return _InvSortField.customerName;
-      case _InvColumnKey.status:
-        return _InvSortField.status;
-      case _InvColumnKey.dueDate:
-        return _InvSortField.dueDate;
-      case _InvColumnKey.amount:
-        return _InvSortField.amount;
-      case _InvColumnKey.balanceDue:
-        return _InvSortField.balanceDue;
-      case _InvColumnKey.warehouse:
-        return _InvSortField.warehouse;
-    }
+  List<Widget> _buildMoreMenuChildren() {
+    return [
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
+        menuChildren: [
+          _buildSortMenuItem('Created Time', _InvSortField.createdTime),
+          _buildSortMenuItem('Last Modified Time', _InvSortField.lastModifiedTime),
+          _buildSortMenuItem('Date', _InvSortField.date),
+          _buildSortMenuItem('Invoice#', _InvSortField.invoiceNumber),
+          _buildSortMenuItem('Order Number', _InvSortField.orderNumber),
+          _buildSortMenuItem('Customer Name', _InvSortField.customerName),
+          _buildSortMenuItem('Due Date', _InvSortField.dueDate),
+          _buildSortMenuItem('Amount', _InvSortField.amount),
+          _buildSortMenuItem('Balance Due', _InvSortField.balanceDue),
+        ],
+        child: const Text('Sort by'),
+      ),
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.download, size: 16),
+        menuChildren: [
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
+            child: const Text('Import Invoices'),
+          ),
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
+            child: const Text('Import Bill of supply'),
+          ),
+        ],
+        child: const Text('Import'),
+      ),
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.upload, size: 16),
+        menuChildren: [
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            child: const Text('Export Invoices'),
+          ),
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            child: const Text('Export Current View'),
+          ),
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            child: const Text('Export as E-Way Bill'),
+          ),
+        ],
+        child: const Text('Export'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.settings, size: 16),
+        onPressed: _showCustomizeColumnsDialog,
+        child: const Text('Preferences'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.columns, size: 16),
+        onPressed: () {},
+        child: const Text('Manage Custom Fields'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.monitor, size: 16),
+        onPressed: () {},
+        child: const Text('Online Payments'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
+        onPressed: () => ref.invalidate(salesInvoicesProvider),
+        child: const Text('Refresh List'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.rotateCcw, size: 16),
+        onPressed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('sales_invoice_column_widths');
+          setState(() {
+            _customColumnWidths = null;
+          });
+        },
+        child: const Text('Reset Column Width'),
+      ),
+    ];
   }
 
   void _toggleSort(_InvSortField field) {
@@ -3936,6 +3947,10 @@ class _SalesInvoiceOverviewScreenState
           case _InvSortField.warehouse:
             cmp = (a.warehouseId ?? '')
                 .compareTo(b.warehouseId ?? '');
+          case _InvSortField.createdTime:
+            cmp = (a.createdAt ?? a.saleDate).compareTo(b.createdAt ?? b.saleDate);
+          case _InvSortField.lastModifiedTime:
+            cmp = (a.createdAt ?? a.saleDate).compareTo(b.createdAt ?? b.saleDate);
         }
         return _isAscending ? cmp : -cmp;
       });
@@ -5542,6 +5557,9 @@ MenuStyle _menuStyle() {
 
 ButtonStyle _menuItemStyle({bool isActive = false}) {
   return ButtonStyle(
+    animationDuration: Duration.zero,
+    splashFactory: NoSplash.splashFactory,
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
     backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
       final highlighted = states.contains(WidgetState.hovered) ||
           states.contains(WidgetState.focused);
@@ -5557,36 +5575,6 @@ ButtonStyle _menuItemStyle({bool isActive = false}) {
     }),
     padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    ),
-  );
-}
-
-InputDecoration _inputDecoration(String hintText) {
-  return InputDecoration(
-    hintText: hintText,
-    hintStyle: AppTheme.bodyText.copyWith(
-      fontSize: 13,
-      color: AppTheme.textMuted,
-    ),
-    prefixIcon: const Icon(
-      LucideIcons.search,
-      size: 16,
-      color: AppTheme.textMuted,
-    ),
-    filled: true,
-    fillColor: AppTheme.bgLight,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: AppTheme.borderLight),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: AppTheme.borderLight),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: AppTheme.primaryBlue),
     ),
   );
 }

@@ -78,6 +78,9 @@ class ZSplitActionMenuButton extends StatelessWidget {
         return MenuItemButton(
           onPressed: isDisabled ? null : item.onPressed,
           style: ButtonStyle(
+            animationDuration: Duration.zero,
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
               if (states.contains(WidgetState.hovered)) {
                 return AppTheme.primaryBlue;

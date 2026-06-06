@@ -66,11 +66,12 @@ export class R2StorageService {
    * Generates a presigned URL for viewing/downloading a file.
    * Default expiration is 1 hour (3600 seconds).
    */
-  async getPresignedUrl(key: string, expiresIn = 3600): Promise<string> {
+  async getPresignedUrl(key: string, expiresIn = 3600, contentType?: string): Promise<string> {
     try {
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
         Key: key,
+        ...(contentType ? { ResponseContentType: contentType } : {}),
       });
 
       return await getSignedUrl(this.s3Client, command, { expiresIn });

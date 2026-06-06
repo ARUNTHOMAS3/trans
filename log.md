@@ -1460,3 +1460,244 @@ Removed the solid blue border outline and blue triangle painter from the Recent/
 **Verifications**: Verified frontend compiles cleanly with `dart analyze` with zero lints or errors.
 
 Timestamp of Log Update: June 4, 2026 - 12:45 PM (IST)
+
+## 40. Purchase Order Creation Tax UI & Backend Validation Fix (June 5, 2026)
+
+### Summary
+Fixed the tax column dropdown box outline hover/selection aesthetics in the Purchase Orders creation page. Unified unregistered vendor tax placeholder logic. Resolved NestJS DTO validation and database schema mismatch where warehouse_id was being sent inside the item objects but is not present in the purchase_order_items database table.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - **Tax Dropdown Outline**: Wrapped the tax dropdown container inside a MouseRegion and StatefulBuilder to render a blue border outline ( xFF0088FF) on hover or when selected, and transparent otherwise.
+  - **Unregistered Treatment Tax Placeholder**: If the vendor's GST treatment is unregistered, show the 'Select Tax' placeholder inside the tax dropdown cell instead of 'Non-Taxable'.
+
+#### Backend Files
+- backend/src/modules/purchases/purchase-orders/dto/create-purchase-order.dto.ts:
+  - **PurchaseOrderItemDto**: Whitelisted optional string field warehouse_id to allow it to pass NestJS validation pipeline.
+- backend/src/modules/purchases/purchase-orders/services/purchase-orders.service.ts:
+  - **Service Layer Payload Mapping**: Destructured and excluded warehouse_id from item objects inside mapping loop in both create and update methods to prevent PostgREST relationships/schema cache validation errors.
+
+**Verifications**: Verified backend builds successfully with 
+pm run build and frontend compiles cleanly with dart analyze.
+
+Timestamp of Log Update: June 5, 2026 - 12:25 PM (IST)
+
+## 41. Purchase Order Creation Quantity Validation & Account Outline (June 5, 2026)
+
+### Summary
+Added quantity validation to PO creation flow. Styled the account dropdown box outline on hover/selection to match the design system. Rendered the tax dropdown box as read-only but preserved the dropdown appearance when the vendor's GST treatment is unregistered.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - **Quantity Validation**: Added checks inside the _handleSave loop to ensure item quantities are greater than zero, throwing a ZerpaiToast.error with the exact message 'Please enter a valid quantity for item ' if not.
+  - **Account Dropdown Outline**: Added _activeAccountRowIndex state tracking and _closeAccountOverlay(). Wrapped the account dropdown container in a StatefulBuilder and MouseRegion to draw a blue outline ( xFF0088FF) on hover or selection, transparent otherwise.
+  - **Read-Only Tax Dropdown**: Always show the dropdown arrow icon even when the vendor's GST treatment is unregistered. Disabled the hover blue outline highlight on the tax box when the vendor is unregistered.
+
+**Verifications**: Verified frontend compiles cleanly with dart analyze.
+
+Timestamp of Log Update: June 5, 2026 - 12:45 PM (IST)
+
+## 42. Header Row Validation, Custom TDS Dropdown Grouping & TDS Rates Management (June 5, 2026)
+
+### Summary
+Implemented robust validation for purchase order header rows and resolved syntax/bracket issues in the PO creation page. Replaced the standard static TDS/TCS dropdown with a custom popover listing TDS rates grouped by their parent TDS Section (`section_id` lookup). Added a "+ Manage TDS" modal management dialog that integrates with the existing `ManageListDialog` and parses base rate bracket notation (e.g. `[1.5%]`) dynamically to keep database sync compliant. Updated state notifier logic to calculate TDS/TCS amounts and inject them into PO payload creation.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/items/items/services/lookups_api_service.dart:
+  - **syncTdsRates**: Exposed public lookup synchronization method mapped to the `/tds-rates` endpoint.
+- lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart:
+  - **PurchaseOrderState & Notifier**: Added `tdsTcsRate` state tracking, implemented a computed `tdsTcsAmount` getter, and updated the `total` getter to correctly apply TDS (subtraction) or TCS (addition) adjustments dynamically.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - **Header Row Validation**: Skip product-specific checks (quantity/account/HSN) for items marked as header rows (`isHeader == true`), and instead ensure the user enters a non-empty header title.
+  - **TDS Sections & Rates Loading**: Loaded `tds_rates` and `tds_sections` lists on initialization.
+  - **Custom TDS Selection Popover**: Created `_TdsSelectionPopover` containing a search input, group headers for sections, rates displaying `tax_name [base_rate]%`, and a footer actions button link to manage TDS.
+  - **TDS rates Syncing**: Implemented `_showManageTdsRatesDialog` which parses user-entered tax titles to extract `base_rate` percentages and syncs the updated rates back to lookups.
+
+**Verifications**: Verified backend builds successfully with `npm run build` and frontend compiles cleanly with `dart analyze`. Verified all existing items tests pass successfully via `flutter test`.
+
+Timestamp of Log Update: June 5, 2026 - 1:50 PM (IST)
+
+
+## 43. Favorite Filter Dropdown Revert & Loading Fix (June 5, 2026)
+
+### Summary
+Reverted the visual presentation of the FavoriteFilterDropdown trigger button to its original transparent-background design and aligned text/icon styles with AppTheme color tokens. Fixed a critical endless loading spinner in the dropdown popover by ensuring the loading state is deactivated when Supabase authentication is uninitialized or when query exceptions occur.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/shared/widgets/inputs/favorite_filter_dropdown.dart:
+  - **Trigger Styling Reversion**: Removed the light-blue container background and rounded decoration from the custom MenuAnchor builder. Restored the simple InkWell and Padding container structure utilizing `AppTheme.textPrimary` for text color and `AppTheme.primaryBlue` for the chevron icon.
+  - **Unauthenticated State Spinner Fix**: Modified `_loadFavorites()` to call `setState(() => _isLoading = false)` and log a debug message when `userId` is `null` (e.g. on unauthenticated initial launch or dev refresh), preventing the views list from displaying an endless loading spinner.
+  - **Query Exception Safety**: Added debug logging inside the `catch (e)` block of `_loadFavorites()` and ensured `_isLoading = false` is always set upon query errors.
+
+**Verifications**: Verified frontend compiles cleanly with `dart analyze` with zero lints or errors.
+
+Timestamp of Log Update: June 5, 2026 - 6:55 PM (IST)
+
+
+## 44. Favorite Filter Dropdown Selection Auto-Star & Selected Highlighting Revert (June 5, 2026)
+
+### Summary
+Removed the blue/light-blue background highlights and text color states for selected/active views in the filter dropdown list, keeping all list rows standard transparent. Implemented automatic star favoriting when any view filter is selected/tapped from the dropdown, triggering Supabase insert queries dynamically.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/shared/widgets/inputs/favorite_filter_dropdown.dart:
+  - **Selected Row Highlight Removal**: Changed the Container background color to `Colors.transparent` and text color styling to `AppTheme.textPrimary` with `FontWeight.w500` regardless of `isSelected` state, preventing double/overlapping blue row styling.
+  - **Auto-Favoriting on Option Tap**: Updated `onTap` within `_optionRow` to verify if the selected value is already favorited and dynamically trigger `_toggleFavorite(opt)` if it isn't, ensuring the star is colored yellow and successfully entered in the `favorites` table in the database.
+
+**Verifications**: Verified compilation using `dart analyze` on the modified component.
+
+Timestamp of Log Update: June 5, 2026 - 7:00 PM (IST)
+
+
+## 45. Favorite Filter User & Tenant Resolution Support (June 5, 2026)
+
+### Summary
+Resolved a critical integration bug where view favorites were not saving or loading in local/dev environments. Local profiles use auth sessions decoupled from Supabase's direct auth object, causing query bypasses. Implemented robust hierarchical user and entity ID resolvers falling back to `authUserProvider` and Hive configuration storage, enabling real-time Postgres DB persistence.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/shared/widgets/inputs/favorite_filter_dropdown.dart:
+  - **Hierarchical User ID Resolver**: Added `_getUserId()` helper to check Supabase active auth, falling back to `authUserProvider` details and raw Hive configuration state under the `user_data` registry.
+  - **Hierarchical Entity ID Resolver**: Added `_getEntityId()` helper to read active branch/organization states from `entityProvider`, `authUserProvider`, and Hive configurations.
+  - **Tap-Sequence Optimization**: Reordered `onTap` callbacks in the option rows to trigger `_toggleFavorite()` asynchronously *prior* to closing the menu, preventing premature widget unmounting from cancelling database sync events.
+
+**Verifications**: Verified compilation using `dart analyze` on the modified component.
+
+Timestamp of Log Update: June 5, 2026 - 9:30 PM (IST)
+
+
+## 46. Solid Color Filled Star Icon Support (June 5, 2026)
+
+### Summary
+Replaced LucideIcons star representation with standard Material `Icons.star` and `Icons.star_border` to resolve a rendering bug where font-based Lucide icons did not fill their path color. Starred/favorited views now display a solid filled orange/yellow star.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/shared/widgets/inputs/favorite_filter_dropdown.dart:
+  - **Standard Material Icons Migration**: Replaced `LucideIcons.star` with conditional check for `isStarred ? Icons.star : Icons.star_border` to cleanly render filled stars on favorited elements and outline-only stars on defaults.
+
+**Verifications**: Verified compilation using `dart analyze` with zero lints/warnings.
+
+Timestamp of Log Update: June 5, 2026 - 9:35 PM (IST)
+
+
+## 47. Header Option Display Label Formatting (June 5, 2026)
+
+### Summary
+Customized the display label rendered on the dropdown trigger header row. When the "All" option is selected, the trigger label is dynamically formatted as "All [ModuleName]" (e.g. "All Purchase Orders") to prevent generic "All" text from cluttering the module page headers.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/shared/widgets/inputs/favorite_filter_dropdown.dart:
+  - **Dynamic Display Label Formatter**: Added `_getDisplayLabel()` to automatically maps `All` option to full descriptions based on active `moduleName` (e.g. `purchase_orders` -> "All Purchase Orders"), falling back to capital-case string splits.
+
+**Verifications**: Verified compilation using `dart analyze` with zero errors.
+
+Timestamp of Log Update: June 5, 2026 - 9:40 PM (IST)
+
+## 29. Sales Orders Sort By Menu Harmonisation (June 06, 2026)
+
+### Summary
+Unified the more menu options and visual hierarchy in the Sales Order list screen (sales_order_list.dart). Aligned the "Sort by" submenu items with the designed options (Sales Order#, Date, Customer Name, Amount, Created Time, Last Modified Time, Expected Shipment Date) and implemented standard leading icons for all more menu actions.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart:
+  - **Shared More Menu Builder**: Created _buildMoreMenuChildren() helper method to build unified MenuItemButtons and SubmenuButtons with correct leading Lucide icons.
+  - **Sort Menu Options Realignment**: Aligned the "Sort by" submenu list to contain 'Sales Order#', 'Date', 'Customer Name', 'Amount', 'Created Time', 'Last Modified Time', and 'Expected Shipment Date'.
+  - **Toolbar and Sidebar Sync**: Modified both ZTableMoreMenu instances in the page layout (top toolbar and selection split-view panel) to consume the unified _buildMoreMenuChildren(), ensuring visual consistency and fixing a missing onPressed reload callback bug.
+
+Timestamp of Log Update: June 06, 2026 - 11:15 AM (IST)
+
+## 30. Sales Orders Header & Sizing Enhancements (June 06, 2026)
+
+### Summary
+Removed interactive sorting styling and click handlers from column headers in sales_order_list.dart to make them clean, static labels. Additionally, matched the sizing of the ZTableMoreMenu toolbar button to the ZButton height (38px) in both Sales Orders and Sales Invoices module lists.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart:
+  - **Static Header Labels**: Removed the InkWell wrapper, sort arrow icons, and conditional blue text highlights inside _buildHeaderForColumn(), making column header elements visual-only.
+  - **Unused Method Cleanup**: Deleted the unused _sortFieldForColumn helper method.
+  - **More Menu Button Sizing**: Adjusted the toolbar ZTableMoreMenu dimensions to 38px width and 38px height to align with the primary ZButton vertical spacing.
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart:
+  - **More Menu Button Sizing**: Resized the main toolbar ZTableMoreMenu to 38x38px to maintain consistent layout standards across sales screens.
+
+Timestamp of Log Update: June 06, 2026 - 11:20 AM (IST)
+
+## 31. Sales & Invoices Header Chevron Restore (June 06, 2026)
+
+### Summary
+Restored the dropdown chevron arrows on the page title/header dropdown triggers in both Sales Orders and Sales Invoices module lists.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart:
+  - **Show Chevron Flag**: Changed showChevron to 	rue on both FavoriteFilterDropdown calls (toolbar and split view sidebar).
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart:
+  - **Show Chevron Flag**: Changed showChevron to 	rue on both FavoriteFilterDropdown calls (sidebar and main toolbar).
+
+Timestamp of Log Update: June 06, 2026 - 11:25 AM (IST)
+
+## 32. Invoices Filter & More Menu Submenu Alignments (June 06, 2026)
+
+### Summary
+Expanded status filter views inside sales_invoice_list.dart to match screenshots 3, 4, and 5. Aligned the toolbar 3-dots dropdown list submenus, options, and actions in sales_invoice_list.dart based on screenshots 1 and 2.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart:
+  - **Filter Presets Expansion**: Added Pending Collection Invoices and Marketplace status filter options and view mapping definitions to _invoiceViews and _invFilterOptions.
+  - **Sort Menu Realignment**: reordered/added items in Sort by submenu: Created Time, Last Modified Time, Date, Invoice#, Order Number, Customer Name, Due Date, Amount, Balance Due.
+  - **Import Option Submenu**: Nested Import Invoices inside an Import submenu folder button.
+  - **Export Option Submenu**: Added Export as E-Way Bill option to Export submenu button.
+  - **Online Payments Option**: Introduced the new Online Payments button using monitor icon.
+  - **Reset Column Width Action**: Added Reset Column Width option that removes 'sales_invoice_column_widths' key from Shared Preferences and sets _customColumnWidths state back to null.
+
+Timestamp of Log Update: June 06, 2026 - 11:30 AM (IST)
+
+## 33. TDS and TCS Radio Selection and Popover Selector UI Implementation (June 06, 2026)
+
+### Summary
+Implemented the dynamic TDS/TCS radio buttons, search-and-group popover overlay selector (`_TdsSelectionPopover`), and "+ Manage TDS/TCS" inline dialog management (`ManageTdsTcsRatesDialog`) across three targets: Purchases Bills Create, Sales Invoices Create, and Sales Orders Create pages. Wired state calculations and database mappings to correctly compute, show, and save transaction-level TDS/TCS values.
+
+### Detailed Engineering Changes
+
+#### Database / Backend Files
+- backend/src/modules/purchases/bills/services/bills.service.ts:
+  - **Save TDS/TCS Totals**: Mapped the calculated `tds_total` and `tcs_total` values from client payloads to PostgreSQL columns.
+- backend/src/modules/sales/services/sales.service.ts:
+  - **Save TDS/TCS Fields**: Persisted transaction-level fields (`tds_tcs_type`, `tds_tcs_tax_id`, `tds_tcs_amount`) for Sales Orders.
+
+#### Frontend Files
+- lib/modules/purchases/bills/models/purchases_bills_bill_model.dart:
+  - **TDS/TCS model serialization**: Extended the JSON serialization (`toJson`, `fromJson`) to support `tdsTotal` and `tcsTotal` fields.
+- lib/modules/sales/sales_orders/data/models/sales_order_model.dart:
+  - **TDS/TCS model serialization**: Added backend model fields mapping for `tdsTcsType`, `tdsTcsTaxId`, and `tdsTcsAmount` properties.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **TDS/TCS UI & Calculations**: Integrated radio group controls, layered popup overlays, and dynamic lookup loading. Implemented lookup reconstruction during editing. Mapped grand total subtraction (TDS) and addition (TCS).
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart:
+  - **TDS/TCS UI & Calculations**: Ported PO-style radio selection, dynamic popover overlay, and inline management triggers. Configured grand total calculation adjustments.
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - **TDS/TCS UI & Calculations**: Replaced the static TDS/TCS select box with PO-styled radio buttons and popup overlay, binding selected values to the backend payload structure.
+
+**Verifications**: Verified backend builds successfully with `npm run build` and frontend compiles cleanly with `dart analyze`.
+
+Timestamp of Log Update: June 06, 2026 - 11:35 AM (IST)

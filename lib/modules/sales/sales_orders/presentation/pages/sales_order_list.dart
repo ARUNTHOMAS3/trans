@@ -30,6 +30,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_item_model.dart';
@@ -206,6 +207,30 @@ const _salesOrderViews = <_SalesOrderView>[
   _SalesOrderView('Invoiced & Not Shipped'),
 ];
 
+const _soFilterOptions = <FavoriteFilterOption>[
+  FavoriteFilterOption(label: 'All', value: 'All'),
+  FavoriteFilterOption(label: 'Draft', value: 'Draft'),
+  FavoriteFilterOption(label: 'Pending Approval', value: 'Pending Approval'),
+  FavoriteFilterOption(label: 'Approved', value: 'Approved'),
+  FavoriteFilterOption(label: 'Confirmed', value: 'Confirmed'),
+  FavoriteFilterOption(label: 'For Packaging', value: 'For Packaging'),
+  FavoriteFilterOption(label: 'To be Shipped', value: 'To be Shipped'),
+  FavoriteFilterOption(label: 'Shipped', value: 'Shipped'),
+  FavoriteFilterOption(label: 'Onhold', value: 'Onhold'),
+  FavoriteFilterOption(label: 'Fulfilled', value: 'Fulfilled'),
+  FavoriteFilterOption(label: 'Closed', value: 'Closed'),
+  FavoriteFilterOption(label: 'Customer Viewed', value: 'Customer Viewed'),
+  FavoriteFilterOption(label: 'Manually Fulfilled', value: 'Manually Fulfilled'),
+  FavoriteFilterOption(label: 'For Invoicing', value: 'For Invoicing'),
+  FavoriteFilterOption(label: 'Drop Shipped', value: 'Drop Shipped'),
+  FavoriteFilterOption(label: 'Backorder', value: 'Backorder'),
+  FavoriteFilterOption(label: 'Marketplace', value: 'Marketplace'),
+  FavoriteFilterOption(label: 'Void', value: 'Void'),
+  FavoriteFilterOption(label: 'Invoiced', value: 'Invoiced'),
+  FavoriteFilterOption(label: 'Shipped & Not Invoiced', value: 'Shipped & Not Invoiced'),
+  FavoriteFilterOption(label: 'Invoiced & Not Shipped', value: 'Invoiced & Not Shipped'),
+];
+
 class SalesOrderOverviewScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
   final String? initialSelectedId;
@@ -232,6 +257,7 @@ class _SalesOrderOverviewScreenState
   late final FocusNode _searchFocusNode;
   final ScrollController _horizontalScrollController = ScrollController();
   String _searchQuery = '';
+  FavoriteFilterOption _activeOption = _soFilterOptions.first;
   _SalesOrderView _activeView = _salesOrderViews.first;
   _SalesOrderSortField _activeSortField = _SalesOrderSortField.salesOrderNumber;
   bool _isAscending = true;
@@ -260,6 +286,18 @@ class _SalesOrderOverviewScreenState
       }
     });
     _loadColumnSettings();
+    if (widget.initialFilter != null) {
+      final found = _soFilterOptions.where(
+        (v) => v.label.toLowerCase() == widget.initialFilter!.toLowerCase(),
+      );
+      if (found.isNotEmpty) {
+        _activeOption = found.first;
+        _activeView = _salesOrderViews.firstWhere(
+          (v) => v.label == (_activeOption.label == 'All' ? 'All Sales Orders' : _activeOption.label),
+          orElse: () => _salesOrderViews.first,
+        );
+      }
+    }
   }
 
   Future<void> _loadColumnSettings() async {
@@ -520,80 +558,20 @@ class _SalesOrderOverviewScreenState
           if (!hasSelection)
             Padding(
               padding: const EdgeInsets.only(left: 20),
-              child: MenuAnchor(
-                style: _menuStyle(),
-                builder: (context, controller, child) {
-                  return InkWell(
-                    onTap: () => controller.isOpen
-                        ? controller.close()
-                        : controller.open(),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _activeView.label == 'All'
-                                ? 'All Sales Orders'
-                                : _activeView.label,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            LucideIcons.chevronDown,
-                            size: 16,
-                            color: AppTheme.primaryBlue,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+              child: FavoriteFilterDropdown(
+                moduleName: 'sales_orders',
+                options: _soFilterOptions,
+                selectedOption: _activeOption,
+                showChevron: true,
+                onChanged: (opt) {
+                  setState(() {
+                    _activeOption = opt;
+                    _activeView = _salesOrderViews.firstWhere(
+                      (v) => v.label == (opt.label == 'All' ? 'All Sales Orders' : opt.label),
+                      orElse: () => _salesOrderViews.first,
+                    );
+                  });
                 },
-                menuChildren: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                    child: IgnorePointer(
-                      child: SizedBox(
-                        width: 250,
-                        child: TextField(
-                          decoration: _inputDecoration('Search views'),
-                        ),
-                      ),
-                    ),
-                  ),
-                  ..._salesOrderViews.map(
-                    (view) => MenuItemButton(
-                      style: _menuItemStyle(
-                        isActive: _activeView.label == view.label,
-                      ),
-                      onPressed: () => setState(() => _activeView = view),
-                      trailingIcon: const Icon(
-                        LucideIcons.star,
-                        size: 14,
-                        color: AppTheme.textDisabled,
-                      ),
-                      child: SizedBox(width: 250, child: Text(view.label)),
-                    ),
-                  ),
-                  const Divider(height: 1, color: AppTheme.borderLight),
-                  MenuItemButton(
-                    style: _menuItemStyle(),
-                    onPressed: _showNewCustomViewDialog,
-                    child: const SizedBox(
-                      width: 250,
-                      child: Text('+ New Custom View'),
-                    ),
-                  ),
-                ],
               ),
             ),
 
@@ -608,66 +586,9 @@ class _SalesOrderOverviewScreenState
             ),
             const SizedBox(width: 4),
             ZTableMoreMenu(
-              width: 32,
-              height: 32,
-              menuChildren: [
-                SubmenuButton(
-                  style: ZTableMoreMenu.menuItemButtonStyle(),
-                  menuChildren: [
-                    _buildSortMenuItem(
-                      'Created Time',
-                      _SalesOrderSortField.createdTime,
-                    ),
-                    _buildSortMenuItem(
-                      'Last Modified Time',
-                      _SalesOrderSortField.lastModifiedTime,
-                    ),
-                    _buildSortMenuItem('Date', _SalesOrderSortField.date),
-                    _buildSortMenuItem(
-                      'Sales Order#',
-                      _SalesOrderSortField.salesOrderNumber,
-                    ),
-                    _buildSortMenuItem(
-                      'Reference#',
-                      _SalesOrderSortField.reference,
-                    ),
-                  ],
-                  child: const Text('Sort by'),
-                ),
-                MenuItemButton(
-                  style: ZTableMoreMenu.menuItemButtonStyle(),
-                  child: const Text('Import Sales Orders'),
-                ),
-                SubmenuButton(
-                  style: ZTableMoreMenu.menuItemButtonStyle(),
-                  menuChildren: [
-                    MenuItemButton(
-                      style: ZTableMoreMenu.menuItemButtonStyle(),
-                      child: const Text('Export Sales Orders'),
-                    ),
-                    MenuItemButton(
-                      style: ZTableMoreMenu.menuItemButtonStyle(),
-                      child: const Text('Export Current View'),
-                    ),
-                  ],
-                  child: const Text('Export'),
-                ),
-                MenuItemButton(
-                  style: ZTableMoreMenu.menuItemButtonStyle(),
-                  child: const Text('Preferences'),
-                ),
-                MenuItemButton(
-                  style: ZTableMoreMenu.menuItemButtonStyle(),
-                  child: const Text('Manage Custom Fields'),
-                ),
-                MenuItemButton(
-                  style: ZTableMoreMenu.menuItemButtonStyle(),
-                  onPressed: () => ref
-                      .read(salesOrderControllerProvider.notifier)
-                      .loadSalesOrders(),
-                  child: const Text('Refresh List'),
-                ),
-              ],
+              width: 38,
+              height: 38,
+              menuChildren: _buildMoreMenuChildren(),
             ),
             const SizedBox(width: 24),
           ],
@@ -696,6 +617,70 @@ class _SalesOrderOverviewScreenState
         ],
       ),
     );
+  }
+
+  List<Widget> _buildMoreMenuChildren() {
+    return [
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
+        menuChildren: [
+          _buildSortMenuItem('Sales Order#', _SalesOrderSortField.salesOrderNumber),
+          _buildSortMenuItem('Date', _SalesOrderSortField.date),
+          _buildSortMenuItem('Customer Name', _SalesOrderSortField.customerName),
+          _buildSortMenuItem('Amount', _SalesOrderSortField.amount),
+          _buildSortMenuItem('Created Time', _SalesOrderSortField.createdTime),
+          _buildSortMenuItem('Last Modified Time', _SalesOrderSortField.lastModifiedTime),
+          _buildSortMenuItem('Expected Shipment Date', _SalesOrderSortField.expectedShipmentDate),
+        ],
+        child: const Text('Sort by'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.download, size: 16),
+        onPressed: () {},
+        child: const Text('Import Sales Orders'),
+      ),
+      SubmenuButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.upload, size: 16),
+        menuChildren: [
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            child: const Text('Export Sales Orders'),
+          ),
+          MenuItemButton(
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            child: const Text('Export Current View'),
+          ),
+        ],
+        child: const Text('Export'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.settings, size: 16),
+        onPressed: _showCustomizeColumnsDialog,
+        child: const Text('Preferences'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.columns, size: 16),
+        onPressed: () {},
+        child: const Text('Manage Custom Fields'),
+      ),
+      MenuItemButton(
+        style: ZTableMoreMenu.menuItemButtonStyle(),
+        leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
+        onPressed: () => ref
+            .read(salesOrderControllerProvider.notifier)
+            .loadSalesOrders(),
+        child: const Text('Refresh List'),
+      ),
+    ];
   }
 
   void _toggleSaleSelection(String saleId, bool selected) {
@@ -879,19 +864,6 @@ class _SalesOrderOverviewScreenState
     ZerpaiToast.success(context, 'Column preferences saved');
   }
 
-  Future<void> _showNewCustomViewDialog() async {
-    final result = await showDialog<_SalesOrderCustomViewResult>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.58),
-      builder: (dialogContext) => const _SalesOrderNewCustomViewDialog(),
-    );
-    if (result == null) return;
-    ZerpaiToast.success(
-      context,
-      'Custom view "${result.name}" saved for ${result.visibilityLabel}',
-    );
-  }
-
   Widget _workspace(
     List<SalesOrder> filteredSales,
     List<SalesOrder> allSales,
@@ -925,25 +897,42 @@ class _SalesOrderOverviewScreenState
       children: [
         _selectedSaleIds.isNotEmpty
             ? _splitSelectionBanner()
-            : Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            : Container(
+                height: 64,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.borderLight),
+                  ),
+                ),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Sales Orders',
-                        style: AppTheme.sectionHeader.copyWith(fontSize: 18),
-                      ),
+                    FavoriteFilterDropdown(
+                      moduleName: 'sales_orders',
+                      options: _soFilterOptions,
+                      selectedOption: _activeOption,
+                      showChevron: true,
+                      onChanged: (opt) {
+                        setState(() {
+                          _activeOption = opt;
+                          _activeView = _salesOrderViews.firstWhere(
+                            (v) => v.label == (opt.label == 'All' ? 'All Sales Orders' : opt.label),
+                            orElse: () => _salesOrderViews.first,
+                          );
+                        });
+                      },
                     ),
+                    const Spacer(),
                     InkWell(
                       onTap: () => context.go('/sales/orders/create'),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
-                        width: 34,
-                        height: 34,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF28A745), // Success Green
-                          borderRadius: BorderRadius.circular(6),
+                          color: const Color(0xFF28A745),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Icon(
                           LucideIcons.plus,
@@ -954,62 +943,10 @@ class _SalesOrderOverviewScreenState
                     ),
                     const SizedBox(width: 8),
                     ZTableMoreMenu(
-                      width: 34,
-                      height: 34,
-                      menuChildren: [
-                        SubmenuButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          menuChildren: [
-                            _buildSortMenuItem(
-                              'Created Time',
-                              _SalesOrderSortField.createdTime,
-                            ),
-                            _buildSortMenuItem(
-                              'Last Modified Time',
-                              _SalesOrderSortField.lastModifiedTime,
-                            ),
-                            _buildSortMenuItem(
-                              'Date',
-                              _SalesOrderSortField.date,
-                            ),
-                            _buildSortMenuItem(
-                              'Sales Order#',
-                              _SalesOrderSortField.salesOrderNumber,
-                            ),
-                            _buildSortMenuItem(
-                              'Reference#',
-                              _SalesOrderSortField.reference,
-                            ),
-                          ],
-                          child: const Text('Sort by'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Import Sales Orders'),
-                        ),
-                        SubmenuButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          menuChildren: [
-                            MenuItemButton(
-                              style: ZTableMoreMenu.menuItemButtonStyle(),
-                              child: const Text('Export Sales Orders'),
-                            ),
-                          ],
-                          child: const Text('Export'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Preferences'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Manage Custom Fields'),
-                        ),
-                        MenuItemButton(
-                          style: ZTableMoreMenu.menuItemButtonStyle(),
-                          child: const Text('Refresh List'),
-                        ),
-                      ],
+                      width: 28,
+                      height: 28,
+                      iconSize: 14,
+                      menuChildren: _buildMoreMenuChildren(),
                     ),
                   ],
                 ),
@@ -2299,8 +2236,6 @@ class _SalesOrderOverviewScreenState
   }
 
   Widget _buildHeaderForColumn(_SalesOrderColumnConfig column, double width) {
-    final sortField = _sortFieldForColumn(column.key);
-    final isSorted = sortField != null && _activeSortField == sortField;
     final align =
         (column.key == _SalesOrderColumnKey.invoiced ||
             column.key == _SalesOrderColumnKey.payment ||
@@ -2318,39 +2253,25 @@ class _SalesOrderOverviewScreenState
       width: width,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: InkWell(
-          onTap: sortField == null
-              ? null
-              : () => setState(() => _toggleSort(sortField)),
-          child: Row(
-            mainAxisAlignment: align == TextAlign.center
-                ? MainAxisAlignment.center
-                : (column.key == _SalesOrderColumnKey.amount ||
-                      column.key == _SalesOrderColumnKey.invoicedAmount)
-                ? MainAxisAlignment.end
-                : MainAxisAlignment.start,
-            children: [
-              Flexible(
-                child: Text(
-                  column.label.toUpperCase(),
-                  style: AppTheme.metaHelper.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isSorted ? AppTheme.primaryBlue : null,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        child: Row(
+          mainAxisAlignment: align == TextAlign.center
+              ? MainAxisAlignment.center
+              : (column.key == _SalesOrderColumnKey.amount ||
+                    column.key == _SalesOrderColumnKey.invoicedAmount)
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Text(
+                column.label.toUpperCase(),
+                style: AppTheme.metaHelper.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              if (isSorted) ...[
-                const SizedBox(width: 4),
-                Icon(
-                  _isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
-                  size: 12,
-                  color: AppTheme.primaryBlue,
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -2504,47 +2425,6 @@ class _SalesOrderOverviewScreenState
       overflow: _clipText ? TextOverflow.ellipsis : TextOverflow.fade,
       softWrap: !_clipText,
     );
-  }
-
-  _SalesOrderSortField? _sortFieldForColumn(_SalesOrderColumnKey key) {
-    switch (key) {
-      case _SalesOrderColumnKey.date:
-        return _SalesOrderSortField.date;
-      case _SalesOrderColumnKey.salesOrderNumber:
-        return _SalesOrderSortField.salesOrderNumber;
-      case _SalesOrderColumnKey.reference:
-        return _SalesOrderSortField.reference;
-      case _SalesOrderColumnKey.customerName:
-        return _SalesOrderSortField.customerName;
-      case _SalesOrderColumnKey.orderStatus:
-        return _SalesOrderSortField.orderStatus;
-      case _SalesOrderColumnKey.invoiced:
-        return _SalesOrderSortField.invoiced;
-      case _SalesOrderColumnKey.payment:
-        return _SalesOrderSortField.payment;
-      case _SalesOrderColumnKey.packed:
-        return _SalesOrderSortField.packed;
-      case _SalesOrderColumnKey.shipped:
-        return _SalesOrderSortField.shipped;
-      case _SalesOrderColumnKey.amount:
-        return _SalesOrderSortField.amount;
-      case _SalesOrderColumnKey.deliveryMethod:
-        return _SalesOrderSortField.deliveryMethod;
-      case _SalesOrderColumnKey.expectedShipmentDate:
-        return _SalesOrderSortField.expectedShipmentDate;
-      case _SalesOrderColumnKey.companyName:
-        return _SalesOrderSortField.companyName;
-      case _SalesOrderColumnKey.invoicedAmount:
-        return _SalesOrderSortField.invoicedAmount;
-      case _SalesOrderColumnKey.location:
-        return _SalesOrderSortField.location;
-      case _SalesOrderColumnKey.picked:
-        return _SalesOrderSortField.picked;
-      case _SalesOrderColumnKey.salesPerson:
-        return _SalesOrderSortField.salesPerson;
-      case _SalesOrderColumnKey.status:
-        return _SalesOrderSortField.status;
-    }
   }
 
   Widget _detailCard(SalesOrder order, List<SalesOrderItem> items) {
@@ -4718,6 +4598,9 @@ MenuStyle _menuStyle() {
 
 ButtonStyle _menuItemStyle({bool isActive = false}) {
   return ButtonStyle(
+    animationDuration: Duration.zero,
+    splashFactory: NoSplash.splashFactory,
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
     backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
       final highlighted =
           states.contains(WidgetState.hovered) ||
@@ -4739,36 +4622,6 @@ ButtonStyle _menuItemStyle({bool isActive = false}) {
     }),
     padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    ),
-  );
-}
-
-InputDecoration _inputDecoration(String hintText) {
-  return InputDecoration(
-    hintText: hintText,
-    hintStyle: AppTheme.bodyText.copyWith(
-      fontSize: 13,
-      color: AppTheme.textMuted,
-    ),
-    prefixIcon: const Icon(
-      LucideIcons.search,
-      size: 16,
-      color: AppTheme.textMuted,
-    ),
-    filled: true,
-    fillColor: AppTheme.bgLight,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: AppTheme.borderLight),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: AppTheme.borderLight),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: AppTheme.primaryBlue),
     ),
   );
 }

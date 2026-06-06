@@ -31,6 +31,7 @@ import '../../../../../core/routing/app_routes.dart';
 import '../../../../../shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 
 // Provider to track picklists that have been dispatched (generated entrypass) but not yet packaged.
 final pendingDispatchedPicklistsProvider = StateProvider<List<Picklist>>(
@@ -40,6 +41,13 @@ final pendingDispatchedPicklistsProvider = StateProvider<List<Picklist>>(
 final packageSortProvider = StateProvider<({String field, bool isAscending})>((ref) {
   return (field: 'Created Time', isAscending: false);
 });
+
+const _packageFilterOptions = <FavoriteFilterOption>[
+  FavoriteFilterOption(label: 'All', value: 'all'),
+  FavoriteFilterOption(label: 'Not Shipped', value: 'Not Shipped'),
+  FavoriteFilterOption(label: 'Shipped', value: 'Shipped'),
+  FavoriteFilterOption(label: 'Delivered', value: 'Delivered'),
+];
 
 class InventoryPackagesListScreen extends ConsumerStatefulWidget {
   final String? id;
@@ -64,7 +72,7 @@ class _InventoryPackagesListScreenState
 
   bool _isListView = false;
   bool _shouldWrapText = false;
-  String _selectedView = 'All';
+  FavoriteFilterOption _activeOption = _packageFilterOptions.first;
   Map<String, double>? _customColumnWidths;
   List<ColumnConfig> _allColumns = [];
   final List<String> _visibleColumns = [];
@@ -221,47 +229,49 @@ class _InventoryPackagesListScreenState
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => const DispatchEntrypassDialog(),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                elevation: 0,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Create Dispatch Entrypass',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'Inter',
-                    ),
+            SizedBox(
+              height: 38,
+              child: ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const DispatchEntrypassDialog(),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(LucideIcons.fileText, size: 14),
-                ],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  elevation: 0,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Text(
+                      'Create Dispatch Entrypass',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(LucideIcons.fileText, size: 14),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Container(
               height: 32,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                border: Border.all(color: _borderCol),
+                color: Colors.white,
+                border: Border.all(color: AppTheme.borderLight),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -276,7 +286,7 @@ class _InventoryPackagesListScreenState
                           horizontal: 10,
                           vertical: 6,
                         ),
-                        color: _isListView ? Colors.white : Colors.transparent,
+                        color: _isListView ? const Color(0xFFF3F4F6) : Colors.transparent,
                         child: Icon(
                           LucideIcons.list,
                           size: 14,
@@ -285,7 +295,7 @@ class _InventoryPackagesListScreenState
                       ),
                     ),
                   ),
-                  Container(width: 1, color: _borderCol),
+                  Container(width: 1, color: AppTheme.borderLight),
                   ZTooltip(
                     message: 'Kanban View',
                     direction: ZTooltipDirection.bottom,
@@ -296,7 +306,7 @@ class _InventoryPackagesListScreenState
                           horizontal: 10,
                           vertical: 6,
                         ),
-                        color: !_isListView ? Colors.white : Colors.transparent,
+                        color: !_isListView ? const Color(0xFFF3F4F6) : Colors.transparent,
                         child: Icon(
                           LucideIcons.layoutGrid,
                           size: 14,
@@ -308,36 +318,41 @@ class _InventoryPackagesListScreenState
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: () {
-                final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
-                context.go('/$orgId/inventory/packages/create');
-              },
-              icon: const Icon(LucideIcons.plus, size: 14),
-              label: const Text(
-                'New',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Inter',
+            const SizedBox(width: 12),
+            SizedBox(
+              height: 38,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+                  context.go('/$orgId/inventory/packages/create');
+                },
+                icon: const Icon(LucideIcons.plus, size: 14),
+                label: const Text(
+                  'New',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'Inter',
+                  ),
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _greenBtn,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF28A745), // Success green (#28A745)
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  elevation: 0,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                elevation: 0,
               ),
             ),
-            const SizedBox(width: 8),
-            if (_isListView) _buildMoreMenu(),
+            if (_isListView) ...[
+              const SizedBox(width: 8),
+              _buildMoreMenu(),
+            ],
+            const SizedBox(width: 20),
           ],
         ),
       ],
@@ -445,9 +460,10 @@ class _InventoryPackagesListScreenState
   Widget _buildSplitView() {
     final allPackages = ref.watch(inventoryPackagesProvider).packages;
     final packages = allPackages.where((p) {
-      if (_selectedView == 'All') return true;
-      return p.status == _selectedView;
+      if (_activeOption.value == 'all') return true;
+      return p.status.toLowerCase() == _activeOption.value.toLowerCase();
     }).toList();
+    _sortPackages(packages, ref.watch(packageSortProvider));
 
     return Row(
       children: [
@@ -595,172 +611,118 @@ class _InventoryPackagesListScreenState
   }
 
   Widget _buildTitleDropdown({bool isCompact = false}) {
-    return MenuAnchor(
-      alignmentOffset: const Offset(0, 4),
-      style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        elevation: const WidgetStatePropertyAll(8),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+    if (!_isListView && !isCompact) {
+      return const Text(
+        'All Packages',
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          color: _textPrimary,
+          fontFamily: 'Inter',
         ),
-      ),
-      builder: (context, controller, child) {
-        return InkWell(
-          onTap: () => controller.isOpen ? controller.close() : controller.open(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                isCompact ? 'Packages, $_selectedView' : '$_selectedView Packages',
-                style: TextStyle(
-                  fontSize: isCompact ? 16 : 24,
-                  fontWeight: FontWeight.w700,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(LucideIcons.chevronDown, size: isCompact ? 14 : 20, color: AppTheme.primaryBlue),
-            ],
-          ),
-        );
-      },
-      menuChildren: [
-        _buildViewMenuItem('All'),
-        _buildViewMenuItem('Not Shipped'),
-        _buildViewMenuItem('Shipped'),
-        _buildViewMenuItem('Delivered'),
-      ],
-    );
-  }
+      );
+    }
 
-  Widget _buildViewMenuItem(String view) {
-    final bool isActive = _selectedView == view;
-    return MenuItemButton(
-      onPressed: () => setState(() => _selectedView = view),
-      style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive),
-      child: Container(
-        width: 240,
-        child: Row(
-          children: [
-            Text(view, style: const TextStyle(fontSize: 14)),
-            const Spacer(),
-            Icon(
-              isActive ? LucideIcons.star : LucideIcons.star,
-              size: 16,
-              color: isActive ? Colors.white : AppTheme.borderColor,
-            ),
-          ],
-        ),
-      ),
+    return FavoriteFilterDropdown(
+      moduleName: 'packages',
+      options: _packageFilterOptions,
+      selectedOption: _activeOption,
+      onChanged: (opt) {
+        setState(() {
+          _activeOption = opt;
+        });
+      },
     );
   }
 
   Widget _buildMoreMenu() {
     return ZTableMoreMenu(
+      height: 38,
+      width: 38,
       menuChildren: [_buildMoreMenuOptions()],
     );
   }
-
   Widget _buildMoreMenuOptions() {
+    final sort = ref.watch(packageSortProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SubmenuButton(
-          menuStyle: MenuStyle(
-            backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-            surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-            elevation: const WidgetStatePropertyAll(8),
-          ),
-          style: ZTableMoreMenu.menuItemButtonStyle(isHeader: true),
+          menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+          alignmentOffset: const Offset(4, 0),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
           menuChildren: [
-            _buildSortMenuItem('Package Date'),
-            _buildSortMenuItem('Package#'),
-            _buildSortMenuItem('Carrier'),
-            _buildSortMenuItem('Sales Order#'),
-            _buildSortMenuItem('Shipment Date'),
-            _buildSortMenuItem('Customer Name'),
-            _buildSortMenuItem('Quantity'),
-            _buildSortMenuItem('Created Time', isActive: true),
-            _buildSortMenuItem('Last Modified Time'),
+            _buildSortMenuItem('Package Date', isActive: sort.field == 'Package Date'),
+            _buildSortMenuItem('Package#', isActive: sort.field == 'Package#'),
+            _buildSortMenuItem('Carrier', isActive: sort.field == 'Carrier'),
+            _buildSortMenuItem('Tracking#', isActive: sort.field == 'Tracking#'),
+            _buildSortMenuItem('Sales Order#', isActive: sort.field == 'Sales Order#'),
+            _buildSortMenuItem('Shipment Date', isActive: sort.field == 'Shipment Date'),
+            _buildSortMenuItem('Customer Name', isActive: sort.field == 'Customer Name'),
+            _buildSortMenuItem('Quantity', isActive: sort.field == 'Quantity'),
+            _buildSortMenuItem('Created Time', isActive: sort.field == 'Created Time'),
+            _buildSortMenuItem('Last Modified Time', isActive: sort.field == 'Last Modified Time'),
           ],
-          child: Row(
-            children: const [
-              Icon(LucideIcons.arrowUpDown, size: 16),
-              SizedBox(width: 12),
-              Text('Sort by', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            ],
-          ),
+          child: const Text('Sort by'),
         ),
         const Divider(height: 1, color: AppTheme.bgDisabled),
         SubmenuButton(
-          menuStyle: MenuStyle(
-            backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-            surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-            elevation: const WidgetStatePropertyAll(8),
-          ),
-          style: ZTableMoreMenu.menuItemButtonStyle(isHeader: true),
+          menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+          alignmentOffset: const Offset(4, 0),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          leadingIcon: const Icon(LucideIcons.import, size: 16),
           menuChildren: [
             _buildSimpleMenuItem('Import Packages', () {}),
             _buildSimpleMenuItem('Import Shipments', () {}),
           ],
-          child: Row(
-            children: const [
-              Icon(LucideIcons.import, size: 16),
-              SizedBox(width: 12),
-              Text('Import', style: TextStyle(fontSize: 14)),
-            ],
-          ),
+          child: const Text('Import'),
         ),
         const Divider(height: 1, color: AppTheme.bgDisabled),
         SubmenuButton(
-          menuStyle: MenuStyle(
-            backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-            surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-            elevation: const WidgetStatePropertyAll(8),
-          ),
-          style: ZTableMoreMenu.menuItemButtonStyle(isHeader: true),
+          menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+          alignmentOffset: const Offset(4, 0),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          leadingIcon: const Icon(LucideIcons.upload, size: 16),
           menuChildren: [
             _buildSimpleMenuItem('Export Packages', () {}),
             _buildSimpleMenuItem('Export Shipments', () {}),
           ],
-          child: Row(
-            children: const [
-              Icon(LucideIcons.upload, size: 16),
-              SizedBox(width: 12),
-              Text('Export', style: TextStyle(fontSize: 14)),
-            ],
-          ),
+          child: const Text('Export'),
         ),
         const Divider(height: 1, color: AppTheme.bgDisabled),
         MenuItemButton(
           onPressed: () => ref.read(inventoryPackagesProvider.notifier).fetchPackages(),
           style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: Row(
-            children: const [
-              Icon(LucideIcons.refreshCw, size: 16),
-              SizedBox(width: 12),
-              Text('Refresh List', style: TextStyle(fontSize: 14)),
-            ],
-          ),
+          leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
+          child: const Text('Refresh List'),
         ),
       ],
     );
   }
 
   Widget _buildSortMenuItem(String label, {bool isActive = false}) {
+    final sort = ref.watch(packageSortProvider);
     return MenuItemButton(
-      onPressed: () {},
+      onPressed: () {
+        final currentSort = ref.read(packageSortProvider);
+        if (currentSort.field == label) {
+          ref.read(packageSortProvider.notifier).state =
+              (field: label, isAscending: !currentSort.isAscending);
+        } else {
+          ref.read(packageSortProvider.notifier).state =
+              (field: label, isAscending: false);
+        }
+      },
       style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive),
       child: Row(
         children: [
           Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
-          if (isActive) const Icon(LucideIcons.arrowDown, size: 16),
+          if (isActive)
+            Icon(
+              sort.isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+              size: 16,
+            ),
         ],
       ),
     );
@@ -779,9 +741,10 @@ class _InventoryPackagesListScreenState
   Widget _buildVirtualizedTable() {
     final allPackages = ref.watch(inventoryPackagesProvider).packages;
     final packages = allPackages.where((p) {
-      if (_selectedView == 'All') return true;
-      return p.status == _selectedView;
+      if (_activeOption.value == 'all') return true;
+      return p.status.toLowerCase() == _activeOption.value.toLowerCase();
     }).toList();
+    _sortPackages(packages, ref.watch(packageSortProvider));
 
     if (packages.isEmpty) {
       return const Center(child: Text('No Records Found', style: TextStyle(color: _textSecondary)));
@@ -2437,43 +2400,7 @@ class _PackageColumn extends ConsumerWidget {
         .where((p) => p.status == targetStatus)
         .toList();
 
-    // Sort the list
-    filteredPackages.sort((a, b) {
-      int cmp = 0;
-      switch (sort.field) {
-        case 'Package Date':
-          cmp = (a.packageDate ?? DateTime(0)).compareTo(b.packageDate ?? DateTime(0));
-          break;
-        case 'Package#':
-          cmp = a.packageNumber.compareTo(b.packageNumber);
-          break;
-        case 'Carrier':
-          cmp = (a.carrier ?? '').compareTo(b.carrier ?? '');
-          break;
-        case 'Sales Order#':
-          final aSo = a.salesOrderNumbers.isNotEmpty ? a.salesOrderNumbers.first : '';
-          final bSo = b.salesOrderNumbers.isNotEmpty ? b.salesOrderNumbers.first : '';
-          cmp = aSo.compareTo(bSo);
-          break;
-        case 'Shipment Date':
-          cmp = (a.shipmentDate ?? DateTime(0)).compareTo(b.shipmentDate ?? DateTime(0));
-          break;
-        case 'Customer Name':
-          cmp = (a.customerName ?? '').compareTo(b.customerName ?? '');
-          break;
-        case 'Quantity':
-          cmp = a.totalQty.compareTo(b.totalQty);
-          break;
-        case 'Created Time':
-        case 'Last Modified Time':
-          // Use id or packageNumber as fallback if createdAt is missing
-          cmp = a.packageNumber.compareTo(b.packageNumber);
-          break;
-        default:
-          cmp = 0;
-      }
-      return sort.isAscending ? cmp : -cmp;
-    });
+    _sortPackages(filteredPackages, sort);
 
     const double headerHeight = 60.0;
     const double arrowPadding = 20.0;
@@ -2627,6 +2554,7 @@ class _PackageColumn extends ConsumerWidget {
         _buildSortItem(ref, 'Package Date', sort.field == 'Package Date', sort.isAscending),
         _buildSortItem(ref, 'Package#', sort.field == 'Package#', sort.isAscending),
         _buildSortItem(ref, 'Carrier', sort.field == 'Carrier', sort.isAscending),
+        _buildSortItem(ref, 'Tracking#', sort.field == 'Tracking#', sort.isAscending),
         _buildSortItem(ref, 'Sales Order#', sort.field == 'Sales Order#', sort.isAscending),
         _buildSortItem(ref, 'Shipment Date', sort.field == 'Shipment Date', sort.isAscending),
         _buildSortItem(ref, 'Customer Name', sort.field == 'Customer Name', sort.isAscending),
@@ -3439,4 +3367,45 @@ String _formatAddress(String address) {
     } catch (_) {}
   }
   return address;
+}
+
+void _sortPackages(List<InventoryPackage> list, ({String field, bool isAscending}) sort) {
+  list.sort((a, b) {
+    int cmp = 0;
+    switch (sort.field) {
+      case 'Package Date':
+        cmp = (a.packageDate ?? DateTime(0)).compareTo(b.packageDate ?? DateTime(0));
+        break;
+      case 'Package#':
+        cmp = a.packageNumber.compareTo(b.packageNumber);
+        break;
+      case 'Carrier':
+        cmp = (a.carrier ?? '').compareTo(b.carrier ?? '');
+        break;
+      case 'Tracking#':
+        cmp = (a.trackingNumber ?? '').compareTo(b.trackingNumber ?? '');
+        break;
+      case 'Sales Order#':
+        final aSo = a.salesOrderNumbers.isNotEmpty ? a.salesOrderNumbers.first : '';
+        final bSo = b.salesOrderNumbers.isNotEmpty ? b.salesOrderNumbers.first : '';
+        cmp = aSo.compareTo(bSo);
+        break;
+      case 'Shipment Date':
+        cmp = (a.shipmentDate ?? DateTime(0)).compareTo(b.shipmentDate ?? DateTime(0));
+        break;
+      case 'Customer Name':
+        cmp = (a.customerName ?? '').compareTo(b.customerName ?? '');
+        break;
+      case 'Quantity':
+        cmp = a.totalQty.compareTo(b.totalQty);
+        break;
+      case 'Created Time':
+      case 'Last Modified Time':
+        cmp = a.packageNumber.compareTo(b.packageNumber);
+        break;
+      default:
+        cmp = 0;
+    }
+    return sort.isAscending ? cmp : -cmp;
+  });
 }

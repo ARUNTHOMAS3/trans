@@ -57,6 +57,9 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart';
+
+
 
 // ── Zoho-style Colors ────────────────────────────────────────────────────────
 const Color _bgWhite = Color(0xFFFFFFFF);
@@ -466,8 +469,19 @@ class _PurchasesBillCreateScreenState
     text: '0',
   );
   OverlayEntry? _moreOverlayEntry;
-  bool _isTdsSelected = true;
-  String? _selectedTotalsTax;
+  String _tdsTcsType = 'none'; // 'tds' | 'tcs' | 'none'
+  String? _selectedTdsTcsId;
+  double _tdsTcsRate = 0.0;
+  List<Map<String, dynamic>> _tdsRatesList = [];
+  List<Map<String, dynamic>> _tdsSectionsList = [];
+  List<Map<String, dynamic>> _tcsRatesList = [];
+  List<Map<String, dynamic>> _tcsNaturesList = [];
+  bool _isLoadingTdsRates = false;
+  Future<void>? _loadTdsFuture;
+  bool _isTdsOpen = false;
+  final LayerLink _tdsLink = LayerLink();
+  OverlayEntry? _tdsOverlay;
+
   bool _bulkMode = false;
   final Set<int> _selectedRows = <int>{};
   bool _showStockInfo = true;
@@ -532,11 +546,13 @@ class _PurchasesBillCreateScreenState
       await ref.read(itemsControllerProvider.notifier).loadLookupData();
       await _loadPaymentTerms();
       await _loadLookups();
+      await _loadTdsRates();
       if (widget.editBillId != null || widget.cloneBillId != null) {
         await _loadBillForEdit();
       }
     });
   }
+
 
   void _onAdjustmentLabelFocusChanged() {
     if (!mounted) return;
@@ -589,7 +605,41 @@ class _PurchasesBillCreateScreenState
         _adjustment = bill.adjustment;
         _discountPercentCtrl.text = bill.discountPercent.toString();
         _discountPercent = bill.discountPercent;
-        _isTdsSelected = bill.tdsOrTcs == 'tds';
+        // Reconstruct TDS/TCS type, ID, and rate
+        if (bill.tdsTotal > 0) {
+          _tdsTcsType = 'tds';
+          final double computedRate = bill.tdsTotal / (bill.subTotal - bill.discountAmount) * 100;
+          final matchedRate = _tdsRatesList.firstWhere(
+            (r) => ((double.tryParse(r['base_rate']?.toString() ?? '0') ?? 0.0) - computedRate).abs() < 0.01,
+            orElse: () => <String, dynamic>{},
+          );
+          if (matchedRate.isNotEmpty) {
+            _selectedTdsTcsId = matchedRate['id']?.toString();
+            _tdsTcsRate = double.tryParse(matchedRate['base_rate']?.toString() ?? '0') ?? 0.0;
+          } else {
+            _selectedTdsTcsId = null;
+            _tdsTcsRate = computedRate;
+          }
+        } else if (bill.tcsTotal > 0) {
+          _tdsTcsType = 'tcs';
+          final double computedRate = bill.tcsTotal / (bill.subTotal - bill.discountAmount) * 100;
+          final matchedRate = _tcsRatesList.firstWhere(
+            (r) => ((double.tryParse(r['rate']?.toString() ?? '0') ?? 0.0) - computedRate).abs() < 0.01,
+            orElse: () => <String, dynamic>{},
+          );
+          if (matchedRate.isNotEmpty) {
+            _selectedTdsTcsId = matchedRate['id']?.toString();
+            _tdsTcsRate = double.tryParse(matchedRate['rate']?.toString() ?? '0') ?? 0.0;
+          } else {
+            _selectedTdsTcsId = null;
+            _tdsTcsRate = computedRate;
+          }
+        } else {
+          _tdsTcsType = 'none';
+          _selectedTdsTcsId = null;
+          _tdsTcsRate = 0.0;
+        }
+
 
         // Fetch billing address and source of supply from the vendor
         final String? vendorSource = matchingVendor.sourceOfSupply;
@@ -804,6 +854,42 @@ class _PurchasesBillCreateScreenState
       AppLogger.error('Error loading lookups', error: e, module: 'purchases');
     }
   }
+
+  Future<void> _loadTdsRates() async {
+    if (_isLoadingTdsRates) {
+      await _loadTdsFuture;
+      return;
+    }
+    _isLoadingTdsRates = true;
+    _loadTdsFuture = _performLoadTdsRates();
+    await _loadTdsFuture;
+    _isLoadingTdsRates = false;
+  }
+
+  Future<void> _performLoadTdsRates() async {
+    try {
+      final lookupsService = LookupsApiService();
+      final rates = await lookupsService.getTdsRates();
+      final sections = await lookupsService.getTdsSections();
+      final tcsRates = await lookupsService.getTcsRates();
+      final tcsNatures = await lookupsService.getTcsNatures();
+      if (mounted) {
+        setState(() {
+          _tdsRatesList = rates;
+          _tdsSectionsList = sections;
+          _tcsRatesList = tcsRates;
+          _tcsNaturesList = tcsNatures;
+        });
+      }
+    } catch (e) {
+      AppLogger.error(
+        'Error loading TDS/TCS rates',
+        error: e,
+        module: 'purchases',
+      );
+    }
+  }
+
 
   List<shared.AccountNode> _mapExpenseNodes(List<coa.AccountNode> nodes) {
     final List<coa.AccountNode> flatAccounts = <coa.AccountNode>[];
@@ -1164,28 +1250,23 @@ class _PurchasesBillCreateScreenState
   }
 
   double get _tdsTcsAmount {
-    if (_selectedTotalsTax == null || _selectedTotalsTax == 'Select a Tax')
-      return 0;
-    final regExp = RegExp(r'(\d+(?:\.\d+)?)');
-    final match = regExp.firstMatch(_selectedTotalsTax!);
-    if (match != null) {
-      final rate = double.tryParse(match.group(1) ?? '0') ?? 0;
-      return (_subTotal - _discountAmount) * (rate / 100);
-    }
-    return 0;
+    if (_tdsTcsType == 'none' || _selectedTdsTcsId == null) return 0.0;
+    return (_subTotal - _discountAmount) * (_tdsTcsRate / 100);
   }
 
   double get _total {
-    final taxSign = _isTdsSelected ? -1.0 : 1.0;
+    final taxSign = _tdsTcsType == 'tds' ? -1.0 : (_tdsTcsType == 'tcs' ? 1.0 : 0.0);
+    final tdsTcsVal = _tdsTcsAmount;
     if (_discountType == 'At Line Item Level') {
-      return _subTotal + _taxAmount + (taxSign * _tdsTcsAmount) + _adjustment;
+      return _subTotal + _taxAmount + (taxSign * tdsTcsVal) + _adjustment;
     }
     return _subTotal -
         _discountAmount +
         _taxAmount +
-        (taxSign * _tdsTcsAmount) +
+        (taxSign * tdsTcsVal) +
         _adjustment;
   }
+
 
   bool get _isSaveAsOpenEnabled {
     final activeRows = _lineItems
@@ -1338,10 +1419,13 @@ class _PurchasesBillCreateScreenState
         subTotal: _subTotal,
         discountPercent: _discountPercent,
         discountAmount: _discountAmount,
-        tdsOrTcs: _isTdsSelected ? 'tds' : 'tcs',
+        tdsOrTcs: _tdsTcsType,
         taxId: null,
         taxName: null,
         taxAmount: isUnregistered ? 0.0 : _taxAmount,
+        tdsTotal: _tdsTcsType == 'tds' ? _tdsTcsAmount : 0.0,
+        tcsTotal: _tdsTcsType == 'tcs' ? _tdsTcsAmount : 0.0,
+
         adjustmentLabel: _adjustmentLabelCtrl.text.trim().isEmpty
             ? 'Adjustment'
             : _adjustmentLabelCtrl.text.trim(),
@@ -8255,16 +8339,17 @@ class _PurchasesBillCreateScreenState
             _discountRow(),
             const SizedBox(height: 12),
           ],
-          // TDS / TCS dynamically swapped based on _isTdsSelected
-          if (_isTdsSelected) ...[
-            _tdsTcsRow(),
-            const SizedBox(height: 12),
+          // TDS / TCS dynamically swapped based on _tdsTcsType
+          if (_tdsTcsType == 'tcs') ...[
             _adjustmentRow(),
+            const SizedBox(height: 12),
+            _tdsTcsRow(),
           ] else ...[
-            _adjustmentRow(),
-            const SizedBox(height: 12),
             _tdsTcsRow(),
+            const SizedBox(height: 12),
+            _adjustmentRow(),
           ],
+
           const Divider(height: 32),
           // Total
           _totalLine(
@@ -8652,11 +8737,42 @@ class _PurchasesBillCreateScreenState
   }
 
   Widget _tdsTcsRow() {
-    return RadioGroup<bool>(
-      groupValue: _isTdsSelected,
+    final isTcs = _tdsTcsType == 'tcs';
+    final selectedRate = isTcs
+        ? _tcsRatesList.firstWhere(
+            (r) => r['id'] == _selectedTdsTcsId,
+            orElse: () => <String, dynamic>{},
+          )
+        : _tdsRatesList.firstWhere(
+            (r) => r['id'] == _selectedTdsTcsId,
+            orElse: () => <String, dynamic>{},
+          );
+    String displayText = 'Select a Tax';
+    double ratePercent = 0.0;
+    if (selectedRate.isNotEmpty) {
+      final taxName = selectedRate['tax_name'] ?? '';
+      final d = double.tryParse(
+        (isTcs ? selectedRate['rate'] : selectedRate['base_rate'])?.toString() ?? '0',
+      );
+      ratePercent = d ?? 0.0;
+      final baseRateStr = (d == null) 
+          ? '' 
+          : (d == d.toInt() ? '${d.toInt()}%' : '$d%');
+      displayText = "$taxName [$baseRateStr]";
+    }
+
+    final calculatedAmount = _tdsTcsAmount;
+    final displayAmount = calculatedAmount.toStringAsFixed(2);
+
+    return RadioGroup<String>(
+      groupValue: _tdsTcsType,
       onChanged: (val) {
         if (val != null) {
-          setState(() => _isTdsSelected = val);
+          setState(() {
+            _tdsTcsType = val;
+            _selectedTdsTcsId = null;
+            _tdsTcsRate = 0.0;
+          });
         }
       },
       child: Row(
@@ -8664,10 +8780,10 @@ class _PurchasesBillCreateScreenState
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 14,
                 height: 14,
-                child: Radio<bool>(value: true, activeColor: _primaryBlue),
+                child: Radio<String>(value: 'tds', activeColor: _primaryBlue),
               ),
               const SizedBox(width: 8),
               const Text('TDS', style: TextStyle(fontSize: 13)),
@@ -8677,46 +8793,302 @@ class _PurchasesBillCreateScreenState
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 14,
                 height: 14,
-                child: Radio<bool>(value: false, activeColor: _primaryBlue),
+                child: Radio<String>(value: 'tcs', activeColor: _primaryBlue),
               ),
               const SizedBox(width: 8),
               const Text('TCS', style: TextStyle(fontSize: 13)),
             ],
           ),
+          const SizedBox(width: 16),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: Radio<String>(value: 'none', activeColor: _primaryBlue),
+              ),
+              const SizedBox(width: 8),
+              const Text('None', style: TextStyle(fontSize: 13)),
+            ],
+          ),
           const Spacer(),
-          SizedBox(
-            width: 180,
-            child: FormDropdown<String>(
-              height: 32,
-              value: _selectedTotalsTax,
-              hint: 'Select a Tax',
-              items: {
-                if (_selectedTotalsTax != null) _selectedTotalsTax!,
-                ..._standardTaxOptions,
-              }.toList(),
-              onChanged: (val) {
-                setState(() => _selectedTotalsTax = val);
-              },
+          if (_tdsTcsType != 'none') ...[
+            SizedBox(
+              width: 180,
+              child: CompositedTransformTarget(
+                link: _tdsLink,
+                child: Builder(
+                  builder: (btnContext) {
+                    return GestureDetector(
+                      onTap: () async {
+                        if (_tdsTcsType == 'tcs' ? _tcsRatesList.isEmpty : _tdsRatesList.isEmpty) {
+                          await _loadTdsRates();
+                        }
+                        if (!context.mounted) return;
+                        final renderBox = btnContext.findRenderObject() as RenderBox?;
+                        final offset = renderBox?.localToGlobal(Offset.zero);
+                        _showTdsMenu(context, offset);
+                      },
+                      child: () {
+                        bool isHovered = false;
+                        return StatefulBuilder(
+                          builder: (context, setStateDropdown) {
+                            return MouseRegion(
+                              onEnter: (_) => setStateDropdown(() => isHovered = true),
+                              onExit: (_) => setStateDropdown(() => isHovered = false),
+                              child: Container(
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: (isHovered || _isTdsOpen)
+                                        ? const Color(0xFF0088FF)
+                                        : const Color(0xFFD1D5DB),
+                                    width: 1,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        displayText,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: selectedRate.isNotEmpty
+                                              ? const Color(0xFF111827)
+                                              : _hintColor,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 16,
+                                      color: _hintColor,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      }(),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 80,
+              child: Text(
+                _tdsTcsType == 'tds' ? '-$displayAmount' : displayAmount,
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ] else
+            const SizedBox(width: 272),
+        ],
+      ),
+    );
+  }
+
+  void _showTdsMenu(
+    BuildContext context,
+    Offset? buttonOffset,
+  ) {
+    _closeTdsOverlay();
+    setState(() {
+      _isTdsOpen = true;
+    });
+
+    final overlay = Overlay.of(context);
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    bool showAbove = false;
+    if (buttonOffset != null) {
+      const double popoverHeight = 360.0;
+      final double spaceBelow = screenHeight - (buttonOffset.dy + 32) - 16;
+      final double spaceAbove = buttonOffset.dy - 16;
+      if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
+        showAbove = true;
+      }
+    }
+
+    _tdsOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeTdsOverlay,
+              behavior: HitTestBehavior.translucent,
+              child: Container(color: Colors.transparent),
             ),
           ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 80,
-            child: Text(
-              _tdsTcsAmount == 0
-                  ? (_isTdsSelected ? '-0.00' : '0.00')
-                  : '${_isTdsSelected ? '-' : ''}${_tdsTcsAmount.toStringAsFixed(2)}',
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 13),
+          CompositedTransformFollower(
+            link: _tdsLink,
+            showWhenUnlinked: false,
+            targetAnchor: showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+            followerAnchor: showAbove ? Alignment.bottomLeft : Alignment.topLeft,
+            offset: Offset.zero,
+            child: Material(
+              color: Colors.transparent,
+              child: TapRegion(
+                onTapOutside: (_) => _closeTdsOverlay(),
+                child: _TdsSelectionPopover(
+                  isTcs: _tdsTcsType == 'tcs',
+                  tdsRates: _tdsTcsType == 'tcs' ? _tcsRatesList : _tdsRatesList,
+                  tdsSections: _tdsTcsType == 'tcs' ? _tcsNaturesList : _tdsSectionsList,
+                  selectedTdsId: _selectedTdsTcsId,
+                  onSelected: (rate) {
+                    final isTcs = _tdsTcsType == 'tcs';
+                    setState(() {
+                      _selectedTdsTcsId = rate['id']?.toString() ?? '';
+                      _tdsTcsRate = double.tryParse((isTcs ? rate['rate'] : rate['base_rate'])?.toString() ?? '0') ?? 0.0;
+                    });
+                    _closeTdsOverlay();
+                  },
+                  onManageTds: () {
+                    _closeTdsOverlay();
+                    if (_tdsTcsType == 'tcs') {
+                      _showManageTcsRatesDialog();
+                    } else {
+                      _showManageTdsRatesDialog();
+                    }
+                  },
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
+
+    overlay.insert(_tdsOverlay!);
   }
+
+  void _closeTdsOverlay() {
+    if (_tdsOverlay != null) {
+      _tdsOverlay!.remove();
+      _tdsOverlay = null;
+      setState(() {
+        _isTdsOpen = false;
+      });
+    }
+  }
+
+  void _showManageTdsRatesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ManageTdsTcsRatesDialog(
+        title: 'Manage TDS Rates',
+        isTcs: false,
+        items: _tdsRatesList,
+        sections: _tdsSectionsList,
+        selectedId: _selectedTdsTcsId,
+        onSelect: (value) {
+          setState(() {
+            _selectedTdsTcsId = value['id']?.toString() ?? '';
+            _tdsTcsRate = double.tryParse(value['base_rate']?.toString() ?? '0') ?? 0.0;
+          });
+        },
+        onSave: (items) async {
+          final lookupsService = LookupsApiService();
+          final updated = await lookupsService.syncTdsRates(items);
+          if (mounted) {
+            setState(() {
+              _tdsRatesList = updated;
+            });
+          }
+          return updated;
+        },
+        onDeleteCheck: (item) async {
+          if (item['id'] == null || item['id'].toString().startsWith('new_')) {
+            return null;
+          }
+          try {
+            final lookupsService = LookupsApiService();
+            final usage = await lookupsService.checkLookupUsage(
+              'tds-rates',
+              item['id'].toString(),
+            );
+            if (usage['inUse'] == true) {
+              return usage['message'] ??
+                  'This TDS rate is in use and cannot be deleted.';
+            }
+          } catch (e) {
+            AppLogger.error(
+              'Error checking TDS rate usage',
+              error: e,
+              module: 'purchases',
+            );
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  void _showManageTcsRatesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ManageTdsTcsRatesDialog(
+        title: 'Manage TCS Rates',
+        isTcs: true,
+        items: _tcsRatesList,
+        sections: _tcsNaturesList,
+        selectedId: _selectedTdsTcsId,
+        onSelect: (value) {
+          setState(() {
+            _selectedTdsTcsId = value['id']?.toString() ?? '';
+            _tdsTcsRate = double.tryParse(value['rate']?.toString() ?? '0') ?? 0.0;
+          });
+        },
+        onSave: (items) async {
+          final lookupsService = LookupsApiService();
+          final updated = await lookupsService.syncTcsRates(items);
+          if (mounted) {
+            setState(() {
+              _tcsRatesList = updated;
+            });
+          }
+          return updated;
+        },
+        onDeleteCheck: (item) async {
+          if (item['id'] == null || item['id'].toString().startsWith('new_')) {
+            return null;
+          }
+          try {
+            final lookupsService = LookupsApiService();
+            final usage = await lookupsService.checkLookupUsage(
+              'tcs-rates',
+              item['id'].toString(),
+            );
+            if (usage['inUse'] == true) {
+              return usage['message'] ??
+                  'This TCS rate is in use and cannot be deleted.';
+            }
+          } catch (e) {
+            AppLogger.error(
+              'Error checking TCS rate usage',
+              error: e,
+              module: 'purchases',
+            );
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
 
   Widget _adjustmentRow() {
     return Row(
@@ -13205,3 +13577,271 @@ class _HoverBorderContainerState extends State<_HoverBorderContainer> {
     );
   }
 }
+
+class _TdsSelectionPopover extends StatefulWidget {
+  final bool isTcs;
+  final List<Map<String, dynamic>> tdsRates;
+  final List<Map<String, dynamic>> tdsSections;
+  final String? selectedTdsId;
+  final ValueChanged<Map<String, dynamic>> onSelected;
+  final VoidCallback onManageTds;
+
+  const _TdsSelectionPopover({
+    this.isTcs = false,
+    required this.tdsRates,
+    required this.tdsSections,
+    this.selectedTdsId,
+    required this.onSelected,
+    required this.onManageTds,
+  });
+
+  @override
+  State<_TdsSelectionPopover> createState() => _TdsSelectionPopoverState();
+}
+
+class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+
+  Map<String, List<Map<String, dynamic>>> get _grouped {
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    
+    if (widget.isTcs) {
+      final natureMap = {
+        for (var n in widget.tdsSections) n['id']?.toString() ?? '': n['nature_name']?.toString() ?? 'Others'
+      };
+      for (var rate in widget.tdsRates) {
+        final taxName = rate['tax_name']?.toString() ?? '';
+        if (_search.isNotEmpty &&
+            !taxName.toLowerCase().contains(_search.toLowerCase())) {
+          continue;
+        }
+        final natureId = rate['nature_id']?.toString() ?? '';
+        final natureName = natureMap[natureId] ?? 'Others';
+        grouped.putIfAbsent(natureName, () => []).add(rate);
+      }
+    } else {
+      final sectionMap = {
+        for (var s in widget.tdsSections) s['id']?.toString() ?? '': s['section_name']?.toString() ?? 'Others'
+      };
+      for (var rate in widget.tdsRates) {
+        final taxName = rate['tax_name']?.toString() ?? '';
+        if (_search.isNotEmpty &&
+            !taxName.toLowerCase().contains(_search.toLowerCase())) {
+          continue;
+        }
+        final secId = rate['section_id']?.toString() ?? '';
+        final sectionName = sectionMap[secId] ?? 'Others';
+        grouped.putIfAbsent(sectionName, () => []).add(rate);
+      }
+    }
+    return grouped;
+  }
+
+  String _formatBaseRate(dynamic rate) {
+    if (rate == null) return '';
+    final d = double.tryParse(rate.toString());
+    if (d == null) return rate.toString();
+    if (d == d.toInt()) return '${d.toInt()}%';
+    return '$d%';
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _grouped;
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    autofocus: true,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: widget.isTcs ? 'Search TCS Rate' : 'Search TDS Rate',
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        size: 16,
+                        color: Color(0xFF6B7280),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    onChanged: (v) => setState(() => _search = v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: groups.entries.expand((entry) {
+                  return [
+                    // Group Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    // Items
+                    ...entry.value.map((rate) {
+                      final isSelected = rate['id'] == widget.selectedTdsId;
+                      final baseRateStr = widget.isTcs 
+                          ? _formatBaseRate(rate['rate']) 
+                          : _formatBaseRate(rate['base_rate']);
+                      final displayLabel = "${rate['tax_name']} [$baseRateStr]";
+                      return _TdsPopoverListItem(
+                        label: displayLabel,
+                        indent: 1,
+                        isSelected: isSelected,
+                        onTap: () => widget.onSelected(rate),
+                      );
+                    }),
+                  ];
+                }).toList(),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          InkWell(
+            onTap: widget.onManageTds,
+            hoverColor: const Color(0xFFF3F4F6),
+            child: SizedBox(
+              height: 36,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.settings,
+                      size: 14,
+                      color: Color(0xFF0088FF),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.isTcs ? 'Manage TCS' : 'Manage TDS',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0088FF),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TdsPopoverListItem extends StatefulWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final int indent;
+
+  const _TdsPopoverListItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    this.indent = 0,
+  });
+
+  @override
+  State<_TdsPopoverListItem> createState() => _TdsPopoverListItemState();
+}
+
+class _TdsPopoverListItemState extends State<_TdsPopoverListItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = widget.isSelected
+        ? const Color(0xFFF3F4F6)
+        : _hover
+            ? const Color(0xFF3B82F6)
+            : Colors.transparent;
+    final text = _hover ? Colors.white : const Color(0xFF111827);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          padding: EdgeInsets.only(
+            left: 12.0 + (widget.indent * 16.0),
+            right: 12,
+            top: 8,
+            bottom: 8,
+          ),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(fontSize: 13, color: text),
+                ),
+              ),
+              if (widget.isSelected) Icon(Icons.check, size: 14, color: text),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+

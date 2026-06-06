@@ -262,8 +262,14 @@ class Item {
       pushToEcommerce: json['push_to_ecommerce'] ?? false,
       hsnCode: json['hsn_code'],
       taxPreference: json['tax_preference'],
-      intraStateTaxId: json['intra_state_tax_id'],
-      interStateTaxId: json['inter_state_tax_id'],
+      intraStateTaxId: json['intra_state_tax_id'] ??
+          json['intraStateTaxId'] ??
+          json['intraStateTax']?['id'] ??
+          json['intra_state_tax']?['id'],
+      interStateTaxId: json['inter_state_tax_id'] ??
+          json['interStateTaxId'] ??
+          json['interStateTax']?['id'] ??
+          json['inter_state_tax']?['id'],
       exemptionReason: json['exemption_reason'],
       primaryImageUrl: json['primary_image_url'],
       imageUrls: json['image_urls'] != null
@@ -401,8 +407,8 @@ class Item {
           json['purchase_account']?['account_name'],
       preferredVendorName: json['preferredVendor']?['display_name'],
       repName: json['rep']?['name'],
-      intraStateTaxName: json['intraStateTax']?['tax_name'],
-      interStateTaxName: json['interStateTax']?['tax_name'],
+      intraStateTaxName: json['intraStateTax']?['tax_name'] ?? json['intra_state_tax_name'] ?? json['intraStateTaxName'],
+      interStateTaxName: json['interStateTax']?['tax_name'] ?? json['inter_state_tax_name'] ?? json['interStateTaxName'],
       buyingRuleName: json['buyingRule']?['buying_rule'],
       drugScheduleName: json['drugSchedule']?['shedule_name'],
       safetyAdvice: json['safety_advice'],
