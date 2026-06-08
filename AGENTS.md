@@ -61,6 +61,19 @@
 - Prefer additive migrations and scoped upserts over destructive resets when updating shared database environments.
 - Primary save/confirm actions must use the project success/primary button styling, secondary cancel actions must use the standard neutral secondary style, upload/select-image affordances must use the shared upload treatment, and borders/dividers must use the approved light border tokens instead of screen-local color guesses.
 
+## Product Content Separation Rule
+
+- Keep product composition/salt data separate from descriptive ingredients content.
+- Do not use `ingredients_list` to build composition.
+- Do not use `composition_salt` as ingredients description text.
+- Canonical structured composition must remain in:
+  - `contents`
+  - `drug_strengths`
+  - `product_contents`
+- Descriptive ingredients content must remain in:
+  - `products.ingredients_list`
+- `product_contents` exists to support one product mapping to multiple salts/compositions; do not flatten that relationship back into a single descriptive text field.
+
 ## Contextual Ribbon Button Rule
 
 - Contextual selection ribbons (bulk-action bars that appear after row selection) must use neutral/plain button styling by default:

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Ci4cHKCF19zVpEhkZrKTKIZwq3fzmpHLqR5UuiUYHfLTSnbNWvBN12T1jmU8fyI
+\restrict f2XiNgTQZHuB9Bu8MMtBieBbcaXOdoIqdxAbdckoh6cNBGBoaMie226AAWGCp3G
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.1
@@ -5329,9 +5329,23 @@ CREATE TABLE public.drug_schedules (
 
 CREATE TABLE public.drug_strengths (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    strength_name character varying(100) NOT NULL,
+    strength_name text NOT NULL,
     is_active boolean DEFAULT true,
     created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: favorites; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.favorites (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    entity_id uuid NOT NULL,
+    users_id uuid NOT NULL,
+    column_name character varying(255) NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    module_name character varying NOT NULL
 );
 
 
@@ -5737,7 +5751,8 @@ CREATE TABLE public.inventory_shipments (
     send_notification boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    is_delete boolean NOT NULL
+    is_delete boolean NOT NULL,
+    status character varying
 );
 
 
@@ -6501,11 +6516,11 @@ CREATE TABLE public.product_vendor_mappings (
 
 CREATE TABLE public.products (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    type public.product_type NOT NULL,
-    product_name character varying(255) NOT NULL,
+    type public.product_type,
+    product_name character varying(255),
     billing_name character varying(255),
-    item_code character varying(100) NOT NULL,
-    unit_id uuid NOT NULL,
+    item_code character varying(100),
+    unit_id uuid,
     category_id uuid,
     is_returnable boolean DEFAULT false,
     push_to_ecommerce boolean DEFAULT false,
@@ -6537,8 +6552,6 @@ CREATE TABLE public.products (
     isbn character varying(20),
     ean character varying(20),
     track_assoc_ingredients boolean DEFAULT false,
-    buying_rule_old character varying(100),
-    schedule_of_drug_old character varying(50),
     is_track_inventory boolean DEFAULT true,
     track_bin_location boolean DEFAULT true,
     track_batches boolean DEFAULT true,
@@ -6572,16 +6585,53 @@ CREATE TABLE public.products (
     reorder_term_id uuid,
     rep_id uuid,
     manufacturer_id uuid,
-    unit_pack character varying(50),
-    product_type_id uuid
+    unit_pack_id character varying(50),
+    product_type_id uuid,
+    how_it_works text,
+    drug_interactions text,
+    contraindications text,
+    side_effects_management text,
+    good_to_know text,
+    quick_tips text,
+    allergy_information text,
+    product_highlights text,
+    ingredients_list text,
+    safety_measures_warnings_pregnancy text,
+    safety_measures_warnings_breastfeeding text,
+    safety_measures_warnings_alcohol text,
+    safety_measures_warnings_liver text,
+    safety_measures_warnings_kidney text,
+    safety_measures_warnings_use_in_driving_and_operating_machinery text,
+    safety_measures_warnings_allergy text,
+    safety_measures_warnings_children text,
+    safety_measures_warnings_older_patients text,
+    interactions_drug_drug_interactions text,
+    interactions_drug_disease_interactions text,
+    dosage_daily_dose text,
+    dosage_over_dose text,
+    dosage_missed_dose text,
+    references_text text,
+    product_description text,
+    additional_info_allergy text,
+    additional_info_concerns text,
+    additional_info_good_to_know text,
+    additional_info_quick_tips text,
+    directions_for_use text
 );
 
 
 --
--- Name: COLUMN products.unit_pack; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN products.unit_pack_id; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.products.unit_pack IS 'Pack size label/value selected in item formulation flow, e.g. Box (10).';
+COMMENT ON COLUMN public.products.unit_pack_id IS 'Pack size label/value selected in item formulation flow, e.g. Box (10).';
+
+
+--
+-- Name: COLUMN products.ingredients_list; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.products.ingredients_list IS 'Raw ingredients list text imported from Truemeds or maintained from item create more info.';
 
 
 --
@@ -7273,6 +7323,56 @@ CREATE TABLE public.tax_rates (
     tax_type public.tax_type,
     is_active boolean DEFAULT true,
     created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: tcs_higher_rate_reasons; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tcs_higher_rate_reasons (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reason_name character varying(150) NOT NULL,
+    description text,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: tcs_natures; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tcs_natures (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    nature_name character varying(150) NOT NULL,
+    description text,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: tcs_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tcs_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tax_name character varying(255) NOT NULL,
+    nature_id uuid NOT NULL,
+    rate numeric(5,2) NOT NULL,
+    payable_account_id uuid,
+    receivable_account_id uuid,
+    is_higher_rate boolean DEFAULT false NOT NULL,
+    higher_rate_reason_id uuid,
+    income_tax_act character varying(100),
+    applicable_from date,
+    applicable_to date,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    CONSTRAINT chk_higher_rate_reason CHECK (((is_higher_rate = false) OR (higher_rate_reason_id IS NOT NULL))),
+    CONSTRAINT chk_tcs_dates CHECK (((applicable_to IS NULL) OR (applicable_from IS NULL) OR (applicable_to >= applicable_from))),
+    CONSTRAINT chk_tcs_rate CHECK (((rate >= (0)::numeric) AND (rate <= (100)::numeric)))
 );
 
 
@@ -8905,6 +9005,14 @@ ALTER TABLE ONLY public.customers
 
 
 --
+-- Name: favorites favorites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.favorites
+    ADD CONSTRAINT favorites_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: hsn_sac_codes hsn_sac_codes_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9454,6 +9562,14 @@ ALTER TABLE ONLY public.products
 
 ALTER TABLE ONLY public.products
     ADD CONSTRAINT products_sku_key UNIQUE (sku);
+
+
+--
+-- Name: products products_title_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.products
+    ADD CONSTRAINT products_title_key UNIQUE (product_name);
 
 
 --
@@ -10070,6 +10186,54 @@ ALTER TABLE ONLY public.tax_rates
 
 ALTER TABLE ONLY public.tax_rates
     ADD CONSTRAINT tax_rates_tax_name_unique UNIQUE (tax_name);
+
+
+--
+-- Name: tcs_higher_rate_reasons tcs_higher_rate_reasons_name_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_higher_rate_reasons
+    ADD CONSTRAINT tcs_higher_rate_reasons_name_unique UNIQUE (reason_name);
+
+
+--
+-- Name: tcs_higher_rate_reasons tcs_higher_rate_reasons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_higher_rate_reasons
+    ADD CONSTRAINT tcs_higher_rate_reasons_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tcs_natures tcs_natures_name_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_natures
+    ADD CONSTRAINT tcs_natures_name_unique UNIQUE (nature_name);
+
+
+--
+-- Name: tcs_natures tcs_natures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_natures
+    ADD CONSTRAINT tcs_natures_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tcs_rates tcs_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_rates
+    ADD CONSTRAINT tcs_rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tcs_rates tcs_rates_tax_name_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_rates
+    ADD CONSTRAINT tcs_rates_tax_name_unique UNIQUE (tax_name);
 
 
 --
@@ -11150,6 +11314,27 @@ CREATE INDEX idx_customers_associated_branch_id ON public.customers USING btree 
 
 
 --
+-- Name: idx_favorites_column_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_favorites_column_name ON public.favorites USING btree (column_name);
+
+
+--
+-- Name: idx_favorites_entity_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_favorites_entity_id ON public.favorites USING btree (entity_id);
+
+
+--
+-- Name: idx_favorites_users_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_favorites_users_id ON public.favorites USING btree (users_id);
+
+
+--
 -- Name: idx_hsn_sac_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11920,6 +12105,27 @@ CREATE INDEX idx_strengths_active_name ON public.drug_strengths USING btree (is_
 
 
 --
+-- Name: idx_tcs_rates_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tcs_rates_active ON public.tcs_rates USING btree (is_active);
+
+
+--
+-- Name: idx_tcs_rates_applicable_dates; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tcs_rates_applicable_dates ON public.tcs_rates USING btree (applicable_from, applicable_to);
+
+
+--
+-- Name: idx_tcs_rates_nature_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tcs_rates_nature_id ON public.tcs_rates USING btree (nature_id);
+
+
+--
 -- Name: idx_transactional_sequences_entity_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12127,20 +12333,6 @@ CREATE UNIQUE INDEX organization_system_id_key ON public.organization USING btre
 --
 
 CREATE UNIQUE INDEX product_bin_mappings_one_default_per_warehouse ON public.product_bin_mappings USING btree (product_id, entity_id, warehouse_id) WHERE (is_default = true);
-
-
---
--- Name: product_contents_product_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX product_contents_product_id_idx ON public.product_contents USING btree (product_id);
-
-
---
--- Name: product_contents_product_id_idx1; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX product_contents_product_id_idx1 ON public.product_contents USING btree (product_id);
 
 
 --
@@ -12708,6 +12900,13 @@ CREATE TRIGGER trg_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.drug_sch
 --
 
 CREATE TRIGGER trg_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.drug_strengths FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
+
+
+--
+-- Name: favorites trg_audit_row; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.favorites FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
 
 
 --
@@ -13369,6 +13568,27 @@ CREATE TRIGGER trg_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.tax_rate
 
 
 --
+-- Name: tcs_higher_rate_reasons trg_audit_row; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.tcs_higher_rate_reasons FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
+
+
+--
+-- Name: tcs_natures trg_audit_row; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.tcs_natures FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
+
+
+--
+-- Name: tcs_rates trg_audit_row; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.tcs_rates FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
+
+
+--
 -- Name: tds_group_items trg_audit_row; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -13870,6 +14090,13 @@ CREATE TRIGGER trg_audit_truncate AFTER TRUNCATE ON public.drug_schedules FOR EA
 --
 
 CREATE TRIGGER trg_audit_truncate AFTER TRUNCATE ON public.drug_strengths FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
+
+
+--
+-- Name: favorites trg_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_audit_truncate AFTER TRUNCATE ON public.favorites FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
 
 
 --
@@ -14531,6 +14758,27 @@ CREATE TRIGGER trg_audit_truncate AFTER TRUNCATE ON public.tax_rates FOR EACH ST
 
 
 --
+-- Name: tcs_higher_rate_reasons trg_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_audit_truncate AFTER TRUNCATE ON public.tcs_higher_rate_reasons FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
+
+
+--
+-- Name: tcs_natures trg_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_audit_truncate AFTER TRUNCATE ON public.tcs_natures FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
+
+
+--
+-- Name: tcs_rates trg_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_audit_truncate AFTER TRUNCATE ON public.tcs_rates FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
+
+
+--
 -- Name: tds_group_items trg_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -14755,6 +15003,20 @@ CREATE TRIGGER trg_audit_truncate_product_entity_settings AFTER TRUNCATE ON publ
 
 
 --
+-- Name: favorites trg_favorites_audit_row; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_favorites_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.favorites FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
+
+
+--
+-- Name: favorites trg_favorites_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_favorites_audit_truncate AFTER TRUNCATE ON public.favorites FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
+
+
+--
 -- Name: inventory_adjustment_account_entries trg_inv_adj_acc_entries_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -14836,6 +15098,48 @@ CREATE TRIGGER trg_settings_branding_updated_at BEFORE UPDATE ON public.branding
 --
 
 CREATE TRIGGER trg_settings_user_location_access_updated_at BEFORE UPDATE ON public.user_branch_access FOR EACH ROW EXECUTE FUNCTION public.update_settings_user_location_access_updated_at();
+
+
+--
+-- Name: tcs_higher_rate_reasons trg_tcs_higher_rate_reasons_audit_row; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_tcs_higher_rate_reasons_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.tcs_higher_rate_reasons FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
+
+
+--
+-- Name: tcs_higher_rate_reasons trg_tcs_higher_rate_reasons_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_tcs_higher_rate_reasons_audit_truncate AFTER TRUNCATE ON public.tcs_higher_rate_reasons FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
+
+
+--
+-- Name: tcs_natures trg_tcs_natures_audit_row; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_tcs_natures_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.tcs_natures FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
+
+
+--
+-- Name: tcs_natures trg_tcs_natures_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_tcs_natures_audit_truncate AFTER TRUNCATE ON public.tcs_natures FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
+
+
+--
+-- Name: tcs_rates trg_tcs_rates_audit_row; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_tcs_rates_audit_row AFTER INSERT OR DELETE OR UPDATE ON public.tcs_rates FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes();
+
+
+--
+-- Name: tcs_rates trg_tcs_rates_audit_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_tcs_rates_audit_truncate AFTER TRUNCATE ON public.tcs_rates FOR EACH STATEMENT EXECUTE FUNCTION public.audit_table_truncate();
 
 
 --
@@ -15231,7 +15535,7 @@ ALTER TABLE ONLY public.batch_stock_layers
 --
 
 ALTER TABLE ONLY public.batch_master
-    ADD CONSTRAINT batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE CASCADE;
+    ADD CONSTRAINT batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
 
 
 --
@@ -15455,7 +15759,7 @@ ALTER TABLE ONLY public.composite_item_branch_inventory_settings
 --
 
 ALTER TABLE ONLY public.composite_item_parts
-    ADD CONSTRAINT composite_item_parts_component_product_id_fkey FOREIGN KEY (component_product_id) REFERENCES public.products(id);
+    ADD CONSTRAINT composite_item_parts_component_product_id_fkey FOREIGN KEY (component_product_id) REFERENCES public.products(id) ON DELETE CASCADE;
 
 
 --
@@ -16007,7 +16311,7 @@ ALTER TABLE ONLY public.inventory_adjustment_item_batches
 --
 
 ALTER TABLE ONLY public.inventory_adjustment_item_batches
-    ADD CONSTRAINT inventory_adjustment_item_batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE RESTRICT;
+    ADD CONSTRAINT inventory_adjustment_item_batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
 
 
 --
@@ -16047,7 +16351,7 @@ ALTER TABLE ONLY public.inventory_adjustment_items
 --
 
 ALTER TABLE ONLY public.inventory_adjustment_items
-    ADD CONSTRAINT inventory_adjustment_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE RESTRICT;
+    ADD CONSTRAINT inventory_adjustment_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
 
 
 --
@@ -16087,7 +16391,7 @@ ALTER TABLE ONLY public.inventory_adjustment_value_items
 --
 
 ALTER TABLE ONLY public.inventory_adjustment_value_items
-    ADD CONSTRAINT inventory_adjustment_value_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE RESTRICT;
+    ADD CONSTRAINT inventory_adjustment_value_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
 
 
 --
@@ -16127,7 +16431,7 @@ ALTER TABLE ONLY public.inventory_adjustments
 --
 
 ALTER TABLE ONLY public.inventory_adjustments
-    ADD CONSTRAINT inventory_adjustments_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE RESTRICT;
+    ADD CONSTRAINT inventory_adjustments_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
 
 
 --
@@ -16375,7 +16679,7 @@ ALTER TABLE ONLY public.invoice_shipments
 --
 
 ALTER TABLE ONLY public.product_vendor_mappings
-    ADD CONSTRAINT item_vendor_mappings_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.products(id) ON DELETE CASCADE;
+    ADD CONSTRAINT item_vendor_mappings_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.products(id);
 
 
 --
@@ -16575,7 +16879,7 @@ ALTER TABLE ONLY public.price_list_items
 --
 
 ALTER TABLE ONLY public.price_list_items
-    ADD CONSTRAINT price_list_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE CASCADE;
+    ADD CONSTRAINT price_list_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
 
 
 --
@@ -16607,7 +16911,7 @@ ALTER TABLE ONLY public.price_lists
 --
 
 ALTER TABLE ONLY public.product_bin_mappings
-    ADD CONSTRAINT product_bin_mappings_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE CASCADE;
+    ADD CONSTRAINT product_bin_mappings_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
 
 
 --
@@ -16679,7 +16983,7 @@ ALTER TABLE ONLY public.product_entity_settings
 --
 
 ALTER TABLE ONLY public.product_entity_settings
-    ADD CONSTRAINT product_entity_settings_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE CASCADE;
+    ADD CONSTRAINT product_entity_settings_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id);
 
 
 --
@@ -17515,6 +17819,38 @@ ALTER TABLE ONLY public.tax_group_rates
 
 
 --
+-- Name: tcs_rates tcs_rates_higher_rate_reason_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_rates
+    ADD CONSTRAINT tcs_rates_higher_rate_reason_fkey FOREIGN KEY (higher_rate_reason_id) REFERENCES public.tcs_higher_rate_reasons(id);
+
+
+--
+-- Name: tcs_rates tcs_rates_nature_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_rates
+    ADD CONSTRAINT tcs_rates_nature_fkey FOREIGN KEY (nature_id) REFERENCES public.tcs_natures(id);
+
+
+--
+-- Name: tcs_rates tcs_rates_payable_account_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_rates
+    ADD CONSTRAINT tcs_rates_payable_account_fkey FOREIGN KEY (payable_account_id) REFERENCES public.accounts(id);
+
+
+--
+-- Name: tcs_rates tcs_rates_receivable_account_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tcs_rates
+    ADD CONSTRAINT tcs_rates_receivable_account_fkey FOREIGN KEY (receivable_account_id) REFERENCES public.accounts(id);
+
+
+--
 -- Name: tds_group_items tds_group_items_tds_group_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18215,5 +18551,5 @@ CREATE EVENT TRIGGER pgrst_watch ON ddl_command_end
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Ci4cHKCF19zVpEhkZrKTKIZwq3fzmpHLqR5UuiUYHfLTSnbNWvBN12T1jmU8fyI
+\unrestrict f2XiNgTQZHuB9Bu8MMtBieBbcaXOdoIqdxAbdckoh6cNBGBoaMie226AAWGCp3G
 

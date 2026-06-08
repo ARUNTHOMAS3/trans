@@ -149,11 +149,11 @@ CREATE TABLE public.manufacturers (
 );
 CREATE TABLE public.products (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  type USER-DEFINED NOT NULL,
-  product_name character varying NOT NULL,
+  type USER-DEFINED,
+  product_name character varying UNIQUE,
   billing_name character varying,
-  item_code character varying NOT NULL UNIQUE,
-  unit_id uuid NOT NULL,
+  item_code character varying UNIQUE,
+  unit_id uuid,
   category_id uuid,
   is_returnable boolean DEFAULT false,
   push_to_ecommerce boolean DEFAULT false,
@@ -185,8 +185,6 @@ CREATE TABLE public.products (
   isbn character varying,
   ean character varying,
   track_assoc_ingredients boolean DEFAULT false,
-  buying_rule_old character varying,
-  schedule_of_drug_old character varying,
   is_track_inventory boolean DEFAULT true,
   track_bin_location boolean DEFAULT true,
   track_batches boolean DEFAULT true,
@@ -220,8 +218,38 @@ CREATE TABLE public.products (
   reorder_term_id uuid,
   rep_id uuid,
   manufacturer_id uuid,
-  unit_pack character varying,
+  unit_pack_id character varying,
   product_type_id uuid,
+  how_it_works text,
+  drug_interactions text,
+  contraindications text,
+  side_effects_management text,
+  good_to_know text,
+  quick_tips text,
+  allergy_information text,
+  product_highlights text,
+  ingredients_list text,
+  safety_measures_warnings_pregnancy text,
+  safety_measures_warnings_breastfeeding text,
+  safety_measures_warnings_alcohol text,
+  safety_measures_warnings_liver text,
+  safety_measures_warnings_kidney text,
+  safety_measures_warnings_use_in_driving_and_operating_machinery text,
+  safety_measures_warnings_allergy text,
+  safety_measures_warnings_children text,
+  safety_measures_warnings_older_patients text,
+  interactions_drug_drug_interactions text,
+  interactions_drug_disease_interactions text,
+  dosage_daily_dose text,
+  dosage_over_dose text,
+  dosage_missed_dose text,
+  references_text text,
+  product_description text,
+  additional_info_allergy text,
+  additional_info_concerns text,
+  additional_info_good_to_know text,
+  additional_info_quick_tips text,
+  directions_for_use text,
   CONSTRAINT products_pkey PRIMARY KEY (id),
   CONSTRAINT products_intra_state_tax_id_fkey FOREIGN KEY (intra_state_tax_id) REFERENCES public.tax_groups(id),
   CONSTRAINT products_inter_state_tax_id_fkey FOREIGN KEY (inter_state_tax_id) REFERENCES public.tax_rates(id),
@@ -421,20 +449,6 @@ CREATE TABLE public.buying_rules (
   sort_order integer NOT NULL DEFAULT 0,
   CONSTRAINT buying_rules_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.product_contents (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  product_id uuid NOT NULL,
-  content_id uuid,
-  strength_id uuid,
-  shedule_id uuid,
-  display_order integer DEFAULT 0,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT product_contents_pkey PRIMARY KEY (id),
-  CONSTRAINT product_contents_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-  CONSTRAINT product_contents_schedule_id_fkey FOREIGN KEY (shedule_id) REFERENCES public.drug_schedules(id),
-  CONSTRAINT product_contents_strength_id_fkey FOREIGN KEY (strength_id) REFERENCES public.drug_strengths(id),
-  CONSTRAINT product_contents_content_id_fkey FOREIGN KEY (content_id) REFERENCES public.contents(id)
-);
 CREATE TABLE public.currencies (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   code character varying NOT NULL UNIQUE,
@@ -555,12 +569,12 @@ CREATE TABLE public.composite_item_parts (
   cost_price_override numeric,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT composite_item_parts_pkey PRIMARY KEY (id),
-  CONSTRAINT composite_item_parts_composite_item_id_fkey FOREIGN KEY (composite_item_id) REFERENCES public.composite_items(id),
-  CONSTRAINT composite_item_parts_component_product_id_fkey FOREIGN KEY (component_product_id) REFERENCES public.products(id)
+  CONSTRAINT composite_item_parts_component_product_id_fkey FOREIGN KEY (component_product_id) REFERENCES public.products(id),
+  CONSTRAINT composite_item_parts_composite_item_id_fkey FOREIGN KEY (composite_item_id) REFERENCES public.composite_items(id)
 );
 CREATE TABLE public.drug_strengths (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  strength_name character varying NOT NULL UNIQUE,
+  strength_name text NOT NULL UNIQUE,
   is_active boolean DEFAULT true,
   created_at timestamp without time zone DEFAULT now(),
   CONSTRAINT drug_strengths_pkey PRIMARY KEY (id)
@@ -1198,8 +1212,8 @@ CREATE TABLE public.purchase_order_items (
   pricelist character varying,
   hsn_code numeric,
   CONSTRAINT purchase_order_items_pkey PRIMARY KEY (id),
-  CONSTRAINT purchases_purchase_order_items_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.purchase_orders(id),
   CONSTRAINT purchases_purchase_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT purchases_purchase_order_items_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.purchase_orders(id),
   CONSTRAINT purchases_purchase_order_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
   CONSTRAINT purchase_order_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
 );
@@ -1287,8 +1301,8 @@ CREATE TABLE public.sales_order_items (
   pricelist character varying,
   is_invoiced boolean NOT NULL,
   CONSTRAINT sales_order_items_pkey PRIMARY KEY (id),
-  CONSTRAINT sales_order_items_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(id),
   CONSTRAINT sales_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT sales_order_items_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(id),
   CONSTRAINT sales_order_items_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.tax_rates(id),
   CONSTRAINT sales_order_items_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
   CONSTRAINT sales_order_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
@@ -1661,8 +1675,8 @@ CREATE TABLE public.batch_stock_layers (
   updated_at timestamp with time zone DEFAULT now(),
   reserved_qty numeric NOT NULL DEFAULT 0,
   CONSTRAINT batch_stock_layers_pkey PRIMARY KEY (id),
-  CONSTRAINT fk_batch FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
   CONSTRAINT batch_stock_layers_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT fk_batch FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
   CONSTRAINT batch_stock_layers_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id),
   CONSTRAINT batch_stock_layers_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
   CONSTRAINT batch_stock_layers_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id)
@@ -1784,8 +1798,8 @@ CREATE TABLE public.purchase_receive_items (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT purchase_receive_items_pkey PRIMARY KEY (id),
-  CONSTRAINT purchase_receive_items_purchase_receive_id_fkey FOREIGN KEY (purchase_receive_id) REFERENCES public.purchase_receives(id),
   CONSTRAINT purchase_receive_items_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.products(id),
+  CONSTRAINT purchase_receive_items_purchase_receive_id_fkey FOREIGN KEY (purchase_receive_id) REFERENCES public.purchase_receives(id),
   CONSTRAINT purchase_receive_items_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
   CONSTRAINT purchase_receive_items_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id),
   CONSTRAINT purchase_receive_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
@@ -1812,8 +1826,8 @@ CREATE TABLE public.purchase_receive_item_batches (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT purchase_receive_item_batches_pkey PRIMARY KEY (id),
-  CONSTRAINT purchase_receive_item_batches_purchase_receive_item_id_fkey FOREIGN KEY (purchase_receive_item_id) REFERENCES public.purchase_receive_items(id),
   CONSTRAINT purchase_receive_item_batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT purchase_receive_item_batches_purchase_receive_item_id_fkey FOREIGN KEY (purchase_receive_item_id) REFERENCES public.purchase_receive_items(id),
   CONSTRAINT purchase_receive_item_batches_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
   CONSTRAINT purchase_receive_item_batches_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id),
   CONSTRAINT purchase_receive_item_batches_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
@@ -1885,8 +1899,8 @@ CREATE TABLE public.inventory_adjustments (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT inventory_adjustments_pkey PRIMARY KEY (id),
-  CONSTRAINT inventory_adjustments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
   CONSTRAINT inventory_adjustments_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
   CONSTRAINT inventory_adjustments_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
   CONSTRAINT inventory_adjustments_adjusted_by_fkey FOREIGN KEY (adjusted_by) REFERENCES public.users(id),
   CONSTRAINT inventory_adjustments_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES public.users(id),
@@ -1926,9 +1940,9 @@ CREATE TABLE public.inventory_adjustment_items (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT inventory_adjustment_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
   CONSTRAINT inventory_adjustment_items_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
   CONSTRAINT inventory_adjustment_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
-  CONSTRAINT inventory_adjustment_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
   CONSTRAINT inventory_adjustment_items_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
 );
 CREATE TABLE public.inventory_adjustment_item_batches (
@@ -1948,10 +1962,10 @@ CREATE TABLE public.inventory_adjustment_item_batches (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   batch_stock_layer_id uuid,
   CONSTRAINT inventory_adjustment_item_batches_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_item_batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
   CONSTRAINT inventory_adjustment_item_batches_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
   CONSTRAINT inventory_adjustment_item_batches_adjustment_item_id_fkey FOREIGN KEY (adjustment_item_id) REFERENCES public.inventory_adjustment_items(id),
   CONSTRAINT inventory_adjustment_item_batches_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
-  CONSTRAINT inventory_adjustment_item_batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
   CONSTRAINT inventory_adjustment_item_batches_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
   CONSTRAINT inventory_adjustment_item_batches_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
   CONSTRAINT inventory_adjustment_item_batches_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id),
@@ -1970,9 +1984,9 @@ CREATE TABLE public.inventory_adjustment_value_items (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT inventory_adjustment_value_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_value_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
   CONSTRAINT inventory_adjustment_value_items_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
   CONSTRAINT inventory_adjustment_value_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
-  CONSTRAINT inventory_adjustment_value_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
   CONSTRAINT inventory_adjustment_value_items_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
 );
 CREATE TABLE public.inventory_adjustment_account_entries (
@@ -2044,8 +2058,8 @@ CREATE TABLE public.inventory_package_items (
   bin_location character varying,
   foc smallint,
   CONSTRAINT inventory_package_items_pkey PRIMARY KEY (id),
-  CONSTRAINT inventory_package_items_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.inventory_packages(id),
   CONSTRAINT inventory_package_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_package_items_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.inventory_packages(id),
   CONSTRAINT inventory_package_items_picklist_id_fkey FOREIGN KEY (picklist_id) REFERENCES public.picklist_master(id),
   CONSTRAINT inventory_package_items_entity_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
 );
@@ -2082,8 +2096,8 @@ CREATE TABLE public.transfer_order_items (
   unit character varying,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT transfer_order_items_pkey PRIMARY KEY (id),
-  CONSTRAINT transfer_order_items_transfer_order_fkey FOREIGN KEY (transfer_order_id) REFERENCES public.transfer_order_master(id),
-  CONSTRAINT transfer_order_items_product_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+  CONSTRAINT transfer_order_items_product_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT transfer_order_items_transfer_order_fkey FOREIGN KEY (transfer_order_id) REFERENCES public.transfer_order_master(id)
 );
 CREATE TABLE public.transfer_order_source_batches (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -2139,6 +2153,7 @@ CREATE TABLE public.inventory_shipments (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   is_delete boolean NOT NULL,
+  status character varying,
   CONSTRAINT inventory_shipments_pkey PRIMARY KEY (id),
   CONSTRAINT inventory_shipments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
   CONSTRAINT inventory_shipments_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id)
@@ -2247,8 +2262,8 @@ CREATE TABLE public.price_list_items (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT price_list_items_pkey PRIMARY KEY (id),
-  CONSTRAINT price_list_items_price_list_id_fkey FOREIGN KEY (price_list_id) REFERENCES public.price_lists(id),
-  CONSTRAINT price_list_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+  CONSTRAINT price_list_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT price_list_items_price_list_id_fkey FOREIGN KEY (price_list_id) REFERENCES public.price_lists(id)
 );
 CREATE TABLE public.price_list_volume_ranges (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -2495,8 +2510,8 @@ CREATE TABLE public.credit_note_items (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT credit_note_items_pkey PRIMARY KEY (id),
-  CONSTRAINT credit_note_items_credit_note_id_fkey FOREIGN KEY (credit_note_id) REFERENCES public.credit_notes(id),
   CONSTRAINT credit_note_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT credit_note_items_credit_note_id_fkey FOREIGN KEY (credit_note_id) REFERENCES public.credit_notes(id),
   CONSTRAINT credit_note_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
 );
 CREATE TABLE public.credit_note_item_batches (
@@ -2587,8 +2602,8 @@ CREATE TABLE public.bill_items (
   updated_at timestamp with time zone DEFAULT now(),
   hsn_code numeric,
   CONSTRAINT bill_items_pkey PRIMARY KEY (id),
-  CONSTRAINT bill_items_bill_id_fkey FOREIGN KEY (bill_id) REFERENCES public.bills(id),
   CONSTRAINT bill_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT bill_items_bill_id_fkey FOREIGN KEY (bill_id) REFERENCES public.bills(id),
   CONSTRAINT bill_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
   CONSTRAINT bill_items_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
   CONSTRAINT bill_items_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.tax_groups(id)
@@ -2958,4 +2973,63 @@ CREATE TABLE public.product_types (
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp without time zone NOT NULL DEFAULT now(),
   CONSTRAINT product_types_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tcs_natures (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nature_name character varying NOT NULL UNIQUE,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tcs_natures_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tcs_higher_rate_reasons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  reason_name character varying NOT NULL UNIQUE,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tcs_higher_rate_reasons_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tcs_rates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tax_name character varying NOT NULL UNIQUE,
+  nature_id uuid NOT NULL,
+  rate numeric NOT NULL CHECK (rate >= 0::numeric AND rate <= 100::numeric),
+  payable_account_id uuid,
+  receivable_account_id uuid,
+  is_higher_rate boolean NOT NULL DEFAULT false,
+  higher_rate_reason_id uuid,
+  income_tax_act character varying,
+  applicable_from date,
+  applicable_to date,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tcs_rates_pkey PRIMARY KEY (id),
+  CONSTRAINT tcs_rates_nature_fkey FOREIGN KEY (nature_id) REFERENCES public.tcs_natures(id),
+  CONSTRAINT tcs_rates_higher_rate_reason_fkey FOREIGN KEY (higher_rate_reason_id) REFERENCES public.tcs_higher_rate_reasons(id),
+  CONSTRAINT tcs_rates_payable_account_fkey FOREIGN KEY (payable_account_id) REFERENCES public.accounts(id),
+  CONSTRAINT tcs_rates_receivable_account_fkey FOREIGN KEY (receivable_account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.favorites (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  users_id uuid NOT NULL,
+  column_name character varying NOT NULL,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  module_name character varying NOT NULL,
+  CONSTRAINT favorites_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.product_contents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL,
+  content_id uuid,
+  strength_id uuid,
+  shedule_id uuid,
+  display_order integer DEFAULT 0,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT product_contents_pkey PRIMARY KEY (id),
+  CONSTRAINT product_contents_schedule_id_fkey FOREIGN KEY (shedule_id) REFERENCES public.drug_schedules(id),
+  CONSTRAINT product_contents_strength_id_fkey FOREIGN KEY (strength_id) REFERENCES public.drug_strengths(id),
+  CONSTRAINT product_contents_content_id_fkey FOREIGN KEY (content_id) REFERENCES public.contents(id),
+  CONSTRAINT product_contents_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
