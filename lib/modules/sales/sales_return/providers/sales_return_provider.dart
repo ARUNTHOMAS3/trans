@@ -87,7 +87,6 @@ final deleteSalesReturnReceiveProvider =
     Provider<Future<void> Function(String, String)>(
   (ref) {
     final repo = ref.read(salesReturnRepositoryProvider);
-    return (salesReturnId, receiveId) =>
-        repo.deleteReceive(salesReturnId, receiveId);
+    return (salesReturnId, receiveId) => repo.deleteReceive(salesReturnId, receiveId);
   },
 );

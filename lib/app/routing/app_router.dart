@@ -22,16 +22,16 @@ import 'package:zerpai_erp/modules/sales/invoices/presentation/pages/sales_invoi
 import 'package:zerpai_erp/modules/sales/retainer_invoices/presentation/sales_retainer_invoice_create.dart';
 import 'package:zerpai_erp/modules/sales/delivery_challans/presentation/sales_delivery_challan_create.dart';
 import 'package:zerpai_erp/modules/sales/payments_received/presentation/sales_payment_create.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_add_page.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_create_page.dart';
 import 'package:zerpai_erp/modules/sales/eway_bills/presentation/sales_eway_bill_create.dart';
 import 'package:zerpai_erp/modules/sales/quotations/presentation/sales_quotation_create.dart';
 import 'package:zerpai_erp/modules/sales/documents/presentation/sales_document_detail.dart';
 import 'package:zerpai_erp/modules/sales/customers/presentation/sales_customer_overview.dart';
 import 'package:zerpai_erp/modules/sales/payment_links/presentation/sales_payment_link_create.dart';
 import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/sales_recurring_invoice_create.dart';
-import 'package:zerpai_erp/modules/sales/sales_return/presentation/sales_return_overview_page.dart';
-import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_create_page.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_overview_page.dart';
+import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_overview_page.dart';
+import 'package:zerpai_erp/modules/sales/sales_return/presentation/sales_return_create_page.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_overview_page.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_overview.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journals_overview_screen.dart';
@@ -45,11 +45,11 @@ import 'package:zerpai_erp/modules/accountant/recurring_journals/models/recurrin
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/presentation/pages/accountant_chart_of_accounts_overview.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/presentation/pages/accountant_chart_of_accounts_creation.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_overview.dart';
-import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_add.dart';
+import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_create.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_edit.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_overview_page.dart';
-import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_add_page.dart';
+import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_create_page.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_edit_page.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/models/branch_pricelist_model.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_screen.dart';
@@ -920,7 +920,7 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesReturnsCreate,
-                  builder: (context, state) => const SalesReturnsAddPage(),
+                  builder: (context, state) => const SalesReturnsCreatePage(),
                 ),
                 GoRoute(
                   path: ':id([0-9a-fA-F-]{36})',
@@ -942,7 +942,7 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesCreditNotesCreate,
-                  builder: (context, state) => CreditNoteAddPage(
+                  builder: (context, state) => CreditNoteCreatePage(
                     initialCustomer: state.uri.queryParameters['customerId'],
                     creditNoteId:
                         state.uri.queryParameters['cloneId'] ??
@@ -1072,9 +1072,9 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) {
                 final extra = state.extra;
                 if (extra is PriceList) {
-                  return PriceListAddScreen(template: extra);
+                  return PriceListCreateScreen(template: extra);
                 }
-                return const PriceListAddScreen();
+                return const PriceListCreateScreen();
               },
             ),
             GoRoute(
@@ -1099,9 +1099,9 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) {
                 final extra = state.extra;
                 if (extra is BranchPriceList) {
-                  return BranchPriceListAddScreen(template: extra);
+                  return BranchPriceListCreateScreen(template: extra);
                 }
-                return const BranchPriceListAddScreen();
+                return const BranchPriceListCreateScreen();
               },
             ),
             GoRoute(
@@ -1456,7 +1456,6 @@ final GoRouter appRouter = GoRouter(
               path: 'purchases/vendor-credits/create',
               name: AppRoutes.vendorCreditsCreate,
               builder: (context, state) {
-                final billId = state.uri.queryParameters['billId'];
                 final vendorCreditId =
                     state.uri.queryParameters['vendorCreditId'];
                 return VendorCreditsCreatePage(vendorCreditId: vendorCreditId);

@@ -5,8 +5,8 @@ import 'package:zerpai_erp/app/routing/app_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_bulk_update_dialog.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/column_customizer.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_bulk_update_dialog.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/column_customizer.dart';
 
 class CreditNotesOverviewPage extends StatefulWidget {
   const CreditNotesOverviewPage({super.key});

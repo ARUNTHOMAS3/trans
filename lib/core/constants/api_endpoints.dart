@@ -8,6 +8,7 @@ class ApiEndpoints {
   static const String customers = 'customers';
   static const String salesOrders = 'sales-orders';
   static const String invoices = 'invoices';
+  static const String creditNotes = 'credit-notes';
   static const String salesReturns = 'sales-returns';
   static const String salesReturnsNextNumber = 'sales-returns/next-number';
   static String salesReturnReceives(String salesReturnId) =>

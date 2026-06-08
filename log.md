@@ -1701,3 +1701,17 @@ Implemented the dynamic TDS/TCS radio buttons, search-and-group popover overlay 
 **Verifications**: Verified backend builds successfully with `npm run build` and frontend compiles cleanly with `dart analyze`.
 
 Timestamp of Log Update: June 06, 2026 - 11:35 AM (IST)
+
+
+## [Merge Audit] Handoff 2026-06-06 Integration (2026-06-08)
+
+- **Backup Location**: `backups/refactor-batches/20260608_102728-handoff_2026-06-06/` (All source extensions renamed to `.bak`)
+- **Compatibility Shims**: None required (no files moved or renamed, only modifications/additions).
+- **Special Merge Modifications**:
+  - `backend/src/db/schema.ts`: Merged `favorites` table and modified `products` constraints (`notNull()` on `type`, `productName`, `itemCode`, `unitId`) while preserving all 30+ product description columns to prevent breaking `items_item_create.dart`.
+  - `lib/modules/items/items/models/item_model.dart`: Merged new tax fields and fallback parsers while preserving all 30+ product description fields.
+- **Verification Gates**:
+  - Backend: `npm run build` compiled successfully.
+  - Frontend: `dart analyze` running to verify.
+- **Residual Risks**:
+  - Database schema has new constraints (`notNull()` on `products` columns) and a new `favorites` table. Drizzle schema generation/migrations must be run to sync PostgreSQL database.

@@ -434,6 +434,31 @@ export class ProductsController {
     return this.productsService.getProductTypes(tenant);
   }
 
+  @Get("lookups/product-pack-sizes")
+  getProductPackSizes(@Tenant() tenant: TenantContext) {
+    return this.productsService.getProductPackSizes(tenant);
+  }
+
+  @Get("lookups/product-pack-sizes/search")
+  searchProductPackSizes(
+    @Query("q") query: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.productsService.searchProductPackSizes(query, tenant);
+  }
+
+  @Post("lookups/product-pack-sizes")
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: false,
+      forbidNonWhitelisted: false,
+    }),
+  )
+  createProductPackSize(@Body() packSizeData: any, @Tenant() tenant: TenantContext) {
+    return this.productsService.createProductPackSize(packSizeData, tenant);
+  }
+
   @Get("lookups/product-types/search")
   searchProductTypes(
     @Query("q") query: string,

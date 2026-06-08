@@ -184,6 +184,10 @@ export class CreateProductDto {
 
   @IsString()
   @IsOptional()
+  unit_pack_id?: string;
+
+  @IsString()
+  @IsOptional()
   mpn?: string;
 
   @IsString()
@@ -289,6 +293,38 @@ export class CreateProductDto {
   @IsOptional()
   safety_advice?: string;
 
+  @IsString()
+  @IsOptional()
+  how_it_works?: string;
+
+  @IsString()
+  @IsOptional()
+  drug_interactions?: string;
+
+  @IsString()
+  @IsOptional()
+  contraindications?: string;
+
+  @IsString()
+  @IsOptional()
+  side_effects_management?: string;
+
+  @IsString()
+  @IsOptional()
+  good_to_know?: string;
+
+  @IsString()
+  @IsOptional()
+  quick_tips?: string;
+
+  @IsString()
+  @IsOptional()
+  allergy_information?: string;
+
+  @IsString()
+  @IsOptional()
+  product_highlights?: string;
+
   @IsArray()
   @IsOptional()
   side_effects?: string[];
@@ -296,6 +332,94 @@ export class CreateProductDto {
   @IsArray()
   @IsOptional()
   faq_text?: string[];
+
+  @IsString()
+  @IsOptional()
+  ingredients_list?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_pregnancy?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_breastfeeding?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_alcohol?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_liver?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_kidney?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_use_in_driving_and_operating_machinery?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_allergy?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_children?: string;
+
+  @IsString()
+  @IsOptional()
+  safety_measures_warnings_older_patients?: string;
+
+  @IsString()
+  @IsOptional()
+  interactions_drug_drug_interactions?: string;
+
+  @IsString()
+  @IsOptional()
+  interactions_drug_disease_interactions?: string;
+
+  @IsString()
+  @IsOptional()
+  dosage_daily_dose?: string;
+
+  @IsString()
+  @IsOptional()
+  dosage_over_dose?: string;
+
+  @IsString()
+  @IsOptional()
+  dosage_missed_dose?: string;
+
+  @IsString()
+  @IsOptional()
+  references_text?: string;
+
+  @IsString()
+  @IsOptional()
+  product_description?: string;
+
+  @IsString()
+  @IsOptional()
+  additional_info_allergy?: string;
+
+  @IsString()
+  @IsOptional()
+  additional_info_concerns?: string;
+
+  @IsString()
+  @IsOptional()
+  additional_info_good_to_know?: string;
+
+  @IsString()
+  @IsOptional()
+  additional_info_quick_tips?: string;
+
+  @IsString()
+  @IsOptional()
+  directions_for_use?: string;
 
   // Status Flags
   @IsBoolean()

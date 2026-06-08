@@ -7,7 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart'  as acct_model;
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart'
+    as acct_model;
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/providers/vendor_credits_tax_provider.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared_acct;
@@ -660,7 +661,7 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                                     customersAsync
                                                         .asData
                                                         ?.value
-                                                        ?.cast<SalesCustomer>() ??
+                                                        .cast<SalesCustomer>() ??
                                                     const <SalesCustomer>[],
                                                 isLoading:
                                                     customersAsync.isLoading,
@@ -725,13 +726,17 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                             ),
                                             onPressed: () async {
                                               final List<SalesCustomer> customers = ref
-                                                  .read(customersProvider)
-                                                  .asData
-                                                  ?.value?.cast<SalesCustomer>() ?? const <SalesCustomer>[];
+                                                      .read(customersProvider)
+                                                      .asData
+                                                      ?.value
+                                                      .cast<SalesCustomer>() ??
+                                                  const <SalesCustomer>[];
                                               final result =
                                                   await AdvancedCustomerSearchModal
                                                       .show(context, customers: customers);
-                                              if (result != null && mounted) {
+                                              if (result != null &&
+                                                  mounted &&
+                                                  customers.isNotEmpty) {
                                                 setState(() {
                                                   _selectedVendorObj = customers.firstWhere(
                                                     (c) => c.displayName == result,
@@ -4905,7 +4910,6 @@ class _VCItemRowState extends State<_VCItemRow> {
                           'Retail Price',
                         ],
                         hint: 'Apply Price List',
-                        boldSelected: false,
                         height: 20,
                         hideBorderDefault: true,
                         allowClear: true,
@@ -4977,7 +4981,7 @@ class _VCItemRowState extends State<_VCItemRow> {
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),

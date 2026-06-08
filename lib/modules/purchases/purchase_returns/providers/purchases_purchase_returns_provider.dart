@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import '../models/purchases_purchase_returns_model.dart';
-import '../repositories/purchases_purchase_returns_repository.dart';
-import '../repositories/purchases_purchase_returns_repository_impl.dart';
 
 // ── Repository provider ──────────────────────────────────────────────────────
 

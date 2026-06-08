@@ -1,27 +1,119 @@
 part of '../pages/items_item_create.dart';
 
 extension _ItemCreateTabs on _ItemCreateScreenState {
+  String _packSizeDisplayLabel(Map<String, dynamic> pack) {
+    final packName = (pack['pack_name'] ?? '').toString().trim();
+    final unitPack = (pack['unit_pack'] ?? '').toString().trim();
+    if (packName.isEmpty) return unitPack;
+    if (unitPack.isEmpty) return packName;
+    return '$packName - $unitPack';
+  }
+
+  String _packSizeDisplayLabelFromParts(String? packName, String? unitPack) {
+    final normalizedPackName = packName?.trim() ?? '';
+    final normalizedUnitPack = unitPack?.trim() ?? '';
+    if (normalizedPackName.isEmpty) return normalizedUnitPack;
+    if (normalizedUnitPack.isEmpty) return normalizedPackName;
+    return '$normalizedPackName - $normalizedUnitPack';
+  }
+
+  Map<String, dynamic>? _findPackSizeByDisplayValue(
+    ItemsState itemsState,
+    String? displayValue,
+  ) {
+    final normalized = displayValue?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    for (final pack in itemsState.packSizes) {
+      if (_packSizeDisplayLabel(pack).toLowerCase() == normalized.toLowerCase()) {
+        return pack;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _findPackSizeByName(
+    ItemsState itemsState,
+    String? packName,
+  ) {
+    final normalized = packName?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    for (final pack in itemsState.packSizes) {
+      if ((pack['pack_name'] ?? '').toString().trim().toLowerCase() ==
+          normalized.toLowerCase()) {
+        return pack;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _findPackSizeByUnitPack(
+    ItemsState itemsState,
+    String? unitPack,
+  ) {
+    final normalized = unitPack?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    for (final pack in itemsState.packSizes) {
+      if ((pack['unit_pack'] ?? '').toString().trim() == normalized) {
+        return pack;
+      }
+    }
+    return null;
+  }
+
   List<String> _packSizeOptions(ItemsState itemsState) {
-    final labels = itemsState.units
-        .where((unit) => unit.isActive)
-        .map((unit) => _formatUnitLabel(itemsState, unit.id))
-        .where((label) => label.trim().isNotEmpty)
+    final labels = itemsState.packSizes
+        .map(_packSizeDisplayLabel)
+        .where((label) => label.isNotEmpty)
         .toList();
     if (selectedPackSize != null && selectedPackSize!.trim().isNotEmpty) {
-      labels.add(selectedPackSize!.trim());
+      final existingPack =
+          _findPackSizeByDisplayValue(itemsState, selectedPackSize) ??
+          _findPackSizeByName(itemsState, selectedPackSize);
+      if (existingPack != null) {
+        labels.add(_packSizeDisplayLabel(existingPack));
+      } else {
+        labels.add(selectedPackSize!.trim());
+      }
     }
     return labels.toSet().toList();
+  }
+
+  String? _packSizeDisplayValue(ItemsState itemsState) {
+    final raw = selectedPackSize?.trim() ?? '';
+    if (raw.isEmpty) return null;
+    final pack =
+        _findPackSizeByDisplayValue(itemsState, raw) ??
+        _findPackSizeByName(itemsState, raw);
+    if (pack != null) return _packSizeDisplayLabel(pack);
+    return raw;
+  }
+
+  void _onPackSizeChanged(ItemsState itemsState, String? value) {
+    updateState(() {
+      final text = value?.trim() ?? '';
+      if (text.isEmpty) {
+        selectedPackSize = null;
+        return;
+      }
+      final pack = _findPackSizeByDisplayValue(itemsState, text);
+      if (pack != null) {
+        selectedPackSize = _packSizeDisplayLabel(pack);
+        return;
+      }
+      final namePack = _findPackSizeByName(itemsState, text);
+      if (namePack != null) {
+        selectedPackSize = _packSizeDisplayLabel(namePack);
+        return;
+      }
+      selectedPackSize = text;
+    });
   }
 
   String? _lockUnitPackDisplayValue(ItemsState itemsState) {
     final raw = selectedLockUnitPack?.trim() ?? lockUnitPackCtrl.text.trim();
     if (raw.isEmpty) return null;
-    final options = _packSizeOptions(itemsState);
-    for (final option in options) {
-      final match = RegExp(r'\(([^()]+)\)\s*$').firstMatch(option);
-      final unitPack = match?.group(1)?.trim() ?? '';
-      if (unitPack == raw) return option;
-    }
+    final pack = _findPackSizeByUnitPack(itemsState, raw);
+    if (pack != null) return _packSizeDisplayLabel(pack);
     return raw;
   }
 
@@ -33,27 +125,35 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         lockUnitPackCtrl.clear();
         return;
       }
-      final options = _packSizeOptions(itemsState);
-      if (options.contains(text)) {
-        final match = RegExp(r'\(([^()]+)\)\s*$').firstMatch(text);
-        lockUnitPackCtrl.text = match?.group(1)?.trim() ?? text;
-        return;
-      }
-      lockUnitPackCtrl.text = text;
+      final pack =
+          _findPackSizeByDisplayValue(itemsState, text) ??
+          _findPackSizeByName(itemsState, text);
+      lockUnitPackCtrl.text = (pack?['unit_pack'] ?? text).toString().trim();
     });
   }
 
   Future<void> _openPackSizeDialog(ItemsState itemsState) async {
-    final selected = await showDialog<String>(
+    final controller = ref.read(itemsControllerProvider.notifier);
+    final selected = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) => ManagePackSizesDialog(
-        units: itemsState.units,
-        lookupLabelForUnitId: (unitId) => _formatUnitLabel(itemsState, unitId),
+        packSizes: itemsState.packSizes,
+        onCreatePackSize: controller.createProductPackSize,
         initialPackSize: selectedPackSize,
       ),
     );
-    if (selected == null || selected.trim().isEmpty) return;
-    updateState(() => selectedPackSize = selected.trim());
+    if (selected == null) return;
+    final packName = (selected['pack_name'] ?? '').toString().trim();
+    final unitPack = (selected['unit_pack'] ?? '').toString().trim();
+    if (packName.isEmpty) return;
+    final displayLabel = _packSizeDisplayLabelFromParts(packName, unitPack);
+    updateState(() {
+      selectedPackSize = displayLabel;
+      if ((selectedLockUnitPack?.trim().isNotEmpty ?? false) &&
+          selectedLockUnitPack?.trim() == displayLabel) {
+        lockUnitPackCtrl.text = unitPack;
+      }
+    });
   }
 
   Widget _buildTabsCard(ItemsState itemsState) {
@@ -323,8 +423,8 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         onCreateOne: controller.createBrand,
         onSelect: (v) => updateState(() => brandId = v),
       ),
-        packSizeValue: selectedPackSize,
-        onPackSizeChanged: (v) => updateState(() => selectedPackSize = v),
+        packSizeValue: _packSizeDisplayValue(itemsState),
+        onPackSizeChanged: (v) => _onPackSizeChanged(itemsState, v),
         packSizeOptions: _packSizeOptions(itemsState),
         onManagePackSizesTap: () => _openPackSizeDialog(itemsState),
         lockUnitPackValue: _lockUnitPackDisplayValue(itemsState),
@@ -465,12 +565,38 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
       dosageDescCtrl: dosageDescCtrl,
       missedDoseDescCtrl: missedDoseDescCtrl,
       safetyAdviceCtrl: safetyAdviceCtrl,
-      sideEffectCtrls: sideEffectCtrls,
-      faqTextCtrls: faqTextCtrls,
-      onAddSideEffect: _addSideEffect,
-      onRemoveSideEffect: _removeSideEffect,
-      onAddFaq: _addFaq,
-      onRemoveFaq: _removeFaq,
+      howItWorksCtrl: howItWorksCtrl,
+      drugInteractionsCtrl: drugInteractionsCtrl,
+      contraindicationsCtrl: contraindicationsCtrl,
+      sideEffectsManagementCtrl: sideEffectsManagementCtrl,
+      goodToKnowCtrl: goodToKnowCtrl,
+      quickTipsCtrl: quickTipsCtrl,
+      allergyInformationCtrl: allergyInformationCtrl,
+      productHighlightsCtrl: productHighlightsCtrl,
+      ingredientsListCtrl: ingredientsListCtrl,
+      safetyPregnancyCtrl: safetyPregnancyCtrl,
+      safetyBreastfeedingCtrl: safetyBreastfeedingCtrl,
+      safetyAlcoholCtrl: safetyAlcoholCtrl,
+      safetyLiverCtrl: safetyLiverCtrl,
+      safetyKidneyCtrl: safetyKidneyCtrl,
+      safetyDrivingCtrl: safetyDrivingCtrl,
+      safetyAllergyCtrl: safetyAllergyCtrl,
+      safetyChildrenCtrl: safetyChildrenCtrl,
+      safetyOlderPatientsCtrl: safetyOlderPatientsCtrl,
+      interactionsDrugDrugCtrl: interactionsDrugDrugCtrl,
+      interactionsDrugDiseaseCtrl: interactionsDrugDiseaseCtrl,
+      dosageDailyDoseCtrl: dosageDailyDoseCtrl,
+      dosageOverDoseCtrl: dosageOverDoseCtrl,
+      dosageMissedDoseCtrl: dosageMissedDoseCtrl,
+      referencesTextCtrl: referencesTextCtrl,
+      productDescriptionCtrl: productDescriptionCtrl,
+      additionalInfoAllergyCtrl: additionalInfoAllergyCtrl,
+      additionalInfoConcernsCtrl: additionalInfoConcernsCtrl,
+      additionalInfoGoodToKnowCtrl: additionalInfoGoodToKnowCtrl,
+      additionalInfoQuickTipsCtrl: additionalInfoQuickTipsCtrl,
+      directionsForUseCtrl: directionsForUseCtrl,
+      sideEffectsCtrl: sideEffectsCtrl,
+      faqTextCtrl: faqTextCtrl,
     );
   }
 }

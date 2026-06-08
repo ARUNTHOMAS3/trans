@@ -1,4 +1,4 @@
-import '../models/purchases_purchase_returns_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart';
 
 abstract class PurchaseReturnsRepository {
   Future<List<PurchaseReturn>> getPurchaseReturns({

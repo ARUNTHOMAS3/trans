@@ -772,6 +772,18 @@ class _SalesItemQuickEditDialogState
     );
   }
 
+  List<String> _packSizeOptions(ItemsState itemsState) {
+    final labels = itemsState.units
+        .where((unit) => unit.isActive)
+        .map((unit) => unit.unitName.trim())
+        .where((label) => label.isNotEmpty)
+        .toList();
+    if (selectedPackSize != null && selectedPackSize!.trim().isNotEmpty) {
+      labels.add(selectedPackSize!.trim());
+    }
+    return labels.toSet().toList();
+  }
+
   Widget _tabHeader({required String title, required bool active, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
@@ -796,18 +808,6 @@ class _SalesItemQuickEditDialogState
         ),
       ),
     );
-  }
-
-  List<String> _packSizeOptions(ItemsState itemsState) {
-    final labels = itemsState.units
-        .where((unit) => unit.isActive)
-        .map((unit) => unit.unitName.trim())
-        .where((label) => label.isNotEmpty)
-        .toList();
-    if (selectedPackSize != null && selectedPackSize!.trim().isNotEmpty) {
-      labels.add(selectedPackSize!.trim());
-    }
-    return labels.toSet().toList();
   }
 
   Widget _buildInventoryFlags(ItemsState itemsState) {

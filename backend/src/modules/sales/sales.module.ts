@@ -8,9 +8,16 @@ import { SupabaseModule } from "../supabase/supabase.module";
 import { SalesService } from "./services/sales.service";
 import { SequencesModule } from "../../sequences/sequences.module";
 import { SalesReturnsModule } from "./sales-returns/sales-returns.module";
+import { CreditNotesModule } from "./credit-notes/credit-notes.module";
 
 @Module({
-  imports: [AccountantModule, SupabaseModule, SequencesModule, SalesReturnsModule],
+  imports: [
+    AccountantModule,
+    SupabaseModule,
+    SequencesModule,
+    SalesReturnsModule,
+    CreditNotesModule,
+  ],
   controllers: [CustomersController, SalesController],
   providers: [
     CustomersService,

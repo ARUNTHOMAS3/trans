@@ -10,7 +10,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
-import 'purchases_purchase_returns_overview.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_overview.dart';
 
 // ── List row model ────────────────────────────────────────────────────────────
 

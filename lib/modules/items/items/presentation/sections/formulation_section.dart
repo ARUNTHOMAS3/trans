@@ -203,6 +203,7 @@ class FormulationSection extends StatelessWidget {
       showSettings: true,
       settingsLabel: 'Manage Pack Sizes',
       onSettingsTap: onManagePackSizesTap,
+      displayStringForValue: (value) => value,
       searchStringForValue: (value) => value.toLowerCase(),
       itemBuilder: (value, isSelected, isHovered) {
         return Container(

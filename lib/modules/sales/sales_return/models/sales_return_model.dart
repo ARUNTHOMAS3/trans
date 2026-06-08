@@ -1,11 +1,53 @@
+class CreateReceiveBatchPayload {
+  final String batchId;
+  final String? layerId;
+  final String warehouseId;
+  final String binId;
+  final double quantity;
+  final double focQuantity;
+  final double? purchaseRate;
+  final double? mrp;
+  final String? expiryDate;
+  final String? mfgDate;
+  final String? mfgBatchNo;
+
+  CreateReceiveBatchPayload({
+    required this.batchId,
+    this.layerId,
+    required this.warehouseId,
+    required this.binId,
+    required this.quantity,
+    this.focQuantity = 0,
+    this.purchaseRate,
+    this.mrp,
+    this.expiryDate,
+    this.mfgDate,
+    this.mfgBatchNo,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'batch_id': batchId,
+        if (layerId != null && layerId!.isNotEmpty) 'layer_id': layerId,
+        'warehouse_id': warehouseId,
+        'bin_id': binId,
+        'quantity': quantity,
+        'foc_quantity': focQuantity,
+        if (purchaseRate != null) 'purchase_rate': purchaseRate,
+        if (mrp != null) 'mrp': mrp,
+        if (expiryDate != null && expiryDate!.isNotEmpty) 'expiry_date': expiryDate,
+        if (mfgDate != null && mfgDate!.isNotEmpty) 'manufacture_date': mfgDate,
+        if (mfgBatchNo != null && mfgBatchNo!.isNotEmpty) 'manufacture_batch_no': mfgBatchNo,
+      };
+}
+
 class CreateReceiveItemPayload {
-  final List<CreateReceiveBatchPayload> batches;
   final String productId;
   final String? salesReturnItemId;
   final double receivingQty;
   final double returnQty;
   final double alreadyReceivedQty;
   final String? remarks;
+  final List<CreateReceiveBatchPayload> batches;
 
   CreateReceiveItemPayload({
     required this.productId,
@@ -24,50 +66,7 @@ class CreateReceiveItemPayload {
         'return_qty': returnQty,
         'already_received_qty': alreadyReceivedQty,
         if (remarks != null) 'remarks': remarks,
-        'batches': batches.map((batch) => batch.toJson()).toList(),
-      };
-}
-
-class CreateReceiveBatchPayload {
-  final String batchId;
-  final String? layerId;
-  final String? warehouseId;
-  final String binId;
-  final double quantity;
-  final double focQuantity;
-  final double? purchaseRate;
-  final double? mrp;
-  final DateTime? expiryDate;
-  final DateTime? mfgDate;
-  final String? mfgBatchNo;
-
-  CreateReceiveBatchPayload({
-    required this.batchId,
-    this.layerId,
-    this.warehouseId,
-    required this.binId,
-    required this.quantity,
-    this.focQuantity = 0,
-    this.purchaseRate,
-    this.mrp,
-    this.expiryDate,
-    this.mfgDate,
-    this.mfgBatchNo,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'batch_id': batchId,
-        if (layerId != null) 'layer_id': layerId,
-        if (warehouseId != null) 'warehouse_id': warehouseId,
-        'bin_id': binId,
-        'quantity': quantity,
-        'foc_quantity': focQuantity,
-        if (purchaseRate != null) 'purchase_rate': purchaseRate,
-        if (mrp != null) 'mrp': mrp,
-        if (expiryDate != null) 'expiry_date': expiryDate!.toIso8601String(),
-        if (mfgDate != null) 'manufacture_date': mfgDate!.toIso8601String(),
-        if (mfgBatchNo != null && mfgBatchNo!.isNotEmpty)
-          'manufacture_batch_no': mfgBatchNo,
+        'batches': batches.map((b) => b.toJson()).toList(),
       };
 }
 

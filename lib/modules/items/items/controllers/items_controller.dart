@@ -465,6 +465,7 @@ class ItemsController extends StateNotifier<ItemsState> {
       List<Map<String, dynamic>> buyingRulesRaw;
       List<Map<String, dynamic>> drugSchedulesRaw;
       List<Map<String, dynamic>> productTypesRaw;
+      List<Map<String, dynamic>> packSizesRaw;
       List<Uqc> uqcList;
 
       if (bootstrap.isNotEmpty) {
@@ -527,6 +528,9 @@ class ItemsController extends StateNotifier<ItemsState> {
         productTypesRaw = List<Map<String, dynamic>>.from(
           bootstrap['productTypes'] ?? const [],
         );
+        packSizesRaw = List<Map<String, dynamic>>.from(
+          bootstrap['productPackSizes'] ?? const [],
+        );
         uqcList = List<dynamic>.from(bootstrap['uqc'] ?? const [])
             .map((json) => Uqc.fromJson(Map<String, dynamic>.from(json as Map)))
             .toList();
@@ -536,6 +540,12 @@ class ItemsController extends StateNotifier<ItemsState> {
         }
         if (strengthsRaw.isEmpty) {
           strengthsRaw = await _lookupsService.getStrengths();
+        }
+        if (buyingRulesRaw.isEmpty) {
+          buyingRulesRaw = await _lookupsService.getBuyingRules();
+        }
+        if (drugSchedulesRaw.isEmpty) {
+          drugSchedulesRaw = await _lookupsService.getDrugSchedules();
         }
       } else {
         // Fallback path keeps development resilient if the bootstrap endpoint
@@ -558,6 +568,7 @@ class ItemsController extends StateNotifier<ItemsState> {
           _lookupsService.getBuyingRules(),
           _lookupsService.getDrugSchedules(),
           _lookupsService.getProductTypes(),
+          _lookupsService.getProductPackSizes(),
           _lookupsService.getUqc(),
         ]);
 
@@ -604,8 +615,11 @@ class ItemsController extends StateNotifier<ItemsState> {
         productTypesRaw = List<Map<String, dynamic>>.from(
           futureResults[16] as List<Map<String, dynamic>>,
         );
-        uqcList = (futureResults.length > 17)
-            ? (futureResults[17] as List<Uqc>)
+        packSizesRaw = List<Map<String, dynamic>>.from(
+          futureResults[17] as List<Map<String, dynamic>>,
+        );
+        uqcList = (futureResults.length > 18)
+            ? (futureResults[18] as List<Uqc>)
             : <Uqc>[];
       }
 
@@ -745,6 +759,20 @@ class ItemsController extends StateNotifier<ItemsState> {
           )
           .toList();
 
+      final packSizes = packSizesRaw
+          .map(
+            (pack) => {
+              ...pack,
+              'pack_name':
+                  (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
+              'unit_pack': pack['unit_pack'],
+              'name':
+                  (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
+            },
+          )
+          .where((pack) => (pack['pack_name'] ?? '').toString().isNotEmpty)
+          .toList();
+
       state = state.copyWith(
         units: units,
         categories: categories,
@@ -763,6 +791,7 @@ class ItemsController extends StateNotifier<ItemsState> {
         buyingRules: buyingRules,
         drugSchedules: drugSchedules,
         productTypes: productTypes,
+        packSizes: packSizes,
         uqcList: uqcList,
         isLoadingLookups: false,
       );
@@ -784,6 +813,7 @@ class ItemsController extends StateNotifier<ItemsState> {
           'strengths': state.strengths.length,
           'buyingRules': state.buyingRules.length,
           'drugSchedules': state.drugSchedules.length,
+          'packSizes': state.packSizes.length,
           'uqcList': state.uqcList.length,
         },
       );
@@ -2209,6 +2239,67 @@ class ItemsController extends StateNotifier<ItemsState> {
     state = state.copyWith(productTypes: currentMap.values.toList());
 
     return mapped;
+  }
+
+  Future<List<Map<String, dynamic>>> searchProductPackSizes(String query) async {
+    final results = await _lookupsService.searchLookups(
+      'product-pack-sizes',
+      query,
+    );
+    final mapped = results
+        .map(
+          (pack) => {
+            ...pack,
+            'pack_name':
+                (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
+            'unit_pack': pack['unit_pack'],
+            'name':
+                (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
+          },
+        )
+        .where((pack) => (pack['pack_name'] ?? '').toString().isNotEmpty)
+        .toList();
+
+    final currentMap = <String, Map<String, dynamic>>{
+      for (final pack in state.packSizes)
+        '${pack['pack_name']}-${pack['unit_pack']}': pack,
+    };
+    for (final pack in mapped) {
+      currentMap['${pack['pack_name']}-${pack['unit_pack']}'] = pack;
+    }
+    state = state.copyWith(packSizes: currentMap.values.toList());
+    return mapped;
+  }
+
+  Future<Map<String, dynamic>> createProductPackSize(
+    String packName,
+    String unitPack,
+  ) async {
+    final created = await _lookupsService.createProductPackSize(
+      packName: packName,
+      unitPack: unitPack,
+    );
+    final normalized = {
+      ...created,
+      'pack_name':
+          (created['pack_name'] ?? created['name'] ?? packName)
+              .toString()
+              .trim(),
+      'unit_pack': created['unit_pack'] ?? unitPack,
+      'name':
+          (created['pack_name'] ?? created['name'] ?? packName)
+              .toString()
+              .trim(),
+    };
+
+    final currentMap = <String, Map<String, dynamic>>{
+      for (final pack in state.packSizes)
+        '${pack['pack_name']}-${pack['unit_pack']}': pack,
+    };
+    currentMap['${normalized['pack_name']}-${normalized['unit_pack']}'] =
+        normalized;
+    state = state.copyWith(packSizes: currentMap.values.toList(), error: null);
+    return normalized;
   }
 
   Future<List<Map<String, dynamic>>> _syncGeneric(

@@ -1,0 +1,12 @@
+import { Module } from "@nestjs/common";
+import { SupabaseModule } from "../../supabase/supabase.module";
+import { CreditNotesController } from "./credit-notes.controller";
+import { CreditNotesService } from "./credit-notes.service";
+
+@Module({
+  imports: [SupabaseModule],
+  controllers: [CreditNotesController],
+  providers: [CreditNotesService],
+  exports: [CreditNotesService],
+})
+export class CreditNotesModule {}

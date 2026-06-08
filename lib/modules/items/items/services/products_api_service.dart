@@ -21,6 +21,29 @@ class ProductsApiService {
     return payload;
   }
 
+  dynamic _unwrapEnvelope(dynamic payload) {
+    if (payload is Map && payload.containsKey('data')) {
+      return payload['data'];
+    }
+    return payload;
+  }
+
+  Map<String, dynamic> _asMap(dynamic payload) {
+    final unwrapped = _unwrapEnvelope(payload);
+    if (unwrapped is Map) {
+      return Map<String, dynamic>.from(unwrapped);
+    }
+    return <String, dynamic>{};
+  }
+
+  List<dynamic> _asList(dynamic payload) {
+    final unwrapped = _unwrapEnvelope(payload);
+    if (unwrapped is List) {
+      return List<dynamic>.from(unwrapped);
+    }
+    return const <dynamic>[];
+  }
+
   String _formatDioError(DioException e) {
     final data = e.response?.data;
     final status = e.response?.statusCode;
@@ -74,8 +97,10 @@ class ProductsApiService {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data as List;
-        return data.map((json) => Item.fromJson(json)).toList();
+        final data = _asList(response.data);
+        return data
+            .map((json) => Item.fromJson(Map<String, dynamic>.from(json as Map)))
+            .toList();
       }
 
       throw ApiException(
@@ -109,19 +134,27 @@ class ProductsApiService {
       );
 
       if (response.statusCode == 200) {
-        final responseData = response.data;
+        final responseData = _unwrapEnvelope(response.data);
         debugPrint(
           '[getProductsCursor] response type: ${responseData.runtimeType}',
         );
 
         // Handle new cursor-format: {items: [...], next_cursor: ...}
-        if (responseData is Map<String, dynamic> &&
-            responseData.containsKey('items')) {
-          final List<dynamic> data = responseData['items'] as List;
+        if (responseData is Map && responseData.containsKey('items')) {
+          final responseMap = Map<String, dynamic>.from(responseData);
+          final List<dynamic> data = List<dynamic>.from(
+            responseMap['items'] as List? ?? const [],
+          );
           debugPrint('[getProductsCursor] cursor-format: ${data.length} items');
           return {
-            'items': data.map((json) => Item.fromJson(json)).toList(),
-            'next_cursor': responseData['next_cursor'],
+            'items': data
+                .map(
+                  (json) => Item.fromJson(
+                    Map<String, dynamic>.from(json as Map),
+                  ),
+                )
+                .toList(),
+            'next_cursor': responseMap['next_cursor']?.toString(),
           };
         }
 
@@ -130,9 +163,15 @@ class ProductsApiService {
           debugPrint(
             '[getProductsCursor] plain-list fallback: ${responseData.length} items',
           );
-          final List<dynamic> data = responseData;
+          final List<dynamic> data = List<dynamic>.from(responseData);
           return {
-            'items': data.map((json) => Item.fromJson(json)).toList(),
+            'items': data
+                .map(
+                  (json) => Item.fromJson(
+                    Map<String, dynamic>.from(json as Map),
+                  ),
+                )
+                .toList(),
             'next_cursor': null,
           };
         }
@@ -235,7 +274,10 @@ class ProductsApiService {
     try {
       final response = await _apiClient.get('/products/count');
       if (response.statusCode == 200) {
-        return response.data['count'] as int;
+        final payload = _asMap(response.data);
+        final count = payload['count'];
+        if (count is int) return count;
+        return int.tryParse(count?.toString() ?? '') ?? 0;
       }
       return 0;
     } catch (e) {

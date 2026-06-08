@@ -99,7 +99,6 @@ app.*.map.json
 .env.development.local
 .env.test.local
 .env.production.local
-.env.vercel
 assets/.env
 assets/.env.local
 !assets/.env.example
@@ -416,3 +415,8 @@ jules env.md
 DEPLOY_ENV.md
 .lean-ctx/graph.db
 .lean-ctx/graph.meta.json
+
+# Local env secrets & backups
+backend/.env.vercel
+backups/
+.lean-ctx/

@@ -255,12 +255,38 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     dosageDescCtrl.dispose();
     missedDoseDescCtrl.dispose();
     safetyAdviceCtrl.dispose();
-    for (final c in sideEffectCtrls) {
-      c.dispose();
-    }
-    for (final c in faqTextCtrls) {
-      c.dispose();
-    }
+    howItWorksCtrl.dispose();
+    drugInteractionsCtrl.dispose();
+    contraindicationsCtrl.dispose();
+    sideEffectsManagementCtrl.dispose();
+    goodToKnowCtrl.dispose();
+    quickTipsCtrl.dispose();
+    allergyInformationCtrl.dispose();
+    productHighlightsCtrl.dispose();
+    ingredientsListCtrl.dispose();
+    safetyPregnancyCtrl.dispose();
+    safetyBreastfeedingCtrl.dispose();
+    safetyAlcoholCtrl.dispose();
+    safetyLiverCtrl.dispose();
+    safetyKidneyCtrl.dispose();
+    safetyDrivingCtrl.dispose();
+    safetyAllergyCtrl.dispose();
+    safetyChildrenCtrl.dispose();
+    safetyOlderPatientsCtrl.dispose();
+    interactionsDrugDrugCtrl.dispose();
+    interactionsDrugDiseaseCtrl.dispose();
+    dosageDailyDoseCtrl.dispose();
+    dosageOverDoseCtrl.dispose();
+    dosageMissedDoseCtrl.dispose();
+    referencesTextCtrl.dispose();
+    productDescriptionCtrl.dispose();
+    additionalInfoAllergyCtrl.dispose();
+    additionalInfoConcernsCtrl.dispose();
+    additionalInfoGoodToKnowCtrl.dispose();
+    additionalInfoQuickTipsCtrl.dispose();
+    directionsForUseCtrl.dispose();
+    sideEffectsCtrl.dispose();
+    faqTextCtrl.dispose();
     super.dispose();
   }
 
@@ -295,6 +321,46 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       'purchaseDescription': purchaseDescriptionCtrl.text,
       'manufacturerId': manufacturerId,
       'brandId': brandId,
+      'storageDescription': storageDescCtrl.text,
+      'about': aboutCtrl.text,
+      'usesDescription': usesDescCtrl.text,
+      'howToUse': howToUseCtrl.text,
+      'dosageDescription': dosageDescCtrl.text,
+      'missedDoseDescription': missedDoseDescCtrl.text,
+      'safetyAdvice': safetyAdviceCtrl.text,
+      'howItWorks': howItWorksCtrl.text,
+      'drugInteractions': drugInteractionsCtrl.text,
+      'contraindications': contraindicationsCtrl.text,
+      'sideEffectsManagement': sideEffectsManagementCtrl.text,
+      'goodToKnow': goodToKnowCtrl.text,
+      'quickTips': quickTipsCtrl.text,
+      'allergyInformation': allergyInformationCtrl.text,
+      'productHighlights': productHighlightsCtrl.text,
+      'ingredientsList': ingredientsListCtrl.text,
+      'safetyMeasuresWarningsPregnancy': safetyPregnancyCtrl.text,
+      'safetyMeasuresWarningsBreastfeeding': safetyBreastfeedingCtrl.text,
+      'safetyMeasuresWarningsAlcohol': safetyAlcoholCtrl.text,
+      'safetyMeasuresWarningsLiver': safetyLiverCtrl.text,
+      'safetyMeasuresWarningsKidney': safetyKidneyCtrl.text,
+      'safetyMeasuresWarningsUseInDrivingAndOperatingMachinery':
+          safetyDrivingCtrl.text,
+      'safetyMeasuresWarningsAllergy': safetyAllergyCtrl.text,
+      'safetyMeasuresWarningsChildren': safetyChildrenCtrl.text,
+      'safetyMeasuresWarningsOlderPatients': safetyOlderPatientsCtrl.text,
+      'interactionsDrugDrugInteractions': interactionsDrugDrugCtrl.text,
+      'interactionsDrugDiseaseInteractions': interactionsDrugDiseaseCtrl.text,
+      'dosageDailyDose': dosageDailyDoseCtrl.text,
+      'dosageOverDose': dosageOverDoseCtrl.text,
+      'dosageMissedDose': dosageMissedDoseCtrl.text,
+      'referencesText': referencesTextCtrl.text,
+      'productDescription': productDescriptionCtrl.text,
+      'additionalInfoAllergy': additionalInfoAllergyCtrl.text,
+      'additionalInfoConcerns': additionalInfoConcernsCtrl.text,
+      'additionalInfoGoodToKnow': additionalInfoGoodToKnowCtrl.text,
+      'additionalInfoQuickTips': additionalInfoQuickTipsCtrl.text,
+      'directionsForUse': directionsForUseCtrl.text,
+      'sideEffectsText': sideEffectsCtrl.text,
+      'faqText': faqTextCtrl.text,
       'savedAt': DateTime.now().toIso8601String(),
     });
   }
@@ -328,6 +394,65 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
           data['purchaseDescription'] as String? ?? '';
       manufacturerId = data['manufacturerId'] as String?;
       brandId = data['brandId'] as String?;
+      storageDescCtrl.text = data['storageDescription'] as String? ?? '';
+      aboutCtrl.text = data['about'] as String? ?? '';
+      usesDescCtrl.text = data['usesDescription'] as String? ?? '';
+      howToUseCtrl.text = data['howToUse'] as String? ?? '';
+      dosageDescCtrl.text = data['dosageDescription'] as String? ?? '';
+      missedDoseDescCtrl.text = data['missedDoseDescription'] as String? ?? '';
+      safetyAdviceCtrl.text = data['safetyAdvice'] as String? ?? '';
+      howItWorksCtrl.text = data['howItWorks'] as String? ?? '';
+      drugInteractionsCtrl.text = data['drugInteractions'] as String? ?? '';
+      contraindicationsCtrl.text = data['contraindications'] as String? ?? '';
+      sideEffectsManagementCtrl.text =
+          data['sideEffectsManagement'] as String? ?? '';
+      goodToKnowCtrl.text = data['goodToKnow'] as String? ?? '';
+      quickTipsCtrl.text = data['quickTips'] as String? ?? '';
+      allergyInformationCtrl.text =
+          data['allergyInformation'] as String? ?? '';
+      productHighlightsCtrl.text = data['productHighlights'] as String? ?? '';
+      ingredientsListCtrl.text = data['ingredientsList'] as String? ?? '';
+      safetyPregnancyCtrl.text =
+          data['safetyMeasuresWarningsPregnancy'] as String? ?? '';
+      safetyBreastfeedingCtrl.text =
+          data['safetyMeasuresWarningsBreastfeeding'] as String? ?? '';
+      safetyAlcoholCtrl.text =
+          data['safetyMeasuresWarningsAlcohol'] as String? ?? '';
+      safetyLiverCtrl.text =
+          data['safetyMeasuresWarningsLiver'] as String? ?? '';
+      safetyKidneyCtrl.text =
+          data['safetyMeasuresWarningsKidney'] as String? ?? '';
+      safetyDrivingCtrl.text =
+          data['safetyMeasuresWarningsUseInDrivingAndOperatingMachinery']
+              as String? ??
+          '';
+      safetyAllergyCtrl.text =
+          data['safetyMeasuresWarningsAllergy'] as String? ?? '';
+      safetyChildrenCtrl.text =
+          data['safetyMeasuresWarningsChildren'] as String? ?? '';
+      safetyOlderPatientsCtrl.text =
+          data['safetyMeasuresWarningsOlderPatients'] as String? ?? '';
+      interactionsDrugDrugCtrl.text =
+          data['interactionsDrugDrugInteractions'] as String? ?? '';
+      interactionsDrugDiseaseCtrl.text =
+          data['interactionsDrugDiseaseInteractions'] as String? ?? '';
+      dosageDailyDoseCtrl.text = data['dosageDailyDose'] as String? ?? '';
+      dosageOverDoseCtrl.text = data['dosageOverDose'] as String? ?? '';
+      dosageMissedDoseCtrl.text = data['dosageMissedDose'] as String? ?? '';
+      referencesTextCtrl.text = data['referencesText'] as String? ?? '';
+      productDescriptionCtrl.text =
+          data['productDescription'] as String? ?? '';
+      additionalInfoAllergyCtrl.text =
+          data['additionalInfoAllergy'] as String? ?? '';
+      additionalInfoConcernsCtrl.text =
+          data['additionalInfoConcerns'] as String? ?? '';
+      additionalInfoGoodToKnowCtrl.text =
+          data['additionalInfoGoodToKnow'] as String? ?? '';
+      additionalInfoQuickTipsCtrl.text =
+          data['additionalInfoQuickTips'] as String? ?? '';
+      directionsForUseCtrl.text = data['directionsForUse'] as String? ?? '';
+      sideEffectsCtrl.text = data['sideEffectsText'] as String? ?? '';
+      faqTextCtrl.text = data['faqText'] as String? ?? '';
       _hasDraft = false;
       _isDirty = true;
     });
@@ -541,19 +666,44 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       dosageDescCtrl.text = item.dosageDescription ?? '';
       missedDoseDescCtrl.text = item.missedDoseDescription ?? '';
       safetyAdviceCtrl.text = item.safetyAdvice ?? '';
-
-      sideEffectCtrls.clear();
-      if (item.sideEffects != null) {
-        for (var se in item.sideEffects!) {
-          sideEffectCtrls.add(TextEditingController(text: se));
-        }
-      }
-      faqTextCtrls.clear();
-      if (item.faqText != null) {
-        for (var f in item.faqText!) {
-          faqTextCtrls.add(TextEditingController(text: f));
-        }
-      }
+      howItWorksCtrl.text = item.howItWorks ?? '';
+      drugInteractionsCtrl.text = item.drugInteractions ?? '';
+      contraindicationsCtrl.text = item.contraindications ?? '';
+      sideEffectsManagementCtrl.text = item.sideEffectsManagement ?? '';
+      goodToKnowCtrl.text = item.goodToKnow ?? '';
+      quickTipsCtrl.text = item.quickTips ?? '';
+      allergyInformationCtrl.text = item.allergyInformation ?? '';
+      productHighlightsCtrl.text = item.productHighlights ?? '';
+      ingredientsListCtrl.text = item.ingredientsList ?? '';
+      safetyPregnancyCtrl.text = item.safetyMeasuresWarningsPregnancy ?? '';
+      safetyBreastfeedingCtrl.text =
+          item.safetyMeasuresWarningsBreastfeeding ?? '';
+      safetyAlcoholCtrl.text = item.safetyMeasuresWarningsAlcohol ?? '';
+      safetyLiverCtrl.text = item.safetyMeasuresWarningsLiver ?? '';
+      safetyKidneyCtrl.text = item.safetyMeasuresWarningsKidney ?? '';
+      safetyDrivingCtrl.text =
+          item.safetyMeasuresWarningsUseInDrivingAndOperatingMachinery ?? '';
+      safetyAllergyCtrl.text = item.safetyMeasuresWarningsAllergy ?? '';
+      safetyChildrenCtrl.text = item.safetyMeasuresWarningsChildren ?? '';
+      safetyOlderPatientsCtrl.text =
+          item.safetyMeasuresWarningsOlderPatients ?? '';
+      interactionsDrugDrugCtrl.text =
+          item.interactionsDrugDrugInteractions ?? '';
+      interactionsDrugDiseaseCtrl.text =
+          item.interactionsDrugDiseaseInteractions ?? '';
+      dosageDailyDoseCtrl.text = item.dosageDailyDose ?? '';
+      dosageOverDoseCtrl.text = item.dosageOverDose ?? '';
+      dosageMissedDoseCtrl.text = item.dosageMissedDose ?? '';
+      referencesTextCtrl.text = item.referencesText ?? '';
+      productDescriptionCtrl.text = item.productDescription ?? '';
+      additionalInfoAllergyCtrl.text = item.additionalInfoAllergy ?? '';
+      additionalInfoConcernsCtrl.text = item.additionalInfoConcerns ?? '';
+      additionalInfoGoodToKnowCtrl.text =
+          item.additionalInfoGoodToKnow ?? '';
+      additionalInfoQuickTipsCtrl.text = item.additionalInfoQuickTips ?? '';
+      directionsForUseCtrl.text = item.directionsForUse ?? '';
+      sideEffectsCtrl.text = _joinStructuredItems(item.sideEffects);
+      faqTextCtrl.text = _joinStructuredItems(item.faqText);
       _itemImages.clear();
       if (item.imageUrls != null) {
         _itemImages.addAll(item.imageUrls!);
@@ -851,29 +1001,68 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   final dosageDescCtrl = TextEditingController();
   final missedDoseDescCtrl = TextEditingController();
   final safetyAdviceCtrl = TextEditingController();
-  final List<TextEditingController> sideEffectCtrls = [];
-  final List<TextEditingController> faqTextCtrls = [];
+  final howItWorksCtrl = TextEditingController();
+  final drugInteractionsCtrl = TextEditingController();
+  final contraindicationsCtrl = TextEditingController();
+  final sideEffectsManagementCtrl = TextEditingController();
+  final goodToKnowCtrl = TextEditingController();
+  final quickTipsCtrl = TextEditingController();
+  final allergyInformationCtrl = TextEditingController();
+  final productHighlightsCtrl = TextEditingController();
+  final ingredientsListCtrl = TextEditingController();
+  final safetyPregnancyCtrl = TextEditingController();
+  final safetyBreastfeedingCtrl = TextEditingController();
+  final safetyAlcoholCtrl = TextEditingController();
+  final safetyLiverCtrl = TextEditingController();
+  final safetyKidneyCtrl = TextEditingController();
+  final safetyDrivingCtrl = TextEditingController();
+  final safetyAllergyCtrl = TextEditingController();
+  final safetyChildrenCtrl = TextEditingController();
+  final safetyOlderPatientsCtrl = TextEditingController();
+  final interactionsDrugDrugCtrl = TextEditingController();
+  final interactionsDrugDiseaseCtrl = TextEditingController();
+  final dosageDailyDoseCtrl = TextEditingController();
+  final dosageOverDoseCtrl = TextEditingController();
+  final dosageMissedDoseCtrl = TextEditingController();
+  final referencesTextCtrl = TextEditingController();
+  final productDescriptionCtrl = TextEditingController();
+  final additionalInfoAllergyCtrl = TextEditingController();
+  final additionalInfoConcernsCtrl = TextEditingController();
+  final additionalInfoGoodToKnowCtrl = TextEditingController();
+  final additionalInfoQuickTipsCtrl = TextEditingController();
+  final directionsForUseCtrl = TextEditingController();
+  final sideEffectsCtrl = TextEditingController();
+  final faqTextCtrl = TextEditingController();
 
-  void _addSideEffect() {
-    setState(() => sideEffectCtrls.add(TextEditingController()));
+  String _joinStructuredItems(List<String>? values) {
+    if (values == null || values.isEmpty) return '';
+    return values
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .join('\n\n');
   }
 
-  void _removeSideEffect(int index) {
-    setState(() {
-      sideEffectCtrls[index].dispose();
-      sideEffectCtrls.removeAt(index);
-    });
-  }
+  List<String>? _splitStructuredItems(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return null;
 
-  void _addFaq() {
-    setState(() => faqTextCtrls.add(TextEditingController()));
-  }
+    final paragraphParts = text
+        .split(RegExp(r'\r?\n\s*\r?\n'))
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
 
-  void _removeFaq(int index) {
-    setState(() {
-      faqTextCtrls[index].dispose();
-      faqTextCtrls.removeAt(index);
-    });
+    if (paragraphParts.length > 1) {
+      return paragraphParts;
+    }
+
+    final lineParts = text
+        .split(RegExp(r'\r?\n'))
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    return lineParts.isEmpty ? null : lineParts;
   }
 
   @override
@@ -1251,14 +1440,127 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         safetyAdvice: safetyAdviceCtrl.text.trim().isEmpty
                             ? null
                             : safetyAdviceCtrl.text.trim(),
-                        sideEffects: sideEffectCtrls
-                            .map((e) => e.text.trim())
-                            .where((e) => e.isNotEmpty)
-                            .toList(),
-                        faqText: faqTextCtrls
-                            .map((e) => e.text.trim())
-                            .where((e) => e.isNotEmpty)
-                            .toList(),
+                        howItWorks: howItWorksCtrl.text.trim().isEmpty
+                            ? null
+                            : howItWorksCtrl.text.trim(),
+                        drugInteractions:
+                            drugInteractionsCtrl.text.trim().isEmpty
+                            ? null
+                            : drugInteractionsCtrl.text.trim(),
+                        contraindications:
+                            contraindicationsCtrl.text.trim().isEmpty
+                            ? null
+                            : contraindicationsCtrl.text.trim(),
+                        sideEffectsManagement:
+                            sideEffectsManagementCtrl.text.trim().isEmpty
+                            ? null
+                            : sideEffectsManagementCtrl.text.trim(),
+                        goodToKnow: goodToKnowCtrl.text.trim().isEmpty
+                            ? null
+                            : goodToKnowCtrl.text.trim(),
+                        quickTips: quickTipsCtrl.text.trim().isEmpty
+                            ? null
+                            : quickTipsCtrl.text.trim(),
+                        allergyInformation:
+                            allergyInformationCtrl.text.trim().isEmpty
+                            ? null
+                            : allergyInformationCtrl.text.trim(),
+                        productHighlights:
+                            productHighlightsCtrl.text.trim().isEmpty
+                            ? null
+                            : productHighlightsCtrl.text.trim(),
+                        safetyMeasuresWarningsPregnancy:
+                            safetyPregnancyCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyPregnancyCtrl.text.trim(),
+                        safetyMeasuresWarningsBreastfeeding:
+                            safetyBreastfeedingCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyBreastfeedingCtrl.text.trim(),
+                        safetyMeasuresWarningsAlcohol:
+                            safetyAlcoholCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyAlcoholCtrl.text.trim(),
+                        safetyMeasuresWarningsLiver:
+                            safetyLiverCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyLiverCtrl.text.trim(),
+                        safetyMeasuresWarningsKidney:
+                            safetyKidneyCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyKidneyCtrl.text.trim(),
+                        safetyMeasuresWarningsUseInDrivingAndOperatingMachinery:
+                            safetyDrivingCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyDrivingCtrl.text.trim(),
+                        safetyMeasuresWarningsAllergy:
+                            safetyAllergyCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyAllergyCtrl.text.trim(),
+                        safetyMeasuresWarningsChildren:
+                            safetyChildrenCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyChildrenCtrl.text.trim(),
+                        safetyMeasuresWarningsOlderPatients:
+                            safetyOlderPatientsCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyOlderPatientsCtrl.text.trim(),
+                        interactionsDrugDrugInteractions:
+                            interactionsDrugDrugCtrl.text.trim().isEmpty
+                            ? null
+                            : interactionsDrugDrugCtrl.text.trim(),
+                        interactionsDrugDiseaseInteractions:
+                            interactionsDrugDiseaseCtrl.text.trim().isEmpty
+                            ? null
+                            : interactionsDrugDiseaseCtrl.text.trim(),
+                        dosageDailyDose:
+                            dosageDailyDoseCtrl.text.trim().isEmpty
+                            ? null
+                            : dosageDailyDoseCtrl.text.trim(),
+                        dosageOverDose:
+                            dosageOverDoseCtrl.text.trim().isEmpty
+                            ? null
+                            : dosageOverDoseCtrl.text.trim(),
+                        dosageMissedDose:
+                            dosageMissedDoseCtrl.text.trim().isEmpty
+                            ? null
+                            : dosageMissedDoseCtrl.text.trim(),
+                        referencesText:
+                            referencesTextCtrl.text.trim().isEmpty
+                            ? null
+                            : referencesTextCtrl.text.trim(),
+                        productDescription:
+                            productDescriptionCtrl.text.trim().isEmpty
+                            ? null
+                            : productDescriptionCtrl.text.trim(),
+                        additionalInfoAllergy:
+                            additionalInfoAllergyCtrl.text.trim().isEmpty
+                            ? null
+                            : additionalInfoAllergyCtrl.text.trim(),
+                        additionalInfoConcerns:
+                            additionalInfoConcernsCtrl.text.trim().isEmpty
+                            ? null
+                            : additionalInfoConcernsCtrl.text.trim(),
+                        additionalInfoGoodToKnow:
+                            additionalInfoGoodToKnowCtrl.text.trim().isEmpty
+                            ? null
+                            : additionalInfoGoodToKnowCtrl.text.trim(),
+                        additionalInfoQuickTips:
+                            additionalInfoQuickTipsCtrl.text.trim().isEmpty
+                            ? null
+                            : additionalInfoQuickTipsCtrl.text.trim(),
+                        directionsForUse:
+                            directionsForUseCtrl.text.trim().isEmpty
+                            ? null
+                            : directionsForUseCtrl.text.trim(),
+                        sideEffects: _splitStructuredItems(
+                          sideEffectsCtrl.text,
+                        ),
+                        faqText: _splitStructuredItems(faqTextCtrl.text),
+                        ingredientsList:
+                            ingredientsListCtrl.text.trim().isEmpty
+                            ? null
+                            : ingredientsListCtrl.text.trim(),
                       );
 
                       final success = isEditMode

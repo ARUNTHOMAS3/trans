@@ -158,6 +158,7 @@ class ItemsState {
   final List<Map<String, dynamic>> buyingRules;
   final List<Map<String, dynamic>> drugSchedules;
   final List<Map<String, dynamic>> productTypes;
+  final List<Map<String, dynamic>> packSizes;
   final List<CompositeItem> compositeItems;
   final List<Map<String, dynamic>> priceLists;
   final List<Map<String, dynamic>> associatedPriceLists;
@@ -200,6 +201,7 @@ class ItemsState {
     this.buyingRules = const [],
     this.drugSchedules = const [],
     this.productTypes = const [],
+    this.packSizes = const [],
     this.compositeItems = const [],
     this.priceLists = const [],
     this.associatedPriceLists = const [],
@@ -239,6 +241,7 @@ class ItemsState {
     List<Map<String, dynamic>>? buyingRules,
     List<Map<String, dynamic>>? drugSchedules,
     List<Map<String, dynamic>>? productTypes,
+    List<Map<String, dynamic>>? packSizes,
     List<CompositeItem>? compositeItems,
     List<Map<String, dynamic>>? priceLists,
     List<Map<String, dynamic>>? associatedPriceLists,
@@ -281,6 +284,7 @@ class ItemsState {
       buyingRules: buyingRules ?? this.buyingRules,
       drugSchedules: drugSchedules ?? this.drugSchedules,
       productTypes: productTypes ?? this.productTypes,
+      packSizes: packSizes ?? this.packSizes,
       compositeItems: compositeItems ?? this.compositeItems,
       priceLists: priceLists ?? this.priceLists,
       associatedPriceLists: associatedPriceLists ?? this.associatedPriceLists,

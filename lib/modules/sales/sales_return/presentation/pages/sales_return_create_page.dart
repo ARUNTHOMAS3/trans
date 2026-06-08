@@ -8,7 +8,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
@@ -16,8 +15,6 @@ import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
-import 'package:zerpai_erp/core/workflow/transaction_status_normalizer.dart';
-import 'package:zerpai_erp/core/workflow/transaction_status_transition_guard.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
@@ -32,16 +29,71 @@ import 'package:zerpai_erp/shared/widgets/dialogs/advanced_customer_search_modal
 import 'package:zerpai_erp/shared/widgets/dialogs/warehouse_change_confirm_dialog.dart';
 import 'package:intl/intl.dart';
 
-/// Sales Return Add Page
-class SalesReturnsAddPage extends ConsumerStatefulWidget {
-  const SalesReturnsAddPage({super.key});
+/// Data passed when opening the create page in edit mode.
+class SalesReturnEditData {
+  const SalesReturnEditData({
+    required this.id,
+    required this.rmaNumber,
+    required this.customerName,
+    required this.referenceNumber,
+    required this.date,
+    required this.creditOnlyGoods,
+    required this.items,
+    this.warehouseName,
+    this.warehouseId,
+    this.reason,
+    this.status,
+  });
 
-  @override
-  ConsumerState<SalesReturnsAddPage> createState() =>
-      _SalesReturnsAddPageState();
+  final String id;
+  final String rmaNumber;
+  final String customerName;
+  final String referenceNumber;
+  final String date;
+  final bool creditOnlyGoods;
+  final List<SalesReturnEditItem> items;
+  final String? warehouseName;
+  final String? warehouseId;
+  final String? reason;
+  final String? status;
 }
 
-class _SalesReturnsAddPageState extends ConsumerState<SalesReturnsAddPage> {
+class SalesReturnEditItem {
+  const SalesReturnEditItem({
+    required this.name,
+    required this.returnQty,
+    this.productId,
+    this.rate = '0.00',
+    this.shipped = '0',
+    this.returned = '0',
+    this.hsnCode = '',
+    this.description = '',
+    this.creditOnlyQty = '',
+  });
+
+  final String name;
+  final String returnQty;
+  final String? productId;
+  final String rate;
+  final String shipped;
+  final String returned;
+  final String hsnCode;
+  final String description;
+  final String creditOnlyQty;
+}
+
+/// Sales Return Add / Edit Page
+class SalesReturnsCreatePage extends ConsumerStatefulWidget {
+  const SalesReturnsCreatePage({super.key, this.editData});
+
+  final SalesReturnEditData? editData;
+
+  @override
+  ConsumerState<SalesReturnsCreatePage> createState() =>
+      _SalesReturnsCreatePageState();
+}
+
+class _SalesReturnsCreatePageState extends ConsumerState<SalesReturnsCreatePage> {
   static const double _tableFieldHeight = 44;
   static const String _rmaSequenceModule = 'rma';
   // --- Form State ---
@@ -84,20 +136,62 @@ class _SalesReturnsAddPageState extends ConsumerState<SalesReturnsAddPage> {
     return (customer.customerNumber ?? '').toString().trim();
   }
 
+  bool get _isEditMode => widget.editData != null;
+
   @override
   void initState() {
     super.initState();
-    _referenceNumberController = TextEditingController();
-    _rmaNumberController = TextEditingController();
+    final edit = widget.editData;
+
+    _referenceNumberController = TextEditingController(
+      text: edit != null && edit.referenceNumber != '-' ? edit.referenceNumber : '',
+    );
+    _rmaNumberController = TextEditingController(
+      text: edit?.rmaNumber ?? '',
+    );
+
+    if (edit != null && edit.date.isNotEmpty && edit.date != '-') {
+      final parsed = DateFormat('dd-MM-yyyy').tryParse(edit.date) ??
+          DateFormat('yyyy-MM-dd').tryParse(edit.date);
+      if (parsed != null) {
+        _rmaDate = parsed;
+      }
+    }
     _rmaDateController = TextEditingController(
       text: DateFormat('dd-MM-yyyy').format(_rmaDate),
     );
-    _rmaReasonController = TextEditingController();
+    _rmaReasonController = TextEditingController(
+      text: edit?.reason ?? '',
+    );
     _rmaPrefixController = TextEditingController();
     _rmaNextNumberController = TextEditingController();
-    _items.clear();
-    _addItem();
-    _loadRmaSequenceSettings();
+
+    if (edit != null) {
+      _selectedCustomer = edit.customerName;
+      _creditOnlyGoods = edit.creditOnlyGoods;
+      if (edit.warehouseName != null) _warehouseLocation = edit.warehouseName!;
+
+      _items.clear();
+      for (final item in edit.items) {
+        final srItem = _SalesReturnItem(
+          name: item.name,
+          description: item.description,
+          shipped: item.shipped,
+          returned: item.returned,
+          returnQty: item.returnQty,
+          creditOnlyQty: item.creditOnlyQty,
+          stock: '0 pcs',
+          rate: item.rate,
+        );
+        srItem.hsnCode = item.hsnCode;
+        _items.add(srItem);
+      }
+      if (_items.isEmpty) _addItem();
+    } else {
+      _items.clear();
+      _addItem();
+      _loadRmaSequenceSettings();
+    }
   }
 
   String _formatSequenceNumber({
@@ -356,23 +450,6 @@ class _SalesReturnsAddPageState extends ConsumerState<SalesReturnsAddPage> {
     required List<Item> availableItems,
   }) async {
     if (_isSubmitting) return;
-    final user = ref.read(authUserProvider);
-    final entity = ref.read(entityProvider);
-    final normalizedTargetStatus = normalizeTransactionStatus(status);
-    final decision = TransactionStatusTransitionGuard.canTransition(
-      user: user,
-      transactionType: 'sales.return',
-      fromStatus: 'draft',
-      toStatus: normalizedTargetStatus,
-      branchId: entity.branchId,
-      warehouseId: null,
-      requiredPermission: 'sales.return.edit',
-      reason: _rmaReasonController.text.trim(),
-    );
-    if (!decision.allowed) {
-      ZerpaiToast.error(context, decision.reason);
-      return;
-    }
 
     final customerName = _selectedCustomer?.trim() ?? '';
     if (customerName.isEmpty) {
@@ -462,7 +539,7 @@ class _SalesReturnsAddPageState extends ConsumerState<SalesReturnsAddPage> {
           ? null
           : _referenceNumberController.text.trim(),
       'contains_credit_only_goods': _creditOnlyGoods,
-      'status': normalizedTargetStatus,
+      'status': status,
       'items': itemPayload,
     };
 
@@ -471,43 +548,21 @@ class _SalesReturnsAddPageState extends ConsumerState<SalesReturnsAddPage> {
       _submittingStatus = status;
     });
     try {
-      await ref.read(apiClientProvider).post('sales/returns', data: payload);
-      if (user != null) {
-        final auditEvent = TransactionStatusTransitionGuard.buildAuditEvent(
-          transactionType: 'sales.return',
-          transactionId: rmaNumber,
-          beforeStatus: 'draft',
-          afterStatus: normalizedTargetStatus,
-          actor: user,
-          reason: _rmaReasonController.text.trim().isEmpty
-              ? 'Sales return status transition'
-              : _rmaReasonController.text.trim(),
-          permissionUsed: decision.requiredPermission,
-          branchId: entity.branchId,
-          warehouseId: warehouseId,
-          metadata: <String, dynamic>{
-            'entity_context': entity.entityId,
-            'branch_context': entity.branchId,
-            'warehouse_context': warehouseId,
-          },
-        );
-        AppLogger.info(
-          'Sales return status transition',
-          module: 'sales_return',
-          userId: user.id,
-          orgId: user.orgId,
-          data: auditEvent.toJson(),
-        );
-      }
-      if (_rmaAutoGenerate) {
-        await _loadRmaSequenceSettings();
+      final api = ref.read(apiClientProvider);
+      if (_isEditMode) {
+        await api.put('sales/returns/${widget.editData!.id}', data: payload);
+      } else {
+        await api.post('sales/returns', data: payload);
+        if (_rmaAutoGenerate) await _loadRmaSequenceSettings();
       }
       if (!mounted) return;
       ZerpaiToast.success(
         context,
-        status == 'approved'
-            ? 'Sales return saved and approved'
-            : 'Sales return saved as draft',
+        _isEditMode
+            ? 'Sales return updated successfully'
+            : status == 'approved'
+                ? 'Sales return saved and approved'
+                : 'Sales return saved as draft',
       );
       _goToSalesReturnsList();
     } catch (e) {
@@ -547,7 +602,7 @@ class _SalesReturnsAddPageState extends ConsumerState<SalesReturnsAddPage> {
         Container(
           color: Colors.white,
           child: ZerpaiLayout(
-            pageTitle: 'New Sales Return',
+            pageTitle: _isEditMode ? 'Edit Sales Return' : 'New Sales Return',
             enableBodyScroll: true,
             onSave: () {
               // Implementation for saving
@@ -943,11 +998,9 @@ class _CompactFormRow extends StatelessWidget {
                 : RichText(
                     text: TextSpan(
                       text: label,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: required
-                            ? AppTheme.errorRed
-                            : AppTheme.textPrimary,
+                        color: AppTheme.textPrimary,
                         fontWeight: FontWeight.w400,
                       ),
                       children: [
@@ -1864,7 +1917,7 @@ class _ItemRowWidgetState extends State<_ItemRowWidget> {
                       value: selectedItem,
                       items: widget.availableItems,
                       hint: 'Type or click to select an item.',
-                      height: _SalesReturnsAddPageState._tableFieldHeight,
+                      height: _SalesReturnsCreatePageState._tableFieldHeight,
                       hideBorderDefault: true,
                       displayStringForValue: (value) => value.productName,
                       onChanged: (val) {
@@ -1882,29 +1935,50 @@ class _ItemRowWidgetState extends State<_ItemRowWidget> {
                         }
                       },
                     )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
+                  : Row(
                       children: [
-                        Text(
-                          item.name.toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.name.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              if (item.descriptionController.text.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.descriptionController.text,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                        if (item.descriptionController.text.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            item.descriptionController.text,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            item.name = '';
+                            item.selectedItem = null;
+                            item.descriptionController.clear();
+                          }),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              LucideIcons.x,
+                              size: 14,
+                              color: AppTheme.textMuted,
                             ),
                           ),
-                        ],
+                        ),
                       ],
                     ),
             ),

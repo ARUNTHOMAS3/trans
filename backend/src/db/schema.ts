@@ -715,6 +715,7 @@ export const product = pgTable("products", {
   weightUnit: varchar("weight_unit", { length: 10 }).default("kg"),
   manufacturerId: uuid("manufacturer_id").references(() => manufacturer.id),
   brandId: uuid("brand_id").references(() => brand.id),
+  unitPackId: varchar("unit_pack_id", { length: 50 }),
   mpn: varchar("mpn", { length: 100 }),
   upc: varchar("upc", { length: 20 }),
   isbn: varchar("isbn", { length: 20 }),
@@ -724,6 +725,7 @@ export const product = pgTable("products", {
   trackAssocIngredients: boolean("track_assoc_ingredients").default(false),
   buyingRuleId: uuid("buying_rule_id").references(() => buyingRules.id),
   scheduleOfDrugId: uuid("schedule_of_drug_id").references(() => schedule.id),
+  productTypeId: uuid("product_type_id"),
   trackSerialNumber: boolean("track_serial_number").default(false),
 
   // Inventory Settings
@@ -748,6 +750,48 @@ export const product = pgTable("products", {
   dosageDescription: text("dosage_description"),
   missedDoseDescription: text("missed_dose_description"),
   safetyAdvice: text("safety_advice"),
+  howItWorks: text("how_it_works"),
+  drugInteractions: text("drug_interactions"),
+  contraindications: text("contraindications"),
+  sideEffectsManagement: text("side_effects_management"),
+  goodToKnow: text("good_to_know"),
+  quickTips: text("quick_tips"),
+  allergyInformation: text("allergy_information"),
+  productHighlights: text("product_highlights"),
+  ingredientsList: text("ingredients_list"),
+  safetyMeasuresWarningsPregnancy: text(
+    "safety_measures_warnings_pregnancy",
+  ),
+  safetyMeasuresWarningsBreastfeeding: text(
+    "safety_measures_warnings_breastfeeding",
+  ),
+  safetyMeasuresWarningsAlcohol: text("safety_measures_warnings_alcohol"),
+  safetyMeasuresWarningsLiver: text("safety_measures_warnings_liver"),
+  safetyMeasuresWarningsKidney: text("safety_measures_warnings_kidney"),
+  safetyMeasuresWarningsUseInDrivingAndOperatingMachinery: text(
+    "safety_measures_warnings_use_in_driving_and_operating_machinery",
+  ),
+  safetyMeasuresWarningsAllergy: text("safety_measures_warnings_allergy"),
+  safetyMeasuresWarningsChildren: text("safety_measures_warnings_children"),
+  safetyMeasuresWarningsOlderPatients: text(
+    "safety_measures_warnings_older_patients",
+  ),
+  interactionsDrugDrugInteractions: text(
+    "interactions_drug_drug_interactions",
+  ),
+  interactionsDrugDiseaseInteractions: text(
+    "interactions_drug_disease_interactions",
+  ),
+  dosageDailyDose: text("dosage_daily_dose"),
+  dosageOverDose: text("dosage_over_dose"),
+  dosageMissedDose: text("dosage_missed_dose"),
+  referencesText: text("references_text"),
+  productDescription: text("product_description"),
+  additionalInfoAllergy: text("additional_info_allergy"),
+  additionalInfoConcerns: text("additional_info_concerns"),
+  additionalInfoGoodToKnow: text("additional_info_good_to_know"),
+  additionalInfoQuickTips: text("additional_info_quick_tips"),
+  directionsForUse: text("directions_for_use"),
   sideEffects: jsonb("side_effects"), // Array of strings
   faqText: jsonb("faq_text"), // Array of strings
 
@@ -2150,6 +2194,8 @@ export const billLandedCosts = pgTable("bill_landed_costs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+
+
 export const favorites = pgTable("favorites", {
   id: uuid("id").primaryKey().defaultRandom(),
   entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
@@ -2158,4 +2204,3 @@ export const favorites = pgTable("favorites", {
   moduleName: varchar("module_name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
 });
-

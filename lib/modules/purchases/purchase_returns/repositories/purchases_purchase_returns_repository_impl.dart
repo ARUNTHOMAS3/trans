@@ -1,7 +1,7 @@
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
-import '../models/purchases_purchase_returns_model.dart';
-import 'purchases_purchase_returns_repository.dart';
 
 class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
   final ApiClient _apiClient;
@@ -51,10 +51,9 @@ class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
   @override
   Future<PurchaseReturn> createPurchaseReturn(
       PurchaseReturn purchaseReturn) async {
-    final payload = _toSchemaPayload(purchaseReturn);
     final response = await _apiClient.post(
       ApiEndpoints.purchaseReturns,
-      data: payload,
+      data: purchaseReturn.toJson(),
     );
     return PurchaseReturn.fromJson(response.data as Map<String, dynamic>);
   }
@@ -64,10 +63,9 @@ class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
     String id,
     PurchaseReturn purchaseReturn,
   ) async {
-    final payload = _toSchemaPayload(purchaseReturn);
     final response = await _apiClient.put(
       '${ApiEndpoints.purchaseReturns}/$id',
-      data: payload,
+      data: purchaseReturn.toJson(),
     );
     final data = response.data;
     if (data == null) return null;
@@ -86,51 +84,5 @@ class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
         await _apiClient.get(ApiEndpoints.purchaseReturnNextNumber);
     final data = response.data;
     return (data is Map ? data['number'] : data) as String? ?? '';
-  }
-
-  Map<String, dynamic> _toSchemaPayload(PurchaseReturn purchaseReturn) {
-    final items = purchaseReturn.items
-        .map(
-          (item) => <String, dynamic>{
-            if (item.itemId != null) 'product_id': item.itemId,
-            if (item.id != null) 'id': item.id,
-            'invoiced_qty': item.orderedQty,
-            'already_returned_qty': 0,
-            'return_qty': item.returnQty,
-            'credited_qty': 0,
-            'pending_credit_qty': item.returnQty,
-            'rate': item.rate,
-            'discount_percent': 0,
-            'discount_amount': 0,
-            if (item.taxRateId != null) 'tax_id': item.taxRateId,
-            'tax_amount': item.taxAmount,
-            'line_total': item.amount,
-            if (item.reason != null) 'remarks': item.reason,
-          },
-        )
-        .toList();
-
-    return <String, dynamic>{
-      if (purchaseReturn.id != null) 'id': purchaseReturn.id,
-      if (purchaseReturn.vendorId != null) 'vendor_id': purchaseReturn.vendorId,
-      if (purchaseReturn.warehouseId != null)
-        'warehouse_id': purchaseReturn.warehouseId,
-      if (purchaseReturn.returnNumber.isNotEmpty)
-        'purchase_return_number': purchaseReturn.returnNumber,
-      if (purchaseReturn.returnDate != null)
-        'purchase_return_date': purchaseReturn.returnDate!.toIso8601String(),
-      if (purchaseReturn.billId != null) 'bill_id': purchaseReturn.billId,
-      if (purchaseReturn.purchaseOrderNumber != null)
-        'reference_number': purchaseReturn.purchaseOrderNumber,
-      if (purchaseReturn.notes != null) 'notes': purchaseReturn.notes,
-      'subtotal': purchaseReturn.subtotal,
-      'discount_amount': 0,
-      'tax_amount': purchaseReturn.taxAmount,
-      'adjustment_amount': 0,
-      'total_amount': purchaseReturn.total,
-      'credit_status': purchaseReturn.status,
-      'status': purchaseReturn.status,
-      'items': items,
-    };
   }
 }

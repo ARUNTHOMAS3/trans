@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 
 class ManagePackSizesDialog extends StatefulWidget {
   const ManagePackSizesDialog({
     super.key,
-    required this.units,
-    required this.lookupLabelForUnitId,
+    required this.packSizes,
+    required this.onCreatePackSize,
     this.initialPackSize,
   });
 
-  final List<Unit> units;
-  final String Function(String unitId) lookupLabelForUnitId;
+  final List<Map<String, dynamic>> packSizes;
+  final Future<Map<String, dynamic>> Function(String packName, String unitPack)
+  onCreatePackSize;
   final String? initialPackSize;
 
   @override
@@ -26,17 +25,50 @@ class _ManagePackSizesDialogState extends State<ManagePackSizesDialog> {
   final List<_PackSizeRow> _rows = [];
   int _selectedRowIndex = 0;
   String? _errorText;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     final parsed = _parsePackSize(widget.initialPackSize);
-    _rows.add(
-      _PackSizeRow(
-        unitId: parsed?.unitId,
-        unitPack: parsed?.unitPack ?? '',
-      ),
-    );
+    final existingRows = widget.packSizes
+        .map(
+          (pack) => _PackSizeRow(
+            packName: (pack['pack_name'] ?? '').toString().trim(),
+            unitPack: (pack['unit_pack'] ?? '').toString().trim(),
+          ),
+        )
+        .where((row) => (row.packName?.isNotEmpty ?? false))
+        .toList();
+    if (existingRows.isEmpty) {
+      _rows.add(
+        _PackSizeRow(
+          packName: parsed?.packName,
+          unitPack: parsed?.unitPack ?? '',
+        ),
+      );
+      return;
+    }
+    _rows.addAll(existingRows);
+    if (parsed != null) {
+      final initialIndex = _rows.indexWhere(
+        (row) =>
+            (row.packName ?? '').trim().toLowerCase() ==
+                parsed.packName.trim().toLowerCase() &&
+            row.unitPackCtrl.text.trim() == parsed.unitPack.trim(),
+      );
+      if (initialIndex >= 0) {
+        _selectedRowIndex = initialIndex;
+      }
+    }
+  }
+
+  String _displayLabel(String? packName, String? unitPack) {
+    final normalizedPackName = packName?.trim() ?? '';
+    final normalizedUnitPack = unitPack?.trim() ?? '';
+    if (normalizedPackName.isEmpty) return normalizedUnitPack;
+    if (normalizedUnitPack.isEmpty) return normalizedPackName;
+    return '$normalizedPackName - $normalizedUnitPack';
   }
 
   @override
@@ -50,8 +82,6 @@ class _ManagePackSizesDialogState extends State<ManagePackSizesDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final activeUnits = widget.units.where((unit) => unit.isActive).toList();
-
     return Dialog(
       backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
@@ -136,7 +166,6 @@ class _ManagePackSizesDialogState extends State<ManagePackSizesDialog> {
                 itemCount: _rows.length,
                 itemBuilder: (context, index) {
                   final row = _rows[index];
-                  final isSelected = index == _selectedRowIndex;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: InkWell(
@@ -145,81 +174,24 @@ class _ManagePackSizesDialogState extends State<ManagePackSizesDialog> {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.infoBg.withValues(alpha: 0.4)
-                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.primaryBlueDark
-                                : Colors.transparent,
-                          ),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: FormDropdown<String>(
-                                value: row.unitId,
-                                items: activeUnits.map((unit) => unit.id).toList(),
-                                hint: 'Select pack name',
+                              child: CustomTextField(
+                                controller: row.packNameCtrl,
+                                hintText: 'Enter pack name',
                                 onChanged: (value) {
-                                  setState(() {
-                                    row.unitId = value;
-                                    _selectedRowIndex = index;
-                                    _errorText = null;
-                                  });
-                                },
-                                displayStringForValue:
-                                    widget.lookupLabelForUnitId,
-                                searchStringForValue: (value) => widget
-                                    .lookupLabelForUnitId(value)
-                                    .toLowerCase(),
-                                itemBuilder: (value, selected, hovered) {
-                                  final label =
-                                      widget.lookupLabelForUnitId(value);
-                                  return Container(
-                                    height: 36,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    alignment: Alignment.centerLeft,
-                                    decoration: BoxDecoration(
-                                      color: hovered
-                                          ? AppTheme.primaryBlueDark
-                                          : selected
-                                          ? AppTheme.infoBg
-                                          : Colors.transparent,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            label,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: hovered
-                                                  ? Colors.white
-                                                  : selected
-                                                  ? AppTheme.primaryBlueDark
-                                                  : AppTheme.textPrimary,
-                                              fontWeight: selected
-                                                  ? FontWeight.w500
-                                                  : FontWeight.normal,
-                                            ),
-                                          ),
-                                        ),
-                                        if (selected)
-                                          Icon(
-                                            Icons.check,
-                                            size: 16,
-                                            color: hovered
-                                                ? Colors.white
-                                                : AppTheme.primaryBlueDark,
-                                          ),
-                                      ],
-                                    ),
-                                  );
+                                  row.packName = value.trim();
+                                  if (_selectedRowIndex != index ||
+                                      _errorText != null) {
+                                    setState(() {
+                                      _selectedRowIndex = index;
+                                      _errorText = null;
+                                    });
+                                  }
                                 },
                               ),
                             ),
@@ -289,13 +261,15 @@ class _ManagePackSizesDialogState extends State<ManagePackSizesDialog> {
                   ),
                   const Spacer(),
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(),
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 8),
                   ZButton.primary(
-                    label: 'Save and Select',
-                    onPressed: _saveAndSelect,
+                    label: _isSaving ? 'Saving...' : 'Save and Select',
+                    onPressed: _isSaving ? null : _saveAndSelect,
                   ),
                 ],
               ),
@@ -340,18 +314,18 @@ class _ManagePackSizesDialogState extends State<ManagePackSizesDialog> {
     });
   }
 
-  void _saveAndSelect() {
+  Future<void> _saveAndSelect() async {
     if (_rows.isEmpty) {
       setState(() => _errorText = 'Please add a pack size first.');
       return;
     }
 
     final row = _rows[_selectedRowIndex];
-    final unitId = row.unitId;
+    final packName = row.packNameCtrl.text.trim();
     final unitPack = row.unitPackCtrl.text.trim();
 
-    if (unitId == null || unitId.isEmpty) {
-      setState(() => _errorText = 'Please select a pack name.');
+    if (packName.isEmpty) {
+      setState(() => _errorText = 'Please enter a pack name.');
       return;
     }
     if (unitPack.isEmpty) {
@@ -359,49 +333,104 @@ class _ManagePackSizesDialogState extends State<ManagePackSizesDialog> {
       return;
     }
 
-    final packName = widget.lookupLabelForUnitId(unitId).trim();
-    Navigator.of(context).pop('$packName ($unitPack)');
+    final existing = widget.packSizes.firstWhere(
+      (pack) =>
+          (pack['pack_name'] ?? '').toString().trim().toLowerCase() ==
+              packName.toLowerCase() &&
+          (pack['unit_pack'] ?? '').toString().trim() == unitPack,
+      orElse: () => const <String, dynamic>{},
+    );
+    if (existing.isNotEmpty) {
+      Navigator.of(context).pop(existing);
+      return;
+    }
+
+    final duplicateRowCount = _rows.where((candidate) {
+      final candidatePackName = candidate.packNameCtrl.text.trim().toLowerCase();
+      final candidateUnitPack = candidate.unitPackCtrl.text.trim();
+      return candidatePackName == packName.toLowerCase() &&
+          candidateUnitPack == unitPack;
+    }).length;
+    if (duplicateRowCount > 1) {
+      setState(() {
+        _errorText =
+            'Pack name and unit pack combination must be unique in this list.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorText = null;
+    });
+    try {
+      final created = await widget.onCreatePackSize(packName, unitPack);
+      if (!mounted) return;
+      Navigator.of(context).pop(created);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _errorText = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   _ParsedPackSize? _parsePackSize(String? value) {
     if (value == null || value.trim().isEmpty) return null;
-    final match = RegExp(r'^(.*)\s+\((.*)\)$').firstMatch(value.trim());
-    if (match == null) return null;
-
-    final packName = match.group(1)?.trim();
-    final unitPack = match.group(2)?.trim();
-    if (packName == null || packName.isEmpty || unitPack == null) {
-      return null;
+    final input = value.trim();
+    final directMatch = widget.packSizes.firstWhere(
+      (pack) =>
+          _displayLabel(
+            (pack['pack_name'] ?? '').toString().trim(),
+            (pack['unit_pack'] ?? '').toString().trim(),
+          ).toLowerCase() ==
+          input.toLowerCase(),
+      orElse: () => const <String, dynamic>{},
+    );
+    if (directMatch.isNotEmpty) {
+      return _ParsedPackSize(
+        (directMatch['pack_name'] ?? '').toString().trim(),
+        (directMatch['unit_pack'] ?? '').toString().trim(),
+      );
     }
 
-    for (final unit in widget.units) {
-      final label = widget.lookupLabelForUnitId(unit.id).trim();
-      if (label.toLowerCase() == packName.toLowerCase()) {
-        return _ParsedPackSize(unit.id, unitPack);
-      }
-    }
-    return null;
+    final packName = input;
+    final existing = widget.packSizes.firstWhere(
+      (pack) =>
+          (pack['pack_name'] ?? '').toString().trim().toLowerCase() ==
+          packName.toLowerCase(),
+      orElse: () => const <String, dynamic>{},
+    );
+    if (existing.isEmpty) return _ParsedPackSize(packName, '');
+    return _ParsedPackSize(
+      (existing['pack_name'] ?? '').toString().trim(),
+      (existing['unit_pack'] ?? '').toString().trim(),
+    );
   }
 }
 
 class _PackSizeRow {
-  _PackSizeRow({this.unitId, required String unitPack})
-    : unitPackCtrl = TextEditingController(text: unitPack),
+  _PackSizeRow({this.packName, required String unitPack})
+    : packNameCtrl = TextEditingController(text: packName ?? ''),
+      unitPackCtrl = TextEditingController(text: unitPack),
       unitPackFocusNode = FocusNode();
 
-  String? unitId;
+  String? packName;
+  final TextEditingController packNameCtrl;
   final TextEditingController unitPackCtrl;
   final FocusNode unitPackFocusNode;
 
   void dispose() {
+    packNameCtrl.dispose();
     unitPackCtrl.dispose();
     unitPackFocusNode.dispose();
   }
 }
 
 class _ParsedPackSize {
-  const _ParsedPackSize(this.unitId, this.unitPack);
+  const _ParsedPackSize(this.packName, this.unitPack);
 
-  final String unitId;
+  final String packName;
   final String unitPack;
 }

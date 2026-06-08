@@ -1,5 +1,4 @@
 import 'dart:ui';
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -23,17 +22,6 @@ class BulkItemsDialog extends ConsumerStatefulWidget {
 class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   String _searchQuery = '';
   Set<String> _selectedCategoryIds = {};
-  bool _includeSubCategories = false;
-
-  Timer? _debounceTimer;
-  bool _isSearchingBackend = false;
-  List<Item> _searchedItems = [];
-
-  @override
-  void dispose() {
-    _debounceTimer?.cancel();
-    super.dispose();
-  }
 
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
@@ -45,60 +33,20 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   String? _hoveredQuantityBoxItemId;
   bool _isCategoryHovered = false;
 
-  bool _isSubCategoryOf(String categoryName, String selectedCategoryName) {
-    final child = categoryName.trim().toLowerCase();
-    final parent = selectedCategoryName.trim().toLowerCase();
-    if (child.isEmpty || parent.isEmpty || child == parent) return false;
-
-    const separators = <String>['>', '/', '\\', '-', '|', ':'];
-    for (final separator in separators) {
-      final marker = '$parent$separator';
-      if (child.startsWith(marker)) return true;
-      final markerSpaced = '$parent $separator';
-      if (child.startsWith(markerSpaced)) return true;
-    }
-    return child.startsWith('$parent ');
-  }
-
-  Map<String, String> get _categoryNameById {
-    final map = <String, String>{};
-    final allCategories = ref.read(itemsControllerProvider).categories;
-    for (final c in allCategories) {
-      final id = c['id']?.toString() ?? '';
-      final name = c['name']?.toString() ?? '';
-      if (id.isNotEmpty) {
-        map[id] = name;
-      }
-    }
-    return map;
-  }
-
   List<Item> get _filteredProducts {
-    List<Item> results = _searchQuery.length >= 3 ? _searchedItems : widget.products;
+    List<Item> results = widget.products;
 
     if (_selectedCategoryIds.isNotEmpty) {
-      final categoryNameById = _categoryNameById;
-      final selectedCategoryNames = _selectedCategoryIds
-          .map((id) => categoryNameById[id]?.trim() ?? '')
-          .where((name) => name.isNotEmpty)
-          .toSet();
-
-      results = results.where((p) {
-        if (_selectedCategoryIds.contains(p.categoryId)) return true;
-        if (!_includeSubCategories) return false;
-        final categoryName = p.categoryName?.trim();
-        if (categoryName == null || categoryName.isEmpty) return false;
-        return selectedCategoryNames.any(
-          (selectedName) => _isSubCategoryOf(categoryName, selectedName),
-        );
-      }).toList();
+      results = results
+          .where((p) => _selectedCategoryIds.contains(p.categoryId))
+          .toList();
     }
 
-    final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) return results.take(20).toList();
-    if (query.length < 3) return [];
-
-    return results;
+    if (_searchQuery.isEmpty) return results;
+    return results.where((p) {
+      return p.productName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (p.sku?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+    }).toList();
   }
 
   void _toggleCategoryFilterMenu() {
@@ -110,15 +58,7 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   }
 
   void _openCategoryFilterMenu() {
-    final allCategories = ref.read(itemsControllerProvider).categories;
-    final categories = allCategories.where((c) {
-      final parentId = c['parent_id'];
-      if (_includeSubCategories) {
-        return true;
-      } else {
-        return parentId != null && parentId.toString().trim().isNotEmpty;
-      }
-    }).toList();
+    final categories = ref.read(itemsControllerProvider).categories;
     final overlay = Overlay.of(context);
 
     _overlayEntry = OverlayEntry(
@@ -318,34 +258,29 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    InkWell(
-                                      onTap: () => setState(() => _includeSubCategories = !_includeSubCategories),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: Checkbox(
-                                              value: _includeSubCategories,
-                                              onChanged: (v) => setState(
-                                                () => _includeSubCategories = v ?? false,
-                                              ),
-                                              side: const BorderSide(
-                                                color: Color(0xFFD1D5DB),
-                                              ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: Checkbox(
+                                            value: false, // Placeholder
+                                            onChanged: (v) {},
+                                            side: const BorderSide(
+                                              color: Color(0xFFD1D5DB),
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Include sub-categories',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF4B5563),
-                                            ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Include sub-categories',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF4B5563),
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -361,28 +296,8 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: TextField(
-                                    onChanged: (val) {
-                                      setState(() => _searchQuery = val);
-                                      if (val.trim().length >= 3) {
-                                        _debounceTimer?.cancel();
-                                        _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
-                                          if (!mounted) return;
-                                          setState(() => _isSearchingBackend = true);
-                                          final items = await ref.read(itemsControllerProvider.notifier).searchProductsNoState(val);
-                                          if (mounted && _searchQuery == val) {
-                                            setState(() {
-                                              _searchedItems = items;
-                                              _isSearchingBackend = false;
-                                            });
-                                          }
-                                        });
-                                      } else {
-                                        setState(() {
-                                          _searchedItems = [];
-                                          _isSearchingBackend = false;
-                                        });
-                                      }
-                                    },
+                                    onChanged: (val) =>
+                                        setState(() => _searchQuery = val),
                                     style: const TextStyle(fontSize: 13),
                                     decoration: const InputDecoration(
                                       hintText:
@@ -399,34 +314,12 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                     ),
                                   ),
                                 ),
-                                if (_searchQuery.isNotEmpty && _searchQuery.length < 3) ...[
-                                  const SizedBox(height: 8),
-                                  const Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      'atleast 3 letter should be typed to display values',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.orange,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ],
                             ),
                           ),
                           Expanded(
-                            child: _isSearchingBackend
-                                ? const Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    itemCount: _filteredProducts.length,
+                            child: ListView.builder(
+                              itemCount: _filteredProducts.length,
                               itemBuilder: (context, index) {
                                 final item = _filteredProducts[index];
                                 final isSelected = _selectedItems.any(

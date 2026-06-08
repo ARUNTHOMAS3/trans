@@ -41,6 +41,8 @@ class _ManageListDialogState extends State<ManageListDialog> {
   late List<Map<String, dynamic>> _rows;
   int? _hoverIndex;
   String? _errorMessage;
+
+
   // Inline form state
   bool _showInlineForm = false;
   final TextEditingController _ctrl = TextEditingController();
@@ -213,7 +215,6 @@ class _ManageListDialogState extends State<ManageListDialog> {
     }
   }
 
-
   void _selectAndClose(Map<String, dynamic> item) {
     if (!mounted) return;
     if (item['_isString'] == true) {
@@ -255,10 +256,10 @@ class _ManageListDialogState extends State<ManageListDialog> {
                 child: _buildInlineForm(),
               )
             else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-              child: _buildNewButton(),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+                child: _buildNewButton(),
+              ),
             _buildListHeader(),
             SizedBox(height: _listHeight(), child: _buildList()),
           ],
@@ -292,6 +293,8 @@ class _ManageListDialogState extends State<ManageListDialog> {
       ),
     );
   }
+
+
 
   Widget _buildNewButton() {
     return Align(

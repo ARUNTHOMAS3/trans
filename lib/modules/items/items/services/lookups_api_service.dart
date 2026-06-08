@@ -529,6 +529,20 @@ class LookupsApiService {
   Future<List<Map<String, dynamic>>> syncProductTypes(
     List<Map<String, dynamic>> items,
   ) => _syncLookup('product-types', items);
+  Future<Map<String, dynamic>> createProductPackSize({
+    required String packName,
+    required String unitPack,
+  }) async {
+    final response = await _apiClient.post(
+      '/products/lookups/product-pack-sizes',
+      data: {'pack_name': packName, 'unit_pack': unitPack},
+    );
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        response.data is Map) {
+      return Map<String, dynamic>.from(response.data as Map);
+    }
+    throw Exception('Failed to create product pack size');
+  }
   Future<Map<String, dynamic>> createDrugSchedule(String name) async {
     final response = await _apiClient.post(
       '/products/lookups/drug-schedules',
@@ -623,6 +637,18 @@ class LookupsApiService {
   Future<List<Map<String, dynamic>>> getDrugSchedules() async {
     try {
       final response = await _apiClient.get('/products/lookups/drug-schedules');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getProductPackSizes() async {
+    try {
+      final response = await _apiClient.get('/products/lookups/product-pack-sizes');
       if (response.statusCode == 200) {
         return List<Map<String, dynamic>>.from(response.data);
       }

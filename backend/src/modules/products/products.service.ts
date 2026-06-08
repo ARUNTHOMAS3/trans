@@ -500,6 +500,12 @@ export class ProductsService {
       preferred_vendor_id: this.cleanUuid(data.preferred_vendor_id),
       manufacturer_id: this.cleanUuid(data.manufacturer_id),
       brand_id: this.cleanUuid(data.brand_id),
+      unit_pack_id:
+        data.unit_pack_id != null
+          ? String(data.unit_pack_id).trim() || null
+          : data.unit_pack != null
+            ? String(data.unit_pack).trim() || null
+            : null,
       inventory_account_id: this.cleanUuid(data.inventory_account_id),
       storage_id: this.cleanUuid(data.storage_id),
       rack_id: this.cleanUuid(data.rack_id),
@@ -2339,11 +2345,9 @@ export class ProductsService {
 
   async getContents(tenant?: TenantContext) {
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
     const { data, error } = await supabase
       .from("contents")
       .select("id, content_name, is_active")
-      .eq("entity_id", scope.entityId)
       .eq("is_active", true)
       .order("content_name", { ascending: true });
 
@@ -2363,11 +2367,9 @@ export class ProductsService {
 
   async getStrengths(tenant?: TenantContext) {
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
     const { data, error } = await supabase
       .from("drug_strengths")
       .select("id, strength_name, is_active")
-      .eq("entity_id", scope.entityId)
       .eq("is_active", true)
       .order("strength_name", { ascending: true });
 
@@ -2387,13 +2389,11 @@ export class ProductsService {
 
   async getBuyingRules(tenant?: TenantContext) {
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
     const { data, error } = await supabase
       .from("buying_rules")
       .select(
         "id, buying_rule, rule_description, system_behavior, associated_schedule_codes, requires_rx, requires_patient_info, is_saleable, log_to_special_register, requires_doctor_name, requires_prescription_date, requires_age_check, institutional_only, blocks_retail_sale, quantity_limit, allows_refill, sort_order, is_active",
       )
-      .eq("entity_id", scope.entityId)
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
       .order("buying_rule", { ascending: true });
@@ -2414,13 +2414,11 @@ export class ProductsService {
 
   async getDrugSchedules(tenant?: TenantContext) {
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
     const { data, error } = await supabase
       .from("drug_schedules")
       .select(
         "id, shedule_name, schedule_code, reference_description, requires_prescription, requires_h1_register, is_narcotic, requires_batch_tracking, sort_order, is_common, is_active",
       )
-      .eq("entity_id", scope.entityId)
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
       .order("shedule_name", { ascending: true });
@@ -2443,6 +2441,70 @@ export class ProductsService {
     }
     if (error) throw new Error(error.message);
     return data ?? [];
+  }
+
+  async getProductPackSizes(_tenant?: TenantContext) {
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from("product_pack_sizes")
+      .select("id, pack_name, unit_pack, is_active, created_at, updated_at")
+      .eq("is_active", true)
+      .order("pack_name", { ascending: true })
+      .order("unit_pack", { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  }
+
+  async searchProductPackSizes(query: string, _tenant?: TenantContext) {
+    if (!query) return this.getProductPackSizes();
+
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from("product_pack_sizes")
+      .select("id, pack_name, unit_pack, is_active, created_at, updated_at")
+      .eq("is_active", true)
+      .ilike("pack_name", `%${query}%`)
+      .order("pack_name", { ascending: true })
+      .order("unit_pack", { ascending: true })
+      .limit(20);
+
+    if (error) return [];
+    return data ?? [];
+  }
+
+  async createProductPackSize(
+    packSizeData: { pack_name?: string; unit_pack?: number | string },
+    _tenant?: TenantContext,
+  ) {
+    const supabase = this.supabaseService.getClient();
+    const packName = packSizeData?.pack_name?.toString().trim();
+    const parsedUnitPack = Number(packSizeData?.unit_pack);
+
+    if (!packName) {
+      throw new BadRequestException("Pack name is required");
+    }
+    if (!Number.isFinite(parsedUnitPack) || parsedUnitPack <= 0) {
+      throw new BadRequestException("Unit Pack must be a valid positive number");
+    }
+
+    const { data, error } = await supabase
+      .from("product_pack_sizes")
+      .insert({
+        pack_name: packName,
+        unit_pack: parsedUnitPack,
+        is_active: true,
+      })
+      .select("id, pack_name, unit_pack, is_active, created_at, updated_at")
+      .single();
+
+    if (error?.code === "23505") {
+      throw new ConflictException(
+        `Pack Size "${packName}" with unit pack ${parsedUnitPack} already exists`,
+      );
+    }
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   async searchProductTypes(query: string, _tenant?: TenantContext) {
@@ -2523,9 +2585,10 @@ export class ProductsService {
       categories,
       taxRates,
       taxGroups,
-      manufacturers,
-      brands,
-      reps,
+        manufacturers,
+        brands,
+        productPackSizes,
+        reps,
       vendors,
       storageLocations,
       warehouses,
@@ -2545,6 +2608,7 @@ export class ProductsService {
       safeLookup("taxGroups", () => this.getTaxGroups(tenant)),
       safeLookup("manufacturers", () => this.getManufacturers(tenant)),
       safeLookup("brands", () => this.getBrands(tenant)),
+      safeLookup("productPackSizes", () => this.getProductPackSizes(tenant)),
       safeLookup("reps", () => this.getReps(tenant)),
       safeLookup("vendors", () => this.getVendors(tenant)),
       safeLookup("storageLocations", () => this.getStorageLocations(tenant)),
@@ -2565,9 +2629,10 @@ export class ProductsService {
       categories,
       taxRates,
       taxGroups,
-      manufacturers,
-      brands,
-      reps,
+        manufacturers,
+        brands,
+        productPackSizes,
+        reps,
       vendors,
       storageLocations,
       warehouses,

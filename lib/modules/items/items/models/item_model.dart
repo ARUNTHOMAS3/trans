@@ -1,6 +1,34 @@
 import 'item_composition_model.dart';
 
 class Item {
+  static List<String>? _stringListOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is List) {
+      return value.map((item) => item.toString()).toList();
+    }
+    if (value is Map) {
+      return value.values.map((item) => item.toString()).toList();
+    }
+    return null;
+  }
+
+  static List<ItemComposition>? _compositionListOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is List) {
+      return value
+          .whereType<Map>()
+          .map((c) => ItemComposition.fromJson(Map<String, dynamic>.from(c)))
+          .toList();
+    }
+    if (value is Map) {
+      return value.values
+          .whereType<Map>()
+          .map((c) => ItemComposition.fromJson(Map<String, dynamic>.from(c)))
+          .toList();
+    }
+    return null;
+  }
+
   // Primary Key
   final String? id;
 
@@ -125,8 +153,38 @@ class Item {
   final String? dosageDescription;
   final String? missedDoseDescription;
   final String? safetyAdvice;
+  final String? howItWorks;
+  final String? drugInteractions;
+  final String? contraindications;
+  final String? sideEffectsManagement;
+  final String? goodToKnow;
+  final String? quickTips;
+  final String? allergyInformation;
+  final String? productHighlights;
+  final String? safetyMeasuresWarningsPregnancy;
+  final String? safetyMeasuresWarningsBreastfeeding;
+  final String? safetyMeasuresWarningsAlcohol;
+  final String? safetyMeasuresWarningsLiver;
+  final String? safetyMeasuresWarningsKidney;
+  final String? safetyMeasuresWarningsUseInDrivingAndOperatingMachinery;
+  final String? safetyMeasuresWarningsAllergy;
+  final String? safetyMeasuresWarningsChildren;
+  final String? safetyMeasuresWarningsOlderPatients;
+  final String? interactionsDrugDrugInteractions;
+  final String? interactionsDrugDiseaseInteractions;
+  final String? dosageDailyDose;
+  final String? dosageOverDose;
+  final String? dosageMissedDose;
+  final String? referencesText;
+  final String? productDescription;
+  final String? additionalInfoAllergy;
+  final String? additionalInfoConcerns;
+  final String? additionalInfoGoodToKnow;
+  final String? additionalInfoQuickTips;
+  final String? directionsForUse;
   final List<String>? sideEffects;
   final List<String>? faqText;
+  final String? ingredientsList;
 
   // Joined Lookup Names (Frontend Only Cache)
   final String? unitName;
@@ -229,8 +287,38 @@ class Item {
     this.dosageDescription,
     this.missedDoseDescription,
     this.safetyAdvice,
+    this.howItWorks,
+    this.drugInteractions,
+    this.contraindications,
+    this.sideEffectsManagement,
+    this.goodToKnow,
+    this.quickTips,
+    this.allergyInformation,
+    this.productHighlights,
+    this.safetyMeasuresWarningsPregnancy,
+    this.safetyMeasuresWarningsBreastfeeding,
+    this.safetyMeasuresWarningsAlcohol,
+    this.safetyMeasuresWarningsLiver,
+    this.safetyMeasuresWarningsKidney,
+    this.safetyMeasuresWarningsUseInDrivingAndOperatingMachinery,
+    this.safetyMeasuresWarningsAllergy,
+    this.safetyMeasuresWarningsChildren,
+    this.safetyMeasuresWarningsOlderPatients,
+    this.interactionsDrugDrugInteractions,
+    this.interactionsDrugDiseaseInteractions,
+    this.dosageDailyDose,
+    this.dosageOverDose,
+    this.dosageMissedDose,
+    this.referencesText,
+    this.productDescription,
+    this.additionalInfoAllergy,
+    this.additionalInfoConcerns,
+    this.additionalInfoGoodToKnow,
+    this.additionalInfoQuickTips,
+    this.directionsForUse,
     this.sideEffects,
     this.faqText,
+    this.ingredientsList,
     this.unitName,
     this.categoryName,
     this.manufacturerName,
@@ -272,9 +360,7 @@ class Item {
           json['inter_state_tax']?['id'],
       exemptionReason: json['exemption_reason'],
       primaryImageUrl: json['primary_image_url'],
-      imageUrls: json['image_urls'] != null
-          ? List<String>.from(json['image_urls'])
-          : null,
+      imageUrls: _stringListOrNull(json['image_urls']),
       sellingPrice: json['selling_price'] != null
           ? double.tryParse(json['selling_price'].toString())
           : null,
@@ -307,7 +393,8 @@ class Item {
       weightUnit: json['weight_unit'] ?? 'kg',
       manufacturerId: json['manufacturer_id'],
       brandId: json['brand_id'],
-      unitPack: json['unit_pack']?.toString(),
+      unitPack:
+          json['unit_pack_id']?.toString() ?? json['unit_pack']?.toString(),
       mpn: json['mpn'],
       upc: json['upc'],
       isbn: json['isbn'],
@@ -337,11 +424,7 @@ class Item {
           : null,
       isActive: json['is_active'] ?? true,
       isLock: json['is_lock'] ?? false,
-      compositions: json['compositions'] != null
-          ? (json['compositions'] as List)
-                .map((c) => ItemComposition.fromJson(c))
-                .toList()
-          : null,
+      compositions: _compositionListOrNull(json['compositions']),
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : null,
@@ -380,6 +463,44 @@ class Item {
       howToUse: json['how_to_use'],
       dosageDescription: json['dosage_description'],
       missedDoseDescription: json['missed_dose_description'],
+      howItWorks: json['how_it_works'],
+      drugInteractions: json['drug_interactions'],
+      contraindications: json['contraindications'],
+      sideEffectsManagement: json['side_effects_management'],
+      goodToKnow: json['good_to_know'],
+      quickTips: json['quick_tips'],
+      allergyInformation: json['allergy_information'],
+      productHighlights: json['product_highlights'],
+      safetyMeasuresWarningsPregnancy:
+          json['safety_measures_warnings_pregnancy'],
+      safetyMeasuresWarningsBreastfeeding:
+          json['safety_measures_warnings_breastfeeding'],
+      safetyMeasuresWarningsAlcohol:
+          json['safety_measures_warnings_alcohol'],
+      safetyMeasuresWarningsLiver: json['safety_measures_warnings_liver'],
+      safetyMeasuresWarningsKidney: json['safety_measures_warnings_kidney'],
+      safetyMeasuresWarningsUseInDrivingAndOperatingMachinery:
+          json['safety_measures_warnings_use_in_driving_and_operating_machinery'],
+      safetyMeasuresWarningsAllergy:
+          json['safety_measures_warnings_allergy'],
+      safetyMeasuresWarningsChildren:
+          json['safety_measures_warnings_children'],
+      safetyMeasuresWarningsOlderPatients:
+          json['safety_measures_warnings_older_patients'],
+      interactionsDrugDrugInteractions:
+          json['interactions_drug_drug_interactions'],
+      interactionsDrugDiseaseInteractions:
+          json['interactions_drug_disease_interactions'],
+      dosageDailyDose: json['dosage_daily_dose'],
+      dosageOverDose: json['dosage_over_dose'],
+      dosageMissedDose: json['dosage_missed_dose'],
+      referencesText: json['references_text'],
+      productDescription: json['product_description'],
+      additionalInfoAllergy: json['additional_info_allergy'],
+      additionalInfoConcerns: json['additional_info_concerns'],
+      additionalInfoGoodToKnow: json['additional_info_good_to_know'],
+      additionalInfoQuickTips: json['additional_info_quick_tips'],
+      directionsForUse: json['directions_for_use'],
       unitName: json['unit']?['unit_name'],
       categoryName: json['category']?['name'],
       manufacturerName: json['manufacturer']?['name'],
@@ -412,12 +533,9 @@ class Item {
       buyingRuleName: json['buyingRule']?['buying_rule'],
       drugScheduleName: json['drugSchedule']?['shedule_name'],
       safetyAdvice: json['safety_advice'],
-      sideEffects: json['side_effects'] != null
-          ? List<String>.from(json['side_effects'])
-          : null,
-      faqText: json['faq_text'] != null
-          ? List<String>.from(json['faq_text'])
-          : null,
+      sideEffects: _stringListOrNull(json['side_effects']),
+      faqText: _stringListOrNull(json['faq_text']),
+      ingredientsList: json['ingredients_list'],
     );
   }
 
@@ -461,7 +579,7 @@ class Item {
       'weight_unit': weightUnit,
       if (manufacturerId != null) 'manufacturer_id': manufacturerId,
       if (brandId != null) 'brand_id': brandId,
-      if (unitPack != null) 'unit_pack': unitPack,
+      if (unitPack != null) 'unit_pack_id': unitPack,
       if (mpn != null) 'mpn': mpn,
       if (upc != null) 'upc': upc,
       if (isbn != null) 'isbn': isbn,
@@ -505,8 +623,62 @@ class Item {
       if (missedDoseDescription != null)
         'missed_dose_description': missedDoseDescription,
       if (safetyAdvice != null) 'safety_advice': safetyAdvice,
+      if (howItWorks != null) 'how_it_works': howItWorks,
+      if (drugInteractions != null) 'drug_interactions': drugInteractions,
+      if (contraindications != null) 'contraindications': contraindications,
+      if (sideEffectsManagement != null)
+        'side_effects_management': sideEffectsManagement,
+      if (goodToKnow != null) 'good_to_know': goodToKnow,
+      if (quickTips != null) 'quick_tips': quickTips,
+      if (allergyInformation != null)
+        'allergy_information': allergyInformation,
+      if (productHighlights != null) 'product_highlights': productHighlights,
+      if (safetyMeasuresWarningsPregnancy != null)
+        'safety_measures_warnings_pregnancy':
+            safetyMeasuresWarningsPregnancy,
+      if (safetyMeasuresWarningsBreastfeeding != null)
+        'safety_measures_warnings_breastfeeding':
+            safetyMeasuresWarningsBreastfeeding,
+      if (safetyMeasuresWarningsAlcohol != null)
+        'safety_measures_warnings_alcohol': safetyMeasuresWarningsAlcohol,
+      if (safetyMeasuresWarningsLiver != null)
+        'safety_measures_warnings_liver': safetyMeasuresWarningsLiver,
+      if (safetyMeasuresWarningsKidney != null)
+        'safety_measures_warnings_kidney': safetyMeasuresWarningsKidney,
+      if (safetyMeasuresWarningsUseInDrivingAndOperatingMachinery != null)
+        'safety_measures_warnings_use_in_driving_and_operating_machinery':
+            safetyMeasuresWarningsUseInDrivingAndOperatingMachinery,
+      if (safetyMeasuresWarningsAllergy != null)
+        'safety_measures_warnings_allergy': safetyMeasuresWarningsAllergy,
+      if (safetyMeasuresWarningsChildren != null)
+        'safety_measures_warnings_children': safetyMeasuresWarningsChildren,
+      if (safetyMeasuresWarningsOlderPatients != null)
+        'safety_measures_warnings_older_patients':
+            safetyMeasuresWarningsOlderPatients,
+      if (interactionsDrugDrugInteractions != null)
+        'interactions_drug_drug_interactions':
+            interactionsDrugDrugInteractions,
+      if (interactionsDrugDiseaseInteractions != null)
+        'interactions_drug_disease_interactions':
+            interactionsDrugDiseaseInteractions,
+      if (dosageDailyDose != null) 'dosage_daily_dose': dosageDailyDose,
+      if (dosageOverDose != null) 'dosage_over_dose': dosageOverDose,
+      if (dosageMissedDose != null) 'dosage_missed_dose': dosageMissedDose,
+      if (referencesText != null) 'references_text': referencesText,
+      if (productDescription != null)
+        'product_description': productDescription,
+      if (additionalInfoAllergy != null)
+        'additional_info_allergy': additionalInfoAllergy,
+      if (additionalInfoConcerns != null)
+        'additional_info_concerns': additionalInfoConcerns,
+      if (additionalInfoGoodToKnow != null)
+        'additional_info_good_to_know': additionalInfoGoodToKnow,
+      if (additionalInfoQuickTips != null)
+        'additional_info_quick_tips': additionalInfoQuickTips,
+      if (directionsForUse != null) 'directions_for_use': directionsForUse,
       if (sideEffects != null) 'side_effects': sideEffects,
       if (faqText != null) 'faq_text': faqText,
+      if (ingredientsList != null) 'ingredients_list': ingredientsList,
     };
   }
 
@@ -590,8 +762,38 @@ class Item {
     String? dosageDescription,
     String? missedDoseDescription,
     String? safetyAdvice,
+    String? howItWorks,
+    String? drugInteractions,
+    String? contraindications,
+    String? sideEffectsManagement,
+    String? goodToKnow,
+    String? quickTips,
+    String? allergyInformation,
+    String? productHighlights,
+    String? safetyMeasuresWarningsPregnancy,
+    String? safetyMeasuresWarningsBreastfeeding,
+    String? safetyMeasuresWarningsAlcohol,
+    String? safetyMeasuresWarningsLiver,
+    String? safetyMeasuresWarningsKidney,
+    String? safetyMeasuresWarningsUseInDrivingAndOperatingMachinery,
+    String? safetyMeasuresWarningsAllergy,
+    String? safetyMeasuresWarningsChildren,
+    String? safetyMeasuresWarningsOlderPatients,
+    String? interactionsDrugDrugInteractions,
+    String? interactionsDrugDiseaseInteractions,
+    String? dosageDailyDose,
+    String? dosageOverDose,
+    String? dosageMissedDose,
+    String? referencesText,
+    String? productDescription,
+    String? additionalInfoAllergy,
+    String? additionalInfoConcerns,
+    String? additionalInfoGoodToKnow,
+    String? additionalInfoQuickTips,
+    String? directionsForUse,
     List<String>? sideEffects,
     List<String>? faqText,
+    String? ingredientsList,
     String? unitName,
     String? categoryName,
     String? manufacturerName,
@@ -692,8 +894,60 @@ class Item {
       missedDoseDescription:
           missedDoseDescription ?? this.missedDoseDescription,
       safetyAdvice: safetyAdvice ?? this.safetyAdvice,
+      howItWorks: howItWorks ?? this.howItWorks,
+      drugInteractions: drugInteractions ?? this.drugInteractions,
+      contraindications: contraindications ?? this.contraindications,
+      sideEffectsManagement:
+          sideEffectsManagement ?? this.sideEffectsManagement,
+      goodToKnow: goodToKnow ?? this.goodToKnow,
+      quickTips: quickTips ?? this.quickTips,
+      allergyInformation: allergyInformation ?? this.allergyInformation,
+      productHighlights: productHighlights ?? this.productHighlights,
+      safetyMeasuresWarningsPregnancy:
+          safetyMeasuresWarningsPregnancy ??
+          this.safetyMeasuresWarningsPregnancy,
+      safetyMeasuresWarningsBreastfeeding:
+          safetyMeasuresWarningsBreastfeeding ??
+          this.safetyMeasuresWarningsBreastfeeding,
+      safetyMeasuresWarningsAlcohol:
+          safetyMeasuresWarningsAlcohol ?? this.safetyMeasuresWarningsAlcohol,
+      safetyMeasuresWarningsLiver:
+          safetyMeasuresWarningsLiver ?? this.safetyMeasuresWarningsLiver,
+      safetyMeasuresWarningsKidney:
+          safetyMeasuresWarningsKidney ?? this.safetyMeasuresWarningsKidney,
+      safetyMeasuresWarningsUseInDrivingAndOperatingMachinery:
+          safetyMeasuresWarningsUseInDrivingAndOperatingMachinery ??
+          this.safetyMeasuresWarningsUseInDrivingAndOperatingMachinery,
+      safetyMeasuresWarningsAllergy:
+          safetyMeasuresWarningsAllergy ?? this.safetyMeasuresWarningsAllergy,
+      safetyMeasuresWarningsChildren:
+          safetyMeasuresWarningsChildren ?? this.safetyMeasuresWarningsChildren,
+      safetyMeasuresWarningsOlderPatients:
+          safetyMeasuresWarningsOlderPatients ??
+          this.safetyMeasuresWarningsOlderPatients,
+      interactionsDrugDrugInteractions:
+          interactionsDrugDrugInteractions ??
+          this.interactionsDrugDrugInteractions,
+      interactionsDrugDiseaseInteractions:
+          interactionsDrugDiseaseInteractions ??
+          this.interactionsDrugDiseaseInteractions,
+      dosageDailyDose: dosageDailyDose ?? this.dosageDailyDose,
+      dosageOverDose: dosageOverDose ?? this.dosageOverDose,
+      dosageMissedDose: dosageMissedDose ?? this.dosageMissedDose,
+      referencesText: referencesText ?? this.referencesText,
+      productDescription: productDescription ?? this.productDescription,
+      additionalInfoAllergy:
+          additionalInfoAllergy ?? this.additionalInfoAllergy,
+      additionalInfoConcerns:
+          additionalInfoConcerns ?? this.additionalInfoConcerns,
+      additionalInfoGoodToKnow:
+          additionalInfoGoodToKnow ?? this.additionalInfoGoodToKnow,
+      additionalInfoQuickTips:
+          additionalInfoQuickTips ?? this.additionalInfoQuickTips,
+      directionsForUse: directionsForUse ?? this.directionsForUse,
       sideEffects: sideEffects ?? this.sideEffects,
       faqText: faqText ?? this.faqText,
+      ingredientsList: ingredientsList ?? this.ingredientsList,
       unitName: unitName ?? this.unitName,
       categoryName: categoryName ?? this.categoryName,
       manufacturerName: manufacturerName ?? this.manufacturerName,
