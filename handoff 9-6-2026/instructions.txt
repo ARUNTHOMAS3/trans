@@ -1,0 +1,43 @@
+CHANGES MADE IN THIS HANDOFF
+===========================
+
+1. Warning Icon Reversion & Cell Overflow Fix
+   - Restored warning icon from solid `Icons.error` back to outline `LucideIcons.alertCircle` in Purchases Purchase Orders & Bills Create pages.
+   - Wrapped the warning/dropdown elements inside a parent `Transform.translate` with an Offset of -24px, ensuring that hover/hit-testing works flawlessly.
+   - Resolved the 8.7px layout cell overflow bug by dynamically reducing left padding of the RATE column cells to 0px on warning activation.
+
+2. Bills Convert from PO Data Loading Fix
+   - Integrated `poId` query parameter inside the bills create route definition in `app_router.dart` and wired it into PurchasesBillCreateScreen constructor to support loading data from PO conversions.
+
+3. TDS/TCS Popover & Calculation Realignment
+   - Fully implemented TDS/TCS radio options, overlays, and inline Manage TDS/TCS dialogues in Purchase Orders, Bills, and Sales Invoices Create screens.
+   - Persisted new TDS/TCS grand total deductions/additions to the backend endpoints and Postgres columns.
+
+4. Drizzle/Database Schema Modification
+   - Adjusted Drizzle schema constraints to support products table and vendor info extensions without breaking items creation forms.
+
+HOW TO INTEGRATE THIS HANDOFF
+==============================
+
+Step 1: Merge handoff files with main project
+---------------------------------------------
+Copy the contents of `handoff 9-6-2026/` directly into the root directory of the main project.
+The directory structure inside the handoff folder mirrors the project root, so files will align and overwrite their corresponding counterparts in `backend/` and `lib/`.
+
+Step 2: Sync database schema (if database structure changed)
+------------------------------------------------------------
+Inside the `backend/` directory, run Drizzle migrations or generation:
+  npm install
+  npx drizzle-kit generate:pg
+
+Step 3: Update Flutter project dependencies and code generation
+---------------------------------------------------------------
+In the main project root folder, run:
+  flutter pub get
+  flutter pub run build_runner build --delete-conflicting-outputs
+
+Step 4: Verify local compilation
+--------------------------------
+Verify that the codebase is structurally sound:
+- For Backend: Run `npm run build` in the `backend/` directory.
+- For Frontend: Run `dart analyze` in the root directory.
