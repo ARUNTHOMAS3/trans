@@ -237,7 +237,7 @@ export class PriceListController {
     if (this.isBranchViewOnlyTenant(tenant)) {
       const { data, error } = await sb
         .from("branch_price_list_assignments")
-        .select("price_list_id, price_lists(*)")
+        .select("price_list_id, price_lists(*, price_list_items(*, products(product_name, item_code, selling_price), price_list_volume_ranges(*)))")
         .eq("branch_entity_id", entityId);
       if (error) throw error;
 
@@ -261,10 +261,14 @@ export class PriceListController {
         .filter((id: string) => id.length > 0);
       const assignments = await this.loadBranchAssignments(sb, ids);
 
-      return priceLists.map((row: any) => ({
-        ...row,
-        branch_entity_ids: assignments.get(row.id?.toString?.() ?? "") ?? [],
-      }));
+      return priceLists.map((row: any) => {
+        const items = row.price_list_items ?? [];
+        const { price_list_items, ...header } = row;
+        return {
+          ...buildPriceListResponse(header, items),
+          branch_entity_ids: assignments.get(row.id?.toString?.() ?? "") ?? [],
+        };
+      });
     }
 
     const visibleEntityIds = new Set<string>([entityId]);
@@ -283,7 +287,7 @@ export class PriceListController {
 
     const { data, error } = await sb
       .from("price_lists")
-      .select("*")
+      .select("*, price_list_items(*, products(product_name, item_code, selling_price), price_list_volume_ranges(*))")
       .in("entity_id", Array.from(visibleEntityIds))
       .order("created_at", { ascending: false });
 
@@ -292,10 +296,14 @@ export class PriceListController {
       .map((row: any) => row?.id?.toString?.() ?? "")
       .filter((id: string) => id.length > 0);
     const assignments = await this.loadBranchAssignments(sb, ids);
-    return (data ?? []).map((row: any) => ({
-      ...row,
-      branch_entity_ids: assignments.get(row.id?.toString?.() ?? "") ?? [],
-    }));
+    return (data ?? []).map((row: any) => {
+      const items = row.price_list_items ?? [];
+      const { price_list_items, ...header } = row;
+      return {
+        ...buildPriceListResponse(header, items),
+        branch_entity_ids: assignments.get(row.id?.toString?.() ?? "") ?? [],
+      };
+    });
   }
 
   private async ensureBranchCanView(
@@ -337,8 +345,8 @@ export class PriceListController {
         .insert({
           price_list_id: priceListId,
           product_id: rate.item_id,
-          custom_rate: rate.custom_rate ?? null,
-          discount_percentage: rate.discount_percentage ?? null,
+          custom_rate: rate.custom_rate ?? rate.customRate ?? null,
+          discount_percentage: rate.discount_percentage ?? rate.discountPercentage ?? null,
           is_active: rate.is_active ?? true,
         })
         .select("id")
@@ -351,13 +359,13 @@ export class PriceListController {
         .delete()
         .eq("price_list_item_id", priceListItemId);
 
-      const volRanges: any[] = rate.volume_ranges ?? [];
+      const volRanges: any[] = rate.volume_ranges ?? rate.volumeRanges ?? [];
       if (volRanges.length > 0) {
         const rangeRows = volRanges.map((r: any) => ({
           price_list_item_id: priceListItemId,
-          start_quantity: r.start_quantity ?? 1,
-          end_quantity: r.end_quantity ?? null,
-          rate: r.custom_rate ?? r.rate ?? 0,
+          start_quantity: r.start_quantity ?? r.startQuantity ?? 1,
+          end_quantity: r.end_quantity ?? r.endQuantity ?? null,
+          rate: r.custom_rate ?? r.rate ?? r.customRate ?? 0,
         }));
         const { error: rangeErr } = await sb
           .from("price_list_volume_ranges")

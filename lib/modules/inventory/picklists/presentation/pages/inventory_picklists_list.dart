@@ -1375,14 +1375,11 @@ class _InventoryPicklistsListScreenState
         style: AppTheme.tableCell.copyWith(
           fontSize: 13,
           color: AppTheme.textPrimary,
+          overflow: _shouldWrapText ? TextOverflow.visible : TextOverflow.ellipsis,
         ),
-        child: _shouldWrapText
-            ? content
-            : SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                child: content,
-              ),
+        maxLines: _shouldWrapText ? null : 1,
+        softWrap: _shouldWrapText,
+        child: content,
       ),
     );
   }

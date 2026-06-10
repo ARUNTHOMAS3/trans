@@ -177,6 +177,9 @@ export class CreateVendorDto {
   bankDetails?: any[];
 
   @IsOptional()
+  vendorAddresses?: any[];
+
+  @IsOptional()
   @IsString()
   remarks?: string;
 

@@ -1202,7 +1202,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       ),
                     ),
                   ],
-                  if (widget.allowClear && hasValue) ...[
+                  if (widget.allowClear && hasValue && (_isHoveredField || widget.isHovered)) ...[
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: _handleClear,

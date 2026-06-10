@@ -57,6 +57,7 @@ import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/bulk_items_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/purchase_requests_items_dialog.dart';
 
 // ── Zoho-style Colors ────────────────────────────────────────────────────────
 const _bgWhite = Color(0xFFFFFFFF);
@@ -81,6 +82,7 @@ class _ItemRowController {
   final TextEditingController descCtrl = TextEditingController();
   final FocusNode rateFocus = FocusNode();
   final FocusNode qtyFocus = FocusNode();
+  final FocusNode discountFocus = FocusNode();
   Map<String, String> reportingTags = {
     'adgf': 'None',
     'schedule': 'None',
@@ -107,6 +109,7 @@ class _ItemRowController {
     descCtrl.dispose();
     rateFocus.dispose();
     qtyFocus.dispose();
+    discountFocus.dispose();
   }
 }
 
@@ -1537,6 +1540,37 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 _closeItemMenu();
                               },
                             ),
+                            const SizedBox(height: 4),
+                            _buildSettingsOverlayItem(
+                              label: 'Insert Items From Purchase Requests',
+                              showHighlight: hoveredItem == 'insert_pr_items',
+                              onHover: (v) => setOverlayState(
+                                () => hoveredItem = v ? 'insert_pr_items' : null,
+                              ),
+                              onTap: () {
+                                _closeItemMenu();
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => PurchaseRequestsItemsDialog(
+                                    onItemsSelected: (selectedPrItems) {
+                                      final List<PurchaseOrderItem> newItems = [];
+                                      for (var prItem in selectedPrItems) {
+                                        newItems.add(
+                                          PurchaseOrderItem(
+                                            productId: prItem.productId,
+                                            productName: prItem.productName,
+                                            quantity: prItem.quantity,
+                                            rate: prItem.rate,
+                                            amount: prItem.quantity * prItem.rate,
+                                          ),
+                                        );
+                                      }
+                                      notifier.addItemsInBulk(newItems);
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         );
                       },
@@ -2216,7 +2250,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                           final itemsState = ref.read(itemsControllerProvider);
                                           for (int i = 0; i < state.items.length; i++) {
                                             final item = state.items[i];
-                                            if (!item.isHeader) {
+                                            if (!item.isHeader && item.productId.isNotEmpty) {
                                               double baseRate = item.rate;
                                               try {
                                                 final prod = itemsState.items.firstWhere((p) => p.id == item.productId);
@@ -2227,11 +2261,29 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                 baseRate,
                                                 quantity: item.quantity,
                                               );
+                                              
+                                              double discountVal = 0.0;
+                                              final override = pl.itemRates?.firstWhere(
+                                                (r) => r.itemId == item.productId,
+                                                orElse: () => const PriceListItemRate(itemId: ''),
+                                              );
+                                              if (override != null && override.itemId.isNotEmpty) {
+                                                if (override.discountPercentage != null) {
+                                                  discountVal = override.discountPercentage!;
+                                                }
+                                              }
+                                              
+                                              if (state.discountLevel == 'item' && i < _rowControllers.length) {
+                                                _rowControllers[i].discountCtrl.text = discountVal.toStringAsFixed(2);
+                                              }
+                                              
                                               notifier.updateItem(
                                                 i,
                                                 item.copyWith(
                                                   rate: newRate,
                                                   priceListId: pl.id,
+                                                  discount: discountVal,
+                                                  discountType: 'percentage',
                                                 ),
                                               );
                                             }
@@ -2268,13 +2320,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1320),
+                    constraints: const BoxConstraints(maxWidth: 1400),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: SizedBox(
                         width: poState.discountLevel == 'item'
-                            ? 1365.0
-                            : 1190.0,
+                            ? 1400.0
+                            : 1270.0,
                         child: _itemTableSection(
                           allItems,
                           availableAccounts,
@@ -3300,6 +3352,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       vendor: vendor,
                       isBilling: true,
                       customTitle: hasAddressesInDb ? 'Additional Address' : 'New Billing Address',
+                      isNewAddress: true,
                     ),
                   ),
                   const SizedBox(width: 64),
@@ -3317,6 +3370,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       vendor: vendor,
                       isBilling: false,
                       customTitle: hasAddressesInDb ? 'Additional Address' : 'New Shipping Address',
+                      isNewAddress: true,
                     ),
                   ),
                 ],
@@ -3400,29 +3454,38 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final hasAddress = address != null && address.isNotEmpty;
     final lines = <String>[];
     if (hasAddress) {
-      if (address['attention'] != null &&
-          (address['attention'] as String).isNotEmpty)
-        lines.add(address['attention']);
-      if (address['street1'] != null &&
-          (address['street1'] as String).isNotEmpty)
-        lines.add(address['street1']);
-      if (address['street2'] != null &&
-          (address['street2'] as String).isNotEmpty)
-        lines.add(address['street2']);
-      if (address['city'] != null && (address['city'] as String).isNotEmpty)
-        lines.add(address['city']);
+      final attention = address['attention'] as String? ?? '';
+      final street1 = address['street1'] as String? ?? 
+                      address['street'] as String? ?? 
+                      address['address_street'] as String? ?? 
+                      address['addressStreet'] as String? ?? '';
+      final street2 = address['street2'] as String? ?? 
+                      address['place'] as String? ?? 
+                      address['address_place'] as String? ?? 
+                      address['addressPlace'] as String? ?? '';
+      final city = address['city'] as String? ?? '';
+      final state = address['state'] as String? ?? '';
+      final zip = address['zip'] as String? ?? 
+                  address['pincode'] as String? ?? 
+                  address['zipCode'] as String? ?? '';
+      final country = address['country'] as String? ?? 
+                      address['countryRegion'] as String? ?? 
+                      address['country_region'] as String? ?? '';
+      final phone = address['phone'] as String? ?? '';
+      final fax = address['fax'] as String? ?? '';
+
+      if (attention.isNotEmpty) lines.add(attention);
+      if (street1.isNotEmpty) lines.add(street1);
+      if (street2.isNotEmpty) lines.add(street2);
+      if (city.isNotEmpty) lines.add(city);
       final stateZip = [
-        address['state'],
-        address['zip'],
-      ].where((s) => s != null && s.toString().isNotEmpty).join(' ');
+        state,
+        zip,
+      ].where((s) => s.isNotEmpty).join(' ');
       if (stateZip.isNotEmpty) lines.add(stateZip);
-      if (address['country'] != null &&
-          (address['country'] as String).isNotEmpty)
-        lines.add(address['country']);
-      if (address['phone'] != null && (address['phone'] as String).isNotEmpty)
-        lines.add('Phone: ${address['phone']}');
-      if (address['fax'] != null && (address['fax'] as String).isNotEmpty)
-        lines.add('Fax Number: ${address['fax']}');
+      if (country.isNotEmpty) lines.add(country);
+      if (phone.isNotEmpty) lines.add('Phone: $phone');
+      if (fax.isNotEmpty) lines.add('Fax Number: $fax');
     }
 
     return SizedBox(
@@ -3575,6 +3638,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 vendor: vendor,
                                 isBilling: isBilling,
                                 customTitle: 'Additional Address',
+                                isNewAddress: true,
                               );
                             },
                             child: Container(
@@ -3651,12 +3715,22 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     required bool isBilling,
   }) {
     final attention = address['attention'] as String? ?? '';
-    final street1 = address['street1'] as String? ?? address['street'] as String? ?? '';
-    final street2 = address['street2'] as String? ?? address['place'] as String? ?? '';
+    final street1 = address['street1'] as String? ?? 
+                    address['street'] as String? ?? 
+                    address['address_street'] as String? ?? 
+                    address['addressStreet'] as String? ?? '';
+    final street2 = address['street2'] as String? ?? 
+                    address['place'] as String? ?? 
+                    address['address_place'] as String? ?? 
+                    address['addressPlace'] as String? ?? '';
     final city = address['city'] as String? ?? '';
     final state = address['state'] as String? ?? '';
-    final zip = address['zip'] as String? ?? address['pincode'] as String? ?? '';
-    final country = address['country'] as String? ?? address['countryRegion'] as String? ?? '';
+    final zip = address['zip'] as String? ?? 
+                address['pincode'] as String? ?? 
+                address['zipCode'] as String? ?? '';
+    final country = address['country'] as String? ?? 
+                    address['countryRegion'] as String? ?? 
+                    address['country_region'] as String? ?? '';
     final phone = address['phone'] as String? ?? '';
 
     final activeAddress = isBilling ? vendor.billingAddress : vendor.shippingAddress;
@@ -5056,12 +5130,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     color: Color(0xFF6B7280),
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 12,
-                                  color: _hintColor.withValues(alpha: 0.7),
-                                ),
                               ],
                             ),
                           ),
@@ -5069,23 +5137,27 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       ],
                       _vLine(),
                       Expanded(
-                        flex: 5,
+                        flex: 6,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.start,
                             children: [
-                              Text(
-                                poState.isReverseCharge
-                                    ? 'Tax ( Reverse Charge )'
-                                    : 'TAX',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF6B7280),
+                              Flexible(
+                                child: Text(
+                                  poState.isReverseCharge
+                                      ? 'TAX ( REVERSE CHARGE )'
+                                      : 'TAX',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF6B7280),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -5274,14 +5346,48 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     products: allItems,
                     onItemsSelected: (selectedItems) {
                       final List<PurchaseOrderItem> newItems = [];
+                      PriceList? pl;
+                      if (_selectedPriceListId != null) {
+                        try {
+                          final activePriceLists = ref.read(activePriceListsProvider);
+                          pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                        } catch (_) {}
+                      }
+
                       selectedItems.forEach((item, quantity) {
+                        double rate = item.costPrice ?? 0.0;
+                        double discountVal = 0.0;
+                        String? plId;
+
+                        if (pl != null) {
+                          rate = pl.calculatePrice(
+                            item.id ?? '',
+                            item.costPrice ?? 0.0,
+                            quantity: quantity.toDouble(),
+                          );
+                          plId = pl.id;
+                          
+                          final override = pl.itemRates?.firstWhere(
+                            (r) => r.itemId == item.id,
+                            orElse: () => const PriceListItemRate(itemId: ''),
+                          );
+                          if (override != null && override.itemId.isNotEmpty) {
+                            if (override.discountPercentage != null) {
+                              discountVal = override.discountPercentage!;
+                            }
+                          }
+                        }
+
                         newItems.add(
                           PurchaseOrderItem(
                             productId: item.id ?? '',
                             productName: item.productName,
                             quantity: quantity.toDouble(),
-                            rate: item.costPrice ?? 0.0,
-                            amount: (item.costPrice ?? 0.0) * quantity,
+                            rate: rate,
+                            discount: discountVal,
+                            discountType: 'percentage',
+                            priceListId: plId,
+                            amount: rate * quantity,
                           ),
                         );
                       });
@@ -5327,6 +5433,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       final String stateRateStr = item.rate == 0 ? '' : (item.rate % 1 == 0 ? item.rate.toInt().toString() : item.rate.toStringAsFixed(2));
       if (ctrl.rateCtrl.text != stateRateStr) {
         ctrl.rateCtrl.text = stateRateStr;
+      }
+    }
+    if (!ctrl.discountFocus.hasFocus) {
+      final String stateDiscountStr = item.discount == 0 ? '' : item.discount.toStringAsFixed(2);
+      if (ctrl.discountCtrl.text != stateDiscountStr) {
+        ctrl.discountCtrl.text = stateDiscountStr;
       }
     }
 
@@ -5492,11 +5604,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             // ── Bordered content ──
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: _bgWhite,
                   border: Border(
-                    left: BorderSide(color: _borderCol),
-                    right: BorderSide(color: _borderCol),
+                    left: const BorderSide(color: _borderCol),
+                    right: const BorderSide(color: _borderCol),
+                    bottom: _hiddenDetails.contains(index)
+                        ? const BorderSide(color: _borderCol)
+                        : BorderSide.none,
                   ),
                 ),
                 child: IntrinsicHeight(
@@ -5643,7 +5758,23 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                     .toString()
                                               : (i.costPrice ?? 0.0)
                                                     .toStringAsFixed(2);
-                                          targetCtrl.discountCtrl.text = '0.00';
+                                          double discountVal = 0.0;
+                                          if (_selectedPriceListId != null) {
+                                            try {
+                                              final activePriceLists = ref.read(activePriceListsProvider);
+                                              final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                                              final override = pl.itemRates?.firstWhere(
+                                                (r) => r.itemId == i.id,
+                                                orElse: () => const PriceListItemRate(itemId: ''),
+                                              );
+                                              if (override != null && override.itemId.isNotEmpty) {
+                                                if (override.discountPercentage != null) {
+                                                  discountVal = override.discountPercentage!;
+                                                }
+                                              }
+                                            } catch (_) {}
+                                          }
+                                          targetCtrl.discountCtrl.text = discountVal.toStringAsFixed(2);
                                           targetCtrl.descCtrl.text =
                                               i.purchaseDescription ?? '';
 
@@ -5651,39 +5782,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                             targetIndex,
                                             i,
                                             item.warehouseId ?? poState.warehouseId ?? '',
+                                            priceListId: _selectedPriceListId,
                                           );
 
-                                          if (_selectedPriceListId != null) {
-                                            final currentState = ref.read(
-                                              purchaseOrderFormNotifierProvider,
-                                            );
-                                            final updatedItem =
-                                                currentState.items[targetIndex];
-                                            final pl = activePriceLists
-                                                .where(
-                                                  (p) =>
-                                                      p.id ==
-                                                      _selectedPriceListId,
-                                                )
-                                                .firstOrNull;
-                                            if (pl != null) {
-                                              final newRate = pl.calculatePrice(
-                                                i.id ?? '',
-                                                i.costPrice ?? 0.0,
-                                                quantity: 1.0,
-                                              );
-                                              targetCtrl.rateCtrl.text = newRate
-                                                  .toStringAsFixed(2);
-                                              notifier.updateItem(
-                                                targetIndex,
-                                                updatedItem.copyWith(
-                                                  priceListId:
-                                                      _selectedPriceListId,
-                                                  rate: newRate,
-                                                ),
-                                              );
-                                            }
-                                          }
+                                          // Price list is NOT auto-applied;
+                                          // user must choose from the dropdown.
                                         },
                                       ),
                                     ),
@@ -5973,7 +6076,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                                         EdgeInsets.symmetric(
                                                                           horizontal: 8,
                                                                           vertical: 6,
-                                                                        ),
+                                               ),
                                                                     border:
                                                                         InputBorder.none,
                                                                     hintText:
@@ -6263,8 +6366,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                         if (wh.name.isNotEmpty)
                                           Row(
                                             mainAxisAlignment:
-                                                MainAxisAlignment.end,
-                                            mainAxisSize: MainAxisSize.min,
+                                                MainAxisAlignment.start,
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
@@ -6300,7 +6402,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                   },
                                                   child: Text(
                                                     wh.name.toUpperCase(),
-                                                    textAlign: TextAlign.right,
+                                                    textAlign: TextAlign.left,
                                                     style: const TextStyle(
                                                       fontSize: 12,
                                                       color: Color(0xFF2563EB),
@@ -6363,26 +6465,22 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   const SizedBox(height: 4),
                                 if (_showPriceList &&
                                     activePriceLists.isNotEmpty)
-                                  Transform.translate(
-                                    offset: Offset(notIncluded ? 0 : 0, 0),
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      alignment: Alignment.centerLeft,
-                                      children: [
-                                        if (notIncluded)
-                                          Transform.translate(
-                                            offset: const Offset(-24, 0),
-                                            child: ZTooltip(
-                                              message:
-                                                  "This item has not been included in the selected price list. So, the item's default rate has been used.",
-                                              child: const Icon(
-                                                LucideIcons.alertCircle,
-                                                size: 16,
-                                                color: Colors.orange,
-                                              ),
-                                            ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (notIncluded) ...[
+                                        ZTooltip(
+                                          message:
+                                              "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                          direction: ZTooltipDirection.bottom,
+                                          child: const Icon(
+                                            LucideIcons.alertCircle,
+                                            size: 16,
+                                            color: Colors.orange,
                                           ),
-                                        CompositedTransformTarget(
+                                        ),
+                                      ],
+                                      CompositedTransformTarget(
                                           link: ctrl.priceListLink,
                                           child: MouseRegion(
                                             onEnter: (_) {
@@ -6412,11 +6510,79 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                     .where((pl) => pl.id == item.priceListId)
                                                     .firstOrNull,
                                                 items: activePriceLists
-                                                    .where((pl) => pl.transactionType == 'purchase')
+                                                    .where((pl) =>
+                                                        pl.transactionType.toLowerCase() == 'purchase' &&
+                                                        (pl.priceListType == 'all_items' ||
+                                                            (pl.priceListType == 'individual_items' &&
+                                                                pl.itemRates != null &&
+                                                                pl.itemRates!.any((r) => r.itemId == item.productId))))
                                                     .toList(),
                                                 hint: 'Apply Price List',
+                                                allowClear: true,
                                                 boldSelected: false,
                                                 displayStringForValue: (pl) => pl.name,
+                                                onChanged: (pl) {
+                                                   if (pl != null) {
+                                                     final newRate = pl.calculatePrice(
+                                                       item.productId,
+                                                       item.rate,
+                                                       quantity: item.quantity,
+                                                     );
+                                                     ctrl.rateCtrl.text = newRate.toStringAsFixed(2);
+                                                     
+                                                     double discountVal = 0.0;
+                                                     final override = pl.itemRates?.firstWhere(
+                                                       (r) => r.itemId == item.productId,
+                                                       orElse: () => const PriceListItemRate(itemId: ''),
+                                                     );
+                                                     if (override != null && override.itemId.isNotEmpty) {
+                                                       if (override.discountPercentage != null) {
+                                                         discountVal = override.discountPercentage!;
+                                                       }
+                                                     }
+                                                     
+                                                     if (poState.discountLevel == 'item') {
+                                                       ctrl.discountCtrl.text = discountVal.toStringAsFixed(2);
+                                                     }
+
+                                                     notifier.updateItem(
+                                                       index,
+                                                       item.copyWith(
+                                                         rate: newRate,
+                                                         priceListId: pl.id,
+                                                         discount: discountVal,
+                                                         discountType: 'percentage',
+                                                       ),
+                                                     );
+                                                   } else {
+                                                     final originalItem = allItems.firstWhere(
+                                                       (i) => i.id == item.productId,
+                                                       orElse: () => Item(
+                                                         productName: item.productName ?? '',
+                                                         itemCode: item.itemCode ?? '',
+                                                         type: item.productType ?? 'goods',
+                                                         unitId: '',
+                                                         costPrice: 0.0,
+                                                       ),
+                                                     );
+                                                     final defaultRate = originalItem.costPrice ?? 0.0;
+                                                     ctrl.rateCtrl.text = defaultRate % 1 == 0
+                                                         ? defaultRate.toInt().toString()
+                                                         : defaultRate.toStringAsFixed(2);
+                                                     
+                                                     if (poState.discountLevel == 'item') {
+                                                       ctrl.discountCtrl.text = '0.00';
+                                                     }
+                                                     
+                                                     notifier.updateItem(
+                                                       index,
+                                                       item.clearPriceList().copyWith(
+                                                         rate: defaultRate,
+                                                         discount: 0.0,
+                                                       ),
+                                                     );
+                                                   }
+                                                 },
                                                 textStyle: const TextStyle(
                                                   fontSize: 11,
                                                   color: _textPrimary,
@@ -6424,30 +6590,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                 ),
                                                 borderRadius: BorderRadius.circular(4),
                                                 border: Border.all(color: _borderCol),
-                                                onChanged: (pl) {
-                                                  if (pl != null) {
-                                                    final newRate = pl.calculatePrice(
-                                                      item.productId,
-                                                      item.rate,
-                                                      quantity: item.quantity,
-                                                    );
-                                                    ctrl.rateCtrl.text = newRate.toStringAsFixed(2);
-                                                    notifier.updateItem(
-                                                      index,
-                                                      item.copyWith(
-                                                        rate: newRate,
-                                                        priceListId: pl.id,
-                                                      ),
-                                                    );
-                                                  }
-                                                },
-                                              ),
+                                                                                              ),
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ),
                                 if (_showRecentTransactions)
                                   Builder(
                                     builder: (innerContext) => GestureDetector(
@@ -6492,6 +6640,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     Expanded(
                                       child: _gridField(
                                         ctrl.discountCtrl,
+                                        focusNode: ctrl.discountFocus,
                                         hint: '0',
                                         textAlign: TextAlign.right,
                                         onChanged: (v) {
@@ -6553,9 +6702,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
                       _vLine(),
 
-                      // ── TAX (flex:5) ──
+                      // ── TAX (flex:6) ──
                       Expanded(
-                        flex: 5,
+                        flex: 6,
                         child: Align(
                           alignment: Alignment.topLeft,
                           child: Padding(
@@ -6613,7 +6762,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
-                                              if (item.taxId != null && !isUnregistered)
+                                              if (item.taxId != null && !isUnregistered && isHovered)
                                                 GestureDetector(
                                                   onTap: () {
                                                     notifier.updateItem(
@@ -8177,7 +8326,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           );
         })(),
         const SizedBox(width: 6),
-        Icon(Icons.help_outline, size: 14, color: _hintColor),
+        const ZTooltip(
+          message: "Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.",
+          direction: ZTooltipDirection.bottom,
+          child: Icon(LucideIcons.helpCircle, size: 14, color: _hintColor),
+        ),
         const SizedBox(width: 16),
         SizedBox(
           width: 50,
@@ -8884,11 +9037,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     bool isBilling = true,
     String? customTitle,
     Map<String, dynamic>? initialAddress,
+    bool isNewAddress = false,
   }) {
     // Determine the source address data
     Map<String, dynamic> existingAddress = {};
     if (initialAddress != null) {
       existingAddress = initialAddress;
+    } else if (isNewAddress) {
+      existingAddress = {};
     } else if (wh != null) {
       existingAddress = {
         'attention': wh.attention ?? '',
@@ -8963,9 +9119,67 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             };
 
             if (vendor != null) {
-              final updated = isBilling
-                  ? vendor.copyWith(billingAddress: data)
-                  : vendor.copyWith(shippingAddress: data);
+              Vendor updated;
+              if (isNewAddress) {
+                final currentList = vendor.vendorAddresses ?? [];
+                final Map<String, dynamic> newAddr = {
+                  ...data,
+                  'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+                  'address_type': isFirstBilling
+                      ? 'billing'
+                      : (isFirstShipping ? 'shipping' : 'additional'),
+                  'addressType': isFirstBilling
+                      ? 'billing'
+                      : (isFirstShipping ? 'shipping' : 'additional'),
+                };
+                final newList = [...currentList, newAddr];
+                updated = isBilling
+                    ? vendor.copyWith(vendorAddresses: newList, billingAddress: newAddr)
+                    : vendor.copyWith(vendorAddresses: newList, shippingAddress: newAddr);
+              } else if (initialAddress != null) {
+                final currentList = vendor.vendorAddresses ?? [];
+                bool foundInList = false;
+                final newList = currentList.map((addr) {
+                  if (_areAddressesEqual(addr, initialAddress)) {
+                    foundInList = true;
+                    return {
+                      ...addr,
+                      ...data,
+                    };
+                  }
+                  return addr;
+                }).toList();
+
+                if (foundInList) {
+                  updated = vendor.copyWith(vendorAddresses: newList);
+                  if (isBilling && vendor.billingAddress != null && _areAddressesEqual(vendor.billingAddress!, initialAddress)) {
+                    updated = updated.copyWith(billingAddress: {
+                      ...vendor.billingAddress!,
+                      ...data,
+                    });
+                  } else if (!isBilling && vendor.shippingAddress != null && _areAddressesEqual(vendor.shippingAddress!, initialAddress)) {
+                    updated = updated.copyWith(shippingAddress: {
+                      ...vendor.shippingAddress!,
+                      ...data,
+                    });
+                  }
+                } else {
+                  if (isBilling && vendor.billingAddress != null && _areAddressesEqual(vendor.billingAddress!, initialAddress)) {
+                    updated = vendor.copyWith(billingAddress: data);
+                  } else if (!isBilling && vendor.shippingAddress != null && _areAddressesEqual(vendor.shippingAddress!, initialAddress)) {
+                    updated = vendor.copyWith(shippingAddress: data);
+                  } else {
+                    updated = isBilling
+                        ? vendor.copyWith(billingAddress: data)
+                        : vendor.copyWith(shippingAddress: data);
+                  }
+                }
+              } else {
+                updated = isBilling
+                    ? vendor.copyWith(billingAddress: data)
+                    : vendor.copyWith(shippingAddress: data);
+              }
+
               try {
                 await ref
                     .read(vendorProvider.notifier)
@@ -11388,10 +11602,10 @@ class _PopoverListItemState extends State<_PopoverListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isSelected
-        ? const Color(0xFFF3F4F6)
-        : _hover
-            ? const Color(0xFF3B82F6)
+    final bg = _hover
+        ? const Color(0xFF3B82F6)
+        : widget.isSelected
+            ? const Color(0xFFF3F4F6)
             : Colors.transparent;
     final text = _hover ? Colors.white : const Color(0xFF111827);
 
@@ -11421,7 +11635,6 @@ class _PopoverListItemState extends State<_PopoverListItem> {
                   style: TextStyle(fontSize: 13, color: text),
                 ),
               ),
-              if (widget.isSelected) Icon(Icons.check, size: 14, color: text),
             ],
           ),
         ),
@@ -12777,7 +12990,7 @@ class _TaxAmountFieldState extends State<_TaxAmountField> {
           width: 100,
           height: 32,
           decoration: BoxDecoration(
-            color: Colors.transparent,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: _isFocused
@@ -12789,12 +13002,18 @@ class _TaxAmountFieldState extends State<_TaxAmountField> {
           child: TextField(
             controller: TextEditingController(text: widget.value),
             textAlign: TextAlign.right,
-            readOnly: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937)),
             decoration: const InputDecoration(
               border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
               isDense: true,
-              filled: false,
+              filled: true,
+              fillColor: Colors.transparent,
               contentPadding: EdgeInsets.fromLTRB(10, 8, 10, 8),
             ),
           ),

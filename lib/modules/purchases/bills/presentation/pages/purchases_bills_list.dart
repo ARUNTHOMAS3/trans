@@ -3145,14 +3145,12 @@ class _PurchasesBillsListScreenState
         child: Align(
           alignment: Alignment.centerLeft,
           child: DefaultTextStyle(
-            style: AppTheme.tableCell,
-            child: _shouldWrapText
-                ? content
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: content,
-                  ),
+            style: AppTheme.tableCell.copyWith(
+              overflow: _shouldWrapText ? TextOverflow.visible : TextOverflow.ellipsis,
+            ),
+            maxLines: _shouldWrapText ? null : 1,
+            softWrap: _shouldWrapText,
+            child: content,
           ),
         ),
       ),

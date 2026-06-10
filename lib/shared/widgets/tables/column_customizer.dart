@@ -71,61 +71,66 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 24),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(12),
-          bottomRight: Radius.circular(12),
-        ),
+        borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
       child: Container(
         width: 480,
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        padding: const EdgeInsets.fromLTRB(0, 24, 0, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header Section
-            Row(
-              children: [
-                const Icon(LucideIcons.sliders, size: 20, color: AppTheme.textPrimary),
-                const SizedBox(width: 12),
-                Text('Customize Columns', style: AppTheme.sectionHeader.copyWith(fontSize: 16)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgDisabled,
-                    borderRadius: BorderRadius.circular(12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.sliders, size: 20, color: AppTheme.textPrimary),
+                  const SizedBox(width: 12),
+                  Text('Customize Columns', style: AppTheme.sectionHeader.copyWith(fontSize: 16)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.bgDisabled,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$visibleCount of $totalCount Selected',
+                      style: AppTheme.metaHelper,
+                    ),
                   ),
-                  child: Text(
-                    '$visibleCount of $totalCount Selected',
-                    style: AppTheme.metaHelper,
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(LucideIcons.x, size: 20, color: AppTheme.errorRed),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(LucideIcons.x, size: 20, color: AppTheme.errorRed),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            const Divider(color: AppTheme.borderLight, height: 1, thickness: 1),
+            const SizedBox(height: 16),
             
             // Boxed Search Bar (Transparent)
-            TextField(
-              onChanged: (v) => setState(() => _searchQuery = v),
-              style: AppTheme.bodyText,
-              decoration: InputDecoration(
-                hintText: 'Search',
-                hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
-                prefixIcon: const Icon(LucideIcons.search, size: 16, color: AppTheme.textSecondary),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: true,
-                fillColor: Colors.transparent,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: TextField(
+                onChanged: (v) => setState(() => _searchQuery = v),
+                style: AppTheme.bodyText,
+                decoration: InputDecoration(
+                  hintText: 'Search',
+                  hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
+                  prefixIcon: const Icon(LucideIcons.search, size: 16, color: AppTheme.textSecondary),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -156,18 +161,21 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
             const SizedBox(height: 24),
 
             // Footer Section
-            Row(
-              children: [
-                ZButton.primary(
-                  label: 'Save',
-                  onPressed: () => widget.onSave(_items),
-                ),
-                const SizedBox(width: 12),
-                ZButton.secondary(
-                  label: 'Cancel',
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  ZButton.primary(
+                    label: 'Save',
+                    onPressed: () => widget.onSave(_items),
+                  ),
+                  const SizedBox(width: 12),
+                  ZButton.secondary(
+                    label: 'Cancel',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -176,83 +184,99 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
   }
 
   Widget _buildListItem(ColumnConfig col, int index) {
-    return Padding(
+    bool isHovered = false;
+    return StatefulBuilder(
       key: ValueKey(col.id),
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          child: Row(
-            children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: const MouseRegion(
-                  cursor: SystemMouseCursors.grab,
-                  child: Icon(LucideIcons.gripVertical, size: 14, color: AppTheme.textMuted),
-                ),
+      builder: (context, setStateItem) {
+        return MouseRegion(
+          onEnter: (_) => setStateItem(() => isHovered = true),
+          onExit: (_) => setStateItem(() => isHovered = false),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 24, right: 24, bottom: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
               ),
-              const SizedBox(width: 12),
-              if (col.isLocked)
-                const Icon(LucideIcons.lock, size: 16, color: AppTheme.textSecondary)
-              else
-                SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: Checkbox(
-                    value: col.isVisible,
-                    onChanged: (v) => setState(() => col.isVisible = v ?? false),
-                    activeColor: AppTheme.primaryBlue,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                    side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
-                  ),
-                ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: InkWell(
-                  onTap: col.isLocked ? null : () => setState(() => col.isVisible = !col.isVisible),
-                  child: Text(
-                    col.label,
-                    style: AppTheme.bodyText.copyWith(
-                      fontSize: 13,
-                      color: col.isVisible ? AppTheme.textPrimary : AppTheme.textSecondary,
-                      fontWeight: col.isVisible ? FontWeight.w500 : FontWeight.normal,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                child: Row(
+                  children: [
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: const MouseRegion(
+                        cursor: SystemMouseCursors.grab,
+                        child: Icon(LucideIcons.gripVertical, size: 14, color: AppTheme.textMuted),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    if (col.isLocked)
+                      const Icon(LucideIcons.lock, size: 16, color: AppTheme.textSecondary)
+                    else
+                      SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: Checkbox(
+                          value: col.isVisible,
+                          onChanged: (v) => setState(() => col.isVisible = v ?? false),
+                          activeColor: AppTheme.primaryBlue,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: col.isLocked ? null : () => setState(() => col.isVisible = !col.isVisible),
+                        child: Text(
+                          col.label,
+                          style: AppTheme.bodyText.copyWith(
+                            fontSize: 13,
+                            color: col.isVisible ? AppTheme.textPrimary : AppTheme.textSecondary,
+                            fontWeight: col.isVisible ? FontWeight.w500 : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Opacity(
+                      opacity: (isHovered || col.isPinned) ? 1.0 : 0.0,
+                      child: IgnorePointer(
+                        ignoring: !(isHovered || col.isPinned),
+                        child: IconButton(
+                          icon: Icon(
+                            col.isPinned ? LucideIcons.pin : LucideIcons.pin,
+                            size: 14,
+                            color: col.isPinned ? AppTheme.primaryBlue : AppTheme.textMuted,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              col.isPinned = !col.isPinned;
+                              _items.sort((a, b) {
+                                if (a.isPinned && !b.isPinned) return -1;
+                                if (!a.isPinned && b.isPinned) return 1;
+                                return a.orderIndex.compareTo(b.orderIndex);
+                              });
+                              for (int i = 0; i < _items.length; i++) {
+                                _items[i].orderIndex = i;
+                              }
+                            });
+                            setStateItem(() {});
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 16,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              IconButton(
-                icon: Icon(
-                  col.isPinned ? LucideIcons.pin : LucideIcons.pin,
-                  size: 14,
-                  color: col.isPinned ? AppTheme.primaryBlue : AppTheme.textMuted,
-                ),
-                onPressed: () {
-                  setState(() {
-                    col.isPinned = !col.isPinned;
-                    _items.sort((a, b) {
-                      if (a.isPinned && !b.isPinned) return -1;
-                      if (!a.isPinned && b.isPinned) return 1;
-                      return a.orderIndex.compareTo(b.orderIndex);
-                    });
-                    for (int i = 0; i < _items.length; i++) {
-                      _items[i].orderIndex = i;
-                    }
-                  });
-                },
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                splashRadius: 16,
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -2459,7 +2459,8 @@ class _PRCreateState
     setState(() {
       _isVendorSidebarLoading = true;
     });
-    
+
+
     Vendor displayVendor = vendor;
     try {
       final repo = ref.read(vendorRepositoryProvider);

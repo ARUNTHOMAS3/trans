@@ -1,0 +1,31 @@
+CHANGES MADE:
+=============
+1. Payment Terms Value Resolution:
+   - Updated the Vendor Details Sidebar to fetch and map the payment terms UUID to its human-readable string name dynamically using LookupsApiService.
+2. Double-Click Drawer Opening Bug:
+   - Added a loading flag state lock (_isVendorSidebarLoading) to purchases_purchase_receives_create.dart to prevent duplicate overlays when the Vendor Details trigger is clicked rapidly.
+3. Vendor Card Button Relocation:
+   - Moved the Vendor Details button (e.g. "MR. ALTHAF M >") to the far right end of the Vendor Name row using a Spacer.
+4. INR Badge Removal:
+   - Removed the "INR - Indian Rupee" currency badge widget from the Vendor Name row.
+5. Unified Dropdowns Layout:
+   - Standardized the height of the Purchase Order# dropdown field to 32 and set the width constraint to 550, aligning it identically with the Vendor Name dropdown.
+6. Disable Settings/New Vendor Option:
+   - Turned off "showSettings" option on the Vendor Name FormDropdown to remove the "+ New Vendor" action from the bottom overlay list.
+7. Filter Purchase Orders by Selected Vendor:
+   - Modified _fetchPOsForVendor to restrict the Purchase Order options in the dropdown list to only those matching the selected vendor's ID.
+8. Add All Items Button in Manual Table Header:
+   - Added an "add all items" text button under "ITEMS & DESCRIPTION" in the manual mode table header cell. When clicked, it pulls all products from the active Purchase Order into the manual rows.
+9. Remove Insert Row Button from PO Table:
+   - Removed the "+ Insert New Row" text button under the normal PO items table to keep entries strictly aligned with the loaded purchase order.
+
+INTEGRATION INSTRUCTIONS:
+=========================
+To integrate these changes into your main project folder:
+1. Replace the existing purchases_purchase_receives_create.dart in your project directory at:
+   [your-project-root]/lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart
+2. Replace the existing vendor_sidebar.dart in your project directory at:
+   [your-project-root]/lib/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart
+3. Ensure packages are up-to-date by running:
+   flutter pub get
+4. Build/run the application to verify.

@@ -56,7 +56,12 @@ Color _getStatusColor(String status) {
 }
 
 class PurchasesPurchaseReceivesListScreen extends ConsumerStatefulWidget {
-  const PurchasesPurchaseReceivesListScreen({super.key});
+  final String? initialFilter;
+
+  const PurchasesPurchaseReceivesListScreen({
+    super.key,
+    this.initialFilter,
+  });
 
   @override
   ConsumerState<PurchasesPurchaseReceivesListScreen> createState() =>
@@ -98,6 +103,15 @@ class _PurchasesPurchaseReceivesListScreenState
     super.initState();
     _initializeColumns();
     _loadColumnSettings();
+    if (widget.initialFilter != null) {
+      final found = _receiveFilterOptions.where(
+        (v) => v.value.toLowerCase() == widget.initialFilter!.toLowerCase() ||
+               v.label.toLowerCase() == widget.initialFilter!.toLowerCase(),
+      );
+      if (found.isNotEmpty) {
+        _activeOption = found.first;
+      }
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(purchaseReceivesProvider.notifier).fetchReceives();
     });
@@ -1349,14 +1363,12 @@ class _PurchasesPurchaseReceivesListScreenState
                 ? Alignment.center
                 : Alignment.centerLeft),
       child: DefaultTextStyle(
-        style: AppTheme.tableCell,
-        child: _shouldWrapText
-            ? content
-            : SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                child: content,
-              ),
+        style: AppTheme.tableCell.copyWith(
+          overflow: _shouldWrapText ? TextOverflow.visible : TextOverflow.ellipsis,
+        ),
+        maxLines: _shouldWrapText ? null : 1,
+        softWrap: _shouldWrapText,
+        child: content,
       ),
     );
   }

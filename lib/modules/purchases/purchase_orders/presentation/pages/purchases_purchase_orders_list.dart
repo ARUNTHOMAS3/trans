@@ -34,6 +34,7 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/widgets/texts/zerpai_link_text.dart';
 import 'package:web/web.dart' as web;
 
 const _poFilterOptions = <FavoriteFilterOption>[
@@ -132,7 +133,9 @@ class _PurchaseOrderOverviewScreenState
     'received': 'RECEIVED',
     'billed': 'BILLED',
     'amount': 'AMOUNT',
-    'delivery_date': 'DELIVERY DATE',
+    'delivery_date': 'Delivery Date',
+    'company_name': 'Company Name',
+    'expected_delivery_date': 'Expected Delivery Date',
   };
 
   void _initializeColumns() {
@@ -173,8 +176,20 @@ class _PurchaseOrderOverviewScreenState
       ),
       ColumnConfig(
         id: 'delivery_date',
-        label: 'DELIVERY DATE',
+        label: 'Delivery Date',
         orderIndex: 9,
+        isVisible: false,
+      ),
+      ColumnConfig(
+        id: 'company_name',
+        label: 'Company Name',
+        orderIndex: 10,
+        isVisible: false,
+      ),
+      ColumnConfig(
+        id: 'expected_delivery_date',
+        label: 'Expected Delivery Date',
+        orderIndex: 11,
         isVisible: false,
       ),
     ];
@@ -537,69 +552,29 @@ class _PurchaseOrderOverviewScreenState
             },
           ),
           const Spacer(),
-          // Segmented List/Split View Switcher
-          Container(
-            height: 32,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: AppTheme.borderLight),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InkWell(
-                  onTap: () {
-                    context.go('/purchases/purchase-orders');
-                  },
-                  child: Container(
-                    width: 32,
-                    height: 30,
-                    color: !hasSelection
-                        ? const Color(0xFFF3F4F6)
-                        : Colors.transparent,
-                    child: Icon(
-                      LucideIcons.menu,
-                      size: 15,
-                      color: !hasSelection
-                          ? AppTheme.textPrimary
-                          : AppTheme.textSecondary,
-                    ),
-                  ),
+          // In Transit Receives link button
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                LucideIcons.externalLink,
+                size: 16,
+                color: AppTheme.primaryBlue,
+              ),
+              const SizedBox(width: 8),
+              ZerpaiLinkText(
+                text: 'In Transit Receives',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
-                Container(width: 1, height: 30, color: AppTheme.borderLight),
-                InkWell(
-                  onTap: () {
-                    if (orders.isNotEmpty) {
-                      context.go(
-                        '/purchases/purchase-orders/${orders.first.id}',
-                      );
-                    } else {
-                      ZerpaiToast.info(
-                        context,
-                        'No purchase orders available to view detail.',
-                      );
-                    }
-                  },
-                  child: Container(
-                    width: 32,
-                    height: 30,
-                    color: hasSelection
-                        ? const Color(0xFFF3F4F6)
-                        : Colors.transparent,
-                    child: Icon(
-                      LucideIcons.columns,
-                      size: 15,
-                      color: hasSelection
-                          ? AppTheme.textPrimary
-                          : AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+                onTap: () {
+                  context.go('/purchases/purchase-receives?filter=intransit');
+                },
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           ZButton.primary(
             onPressed: () {
               context.push('/purchases/purchase-orders/create');
@@ -1864,6 +1839,8 @@ class _PurchaseOrderOverviewScreenState
       'billed': (80.0, 0.8),
       'amount': (100.0, 1.0),
       'delivery_date': (100.0, 1.0),
+      'company_name': (150.0, 1.5),
+      'expected_delivery_date': (120.0, 1.2),
     };
 
     double totalMinWidth = staticPrefixWidth;
@@ -2093,6 +2070,17 @@ class _PurchaseOrderOverviewScreenState
           style: AppTheme.tableCell,
         );
         break;
+      case 'company_name':
+        content = Text(order.vendor?.companyName ?? order.vendorName ?? '-', style: AppTheme.tableCell);
+        break;
+      case 'expected_delivery_date':
+        content = Text(
+          order.expectedDeliveryDate != null
+              ? DateFormat('dd-MM-yyyy').format(order.expectedDeliveryDate!)
+              : '-',
+          style: AppTheme.tableCell,
+        );
+        break;
       default:
         content = const Text('');
     }
@@ -2110,14 +2098,12 @@ class _PurchaseOrderOverviewScreenState
               ? Alignment.center
               : Alignment.centerLeft,
           child: DefaultTextStyle(
-            style: AppTheme.tableCell,
-            child: _shouldWrapText
-                ? content
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: content,
-                  ),
+            style: AppTheme.tableCell.copyWith(
+              overflow: _shouldWrapText ? TextOverflow.visible : TextOverflow.ellipsis,
+            ),
+            maxLines: _shouldWrapText ? null : 1,
+            softWrap: _shouldWrapText,
+            child: content,
           ),
         ),
       ),
@@ -2301,7 +2287,7 @@ class _PurchaseOrderOverviewScreenState
                               ),
                               const SizedBox(width: 8),
                               _ActionSquare(
-                                icon: LucideIcons.messageSquare,
+                                icon: LucideIcons.history,
                                 color: AppTheme.textSecondary,
                                 onTap: () {
                                   setInnerState(() {
@@ -3442,10 +3428,8 @@ class _PurchaseOrderOverviewScreenState
           ZerpaiToast.success(context, '$label action clicked');
         }
       },
-      style: MenuItemButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      child: Text(label, style: AppTheme.bodyText),
+      style: ZTableMoreMenu.menuItemButtonStyle(),
+      child: Text(label),
     );
   }
 

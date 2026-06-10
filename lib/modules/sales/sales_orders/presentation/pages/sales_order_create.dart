@@ -4991,29 +4991,17 @@ class _SalesOrderCreateScreenState
   }) {
     Widget tooltipIcon() {
       if (tooltip != null) {
-        return Tooltip(
+        return ZTooltip(
           message: tooltip,
-          preferBelow: false,
-          verticalOffset: 12,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: const ShapeDecoration(
-            color: Color(0xFF1F2937),
-            shape: TooltipShapeBorder(),
-          ),
-          textStyle: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            height: 1.5,
-          ),
+          direction: ZTooltipDirection.bottom,
           child: const Icon(
-            Icons.help_outline,
-            size: 16,
+            LucideIcons.helpCircle,
+            size: 14,
             color: Color(0xFF9CA3AF),
           ),
         );
       }
-      return const Icon(Icons.help_outline, size: 16, color: Color(0xFF9CA3AF));
+      return const Icon(LucideIcons.helpCircle, size: 14, color: Color(0xFF9CA3AF));
     }
 
     Widget labelWidget() {

@@ -1367,8 +1367,10 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/purchase-receives',
               name: AppRoutes.purchaseReceives,
-              builder: (context, state) =>
-                  const PurchasesPurchaseReceivesListScreen(),
+              builder: (context, state) => PurchasesPurchaseReceivesListScreen(
+                initialFilter: state.uri.queryParameters['filter'] ??
+                    state.uri.queryParameters['status'],
+              ),
             ),
             GoRoute(
               path: 'purchases/purchase-receives/create',

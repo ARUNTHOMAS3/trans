@@ -211,6 +211,39 @@ class PurchaseOrderItem {
       headerText: headerText,
     );
   }
+
+  PurchaseOrderItem clearPriceList() {
+    return PurchaseOrderItem(
+      id: id,
+      productId: productId,
+      productName: productName,
+      hsnCode: hsnCode,
+      itemCode: itemCode,
+      description: description,
+      accountId: accountId,
+      accountName: accountName,
+      discountAccountId: discountAccountId,
+      discountAccountName: discountAccountName,
+      quantity: quantity,
+      rate: rate,
+      taxId: taxId,
+      taxName: taxName,
+      taxRate: taxRate,
+      taxAmount: taxAmount,
+      discount: discount,
+      discountType: discountType,
+      amount: amount,
+      productType: productType,
+      availableStock: availableStock,
+      stockOnHand: stockOnHand,
+      priceListId: null,
+      pricelist: null,
+      warehouseId: warehouseId,
+      warehouseName: warehouseName,
+      isHeader: isHeader,
+      headerText: headerText,
+    );
+  }
 }
 
 class PurchaseOrder {
