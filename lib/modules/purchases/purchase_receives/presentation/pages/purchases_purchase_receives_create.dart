@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
@@ -29,6 +30,7 @@ import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/purchases_vendors_vendor_create.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
@@ -2490,38 +2492,7 @@ class _PRCreateState
     overlay.insert(_vendorSidebarOverlay!);
   }
 
-  String _getCurrencyLabel(String code) {
-    final option = defaultCurrencyOptions.firstWhere(
-      (c) => c.code == code,
-      orElse: () => defaultCurrencyOptions.first,
-    );
-    return option.label;
-  }
 
-  Future<void> _showNewVendorDialog() async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.only(
-          top: 0,
-          bottom: 24,
-          left: 40,
-          right: 40,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1300),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: const PurchasesVendorsVendorCreateScreen(isDialog: true),
-          ),
-        ),
-      ),
-    );
-    if (!mounted) return;
-    ref.read(vendorProvider.notifier).loadVendors();
-  }
   Widget _buildVendorDropdownItem(Vendor v, bool isSelected, bool isHovered) {
     final firstName = (v.firstName ?? '').trim();
     final initialSource = firstName.isNotEmpty
