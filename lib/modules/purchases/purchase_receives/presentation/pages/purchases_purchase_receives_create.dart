@@ -9,7 +9,6 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
-import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
@@ -30,7 +29,6 @@ import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
-import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/purchases_vendors_vendor_create.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
