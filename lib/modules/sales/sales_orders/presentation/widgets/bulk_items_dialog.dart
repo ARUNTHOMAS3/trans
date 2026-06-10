@@ -22,6 +22,7 @@ class BulkItemsDialog extends ConsumerStatefulWidget {
 class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   String _searchQuery = '';
   Set<String> _selectedCategoryIds = {};
+  bool _includeSubCategories = false;
 
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
@@ -33,20 +34,87 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   String? _hoveredQuantityBoxItemId;
   bool _isCategoryHovered = false;
 
+  List<Map<String, String>> get _categoryOptions {
+    final allCategories = ref.read(itemsControllerProvider).categories;
+    final categories = allCategories.where((c) {
+      final parentId = c['parent_id'];
+      return parentId == null || parentId.toString().trim().isEmpty;
+    }).map((c) => {
+      'id': c['id']?.toString() ?? '',
+      'name': c['name']?.toString() ?? '',
+    }).toList();
+
+    categories.sort(
+      (a, b) => (a['name'] ?? '').toLowerCase().compareTo(
+        (b['name'] ?? '').toLowerCase(),
+      ),
+    );
+    return categories;
+  }
+
   List<Item> get _filteredProducts {
-    List<Item> results = widget.products;
+    var results = widget.products;
 
     if (_selectedCategoryIds.isNotEmpty) {
-      results = results
-          .where((p) => _selectedCategoryIds.contains(p.categoryId))
-          .toList();
+      final allCategories = ref.read(itemsControllerProvider).categories;
+      final Set<String> targetCategoryKeys = {};
+
+      for (final id in _selectedCategoryIds) {
+        targetCategoryKeys.add(id.toLowerCase());
+        final cat = allCategories.firstWhere(
+          (c) => c['id']?.toString().trim() == id,
+          orElse: () => {},
+        );
+        final name = cat['name']?.toString().trim().toLowerCase();
+        if (name != null && name.isNotEmpty) {
+          targetCategoryKeys.add(name);
+        }
+      }
+
+      if (_includeSubCategories) {
+        for (final c in allCategories) {
+          final parentId = c['parent_id']?.toString().trim();
+          if (parentId != null && parentId.isNotEmpty && _selectedCategoryIds.contains(parentId)) {
+            final id = c['id']?.toString().trim();
+            if (id != null && id.isNotEmpty) {
+              targetCategoryKeys.add(id.toLowerCase());
+            }
+            final name = c['name']?.toString().trim().toLowerCase();
+            if (name != null && name.isNotEmpty) {
+              targetCategoryKeys.add(name);
+            }
+          }
+        }
+      }
+
+      results = results.where((product) {
+        final categoryId = product.categoryId?.trim().toLowerCase();
+        final categoryName = product.categoryName?.trim().toLowerCase();
+
+        if (categoryId != null && categoryId.isNotEmpty && targetCategoryKeys.contains(categoryId)) {
+          return true;
+        }
+        if (categoryName != null && categoryName.isNotEmpty && targetCategoryKeys.contains(categoryName)) {
+          return true;
+        }
+        return false;
+      }).toList();
     }
 
-    if (_searchQuery.isEmpty) return results;
-    return results.where((p) {
-      return p.productName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (p.sku?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
-    }).toList();
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return results.take(20).toList();
+    if (query.length < 3) return [];
+
+    bool matches(Item p) {
+      final fields = <String?>[
+        p.productName,
+        p.itemCode,
+        p.sku,
+      ].whereType<String>();
+      return fields.any((f) => f.toLowerCase().contains(query));
+    }
+
+    return results.where(matches).toList();
   }
 
   void _toggleCategoryFilterMenu() {
@@ -58,7 +126,9 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   }
 
   void _openCategoryFilterMenu() {
-    final categories = ref.read(itemsControllerProvider).categories;
+    final categories = _categoryOptions
+        .map((category) => Map<String, dynamic>.from(category))
+        .toList();
     final overlay = Overlay.of(context);
 
     _overlayEntry = OverlayEntry(
@@ -85,6 +155,9 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                     onApply: (selected) {
                       setState(() {
                         _selectedCategoryIds = selected;
+                        if (_selectedCategoryIds.isEmpty) {
+                          _includeSubCategories = false;
+                        }
                       });
                       _closeCategoryFilterMenu();
                     },
@@ -113,6 +186,7 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   Widget build(BuildContext context) {
     final totalQty = _itemQuantities.values.fold(0, (sum, q) => sum + q);
     return Dialog(
+      clipBehavior: Clip.antiAlias,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.only(
         top: 0,
@@ -258,29 +332,47 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: Checkbox(
-                                            value: false, // Placeholder
-                                            onChanged: (v) {},
-                                            side: const BorderSide(
-                                              color: Color(0xFFD1D5DB),
+                                    InkWell(
+                                      onTap: _selectedCategoryIds.isEmpty
+                                          ? null
+                                          : () => setState(
+                                              () => _includeSubCategories =
+                                                  !_includeSubCategories,
+                                            ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: Checkbox(
+                                              value: _includeSubCategories,
+                                              onChanged:
+                                                  _selectedCategoryIds.isEmpty
+                                                  ? null
+                                                  : (v) => setState(
+                                                      () =>
+                                                          _includeSubCategories =
+                                                              v ?? false,
+                                                    ),
+                                              side: const BorderSide(
+                                                color: Color(0xFFD1D5DB),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          'Include sub-categories',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF4B5563),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Include sub-categories',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color:
+                                                  _selectedCategoryIds.isEmpty
+                                                  ? const Color(0xFF9CA3AF)
+                                                  : const Color(0xFF4B5563),
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -667,40 +759,47 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                                 ),
                                               ),
                                             ),
-                                            if (isHovered) ...[
-                                              const SizedBox(width: 12),
-                                              InkWell(
-                                                onTap: () {
-                                                  setState(() {
-                                                    _selectedItems.removeWhere(
-                                                      (i) => i.id == item.id,
-                                                    );
-                                                    _itemQuantities.remove(
-                                                      item.id!,
-                                                    );
-                                                  });
-                                                },
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(
-                                                    0,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                      color: Colors
-                                                          .orange
-                                                          .shade400,
-                                                    ),
-                                                  ),
-                                                  child: Icon(
-                                                    LucideIcons.x,
-                                                    size: 15,
-                                                    color:
-                                                        Colors.orange.shade400,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                                            const SizedBox(width: 12),
+                                            SizedBox(
+                                              width: 17,
+                                              child: isHovered
+                                                  ? InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          _selectedItems
+                                                              .removeWhere(
+                                                            (i) =>
+                                                                i.id == item.id,
+                                                          );
+                                                          _itemQuantities
+                                                              .remove(
+                                                            item.id!,
+                                                          );
+                                                        });
+                                                      },
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(0),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          border: Border.all(
+                                                            color: Colors.orange
+                                                                .shade400,
+                                                          ),
+                                                        ),
+                                                        child: Icon(
+                                                          LucideIcons.x,
+                                                          size: 15,
+                                                          color: Colors.orange
+                                                              .shade400,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : null,
+                                            ),
                                           ],
                                         ),
                                       ),

@@ -125,6 +125,7 @@ export class VendorsService {
       shippingAddress,
       contactPersons,
       bankDetails,
+      vendorAddresses,
       ...vendorFields
     } = createVendorDto;
 
@@ -197,66 +198,92 @@ export class VendorsService {
 
     // 2. Insert canonical address rows
     const addresses = [];
-    if (
-      billingAddress &&
-      (billingAddress.attention ||
-        billingAddress.street1 ||
-        billingAddress.street ||
-        billingAddress.city)
-    ) {
-      addresses.push({
-        entity_id: tenant.entityId,
-        vendor_id: vendorId,
-        address_type: "billing",
-        attention: billingAddress.attention ?? null,
-        address_street:
-          billingAddress.street ?? billingAddress.street1 ?? null,
-        address_place: billingAddress.place ?? billingAddress.street2 ?? null,
-        city: billingAddress.city ?? null,
-        state: billingAddress.state ?? null,
-        pincode: billingAddress.zip ?? null,
-        country_region: billingAddress.country ?? "India",
-        phone: billingAddress.phone ?? null,
-        fax: billingAddress.fax ?? null,
-        email: billingAddress.email ?? null,
-        mobile: billingAddress.mobile ?? null,
-        gstin: billingAddress.gstin ?? null,
-        gst_treatment: billingAddress.gstTreatment ?? null,
-        is_default_billing: true,
-        is_default_shipping: false,
-        is_active: true,
-      });
-    }
+    if (vendorAddresses && Array.isArray(vendorAddresses)) {
+      for (const addr of vendorAddresses) {
+        addresses.push({
+          entity_id: tenant.entityId,
+          vendor_id: vendorId,
+          address_type: addr.address_type ?? addr.addressType ?? "additional",
+          attention: addr.attention ?? null,
+          address_street: addr.street ?? addr.street1 ?? addr.address_street ?? addr.addressStreet ?? null,
+          address_place: addr.place ?? addr.street2 ?? addr.address_place ?? addr.addressPlace ?? null,
+          city: addr.city ?? null,
+          state: addr.state ?? null,
+          pincode: addr.zip ?? addr.pincode ?? null,
+          country_region: addr.country ?? addr.countryRegion ?? addr.country_region ?? "India",
+          phone: addr.phone ?? null,
+          fax: addr.fax ?? null,
+          email: addr.email ?? null,
+          mobile: addr.mobile ?? null,
+          gstin: addr.gstin ?? null,
+          gst_treatment: addr.gstTreatment ?? null,
+          is_default_billing: addr.is_default_billing ?? addr.isDefaultBilling ?? false,
+          is_default_shipping: addr.is_default_shipping ?? addr.isDefaultShipping ?? false,
+          is_active: true,
+        });
+      }
+    } else {
+      if (
+        billingAddress &&
+        (billingAddress.attention ||
+          billingAddress.street1 ||
+          billingAddress.street ||
+          billingAddress.city)
+      ) {
+        addresses.push({
+          entity_id: tenant.entityId,
+          vendor_id: vendorId,
+          address_type: "billing",
+          attention: billingAddress.attention ?? null,
+          address_street:
+            billingAddress.street ?? billingAddress.street1 ?? null,
+          address_place: billingAddress.place ?? billingAddress.street2 ?? null,
+          city: billingAddress.city ?? null,
+          state: billingAddress.state ?? null,
+          pincode: billingAddress.zip ?? null,
+          country_region: billingAddress.country ?? "India",
+          phone: billingAddress.phone ?? null,
+          fax: billingAddress.fax ?? null,
+          email: billingAddress.email ?? null,
+          mobile: billingAddress.mobile ?? null,
+          gstin: billingAddress.gstin ?? null,
+          gst_treatment: billingAddress.gstTreatment ?? null,
+          is_default_billing: true,
+          is_default_shipping: false,
+          is_active: true,
+        });
+      }
 
-    if (
-      shippingAddress &&
-      (shippingAddress.attention ||
-        shippingAddress.street1 ||
-        shippingAddress.street ||
-        shippingAddress.city)
-    ) {
-      addresses.push({
-        entity_id: tenant.entityId,
-        vendor_id: vendorId,
-        address_type: "shipping",
-        attention: shippingAddress.attention ?? null,
-        address_street:
-          shippingAddress.street ?? shippingAddress.street1 ?? null,
-        address_place: shippingAddress.place ?? shippingAddress.street2 ?? null,
-        city: shippingAddress.city ?? null,
-        state: shippingAddress.state ?? null,
-        pincode: shippingAddress.zip ?? null,
-        country_region: shippingAddress.country ?? "India",
-        phone: shippingAddress.phone ?? null,
-        fax: shippingAddress.fax ?? null,
-        email: shippingAddress.email ?? null,
-        mobile: shippingAddress.mobile ?? null,
-        gstin: shippingAddress.gstin ?? null,
-        gst_treatment: shippingAddress.gstTreatment ?? null,
-        is_default_billing: false,
-        is_default_shipping: true,
-        is_active: true,
-      });
+      if (
+        shippingAddress &&
+        (shippingAddress.attention ||
+          shippingAddress.street1 ||
+          shippingAddress.street ||
+          shippingAddress.city)
+      ) {
+        addresses.push({
+          entity_id: tenant.entityId,
+          vendor_id: vendorId,
+          address_type: "shipping",
+          attention: shippingAddress.attention ?? null,
+          address_street:
+            shippingAddress.street ?? shippingAddress.street1 ?? null,
+          address_place: shippingAddress.place ?? shippingAddress.street2 ?? null,
+          city: shippingAddress.city ?? null,
+          state: shippingAddress.state ?? null,
+          pincode: shippingAddress.zip ?? null,
+          country_region: shippingAddress.country ?? "India",
+          phone: shippingAddress.phone ?? null,
+          fax: shippingAddress.fax ?? null,
+          email: shippingAddress.email ?? null,
+          mobile: shippingAddress.mobile ?? null,
+          gstin: shippingAddress.gstin ?? null,
+          gst_treatment: shippingAddress.gstTreatment ?? null,
+          is_default_billing: false,
+          is_default_shipping: true,
+          is_active: true,
+        });
+      }
     }
 
     if (addresses.length > 0) {
@@ -312,6 +339,7 @@ export class VendorsService {
       shippingAddress,
       contactPersons,
       bankDetails,
+      vendorAddresses,
       ...vendorFields
     } = updateVendorDto as any;
 
@@ -387,78 +415,113 @@ export class VendorsService {
       throw new Error(`Failed to update vendor: ${vendorError.message}`);
     }
 
-    if (billingAddress || shippingAddress) {
-      await client
-        .from("vendor_addresses")
-        .delete()
-        .eq("vendor_id", id)
-        .in("address_type", ["billing", "shipping"]);
+    if (billingAddress || shippingAddress || vendorAddresses) {
+      if (vendorAddresses && Array.isArray(vendorAddresses)) {
+        await client
+          .from("vendor_addresses")
+          .delete()
+          .eq("vendor_id", id);
 
-      const addresses = [];
-      if (
-        billingAddress &&
-        (billingAddress.attention ||
-          billingAddress.street1 ||
-          billingAddress.street ||
-          billingAddress.city)
-      ) {
-        addresses.push({
-          entity_id: tenant.entityId,
-          vendor_id: id,
-          address_type: "billing",
-          attention: billingAddress.attention ?? null,
-          address_street:
-            billingAddress.street ?? billingAddress.street1 ?? null,
-          address_place: billingAddress.place ?? billingAddress.street2 ?? null,
-          city: billingAddress.city ?? null,
-          state: billingAddress.state ?? null,
-          pincode: billingAddress.zip ?? null,
-          country_region: billingAddress.country ?? "India",
-          phone: billingAddress.phone ?? null,
-          fax: billingAddress.fax ?? null,
-          email: billingAddress.email ?? null,
-          mobile: billingAddress.mobile ?? null,
-          gstin: billingAddress.gstin ?? null,
-          gst_treatment: billingAddress.gstTreatment ?? null,
-          is_default_billing: true,
-          is_default_shipping: false,
-          is_active: true,
-        });
-      }
+        const addresses = [];
+        for (const addr of vendorAddresses) {
+          addresses.push({
+            entity_id: tenant.entityId,
+            vendor_id: id,
+            address_type: addr.address_type ?? addr.addressType ?? "additional",
+            attention: addr.attention ?? null,
+            address_street: addr.street ?? addr.street1 ?? addr.address_street ?? addr.addressStreet ?? null,
+            address_place: addr.place ?? addr.street2 ?? addr.address_place ?? addr.addressPlace ?? null,
+            city: addr.city ?? null,
+            state: addr.state ?? null,
+            pincode: addr.zip ?? addr.pincode ?? null,
+            country_region: addr.country ?? addr.countryRegion ?? addr.country_region ?? "India",
+            phone: addr.phone ?? null,
+            fax: addr.fax ?? null,
+            email: addr.email ?? null,
+            mobile: addr.mobile ?? null,
+            gstin: addr.gstin ?? null,
+            gst_treatment: addr.gstTreatment ?? null,
+            is_default_billing: addr.is_default_billing ?? addr.isDefaultBilling ?? false,
+            is_default_shipping: addr.is_default_shipping ?? addr.isDefaultShipping ?? false,
+            is_active: true,
+          });
+        }
+        if (addresses.length > 0) {
+          await client.from("vendor_addresses").insert(addresses);
+        }
+      } else {
+        await client
+          .from("vendor_addresses")
+          .delete()
+          .eq("vendor_id", id)
+          .in("address_type", ["billing", "shipping"]);
 
-      if (
-        shippingAddress &&
-        (shippingAddress.attention ||
-          shippingAddress.street1 ||
-          shippingAddress.street ||
-          shippingAddress.city)
-      ) {
-        addresses.push({
-          entity_id: tenant.entityId,
-          vendor_id: id,
-          address_type: "shipping",
-          attention: shippingAddress.attention ?? null,
-          address_street:
-            shippingAddress.street ?? shippingAddress.street1 ?? null,
-          address_place: shippingAddress.place ?? shippingAddress.street2 ?? null,
-          city: shippingAddress.city ?? null,
-          state: shippingAddress.state ?? null,
-          pincode: shippingAddress.zip ?? null,
-          country_region: shippingAddress.country ?? "India",
-          phone: shippingAddress.phone ?? null,
-          fax: shippingAddress.fax ?? null,
-          email: shippingAddress.email ?? null,
-          mobile: shippingAddress.mobile ?? null,
-          gstin: shippingAddress.gstin ?? null,
-          gst_treatment: shippingAddress.gstTreatment ?? null,
-          is_default_billing: false,
-          is_default_shipping: true,
-          is_active: true,
-        });
-      }
+        const addresses = [];
+        if (
+          billingAddress &&
+          (billingAddress.attention ||
+            billingAddress.street1 ||
+            billingAddress.street ||
+            billingAddress.city)
+        ) {
+          addresses.push({
+            entity_id: tenant.entityId,
+            vendor_id: id,
+            address_type: "billing",
+            attention: billingAddress.attention ?? null,
+            address_street:
+              billingAddress.street ?? billingAddress.street1 ?? null,
+            address_place: billingAddress.place ?? billingAddress.street2 ?? null,
+            city: billingAddress.city ?? null,
+            state: billingAddress.state ?? null,
+            pincode: billingAddress.zip ?? null,
+            country_region: billingAddress.country ?? "India",
+            phone: billingAddress.phone ?? null,
+            fax: billingAddress.fax ?? null,
+            email: billingAddress.email ?? null,
+            mobile: billingAddress.mobile ?? null,
+            gstin: billingAddress.gstin ?? null,
+            gst_treatment: billingAddress.gstTreatment ?? null,
+            is_default_billing: true,
+            is_default_shipping: false,
+            is_active: true,
+          });
+        }
 
-      if (addresses.length > 0) {
-        await client.from("vendor_addresses").insert(addresses);
+        if (
+          shippingAddress &&
+          (shippingAddress.attention ||
+            shippingAddress.street1 ||
+            shippingAddress.street ||
+            shippingAddress.city)
+        ) {
+          addresses.push({
+            entity_id: tenant.entityId,
+            vendor_id: id,
+            address_type: "shipping",
+            attention: shippingAddress.attention ?? null,
+            address_street:
+              shippingAddress.street ?? shippingAddress.street1 ?? null,
+            address_place: shippingAddress.place ?? shippingAddress.street2 ?? null,
+            city: shippingAddress.city ?? null,
+            state: shippingAddress.state ?? null,
+            pincode: shippingAddress.zip ?? null,
+            country_region: shippingAddress.country ?? "India",
+            phone: shippingAddress.phone ?? null,
+            fax: shippingAddress.fax ?? null,
+            email: shippingAddress.email ?? null,
+            mobile: shippingAddress.mobile ?? null,
+            gstin: shippingAddress.gstin ?? null,
+            gst_treatment: shippingAddress.gstTreatment ?? null,
+            is_default_billing: false,
+            is_default_shipping: true,
+            is_active: true,
+          });
+        }
+
+        if (addresses.length > 0) {
+          await client.from("vendor_addresses").insert(addresses);
+        }
       }
     }
 

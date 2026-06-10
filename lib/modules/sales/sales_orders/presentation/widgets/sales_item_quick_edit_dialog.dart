@@ -197,7 +197,9 @@ class _SalesItemQuickEditDialogState
     storageId = item.storageId;
     rackId = item.rackId;
     reorderPointCtrl = TextEditingController(text: item.reorderPoint.toString());
-    lockUnitPackCtrl = TextEditingController(text: item.lockUnitPack?.toString() ?? '');
+    lockUnitPackCtrl = TextEditingController(
+      text: item.lockUnitPack?.toString() ?? '',
+    );
     reorderTermsId = item.reorderTermId;
 
     compositions = item.compositions ?? [];
@@ -360,6 +362,94 @@ class _SalesItemQuickEditDialogState
   }
 
   Widget _buildCompactLeftFields(ItemsState itemsState) {
+    final activeUnitIds = itemsState.units
+        .where((u) => u.isActive)
+        .map((u) => u.id)
+        .toList();
+    final safeSelectedUnitId = activeUnitIds.contains(selectedUnitId)
+        ? selectedUnitId
+        : (activeUnitIds.isNotEmpty ? activeUnitIds.first : null);
+    if (safeSelectedUnitId != selectedUnitId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => selectedUnitId = safeSelectedUnitId);
+      });
+    }
+
+    String unitLabelForId(String id) {
+      for (final unit in itemsState.units) {
+        if (unit.id == id) return unit.unitName;
+      }
+      return id;
+    }
+
+    String packSizeDisplayLabel(Map<String, dynamic> pack) {
+      final packName = (pack['pack_name'] ?? '').toString().trim();
+      final unitPack = (pack['unit_pack'] ?? '').toString().trim();
+      if (packName.isEmpty) return unitPack;
+      if (unitPack.isEmpty) return packName;
+      return '$packName - $unitPack';
+    }
+
+    Map<String, dynamic>? findPackSizeByDisplayValue(String? displayValue) {
+      final normalized = displayValue?.trim() ?? '';
+      if (normalized.isEmpty) return null;
+      for (final pack in itemsState.packSizes) {
+        if (packSizeDisplayLabel(pack).toLowerCase() == normalized.toLowerCase()) {
+          return pack;
+        }
+      }
+      return null;
+    }
+
+    Map<String, dynamic>? findPackSizeByName(String? packName) {
+      final normalized = packName?.trim() ?? '';
+      if (normalized.isEmpty) return null;
+      for (final pack in itemsState.packSizes) {
+        if ((pack['pack_name'] ?? '').toString().trim().toLowerCase() ==
+            normalized.toLowerCase()) {
+          return pack;
+        }
+      }
+      return null;
+    }
+
+    Map<String, dynamic>? findPackSizeByUnitPack(String? unitPack) {
+      final normalized = unitPack?.trim() ?? '';
+      if (normalized.isEmpty) return null;
+      for (final pack in itemsState.packSizes) {
+        if ((pack['unit_pack'] ?? '').toString().trim() == normalized) {
+          return pack;
+        }
+      }
+      return null;
+    }
+
+    List<String> packSizeOptions = itemsState.packSizes
+        .map(packSizeDisplayLabel)
+        .where((label) => label.isNotEmpty)
+        .toList();
+    final normalizedSelectedPackSize = selectedPackSize?.trim() ?? '';
+    if (normalizedSelectedPackSize.isNotEmpty) {
+      final existingPack = findPackSizeByDisplayValue(normalizedSelectedPackSize) ??
+          findPackSizeByName(normalizedSelectedPackSize);
+      packSizeOptions.add(
+        existingPack != null
+            ? packSizeDisplayLabel(existingPack)
+            : normalizedSelectedPackSize,
+      );
+    }
+    final rawLockUnitPack = lockUnitPackCtrl.text.trim();
+    final lockUnitPackValue = rawLockUnitPack.isEmpty
+        ? null
+        : (findPackSizeByUnitPack(rawLockUnitPack) != null
+              ? packSizeDisplayLabel(findPackSizeByUnitPack(rawLockUnitPack)!)
+              : rawLockUnitPack);
+    if (lockUnitPackValue != null && lockUnitPackValue.trim().isNotEmpty) {
+      packSizeOptions.add(lockUnitPackValue.trim());
+    }
+    packSizeOptions = packSizeOptions.toSet().toList();
+
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 520),
       child: Column(
@@ -445,11 +535,12 @@ class _SalesItemQuickEditDialogState
               required: true,
               compact: true,
               child: FormDropdown<String>(
-                value: selectedUnitId,
-                items: itemsState.units.where((u) => u.isActive).map((u) => u.id).toList(),
+                value: safeSelectedUnitId,
+                items: activeUnitIds,
                 hint: "Select Unit",
                 onChanged: (v) => setState(() => selectedUnitId = v),
-                displayStringForValue: (id) => itemsState.units.firstWhere((u) => u.id == id).unitName,
+                displayStringForValue: unitLabelForId,
+                boldSelected: false,
               ),
             ),
             SharedFieldLayout(
@@ -493,6 +584,7 @@ class _SalesItemQuickEditDialogState
                 items: _taxPreferenceOptions,
                 hint: "Select Tax Preference",
                 onChanged: (v) => setState(() => taxPreference = v!),
+                boldSelected: false,
               ),
             ),
             SharedFieldLayout(
@@ -541,11 +633,12 @@ class _SalesItemQuickEditDialogState
               required: true,
               compact: true,
               child: FormDropdown<String>(
-                value: selectedUnitId,
-                items: itemsState.units.where((u) => u.isActive).map((u) => u.id).toList(),
+                value: safeSelectedUnitId,
+                items: activeUnitIds,
                 hint: "Select Unit",
                 onChanged: (v) => setState(() => selectedUnitId = v),
-                displayStringForValue: (id) => itemsState.units.firstWhere((u) => u.id == id).unitName,
+                displayStringForValue: unitLabelForId,
+                boldSelected: false,
               ),
             ),
             SharedFieldLayout(
@@ -581,6 +674,30 @@ class _SalesItemQuickEditDialogState
   }
 
   Widget _buildTabsCard(ItemsState itemsState) {
+    final normalizedSelectedPackSize = selectedPackSize?.trim() ?? '';
+    final selectedPackSizeValue = normalizedSelectedPackSize.isEmpty
+        ? null
+        : (_findPackSizeByDisplayValue(itemsState, normalizedSelectedPackSize) !=
+                null
+            ? _packSizeDisplayLabel(
+                _findPackSizeByDisplayValue(
+                  itemsState,
+                  normalizedSelectedPackSize,
+                )!,
+              )
+            : normalizedSelectedPackSize);
+    final lockUnitPackValue = lockUnitPackCtrl.text.trim().isEmpty
+        ? null
+        : (_findPackSizeByUnitPack(itemsState, lockUnitPackCtrl.text.trim()) !=
+                null
+            ? _packSizeDisplayLabel(
+                _findPackSizeByUnitPack(
+                  itemsState,
+                  lockUnitPackCtrl.text.trim(),
+                )!,
+              )
+            : lockUnitPackCtrl.text.trim());
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -682,21 +799,31 @@ class _SalesItemQuickEditDialogState
                       brand: brandId,
                       onBrandChange: (v) => setState(() => brandId = v),
                       brandOptions: itemsState.brands,
-                      packSizeValue: selectedPackSize,
-                      onPackSizeChanged: (v) =>
-                          setState(() => selectedPackSize = v),
-                      packSizeOptions: _packSizeOptions(itemsState),
-                      lockUnitPackValue: lockUnitPackCtrl.text.trim().isEmpty
-                          ? null
-                          : lockUnitPackCtrl.text.trim(),
-                      onLockUnitPackChanged: (v) {
-                        final text = v?.trim() ?? '';
-                        final match = RegExp(r'\(([^()]+)\)\s*$').firstMatch(
-                          text,
-                        );
-                        lockUnitPackCtrl.text =
-                            match?.group(1)?.trim() ?? text;
-                      },
+                       packSizeValue: selectedPackSizeValue,
+                       onPackSizeChanged: (v) {
+                         final text = v?.trim() ?? '';
+                         final pack = _findPackSizeByDisplayValue(
+                           itemsState,
+                           text,
+                         );
+                         setState(() {
+                           selectedPackSize = pack != null
+                               ? _packSizeDisplayLabel(pack)
+                               : text.isEmpty
+                               ? null
+                               : text;
+                         });
+                       },
+                        packSizeOptions: _packSizeOptions(itemsState),
+                        lockUnitPackValue: lockUnitPackValue,
+                        onLockUnitPackChanged: (v) {
+                          final text = v?.trim() ?? '';
+                          final pack =
+                              _findPackSizeByDisplayValue(itemsState, text) ??
+                              _findPackSizeByName(itemsState, text);
+                          lockUnitPackCtrl.text =
+                              (pack?['unit_pack'] ?? text).toString().trim();
+                        },
                       lockUnitPackCtrl: lockUnitPackCtrl,
                       upcCtrl: upcCtrl,
                       eanCtrl: eanCtrl,
@@ -796,14 +923,80 @@ class _SalesItemQuickEditDialogState
     );
   }
 
+  String _packSizeDisplayLabel(Map<String, dynamic> pack) {
+    final packName = (pack['pack_name'] ?? '').toString().trim();
+    final unitPack = (pack['unit_pack'] ?? '').toString().trim();
+    if (packName.isEmpty) return unitPack;
+    if (unitPack.isEmpty) return packName;
+    return '$packName - $unitPack';
+  }
+
+  Map<String, dynamic>? _findPackSizeByDisplayValue(
+    ItemsState itemsState,
+    String? displayValue,
+  ) {
+    final normalized = displayValue?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    for (final pack in itemsState.packSizes) {
+      if (_packSizeDisplayLabel(pack).toLowerCase() == normalized.toLowerCase()) {
+        return pack;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _findPackSizeByName(
+    ItemsState itemsState,
+    String? packName,
+  ) {
+    final normalized = packName?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    for (final pack in itemsState.packSizes) {
+      if ((pack['pack_name'] ?? '').toString().trim().toLowerCase() ==
+          normalized.toLowerCase()) {
+        return pack;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _findPackSizeByUnitPack(
+    ItemsState itemsState,
+    String? unitPack,
+  ) {
+    final normalized = unitPack?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    for (final pack in itemsState.packSizes) {
+      if ((pack['unit_pack'] ?? '').toString().trim() == normalized) {
+        return pack;
+      }
+    }
+    return null;
+  }
+
   List<String> _packSizeOptions(ItemsState itemsState) {
-    final labels = itemsState.units
-        .where((unit) => unit.isActive)
-        .map((unit) => unit.unitName.trim())
+    final labels = itemsState.packSizes
+        .map(_packSizeDisplayLabel)
         .where((label) => label.isNotEmpty)
         .toList();
     if (selectedPackSize != null && selectedPackSize!.trim().isNotEmpty) {
-      labels.add(selectedPackSize!.trim());
+      final existingPack =
+          _findPackSizeByDisplayValue(itemsState, selectedPackSize) ??
+          _findPackSizeByName(itemsState, selectedPackSize);
+      labels.add(
+        existingPack != null
+            ? _packSizeDisplayLabel(existingPack)
+            : selectedPackSize!.trim(),
+      );
+    }
+    final rawLockUnitPack = lockUnitPackCtrl.text.trim();
+    if (rawLockUnitPack.isNotEmpty) {
+      final existingLockPack = _findPackSizeByUnitPack(itemsState, rawLockUnitPack);
+      labels.add(
+        existingLockPack != null
+            ? _packSizeDisplayLabel(existingLockPack)
+            : rawLockUnitPack,
+      );
     }
     return labels.toSet().toList();
   }
@@ -1069,6 +1262,7 @@ class _SalesItemQuickEditDialogState
       onSettingsTap: onSettingsTap,
       allowClear: allowClear,
       enabled: enabled,
+      boldSelected: false,
     );
   }
 }

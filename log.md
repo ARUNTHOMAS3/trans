@@ -1746,3 +1746,273 @@ Rolled back the previous layout changes (Row layout, solid Icon style) of the wa
   - Ported the identical layout reversion and parent translation offset fix, restoring `LucideIcons.alertCircle` and ensuring perfect design layout symmetry and functional hover tooltips.
 
 Timestamp of Log Update: June 09, 2026 - 10:45 AM (IST)
+
+
+## 36. Price List Discounts & UI Cleanup (June 09, 2026)
+
+### Summary
+Enhanced the Purchase Order creation screen to support dynamic discount percentages defined at the price list level. The discount is automatically resolved and applied when selecting a price list, either at the line-item level or transaction level. Cleaned up the UI by removing the warning icon next to the column-level discount header.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`:
+  - **DISCOUNT Column Header Clean**: Removed the warning info-circle icon next to the "DISCOUNT" column header.
+  - **Item-Level Price List Selection**: Updated case-insensitive filtering for purchase price lists. Added lookup for item-specific discount percentage overrides (`discountPercentage`) from `itemRates` in the chosen price list, and populated the item rate and the discount fields accordingly.
+  - **Top-Level Price List Selection**: Applied similar lookup logic to propagate individual item discount percentages to all items in the purchase order when the global price list dropdown changes.
+  - **Focus & Synchronization Sync**: Added state synchronization for the `discountCtrl` to prevent layout reset issues when fields lose focus, and correctly passed `discountFocus` to the `_gridField`.
+- `lib/modules/purchases/purchase_orders/presentation/controllers/purchase_order_notifier.dart`:
+  - **FocusNode Management**: Added and managed `discountFocus` FocusNode inside `_ItemRowController`.
+  - **Transaction-Level Calculations**: Updated state total calculations to reflect price list discounts correctly at both transaction and item levels, computing and displaying subtotal differences under transaction level discounts.
+
+**Verifications**: Verified compilation with `dart analyze lib/modules/purchases/` returning zero errors.
+
+Timestamp of Log Update: June 09, 2026 - 11:15 PM (IST)
+
+## 37. Price List Dropdown and Discount Saving Fixes (June 09, 2026)
+
+### Summary
+Resolved issues with individual price lists not appearing in the purchase orders item-level dropdown. Joined and fetched price list item details on the backend, and updated price list create pages on the frontend to pass custom item discount percentages to the API.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_create.dart`:
+  - Updated `_buildItemRates` and `_buildVolumeItemRates` to parse custom discount values from the UI text controllers and assign `discountPercentage` to the rate and volume range models.
+- `lib/modules/pricelists/branch_pricelist/presentation/branch_pricelist_create_page.dart`:
+  - Updated `_buildItemRates` and `_buildVolumeItemRates` to parse custom discount values from the UI text controllers and assign `discountPercentage` to the rate and volume range models.
+
+#### Backend Files
+- `backend/src/modules/products/pricelists/pricelist/pricelist.controller.ts`:
+  - Refactored `loadVisiblePriceLists` to join related `price_list_items`, `products`, and `price_list_volume_ranges` to retrieve item details.
+  - Normalizes retrieved lists via `buildPriceListResponse` to populate `itemRates` on the frontend client.
+  - Enhanced `saveItemRates` to fall back on both camelCase and snake_case properties (`discountPercentage` / `discount_percentage`, `customRate` / `custom_rate`) during item and volume range insertion.
+
+Timestamp of Log Update: June 9, 2026 - 11:10 PM (IST)
+
+## 38. Table Headers, Hover Styles & In Transit Receives Link (June 10, 2026)
+
+### Summary
+Polished the Clip/Wrap text action icons in the reusable table header, standardized the detail pane action hover highlights, removed the list/split segmented switcher, and implemented the "In Transit Receives" button on the Purchase Orders list page.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/tables/table_header_menu.dart`:
+  - Updated Clip/Wrap text icon configuration to display `LucideIcons.alignLeft` for "Clip Text" (acting as a visually appropriate fallback because the newer `logs` icon is not defined in package version `0.257.0`) and `LucideIcons.wrapText` for "Wrap Text".
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Standardized the hover styles inside the `_detailActionMenuItem` dropdown widget to use `ZTableMoreMenu.menuItemButtonStyle()`. Removed the explicit black color override on `Text` to ensure proper white foreground styling when hovered.
+  - Removed the segmented list/split view switcher control block.
+  - Implemented the "In Transit Receives" link button (styled with `LucideIcons.externalLink` icon and `ZerpaiLinkText`) positioned inline on the left side of the "New" button, navigating directly to the Purchase Receives list view with the in-transit filter active.
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart`:
+  - Enabled support for constructor-level `initialFilter` filtering inside `PurchasesPurchaseReceivesListScreen` and populated the initial active filter state from it in `initState()`.
+- `lib/app/routing/app_router.dart`:
+  - Exposed and mapped `filter`/`status` query parameters on the `/purchases/purchase-receives` route mapping, forwarding them down to the list screen's constructor.
+
+Timestamp of Log Update: June 10, 2026 - 2:40 PM (IST)
+
+
+## 39. Detail Sidebar Icon and Column Customizer Polish (June 10, 2026)
+
+### Summary
+Changed the comments sidebar toggle button's icon to history and polished the Column Customizer Dialog design to improve responsiveness, layout aesthetics, and interaction visual states.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Replaced the comments sidebar trigger action button's icon from `LucideIcons.messageSquare` to `LucideIcons.history`.
+- `lib/shared/widgets/tables/column_customizer.dart`:
+  - **Dialog Container Shape & Padding**: Set container `shape` to `RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12)))` to curve all top/bottom corners. Set `insetPadding` to `EdgeInsets.fromLTRB(40, 24, 40, 24)` and container padding to `EdgeInsets.fromLTRB(24, 24, 24, 24)` to shift the dialog header lower and prevent screen boundaries clipping.
+  - **Header Divider Line**: Added a horizontal `Divider` widget using `AppTheme.borderLight` below the header row to separate the header and body fields.
+  - **Hover-based Pinned Icon Visibility**: Integrated `StatefulBuilder` and `MouseRegion` on customizer list items to track hover status. Nested the pin button inside `Opacity` and `IgnorePointer` to show pins dynamically only on hover or when already pinned without triggering text layout shifting.
+
+**Verifications**: Verified compilation using `dart analyze` with zero warnings or errors on modified files.
+
+Timestamp of Log Update: June 10, 2026 - 3:00 PM (IST)
+
+
+## 40. Column Customizer Dialog Top Alignment and ReorderableListView Key Fix (June 10, 2026)
+
+### Summary
+Aligned the Column Customizer Dialog to the absolute top edge of the screen by setting the top inset padding to 0, and resolved the Flutter framework assertion crash ("Every item of ReorderableListView must have a key") by correctly binding the key to the root widget returned by the list builder.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/tables/column_customizer.dart`:
+  - **Top Alignment**: Changed `insetPadding` from `EdgeInsets.fromLTRB(40, 24, 40, 24)` to `EdgeInsets.fromLTRB(40, 0, 40, 24)` to align the dialog container to the absolute top of the viewport.
+  - **Key Assertion Fix**: Moved the `ValueKey` configuration from the inner `Padding` child to the root `StatefulBuilder` returned by `_buildListItem`, resolving the framework crash when dragging items inside the `ReorderableListView`.
+
+**Verifications**: Verified with `dart analyze` returning zero issues on modified files.
+
+Timestamp of Log Update: June 10, 2026 - 3:05 PM (IST)
+
+
+## 41. Column Customizer Dialog Layout Polish (June 10, 2026)
+
+### Summary
+Polished the Column Customizer Dialog layout to stretch the header separating divider line to both ends of the popup box, and aligned the list reordering scrollbar to the far right edge of the dialog boundary.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/tables/column_customizer.dart`:
+  - **Horizontal Padding Refactoring**: Removed the `EdgeInsets.fromLTRB(24, 24, 24, 24)` padding on the parent Container (`fromLTRB(0, 24, 0, 24)`).
+Timestamp of Log Update: June 08, 2026 - 6:30 PM (IST)
+
+## 35. Warning Icon Layout Reversion & Tooltip Fix (June 09, 2026)
+
+### Summary
+Rolled back the previous layout changes (Row layout, solid Icon style) of the warning icon in both Purchases Purchase Orders and Bills Create screens, restoring the outline `LucideIcons.alertCircle` icon at its original offset position. Resolved the hover hit-testing issue by wrapping the row inside a parent `Transform.translate` container, enabling hover gestures on the warning icon without causing visual shifts in the dropdown alignment.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - Reverted warning icon style from solid `Icons.error` back to the outline `LucideIcons.alertCircle`.
+  - Replaced the simple horizontal `Row` container with a parent `Transform.translate` widget applying an offset of `Offset(notIncluded ? -24 : 0, 0)` to the inner Row. This offsets the dropdown's position inside the Row to preserve its alignment while keeping pointer coordinates mapped cleanly for hover tooltip interaction.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - Ported the identical layout reversion and parent translation offset fix, restoring `LucideIcons.alertCircle` and ensuring perfect design layout symmetry and functional hover tooltips.
+
+Timestamp of Log Update: June 09, 2026 - 10:45 AM (IST)
+
+
+## 36. Price List Discounts & UI Cleanup (June 09, 2026)
+
+### Summary
+Enhanced the Purchase Order creation screen to support dynamic discount percentages defined at the price list level. The discount is automatically resolved and applied when selecting a price list, either at the line-item level or transaction level. Cleaned up the UI by removing the warning icon next to the column-level discount header.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`:
+  - **DISCOUNT Column Header Clean**: Removed the warning info-circle icon next to the "DISCOUNT" column header.
+  - **Item-Level Price List Selection**: Updated case-insensitive filtering for purchase price lists. Added lookup for item-specific discount percentage overrides (`discountPercentage`) from `itemRates` in the chosen price list, and populated the item rate and the discount fields accordingly.
+  - **Top-Level Price List Selection**: Applied similar lookup logic to propagate individual item discount percentages to all items in the purchase order when the global price list dropdown changes.
+  - **Focus & Synchronization Sync**: Added state synchronization for the `discountCtrl` to prevent layout reset issues when fields lose focus, and correctly passed `discountFocus` to the `_gridField`.
+- `lib/modules/purchases/purchase_orders/presentation/controllers/purchase_order_notifier.dart`:
+  - **FocusNode Management**: Added and managed `discountFocus` FocusNode inside `_ItemRowController`.
+  - **Transaction-Level Calculations**: Updated state total calculations to reflect price list discounts correctly at both transaction and item levels, computing and displaying subtotal differences under transaction level discounts.
+
+**Verifications**: Verified compilation with `dart analyze lib/modules/purchases/` returning zero errors.
+
+Timestamp of Log Update: June 09, 2026 - 11:15 PM (IST)
+
+## 37. Price List Dropdown and Discount Saving Fixes (June 09, 2026)
+
+### Summary
+Resolved issues with individual price lists not appearing in the purchase orders item-level dropdown. Joined and fetched price list item details on the backend, and updated price list create pages on the frontend to pass custom item discount percentages to the API.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_create.dart`:
+  - Updated `_buildItemRates` and `_buildVolumeItemRates` to parse custom discount values from the UI text controllers and assign `discountPercentage` to the rate and volume range models.
+- `lib/modules/pricelists/branch_pricelist/presentation/branch_pricelist_create_page.dart`:
+  - Updated `_buildItemRates` and `_buildVolumeItemRates` to parse custom discount values from the UI text controllers and assign `discountPercentage` to the rate and volume range models.
+
+#### Backend Files
+- `backend/src/modules/products/pricelists/pricelist/pricelist.controller.ts`:
+  - Refactored `loadVisiblePriceLists` to join related `price_list_items`, `products`, and `price_list_volume_ranges` to retrieve item details.
+  - Normalizes retrieved lists via `buildPriceListResponse` to populate `itemRates` on the frontend client.
+  - Enhanced `saveItemRates` to fall back on both camelCase and snake_case properties (`discountPercentage` / `discount_percentage`, `customRate` / `custom_rate`) during item and volume range insertion.
+
+Timestamp of Log Update: June 9, 2026 - 11:10 PM (IST)
+
+## 38. Table Headers, Hover Styles & In Transit Receives Link (June 10, 2026)
+
+### Summary
+Polished the Clip/Wrap text action icons in the reusable table header, standardized the detail pane action hover highlights, removed the list/split segmented switcher, and implemented the "In Transit Receives" button on the Purchase Orders list page.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/tables/table_header_menu.dart`:
+  - Updated Clip/Wrap text icon configuration to display `LucideIcons.alignLeft` for "Clip Text" (acting as a visually appropriate fallback because the newer `logs` icon is not defined in package version `0.257.0`) and `LucideIcons.wrapText` for "Wrap Text".
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Standardized the hover styles inside the `_detailActionMenuItem` dropdown widget to use `ZTableMoreMenu.menuItemButtonStyle()`. Removed the explicit black color override on `Text` to ensure proper white foreground styling when hovered.
+  - Removed the segmented list/split view switcher control block.
+  - Implemented the "In Transit Receives" link button (styled with `LucideIcons.externalLink` icon and `ZerpaiLinkText`) positioned inline on the left side of the "New" button, navigating directly to the Purchase Receives list view with the in-transit filter active.
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart`:
+  - Enabled support for constructor-level `initialFilter` filtering inside `PurchasesPurchaseReceivesListScreen` and populated the initial active filter state from it in `initState()`.
+- `lib/app/routing/app_router.dart`:
+  - Exposed and mapped `filter`/`status` query parameters on the `/purchases/purchase-receives` route mapping, forwarding them down to the list screen's constructor.
+
+Timestamp of Log Update: June 10, 2026 - 2:40 PM (IST)
+
+
+## 39. Detail Sidebar Icon and Column Customizer Polish (June 10, 2026)
+
+### Summary
+Changed the comments sidebar toggle button's icon to history and polished the Column Customizer Dialog design to improve responsiveness, layout aesthetics, and interaction visual states.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Replaced the comments sidebar trigger action button's icon from `LucideIcons.messageSquare` to `LucideIcons.history`.
+- `lib/shared/widgets/tables/column_customizer.dart`:
+  - **Dialog Container Shape & Padding**: Set container `shape` to `RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12)))` to curve all top/bottom corners. Set `insetPadding` to `EdgeInsets.fromLTRB(40, 24, 40, 24)` and container padding to `EdgeInsets.fromLTRB(24, 24, 24, 24)` to shift the dialog header lower and prevent screen boundaries clipping.
+  - **Header Divider Line**: Added a horizontal `Divider` widget using `AppTheme.borderLight` below the header row to separate the header and body fields.
+  - **Hover-based Pinned Icon Visibility**: Integrated `StatefulBuilder` and `MouseRegion` on customizer list items to track hover status. Nested the pin button inside `Opacity` and `IgnorePointer` to show pins dynamically only on hover or when already pinned without triggering text layout shifting.
+
+**Verifications**: Verified compilation using `dart analyze` with zero warnings or errors on modified files.
+
+Timestamp of Log Update: June 10, 2026 - 3:00 PM (IST)
+
+
+## 40. Column Customizer Dialog Top Alignment and ReorderableListView Key Fix (June 10, 2026)
+
+### Summary
+Aligned the Column Customizer Dialog to the absolute top edge of the screen by setting the top inset padding to 0, and resolved the Flutter framework assertion crash ("Every item of ReorderableListView must have a key") by correctly binding the key to the root widget returned by the list builder.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/tables/column_customizer.dart`:
+  - **Top Alignment**: Changed `insetPadding` from `EdgeInsets.fromLTRB(40, 24, 40, 24)` to `EdgeInsets.fromLTRB(40, 0, 40, 24)` to align the dialog container to the absolute top of the viewport.
+  - **Key Assertion Fix**: Moved the `ValueKey` configuration from the inner `Padding` child to the root `StatefulBuilder` returned by `_buildListItem`, resolving the framework crash when dragging items inside the `ReorderableListView`.
+
+**Verifications**: Verified with `dart analyze` returning zero issues on modified files.
+
+Timestamp of Log Update: June 10, 2026 - 3:05 PM (IST)
+
+## 41. Column Customizer Dialog Layout Polish (June 10, 2026)
+
+### Summary
+Polished the Column Customizer Dialog layout to stretch the header separating divider line to both ends of the popup box, and aligned the list reordering scrollbar to the far right edge of the dialog boundary.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/tables/column_customizer.dart`:
+  - **Horizontal Padding Refactoring**: Removed the `EdgeInsets.fromLTRB(24, 24, 24, 24)` padding on the parent Container (`fromLTRB(0, 24, 0, 24)`).
+  - **Component Horizontal Padding Wrappers**: Wrapped the Header Row, transparent search TextField, and Footer Save/Cancel Button Row individually in `Padding(padding: const EdgeInsets.symmetric(horizontal: 24))` to preserve the core alignment margin.
+  - **Scrollbar and Separator Alignment**: Left the list viewport (`ConstrainedBox`) and the header `Divider` line unwrapped at the dialog root level. Added 24px left/right padding inside `_buildListItem` for each list row item. This lets the `Divider` extend directly to both edges of the dialog box, and positions the reordering list's scrollbar on the absolute right edge of the popup box.
+
+**Verifications**: Verified compilation using `dart analyze` with zero errors on touched files.
+
+Timestamp of Log Update: June 10, 2026 - 3:10 PM (IST)
+
+## 42. Column Customizer Polish, Price List Selection & Purchase Request Items (June 10, 2026)
+
+### Summary
+Added Expected Delivery Date and Company Name columns to the column customizer, disabled price list auto-selection inside the purchase order item rate dropdown, and implemented a reusable Purchase Requests Items dialog launcher in the row actions menu.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Updated the default `DELIVERY DATE` column label to `'Delivery Date'` (Title Case) to conform to design mockups.
+  - Implemented cell rendering in `_buildCell` for `company_name` to display the vendor's actual company name (`order.vendor?.companyName`), with a fallback to `order.vendorName`.
+- `lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart`:
+  - Cleaned up compiler warnings by removing the unused local variable `purchasePriceLists`.
+- `lib/shared/widgets/dialogs/purchase_requests_items_dialog.dart`:
+  - Cleaned up compiler warnings by removing the unused `lucide_icons` import and the unused `_hoveredSelectedItemId` variable / `MouseRegion` inside the selected items list.
+  - Set explicit `color: Colors.white` for the date filter and timeframe filter dropdown popup menus (`showMenu`).
+  - Added full interactive support for the expected date filter dropdown trigger.
+
+**Verifications**: Verified compilation using `dart analyze` with zero warnings or errors on the modified files.
+
+Timestamp of Log Update: June 10, 2026 - 3:30 PM (IST)

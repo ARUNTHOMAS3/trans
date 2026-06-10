@@ -88,11 +88,26 @@ class PurchaseOrderState {
       .fold(0.0, (sum, item) => sum + item.amount);
 
   double get discountValue {
-    if (discountLevel == 'item') return 0.0;
-    if (discountType == 'percentage') {
-      return subTotal * (discount / 100);
+    if (discountLevel == 'item') {
+      double totalItemDiscount = 0.0;
+      for (final item in items.where((i) => !i.isHeader)) {
+        if (item.discount > 0) {
+          if (item.discountType == 'percentage') {
+            totalItemDiscount += (item.rate * item.quantity) * (item.discount / 100);
+          } else {
+            totalItemDiscount += item.discount;
+          }
+        }
+      }
+      return totalItemDiscount;
     }
-    return discount;
+    double manualDiscount = 0.0;
+    if (discountType == 'percentage') {
+      manualDiscount = subTotal * (discount / 100);
+    } else {
+      manualDiscount = discount;
+    }
+    return manualDiscount;
   }
 
   double get taxAmount {
@@ -101,16 +116,20 @@ class PurchaseOrderState {
         .fold(0.0, (sum, item) => sum + item.taxAmount);
   }
 
-  double get tdsTcsAmount => (subTotal - discountValue) * (tdsTcsRate / 100);
+  double get tdsTcsAmount {
+    final double effectiveDiscount = discountLevel == 'item' ? 0.0 : discountValue;
+    return (subTotal - effectiveDiscount) * (tdsTcsRate / 100);
+  }
 
   double get total {
-    final base = taxType == 'inclusive'
-        ? subTotal - discountValue + adjustment
-        : subTotal - discountValue + taxAmount + adjustment;
+    final double effectiveDiscount = discountLevel == 'item' ? 0.0 : discountValue;
+    final baseVal = taxType == 'inclusive'
+        ? subTotal - effectiveDiscount + adjustment
+        : subTotal - effectiveDiscount + taxAmount + adjustment;
     if (tdsTcsType == 'tds' || tdsTcsType == 'tcs') {
-      return base - tdsTcsAmount;
+      return baseVal - tdsTcsAmount;
     }
-    return base;
+    return baseVal;
   }
 
   PurchaseOrderState copyWith({
@@ -337,7 +356,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     } else {
       newItems.add(newItem);
     }
-    state = state.copyWith(items: newItems);
+    state = state.copyWith(items: _recalculateAllItems(newItems));
   }
 
   void addHeaderRow({int? index}) {
@@ -370,7 +389,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       return;
     }
     final newItems = List<PurchaseOrderItem>.from(state.items)..removeAt(index);
-    state = state.copyWith(items: newItems);
+    state = state.copyWith(items: _recalculateAllItems(newItems));
   }
 
   void clearItemRow(int index) {
@@ -383,7 +402,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       discount: 0.0,
       description: '',
     );
-    state = state.copyWith(items: newItems);
+    state = state.copyWith(items: _recalculateAllItems(newItems));
   }
 
   void reorderItems(int oldIndex, int newIndex) {
@@ -395,8 +414,8 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
 
   void updateItem(int index, PurchaseOrderItem item) {
     final newItems = List<PurchaseOrderItem>.from(state.items);
-    newItems[index] = _recalculateItem(item, state.discountLevel);
-    state = state.copyWith(items: newItems);
+    newItems[index] = item;
+    state = state.copyWith(items: _recalculateAllItems(newItems));
   }
 
   Future<void> updateItemWarehouse(
@@ -434,8 +453,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
   Future<void> selectProductForItem(
     int index,
     Item product,
-    String warehouseId,
-  ) async {
+    String warehouseId, {
+    String? priceListId,
+  }) async {
     final newItems = List<PurchaseOrderItem>.from(state.items);
 
     // Fetch stock
@@ -454,17 +474,25 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
 
     // Determine initial rate and price list
     double initialRate = product.costPrice ?? 0.0;
-    String? selectedPriceListId;
+    String? selectedPriceListId = priceListId;
+    double initialDiscount = 0.0;
 
     try {
       final activePriceLists = _ref.read(activePriceListsProvider);
-      final purchasePriceLists = activePriceLists.where(
-        (pl) =>
-            pl.transactionType == 'purchase' ||
-            pl.transactionType == 'Purchase',
-      );
+      
+      PriceList? targetPriceList;
+      if (priceListId != null) {
+        targetPriceList = activePriceLists.firstWhere(
+          (pl) => pl.id == priceListId,
+          orElse: () => PriceList.dummy(),
+        );
+      }
 
-      for (final pl in purchasePriceLists) {
+      final listsToSearch = targetPriceList != null && targetPriceList.id != 'dummy-id'
+          ? [targetPriceList]
+          : const <PriceList>[];
+
+      for (final pl in listsToSearch) {
         // Check if this price list has a specific rate for this item
         if (pl.priceListType == 'individual_items') {
           final override = pl.itemRates?.firstWhere(
@@ -477,11 +505,12 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
               product.costPrice ?? 0.0,
             );
             selectedPriceListId = pl.id;
+            if (override.discountPercentage != null) {
+              initialDiscount = override.discountPercentage!;
+            }
             break;
           }
         } else if (pl.priceListType == 'all_items') {
-          // If it's all items, we might want to apply it, but usually individual ones are prioritized.
-          // For now, let's just take the first one that modifies the price or is the first choice.
           initialRate = pl.calculatePrice(
             product.id ?? '',
             product.costPrice ?? 0.0,
@@ -571,6 +600,8 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       accountName: accountName,
       quantity: 0.0,
       rate: initialRate,
+      discount: initialDiscount,
+      discountType: 'percentage',
       amount: 0.0,
       taxId: isUnregistered
           ? null
@@ -586,7 +617,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       warehouseName: warehouseName,
     );
 
-    state = state.copyWith(items: newItems);
+    state = state.copyWith(items: _recalculateAllItems(newItems));
 
     if (index == newItems.length - 1) {
       addItemRow();
@@ -618,7 +649,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     state = state.copyWith(items: updatedItems);
   }
 
-  PurchaseOrderItem _recalculateItem(PurchaseOrderItem item, String level) {
+  PurchaseOrderItem _recalculateItem(PurchaseOrderItem item, String level, {double? currentSubTotal}) {
     bool isUnregistered = false;
     if (state.vendorId != null && state.vendorId!.isNotEmpty) {
       try {
@@ -637,21 +668,41 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     }
 
     double base = item.quantity * item.rate;
-    double net = base;
+    double itemDiscount = 0.0;
+
     if (level == 'item') {
       if (item.discountType == 'percentage') {
-        net = base - (base * (item.discount / 100));
+        itemDiscount = base * (item.discount / 100);
       } else {
-        net = base - item.discount;
+        itemDiscount = item.discount;
       }
+    } else {
+      // level == 'transaction'
+      // 1. Pricelist discount is ignored when discount level is transaction
+      double itemPricelistDiscount = 0.0;
+      // 2. Global transaction discount apportioned
+      double itemManualDiscount = 0.0;
+      if (state.discount > 0) {
+        final double effectiveSubTotal = currentSubTotal ?? state.subTotal;
+        if (state.discountType == 'percentage') {
+          itemManualDiscount = base * (state.discount / 100);
+        } else {
+          if (effectiveSubTotal > 0) {
+            itemManualDiscount = state.discount * base / effectiveSubTotal;
+          }
+        }
+      }
+      itemDiscount = itemPricelistDiscount + itemManualDiscount;
     }
+
+    double net = base - itemDiscount;
 
     final double activeTaxRate = isUnregistered ? 0.0 : item.taxRate;
     double taxAmount = state.taxType == 'inclusive'
         ? net * activeTaxRate / (100 + activeTaxRate)
         : net * (activeTaxRate / 100);
 
-    double amountValue = net;
+    double amountValue = level == 'item' ? net : base;
 
     return item.copyWith(
       amount: amountValue,
@@ -660,6 +711,18 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       taxId: isUnregistered ? null : item.taxId,
       taxName: isUnregistered ? null : item.taxName,
     );
+  }
+
+  List<PurchaseOrderItem> _recalculateAllItems(List<PurchaseOrderItem> itemsList, {String? customLevel}) {
+    final level = customLevel ?? state.discountLevel;
+    final tempSubTotal = itemsList
+        .where((i) => !i.isHeader)
+        .fold(0.0, (sum, item) => sum + (item.quantity * item.rate));
+
+    return itemsList.map((item) {
+      if (item.productId.isEmpty || item.isHeader) return item;
+      return _recalculateItem(item, level, currentSubTotal: tempSubTotal);
+    }).toList();
   }
 
   void updateField({
@@ -702,6 +765,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     final oldTaxType = state.taxType;
     final oldVendorId = state.vendorId;
     final oldDestinationOfSupply = state.destinationOfSupply;
+    final oldDiscount = state.discount;
+    final oldDiscountType = state.discountType;
+
     state = state.copyWith(
       orderNumber: orderNumber,
       orderDate: orderDate,
@@ -741,6 +807,8 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
         (discountLevel != null && discountLevel != oldLevel) ||
         (taxType != null && taxType != oldTaxType) ||
         (vendorId != null && vendorId != oldVendorId) ||
+        (discount != null && discount != oldDiscount) ||
+        (discountType != null && discountType != oldDiscountType) ||
         (destinationOfSupply != null &&
             destinationOfSupply != oldDestinationOfSupply)) {
       final itemsState = _ref.read(itemsControllerProvider);
@@ -752,7 +820,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
           product = itemsState.items.firstWhere((p) => p.id == i.productId);
         } catch (_) {}
         if (product == null) {
-          return _recalculateItem(i, state.discountLevel);
+          return i;
         }
 
         bool isUnregistered = false;
@@ -793,7 +861,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
         final double taxRate =
             isUnregistered ? 0.0 : (resolvedTax?.taxRate ?? 0.0);
 
-        final updatedItem = i.copyWith(
+        return i.copyWith(
           taxId: isUnregistered
               ? null
               : (isInterstate
@@ -802,9 +870,8 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
           taxName: taxName,
           taxRate: taxRate,
         );
-        return _recalculateItem(updatedItem, state.discountLevel);
       }).toList();
-      state = state.copyWith(items: newItems);
+      state = state.copyWith(items: _recalculateAllItems(newItems));
     }
 
     if (warehouseId != null && warehouseId != oldWarehouse) {
@@ -826,24 +893,19 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
         }
         return item;
       }).toList();
-      state = state.copyWith(items: newItems);
+      state = state.copyWith(items: _recalculateAllItems(newItems));
 
       _refreshItemsStock(warehouseId);
     }
   }
 
-  void addItemsInBulk(List<PurchaseOrderItem> newItems) {
-    final recalculatedNewItems = newItems
-        .map((i) => _recalculateItem(i, state.discountLevel))
-        .toList();
-
-    state = state.copyWith(
-      items: [
-        ...state.items.where((i) => i.productId.isNotEmpty), // keep filled ones
-        ...recalculatedNewItems,
-      ],
-    );
-    if (state.items.isEmpty) addItemRow(); // ensure at least one
+  void addItemsInBulk(List<PurchaseOrderItem> newItemsList) {
+    final combinedItems = [
+      ...state.items.where((i) => i.productId.isNotEmpty),
+      ...newItemsList,
+    ];
+    state = state.copyWith(items: _recalculateAllItems(combinedItems));
+    if (state.items.isEmpty) addItemRow();
   }
 
   TaxRate? _resolvePurchaseTax(Item product, {bool? isInterstate}) {

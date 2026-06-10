@@ -5878,11 +5878,14 @@ class _PurchasesBillCreateScreenState
             children: [
               Expanded(
                 child: Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: _bgWhite,
                     border: Border(
-                      left: BorderSide(color: _borderColor),
-                      right: BorderSide(color: _borderColor),
+                      left: const BorderSide(color: _borderColor),
+                      right: const BorderSide(color: _borderColor),
+                      bottom: _hiddenDetails.contains(index)
+                          ? const BorderSide(color: _borderColor)
+                          : BorderSide.none,
                     ),
                   ),
                   child: IntrinsicHeight(
@@ -6741,6 +6744,7 @@ class _PurchasesBillCreateScreenState
                                        pl.itemRates!.any((r) => r.itemId == row.itemId)))
                                   .toList(),
                               hint: 'Apply Price List',
+                              allowClear: true,
                               boldSelected: false,
                               displayStringForValue: (pl) => pl.name,
                               textStyle: const TextStyle(
@@ -6768,6 +6772,14 @@ class _PurchasesBillCreateScreenState
                                     );
                                     row.rateCtrl.text = newRate
                                         .toStringAsFixed(2);
+                                  });
+                                } else {
+                                  setState(() {
+                                    row.priceListId = null;
+                                    final itemsState = ref.read(itemsControllerProvider);
+                                    final originalProduct = itemsState.items.where((i) => i.id == row.itemId).firstOrNull;
+                                    final defaultRate = originalProduct?.costPrice ?? 0.0;
+                                    row.rateCtrl.text = defaultRate.toStringAsFixed(2);
                                   });
                                 }
                               },
@@ -9267,7 +9279,11 @@ class _PurchasesBillCreateScreenState
         const SizedBox(width: 12),
         const SizedBox(
           width: 18,
-          child: Icon(Icons.info_outline, size: 14, color: _textMuted),
+          child: ZTooltip(
+            message: "Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.",
+            direction: ZTooltipDirection.bottom,
+            child: Icon(LucideIcons.helpCircle, size: 14, color: _textMuted),
+          ),
         ),
         const SizedBox(width: 12),
         SizedBox(
@@ -11425,12 +11441,12 @@ class _PopoverListItemState extends State<_PopoverListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isSelected || _hover
+    final bg = _hover
         ? const Color(0xFF3B82F6)
-        : Colors.transparent;
-    final text = widget.isSelected || _hover
-        ? Colors.white
-        : const Color(0xFF111827);
+        : widget.isSelected
+            ? const Color(0xFFF3F4F6)
+            : Colors.transparent;
+    final text = _hover ? Colors.white : const Color(0xFF111827);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -11458,7 +11474,6 @@ class _PopoverListItemState extends State<_PopoverListItem> {
                   style: TextStyle(fontSize: 13, color: text),
                 ),
               ),
-              if (widget.isSelected) Icon(Icons.check, size: 14, color: text),
             ],
           ),
         ),

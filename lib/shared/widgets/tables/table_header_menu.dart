@@ -60,7 +60,8 @@ class ZTableHeaderMenu extends StatelessWidget {
             style: ZTableMoreMenu.menuItemButtonStyle(),
             child: Row(
               children: [
-                const SizedBox(width: 4), // Small offset since icon is removed
+                Icon(wrapText ? LucideIcons.alignLeft : LucideIcons.wrapText, size: 16),
+                const SizedBox(width: 12),
                 Text(wrapText ? 'Clip Text' : 'Wrap Text', style: const TextStyle(fontSize: 13)),
               ],
             ),

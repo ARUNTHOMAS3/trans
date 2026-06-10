@@ -2679,6 +2679,8 @@ class _BranchPriceListCreateScreenState
       final itemId = _itemKey(item, index);
       final customRateText = _customRateControllers[itemId]?.text.trim() ?? '';
       final customRate = _parseDecimalInput(customRateText);
+      final discountText = _discountControllers[itemId]?.text.trim() ?? '';
+      final discountPercentage = _parseDecimalInput(discountText);
       if (customRateText.isEmpty || customRate == null) continue;
 
       rates.add(
@@ -2688,6 +2690,7 @@ class _BranchPriceListCreateScreenState
           sku: item.sku,
           salesRate: _baseRateFor(item),
           customRate: customRate,
+          discountPercentage: _isDiscountEnabled ? discountPercentage : null,
         ),
       );
     }
@@ -2715,8 +2718,13 @@ class _BranchPriceListCreateScreenState
             _volumeRateControllers[_volumeRangeKey(itemId, rangeIndex)]?.text
                 .trim() ??
             '';
+        final discountText =
+            _discountControllers[_volumeDiscountKey(itemId, rangeIndex)]?.text
+                .trim() ??
+            '';
+        final discountPercentage = _parseDecimalInput(discountText);
         final hasInput =
-            startText.isNotEmpty || endText.isNotEmpty || rateText.isNotEmpty;
+            startText.isNotEmpty || endText.isNotEmpty || rateText.isNotEmpty || discountText.isNotEmpty;
         if (!hasInput) continue;
 
         ranges.add(
@@ -2724,6 +2732,7 @@ class _BranchPriceListCreateScreenState
             startQuantity: _parseDecimalInput(startText) ?? 0,
             endQuantity: _parseDecimalInput(endText),
             customRate: _parseDecimalInput(rateText) ?? 0,
+            discountPercentage: _isDiscountEnabled ? discountPercentage : null,
           ),
         );
       }
