@@ -547,6 +547,7 @@ class WarehouseModel {
   final bool isActive;
   final String? locationType;
   final String? parentBranchId;
+  final String? entityId;
 
   WarehouseModel({
     required this.id,
@@ -564,6 +565,7 @@ class WarehouseModel {
     this.isActive = true,
     this.locationType,
     this.parentBranchId,
+    this.entityId,
   });
 
   factory WarehouseModel.fromJson(Map<String, dynamic> json) {
@@ -590,6 +592,7 @@ class WarehouseModel {
       isActive: json['isActive'] ?? json['is_active'] ?? true,
       locationType: (json['locationType'] ?? json['location_type'])?.toString(),
       parentBranchId: (json['parentBranchId'] ?? json['parent_branch_id'] ?? json['branch_id'])?.toString(),
+      entityId: (json['entity_id'] ?? json['entityId'])?.toString(),
     );
   }
 
@@ -609,6 +612,7 @@ class WarehouseModel {
       'is_active': isActive,
       'location_type': locationType,
       'parent_branch_id': parentBranchId,
+      'entity_id': entityId,
     };
   }
 

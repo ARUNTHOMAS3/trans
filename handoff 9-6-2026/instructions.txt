@@ -16,6 +16,14 @@ CHANGES MADE IN THIS HANDOFF
 4. Drizzle/Database Schema Modification
    - Adjusted Drizzle schema constraints to support products table and vendor info extensions without breaking items creation forms.
 
+5. Active Branch/Entity Warehouse Filtering
+   - Added active branch warehouse filtering inside Purchases warehousesProvider (`purchases_purchase_orders_provider.dart`) and WarehouseRepositoryImpl (`warehouse_repository.dart`).
+   - Mapped `entityId` dynamically on client-side models (`WarehouseModel` and `Warehouse`) to isolate data per selected active branch/entity.
+
+6. Item Packages and Product Controller updates
+   - Updated product modules controllers and service implementations on the backend to handle compliant database requests.
+   - Refactored Packages Create/Edit screens and Credit Notes pages on the frontend for high density layout standards and theme alignment.
+
 HOW TO INTEGRATE THIS HANDOFF
 ==============================
 

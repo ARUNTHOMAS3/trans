@@ -6276,6 +6276,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                               const SizedBox(width: 4),
                                               Flexible(
                                                 child: WarehouseHoverPopover(
+                                                  productId: item.productId,
                                                   warehouseName: wh.name,
                                                   selectedView:
                                                       'Available for Sale',

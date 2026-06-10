@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 
 class VendorSidebar extends StatefulWidget {
   final Vendor vendor;
@@ -28,10 +29,15 @@ class _VendorSidebarState extends State<VendorSidebar>
   int _tab = 0;
   bool _showContactPersons = false;
   bool _showAddress = true; // Open by default matching the 2nd screenshot
+  List<Map<String, dynamic>> _paymentTermsList = [];
 
   @override
   void initState() {
     super.initState();
+    _paymentTermsList = List<Map<String, dynamic>>.from(widget.paymentTermsList);
+    if (_paymentTermsList.isEmpty) {
+      _loadPaymentTerms();
+    }
     _controller = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -41,6 +47,20 @@ class _VendorSidebarState extends State<VendorSidebar>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
+  }
+
+  Future<void> _loadPaymentTerms() async {
+    if (!mounted) return;
+    try {
+      final terms = await LookupsApiService().getPaymentTerms();
+      if (mounted) {
+        setState(() {
+          _paymentTermsList = terms;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading payment terms: $e');
+    }
   }
 
   @override
@@ -385,7 +405,7 @@ class _VendorSidebarState extends State<VendorSidebar>
 
   Widget _buildContactDetailsCard(Vendor v) {
     // Resolve payment term name
-    final term = widget.paymentTermsList.firstWhere(
+    final term = _paymentTermsList.firstWhere(
       (t) => t['id'] == v.paymentTerms,
       orElse: () => {'term_name': v.paymentTerms ?? ''},
     );

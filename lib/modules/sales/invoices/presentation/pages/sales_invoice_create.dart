@@ -3695,6 +3695,7 @@ class _SalesInvoiceCreateScreenState
                                         const SizedBox(width: 4),
                                         Flexible(
                                           child: WarehouseHoverPopover(
+                                            productId: row.itemId,
                                             warehouseName: warehouse ?? 'hbnm',
                                             selectedView: 'Available for Sale',
                                             onViewChanged: (v) {},

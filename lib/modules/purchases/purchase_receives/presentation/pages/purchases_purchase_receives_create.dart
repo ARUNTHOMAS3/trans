@@ -26,11 +26,9 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_pu
 
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
-import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
-import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
@@ -175,6 +173,7 @@ class _PRCreateState
   OverlayEntry? _filePopupOverlayEntry;
   OverlayEntry? _topErrorOverlayEntry;
   OverlayEntry? _vendorSidebarOverlay;
+  bool _isVendorSidebarLoading = false;
   Timer? _topErrorTimer;
   String? _selectedTransactionBin;
   static const List<String> _manualBinList = [
@@ -638,6 +637,17 @@ class _PRCreateState
     }
   }
 
+  void _addAllItemsFromPO() {
+    if (_selectedPO == null) {
+      _showTopError("Please select a Purchase Order first.");
+      return;
+    }
+    setState(() {
+      _clearAllRows();
+      _populateRowsFromPO(_selectedPO);
+    });
+  }
+
   bool get _hasValidSelection =>
       _selectedVendorName != null &&
       _selectedVendorName!.isNotEmpty &&
@@ -914,11 +924,14 @@ class _PRCreateState
 
     try {
       final pos = await ref.read(
-        purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)).future,
+        purchaseOrdersProvider(
+          PurchaseOrderFilter(limit: 500, vendorId: vendorId),
+        ).future,
       );
+      final filtered = pos.where((po) => po.vendorId == vendorId).toList();
       if (mounted) {
         setState(() {
-          _vendorPOs = pos;
+          _vendorPOs = filtered;
         });
       }
     } catch (e) {
@@ -1064,7 +1077,7 @@ class _PRCreateState
                     return _buildFormRow(
                       label: "Vendor Name",
                       isRequired: true,
-                      child: Flexible(
+                      child: Expanded(
                         child: Row(
                           children: [
                             SizedBox(
@@ -1091,10 +1104,7 @@ class _PRCreateState
                                     });
                                   }
                                 },
-                                showSettings: true,
-                                settingsLabel: 'New Vendor',
-                                settingsIcon: LucideIcons.plus,
-                                onSettingsTap: _showNewVendorDialog,
+                                showSettings: false,
                                 displayStringForValue: (v) => v.displayName,
                                 itemBuilder: (v, isSelected, isHovered) =>
                                     _buildVendorDropdownItem(v, isSelected, isHovered),
@@ -1129,40 +1139,7 @@ class _PRCreateState
                               ),
                             ),
                             if (hasVendor) ...[
-                              const SizedBox(width: 8),
-                              // INR badge
-                              Container(
-                                height: 28,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.circleDollarSign,
-                                      size: 14,
-                                      color: Color(0xFF374151),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _getCurrencyLabel(selectedVendor.currency ?? 'INR'),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF111827),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
+                              const Spacer(),
                               // Vendor card button on the right
                               GestureDetector(
                                 onTap: () => _showVendorSidebar(selectedVendor),
@@ -1207,8 +1184,10 @@ class _PRCreateState
                   label: "Purchase Order#",
                   labelColor: _dangerRed,
                   child: SizedBox(
-                    width: 400,
+                    width: 550,
                     child: FormDropdown<PurchaseOrder>(
+                      height: 32,
+                      menuWidth: 550,
                       itemHeight: 60.0,
                       value: _selectedPO,
                       items: _vendorPOs,
@@ -1851,12 +1830,6 @@ class _PRCreateState
                 ),
               ),
             ),
-            // Insert New Row Button
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _buildInsertRowButton(),
-            ),
           ],
         ),
       ),
@@ -1897,8 +1870,37 @@ class _PRCreateState
                         child: Row(
                           children: [
                             _tableHeaderCell(
-                              "ITEMS & DESCRIPTION",
+                              "",
                               fixedWidth: 300,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    "ITEMS & DESCRIPTION",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF6B7280),
+                                      fontFamily: 'Inter',
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  InkWell(
+                                    onTap: _addAllItemsFromPO,
+                                    child: const Text(
+                                      "add all items",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: _linkBlue,
+                                        fontFamily: 'Inter',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             _tableHeaderCell(
                               "ORDERED",
@@ -2451,7 +2453,12 @@ class _PRCreateState
   }
 
   void _showVendorSidebar(Vendor vendor) async {
-    _closeVendorSidebar();
+    if (_isVendorSidebarLoading) return;
+    if (_vendorSidebarOverlay != null) return;
+
+    setState(() {
+      _isVendorSidebarLoading = true;
+    });
     
     Vendor displayVendor = vendor;
     try {
@@ -2462,6 +2469,12 @@ class _PRCreateState
       }
     } catch (e) {
       debugPrint('Error fetching full vendor details: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isVendorSidebarLoading = false;
+        });
+      }
     }
 
     if (!mounted) return;
@@ -2509,7 +2522,6 @@ class _PRCreateState
     if (!mounted) return;
     ref.read(vendorProvider.notifier).loadVendors();
   }
-
   Widget _buildVendorDropdownItem(Vendor v, bool isSelected, bool isHovered) {
     final firstName = (v.firstName ?? '').trim();
     final initialSource = firstName.isNotEmpty
@@ -2872,6 +2884,7 @@ class _PRCreateState
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: WarehouseHoverPopover(
+                  productId: _items[index].itemId,
                   warehouseName: _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
                   selectedView: _rowSelectedViews[index] ?? 'Accounting',
                   onWarehouseChanged: (name) => setState(() => _rowSelectedWarehouses[index] = name),
@@ -3207,6 +3220,7 @@ class _PRCreateState
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: WarehouseHoverPopover(
+                  productId: _items[index].itemId,
                   warehouseName: _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
                   selectedView: _rowSelectedViews[index] ?? 'Accounting',
                   onWarehouseChanged: (name) => setState(() => _rowSelectedWarehouses[index] = name),
@@ -3654,7 +3668,7 @@ class _PRCreateState
         0,
         (sum, b) => sum + b.quantity,
       );
-      if (item.batches.isNotEmpty && totalBatchQtyOnly != item.ordered) {
+      if (item.batches.isNotEmpty && totalBatchQtyOnly != item.quantityToReceive) {
         hasMismatch = true;
         break;
       }

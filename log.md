@@ -1736,6 +1736,13 @@ Timestamp of Log Update: June 08, 2026 - 6:30 PM (IST)
 ### Summary
 Rolled back the previous layout changes (Row layout, solid Icon style) of the warning icon in both Purchases Purchase Orders and Bills Create screens, restoring the outline `LucideIcons.alertCircle` icon at its original offset position. Resolved the hover hit-testing issue by wrapping the row inside a parent `Transform.translate` container, enabling hover gestures on the warning icon without causing visual shifts in the dropdown alignment.
 
+Timestamp of Log Update: June 08, 2026 - 6:30 PM (IST)
+
+## 35. Warning Icon Layout Reversion & Tooltip Fix (June 09, 2026)
+
+### Summary
+Rolled back the previous layout changes (Row layout, solid Icon style) of the warning icon in both Purchases Purchase Orders and Bills Create screens, restoring the outline `LucideIcons.alertCircle` icon at its original offset position. Resolved the hover hit-testing issue by wrapping the row inside a parent `Transform.translate` container, enabling hover gestures on the warning icon without causing visual shifts in the dropdown alignment.
+
 ### Detailed Engineering Changes
 
 #### Frontend Files
@@ -1746,3 +1753,64 @@ Rolled back the previous layout changes (Row layout, solid Icon style) of the wa
   - Ported the identical layout reversion and parent translation offset fix, restoring `LucideIcons.alertCircle` and ensuring perfect design layout symmetry and functional hover tooltips.
 
 Timestamp of Log Update: June 09, 2026 - 10:45 AM (IST)
+
+
+## 36. Purchase Receives Validation and UI/UX Alignment Polish (June 10, 2026)
+
+### Summary
+Fixed the batch quantity mismatch validation error blocking partial receives in the Purchase Receives page, and re-applied all requested layout alignments, vendor-specific PO filtering, and asynchronous payment terms sidebar name lookup.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **Validation Fix**: Changed validation check from `totalBatchQtyOnly != item.ordered` to `totalBatchQtyOnly != item.quantityToReceive` to support partial receives.
+  - **Dropdown Filtering**: Updated `_fetchPOsForVendor` to load POs filtered by `vendorId` via `PurchaseOrderFilter` and local list filtering.
+  - **Layout Sizing**: Uniformly sized Vendor Name and Purchase Order dropdown widths to 550 and heights to 32.
+  - **Action Header Link**: Replaced static header cell text with custom `Column` containing "ITEMS & DESCRIPTION" label and clickable "add all items" `InkWell` linked to `_addAllItemsFromPO()`.
+  - **Insert Row Button & New Vendor**: Removed "+ Insert New Row" from PO table layout, and disabled "+ New Vendor" option inside Vendor Name dropdown.
+  - **Details Sidebar & Currency Badge**: Removed the `INR` currency badge, pushed the sidebar details button to the right end via a Spacer, and added state `_isVendorSidebarLoading` to lock overlay and prevent duplicate triggers.
+- lib/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart:
+  - **Payment Terms Lookup**: Fetches dynamic payment terms asynchronously inside `initState()` using `LookupsApiService().getPaymentTerms()` if the input list is empty. Resolves payment term names dynamically from ID value, showing human-readable names instead of UUID strings.
+
+**Verifications**: Verified compilation successfully with `dart analyze` on modified files.
+
+Timestamp of Log Update: June 10, 2026 - 9:40 PM (IST)
+
+## 37. Product Warehouse Stocks in Popover (June 10, 2026)
+
+### Summary
+Implemented multi-tenant scoping and views querying on the backend to retrieve and return physical and accounting stocks for specific products in the warehouse locations popover. Wired the product ID parameter from all transaction edit/create line-item tables to fetch and show dynamic stock balances.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/inputs/warehouse_popover.dart`:
+  - Added `String? productId` to popover constructor and updated `itemWarehouseStocksProvider` to accept `productId`.
+  - When `productId` is provided, watches stock provider to dynamically fetch stocks from the database scoped by product and maps them to listed warehouses, defaulting empty locations to 0.
+- `lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`:
+  - Passed `row.itemId` to `WarehouseHoverPopover` to fetch dynamic stock levels.
+- `lib/modules/sales/invoices/presentation/pages/sales_invoice_edit_page.dart`:
+  - Passed `row.itemId` to `WarehouseHoverPopover` to fetch dynamic stock levels.
+- `lib/modules/sales/credit_note/presentation/pages/credit_note_create_page.dart`:
+  - Passed `item.sourceItem?.id` to `WarehouseHoverPopover` to fetch dynamic stock levels.
+- `lib/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_create.dart`:
+  - Passed `item.sourceItem?.id` to `WarehouseHoverPopover` to fetch dynamic stock levels.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`:
+  - Passed `item.productId` to `WarehouseHoverPopover` to fetch dynamic stock levels.
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - Passed `row.itemId` to `WarehouseHoverPopover` to fetch dynamic stock levels.
+- `lib/modules/inventory/packages/presentation/pages/inventory_packages_create.dart`:
+  - Passed `item.itemId` to `WarehouseHoverPopover` to fetch dynamic stock levels.
+- `lib/modules/inventory/packages/presentation/pages/inventory_packages_edit.dart`:
+  - Passed `item.itemId` to `WarehouseHoverPopover` to fetch dynamic stock levels.
+
+#### Backend Files
+- `backend/src/modules/products/products.controller.ts`:
+  - Scoped endpoints `/products/:id/warehouse-stocks`, `/products/:id/warehouse-stocks/adjust-physical`, and update routes by adding `@Tenant() tenant: TenantContext` parameter.
+- `backend/src/modules/products/products.service.ts`:
+  - Updated `getProductWarehouseStocks` to scope warehouse queries by resolving `tenant.entityId`.
+  - Queried `v_accounting_stock` and `v_physical_stock` views scoped by `product_id` and `entity_id`.
+  - Mapped database properties (`stock_on_hand`, `committed_stock`, `available_stock`, `qty`) to `accounting` and `physical` structures with `onHand`, `committed`, and `available` properties expected by the frontend.
+
+Timestamp of Log Update: June 10, 2026 - 10:05 PM (IST)
