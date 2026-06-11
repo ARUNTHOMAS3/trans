@@ -865,6 +865,7 @@ class _PurchasesPurchaseReceivesListScreenState
       moduleName: 'purchase_receives',
       options: _receiveFilterOptions,
       selectedOption: _activeOption,
+      isCompact: isCompact,
       onChanged: (opt) {
         setState(() {
           _activeOption = opt;

@@ -11,7 +11,7 @@ import '../../../../../../shared/widgets/tables/table_header_menu.dart';
 import '../../../../../../shared/widgets/tables/table_more_menu.dart';
 import '../../../../../../shared/widgets/skeleton.dart';
 import '../../providers/purchases_purchase_orders_provider.dart';
-import '../../models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import '../../../../../../app/providers/org_settings_provider.dart';
 import '../../../../../../core/models/org_settings_model.dart';
 import '../../../../../../shared/widgets/email_composer.dart';
@@ -21,6 +21,8 @@ import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'dart:convert';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_receives/providers/purchase_receives_provider.dart';
 import 'package:printing/printing.dart';
 import 'dart:typed_data';
 import 'package:zerpai_erp/shared/widgets/z_expandable_tabs.dart';
@@ -273,7 +275,7 @@ class _PurchaseOrderOverviewScreenState
       final receivesResp = await supabase
           .from('purchase_receives')
           .select(
-            'id,purchase_receive_number,received_date,status,bill_no,purchase_order_id,purchase_receive_items(item_id,ordered,received)',
+            'id,purchase_receive_number,received_date,status,bill_no,purchase_order_id,purchase_receive_items(item_id,ordered,received,quantity_to_receive)',
           )
           .eq('purchase_order_id', order.id ?? '')
           .order('created_at', ascending: false);
@@ -286,7 +288,9 @@ class _PurchaseOrderOverviewScreenState
     try {
       final billsResp = await supabase
           .from('bills')
-          .select('id,bill_number,bill_date,status,total:grand_total,due_date,order_number')
+          .select(
+            'id,bill_number,bill_date,status,total:grand_total,due_date,order_number,bill_items(product_id,quantity)',
+          )
           .eq('order_number', order.orderNumber)
           .order('created_at', ascending: false);
       billsList = billsResp as List<dynamic>;
@@ -327,7 +331,7 @@ class _PurchaseOrderOverviewScreenState
           r['purchase_receive_items'] as List<dynamic>? ??
           [];
       for (final item in itemsList) {
-        totalReceived += (item['received'] as num?)?.toDouble() ?? 0.0;
+        totalReceived += double.tryParse(item['quantity_to_receive']?.toString() ?? item['received']?.toString() ?? '0.0') ?? 0.0;
       }
     }
 
@@ -641,6 +645,7 @@ class _PurchaseOrderOverviewScreenState
                       moduleName: 'purchase_orders',
                       options: _poFilterOptions,
                       selectedOption: _activeOption,
+                      isCompact: true,
                       onChanged: (opt) {
                         setState(() {
                           _activeOption = opt;
@@ -2210,7 +2215,7 @@ class _PurchaseOrderOverviewScreenState
                             (item['item_id'] ?? item['product_id'])?.toString();
                         if (recProdId == poItem.productId) {
                           totalReceivedForProduct +=
-                              (item['received'] as num?)?.toDouble() ?? 0.0;
+                              double.tryParse(item['received']?.toString() ?? '0.0') ?? 0.0;
                         }
                       }
                     }
@@ -2350,7 +2355,8 @@ class _PurchaseOrderOverviewScreenState
                           _buildPdfPrintDropdown(order, orgSettings),
                           _buildDivider(),
                           if (order.status.toLowerCase() == 'closed' ||
-                              displayStatus.toLowerCase() == 'closed')
+                              displayStatus.toLowerCase() == 'closed' ||
+                              summary.receives.isNotEmpty)
                             _buildToolbarButton(
                               LucideIcons.fileText,
                               'Convert to Bill',
@@ -2387,7 +2393,7 @@ class _PurchaseOrderOverviewScreenState
                                 constraints: const BoxConstraints(),
                               );
                             },
-                            menuChildren: _menuChildrenForStatus(order),
+                            menuChildren: _menuChildrenForStatus(order, summary),
                           ),
                         ],
                       ),
@@ -2495,8 +2501,9 @@ class _PurchaseOrderOverviewScreenState
                                 ),
                               ),
                             ],
-                            if (order.status.toLowerCase() == 'issued' ||
-                                displayStatus.toLowerCase() == 'issued') ...[
+                            if ((order.status.toLowerCase() == 'issued' ||
+                                    displayStatus.toLowerCase() == 'issued') &&
+                                summary.receives.isEmpty) ...[
                               Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 padding: const EdgeInsets.symmetric(
@@ -2551,7 +2558,7 @@ class _PurchaseOrderOverviewScreenState
                                         summary.receiveStatus.toLowerCase() ==
                                             'in transit' &&
                                         summary.billStatus.toLowerCase() ==
-                                            'yet to be billed'))
+                                            'yet to be billed') && !_isAllItemsReceived(order, summary))
                                       SizedBox(
                                         height: 34,
                                         child: ZButton.primary(
@@ -2596,27 +2603,9 @@ class _PurchaseOrderOverviewScreenState
                                 ),
                               ),
                             ],
-                            if (summary.receives.isNotEmpty ||
-                                summary.bills.isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              ZExpandableTabs(
-                                tabs: [
-                                  if (summary.bills.isNotEmpty)
-                                    'Bills ${summary.bills.length}',
-                                  if (summary.receives.isNotEmpty)
-                                    'Receives ${summary.receives.length}',
-                                ],
-                                children: [
-                                  if (summary.bills.isNotEmpty)
-                                    _poBillsBanner(summary),
-                                  if (summary.receives.isNotEmpty)
-                                    _poReceivesBanner(summary),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                            ],
                             if (order.status.toLowerCase() == 'closed' ||
-                                displayStatus.toLowerCase() == 'closed') ...[
+                                displayStatus.toLowerCase() == 'closed' ||
+                                summary.receives.isNotEmpty) ...[
                               Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 padding: const EdgeInsets.symmetric(
@@ -2671,6 +2660,27 @@ class _PurchaseOrderOverviewScreenState
                                   ],
                                 ),
                               ),
+                            ],
+                            if (summary.receives.isNotEmpty ||
+                                summary.bills.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              ZExpandableTabs(
+                                showBorder: true,
+                                contentPadding: EdgeInsets.zero,
+                                tabs: [
+                                  if (summary.bills.isNotEmpty)
+                                    'Bills ${summary.bills.length}',
+                                  if (summary.receives.isNotEmpty)
+                                    'Receives ${summary.receives.length}',
+                                ],
+                                children: [
+                                  if (summary.bills.isNotEmpty)
+                                    _poBillsBanner(summary),
+                                  if (summary.receives.isNotEmpty)
+                                    _poReceivesBanner(summary, order),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
                             ],
                             Row(
                               children: [
@@ -2890,7 +2900,7 @@ class _PurchaseOrderOverviewScreenState
           username: 'zabnixprivatelimited',
           time: dt ?? order.createdAt ?? order.orderDate,
           content:
-              'Bill ${b['bill_number'] ?? ''} created for ₹${(b['total'] as num?)?.toDouble().toStringAsFixed(2)}',
+              'Bill ${b['bill_number'] ?? ''} created for ₹${(double.tryParse(b['total']?.toString() ?? '0.0') ?? 0.0).toStringAsFixed(2)}',
           icon: LucideIcons.receipt,
         ),
       );
@@ -3121,40 +3131,83 @@ class _PurchaseOrderOverviewScreenState
     );
   }
 
-  List<Widget> _menuChildrenForStatus(PurchaseOrder order) {
+  bool _isAllItemsReceived(PurchaseOrder order, _PoTxnSummary summary) {
+    if (order.items.isEmpty) return false;
+    for (final poItem in order.items) {
+      if (poItem.isHeader) continue;
+      double totalReceivedForProduct = 0.0;
+      for (final r in summary.receives) {
+        final itemsList =
+            r['purchases_purchase_receive_items'] as List<dynamic>? ??
+            r['purchase_receive_items'] as List<dynamic>? ??
+            [];
+        for (final item in itemsList) {
+          final recProdId =
+              (item['item_id'] ?? item['product_id'])?.toString();
+          if (recProdId == poItem.productId) {
+            totalReceivedForProduct +=
+                double.tryParse(item['received']?.toString() ?? '0.0') ?? 0.0;
+          }
+        }
+      }
+      if (totalReceivedForProduct < poItem.quantity - 0.0001) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<Widget> _menuChildrenForStatus(PurchaseOrder order, _PoTxnSummary summary) {
+    final isFullyReceived = _isAllItemsReceived(order, summary);
+    if (isFullyReceived) {
+      return [
+        _detailActionMenuItem('Reopen canceled items', order, summary),
+        _detailActionMenuItem('Clone', order, summary),
+        _detailActionMenuItem('Delete', order, summary),
+      ];
+    }
+
+    if (summary.receives.isNotEmpty) {
+      return [
+        _detailActionMenuItem('Cancel Items', order, summary),
+        _detailActionMenuItem('Clone', order, summary),
+        _detailActionMenuItem('Delete', order, summary),
+      ];
+    }
+
     final status = order.status.toLowerCase();
     if (status == 'draft') {
       return [
-        _detailActionMenuItem('Mark as Issued', order),
-        _detailActionMenuItem('Convert to Bill', order),
-        _detailActionMenuItem('Create Receive', order),
-        _detailActionMenuItem('Clone', order),
-        _detailActionMenuItem('Delete', order),
-        _detailActionMenuItem('Mark as Received', order),
+        _detailActionMenuItem('Mark as Issued', order, summary),
+        _detailActionMenuItem('Convert to Bill', order, summary),
+        _detailActionMenuItem('Create Receive', order, summary),
+        _detailActionMenuItem('Clone', order, summary),
+        _detailActionMenuItem('Delete', order, summary),
+        _detailActionMenuItem('Mark as Received', order, summary),
       ];
     } else if (status == 'closed') {
       return [
-        _detailActionMenuItem('Reopen canceled items', order),
-        _detailActionMenuItem('Clone', order),
-        _detailActionMenuItem('Delete', order),
+        _detailActionMenuItem('Reopen canceled items', order, summary),
+        _detailActionMenuItem('Clone', order, summary),
+        _detailActionMenuItem('Delete', order, summary),
       ];
     } else if (status == 'issued') {
       return [
-        _detailActionMenuItem('Expected Delivery Date', order),
-        _detailActionMenuItem('Cancel Items', order),
-        _detailActionMenuItem('Mark as Canceled', order),
-        _detailActionMenuItem('Clone', order),
-        _detailActionMenuItem('Delete', order),
-        _detailActionMenuItem('Mark as Received', order),
+        _detailActionMenuItem('Expected Delivery Date', order, summary),
+        _detailActionMenuItem('Cancel Items', order, summary),
+        _detailActionMenuItem('Mark as Canceled', order, summary),
+        _detailActionMenuItem('Clone', order, summary),
+        _detailActionMenuItem('Delete', order, summary),
+        _detailActionMenuItem('Mark as Received', order, summary),
       ];
     } else {
       return [
-        _detailActionMenuItem('Expected Delivery Date', order),
-        _detailActionMenuItem('Cancel Items', order),
-        _detailActionMenuItem('Mark as Canceled', order),
-        _detailActionMenuItem('Clone', order),
-        _detailActionMenuItem('Delete', order),
-        _detailActionMenuItem('Mark as Received', order),
+        _detailActionMenuItem('Expected Delivery Date', order, summary),
+        _detailActionMenuItem('Cancel Items', order, summary),
+        _detailActionMenuItem('Mark as Canceled', order, summary),
+        _detailActionMenuItem('Clone', order, summary),
+        _detailActionMenuItem('Delete', order, summary),
+        _detailActionMenuItem('Mark as Received', order, summary),
       ];
     }
   }
@@ -3168,26 +3221,115 @@ class _PurchaseOrderOverviewScreenState
           _formatDateString(b['bill_date']),
           b['status']?.toString().toUpperCase() ?? '-',
           _formatDateString(b['due_date']),
-          '₹${(b['total'] as num?)?.toStringAsFixed(2) ?? '0.00'}',
+          '₹${(double.tryParse(b['total']?.toString() ?? '0.0') ?? 0.0).toStringAsFixed(2)}',
         ];
       }).toList(),
     );
   }
 
-  Widget _poReceivesBanner(_PoTxnSummary summary) {
+  Widget _poReceivesBanner(_PoTxnSummary summary, PurchaseOrder order) {
     return _bannerTable(
-      headers: const ['Purchase Receive#', 'received on', 'Status', 'Bill#'],
+      headers: const ['Purchase Receive#', 'received on', 'Status', 'Bill#', ''],
+      columnWidths: const {
+        0: FlexColumnWidth(1.2),
+        1: FlexColumnWidth(1.0),
+        2: FlexColumnWidth(0.8),
+        3: FlexColumnWidth(1.0),
+        4: FlexColumnWidth(1.2),
+      },
       rows: summary.receives.map((r) {
+        final statusText = (r['status']?.toString() ?? '-')
+            .split(' ')
+            .map(
+              (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
+            )
+            .join(' ');
+
         return [
-          r['purchase_receive_number']?.toString() ?? '-',
-          _formatDateString(r['received_date']),
-          (r['status']?.toString() ?? '-')
-              .split(' ')
-              .map(
-                (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
-              )
-              .join(' '),
-          r['bill_no']?.toString() ?? '',
+          InkWell(
+            onTap: () {
+              final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+              context.go('/$orgId/purchases/purchase-receives/edit/${r['id']}');
+            },
+            child: Text(
+              r['purchase_receive_number']?.toString() ?? '-',
+              style: AppTheme.bodyText.copyWith(
+                fontSize: 13,
+                color: AppTheme.primaryBlue,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            _formatDateString(r['received_date']),
+            style: AppTheme.bodyText.copyWith(fontSize: 13),
+          ),
+          Text(
+            statusText,
+            style: AppTheme.bodyText.copyWith(
+              fontSize: 13,
+              color: statusText == 'Received' ? AppTheme.successGreen : AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            r['bill_no']?.toString() ?? '',
+            style: AppTheme.bodyText.copyWith(fontSize: 13),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: () {
+                  final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+                  context.go('/$orgId/purchases/bills/create?poId=${order.id}');
+                },
+                child: Text(
+                  'Convert to Bill',
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 12,
+                    color: AppTheme.primaryBlue,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                '|',
+                style: TextStyle(
+                  color: AppTheme.borderLight,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () async {
+                  final confirm = await showZerpaiConfirmationDialog(
+                    context,
+                    title: 'Delete Purchase Receive',
+                    message: 'Are you sure you want to delete this purchase receive?',
+                  );
+                  if (confirm == true) {
+                    final success = await ref
+                        .read(purchaseReceivesProvider.notifier)
+                        .deleteReceive(r['id']?.toString() ?? '');
+                    if (success) {
+                      ref.invalidate(purchaseOrdersProvider);
+                      ZerpaiToast.success(context, 'Purchase receive deleted successfully');
+                    } else {
+                      ZerpaiToast.error(context, 'Failed to delete purchase receive');
+                    }
+                  }
+                },
+                child: const Icon(
+                  LucideIcons.trash2,
+                  size: 14,
+                  color: AppTheme.primaryBlue,
+                ),
+              ),
+            ],
+          ),
         ];
       }).toList(),
     );
@@ -3195,29 +3337,38 @@ class _PurchaseOrderOverviewScreenState
 
   Widget _bannerTable({
     required List<String> headers,
-    required List<List<String>> rows,
+    required List<List<dynamic>> rows,
+    Map<int, TableColumnWidth>? columnWidths,
   }) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.borderLight),
-        borderRadius: BorderRadius.circular(4),
+      decoration: const BoxDecoration(
         color: Colors.white,
       ),
       child: Table(
-        columnWidths: {
+        columnWidths: columnWidths ?? {
           for (int i = 0; i < headers.length; i++) i: const FlexColumnWidth(),
         },
         children: [
           TableRow(
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8F9FA),
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderLight, width: 0.8),
+              ),
+            ),
             children: headers
                 .map(
                   (h) => Padding(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     child: Text(
-                      h,
-                      style: AppTheme.metaHelper.copyWith(
+                      h.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
+                        color: Color(0xFF6B7280),
+                        fontFamily: 'Inter',
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
@@ -3233,10 +3384,12 @@ class _PurchaseOrderOverviewScreenState
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      child: Text(
-                        c,
-                        style: AppTheme.bodyText.copyWith(fontSize: 13),
-                      ),
+                      child: c is Widget
+                          ? c
+                          : Text(
+                              c.toString(),
+                              style: AppTheme.bodyText.copyWith(fontSize: 13),
+                            ),
                     ),
                   )
                   .toList(),
@@ -3255,41 +3408,47 @@ class _PurchaseOrderOverviewScreenState
     return DateFormat('dd-MM-yyyy').format(dt);
   }
 
-  MenuItemButton _detailActionMenuItem(String label, PurchaseOrder order) {
+  MenuItemButton _detailActionMenuItem(String label, PurchaseOrder order, _PoTxnSummary summary) {
     return MenuItemButton(
       onPressed: () async {
         if (label == 'Expected Delivery Date') {
-          final DateTime? picked = await showDatePicker(
+          showDialog(
             context: context,
-            initialDate: order.expectedDeliveryDate ?? DateTime.now(),
-            firstDate: DateTime(2020),
-            lastDate: DateTime(2030),
+            builder: (context) => _ExpectedDeliveryDateDialog(
+              initialDate: order.expectedDeliveryDate ?? DateTime.now(),
+              initialNotes: order.notes,
+              onSave: (result) async {
+                final pickedDate = result['date'] as DateTime;
+                final notes = result['notes'] as String;
+                try {
+                  final supabase = Supabase.instance.client;
+                  await supabase
+                      .from('purchase_orders')
+                      .update({
+                        'delivery_date': pickedDate.toIso8601String(),
+                        'notes': notes,
+                      })
+                      .eq('id', order.id!);
+
+                  ref.invalidate(
+                    purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)),
+                  );
+                  ref.invalidate(purchaseOrderProvider(order.id!));
+
+                  if (context.mounted) {
+                    ZerpaiToast.success(context, 'Expected delivery date updated');
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ZerpaiToast.error(
+                      context,
+                      'Failed to update delivery date: $e',
+                    );
+                  }
+                }
+              },
+            ),
           );
-          if (picked != null) {
-            try {
-              final supabase = Supabase.instance.client;
-              await supabase
-                  .from('purchase_orders')
-                  .update({'delivery_date': picked.toIso8601String()})
-                  .eq('id', order.id!);
-
-              ref.invalidate(
-                purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)),
-              );
-              ref.invalidate(purchaseOrderProvider(order.id!));
-
-              if (context.mounted) {
-                ZerpaiToast.success(context, 'Expected delivery date updated');
-              }
-            } catch (e) {
-              if (context.mounted) {
-                ZerpaiToast.error(
-                  context,
-                  'Failed to update delivery date: $e',
-                );
-              }
-            }
-          }
         } else if (label == 'Mark as Issued') {
           try {
             final supabase = Supabase.instance.client;
@@ -3340,26 +3499,53 @@ class _PurchaseOrderOverviewScreenState
             }
           }
         } else if (label == 'Cancel Items') {
-          try {
-            final supabase = Supabase.instance.client;
-            await supabase
-                .from('purchase_orders')
-                .update({'status': 'Closed'})
-                .eq('id', order.id!);
-
-            ref.invalidate(
-              purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)),
-            );
-            ref.invalidate(purchaseOrderProvider(order.id!));
-
-            if (context.mounted) {
-              ZerpaiToast.success(context, 'Purchase order items cancelled');
+          bool hasCancellableItems = false;
+          for (final item in order.items) {
+            if (item.isHeader) continue;
+            double recQty = 0.0;
+            for (final r in summary.receives) {
+              final itemsList = r['purchases_purchase_receive_items'] as List<dynamic>? ??
+                  r['purchase_receive_items'] as List<dynamic>? ??
+                  [];
+              for (final recItem in itemsList) {
+                final recProdId = (recItem['item_id'] ?? recItem['product_id'])?.toString();
+                if (recProdId == item.productId) {
+                  recQty += double.tryParse(recItem['received']?.toString() ?? '0.0') ?? 0.0;
+                }
+              }
             }
-          } catch (e) {
-            if (context.mounted) {
-              ZerpaiToast.error(context, 'Failed to cancel items: $e');
+            final remaining = item.quantity - recQty - item.cancelledQuantity;
+            if (remaining > 0) {
+              hasCancellableItems = true;
+              break;
             }
           }
+
+          if (!hasCancellableItems) {
+            ZerpaiToast.error(
+              context,
+              'There are no Item(s) available to be cancelled in this Purchase Order.',
+            );
+            return;
+          }
+
+          showDialog(
+            context: context,
+            builder: (context) => _CancelItemsDialog(
+              order: order,
+              summary: summary,
+              onProceed: () {
+                ref.invalidate(
+                  purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)),
+                );
+                ref.invalidate(purchaseOrderProvider(order.id!));
+
+                if (context.mounted) {
+                  ZerpaiToast.success(context, 'Purchase order items cancelled');
+                }
+              },
+            ),
+          );
         } else if (label == 'Mark as Canceled') {
           try {
             final supabase = Supabase.instance.client;
@@ -3382,7 +3568,10 @@ class _PurchaseOrderOverviewScreenState
             }
           }
         } else if (label == 'Clone') {
-          ZerpaiToast.success(context, 'Purchase order cloned successfully');
+          context.push(
+            '/purchases/purchase-orders/create?clone=true&clone_from_id=${order.id}',
+            extra: order,
+          );
         } else if (label == 'Delete') {
           try {
             final supabase = Supabase.instance.client;
@@ -3404,6 +3593,19 @@ class _PurchaseOrderOverviewScreenState
             }
           }
         } else if (label == 'Mark as Received') {
+          final hasTrackedItems = order.items.any((item) {
+            if (item.isHeader) return false;
+            return item.trackBatches || item.trackSerialNumber || item.trackBinLocation;
+          });
+
+          if (hasTrackedItems) {
+            ZerpaiToast.error(
+              context,
+              'You cannot mark this purchase order as received because it contains items tracked by serial number, batch number, or bins. You can create a receive for these items instead.',
+            );
+            return;
+          }
+
           try {
             final supabase = Supabase.instance.client;
             await supabase
@@ -3698,7 +3900,7 @@ class _PurchaseOrderOverviewScreenState
             child: Row(
               children: [
                 const Expanded(
-                  flex: 4,
+                  flex: 8,
                   child: Text(
                     'ITEMS & DESCRIPTION',
                     style: TextStyle(
@@ -3709,6 +3911,7 @@ class _PurchaseOrderOverviewScreenState
                   ),
                 ),
                 const Expanded(
+                  flex: 2,
                   child: Center(
                     child: Text(
                       'ORDERED',
@@ -3721,6 +3924,7 @@ class _PurchaseOrderOverviewScreenState
                   ),
                 ),
                 const Expanded(
+                  flex: 2,
                   child: Text(
                     'WAREHOUSE',
                     style: TextStyle(
@@ -3731,6 +3935,7 @@ class _PurchaseOrderOverviewScreenState
                   ),
                 ),
                 const Expanded(
+                  flex: 2,
                   child: Text(
                     'STATUS',
                     style: TextStyle(
@@ -3741,6 +3946,7 @@ class _PurchaseOrderOverviewScreenState
                   ),
                 ),
                 const Expanded(
+                  flex: 1,
                   child: Align(
                     alignment: Alignment.centerRight,
                     child: Text(
@@ -3754,6 +3960,7 @@ class _PurchaseOrderOverviewScreenState
                   ),
                 ),
                 const Expanded(
+                  flex: 2,
                   child: Text(
                     'AMOUNT',
                     textAlign: TextAlign.right,
@@ -3779,7 +3986,19 @@ class _PurchaseOrderOverviewScreenState
                     ?.toString();
                 if (recProdId == item.productId) {
                   itemReceivedQty +=
-                      (recItem['received'] as num?)?.toDouble() ?? 0.0;
+                      double.tryParse(recItem['quantity_to_receive']?.toString() ?? recItem['received']?.toString() ?? '0.0') ?? 0.0;
+                }
+              }
+            }
+            double itemBilledQty = 0.0;
+            for (final b in summary.bills) {
+              final itemsList = b['bill_items'] as List<dynamic>? ?? [];
+              for (final billItem in itemsList) {
+                final billProdId = (billItem['product_id'] ?? billItem['item_id'])
+                    ?.toString();
+                if (billProdId == item.productId) {
+                  itemBilledQty +=
+                      double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
                 }
               }
             }
@@ -3792,7 +4011,7 @@ class _PurchaseOrderOverviewScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 4,
+                    flex: 8,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -3837,6 +4056,7 @@ class _PurchaseOrderOverviewScreenState
                     ),
                   ),
                   Expanded(
+                    flex: 2,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -3856,12 +4076,14 @@ class _PurchaseOrderOverviewScreenState
                     ),
                   ),
                   Expanded(
+                    flex: 2,
                     child: Text(
                       warehouseName ?? '-',
                       style: AppTheme.bodyText.copyWith(fontSize: 11),
                     ),
                   ),
                   Expanded(
+                    flex: 2,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -3870,13 +4092,24 @@ class _PurchaseOrderOverviewScreenState
                           style: AppTheme.bodyText.copyWith(fontSize: 11),
                         ),
                         Text(
-                          '0 Billed',
+                          '${itemBilledQty.toInt()} Billed',
                           style: AppTheme.bodyText.copyWith(fontSize: 11),
                         ),
+                        if (item.cancelledQuantity > 0)
+                          Text(
+                            item.cancelledQuantity >= item.quantity
+                                ? 'Cancelled'
+                                : '${item.cancelledQuantity.toInt()} Cancelled',
+                            style: AppTheme.bodyText.copyWith(
+                              fontSize: 11,
+                              color: AppTheme.errorRed,
+                            ),
+                          ),
                       ],
                     ),
                   ),
                   Expanded(
+                    flex: 1,
                     child: Text(
                       '₹${item.rate.toStringAsFixed(2)}',
                       style: AppTheme.bodyText.copyWith(fontSize: 13),
@@ -3884,6 +4117,7 @@ class _PurchaseOrderOverviewScreenState
                     ),
                   ),
                   Expanded(
+                    flex: 2,
                     child: Text(
                       '₹${(item.quantity * item.rate).toStringAsFixed(2)}',
                       style: AppTheme.bodyText.copyWith(
@@ -3940,7 +4174,10 @@ class _PurchaseOrderOverviewScreenState
     return Column(
       children: [
         row('Sub Total', '₹${order.subTotal.toStringAsFixed(2)}', isBold: true),
-        row('Total Quantity : ${order.totalQuantity.toInt()}', ''),
+        row(
+          'Total Quantity : ${order.items.where((item) => !item.isHeader).fold<double>(0.0, (sum, item) => sum + item.quantity).toInt()}',
+          '',
+        ),
         if (order.discount > 0)
           row(
             'Discount (${order.discountType == 'percentage' ? '${order.discount}%' : 'Fixed'})',
@@ -5616,6 +5853,700 @@ class _AttachmentOverlayContentState extends State<_AttachmentOverlayContent> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ExpectedDeliveryDateDialog extends StatefulWidget {
+  final DateTime initialDate;
+  final String? initialNotes;
+  final ValueChanged<Map<String, dynamic>> onSave;
+
+  const _ExpectedDeliveryDateDialog({
+    required this.initialDate,
+    this.initialNotes,
+    required this.onSave,
+  });
+
+  @override
+  State<_ExpectedDeliveryDateDialog> createState() =>
+      _ExpectedDeliveryDateDialogState();
+}
+
+class _ExpectedDeliveryDateDialogState extends State<_ExpectedDeliveryDateDialog> {
+  late DateTime _selectedDate;
+  late DateTime _currentMonth;
+  late final TextEditingController _notesController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate;
+    _currentMonth = DateTime(_selectedDate.year, _selectedDate.month);
+    _notesController = TextEditingController(text: widget.initialNotes);
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final todayZero = DateTime(today.year, today.month, today.day);
+
+    final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    final firstDayWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday % 7;
+    final prevMonthDays = DateTime(_currentMonth.year, _currentMonth.month, 0).day;
+
+    final List<_CalendarDay> gridDays = [];
+
+    for (int i = firstDayWeekday - 1; i >= 0; i--) {
+      final d = prevMonthDays - i;
+      gridDays.add(_CalendarDay(
+        date: DateTime(_currentMonth.year, _currentMonth.month - 1, d),
+        isCurrentMonth: false,
+      ));
+    }
+
+    for (int d = 1; d <= daysInMonth; d++) {
+      gridDays.add(_CalendarDay(
+        date: DateTime(_currentMonth.year, _currentMonth.month, d),
+        isCurrentMonth: true,
+      ));
+    }
+
+    final totalCells = ((gridDays.length / 7).ceil() * 7);
+    final nextMonthPad = totalCells - gridDays.length;
+    for (int d = 1; d <= nextMonthPad; d++) {
+      gridDays.add(_CalendarDay(
+        date: DateTime(_currentMonth.year, _currentMonth.month + 1, d),
+        isCurrentMonth: false,
+      ));
+    }
+
+    final monthName = DateFormat('MMMM yyyy').format(_currentMonth);
+
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        width: 380,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Expected Delivery Date',
+                  style: AppTheme.pageTitle.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(LucideIcons.x, color: Colors.red, size: 18),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const Divider(height: 24, color: AppTheme.borderLight),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  monthName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(LucideIcons.chevronsRight, size: 18, color: Color(0xFF6B7280)),
+                  onPressed: () {
+                    setState(() {
+                      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
+                    });
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: const ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                  .map((w) => Center(
+                        child: Text(
+                          w,
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+              ),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: gridDays.length,
+              itemBuilder: (context, idx) {
+                final day = gridDays[idx];
+                final dayZero = DateTime(day.date.year, day.date.month, day.date.day);
+                final isSelected = dayZero == DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+                final isDisabled = !day.isCurrentMonth || dayZero.isBefore(todayZero);
+
+                return InkWell(
+                  onTap: isDisabled
+                      ? null
+                      : () {
+                          setState(() {
+                            _selectedDate = day.date;
+                          });
+                        },
+                  child: Center(
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF22A95E) : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        day.date.day.toString(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDisabled
+                                  ? const Color(0xFFD1D5DB)
+                                  : const Color(0xFF1E293B)),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Notes*',
+              style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _notesController,
+              maxLines: 3,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.all(10),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: Color(0xFF22A95E)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    widget.onSave({
+                      'date': _selectedDate,
+                      'notes': _notesController.text,
+                    });
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF22A95E),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  child: const Text('Save', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFD1D5DB)),
+                    foregroundColor: const Color(0xFF4B5563),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarDay {
+  final DateTime date;
+  final bool isCurrentMonth;
+  _CalendarDay({required this.date, required this.isCurrentMonth});
+}
+
+class _CancelItemsDialog extends StatefulWidget {
+  final PurchaseOrder order;
+  final _PoTxnSummary summary;
+  final VoidCallback onProceed;
+
+  const _CancelItemsDialog({
+    required this.order,
+    required this.summary,
+    required this.onProceed,
+  });
+
+  @override
+  State<_CancelItemsDialog> createState() => _CancelItemsDialogState();
+}
+
+class _CancelItemsDialogState extends State<_CancelItemsDialog> {
+  final Map<String, TextEditingController> _controllers = {};
+  final List<PurchaseOrderItem> _cancellableItems = [];
+  final Map<String, double> _receivedQuantities = {};
+  final Map<String, double> _billedQuantities = {};
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final item in widget.order.items) {
+      if (item.isHeader) continue;
+
+      // Received
+      double recQty = 0.0;
+      for (final r in widget.summary.receives) {
+        final itemsList = r['purchases_purchase_receive_items'] as List<dynamic>? ??
+            r['purchase_receive_items'] as List<dynamic>? ??
+            [];
+        for (final recItem in itemsList) {
+          final recProdId = (recItem['item_id'] ?? recItem['product_id'])?.toString();
+          if (recProdId == item.productId) {
+            recQty += double.tryParse(recItem['received']?.toString() ?? '0.0') ?? 0.0;
+          }
+        }
+      }
+      _receivedQuantities[item.productId] = recQty;
+
+      // Billed
+      double billQty = 0.0;
+      for (final b in widget.summary.bills) {
+        final itemsList = b['bill_items'] as List<dynamic>? ?? [];
+        for (final billItem in itemsList) {
+          final billProdId = (billItem['product_id'] ?? billItem['item_id'])?.toString();
+          if (billProdId == item.productId) {
+            billQty += double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+          }
+        }
+      }
+      _billedQuantities[item.productId] = billQty;
+
+      final remaining = item.quantity - recQty - item.cancelledQuantity;
+      if (remaining > 0) {
+        _cancellableItems.add(item);
+        _controllers[item.productId] = TextEditingController(
+          text: remaining.toInt().toString(),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _proceed() async {
+    if (_isSaving) return;
+
+    final List<Map<String, dynamic>> itemUpdates = [];
+    bool anyUpdated = false;
+
+    for (final item in widget.order.items) {
+      if (item.isHeader) continue;
+      double currentQty = item.quantity;
+      double cancelQty = 0.0;
+
+      if (_controllers.containsKey(item.productId)) {
+        cancelQty = double.tryParse(_controllers[item.productId]!.text) ?? 0.0;
+      }
+
+      final recQty = _receivedQuantities[item.productId] ?? 0.0;
+      final maxCancel = currentQty - recQty - item.cancelledQuantity;
+
+      if (cancelQty > maxCancel) {
+        ZerpaiToast.error(
+          context,
+          'Cancellation quantity for ${item.productName ?? "item"} cannot exceed remaining quantity (${maxCancel.toInt()})',
+        );
+        return;
+      }
+
+      if (cancelQty > 0) {
+        anyUpdated = true;
+
+        itemUpdates.add({
+          'id': item.id,
+          'cancelled_quantity': item.cancelledQuantity + cancelQty,
+        });
+      }
+    }
+
+    if (!anyUpdated) {
+      Navigator.pop(context);
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      for (final up in itemUpdates) {
+        await supabase
+            .from('purchase_order_items')
+            .update({
+              'cancelled_quantity': up['cancelled_quantity'],
+            })
+            .eq('id', up['id']);
+      }
+
+      double totalOriginalQuantity = 0.0;
+      double totalCancelled = 0.0;
+      double totalReceived = 0.0;
+
+      for (final item in widget.order.items) {
+        if (item.isHeader) continue;
+        totalOriginalQuantity += item.quantity;
+        
+        double currentCancel = item.cancelledQuantity;
+        if (_controllers.containsKey(item.productId)) {
+          double cancelQty = double.tryParse(_controllers[item.productId]!.text) ?? 0.0;
+          totalCancelled += currentCancel + cancelQty;
+        } else {
+          totalCancelled += currentCancel;
+        }
+
+        totalReceived += _receivedQuantities[item.productId] ?? 0.0;
+      }
+
+      String newStatus = widget.order.status;
+      if (totalCancelled >= totalOriginalQuantity) {
+        newStatus = 'Canceled';
+      } else if (totalOriginalQuantity <= (totalReceived + totalCancelled)) {
+        newStatus = 'Closed';
+      }
+
+      await supabase
+          .from('purchase_orders')
+          .update({
+            'status': newStatus,
+          })
+          .eq('id', widget.order.id!);
+
+      widget.onProceed();
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to cancel items: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        width: 850,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Cancel Items',
+                  style: AppTheme.pageTitle.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(LucideIcons.x, color: Colors.red, size: 18),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const Divider(height: 24, color: AppTheme.borderLight),
+            const Text(
+              'Choose the items and the quantity to be canceled',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_cancellableItems.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    'All items in this purchase order have been fully received.',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                  ),
+                ),
+              )
+            else
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.borderLight),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      color: const Color(0xFFF9FAFB),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: const [
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              'ITEM DETAILS',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'SKU',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'QUANTITY ORDERED',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'RECEIVED',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'BILLED',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'RECEIVED AND BILLED',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'QUANTITY TO CANCEL',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                            ),
+                          ),
+                          SizedBox(width: 32),
+                        ],
+                      ),
+                    ),
+                    ..._cancellableItems.map((item) {
+                      final recQty = _receivedQuantities[item.productId] ?? 0.0;
+                      final billQty = _billedQuantities[item.productId] ?? 0.0;
+                      final recAndBill = recQty < billQty ? recQty : billQty;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: const BoxDecoration(
+                          border: Border(top: BorderSide(color: AppTheme.borderLight)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                item.productName ?? 'Unnamed Item',
+                                style: AppTheme.linkText.copyWith(fontSize: 13),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                item.itemCode ?? '-',
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                item.quantity.toInt().toString(),
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                recQty.toInt().toString(),
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                billQty.toInt().toString(),
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                recAndBill.toInt().toString(),
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Container(
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: const Color(0xFFD1D5DB)),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: TextField(
+                                  controller: _controllers[item.productId],
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(fontSize: 13),
+                                  decoration: const InputDecoration(
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 24,
+                              child: IconButton(
+                                icon: const Icon(LucideIcons.xCircle, color: Colors.red, size: 16),
+                                onPressed: () {
+                                  _controllers[item.productId]?.text = '0';
+                                },
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: _cancellableItems.isEmpty || _isSaving ? null : _proceed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF22A95E),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Proceed', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFD1D5DB)),
+                    foregroundColor: const Color(0xFF4B5563),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

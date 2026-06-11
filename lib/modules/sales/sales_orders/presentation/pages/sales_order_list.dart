@@ -913,6 +913,7 @@ class _SalesOrderOverviewScreenState
                       options: _soFilterOptions,
                       selectedOption: _activeOption,
                       showChevron: true,
+                      isCompact: true,
                       onChanged: (opt) {
                         setState(() {
                           _activeOption = opt;
@@ -3056,7 +3057,7 @@ class _SalesOrderOverviewScreenState
                             );
                             return match.name;
                           }
-                          return 'Main Warehouse';
+                          return '';
                         }(),
                         style: AppTheme.bodyText.copyWith(fontSize: 11),
                       ),

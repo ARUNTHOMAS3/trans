@@ -38,6 +38,7 @@ class FavoriteFilterDropdown extends ConsumerStatefulWidget {
   final FavoriteFilterOption selectedOption;
   final ValueChanged<FavoriteFilterOption> onChanged;
   final bool showChevron;
+  final bool isCompact;
 
   const FavoriteFilterDropdown({
     super.key,
@@ -46,6 +47,7 @@ class FavoriteFilterDropdown extends ConsumerStatefulWidget {
     required this.selectedOption,
     required this.onChanged,
     this.showChevron = true,
+    this.isCompact = false,
   });
 
   @override
@@ -100,14 +102,17 @@ class _FavoriteFilterDropdownState extends ConsumerState<FavoriteFilterDropdown>
           onTap: () => isOpen ? controller.close() : controller.open(),
           borderRadius: BorderRadius.circular(4),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.isCompact ? 2 : 4,
+              vertical: widget.isCompact ? 4 : 8,
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   _getDisplayLabel(),
-                  style: const TextStyle(
-                    fontSize: 24,
+                  style: TextStyle(
+                    fontSize: widget.isCompact ? 16 : 24,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimary,
                     fontFamily: 'Inter',
@@ -117,7 +122,7 @@ class _FavoriteFilterDropdownState extends ConsumerState<FavoriteFilterDropdown>
                   const SizedBox(width: 4),
                   Icon(
                     isOpen ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                    size: 18,
+                    size: widget.isCompact ? 14 : 18,
                     color: AppTheme.primaryBlue,
                   ),
                 ],

@@ -3165,11 +3165,15 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
         return;
       }
     }
+    final totalEnteredQtyOnly = _rows.fold<double>(
+      0,
+      (sum, row) => sum + (double.tryParse(row.qtyCtrl.text.trim()) ?? 0),
+    );
     if (!_overwriteLineItem &&
-        (_totalQuantityOut - widget.ordered).abs() > 0.001) {
+        (totalEnteredQtyOnly - widget.ordered).abs() > 0.001) {
       setState(
         () => _dialogErrorMessage =
-            "Total matches Qty to Receive (${_fmtQty(widget.ordered)}). Currently ${_fmtQty(_totalQuantityOut)}.",
+            "Total matches Qty to Receive (${_fmtQty(widget.ordered)}). Currently ${_fmtQty(totalEnteredQtyOnly)}.",
       );
       return;
     }

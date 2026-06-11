@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
@@ -928,7 +929,29 @@ class _PRCreateState
           PurchaseOrderFilter(limit: 500, vendorId: vendorId),
         ).future,
       );
-      final filtered = pos.where((po) => po.vendorId == vendorId).toList();
+      
+      Set<String> receivedPoIds = {};
+      try {
+        final supabase = Supabase.instance.client;
+        final receivesResp = await supabase
+            .from('purchase_receives')
+            .select('purchase_order_id')
+            .not('purchase_order_id', 'is', null);
+        receivedPoIds = (receivesResp as List<dynamic>)
+            .map((r) => r['purchase_order_id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet();
+      } catch (dbErr) {
+        AppLogger.error(
+          'Failed to load existing purchase receives for filtering',
+          error: dbErr,
+          module: 'purchases',
+        );
+      }
+
+      final filtered = pos
+          .where((po) => po.vendorId == vendorId && !receivedPoIds.contains(po.id))
+          .toList();
       if (mounted) {
         setState(() {
           _vendorPOs = filtered;
@@ -1046,6 +1069,7 @@ class _PRCreateState
           ordered: poItem.quantity,
           received: 0,
           inTransit: 0,
+          cancelled: poItem.cancelledQuantity,
           quantityToReceive: 0,
         ),
       );
@@ -1781,38 +1805,41 @@ class _PRCreateState
                             bottom: BorderSide(color: _borderCol, width: 0.8),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            _tableHeaderCell(
-                              "ITEMS & DESCRIPTION",
-                              fixedWidth: 300,
-                            ),
-                            _tableHeaderCell(
-                              "ORDERED",
-                              fixedWidth: 100,
-                              align: TextAlign.right,
-                            ),
-                            _tableHeaderCell(
-                              "RECEIVED",
-                              fixedWidth: 100,
-                              align: TextAlign.right,
-                            ),
-                            _tableHeaderCell(
-                              "IN TRANSIT",
-                              fixedWidth: 110,
-                              align: TextAlign.right,
-                            ),
-                            if (_binMode == "item")
-                              _tableHeaderCell("BIN", fixedWidth: 160),
-                            _buildQtyHeaderCell(
-                              fixedWidth: _dynamicQtyToReceiveColumnWidth(),
-                            ),
-                            _tableHeaderCell(
-                              "",
-                              fixedWidth: 12,
-                              isLastColumn: true,
-                            ),
-                          ],
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _tableHeaderCell(
+                                "ITEMS & DESCRIPTION",
+                                fixedWidth: 300,
+                              ),
+                              _tableHeaderCell(
+                                "ORDERED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "RECEIVED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "IN TRANSIT",
+                                fixedWidth: 110,
+                                align: TextAlign.right,
+                              ),
+                              if (_binMode == "item")
+                                _tableHeaderCell("BIN", fixedWidth: 160),
+                              _buildQtyHeaderCell(
+                                fixedWidth: _dynamicQtyToReceiveColumnWidth(),
+                              ),
+                              _tableHeaderCell(
+                                "",
+                                fixedWidth: 12,
+                                isLastColumn: true,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       // Table Body
@@ -1867,67 +1894,70 @@ class _PRCreateState
                             bottom: BorderSide(color: _borderCol, width: 0.8),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            _tableHeaderCell(
-                              "",
-                              fixedWidth: 300,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    "ITEMS & DESCRIPTION",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF6B7280),
-                                      fontFamily: 'Inter',
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  InkWell(
-                                    onTap: _addAllItemsFromPO,
-                                    child: const Text(
-                                      "add all items",
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _tableHeaderCell(
+                                "",
+                                fixedWidth: 300,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      "ITEMS & DESCRIPTION",
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color: _linkBlue,
+                                        color: Color(0xFF6B7280),
                                         fontFamily: 'Inter',
+                                        letterSpacing: 0.3,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 2),
+                                    InkWell(
+                                      onTap: _addAllItemsFromPO,
+                                      child: const Text(
+                                        "add all items",
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: _linkBlue,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            _tableHeaderCell(
-                              "ORDERED",
-                              fixedWidth: 100,
-                              align: TextAlign.right,
-                            ),
-                            _tableHeaderCell(
-                              "RECEIVED",
-                              fixedWidth: 100,
-                              align: TextAlign.right,
-                            ),
-                            _tableHeaderCell(
-                              "IN TRANSIT",
-                              fixedWidth: 110,
-                              align: TextAlign.right,
-                            ),
-                            if (_binMode == "item")
-                              _tableHeaderCell("BIN", fixedWidth: 160),
-                            _buildQtyHeaderCell(
-                              fixedWidth: _dynamicQtyToReceiveColumnWidth(),
-                            ),
-                            _tableHeaderCell(
-                              "",
-                              fixedWidth: 16,
-                              isLastColumn: true,
-                            ),
-                          ],
+                              _tableHeaderCell(
+                                "ORDERED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "RECEIVED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "IN TRANSIT",
+                                fixedWidth: 110,
+                                align: TextAlign.right,
+                              ),
+                              if (_binMode == "item")
+                                _tableHeaderCell("BIN", fixedWidth: 160),
+                              _buildQtyHeaderCell(
+                                fixedWidth: _dynamicQtyToReceiveColumnWidth(),
+                              ),
+                              _tableHeaderCell(
+                                "",
+                                fixedWidth: 16,
+                                isLastColumn: true,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       // Table Rows
@@ -2017,9 +2047,6 @@ class _PRCreateState
     return SizedBox(
       width: fixedWidth,
       child: Container(
-        decoration: const BoxDecoration(
-          border: Border(right: BorderSide(color: _borderCol, width: 0.8)),
-        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2130,7 +2157,8 @@ class _PRCreateState
     final currentQty =
         double.tryParse(ctrl.qtyCtrl.text.isEmpty ? '0' : ctrl.qtyCtrl.text) ??
         0;
-    final nextQty = (currentQty + delta).clamp(0, double.infinity).toDouble();
+    final maxQty = (_items[index].ordered - _items[index].cancelled).clamp(0.0, double.infinity);
+    final nextQty = (currentQty + delta).clamp(0.0, maxQty).toDouble();
     final display = nextQty == nextQty.roundToDouble()
         ? nextQty.toInt().toString()
         : nextQty.toStringAsFixed(2);
@@ -2144,8 +2172,19 @@ class _PRCreateState
   void _onRowQtyChanged(int index, String value) {
     if (index >= _items.length) return;
     final qty = double.tryParse(value.isEmpty ? '0' : value) ?? 0;
+    final maxQty = (_items[index].ordered - _items[index].cancelled).clamp(0.0, double.infinity);
+    final finalQty = qty.clamp(0.0, maxQty);
+    if (finalQty != qty && index < _rowControllers.length) {
+      final display = finalQty == finalQty.roundToDouble()
+          ? finalQty.toInt().toString()
+          : finalQty.toStringAsFixed(2);
+      _rowControllers[index].qtyCtrl.text = display;
+      _rowControllers[index].qtyCtrl.selection = TextSelection.fromPosition(
+        TextPosition(offset: display.length),
+      );
+    }
     setState(() {
-      _items[index] = _items[index].copyWith(quantityToReceive: qty);
+      _items[index] = _items[index].copyWith(quantityToReceive: finalQty);
     });
   }
 
@@ -2155,12 +2194,12 @@ class _PRCreateState
       for (var i = 0; i < _items.length; i++) {
         if (i >= _rowControllers.length) continue;
         if (_items[i].batches.isNotEmpty) continue;
-        final ordered = _items[i].ordered;
-        final display = ordered == ordered.roundToDouble()
-            ? ordered.toInt().toString()
-            : ordered.toStringAsFixed(2);
+        final maxQty = (_items[i].ordered - _items[i].cancelled).clamp(0.0, double.infinity);
+        final display = maxQty == maxQty.roundToDouble()
+            ? maxQty.toInt().toString()
+            : maxQty.toStringAsFixed(2);
         _rowControllers[i].qtyCtrl.text = display;
-        _items[i] = _items[i].copyWith(quantityToReceive: ordered);
+        _items[i] = _items[i].copyWith(quantityToReceive: maxQty);
       }
     });
   }
@@ -2278,6 +2317,7 @@ class _PRCreateState
   }) {
     Widget content = Container(
       alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         border: Border(
           right: (isLastColumn || hideRightBorder)
@@ -2620,11 +2660,9 @@ class _PRCreateState
     return Container(
       decoration: const BoxDecoration(
         border: Border(
-          left: BorderSide(color: _borderCol, width: 0.8),
           bottom: BorderSide(color: _borderCol, width: 0.8),
         ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 12),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2947,7 +2985,7 @@ class _PRCreateState
               ),
             ),
             _tableBodyCell(
-              fixedWidth: 14,
+              fixedWidth: 12,
               isLastColumn: true,
               child: isEphemeral
                   ? const SizedBox()
@@ -2957,7 +2995,7 @@ class _PRCreateState
                         borderRadius: BorderRadius.circular(4),
                         child: const Icon(
                           LucideIcons.x,
-                          size: 14,
+                          size: 12,
                           color: _dangerRed,
                         ),
                       ),
@@ -2982,11 +3020,9 @@ class _PRCreateState
     return Container(
       decoration: const BoxDecoration(
         border: Border(
-          left: BorderSide(color: _borderCol, width: 0.8),
           bottom: BorderSide(color: _borderCol, width: 0.8),
         ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 12),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3634,11 +3670,11 @@ class _PRCreateState
     bool hasMismatch = false;
     for (int i = 0; i < _items.length; i++) {
       final item = _items[i];
-      final totalBatchQtyOnly = item.batches.fold<double>(
+      final totalBatchQtyAndFoc = item.batches.fold<double>(
         0,
-        (sum, b) => sum + b.quantity,
+        (sum, b) => sum + b.quantity + b.foc,
       );
-      if (item.batches.isNotEmpty && totalBatchQtyOnly != item.quantityToReceive) {
+      if (item.batches.isNotEmpty && totalBatchQtyAndFoc != item.quantityToReceive) {
         hasMismatch = true;
         break;
       }
@@ -3671,14 +3707,14 @@ class _PRCreateState
       module: 'purchases',
     );
 
-    final success = await ref
+    final errorMsg = await ref
         .read(purchaseReceivesProvider.notifier)
         .createReceive(receive);
 
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    if (success) {
+    if (errorMsg == null) {
       _showTopSuccess(
         status == 'received'
             ? 'Purchase receive saved successfully'
@@ -3686,12 +3722,7 @@ class _PRCreateState
       );
       context.go('/purchases/purchase-receives');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to save purchase receive. Please try again.'),
-          backgroundColor: _dangerRed,
-        ),
-      );
+      _showTopError(errorMsg);
     }
   }
 
@@ -3725,8 +3756,7 @@ class _PRCreateState
         batchDetails: batchDetails,
         initialBatches: item.batches,
         // Total in batch dialog must follow Quantity to receive in line item.
-        ordered: double.tryParse(_rowControllers[itemIndex].qtyCtrl.text) ??
-            item.quantityToReceive,
+        ordered: (item.ordered - item.cancelled).clamp(0.0, double.infinity),
         warehouseName: _rowSelectedWarehouses[itemIndex] ?? _resolveWarehouseName(),
         initialDamageEnabled: _isDamageEnabled,
         onDamageChanged: (enabled) {
