@@ -275,7 +275,7 @@ class _PurchaseOrderOverviewScreenState
       final receivesResp = await supabase
           .from('purchase_receives')
           .select(
-            'id,purchase_receive_number,received_date,status,bill_no,purchase_order_id,purchase_receive_items(item_id,ordered,received,quantity_to_receive)',
+            'id,purchase_receive_number,received_date,status,bill_no,purchase_order_id,purchase_receive_items(item_id,ordered,received,quantity_to_receive,purchase_receive_item_batches(quantity,foc_qty))',
           )
           .eq('purchase_order_id', order.id ?? '')
           .order('created_at', ascending: false);
@@ -331,7 +331,16 @@ class _PurchaseOrderOverviewScreenState
           r['purchase_receive_items'] as List<dynamic>? ??
           [];
       for (final item in itemsList) {
-        totalReceived += double.tryParse(item['quantity_to_receive']?.toString() ?? item['received']?.toString() ?? '0.0') ?? 0.0;
+        final batches = item['purchase_receive_item_batches'] as List<dynamic>? ??
+            item['purchases_purchase_receive_item_batches'] as List<dynamic>? ??
+            [];
+        if (batches.isNotEmpty) {
+          for (final b in batches) {
+            totalReceived += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+          }
+        } else {
+          totalReceived += double.tryParse(item['quantity_to_receive']?.toString() ?? item['received']?.toString() ?? '0.0') ?? 0.0;
+        }
       }
     }
 
@@ -3145,8 +3154,17 @@ class _PurchaseOrderOverviewScreenState
           final recProdId =
               (item['item_id'] ?? item['product_id'])?.toString();
           if (recProdId == poItem.productId) {
-            totalReceivedForProduct +=
-                double.tryParse(item['received']?.toString() ?? '0.0') ?? 0.0;
+            final batches = item['purchase_receive_item_batches'] as List<dynamic>? ??
+                item['purchases_purchase_receive_item_batches'] as List<dynamic>? ??
+                [];
+            if (batches.isNotEmpty) {
+              for (final b in batches) {
+                totalReceivedForProduct += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+              }
+            } else {
+              totalReceivedForProduct +=
+                  double.tryParse(item['quantity_to_receive']?.toString() ?? item['received']?.toString() ?? '0.0') ?? 0.0;
+            }
           }
         }
       }
@@ -3510,7 +3528,16 @@ class _PurchaseOrderOverviewScreenState
               for (final recItem in itemsList) {
                 final recProdId = (recItem['item_id'] ?? recItem['product_id'])?.toString();
                 if (recProdId == item.productId) {
-                  recQty += double.tryParse(recItem['received']?.toString() ?? '0.0') ?? 0.0;
+                  final batches = recItem['purchase_receive_item_batches'] as List<dynamic>? ??
+                      recItem['purchases_purchase_receive_item_batches'] as List<dynamic>? ??
+                      [];
+                  if (batches.isNotEmpty) {
+                    for (final b in batches) {
+                      recQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+                    }
+                  } else {
+                    recQty += double.tryParse(recItem['quantity_to_receive']?.toString() ?? recItem['received']?.toString() ?? '0.0') ?? 0.0;
+                  }
                 }
               }
             }
@@ -3900,7 +3927,7 @@ class _PurchaseOrderOverviewScreenState
             child: Row(
               children: [
                 const Expanded(
-                  flex: 8,
+                  flex: 5,
                   child: Text(
                     'ITEMS & DESCRIPTION',
                     style: TextStyle(
@@ -3935,13 +3962,15 @@ class _PurchaseOrderOverviewScreenState
                   ),
                 ),
                 const Expanded(
-                  flex: 2,
-                  child: Text(
-                    'STATUS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
+                  flex: 5,
+                  child: Center(
+                    child: Text(
+                      'STATUS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   ),
                 ),
@@ -3976,6 +4005,7 @@ class _PurchaseOrderOverviewScreenState
           ),
           ...items.map((item) {
             double itemReceivedQty = 0.0;
+            double itemFocQty = 0.0;
             for (final r in summary.receives) {
               final itemsList =
                   r['purchases_purchase_receive_items'] as List<dynamic>? ??
@@ -3985,8 +4015,18 @@ class _PurchaseOrderOverviewScreenState
                 final recProdId = (recItem['item_id'] ?? recItem['product_id'])
                     ?.toString();
                 if (recProdId == item.productId) {
-                  itemReceivedQty +=
-                      double.tryParse(recItem['quantity_to_receive']?.toString() ?? recItem['received']?.toString() ?? '0.0') ?? 0.0;
+                  final batches = recItem['purchase_receive_item_batches'] as List<dynamic>? ??
+                      recItem['purchases_purchase_receive_item_batches'] as List<dynamic>? ??
+                      [];
+                  if (batches.isNotEmpty) {
+                    for (final b in batches) {
+                      itemReceivedQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+                      itemFocQty += double.tryParse(b['foc_qty']?.toString() ?? '0.0') ?? 0.0;
+                    }
+                  } else {
+                    itemReceivedQty +=
+                        double.tryParse(recItem['quantity_to_receive']?.toString() ?? recItem['received']?.toString() ?? '0.0') ?? 0.0;
+                  }
                 }
               }
             }
@@ -4011,7 +4051,7 @@ class _PurchaseOrderOverviewScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 8,
+                    flex: 5,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -4083,17 +4123,21 @@ class _PurchaseOrderOverviewScreenState
                     ),
                   ),
                   Expanded(
-                    flex: 2,
+                    flex: 5,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          '${itemReceivedQty.toInt()} Received',
+                          itemFocQty > 0
+                              ? '${itemReceivedQty.toInt()} pcs + ${itemFocQty.toInt()} foc'
+                              : '${itemReceivedQty.toInt()} pcs',
                           style: AppTheme.bodyText.copyWith(fontSize: 11),
+                          textAlign: TextAlign.center,
                         ),
                         Text(
                           '${itemBilledQty.toInt()} Billed',
                           style: AppTheme.bodyText.copyWith(fontSize: 11),
+                          textAlign: TextAlign.center,
                         ),
                         if (item.cancelledQuantity > 0)
                           Text(
@@ -4104,6 +4148,7 @@ class _PurchaseOrderOverviewScreenState
                               fontSize: 11,
                               color: AppTheme.errorRed,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                       ],
                     ),
@@ -6156,7 +6201,16 @@ class _CancelItemsDialogState extends State<_CancelItemsDialog> {
         for (final recItem in itemsList) {
           final recProdId = (recItem['item_id'] ?? recItem['product_id'])?.toString();
           if (recProdId == item.productId) {
-            recQty += double.tryParse(recItem['received']?.toString() ?? '0.0') ?? 0.0;
+            final batches = recItem['purchase_receive_item_batches'] as List<dynamic>? ??
+                recItem['purchases_purchase_receive_item_batches'] as List<dynamic>? ??
+                [];
+            if (batches.isNotEmpty) {
+              for (final b in batches) {
+                recQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+              }
+            } else {
+              recQty += double.tryParse(recItem['received']?.toString() ?? recItem['quantity_to_receive']?.toString() ?? '0.0') ?? 0.0;
+            }
           }
         }
       }
