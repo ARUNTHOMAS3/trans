@@ -1,7 +1,6 @@
-// FILE: lib/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import '../models/purchases_purchase_orders_order_model.dart';
 import '../repositories/purchases_purchase_orders_order_repository_impl.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
@@ -62,7 +61,12 @@ final deletePurchaseOrderProvider = FutureProvider.family<bool, String>((
 
 final warehousesProvider = FutureProvider<List<WarehouseModel>>((ref) async {
   final user = ref.watch(authUserProvider);
-  final orgId = user?.orgId.trim() ?? '';
+  final entityState = ref.watch(entityProvider);
+
+  final orgId = entityState.orgId?.trim().isNotEmpty == true
+      ? entityState.orgId!.trim()
+      : (user?.orgId.trim() ?? '');
+
   if (orgId.isEmpty) {
     AppLogger.warning(
       'Skipping warehouse load: missing org scope',
@@ -75,6 +79,10 @@ final warehousesProvider = FutureProvider<List<WarehouseModel>>((ref) async {
   final repository = ref.read(purchaseOrderRepositoryProvider);
   try {
     final list = await repository.getWarehouses(orgId: orgId);
+    if (entityState.type == 'BRANCH' && entityState.branchId != null) {
+      final selectedBranchId = entityState.branchId!.trim();
+      return list.where((w) => w.parentBranchId == selectedBranchId).toList();
+    }
     return list;
   } catch (e, st) {
     AppLogger.error('Failed to load warehouses', error: e, stackTrace: st, module: 'purchases');

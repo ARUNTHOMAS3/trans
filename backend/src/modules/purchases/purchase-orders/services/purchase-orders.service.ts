@@ -82,6 +82,228 @@ export class PurchaseOrdersService {
     };
   }
 
+  private mapDtoToDb(dto: any): any {
+    const dbData: any = {};
+    if (dto.vendor_id !== undefined) dbData.vendor_id = dto.vendor_id;
+    if (dto.order_number !== undefined) dbData.order_number = dto.order_number;
+    if (dto.order_date !== undefined) dbData.order_date = dto.order_date;
+    if (dto.expected_delivery_date !== undefined) dbData.expected_delivery_date = dto.expected_delivery_date;
+    if (dto.reference_number !== undefined) dbData.reference_number = dto.reference_number;
+    if (dto.payment_terms_id !== undefined) dbData.payment_terms_id = dto.payment_terms_id;
+    if (dto.shipment_preference_id !== undefined) dbData.shipment_preference_id = dto.shipment_preference_id;
+    if (dto.delivery_type !== undefined) dbData.delivery_type = dto.delivery_type;
+    if (dto.delivery_warehouse_id !== undefined) dbData.delivery_warehouse_id = dto.delivery_warehouse_id;
+    if (dto.delivery_customer_id !== undefined) dbData.delivery_customer_id = dto.delivery_customer_id;
+    if (dto.warehouse_id !== undefined) dbData.warehouse_id = dto.warehouse_id;
+    if (dto.warehouse_name !== undefined) dbData.warehouse_name = dto.warehouse_name;
+    if (dto.place_of_supply !== undefined) dbData.place_of_supply = dto.place_of_supply;
+    if (dto.document_type !== undefined) dbData.document_type = dto.document_type;
+    if (dto.status !== undefined) dbData.status = dto.status;
+    if (dto.subtotal !== undefined) dbData.subtotal = dto.subtotal;
+    if (dto.tax_amount !== undefined) dbData.tax_amount = dto.tax_amount;
+    if (dto.discount !== undefined) dbData.discount = dto.discount;
+    if (dto.tds_tcs_type !== undefined) dbData.tds_tcs_type = dto.tds_tcs_type;
+    if (dto.tds_id !== undefined) dbData.tds_id = dto.tds_id;
+    if (dto.tds_tcs_amount !== undefined) dbData.tds_tcs_amount = dto.tds_tcs_amount;
+    if (dto.adjustment !== undefined) dbData.adjustment = dto.adjustment;
+    if (dto.total_quantity !== undefined) dbData.total_quantity = dto.total_quantity;
+    if (dto.total !== undefined) dbData.total = dto.total;
+    if (dto.currency !== undefined) dbData.currency = dto.currency;
+    if (dto.notes !== undefined) dbData.notes = dto.notes;
+    if (dto.terms_and_conditions !== undefined) dbData.terms_and_conditions = dto.terms_and_conditions;
+    if (dto.discount_level !== undefined) dbData.discount_level = dto.discount_level;
+    if (dto.discount_type !== undefined) dbData.discount_type = dto.discount_type;
+    if (dto.discount_account_id !== undefined) dbData.discount_account_id = dto.discount_account_id;
+    if (dto.tax_type !== undefined) dbData.tax_type = dto.tax_type;
+    if (dto.is_delete !== undefined) dbData.is_delete = dto.is_delete;
+    return dbData;
+  }
+
+  private mapDbToDto(db: any): any {
+    if (!db) return null;
+    return {
+      ...db,
+      order_number: db.order_number,
+      order_date: db.order_date,
+      reference_number: db.reference_number,
+      payment_terms_id: db.payment_terms_id,
+      shipment_preference_id: db.shipment_preference_id,
+      subtotal: db.subtotal !== null && db.subtotal !== undefined ? parseFloat(db.subtotal) : 0,
+      tax_amount: db.tax_amount !== null && db.tax_amount !== undefined ? parseFloat(db.tax_amount) : 0,
+      discount: db.discount !== null && db.discount !== undefined ? parseFloat(db.discount) : 0,
+      tds_id: db.tds_id,
+      notes: db.notes,
+      total_quantity: db.total_quantity !== null && db.total_quantity !== undefined ? parseFloat(db.total_quantity) : 0,
+      total: db.total !== null && db.total !== undefined ? parseFloat(db.total) : 0,
+      adjustment: db.adjustment !== null && db.adjustment !== undefined ? parseFloat(db.adjustment) : 0,
+      tds_tcs_amount: db.tds_tcs_amount !== null && db.tds_tcs_amount !== undefined ? parseFloat(db.tds_tcs_amount) : 0,
+      receive_status: db.receive_status ?? "none",
+      bill_status: db.bill_status ?? "none",
+    };
+  }
+
+  private async attachProgressStatuses<T extends Record<string, any>>(
+    rows: T[],
+    entityId: string,
+  ): Promise<T[]> {
+    if (!rows.length) return rows;
+
+    const client = this.supabaseService.getClient();
+    const poIds = rows.map((row) => row.id).filter(Boolean);
+    const orderNumbers = rows.map((row) => row.order_number).filter(Boolean);
+
+    // 1. Get PO items to calculate expected quantities
+    const { data: allPoItems } = await client
+      .from("purchase_order_items")
+      .select("purchase_order_id, quantity, cancelled_quantity, is_header")
+      .in("purchase_order_id", poIds)
+      .eq("entity_id", entityId);
+
+    const poExpectedQtyMap = new Map<string, number>();
+    for (const item of allPoItems ?? []) {
+      if (item.is_header) continue;
+      const qty = parseFloat(item.quantity?.toString() ?? "0");
+      const cancelled = parseFloat(item.cancelled_quantity?.toString() ?? "0");
+      const current = poExpectedQtyMap.get(item.purchase_order_id) ?? 0;
+      poExpectedQtyMap.set(item.purchase_order_id, current + (qty - cancelled));
+    }
+
+    // 2. Get receives and receive items
+    const { data: allReceives } = await client
+      .from("purchase_receives")
+      .select("id, purchase_order_id")
+      .in("purchase_order_id", poIds)
+      .eq("entity_id", entityId)
+      .eq("is_delete", false)
+      .eq("status", "received");
+
+    const receiveIds = (allReceives ?? []).map((r) => r.id);
+    const poToReceiveIdsMap = new Map<string, string[]>();
+    for (const r of allReceives ?? []) {
+      const list = poToReceiveIdsMap.get(r.purchase_order_id) ?? [];
+      list.push(r.id);
+      poToReceiveIdsMap.set(r.purchase_order_id, list);
+    }
+
+    // Fetch all receive items for these receives
+    let allReceiveItems: any[] = [];
+    if (receiveIds.length > 0) {
+      const { data } = await client
+        .from("purchase_receive_items")
+        .select("id, purchase_receive_id, received")
+        .in("purchase_receive_id", receiveIds)
+        .eq("entity_id", entityId);
+      allReceiveItems = data ?? [];
+    }
+
+    const receiveItemIds = allReceiveItems.map((ri) => ri.id);
+    // Fetch all batch items for these receive items
+    let allReceiveBatches: any[] = [];
+    if (receiveItemIds.length > 0) {
+      const { data } = await client
+        .from("purchase_receive_item_batches")
+        .select("purchase_receive_item_id, quantity")
+        .in("purchase_receive_item_id", receiveItemIds)
+        .eq("entity_id", entityId);
+      allReceiveBatches = data ?? [];
+    }
+
+    const batchQtyMap = new Map<string, number>();
+    for (const b of allReceiveBatches) {
+      const current = batchQtyMap.get(b.purchase_receive_item_id) ?? 0;
+      batchQtyMap.set(b.purchase_receive_item_id, current + parseFloat(b.quantity?.toString() ?? "0"));
+    }
+
+    const receiveQtyMap = new Map<string, number>();
+    for (const ri of allReceiveItems) {
+      const current = receiveQtyMap.get(ri.purchase_receive_id) ?? 0;
+      const batchQty = batchQtyMap.get(ri.id);
+      const qty = batchQty !== undefined ? batchQty : parseFloat(ri.received?.toString() ?? "0");
+      receiveQtyMap.set(ri.purchase_receive_id, current + qty);
+    }
+
+    // 3. Get bills and bill items
+    let allBills: any[] = [];
+    if (orderNumbers.length > 0) {
+      const { data } = await client
+        .from("bills")
+        .select("id, order_number")
+        .in("order_number", orderNumbers)
+        .eq("entity_id", entityId)
+        .eq("is_delete", false)
+        .neq("status", "void");
+      allBills = data ?? [];
+    }
+
+    const billIds = allBills.map((b) => b.id);
+    const poToBillIdsMap = new Map<string, string[]>();
+    for (const b of allBills) {
+      const list = poToBillIdsMap.get(b.order_number) ?? [];
+      list.push(b.id);
+      poToBillIdsMap.set(b.order_number, list);
+    }
+
+    let allBillItems: any[] = [];
+    if (billIds.length > 0) {
+      const { data } = await client
+        .from("bill_items")
+        .select("bill_id, quantity")
+        .in("bill_id", billIds);
+      allBillItems = data ?? [];
+    }
+
+    const billQtyMap = new Map<string, number>();
+    for (const bi of allBillItems) {
+      const current = billQtyMap.get(bi.bill_id) ?? 0;
+      billQtyMap.set(bi.bill_id, current + parseFloat(bi.quantity?.toString() ?? "0"));
+    }
+
+    return rows.map((row) => {
+      const expected = poExpectedQtyMap.get(row.id) ?? 0;
+
+      // Calculate received total
+      let received = 0;
+      const recIds = poToReceiveIdsMap.get(row.id) ?? [];
+      for (const rid of recIds) {
+        received += receiveQtyMap.get(rid) ?? 0;
+      }
+
+      // Calculate billed total
+      let billed = 0;
+      if (row.order_number) {
+        const bIds = poToBillIdsMap.get(row.order_number) ?? [];
+        for (const bid of bIds) {
+          billed += billQtyMap.get(bid) ?? 0;
+        }
+      }
+
+      // Determine statuses
+      let receive_status = "none";
+      if (received > 0) {
+        if (received >= expected - 0.0001) {
+          receive_status = "full";
+        } else {
+          receive_status = "partial";
+        }
+      }
+
+      let bill_status = "none";
+      if (billed > 0) {
+        if (billed >= expected - 0.0001) {
+          bill_status = "full";
+        } else {
+          bill_status = "partial";
+        }
+      }
+
+      return {
+        ...row,
+        receive_status,
+        bill_status,
+      };
+    });
+  }
+
   private async attachPurchaseOrderLookups<T extends Record<string, any>>(
     rows: T[],
   ) {
@@ -95,7 +317,7 @@ export class PurchaseOrdersService {
       new Set(rows.map((row) => row.warehouse_id).filter(Boolean)),
     );
     const paymentTermIds = Array.from(
-      new Set(rows.map((row) => row.payment_terms_id).filter(Boolean)),
+      new Set(rows.map((row) => row.payment_term_id || row.payment_terms_id).filter(Boolean)),
     );
 
     const vendorMap = new Map<string, { display_name?: string; company_name?: string }>();
@@ -141,8 +363,8 @@ export class PurchaseOrdersService {
       warehouse: row.warehouse_id
         ? warehouseMap.get(row.warehouse_id) ?? null
         : null,
-      payment_term: row.payment_terms_id
-        ? paymentTermMap.get(row.payment_terms_id) ?? null
+      payment_term: (row.payment_term_id || row.payment_terms_id)
+        ? paymentTermMap.get(row.payment_term_id || row.payment_terms_id) ?? null
         : null,
     }));
   }
@@ -229,9 +451,11 @@ export class PurchaseOrdersService {
     }
 
     const enriched = await this.attachPurchaseOrderLookups(data ?? []);
+    const withProgress = await this.attachProgressStatuses(enriched, tenant.entityId);
+    const mapped = withProgress.map((row) => this.mapDbToDto(row));
 
     return {
-      data: enriched,
+      data: mapped,
       meta: {
         total: count,
         page,
@@ -262,6 +486,7 @@ export class PurchaseOrdersService {
     }
 
     const [enriched] = await this.attachPurchaseOrderLookups([data]);
+    const [withProgress] = await this.attachProgressStatuses([enriched], tenant.entityId);
 
     const { data: items } = await client
       .from("purchase_order_items")
@@ -283,11 +508,19 @@ export class PurchaseOrdersService {
 
     const itemWithProducts = (items ?? []).map((item) => ({
       ...item,
+      tax_rate: item.item_tax_rate !== null && item.item_tax_rate !== undefined ? parseFloat(item.item_tax_rate) : 0,
+      itemTaxRate: item.item_tax_rate !== null && item.item_tax_rate !== undefined ? parseFloat(item.item_tax_rate) : 0,
+      quantity: item.quantity !== null && item.quantity !== undefined ? parseFloat(item.quantity) : 0,
+      rate: item.rate !== null && item.rate !== undefined ? parseFloat(item.rate) : 0,
+      amount: item.amount !== null && item.amount !== undefined ? parseFloat(item.amount) : 0,
+      tax_amount: item.tax_amount !== null && item.tax_amount !== undefined ? parseFloat(item.tax_amount) : 0,
+      discount: item.discount !== null && item.discount !== undefined ? parseFloat(item.discount) : 0,
+      cancelled_quantity: item.cancelled_quantity !== null && item.cancelled_quantity !== undefined ? parseFloat(item.cancelled_quantity) : 0,
       product: item.product_id ? productMap.get(item.product_id) ?? null : null,
     }));
 
     return {
-      ...enriched,
+      ...this.mapDbToDto(withProgress),
       items: itemWithProducts,
     };
   }
@@ -321,13 +554,14 @@ export class PurchaseOrdersService {
         resolvedWarehouseId = wh?.id || null;
       }
     }
-    const payload = {
-      ...(poData as any),
+    const payload = this.mapDtoToDb({
+      ...poData,
       warehouse_id: resolvedWarehouseId,
       discount_account_id: resolvedDiscountAccountId,
       is_delete: false,
-      entity_id: tenant.entityId,
-    };
+    });
+    payload.entity_id = tenant.entityId;
+
     const { data, error } = await this.supabaseService
       .getClient()
       .from("purchase_orders")
@@ -341,7 +575,7 @@ export class PurchaseOrdersService {
 
     if (items && items.length > 0) {
       const itemsPayload = items.map((item) => {
-        const { warehouse_id, ...restItem } = item;
+        const { warehouse_id, track_batches, track_serial_number, track_bin_location, ...restItem } = item;
         const accountId = restItem.account_id || restItem.accounts;
         let hsnNumeric: number | null = null;
         if (
@@ -376,7 +610,7 @@ export class PurchaseOrdersService {
       }
     }
 
-    return data;
+    return this.mapDbToDto(data);
   }
 
   async update(
@@ -410,14 +644,15 @@ export class PurchaseOrdersService {
       }
     }
 
-    const payload: any = {
-      ...(poData as any),
+    const payload = this.mapDtoToDb({
+      ...poData,
       discount_account_id: resolvedDiscountAccountId,
-      updated_at: new Date().toISOString(),
-    };
+    });
     if (resolvedWarehouseId) {
       payload.warehouse_id = resolvedWarehouseId;
     }
+    payload.updated_at = new Date().toISOString();
+
     const { data, error } = await this.supabaseService
       .getClient()
       .from("purchase_orders")
@@ -452,7 +687,7 @@ export class PurchaseOrdersService {
     // 2. Insert new / updated items
     if (items && items.length > 0) {
       const itemsPayload = items.map((item) => {
-        const { warehouse_id, ...restItem } = item;
+        const { warehouse_id, track_batches, track_serial_number, track_bin_location, ...restItem } = item;
         const accountId = restItem.account_id || restItem.accounts;
         let hsnNumeric: number | null = null;
         if (
@@ -487,7 +722,7 @@ export class PurchaseOrdersService {
       }
     }
 
-    return data;
+    return this.mapDbToDto(data);
   }
 
   async remove(id: string, tenant: TenantContext) {

@@ -3,6 +3,7 @@ import { TenantContext } from "../../../../common/middleware/tenant.middleware";
 import { SupabaseService } from "../../../supabase/supabase.service";
 import { CreatePurchaseReceiveDto } from "../dto/create-purchase-receive.dto";
 import { UpdatePurchaseReceiveDto } from "../dto/update-purchase-receive.dto";
+import { updatePurchaseOrderStatus } from "../../purchase-orders/utils/po-status";
 
 @Injectable()
 export class PurchaseReceivesService {
@@ -101,14 +102,16 @@ export class PurchaseReceivesService {
       return;
     }
 
-    const itemsToInsert = items.map(({ batches, billed, ...item }) => ({
-      ...item,
-      purchase_receive_id: receiveId,
-      warehouse_id: item.warehouse_id ?? headerWarehouseId ?? null,
-      bin_id: item.bin_id ?? transactionBinId ?? null,
-      bin_label: item.bin_label ?? transactionBinLabel ?? null,
-      entity_id: tenant.entityId,
-    }));
+    const itemsToInsert = items.map(
+      ({ batches, billed, cancelled, ...item }) => ({
+        ...item,
+        purchase_receive_id: receiveId,
+        warehouse_id: item.warehouse_id ?? headerWarehouseId ?? null,
+        bin_id: item.bin_id ?? transactionBinId ?? null,
+        bin_label: item.bin_label ?? transactionBinLabel ?? null,
+        entity_id: tenant.entityId,
+      }),
+    );
 
     const { data: createdItems, error: itemsError } = await this.supabaseService
       .getClient()
@@ -392,6 +395,10 @@ export class PurchaseReceivesService {
       throw new NotFoundException(`Purchase Receive with ID ${id} not found`);
     }
 
+    if (data) {
+      data.invoice_total = data.bill_invoice_total ? parseFloat(data.bill_invoice_total) : 0;
+    }
+
     return data;
   }
 
@@ -400,7 +407,6 @@ export class PurchaseReceivesService {
   }
 
   async create(createDto: CreatePurchaseReceiveDto, tenant: TenantContext) {
-    const { items, billed, invoice_total, ...receiveData } = createDto;
     let resolvedWarehouseId = createDto.warehouse_id ?? null;
     const resolvedReceiveNumber = await this.resolveCreateNumber(
       createDto,
@@ -423,19 +429,28 @@ export class PurchaseReceivesService {
       }
     }
 
+    const insertPayload = {
+      purchase_receive_number: resolvedReceiveNumber,
+      received_date: createDto.received_date,
+      vendor_name: createDto.vendor_name ?? null,
+      purchase_order_id: createDto.purchase_order_id ?? null,
+      purchase_order_number: createDto.purchase_order_number ?? null,
+      warehouse_id: resolvedWarehouseId,
+      transaction_bin_id: createDto.transaction_bin_id ?? null,
+      transaction_bin_label: createDto.transaction_bin_label ?? null,
+      status: createDto.status ?? "draft",
+      notes: createDto.notes ?? null,
+      bill_no: createDto.bill_no ?? null,
+      bill_date: createDto.bill_date ?? null,
+      bill_invoice_total: createDto.invoice_total ?? null,
+      entity_id: tenant.entityId,
+      is_delete: false,
+    };
+
     const { data: receive, error: receiveError } = await this.supabaseService
       .getClient()
       .from("purchase_receives")
-      .insert([
-        {
-          ...receiveData,
-          bill_invoice_total: invoice_total,
-          purchase_receive_number: resolvedReceiveNumber,
-          warehouse_id: resolvedWarehouseId,
-          entity_id: tenant.entityId,
-          is_delete: false,
-        },
-      ])
+      .insert([insertPayload])
       .select()
       .single();
 
@@ -447,7 +462,7 @@ export class PurchaseReceivesService {
 
     await this.insertItemsAndBatches(
       receive.id,
-      items,
+      createDto.items,
       tenant,
       resolvedWarehouseId,
       createDto.transaction_bin_id,
@@ -456,12 +471,16 @@ export class PurchaseReceivesService {
 
     if (createDto.status?.toLowerCase() === "received") {
       await this.applyStockUpdates(
-        items,
+        createDto.items,
         tenant,
         receive.id,
         receive.purchase_receive_number,
         resolvedWarehouseId,
       );
+    }
+
+    if (createDto.purchase_order_id) {
+      await this.updatePurchaseOrderStatus(createDto.purchase_order_id, tenant);
     }
 
     return this.findOne(receive.id, tenant);
@@ -476,12 +495,21 @@ export class PurchaseReceivesService {
     const receiveNumber =
       updateDto.purchase_receive_number ??
       existingReceive.purchase_receive_number;
-    const { items, billed, invoice_total, ...updateData } = updateDto;
 
-    const dbUpdateData: any = { ...updateData };
-    if (invoice_total !== undefined) {
-      dbUpdateData.bill_invoice_total = invoice_total;
-    }
+    const dbUpdateData: any = {};
+    if (updateDto.purchase_receive_number !== undefined) dbUpdateData.purchase_receive_number = updateDto.purchase_receive_number;
+    if (updateDto.received_date !== undefined) dbUpdateData.received_date = updateDto.received_date;
+    if (updateDto.vendor_name !== undefined) dbUpdateData.vendor_name = updateDto.vendor_name;
+    if (updateDto.purchase_order_id !== undefined) dbUpdateData.purchase_order_id = updateDto.purchase_order_id;
+    if (updateDto.purchase_order_number !== undefined) dbUpdateData.purchase_order_number = updateDto.purchase_order_number;
+    if (updateDto.warehouse_id !== undefined) dbUpdateData.warehouse_id = updateDto.warehouse_id;
+    if (updateDto.transaction_bin_id !== undefined) dbUpdateData.transaction_bin_id = updateDto.transaction_bin_id;
+    if (updateDto.transaction_bin_label !== undefined) dbUpdateData.transaction_bin_label = updateDto.transaction_bin_label;
+    if (updateDto.status !== undefined) dbUpdateData.status = updateDto.status;
+    if (updateDto.notes !== undefined) dbUpdateData.notes = updateDto.notes;
+    if (updateDto.bill_no !== undefined) dbUpdateData.bill_no = updateDto.bill_no;
+    if (updateDto.bill_date !== undefined) dbUpdateData.bill_date = updateDto.bill_date;
+    if (updateDto.invoice_total !== undefined) dbUpdateData.bill_invoice_total = updateDto.invoice_total;
 
     if (Object.keys(dbUpdateData).length > 0) {
       const { error } = await this.supabaseService
@@ -496,7 +524,7 @@ export class PurchaseReceivesService {
       }
     }
 
-    if (items) {
+    if (updateDto.items) {
       const { data: existingItems } = await this.supabaseService
         .getClient()
         .from("purchase_receive_items")
@@ -535,7 +563,7 @@ export class PurchaseReceivesService {
 
       await this.insertItemsAndBatches(
         id,
-        items,
+        updateDto.items,
         tenant,
         updateDto.warehouse_id,
         updateDto.transaction_bin_id,
@@ -544,7 +572,7 @@ export class PurchaseReceivesService {
 
       if (updateDto.status?.toLowerCase() === "received") {
         await this.applyStockUpdates(
-          items,
+          updateDto.items,
           tenant,
           id,
           receiveNumber,
@@ -553,10 +581,15 @@ export class PurchaseReceivesService {
       }
     }
 
+    if (existingReceive.purchase_order_id) {
+      await this.updatePurchaseOrderStatus(existingReceive.purchase_order_id, tenant);
+    }
+
     return this.findOne(id, tenant);
   }
 
   async remove(id: string, tenant: TenantContext) {
+    const existingReceive = await this.findOne(id, tenant);
     const { error } = await this.supabaseService
       .getClient()
       .from("purchase_receives")
@@ -568,6 +601,18 @@ export class PurchaseReceivesService {
       throw new Error(`Failed to delete purchase receive: ${error.message}`);
     }
 
-    return { message: "Purchase Receive deleted successfully" };
+    if (existingReceive && existingReceive.purchase_order_id) {
+      await this.updatePurchaseOrderStatus(existingReceive.purchase_order_id, tenant);
+    }
+
+    return { message: "Purchase Order deleted successfully" };
+  }
+
+  private  async updatePurchaseOrderStatus(
+    purchaseOrderId: string,
+    tenant: TenantContext,
+  ) {
+    const client = this.supabaseService.getClient();
+    await updatePurchaseOrderStatus(client, purchaseOrderId, tenant.entityId);
   }
 }

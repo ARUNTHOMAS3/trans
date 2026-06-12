@@ -2,6 +2,7 @@ import { Injectable, HttpException, HttpStatus } from "@nestjs/common";
 import { SupabaseService } from "../../../supabase/supabase.service";
 import { v4 as uuidv4 } from "uuid";
 import { TenantContext } from "../../../../common/middleware/tenant.middleware";
+import { updatePurchaseOrderStatusByOrderNumber } from "../../purchase-orders/utils/po-status";
 
 @Injectable()
 export class BillsService {
@@ -269,6 +270,10 @@ export class BillsService {
       .eq('id', billId)
       .eq('entity_id', entityId)
       .single();
+
+    if (dto.orderNumber) {
+      await updatePurchaseOrderStatusByOrderNumber(supabase, dto.orderNumber, entityId);
+    }
 
     return fullBill || billData;
   }
@@ -558,6 +563,10 @@ export class BillsService {
       .eq('entity_id', entityId)
       .single();
 
+    if (dto.orderNumber) {
+      await updatePurchaseOrderStatusByOrderNumber(supabase, dto.orderNumber, entityId);
+    }
+
     return fullBill || billData;
   }
 
@@ -662,8 +671,15 @@ export class BillsService {
   }
 
   async remove(id: string, tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
+    const supabase = this.supabaseService.getClient();
+    const { data: bill } = await supabase
+      .from("bills")
+      .select("order_number")
+      .eq("id", id)
+      .eq("entity_id", tenant.entityId)
+      .maybeSingle();
+
+    const { data, error } = await supabase
       .from("bills")
       .update({ is_delete: true })
       .eq("id", id)
@@ -676,6 +692,10 @@ export class BillsService {
         `Failed to delete bill: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+
+    if (bill && bill.order_number) {
+      await updatePurchaseOrderStatusByOrderNumber(supabase, bill.order_number, tenant.entityId);
     }
 
     return { message: "Bill deleted successfully" };

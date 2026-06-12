@@ -82,9 +82,29 @@ class PurchaseOrderItemDto {
   @IsOptional()
   header_text?: string;
 
+  @IsUUID()
+  @IsOptional()
+  id?: string;
+
+  @IsNumber()
+  @IsOptional()
+  cancelled_quantity?: number;
+
   @IsNumber()
   @IsOptional()
   sort_order?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  track_batches?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  track_serial_number?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  track_bin_location?: boolean;
 }
 
 export class CreatePurchaseOrderDto {

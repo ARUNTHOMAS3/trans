@@ -218,7 +218,7 @@ class _SalesOrderCreateScreenState
     );
     salesperson = 'ALTHAF';
     // paymentTerms = 'Net 360'; // Loaded dynamically in _loadPaymentTerms
-    warehouse = 'Main Warehouse';
+    warehouse = '';
 
     referenceCtrl = TextEditingController();
     notesCtrl = TextEditingController();
@@ -467,7 +467,7 @@ class _SalesOrderCreateScreenState
             orElse: () => warehouseList.first,
           );
     final displayedWarehouseName =
-        selectedWarehouse?.name ?? warehouse ?? 'Main Warehouse';
+        selectedWarehouse?.name ?? warehouse ?? '';
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -1144,7 +1144,7 @@ class _SalesOrderCreateScreenState
                 (w) => w.isDefaultForBranch,
                 orElse: () => warehouses.first,
               );
-        if (defaultWh != null && warehouse == 'Main Warehouse') {
+        if (defaultWh != null && warehouse == '') {
           setState(() {
             warehouse = defaultWh.name;
           });
@@ -1289,9 +1289,9 @@ class _SalesOrderCreateScreenState
             (w) => w.isDefaultForBranch,
             orElse: () => warehouseList.first,
           );
-    if (defaultWh != null && warehouse == 'Main Warehouse') {
+    if (defaultWh != null && warehouse == '') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && warehouse == 'Main Warehouse') {
+        if (mounted && warehouse == '') {
           setState(() {
             warehouse = defaultWh.name;
           });
@@ -3010,7 +3010,7 @@ class _SalesOrderCreateScreenState
                                         const SizedBox(width: 4),
                                         Flexible(
                                           child: WarehouseHoverPopover(
-                                            warehouseName: warehouse ?? 'hbnm',
+                                            warehouseName: warehouse ?? '',
                                             selectedView: 'Available for Sale',
                                             productId: row.itemId,
                                             onViewChanged: (v) {},
@@ -3020,7 +3020,7 @@ class _SalesOrderCreateScreenState
                                               });
                                             },
                                             child: Text(
-                                              (warehouse ?? 'hbnm')
+                                              (warehouse ?? '')
                                                   .toUpperCase(),
                                               textAlign: TextAlign.right,
                                               style: const TextStyle(
@@ -4991,17 +4991,29 @@ class _SalesOrderCreateScreenState
   }) {
     Widget tooltipIcon() {
       if (tooltip != null) {
-        return ZTooltip(
+        return Tooltip(
           message: tooltip,
-          direction: ZTooltipDirection.bottom,
+          preferBelow: false,
+          verticalOffset: 12,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: const ShapeDecoration(
+            color: Color(0xFF1F2937),
+            shape: TooltipShapeBorder(),
+          ),
+          textStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            height: 1.5,
+          ),
           child: const Icon(
-            LucideIcons.helpCircle,
-            size: 14,
+            Icons.help_outline,
+            size: 16,
             color: Color(0xFF9CA3AF),
           ),
         );
       }
-      return const Icon(LucideIcons.helpCircle, size: 14, color: Color(0xFF9CA3AF));
+      return const Icon(Icons.help_outline, size: 16, color: Color(0xFF9CA3AF));
     }
 
     Widget labelWidget() {

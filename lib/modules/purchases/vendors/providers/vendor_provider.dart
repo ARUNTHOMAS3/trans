@@ -67,10 +67,11 @@ class VendorNotifier extends StateNotifier<VendorState> {
     }
   }
 
-  Future<void> createVendor(Vendor vendor) async {
+  Future<Vendor> createVendor(Vendor vendor) async {
     try {
       final createdVendor = await _repository.createVendor(vendor);
       state = state.copyWith(vendors: [...state.vendors, createdVendor]);
+      return createdVendor;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       rethrow;

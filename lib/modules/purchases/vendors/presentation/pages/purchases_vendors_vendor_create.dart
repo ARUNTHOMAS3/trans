@@ -529,7 +529,7 @@ class _PurchasesVendorsVendorCreateScreenState
         final updatedVendor = vendor.copyWith(vendorNumber: finalVendorNumber);
 
         // 2. Create the vendor
-        await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
+        final created = await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
 
         if (mounted) {
           ZerpaiToast.success(context, 'Vendor created successfully');
@@ -545,7 +545,7 @@ class _PurchasesVendorsVendorCreateScreenState
           }
 
           if (widget.isDialog) {
-            context.pop();
+            context.pop(created);
           } else {
             // 4. RESET FORM & FETCH NEXT NUMBER (Stay on page)
             _resetForm();

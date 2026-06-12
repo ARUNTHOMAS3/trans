@@ -95,7 +95,7 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        widget.warehouseName ?? 'Main Warehouse',
+                        widget.warehouseName ?? '',
                         style: const TextStyle(
                           fontSize: 14,
                           color: Color(0xFF6B7280),

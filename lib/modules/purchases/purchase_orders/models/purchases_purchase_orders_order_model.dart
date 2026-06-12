@@ -11,6 +11,7 @@ class PurchaseOrderItem {
   final String? accountId;
   final String? accountName;
   final double quantity;
+  final double cancelledQuantity;
   final double rate;
   final String? taxId;
   final String? taxName;
@@ -30,6 +31,9 @@ class PurchaseOrderItem {
   final String? warehouseName;
   final bool isHeader;
   final String? headerText;
+  final bool trackBatches;
+  final bool trackSerialNumber;
+  final bool trackBinLocation;
 
   PurchaseOrderItem({
     this.id,
@@ -43,6 +47,7 @@ class PurchaseOrderItem {
     this.discountAccountId,
     this.discountAccountName,
     required this.quantity,
+    this.cancelledQuantity = 0.0,
     required this.rate,
     this.taxId,
     this.taxName,
@@ -60,6 +65,9 @@ class PurchaseOrderItem {
     this.warehouseName,
     this.isHeader = false,
     this.headerText,
+    this.trackBatches = false,
+    this.trackSerialNumber = false,
+    this.trackBinLocation = false,
   });
 
   factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) {
@@ -79,6 +87,7 @@ class PurchaseOrderItem {
       description: json['description'] as String?,
       accountId: json['accountId'] as String? ?? json['account_id'] as String? ?? json['accounts'] as String?,
       quantity: double.tryParse(json['quantity']?.toString() ?? '1.0') ?? 1.0,
+      cancelledQuantity: double.tryParse(json['cancelledQuantity']?.toString() ?? json['cancelled_quantity']?.toString() ?? '0.0') ?? 0.0,
       rate: double.tryParse(json['rate']?.toString() ?? '0.0') ?? 0.0,
       taxId: json['taxId'] as String? ?? json['tax_id'] as String?,
       taxRate: double.tryParse(json['itemTaxRate']?.toString() ?? json['tax_rate']?.toString() ?? '0.0') ?? 0.0,
@@ -92,6 +101,9 @@ class PurchaseOrderItem {
       pricelist: json['pricelist'] as String?,
       warehouseId: json['warehouse_id'] as String? ?? json['warehouseId'] as String?,
       warehouseName: json['warehouse_name'] as String? ?? json['warehouseName'] as String?,
+      trackBatches: productData?['track_batches'] as bool? ?? json['track_batches'] as bool? ?? false,
+      trackSerialNumber: productData?['track_serial_number'] as bool? ?? json['track_serial_number'] as bool? ?? false,
+      trackBinLocation: productData?['track_bin_location'] as bool? ?? json['track_bin_location'] as bool? ?? false,
     );
   }
 
@@ -102,6 +114,7 @@ class PurchaseOrderItem {
       if (accountId != null) 'account_id': accountId,
       if (accountId != null) 'accounts': accountId,
       'quantity': quantity,
+      'cancelled_quantity': cancelledQuantity,
       'rate': rate,
       if (taxId != null) 'tax_id': taxId,
       'item_tax_rate': taxRate,
@@ -116,6 +129,9 @@ class PurchaseOrderItem {
       'is_header': isHeader,
       if (headerText != null) 'header_text': headerText,
       if (index != null) 'sort_order': index,
+      'track_batches': trackBatches,
+      'track_serial_number': trackSerialNumber,
+      'track_bin_location': trackBinLocation,
     };
   }
 
@@ -130,6 +146,7 @@ class PurchaseOrderItem {
     String? discountAccountId,
     String? discountAccountName,
     double? quantity,
+    double? cancelledQuantity,
     double? rate,
     String? taxId,
     String? taxName,
@@ -147,6 +164,9 @@ class PurchaseOrderItem {
     String? warehouseName,
     bool? isHeader,
     String? headerText,
+    bool? trackBatches,
+    bool? trackSerialNumber,
+    bool? trackBinLocation,
   }) {
     return PurchaseOrderItem(
       id: id,
@@ -160,6 +180,7 @@ class PurchaseOrderItem {
       discountAccountId: discountAccountId ?? this.discountAccountId,
       discountAccountName: discountAccountName ?? this.discountAccountName,
       quantity: quantity ?? this.quantity,
+      cancelledQuantity: cancelledQuantity ?? this.cancelledQuantity,
       rate: rate ?? this.rate,
       taxId: taxId ?? this.taxId,
       taxName: taxName ?? this.taxName,
@@ -177,6 +198,9 @@ class PurchaseOrderItem {
       warehouseName: warehouseName ?? this.warehouseName,
       isHeader: isHeader ?? this.isHeader,
       headerText: headerText ?? this.headerText,
+      trackBatches: trackBatches ?? this.trackBatches,
+      trackSerialNumber: trackSerialNumber ?? this.trackSerialNumber,
+      trackBinLocation: trackBinLocation ?? this.trackBinLocation,
     );
   }
 
@@ -193,6 +217,7 @@ class PurchaseOrderItem {
       discountAccountId: discountAccountId,
       discountAccountName: discountAccountName,
       quantity: quantity,
+      cancelledQuantity: cancelledQuantity,
       rate: rate,
       taxId: null,
       taxName: null,
@@ -209,6 +234,9 @@ class PurchaseOrderItem {
       warehouseName: warehouseName,
       isHeader: isHeader,
       headerText: headerText,
+      trackBatches: trackBatches,
+      trackSerialNumber: trackSerialNumber,
+      trackBinLocation: trackBinLocation,
     );
   }
 
@@ -225,6 +253,7 @@ class PurchaseOrderItem {
       discountAccountId: discountAccountId,
       discountAccountName: discountAccountName,
       quantity: quantity,
+      cancelledQuantity: cancelledQuantity,
       rate: rate,
       taxId: taxId,
       taxName: taxName,
@@ -242,6 +271,9 @@ class PurchaseOrderItem {
       warehouseName: warehouseName,
       isHeader: isHeader,
       headerText: headerText,
+      trackBatches: trackBatches,
+      trackSerialNumber: trackSerialNumber,
+      trackBinLocation: trackBinLocation,
     );
   }
 }
@@ -288,6 +320,8 @@ class PurchaseOrder {
   final bool isDelete;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? receiveStatus;
+  final String? billStatus;
 
   PurchaseOrder({
     this.id,
@@ -331,6 +365,8 @@ class PurchaseOrder {
     this.isDelete = false,
     this.createdAt,
     this.updatedAt,
+    this.receiveStatus = 'none',
+    this.billStatus = 'none',
   });
 
   factory PurchaseOrder.fromJson(Map<String, dynamic> json) {
@@ -398,6 +434,8 @@ class PurchaseOrder {
       updatedAt: json['updatedAt'] != null
           ? DateTime.tryParse(json['updatedAt'] as String)
           : null,
+      receiveStatus: json['receive_status'] as String? ?? 'none',
+      billStatus: json['bill_status'] as String? ?? 'none',
     );
   }
 
@@ -516,6 +554,8 @@ class PurchaseOrder {
     bool? isDelete,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? receiveStatus,
+    String? billStatus,
   }) {
     return PurchaseOrder(
       id: id ?? this.id,
@@ -557,6 +597,8 @@ class PurchaseOrder {
       isDelete: isDelete ?? this.isDelete,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      receiveStatus: receiveStatus ?? this.receiveStatus,
+      billStatus: billStatus ?? this.billStatus,
     );
   }
 

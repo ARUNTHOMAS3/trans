@@ -1260,8 +1260,7 @@ class _StockLocationsTab extends StatelessWidget {
           style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
         ),
         const SizedBox(height: 12),
-        _stockRow('Main Warehouse', '—'),
-        _stockRow('Secondary Warehouse', '—'),
+        _stockRow('', '—'),
       ],
     );
   }

@@ -104,6 +104,7 @@ class PurchaseReceiveItem {
   final double ordered;
   final double received;
   final double inTransit;
+  final double cancelled;
   double quantityToReceive;
   List<BatchInfo> batches;
   final String? purchaseOrderId;
@@ -119,6 +120,7 @@ class PurchaseReceiveItem {
     this.ordered = 0,
     this.received = 0,
     this.inTransit = 0,
+    this.cancelled = 0,
     this.quantityToReceive = 0,
     List<BatchInfo>? batches,
     this.purchaseOrderId,
@@ -135,6 +137,7 @@ class PurchaseReceiveItem {
     double? ordered,
     double? received,
     double? inTransit,
+    double? cancelled,
     double? quantityToReceive,
     List<BatchInfo>? batches,
     String? purchaseOrderId,
@@ -150,6 +153,7 @@ class PurchaseReceiveItem {
       ordered: ordered ?? this.ordered,
       received: received ?? this.received,
       inTransit: inTransit ?? this.inTransit,
+      cancelled: cancelled ?? this.cancelled,
       quantityToReceive: quantityToReceive ?? this.quantityToReceive,
       batches: batches ?? this.batches,
       purchaseOrderId: purchaseOrderId ?? this.purchaseOrderId,
@@ -167,6 +171,7 @@ class PurchaseReceiveItem {
     'ordered': ordered,
     'received': received,
     'in_transit': inTransit,
+    'cancelled': cancelled,
     'quantity_to_receive': quantityToReceive,
     'batches': batches.map((b) => b.toJson()).toList(),
     if (binId != null) 'bin_id': binId,
@@ -182,6 +187,7 @@ class PurchaseReceiveItem {
       ordered: (json['ordered'] as num?)?.toDouble() ?? 0,
       received: (json['received'] as num?)?.toDouble() ?? 0,
       inTransit: (json['in_transit'] as num?)?.toDouble() ?? 0,
+      cancelled: (json['cancelled'] as num?)?.toDouble() ?? 0,
       quantityToReceive: (json['quantity_to_receive'] as num?)?.toDouble() ?? 0,
       batches:
           (json['batches'] as List<dynamic>?)

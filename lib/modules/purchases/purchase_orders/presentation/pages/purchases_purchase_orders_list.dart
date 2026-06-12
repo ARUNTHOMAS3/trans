@@ -42,34 +42,10 @@ import 'package:web/web.dart' as web;
 const _poFilterOptions = <FavoriteFilterOption>[
   FavoriteFilterOption(label: 'All', value: 'all'),
   FavoriteFilterOption(label: 'Draft', value: 'Draft'),
-  FavoriteFilterOption(label: 'Pending Approval', value: 'Pending'),
-  FavoriteFilterOption(label: 'Approved', value: 'Approved'),
   FavoriteFilterOption(label: 'Issued', value: 'Issued'),
-  FavoriteFilterOption(label: 'Billed', value: 'Billed'),
-  FavoriteFilterOption(label: 'Partially Billed', value: 'Partially Billed'),
   FavoriteFilterOption(label: 'Closed', value: 'Closed'),
-  FavoriteFilterOption(label: 'Canceled', value: 'Canceled'),
-  FavoriteFilterOption(
-    label: 'Partially Received',
-    value: 'Partially Received',
-  ),
-  FavoriteFilterOption(label: 'Received', value: 'Received'),
-  FavoriteFilterOption(label: 'Pending Received', value: 'Pending Received'),
-  FavoriteFilterOption(label: 'Dropshiped', value: 'Dropshiped'),
-  FavoriteFilterOption(label: 'Backorder', value: 'Backorder'),
-  FavoriteFilterOption(
-    label: 'Unbilled Backorder',
-    value: 'Unbilled Backorder',
-  ),
-  FavoriteFilterOption(
-    label: 'Billed & Not Received',
-    value: 'Billed & Not Received',
-  ),
-  FavoriteFilterOption(
-    label: 'Received & Not Billed',
-    value: 'Received & Not Billed',
-  ),
 ];
+
 
 class _PoTxnSummary {
   final List<Map<String, dynamic>> receives;
@@ -344,11 +320,16 @@ class _PurchaseOrderOverviewScreenState
       }
     }
 
+    final expectedTotalQuantity = order.items.fold(
+      0.0,
+      (sum, item) => sum + (item.quantity - item.cancelledQuantity),
+    );
+
     final receiveStatus = receives.isEmpty
         ? 'Yet to be Received'
         : hasInTransit
         ? 'In Transit'
-        : totalReceived < order.totalQuantity
+        : totalReceived < expectedTotalQuantity
         ? 'Partially Received'
         : 'Received';
 
@@ -2051,24 +2032,84 @@ class _PurchaseOrderOverviewScreenState
         content = _buildStatusBadge(order.status);
         break;
       case 'received':
-        content = Center(
-          child: Icon(
+        Widget ball;
+        final recStatus = order.receiveStatus?.toLowerCase() ?? 'none';
+        if (recStatus == 'full') {
+          ball = const Icon(
             Icons.circle,
-            color: order.status == 'Closed' || order.status == 'Received'
-                ? Colors.green
-                : Colors.orange,
+            color: Colors.orange,
             size: 12,
-          ),
-        );
+          );
+        } else if (recStatus == 'partial') {
+          ball = Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(
+                Icons.circle_outlined,
+                color: Colors.orange,
+                size: 12,
+              ),
+              ClipRect(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 0.5,
+                  child: const Icon(
+                    Icons.circle,
+                    color: Colors.orange,
+                    size: 12,
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          ball = const Icon(
+            Icons.circle,
+            color: Colors.grey,
+            size: 12,
+          );
+        }
+        content = Center(child: ball);
         break;
       case 'billed':
-        content = Center(
-          child: Icon(
+        Widget ball;
+        final bStatus = order.billStatus?.toLowerCase() ?? 'none';
+        if (bStatus == 'full') {
+          ball = const Icon(
             Icons.circle,
-            color: order.status == 'Closed' ? Colors.blue : Colors.grey,
+            color: Colors.green,
             size: 12,
-          ),
-        );
+          );
+        } else if (bStatus == 'partial') {
+          ball = Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(
+                Icons.circle_outlined,
+                color: Colors.green,
+                size: 12,
+              ),
+              ClipRect(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 0.5,
+                  child: const Icon(
+                    Icons.circle,
+                    color: Colors.green,
+                    size: 12,
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          ball = const Icon(
+            Icons.circle,
+            color: Colors.grey,
+            size: 12,
+          );
+        }
+        content = Center(child: ball);
         break;
       case 'amount':
         content = Text(
@@ -2131,14 +2172,12 @@ class _PurchaseOrderOverviewScreenState
         color = AppTheme.warningOrange;
         break;
       case 'pending':
+      case 'issued':
         color = AppTheme.primaryBlue;
         break;
       case 'approved':
-      case 'received':
+      case 'closed':
         color = AppTheme.successGreen;
-        break;
-      case 'partially received':
-        color = AppTheme.warningOrange;
         break;
       case 'rejected':
         color = AppTheme.errorRed;
@@ -2205,39 +2244,41 @@ class _PurchaseOrderOverviewScreenState
 
             return StatefulBuilder(
               builder: (context, setInnerState) {
-                // Compute displayStatus: check whether ordered value = received in purchase_receive_items
-                bool isFullyReceived = false;
+                // Compute displayStatus: check whether ordered value = received/billed in purchase_receive_items/bill_items
+
+
+                bool isFullyBilled = false;
                 if (order.items.isNotEmpty) {
-                  isFullyReceived = true;
+                  isFullyBilled = true;
                   for (final poItem in order.items) {
                     if (poItem.isHeader) continue;
-                    double totalReceivedForProduct = 0.0;
-                    for (final r in summary.receives) {
-                      final itemsList =
-                          r['purchases_purchase_receive_items']
-                              as List<dynamic>? ??
-                          r['purchase_receive_items']
-                              as List<dynamic>? ??
-                          [];
+                    double totalBilledForProduct = 0.0;
+                    for (final b in summary.bills) {
+                      final status = (b['status']?.toString() ?? 'draft').toLowerCase();
+                      if (status == 'void') continue;
+                      final itemsList = b['bill_items'] as List<dynamic>? ?? [];
                       for (final item in itemsList) {
-                        final recProdId =
-                            (item['item_id'] ?? item['product_id'])?.toString();
-                        if (recProdId == poItem.productId) {
-                          totalReceivedForProduct +=
-                              double.tryParse(item['received']?.toString() ?? '0.0') ?? 0.0;
+                        final billProdId = item['product_id']?.toString();
+                        if (billProdId == poItem.productId) {
+                          totalBilledForProduct +=
+                              double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
                         }
                       }
                     }
-                    if (totalReceivedForProduct < poItem.quantity - 0.0001) {
-                      isFullyReceived = false;
+                    if (totalBilledForProduct < (poItem.quantity - poItem.cancelledQuantity) - 0.0001) {
+                      isFullyBilled = false;
                       break;
                     }
                   }
                 }
 
                 String displayStatus = order.status;
-                if (order.status.toLowerCase() != 'draft' && isFullyReceived) {
-                  displayStatus = 'Closed';
+                if (order.status.toLowerCase() != 'draft') {
+                  if (isFullyBilled) {
+                    displayStatus = 'Closed';
+                  } else {
+                    displayStatus = 'Issued';
+                  }
                 }
 
                 Widget detailContent = Column(
@@ -3168,7 +3209,7 @@ class _PurchaseOrderOverviewScreenState
           }
         }
       }
-      if (totalReceivedForProduct < poItem.quantity - 0.0001) {
+      if (totalReceivedForProduct < (poItem.quantity - poItem.cancelledQuantity) - 0.0001) {
         return false;
       }
     }
@@ -3951,7 +3992,7 @@ class _PurchaseOrderOverviewScreenState
                   ),
                 ),
                 const Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: Text(
                     'WAREHOUSE',
                     style: TextStyle(
@@ -3962,15 +4003,13 @@ class _PurchaseOrderOverviewScreenState
                   ),
                 ),
                 const Expanded(
-                  flex: 5,
-                  child: Center(
-                    child: Text(
-                      'STATUS',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
-                      ),
+                  flex: 3,
+                  child: Text(
+                    'STATUS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -4116,28 +4155,28 @@ class _PurchaseOrderOverviewScreenState
                     ),
                   ),
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: Text(
                       warehouseName ?? '-',
                       style: AppTheme.bodyText.copyWith(fontSize: 11),
                     ),
                   ),
                   Expanded(
-                    flex: 5,
+                    flex: 3,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           itemFocQty > 0
-                              ? '${itemReceivedQty.toInt()} pcs + ${itemFocQty.toInt()} foc'
-                              : '${itemReceivedQty.toInt()} pcs',
+                              ? '${itemReceivedQty.toInt()} pcs Received + ${itemFocQty.toInt()} foc'
+                              : '${itemReceivedQty.toInt()} pcs Received',
                           style: AppTheme.bodyText.copyWith(fontSize: 11),
-                          textAlign: TextAlign.center,
+                          textAlign: TextAlign.left,
                         ),
                         Text(
                           '${itemBilledQty.toInt()} Billed',
                           style: AppTheme.bodyText.copyWith(fontSize: 11),
-                          textAlign: TextAlign.center,
+                          textAlign: TextAlign.left,
                         ),
                         if (item.cancelledQuantity > 0)
                           Text(
@@ -4148,7 +4187,7 @@ class _PurchaseOrderOverviewScreenState
                               fontSize: 11,
                               color: AppTheme.errorRed,
                             ),
-                            textAlign: TextAlign.center,
+                            textAlign: TextAlign.left,
                           ),
                       ],
                     ),

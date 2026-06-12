@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skeletonizer/skeletonizer.dart' hide Skeleton;
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
@@ -151,6 +152,7 @@ class _PRCreateState
   String? _selectedPOId;
 
   List<PurchaseOrder> _vendorPOs = [];
+  final Map<String, double> _receivedQuantities = {};
   bool _isLoadingPOs = false;
   bool _isSaving = false;
   bool _isReceiveAutoGenerate = true;
@@ -177,12 +179,7 @@ class _PRCreateState
   bool _isVendorSidebarLoading = false;
   Timer? _topErrorTimer;
   String? _selectedTransactionBin;
-  static const List<String> _manualBinList = [
-    'Bin A-01',
-    'Bin B-02',
-    'Bin C-03',
-    'Main Rack',
-  ];
+  String? _selectedTransactionBinId;
   static const int _maxUploadFiles = 5;
   static const int _maxUploadFileSizeBytes = 10 * 1024 * 1024;
   final List<PlatformFile> _uploadedFiles = [];
@@ -824,7 +821,9 @@ class _PRCreateState
   void _hideFilePopupOverlay() {
     _filePopupOverlayEntry?.remove();
     _filePopupOverlayEntry = null;
-    setState(() => _showFilePopup = false);
+    if (mounted) {
+      setState(() => _showFilePopup = false);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -930,27 +929,8 @@ class _PRCreateState
         ).future,
       );
       
-      Set<String> receivedPoIds = {};
-      try {
-        final supabase = Supabase.instance.client;
-        final receivesResp = await supabase
-            .from('purchase_receives')
-            .select('purchase_order_id')
-            .not('purchase_order_id', 'is', null);
-        receivedPoIds = (receivesResp as List<dynamic>)
-            .map((r) => r['purchase_order_id']?.toString() ?? '')
-            .where((id) => id.isNotEmpty)
-            .toSet();
-      } catch (dbErr) {
-        AppLogger.error(
-          'Failed to load existing purchase receives for filtering',
-          error: dbErr,
-          module: 'purchases',
-        );
-      }
-
       final filtered = pos
-          .where((po) => po.vendorId == vendorId && !receivedPoIds.contains(po.id))
+          .where((po) => po.vendorId == vendorId && po.receiveStatus != 'full')
           .toList();
       if (mounted) {
         setState(() {
@@ -994,44 +974,47 @@ class _PRCreateState
           : po;
       if (!mounted) return;
 
-      /* // Resolve warehouse name explicitly
-      String? resolvedName;
-      final poToUse = fullPO ?? po;
-      
-      final idToLookup = (poToUse.deliveryWarehouseId?.trim() ?? 
-                         poToUse.warehouseId?.trim() ?? 
-                         poToUse.outletId?.trim())?.toLowerCase();
+      final Map<String, double> tempReceived = {};
+      if (isValidPoId) {
+        try {
+          final supabase = Supabase.instance.client;
+          final response = await supabase
+              .from('purchase_receives')
+              .select('id, status, purchase_receive_items(item_id, received, quantity_to_receive, purchase_receive_item_batches(quantity))')
+              .eq('purchase_order_id', poId)
+              .eq('is_delete', false)
+              .eq('status', 'received');
 
-      final warehouseList = await ref.read(warehousesProvider.future);
-      
-      AppLogger.debug('Resolving warehouse', data: {
-        'idToLookup': idToLookup,
-        'poWarehouseName': poToUse.warehouseName,
-        'availableCount': warehouseList.length,
-      }, module: 'purchases');
+          for (final r in response) {
+            final itemsList = r['purchase_receive_items'] as List<dynamic>? ?? [];
+            for (final recItem in itemsList) {
+              final productId = recItem['item_id']?.toString() ?? '';
+              if (productId.isEmpty) continue;
 
-      if (idToLookup != null && idToLookup.isNotEmpty) {
-        // 1. Try exact ID match (case-insensitive)
-        final match = warehouseList.where((w) => w.id.toLowerCase() == idToLookup).firstOrNull ??
-                      warehouseList.where((w) => w.parentOutletId?.toLowerCase() == idToLookup).firstOrNull;
-        
-        if (match != null) {
-          resolvedName = match.name;
-        } else if (poToUse.warehouseName != null && poToUse.warehouseName!.isNotEmpty) {
-          // 2. Try matching by name string if ID lookup failed
-          final nameMatch = warehouseList.where((w) => w.name.toLowerCase() == poToUse.warehouseName!.toLowerCase()).firstOrNull;
-          resolvedName = nameMatch?.name ?? poToUse.warehouseName;
-        } else {
-          resolvedName = 'Not Available';
+              double itemRecQty = 0.0;
+              final batches = recItem['purchase_receive_item_batches'] as List<dynamic>? ?? [];
+              if (batches.isNotEmpty) {
+                for (final b in batches) {
+                  itemRecQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+                }
+              } else {
+                itemRecQty += double.tryParse(recItem['quantity_to_receive']?.toString() ?? recItem['received']?.toString() ?? '0.0') ?? 0.0;
+              }
+              tempReceived[productId] = (tempReceived[productId] ?? 0.0) + itemRecQty;
+            }
+          }
+        } catch (dbErr) {
+          AppLogger.error(
+            'Failed to load existing purchase receives for received quantities mapping',
+            error: dbErr,
+            module: 'purchases',
+          );
         }
-      } else {
-        // 3. No ID found, use name from PO directly or fallback
-        resolvedName = (poToUse.warehouseName != null && poToUse.warehouseName!.isNotEmpty)
-            ? poToUse.warehouseName
-            : 'Not Available';
-      } */
+      }
 
       setState(() {
+        _receivedQuantities.clear();
+        _receivedQuantities.addAll(tempReceived);
         _selectedPO = fullPO ?? po;
         _isLoadingPOs = false;
         _clearAllRows();
@@ -1061,13 +1044,14 @@ class _PRCreateState
   void _populateRowsFromPO(PurchaseOrder? po) {
     if (po == null || po.items.isEmpty) return;
     for (final poItem in po.items) {
+      final recQty = _receivedQuantities[poItem.productId] ?? 0.0;
       _items.add(
         PurchaseReceiveItem(
           itemId: poItem.productId,
           itemName: poItem.productName ?? poItem.itemCode ?? "",
           description: poItem.description,
           ordered: poItem.quantity,
-          received: 0,
+          received: recQty,
           inTransit: 0,
           cancelled: poItem.cancelledQuantity,
           quantityToReceive: 0,
@@ -1725,18 +1709,41 @@ class _PRCreateState
           if (_binMode == 'transaction')
             SizedBox(
               width: 220,
-              child: FormDropdown<String>(
-                height: 32,
-                value: _selectedTransactionBin,
-                items: _manualBinList,
-                hint: 'Select Bin',
-                itemBuilder: (item, isSelected, isHovered) {
-                  return _buildDropdownOverlayItem(item, isSelected, isHovered);
-                },
-                onChanged: (val) {
-                  setState(() {
-                    _selectedTransactionBin = val;
-                  });
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final targetWarehouseId = _selectedPO?.warehouseId ?? _selectedPO?.deliveryWarehouseId;
+                  final binsAsync = ref.watch(
+                    binsLookupProvider(targetWarehouseId),
+                  );
+                  final binsList = binsAsync.asData?.value ?? [];
+                  final bins = binsList.map((b) => b['bin_code']!).toList();
+                  return Skeletonizer(
+                    enabled: binsAsync.isLoading,
+                    child: FormDropdown<String>(
+                      height: 32,
+                      value: _selectedTransactionBin,
+                      items: bins,
+                      hint: 'Select Bin',
+                      showSearch: true,
+                      itemBuilder: (item, isSelected, isHovered) =>
+                          _buildDropdownOverlayItem(item, isSelected, isHovered),
+                      onChanged: (val) => setState(() {
+                        _selectedTransactionBin = val;
+                        if (val != null) {
+                          final matched = binsList.firstWhere(
+                            (b) => b['bin_code'] == val,
+                            orElse: () => <String, String>{},
+                          );
+                          _selectedTransactionBinId = matched['id'];
+                          for (int i = 0; i < _preferredBins.length; i++) {
+                            _preferredBins[i] = val;
+                          }
+                        } else {
+                          _selectedTransactionBinId = null;
+                        }
+                      }),
+                    ),
+                  );
                 },
               ),
             ),
@@ -1805,9 +1812,7 @@ class _PRCreateState
                             bottom: BorderSide(color: _borderCol, width: 0.8),
                           ),
                         ),
-                        child: IntrinsicHeight(
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _tableHeaderCell(
                                 "ITEMS & DESCRIPTION",
@@ -1841,7 +1846,6 @@ class _PRCreateState
                             ],
                           ),
                         ),
-                      ),
                       // Table Body
                       if (_isLoadingPOs)
                         _buildLoadingRow()
@@ -1894,9 +1898,7 @@ class _PRCreateState
                             bottom: BorderSide(color: _borderCol, width: 0.8),
                           ),
                         ),
-                        child: IntrinsicHeight(
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _tableHeaderCell(
                                 "",
@@ -1959,7 +1961,6 @@ class _PRCreateState
                             ],
                           ),
                         ),
-                      ),
                       // Table Rows
                       if (_items.isEmpty)
                         KeyedSubtree(
@@ -2157,7 +2158,11 @@ class _PRCreateState
     final currentQty =
         double.tryParse(ctrl.qtyCtrl.text.isEmpty ? '0' : ctrl.qtyCtrl.text) ??
         0;
-    final maxQty = (_items[index].ordered - _items[index].cancelled).clamp(0.0, double.infinity);
+    final item = _items[index];
+    double maxQty = double.infinity;
+    if (item.ordered > 0) {
+      maxQty = (item.ordered - item.received).clamp(0.0, double.infinity);
+    }
     final nextQty = (currentQty + delta).clamp(0.0, maxQty).toDouble();
     final display = nextQty == nextQty.roundToDouble()
         ? nextQty.toInt().toString()
@@ -2172,19 +2177,8 @@ class _PRCreateState
   void _onRowQtyChanged(int index, String value) {
     if (index >= _items.length) return;
     final qty = double.tryParse(value.isEmpty ? '0' : value) ?? 0;
-    final maxQty = (_items[index].ordered - _items[index].cancelled).clamp(0.0, double.infinity);
-    final finalQty = qty.clamp(0.0, maxQty);
-    if (finalQty != qty && index < _rowControllers.length) {
-      final display = finalQty == finalQty.roundToDouble()
-          ? finalQty.toInt().toString()
-          : finalQty.toStringAsFixed(2);
-      _rowControllers[index].qtyCtrl.text = display;
-      _rowControllers[index].qtyCtrl.selection = TextSelection.fromPosition(
-        TextPosition(offset: display.length),
-      );
-    }
     setState(() {
-      _items[index] = _items[index].copyWith(quantityToReceive: finalQty);
+      _items[index] = _items[index].copyWith(quantityToReceive: qty);
     });
   }
 
@@ -2194,7 +2188,7 @@ class _PRCreateState
       for (var i = 0; i < _items.length; i++) {
         if (i >= _rowControllers.length) continue;
         if (_items[i].batches.isNotEmpty) continue;
-        final maxQty = (_items[i].ordered - _items[i].cancelled).clamp(0.0, double.infinity);
+        final maxQty = (_items[i].ordered - _items[i].received - _items[i].cancelled).clamp(0.0, double.infinity);
         final display = maxQty == maxQty.roundToDouble()
             ? maxQty.toInt().toString()
             : maxQty.toStringAsFixed(2);
@@ -2725,6 +2719,7 @@ class _PRCreateState
                     if (poItem == null) return;
                     setState(() {
                       if (isEphemeral) {
+                        final recQty = _receivedQuantities[poItem.productId] ?? 0.0;
                         _items.add(
                           poItem.productId.isNotEmpty
                               ? PurchaseReceiveItem(
@@ -2732,7 +2727,7 @@ class _PRCreateState
                                   itemName: poItem.productName ?? '',
                                   description: poItem.description,
                                   ordered: poItem.quantity,
-                                  received: 0,
+                                  received: recQty,
                                   inTransit: 0,
                                 )
                               : PurchaseReceiveItem(),
@@ -2746,12 +2741,13 @@ class _PRCreateState
                         _damageControllers.add(TextEditingController());
                       } else {
                         if (index < _items.length) {
+                          final recQty = _receivedQuantities[poItem.productId] ?? 0.0;
                           _items[index] = _items[index].copyWith(
                             itemId: poItem.productId,
                             itemName: poItem.productName ?? '',
                             description: poItem.description,
                             ordered: poItem.quantity,
-                            received: 0,
+                            received: recQty,
                             inTransit: 0,
                           );
                           if (index == _items.length - 1) {
@@ -2791,9 +2787,24 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 100,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: SizedBox(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Text(
+                  item.ordered > 0
+                      ? item.received.toStringAsFixed(
+                          item.received == item.received.roundToDouble() ? 0 : 2,
+                        )
+                      : "",
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: "Inter",
+                  ),
+                ),
               ),
             ),
             _tableBodyCell(
@@ -2873,9 +2884,10 @@ class _PRCreateState
                                     (b) => b['bin_code'] == bin,
                                     orElse: () => <String, String>{},
                                   );
-                                  if (selectedBinObj.isNotEmpty) {
-                                    _items[index] = _items[index].copyWith(binId: selectedBinObj['id']);
-                                  }
+                                  _items[index] = _items[index].copyWith(
+                                    binId: selectedBinObj.isNotEmpty ? selectedBinObj['id'] : null,
+                                    binLabel: bin,
+                                  );
                                 });
                               },
                             );
@@ -2924,7 +2936,7 @@ class _PRCreateState
                             if (!isEphemeral &&
                                 !hasBatches &&
                                 item.quantityToReceive > 0 &&
-                                item.quantityToReceive <= item.ordered) ...[
+                                item.quantityToReceive <= (item.ordered - item.received)) ...[
                               const SizedBox(height: 4),
                               _buildAddBatchesLinkButton(index),
                             ],
@@ -3247,7 +3259,7 @@ class _PRCreateState
                             ),
                             if (!hasBatches &&
                                 item.quantityToReceive > 0 &&
-                                item.quantityToReceive <= item.ordered) ...[
+                                item.quantityToReceive <= (item.ordered - item.received)) ...[
                               const SizedBox(height: 4),
                               _buildAddBatchesLinkButton(index),
                             ],
@@ -3655,6 +3667,13 @@ class _PRCreateState
         if (item.quantityToReceive <= 0) {
           missingFields.add('Quantity in row ${i + 1}');
         }
+        final remaining = (item.ordered - item.received).clamp(0.0, double.infinity);
+        if (item.ordered > 0 && item.quantityToReceive > remaining) {
+          _showTopError(
+            'Quantity to receive in row ${i + 1} cannot exceed remaining quantity (${_fmtPcs(remaining)})',
+          );
+          return;
+        }
       }
     }
 
@@ -3670,11 +3689,11 @@ class _PRCreateState
     bool hasMismatch = false;
     for (int i = 0; i < _items.length; i++) {
       final item = _items[i];
-      final totalBatchQtyAndFoc = item.batches.fold<double>(
+      final totalBatchQty = item.batches.fold<double>(
         0,
-        (sum, b) => sum + b.quantity + b.foc,
+        (sum, b) => sum + b.quantity,
       );
-      if (item.batches.isNotEmpty && totalBatchQtyAndFoc != item.quantityToReceive) {
+      if (item.batches.isNotEmpty && totalBatchQty != item.quantityToReceive) {
         hasMismatch = true;
         break;
       }
@@ -3689,16 +3708,33 @@ class _PRCreateState
 
     setState(() => _isSaving = true);
 
-    // Build the model
+    final targetWarehouseId = _selectedPO?.warehouseId ?? _selectedPO?.deliveryWarehouseId;
     final receive = PurchaseReceive(
-      purchaseReceiveNumber: _receiveNumberCtrl.text,
-      receivedDate: DateFormat('dd-MM-yyyy').parse(_receivedDateCtrl.text),
+      purchaseReceiveNumber: _receiveNumberCtrl.text.trim(),
+      receivedDate: DateFormat('dd-MM-yyyy').parse(_receivedDateCtrl.text.trim()),
       vendorName: _selectedVendorName,
       purchaseOrderId: _selectedPOId,
       purchaseOrderNumber: _selectedPONumber,
+      warehouseId: targetWarehouseId,
       status: status,
-      notes: _notesCtrl.text,
-      items: _items,
+      notes: _notesCtrl.text.trim(),
+      billNo: _billNoCtrl.text.trim(),
+      billDate: _billDateCtrl.text.trim().isNotEmpty
+          ? DateFormat('dd-MM-yyyy').parse(_billDateCtrl.text.trim())
+          : null,
+      invoiceTotal: double.tryParse(_invoiceTotalCtrl.text.trim()) ?? 0,
+      transactionBinId: _binMode == 'transaction' ? _selectedTransactionBinId : null,
+      transactionBinLabel: _binMode == 'transaction' ? _selectedTransactionBin : null,
+      items: _items.asMap().entries.map((e) {
+        final i = e.key;
+        final item = e.value;
+        final preferredBin = _binMode == 'transaction'
+            ? _selectedTransactionBin
+            : (i < _preferredBins.length ? _preferredBins[i] : null);
+        return item.copyWith(
+          binLabel: preferredBin,
+        );
+      }).toList(),
     );
 
     AppLogger.info(
@@ -3756,7 +3792,7 @@ class _PRCreateState
         batchDetails: batchDetails,
         initialBatches: item.batches,
         // Total in batch dialog must follow Quantity to receive in line item.
-        ordered: (item.ordered - item.cancelled).clamp(0.0, double.infinity),
+        ordered: item.quantityToReceive,
         warehouseName: _rowSelectedWarehouses[itemIndex] ?? _resolveWarehouseName(),
         initialDamageEnabled: _isDamageEnabled,
         onDamageChanged: (enabled) {
@@ -3769,7 +3805,7 @@ class _PRCreateState
           setState(() {
             final combinedQty = newBatches.fold<double>(
               0,
-              (sum, batch) => sum + batch.quantity + batch.foc,
+              (sum, batch) => sum + batch.quantity,
             );
 
             _items[itemIndex] = item.copyWith(

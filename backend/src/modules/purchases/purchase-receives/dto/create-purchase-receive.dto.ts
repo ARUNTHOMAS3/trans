@@ -110,6 +110,10 @@ class PurchaseReceiveItemDto {
   @IsBoolean()
   @IsOptional()
   billed?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  cancelled?: number;
 }
 
 export class CreatePurchaseReceiveDto {

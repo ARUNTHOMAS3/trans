@@ -133,11 +133,13 @@ class _AddrLine {
 class PurchaseOrderCreateScreen extends ConsumerStatefulWidget {
   final PurchaseOrder? initialOrder;
   final String? initialOrderId;
+  final bool isClone;
 
   const PurchaseOrderCreateScreen({
     super.key,
     this.initialOrder,
     this.initialOrderId,
+    this.isClone = false,
   });
 
   @override
@@ -428,7 +430,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }
 
   Future<void> _showNewVendorDialog() async {
-    await showDialog(
+    final newVendor = await showDialog<Vendor>(
       context: context,
       barrierDismissible: false,
       builder: (context) => Dialog(
@@ -449,8 +451,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       ),
     );
     if (!mounted) return;
-    // ignore: unused_result
-    ref.refresh(vendorProvider);
+    if (newVendor != null) {
+      ref.read(purchaseOrderFormNotifierProvider.notifier).updateField(
+        vendorId: newVendor.id,
+        destinationOfSupply: (newVendor.sourceOfSupply != null && newVendor.sourceOfSupply!.isNotEmpty)
+            ? newVendor.sourceOfSupply!
+            : '',
+      );
+    }
   }
 
   // Lookup lists
@@ -650,6 +658,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           })
           .toList();
 
+      final double totalQty = updatedItems.fold<double>(0.0, (sum, item) => sum + item.quantity);
       final double calculatedTdsTcsAmount = poState.tdsTcsAmount;
 
       final po = PurchaseOrder(
@@ -682,6 +691,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         discountAccountId: poState.discountAccountId,
         taxType: poState.taxType,
         isDelete: false,
+        totalQuantity: totalQty,
         items: updatedItems,
       );
 
@@ -1010,10 +1020,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   bool _isHydratingInitialOrder = false;
 
   bool get _isEditMode =>
-      widget.initialOrder != null ||
-      (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty);
+      !widget.isClone &&
+      (widget.initialOrder != null ||
+       (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty));
 
   String? get _editingOrderId {
+    if (widget.isClone) return null;
     final directId = widget.initialOrder?.id;
     if (directId != null && directId.isNotEmpty) {
       return directId;
@@ -1025,8 +1037,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     return null;
   }
 
-  void _hydrateFromInitialOrder(PurchaseOrder order) {
-    ref.read(purchaseOrderFormNotifierProvider.notifier).hydrate(order);
+  void _hydrateFromInitialOrder(PurchaseOrder order, {bool isClone = false}) {
+    ref.read(purchaseOrderFormNotifierProvider.notifier).hydrate(order, isClone: isClone);
     final firstItemWithPriceList = order.items.firstWhere(
       (item) => item.priceListId != null && item.priceListId!.isNotEmpty,
       orElse: () => PurchaseOrderItem(productId: '', quantity: 0, rate: 0, amount: 0),
@@ -1047,13 +1059,20 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       );
     }
     // Hydrate controllers
-    _poNumberCtrl.text = order.orderNumber;
-    _refCtrl.text = order.referenceNumber ?? '';
-    _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(order.orderDate);
-    if (order.expectedDeliveryDate != null) {
-      _deliveryDateCtrl.text = DateFormat(
-        'dd-MM-yyyy',
-      ).format(order.expectedDeliveryDate!);
+    if (isClone) {
+      _poNumberCtrl.text = '';
+      _refCtrl.text = '';
+      _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+      _deliveryDateCtrl.text = '';
+    } else {
+      _poNumberCtrl.text = order.orderNumber;
+      _refCtrl.text = order.referenceNumber ?? '';
+      _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(order.orderDate);
+      if (order.expectedDeliveryDate != null) {
+        _deliveryDateCtrl.text = DateFormat(
+          'dd-MM-yyyy',
+        ).format(order.expectedDeliveryDate!);
+      }
     }
     _notesCtrl.text = order.notes ?? '';
     _termsCtrl.text = order.termsAndConditions ?? '';
@@ -1076,7 +1095,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           .eq('purchase_order_id', orderId);
 
       if (order != null && mounted) {
-        _hydrateFromInitialOrder(order);
+        _hydrateFromInitialOrder(order, isClone: widget.isClone);
         setState(() {
           _attachedFiles = (attachmentsData as List).map<PlatformFile>((row) {
             final sizeVal = row['file_size'];
@@ -1145,8 +1164,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       _loadTdsRates();
 
       if (widget.initialOrder != null) {
-        _hydrateFromInitialOrder(widget.initialOrder!);
-        if (widget.initialOrder!.id != null) {
+        _hydrateFromInitialOrder(widget.initialOrder!, isClone: widget.isClone);
+        if (widget.initialOrder!.id != null && !widget.isClone) {
           _loadAttachmentsForOrder(widget.initialOrder!.id!);
         }
       } else if (widget.initialOrderId != null &&
@@ -2281,7 +2300,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                 i,
                                                 item.copyWith(
                                                   rate: newRate,
-                                                  priceListId: pl.id,
+                                                  priceListId: null,
                                                   discount: discountVal,
                                                   discountType: 'percentage',
                                                 ),
@@ -5378,6 +5397,44 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           }
                         }
 
+                        bool isInterstate = false;
+                        if (poState.vendorId != null && poState.vendorId!.isNotEmpty) {
+                          try {
+                            final vendorsState = ref.read(vendorProvider);
+                            final selectedVendor = vendorsState.vendors.firstWhere(
+                              (v) => v.id == poState.vendorId,
+                              orElse: () => Vendor(id: '', displayName: ''),
+                            );
+                            if (selectedVendor.id.isNotEmpty &&
+                                selectedVendor.sourceOfSupply != null &&
+                                selectedVendor.sourceOfSupply!.isNotEmpty &&
+                                poState.destinationOfSupply.isNotEmpty) {
+                              isInterstate = selectedVendor.sourceOfSupply!.toLowerCase().trim() !=
+                                  poState.destinationOfSupply.toLowerCase().trim();
+                            }
+                          } catch (_) {}
+                        }
+
+                        final taxId = isInterstate ? item.interStateTaxId : item.intraStateTaxId;
+                        String? taxName = isInterstate ? item.interStateTaxName : item.intraStateTaxName;
+                        double taxRate = 0.0;
+                        if (taxId != null && taxId.isNotEmpty) {
+                          try {
+                            final itemsState = ref.read(itemsControllerProvider);
+                            final matchingTax = itemsState.taxRates.firstWhere(
+                              (t) => t.id == taxId,
+                              orElse: () => itemsState.taxGroups.firstWhere(
+                                (tg) => tg.id == taxId,
+                                orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
+                              ),
+                            );
+                            if (matchingTax.id.isNotEmpty) {
+                              taxName = matchingTax.taxName;
+                              taxRate = matchingTax.taxRate;
+                            }
+                          } catch (_) {}
+                        }
+
                         newItems.add(
                           PurchaseOrderItem(
                             productId: item.id ?? '',
@@ -5388,6 +5445,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             discountType: 'percentage',
                             priceListId: plId,
                             amount: rate * quantity,
+                            hsnCode: item.hsnCode,
+                            taxId: taxId,
+                            taxName: taxName,
+                            taxRate: taxRate,
+                            taxAmount: (rate * quantity - discountVal) * taxRate / 100,
                           ),
                         );
                       });
@@ -5782,7 +5844,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                             targetIndex,
                                             i,
                                             item.warehouseId ?? poState.warehouseId ?? '',
-                                            priceListId: _selectedPriceListId,
+                                            
                                           );
 
                                           // Price list is NOT auto-applied;

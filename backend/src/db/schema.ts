@@ -1181,6 +1181,7 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   accountId: uuid("account_id").references(() => account.id),
   accounts: uuid("accounts").references(() => account.id),
   quantity: numeric("quantity").default("0.00"),
+  cancelledQuantity: numeric("cancelled_quantity").default("0.00"),
   rate: numeric("rate").default("0.00"),
   taxId: uuid("tax_id").references(() => taxRate.id),
   itemTaxRate: numeric("item_tax_rate").default("0.00"),
@@ -1229,6 +1230,10 @@ export const purchaseReceives = pgTable("purchase_receives", {
     .references(() => organisationBranchMaster.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  isDelete: boolean("is_delete").notNull().default(false),
+  billNo: varchar("bill_no"),
+  billDate: date("bill_date"),
+  billInvoiceTotal: numeric("bill_invoice_total"),
 });
 
 export const purchaseReceiveItems = pgTable("purchase_receive_items", {

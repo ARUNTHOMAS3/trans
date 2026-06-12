@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../models/column_config.dart';
+import '../inputs/custom_text_field.dart';
 import '../z_button.dart';
 
 class ColumnCustomizerDialog extends StatefulWidget {
@@ -114,23 +115,13 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
             const Divider(color: AppTheme.borderLight, height: 1, thickness: 1),
             const SizedBox(height: 16),
             
-            // Boxed Search Bar (Transparent)
+            // Search Bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: TextField(
+              child: CustomTextField(
+                hintText: 'Search',
+                prefixIcon: LucideIcons.search,
                 onChanged: (v) => setState(() => _searchQuery = v),
-                style: AppTheme.bodyText,
-                decoration: InputDecoration(
-                  hintText: 'Search',
-                  hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
-                  prefixIcon: const Icon(LucideIcons.search, size: 16, color: AppTheme.textSecondary),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  filled: true,
-                  fillColor: Colors.transparent,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -245,10 +236,13 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                       child: IgnorePointer(
                         ignoring: !(isHovered || col.isPinned),
                         child: IconButton(
-                          icon: Icon(
-                            col.isPinned ? LucideIcons.pin : LucideIcons.pin,
-                            size: 14,
-                            color: col.isPinned ? AppTheme.primaryBlue : AppTheme.textMuted,
+                          icon: Transform.rotate(
+                            angle: col.isPinned ? 0 : -0.785, // Tilt unpinned pin by -45 degrees
+                            child: Icon(
+                              LucideIcons.pin,
+                              size: 14,
+                              color: col.isPinned ? AppTheme.primaryBlue : AppTheme.textMuted,
+                            ),
                           ),
                           onPressed: () {
                             setState(() {

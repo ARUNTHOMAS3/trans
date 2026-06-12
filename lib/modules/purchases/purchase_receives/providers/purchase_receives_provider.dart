@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import '../data/purchase_receive_repository.dart';
 import '../data/purchase_receive_repository_impl.dart';
@@ -81,11 +82,11 @@ class PurchaseReceivesNotifier
     }
   }
 
-  Future<bool> createReceive(PurchaseReceive receive) async {
+  Future<String?> createReceive(PurchaseReceive receive) async {
     try {
       await _repository.createPurchaseReceive(receive);
       await fetchReceives(); // Refresh list after create
-      return true;
+      return null;
     } catch (e, st) {
       AppLogger.error(
         'Failed to create purchase receive',
@@ -93,7 +94,65 @@ class PurchaseReceivesNotifier
         stackTrace: st,
         module: 'purchases',
       );
-      return false;
+      
+      String? errorMessage;
+      if (e is DioException) {
+        final responseData = e.response?.data;
+        if (responseData is Map) {
+          final message = responseData['message'];
+          if (message is String && message.trim().isNotEmpty) {
+            errorMessage = message.trim();
+          } else if (message is Map) {
+            final field = message['field'];
+            final constraints = message['constraints'];
+            if (constraints is Map) {
+              errorMessage = '${field ?? ""}: ${constraints.values.join(", ")}';
+            } else {
+              errorMessage = 'Validation error on "$field"';
+            }
+          } else if (message is List) {
+            final list = message.map((item) {
+              if (item is Map) {
+                final field = item['field'];
+                final constraints = item['constraints'];
+                if (constraints is Map) {
+                  return '${field ?? ""}: ${constraints.values.join(", ")}';
+                }
+                return 'Validation error on "$field"';
+              }
+              return item.toString();
+            }).join('; ');
+            if (list.isNotEmpty) errorMessage = list;
+          }
+          
+          if (errorMessage == null) {
+            final meta = responseData['meta'];
+            if (meta is Map) {
+              final metaError = meta['error'];
+              if (metaError is Map) {
+                final metaMessage = metaError['message'];
+                if (metaMessage is String && metaMessage.trim().isNotEmpty) {
+                  errorMessage = metaMessage.trim();
+                }
+              }
+            }
+          }
+        }
+        if (errorMessage == null) {
+          final payload = e.error;
+          if (payload is Map) {
+            final msg = payload['message'];
+            if (msg is String && msg.trim().isNotEmpty) errorMessage = msg.trim();
+          }
+        }
+        errorMessage ??= e.message?.trim();
+      }
+      
+      errorMessage ??= e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring('Exception: '.length);
+      }
+      return errorMessage;
     }
   }
 

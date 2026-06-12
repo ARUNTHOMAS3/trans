@@ -191,6 +191,7 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
   final ScrollController _attachmentListScrollController = ScrollController();
   String _binMode = 'item';
   String? _selectedTransactionBin;
+  String? _selectedTransactionBinId;
 
   static const TextStyle _batchChipTextStyle = TextStyle(
     fontSize: 10,
@@ -405,6 +406,9 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
         _selectedVendorId = receive.vendorId;
         _selectedVendorName = receive.vendorName;
         _vendorNameCtrl.text = receive.vendorName ?? '';
+        _selectedTransactionBin = receive.transactionBinLabel;
+        _selectedTransactionBinId = receive.transactionBinId;
+        _binMode = receive.transactionBinLabel != null ? 'transaction' : 'item';
 
         // Populate loaded POs
 
@@ -665,10 +669,19 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
         notes: _notesCtrl.text.trim(),
         vendorId: _selectedVendorId ?? '',
         vendorName: _selectedVendorName ?? '',
+        warehouseId: _selectedWarehouseId,
+        transactionBinId: _binMode == 'transaction' ? _selectedTransactionBinId : null,
+        transactionBinLabel: _binMode == 'transaction' ? _selectedTransactionBin : null,
         status: status,
         items: _items.asMap().entries.map((e) {
+          final i = e.key;
           final item = e.value;
-          return item;
+          final preferredBin = _binMode == 'transaction'
+              ? _selectedTransactionBin
+              : (i < _preferredBins.length ? _preferredBins[i] : null);
+          return item.copyWith(
+            binLabel: preferredBin,
+          );
         }).toList(),
       );
 
@@ -1078,7 +1091,8 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
                   final binsAsync = ref.watch(
                     binsLookupProvider(_selectedWarehouseId),
                   );
-                  final bins = binsAsync.asData?.value.map((b) => b['bin_code']!).toList() ?? [];
+                  final binsList = binsAsync.asData?.value ?? [];
+                  final bins = binsList.map((b) => b['bin_code']!).toList();
                   return Skeletonizer(
                     enabled: binsAsync.isLoading,
                     child: FormDropdown<String>(
@@ -1092,9 +1106,16 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
                     onChanged: (val) => setState(() {
                       _selectedTransactionBin = val;
                       if (val != null) {
+                        final matched = binsList.firstWhere(
+                          (b) => b['bin_code'] == val,
+                          orElse: () => <String, String>{},
+                        );
+                        _selectedTransactionBinId = matched['id'];
                         for (int i = 0; i < _preferredBins.length; i++) {
                           _preferredBins[i] = val;
                         }
+                      } else {
+                        _selectedTransactionBinId = null;
                       }
                     }),
                   ),);
@@ -1757,7 +1778,8 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
                               final binsAsync = ref.watch(
                                 binsLookupProvider(_selectedWarehouseId),
                               );
-                              final bins = binsAsync.asData?.value.map((b) => b['bin_code']!).toList() ?? [];
+                              final binsList = binsAsync.asData?.value ?? [];
+                              final bins = binsList.map((b) => b['bin_code']!).toList();
 
                               return Skeletonizer(
                                 enabled: binsAsync.isLoading,
@@ -1800,6 +1822,14 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
                                     _preferredBins[index] = bin;
                                     _focusedBinFields.remove(
                                       "manual-bin-$index",
+                                    );
+                                    final selectedBinObj = binsList.firstWhere(
+                                      (b) => b['bin_code'] == bin,
+                                      orElse: () => <String, String>{},
+                                    );
+                                    _items[index] = _items[index].copyWith(
+                                      binId: selectedBinObj.isNotEmpty ? selectedBinObj['id'] : null,
+                                      binLabel: bin,
                                     );
                                   });
                                 },
@@ -2089,7 +2119,7 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
           setState(() {
             final combinedQty = newBatches.fold<double>(
               0,
-              (sum, batch) => sum + batch.quantity + batch.foc,
+              (sum, batch) => sum + batch.quantity,
             );
  
             _items[itemIndex] = item.copyWith(

@@ -1814,3 +1814,187 @@ Implemented multi-tenant scoping and views querying on the backend to retrieve a
   - Mapped database properties (`stock_on_hand`, `committed_stock`, `available_stock`, `qty`) to `accounting` and `physical` structures with `onHand`, `committed`, and `available` properties expected by the frontend.
 
 Timestamp of Log Update: June 10, 2026 - 10:05 PM (IST)
+
+## 38. Table Header Menu and Column Customizer Visual Polish (June 11, 2026)
+
+### Summary
+Polished the table header menu and column customizer styles to align perfectly with the screenshots provided by the user.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/tables/column_customizer.dart`:
+  - Replaced the raw `TextField` search box with the standard, reusable `CustomTextField` to match Zerpai design guidelines and visual mockups.
+  - Added a 45-degree rotation (`Transform.rotate(angle: col.isPinned ? 0 : -0.785, ...)`) to the pin icon of unpinned list items, reproducing the tilted pin aesthetic shown in the mockup screenshots.
+- `lib/shared/widgets/tables/table_header_menu.dart`:
+  - Removed the left icon from the "Wrap Text" dropdown menu item, substituting it with a `SizedBox(width: 28)` to align its text content exactly with the "Customize Columns" item text as shown in the dropdown screenshot.
+
+**Verifications**: Verified code compiles successfully with `dart analyze` with zero compilation errors.
+
+Timestamp of Log Update: June 11, 2026 - 12:35 AM (IST)
+
+## 39. Purchase Order detail popups, status updates, total quantity calculations, and cloning (June 11, 2026)
+
+### Summary
+Fixed Expected Delivery Date and Cancel Items dialog layouts to align at the top with zero padding. Implemented cancelled quantities count rendering inside the items list status column cell. Updated the total quantity label below subtotal to dynamically sum non-header item quantities. Implemented purchase order cloning by passing target PO details to the create screen, stripping item IDs, clearing dates and order numbers, resetting cancelled quantities, and dynamically fetching the next auto-generated sequence number.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Positioned `_ExpectedDeliveryDateDialog` and `_CancelItemsDialog` to align at the top (`Alignment.topCenter`) with zero padding (`insetPadding: EdgeInsets.zero`).
+  - Added cancelled quantity display (`X Canceled` in red color) in the items table status cell column if cancelledQuantity > 0.
+  - Dynamically calculated non-header items quantity sum for the "Total Quantity" label in the detail summary panel.
+  - Hooked up "Clone" action in options menu to redirect to create screen with `?clone=true` query parameter and pass the order details extra object.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`:
+  - Added `isClone` parameter to `PurchaseOrderCreateScreen` constructor.
+  - Configured initialization state to pass `widget.isClone` flag to `_hydrateFromInitialOrder` and skip loading attachments when cloning.
+  - Updated `_hydrateFromInitialOrder` to populate form inputs with original PO data while resetting dates to today, clearing PO number, reference number, and expected delivery date.
+- `lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart`:
+  - Handled clone resets inside `hydrate` notifier state builder: mapped items list into new `PurchaseOrderItem` instances to clear item database IDs and reset cancelled quantities.
+  - Reset PO number, reference, expected delivery date, and order date.
+  - Dynamically reloaded purchase order settings to fetch and display the next available sequence code.
+
+#### Backend Files
+- `backend/drizzle/schema.ts`:
+  - Added return type annotation `: any` to `countries` and `timezones` table constraint callback functions to break circular type dependency in TypeScript inference.
+
+**Verifications**: Verified frontend code builds and compiles cleanly using `dart analyze lib/modules/purchases/`. Verified backend code compiles successfully using `npm run build` in `backend/` and TypeScript checks pass cleanly.
+
+Timestamp of Log Update: June 11, 2026 - 10:25 AM (IST)
+
+## 40. Purchase Order Creation Validation Fixes and Pricelist Autoload Removal (June 11, 2026)
+
+### Summary
+Fixed a validation error during purchase order creation caused by non-whitelisted properties in NestJS's strict white-listing configuration. Removed automatic price list selection when items are searched or selected in the purchase order line-item grid, defaulting rates to item cost prices instead.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart`:
+  - Removed auto-selection and application of active price lists inside `selectProductForItem`. Item rates now default to the item's purchase cost price, and the price list selection remains empty (`null`) unless selected manually.
+
+#### Backend Files
+- `backend/src/modules/purchases/purchase-orders/dto/create-purchase-order.dto.ts`:
+  - Added `@IsUUID() id` and `@IsNumber() cancelled_quantity` properties to `PurchaseOrderItemDto` to whitelist these fields, preventing NestJS's `forbidNonWhitelisted` validation pipe from throwing bad request exceptions on creation/modification.
+
+**Verifications**: Verified frontend code compiles with `dart analyze lib/modules/purchases/` with zero errors. Verified backend code compiles successfully using `npm run build` in `backend/`.
+
+Timestamp of Log Update: June 11, 2026 - 10:45 AM (IST)
+
+## 41. Purchase Order Status Calculations and Indicator Balls Polish (June 11, 2026)
+
+### Summary
+Fixed the purchase order status logic to properly account for cancelled items when determining if an order is fully received. Implemented an automatic database update of the purchase order status in the backend whenever a purchase receive is created, updated, or removed. Polished the received column indicators in the purchase order list to display a half-filled orange circle for partially received orders, a solid green circle for fully received/closed orders, and a solid grey circle for yet-to-be-received orders.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - In `_loadPoTxnSummary`, calculated `expectedTotalQuantity` by summing `item.quantity - item.cancelledQuantity` dynamically, and compared `totalReceived` against this value to determine the order's receive status.
+  - In `_detailPane` (around line 2230), updated `isFullyReceived` check to sum received quantity from batches when available, and checked `totalReceivedForProduct < (poItem.quantity - poItem.cancelledQuantity) - 0.0001` to correctly account for cancelled items.
+  - Center-aligned the "STATUS" column header in the items table and restored "Received" label (e.g. `26 pcs Received + 32 foc`).
+  - In the main purchase orders table, updated the `received` column cells to dynamically display green, half-filled orange, or grey circles based on whether the order status is fully received (Closed/Received), partially received, or yet-to-be-received.
+
+#### Backend Files
+- `backend/src/modules/purchases/purchase-receives/services/purchase-receives.service.ts`:
+  - Added a private helper `updatePurchaseOrderStatus` to dynamically sum non-cancelled items quantity and all received quantities (counting batches when present) for an order, and update the associated purchase order's database status to `Closed`, `Partially Received`, or `Issued` accordingly.
+  - Called `updatePurchaseOrderStatus` on receive create, update, and remove (delete) database mutations.
+
+**Verifications**: Verified backend code compiles successfully using `npm run build` in `backend/`. Verified frontend code compiles cleanly using `dart analyze lib/modules/purchases/purchase_orders` with zero warnings/errors.
+
+Timestamp of Log Update: June 11, 2026 - 4:45 PM (IST)
+
+## 42. Purchase Receive Details and Dynamic Bin Lookup Mappings (June 11, 2026)
+
+### Summary
+Enhanced purchase receives to correctly support typed receiving quantities, passing dynamic ordered limits to batch select popups, and loading transaction-level and row-level bin settings dynamically from the database. Scoped and mapped missing database properties for bill and transaction bin details. Reverted purchase orders overview items table status column back to standard left-alignment.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Unclamped Input**: Changed typed quantity row callbacks to allow entering any numeric input without clamping bounds.
+  - **Dynamic Batch Limit**: Updated "Select Batch" visibility to check if quantity is `> 0` and `<= ordered`. Passed currently typed quantity as the `ordered` parameter to the batch dialog.
+  - **Dynamic Bin Loading**: Swapped static Rack dropdown with dynamic DB load using `binsLookupProvider`.
+  - **Saves Mapping**: Constructed purchase receive payload with bill fields, warehouse UUID, transaction bin UUID/label, and item bin mappings. Removed unused `_manualBinList` field.
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_edit.dart`:
+  - **Bin Selection Parity**: Initialized transaction bin state from loaded data. Updated transaction-level and row-level bin dropdowns to dynamically resolve selected bin UUIDs.
+  - **Saves Mapping**: Connected all bin properties to updated receive model prior to save.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - **Status Left-Alignment**: Reverted the center-alignment of STATUS column in PO overview items table back to left-alignment.
+  - **Warning Cleanup**: Removed unused local variable `isFullyReceived`.
+
+#### Backend Files
+- `backend/src/db/schema.ts`:
+  - **Schema Addition**: Appended `isDelete`, `billNo`, `billDate`, and `billInvoiceTotal` properties to the `purchaseReceives` database schema configuration.
+- `backend/src/modules/purchases/purchase-receives/services/purchase-receives.service.ts`:
+  - **Fields Mapping**: Corrected snake_case Supabase database parameters mappings (`transaction_bin_id`, `transaction_bin_label`, `bill_no`, `bill_date`, `bill_invoice_total`) on `create`, `update`, and `findOne`.
+
+Timestamp of Log Update: June 11, 2026 - 10:20 PM (IST)
+
+## 43. Purchase Receives defunct element setState bugfix (June 11, 2026)
+
+### Summary
+Fixed a widgets framework exception where disposing the create page threw a "setState() called on defunct element" assertion. Wrapped the file popup overlay dismissal routine with a widget mounting validation check.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Mounted Checks**: Wrapped `setState` inside `_hideFilePopupOverlay` with an `if (mounted)` check to prevent calling state updates on unmounted widgets.
+
+Timestamp of Log Update: June 11, 2026 - 10:30 PM (IST)
+
+## 44. RECEIVED and BILLED Column Status Indicator Progress Circles (June 11, 2026)
+
+### Summary
+Fixed the progress indicator circles under the RECEIVED and BILLED columns in the Purchase Order list screen. Implemented a backend batch-calculation query in the PurchaseOrdersService to determine receive and bill statuses based on associated items and transactions, and updated the Flutter PurchaseOrder model and cells builder to dynamically render the appropriate color and half/full circles.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart`:
+  - Added `receiveStatus` and `billStatus` properties (defaulting to 'none') and updated `fromJson`, `toJson`, and `copyWith` accordingly.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Updated `_buildCell` for column 'received' to render a grey circle, a half-filled orange circle, or a solid orange circle based on `order.receiveStatus`.
+  - Updated `_buildCell` for column 'billed' to render a grey circle, a half-filled green circle, or a solid green circle based on `order.billStatus`.
+
+#### Backend Files
+- `backend/src/modules/purchases/purchase-orders/services/purchase-orders.service.ts`:
+  - Implemented `attachProgressStatuses` helper method to batch fetch and compute expected, received, and billed quantities for POs.
+  - Linked `attachProgressStatuses` in both `findAll` and `findOne` query routines.
+  - Updated `mapDbToDto` to return calculated `receive_status` and `bill_status`.
+
+Timestamp of Log Update: June 11, 2026 - 10:45 PM (IST)
+
+## 45. Purchase Receives Manual Mode Received Quantities & Batch Dialog Visibility (June 11, 2026)
+
+### Summary
+Fixed manual mode row components on the Purchase Receives creation screen. Displayed the accumulated received quantities for PO items under the RECEIVED column when in manual mode. Restricted the 'Select Batch' button/link visibility to show only when quantity is less than or equal to the remaining unreceived quantity (ordered - received) in manual rows, mirroring the PO rows logic.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Received Column in Manual Mode**: Replaced empty `SizedBox()` placeholder with a `Text` widget in `_buildManualRow` to render `item.received` formatted to 0 or 2 decimal places if the item is linked to a PO.
+  - **Batch Link Button Constraint**: Updated the visibility condition for the "Select Batch" link button in `_buildManualRow` to check `item.quantityToReceive <= (item.ordered - item.received)` instead of `item.ordered`.
+  - **Warning Cleanup**: Removed redundant null/type checks (`if (response != null)` and `if (response is List)`) on the Supabase queries response in `_onPOSelected` to satisfy static analyzer rules.
+
+Timestamp of Log Update: June 11, 2026 - 11:00 PM (IST)
+
+## 46. Purchase Receives FOC Excluded from Quantity validation (June 11, 2026)
+
+### Summary
+Fixed the quantity mismatch validation and remaining quantity constraints when receiving items with FOC (Free of Cost) quantities. FOC items are no longer added to the line item's billed `quantityToReceive` constraint value. The quantity validation and the line item mismatch checks now compare only the billed/charged batch quantities, resolving the validation exception.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Save Mismatch Check**: Modified mismatch validator in `_handleSave` to sum only `b.quantity` (excluding `b.foc`) when comparing to `item.quantityToReceive`.
+  - **Select Batch Dialog Save**: Modified `onSave` in the batch selector dialog route to sum `batch.quantity` only, setting it as `quantityToReceive`.
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_edit.dart`:
+  - **Select Batch Dialog Save**: Synced `onSave` in the edit screen's batch dialog to sum `batch.quantity` only.
+
+Timestamp of Log Update: June 11, 2026 - 11:18 PM (IST)

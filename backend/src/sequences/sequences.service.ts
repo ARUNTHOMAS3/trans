@@ -31,7 +31,7 @@ export class SequencesService {
         sale: { table: "sales_orders", column: "sale_number", prefix: "SO-" },
         purchase: {
           table: "purchase_orders",
-          column: "purchase_number",
+          column: "order_number",
           prefix: "PO-",
         },
         inventory_packages: {
@@ -124,7 +124,7 @@ export class SequencesService {
       sale: { table: "sales_orders", column: "sale_number", prefix: "SO-" },
       purchase: {
         table: "purchase_orders",
-        column: "purchase_number",
+        column: "order_number",
         prefix: "PO-",
       },
       inventory_packages: {

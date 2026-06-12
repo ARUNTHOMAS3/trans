@@ -22,4 +22,13 @@ export const client = postgres(connectionString, {
   prepare: false,
   ssl: "require",
 });
+
+// Safe startup DDL modification to persist canceled item quantities
+client.unsafe(`
+  ALTER TABLE purchase_order_items 
+  ADD COLUMN IF NOT EXISTS cancelled_quantity numeric DEFAULT '0.00'
+`).catch(err => {
+  console.error("Failed to alter table purchase_order_items:", err);
+});
+
 export const db = drizzle(client, { schema });

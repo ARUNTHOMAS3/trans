@@ -348,7 +348,7 @@ class Item {
       categoryId: json['category_id'],
       isReturnable: json['is_returnable'] ?? false,
       pushToEcommerce: json['push_to_ecommerce'] ?? false,
-      hsnCode: json['hsn_code'],
+      hsnCode: json['hsn_code']?.toString(),
       taxPreference: json['tax_preference'],
       intraStateTaxId: json['intra_state_tax_id'] ??
           json['intraStateTaxId'] ??

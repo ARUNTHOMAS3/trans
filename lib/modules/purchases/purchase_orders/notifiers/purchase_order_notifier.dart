@@ -8,8 +8,6 @@ import '../../../items/items/models/item_model.dart';
 import '../../../items/items/models/tax_rate_model.dart';
 import '../../../inventory/providers/stock_provider.dart';
 import '../../../items/items/controllers/items_controller.dart';
-import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
-import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
@@ -26,7 +24,7 @@ class PurchaseOrderState {
   final String deliveryType; // 'warehouse' | 'customer'
   final String? deliveryWarehouseId;
   final String? deliveryCustomerId;
-  final String? warehouseId; // Independent main warehouse
+  final String? warehouseId;
   final String? deliveryAddressName; // Editable name in the address card
   final double discount;
   final String discountType; // 'percentage' | 'fixed'
@@ -88,26 +86,11 @@ class PurchaseOrderState {
       .fold(0.0, (sum, item) => sum + item.amount);
 
   double get discountValue {
-    if (discountLevel == 'item') {
-      double totalItemDiscount = 0.0;
-      for (final item in items.where((i) => !i.isHeader)) {
-        if (item.discount > 0) {
-          if (item.discountType == 'percentage') {
-            totalItemDiscount += (item.rate * item.quantity) * (item.discount / 100);
-          } else {
-            totalItemDiscount += item.discount;
-          }
-        }
-      }
-      return totalItemDiscount;
-    }
-    double manualDiscount = 0.0;
+    if (discountLevel == 'item') return 0.0;
     if (discountType == 'percentage') {
-      manualDiscount = subTotal * (discount / 100);
-    } else {
-      manualDiscount = discount;
+      return subTotal * (discount / 100);
     }
-    return manualDiscount;
+    return discount;
   }
 
   double get taxAmount {
@@ -116,20 +99,16 @@ class PurchaseOrderState {
         .fold(0.0, (sum, item) => sum + item.taxAmount);
   }
 
-  double get tdsTcsAmount {
-    final double effectiveDiscount = discountLevel == 'item' ? 0.0 : discountValue;
-    return (subTotal - effectiveDiscount) * (tdsTcsRate / 100);
-  }
+  double get tdsTcsAmount => (subTotal - discountValue) * (tdsTcsRate / 100);
 
   double get total {
-    final double effectiveDiscount = discountLevel == 'item' ? 0.0 : discountValue;
-    final baseVal = taxType == 'inclusive'
-        ? subTotal - effectiveDiscount + adjustment
-        : subTotal - effectiveDiscount + taxAmount + adjustment;
+    final base = taxType == 'inclusive'
+        ? subTotal - discountValue + adjustment
+        : subTotal - discountValue + taxAmount + adjustment;
     if (tdsTcsType == 'tds' || tdsTcsType == 'tcs') {
-      return baseVal - tdsTcsAmount;
+      return base - tdsTcsAmount;
     }
-    return baseVal;
+    return base;
   }
 
   PurchaseOrderState copyWith({
@@ -286,7 +265,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     _loadSettings();
   }
 
-  void hydrate(PurchaseOrder order) {
+  void hydrate(PurchaseOrder order, {bool isClone = false}) {
     String destinationOfSupply = '';
     try {
       final vendorsState = _ref.read(vendorProvider);
@@ -299,12 +278,47 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       }
     } catch (_) {}
 
+    final List<PurchaseOrderItem> hydratedItems = isClone
+        ? order.items
+            .map((item) => PurchaseOrderItem(
+                  productId: item.productId,
+                  productName: item.productName,
+                  hsnCode: item.hsnCode,
+                  itemCode: item.itemCode,
+                  description: item.description,
+                  accountId: item.accountId,
+                  accountName: item.accountName,
+                  discountAccountId: item.discountAccountId,
+                  discountAccountName: item.discountAccountName,
+                  quantity: item.quantity,
+                  cancelledQuantity: 0.0,
+                  rate: item.rate,
+                  taxId: item.taxId,
+                  taxName: item.taxName,
+                  taxRate: item.taxRate,
+                  taxAmount: item.taxAmount,
+                  discount: item.discount,
+                  discountType: item.discountType,
+                  amount: item.amount,
+                  productType: item.productType,
+                  availableStock: item.availableStock,
+                  stockOnHand: item.stockOnHand,
+                  priceListId: item.priceListId,
+                  pricelist: item.pricelist,
+                  warehouseId: item.warehouseId,
+                  warehouseName: item.warehouseName,
+                  isHeader: item.isHeader,
+                  headerText: item.headerText,
+                ))
+            .toList()
+        : order.items;
+
     state = PurchaseOrderState(
-      items: order.items,
-      orderNumber: order.orderNumber,
-      orderDate: order.orderDate,
-      expectedDeliveryDate: order.expectedDeliveryDate,
-      referenceNumber: order.referenceNumber,
+      items: hydratedItems,
+      orderNumber: isClone ? '' : order.orderNumber,
+      orderDate: isClone ? DateTime.now() : order.orderDate,
+      expectedDeliveryDate: isClone ? null : order.expectedDeliveryDate,
+      referenceNumber: isClone ? null : order.referenceNumber,
       vendorId: order.vendorId,
       paymentTerms: order.paymentTerms,
       shipmentPreference: order.shipmentPreference,
@@ -324,9 +338,13 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       discountAccountId: order.discountAccountId,
       discountAccountName: order.discountAccountName,
       isReverseCharge: order.isReverseCharge,
-      isNumberingAuto: false,
+      isNumberingAuto: isClone ? state.isNumberingAuto : false,
       taxType: order.taxType,
     );
+
+    if (isClone) {
+      _loadSettings();
+    }
   }
 
   void addItemRow({int? index, PurchaseOrderItem? item}) {
@@ -356,7 +374,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     } else {
       newItems.add(newItem);
     }
-    state = state.copyWith(items: _recalculateAllItems(newItems));
+    state = state.copyWith(items: newItems);
   }
 
   void addHeaderRow({int? index}) {
@@ -389,7 +407,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       return;
     }
     final newItems = List<PurchaseOrderItem>.from(state.items)..removeAt(index);
-    state = state.copyWith(items: _recalculateAllItems(newItems));
+    state = state.copyWith(items: newItems);
   }
 
   void clearItemRow(int index) {
@@ -402,7 +420,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       discount: 0.0,
       description: '',
     );
-    state = state.copyWith(items: _recalculateAllItems(newItems));
+    state = state.copyWith(items: newItems);
   }
 
   void reorderItems(int oldIndex, int newIndex) {
@@ -414,8 +432,8 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
 
   void updateItem(int index, PurchaseOrderItem item) {
     final newItems = List<PurchaseOrderItem>.from(state.items);
-    newItems[index] = item;
-    state = state.copyWith(items: _recalculateAllItems(newItems));
+    newItems[index] = _recalculateItem(item, state.discountLevel);
+    state = state.copyWith(items: newItems);
   }
 
   Future<void> updateItemWarehouse(
@@ -453,9 +471,8 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
   Future<void> selectProductForItem(
     int index,
     Item product,
-    String warehouseId, {
-    String? priceListId,
-  }) async {
+    String warehouseId,
+  ) async {
     final newItems = List<PurchaseOrderItem>.from(state.items);
 
     // Fetch stock
@@ -474,57 +491,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
 
     // Determine initial rate and price list
     double initialRate = product.costPrice ?? 0.0;
-    String? selectedPriceListId = priceListId;
-    double initialDiscount = 0.0;
-
-    try {
-      final activePriceLists = _ref.read(activePriceListsProvider);
-      
-      PriceList? targetPriceList;
-      if (priceListId != null) {
-        targetPriceList = activePriceLists.firstWhere(
-          (pl) => pl.id == priceListId,
-          orElse: () => PriceList.dummy(),
-        );
-      }
-
-      final listsToSearch = targetPriceList != null && targetPriceList.id != 'dummy-id'
-          ? [targetPriceList]
-          : const <PriceList>[];
-
-      for (final pl in listsToSearch) {
-        // Check if this price list has a specific rate for this item
-        if (pl.priceListType == 'individual_items') {
-          final override = pl.itemRates?.firstWhere(
-            (r) => r.itemId == product.id,
-            orElse: () => const PriceListItemRate(itemId: ''),
-          );
-          if (override != null && override.itemId.isNotEmpty) {
-            initialRate = pl.calculatePrice(
-              product.id ?? '',
-              product.costPrice ?? 0.0,
-            );
-            selectedPriceListId = pl.id;
-            if (override.discountPercentage != null) {
-              initialDiscount = override.discountPercentage!;
-            }
-            break;
-          }
-        } else if (pl.priceListType == 'all_items') {
-          initialRate = pl.calculatePrice(
-            product.id ?? '',
-            product.costPrice ?? 0.0,
-          );
-          selectedPriceListId = pl.id;
-          break;
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
+    String? selectedPriceListId;
 
     // Fetch tax info
-    bool isUnregistered = false;
     bool isInterstate = false;
     if (state.vendorId != null && state.vendorId!.isNotEmpty) {
       try {
@@ -533,12 +502,6 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
           (v) => v.id == state.vendorId,
           orElse: () => Vendor(id: '', displayName: ''),
         );
-        isUnregistered = selectedVendor.id.isNotEmpty &&
-            (selectedVendor.gstTreatment == null ||
-                selectedVendor.gstTreatment!
-                    .toLowerCase()
-                    .contains('unregistered') ||
-                selectedVendor.gstTreatment! == 'Unregistered Business');
         if (selectedVendor.id.isNotEmpty &&
             selectedVendor.sourceOfSupply != null &&
             selectedVendor.sourceOfSupply!.isNotEmpty &&
@@ -549,16 +512,12 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       } catch (_) {}
     }
 
-    final resolvedTax = isUnregistered
-        ? null
-        : _resolvePurchaseTax(product, isInterstate: isInterstate);
-    final String? taxName = isUnregistered
-        ? null
-        : (resolvedTax?.taxName ??
-            (isInterstate
-                ? product.interStateTaxName
-                : product.intraStateTaxName));
-    final double taxRate = isUnregistered ? 0.0 : (resolvedTax?.taxRate ?? 0.0);
+    final resolvedTax = _resolvePurchaseTax(product, isInterstate: isInterstate);
+    final String? taxName = resolvedTax?.taxName ??
+        (isInterstate
+            ? product.interStateTaxName
+            : product.intraStateTaxName);
+    final double taxRate = resolvedTax?.taxRate ?? 0.0;
 
     // Find account name
     String? accountName;
@@ -600,12 +559,8 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       accountName: accountName,
       quantity: 0.0,
       rate: initialRate,
-      discount: initialDiscount,
-      discountType: 'percentage',
       amount: 0.0,
-      taxId: isUnregistered
-          ? null
-          : (isInterstate ? product.interStateTaxId : product.intraStateTaxId),
+      taxId: isInterstate ? product.interStateTaxId : product.intraStateTaxId,
       taxName: taxName,
       taxRate: taxRate,
       taxAmount: 0.0,
@@ -617,7 +572,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       warehouseName: warehouseName,
     );
 
-    state = state.copyWith(items: _recalculateAllItems(newItems));
+    state = state.copyWith(items: newItems);
 
     if (index == newItems.length - 1) {
       addItemRow();
@@ -649,7 +604,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     state = state.copyWith(items: updatedItems);
   }
 
-  PurchaseOrderItem _recalculateItem(PurchaseOrderItem item, String level, {double? currentSubTotal}) {
+  PurchaseOrderItem _recalculateItem(PurchaseOrderItem item, String level) {
     bool isUnregistered = false;
     if (state.vendorId != null && state.vendorId!.isNotEmpty) {
       try {
@@ -668,41 +623,21 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     }
 
     double base = item.quantity * item.rate;
-    double itemDiscount = 0.0;
-
+    double net = base;
     if (level == 'item') {
       if (item.discountType == 'percentage') {
-        itemDiscount = base * (item.discount / 100);
+        net = base - (base * (item.discount / 100));
       } else {
-        itemDiscount = item.discount;
+        net = base - item.discount;
       }
-    } else {
-      // level == 'transaction'
-      // 1. Pricelist discount is ignored when discount level is transaction
-      double itemPricelistDiscount = 0.0;
-      // 2. Global transaction discount apportioned
-      double itemManualDiscount = 0.0;
-      if (state.discount > 0) {
-        final double effectiveSubTotal = currentSubTotal ?? state.subTotal;
-        if (state.discountType == 'percentage') {
-          itemManualDiscount = base * (state.discount / 100);
-        } else {
-          if (effectiveSubTotal > 0) {
-            itemManualDiscount = state.discount * base / effectiveSubTotal;
-          }
-        }
-      }
-      itemDiscount = itemPricelistDiscount + itemManualDiscount;
     }
-
-    double net = base - itemDiscount;
 
     final double activeTaxRate = isUnregistered ? 0.0 : item.taxRate;
     double taxAmount = state.taxType == 'inclusive'
         ? net * activeTaxRate / (100 + activeTaxRate)
         : net * (activeTaxRate / 100);
 
-    double amountValue = level == 'item' ? net : base;
+    double amountValue = net;
 
     return item.copyWith(
       amount: amountValue,
@@ -711,18 +646,6 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       taxId: isUnregistered ? null : item.taxId,
       taxName: isUnregistered ? null : item.taxName,
     );
-  }
-
-  List<PurchaseOrderItem> _recalculateAllItems(List<PurchaseOrderItem> itemsList, {String? customLevel}) {
-    final level = customLevel ?? state.discountLevel;
-    final tempSubTotal = itemsList
-        .where((i) => !i.isHeader)
-        .fold(0.0, (sum, item) => sum + (item.quantity * item.rate));
-
-    return itemsList.map((item) {
-      if (item.productId.isEmpty || item.isHeader) return item;
-      return _recalculateItem(item, level, currentSubTotal: tempSubTotal);
-    }).toList();
   }
 
   void updateField({
@@ -765,9 +688,6 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     final oldTaxType = state.taxType;
     final oldVendorId = state.vendorId;
     final oldDestinationOfSupply = state.destinationOfSupply;
-    final oldDiscount = state.discount;
-    final oldDiscountType = state.discountType;
-
     state = state.copyWith(
       orderNumber: orderNumber,
       orderDate: orderDate,
@@ -807,8 +727,6 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
         (discountLevel != null && discountLevel != oldLevel) ||
         (taxType != null && taxType != oldTaxType) ||
         (vendorId != null && vendorId != oldVendorId) ||
-        (discount != null && discount != oldDiscount) ||
-        (discountType != null && discountType != oldDiscountType) ||
         (destinationOfSupply != null &&
             destinationOfSupply != oldDestinationOfSupply)) {
       final itemsState = _ref.read(itemsControllerProvider);
@@ -820,7 +738,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
           product = itemsState.items.firstWhere((p) => p.id == i.productId);
         } catch (_) {}
         if (product == null) {
-          return i;
+          return _recalculateItem(i, state.discountLevel);
         }
 
         bool isUnregistered = false;
@@ -861,7 +779,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
         final double taxRate =
             isUnregistered ? 0.0 : (resolvedTax?.taxRate ?? 0.0);
 
-        return i.copyWith(
+        final updatedItem = i.copyWith(
           taxId: isUnregistered
               ? null
               : (isInterstate
@@ -870,8 +788,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
           taxName: taxName,
           taxRate: taxRate,
         );
+        return _recalculateItem(updatedItem, state.discountLevel);
       }).toList();
-      state = state.copyWith(items: _recalculateAllItems(newItems));
+      state = state.copyWith(items: newItems);
     }
 
     if (warehouseId != null && warehouseId != oldWarehouse) {
@@ -893,19 +812,24 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
         }
         return item;
       }).toList();
-      state = state.copyWith(items: _recalculateAllItems(newItems));
+      state = state.copyWith(items: newItems);
 
       _refreshItemsStock(warehouseId);
     }
   }
 
-  void addItemsInBulk(List<PurchaseOrderItem> newItemsList) {
-    final combinedItems = [
-      ...state.items.where((i) => i.productId.isNotEmpty),
-      ...newItemsList,
-    ];
-    state = state.copyWith(items: _recalculateAllItems(combinedItems));
-    if (state.items.isEmpty) addItemRow();
+  void addItemsInBulk(List<PurchaseOrderItem> newItems) {
+    final recalculatedNewItems = newItems
+        .map((i) => _recalculateItem(i, state.discountLevel))
+        .toList();
+
+    state = state.copyWith(
+      items: [
+        ...state.items.where((i) => i.productId.isNotEmpty), // keep filled ones
+        ...recalculatedNewItems,
+      ],
+    );
+    if (state.items.isEmpty) addItemRow(); // ensure at least one
   }
 
   TaxRate? _resolvePurchaseTax(Item product, {bool? isInterstate}) {

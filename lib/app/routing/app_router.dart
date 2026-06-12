@@ -1324,10 +1324,14 @@ final GoRouter appRouter = GoRouter(
                   name: AppRoutes.purchaseOrdersCreate,
                   builder: (context, state) {
                     final initialOrder = state.extra;
+                    final isClone = state.uri.queryParameters['clone'] == 'true';
+                    final cloneFromId = state.uri.queryParameters['clone_from_id'];
                     return PurchaseOrderCreateScreen(
                       initialOrder: initialOrder is PurchaseOrder
                           ? initialOrder
                           : null,
+                      initialOrderId: cloneFromId,
+                      isClone: isClone,
                     );
                   },
                 ),
