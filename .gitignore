@@ -420,4 +420,4 @@ DEPLOY_ENV.md
 backend/.env.vercel
 backups/
 .lean-ctx/
-handoff 9-6-2026
+handoff
