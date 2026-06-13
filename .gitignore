@@ -420,4 +420,3 @@ DEPLOY_ENV.md
 backend/.env.vercel
 backups/
 .lean-ctx/
-handoff

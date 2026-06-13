@@ -175,10 +175,17 @@ class _PRCreateState
   int? _hoveredRowIndex;
   final ScrollController _attachmentListScrollController = ScrollController();
   final LayerLink _filePopupLayerLink = LayerLink();
+  final LayerLink _uploadLink = LayerLink();
+  final LayerLink _attachmentBadgeLink = LayerLink();
   OverlayEntry? _filePopupOverlayEntry;
+  OverlayEntry? _uploadOverlay;
+  OverlayEntry? _attachmentListOverlay;
   OverlayEntry? _topErrorOverlayEntry;
   OverlayEntry? _vendorSidebarOverlay;
+  OverlayEntry? _valueTooltipOverlay;
+  final Map<int, LayerLink> _binLayerLinks = {};
   bool _isVendorSidebarLoading = false;
+  bool _isUploadButtonHovered = false;
   Timer? _topErrorTimer;
   String? _selectedTransactionBin;
   String? _selectedTransactionBinId;
@@ -590,6 +597,10 @@ class _PRCreateState
     _closeVendorSidebar();
     _dismissTopError();
     _hideFilePopupOverlay();
+    _uploadOverlay?.remove();
+    _uploadOverlay = null;
+    _attachmentListOverlay?.remove();
+    _attachmentListOverlay = null;
     _attachmentListScrollController.dispose();
     _receiveNumberCtrl.dispose();
     _receivedDateCtrl.dispose();
@@ -603,6 +614,8 @@ class _PRCreateState
     for (var c in _rowControllers) {
       c.dispose();
     }
+    _valueTooltipOverlay?.remove();
+    _valueTooltipOverlay = null;
     super.dispose();
   }
 
@@ -1124,7 +1137,7 @@ class _PRCreateState
                                   topLeft: Radius.circular(4),
                                   bottomLeft: Radius.circular(4),
                                 ),
-                                showRightBorder: false,
+                                showRightBorder: true,
                                 border: Border.all(color: _fieldBorder),
                               ),
                             ),
@@ -1898,7 +1911,9 @@ class _PRCreateState
                             bottom: BorderSide(color: _borderCol, width: 0.8),
                           ),
                         ),
+                        child: IntrinsicHeight(
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _tableHeaderCell(
                                 "ITEMS & DESCRIPTION",
@@ -1919,6 +1934,11 @@ class _PRCreateState
                                 fixedWidth: 110,
                                 align: TextAlign.right,
                               ),
+                              _tableHeaderCell(
+                                "CANCELLED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
                               if (_binMode == "item")
                                 _tableHeaderCell("BIN", fixedWidth: 160),
                               _buildQtyHeaderCell(
@@ -1931,6 +1951,7 @@ class _PRCreateState
                               ),
                             ],
                           ),
+                        ),
                         ),
                       // Table Body
                       if (_isLoadingPOs)
@@ -1984,7 +2005,9 @@ class _PRCreateState
                             bottom: BorderSide(color: _borderCol, width: 0.8),
                           ),
                         ),
+                        child: IntrinsicHeight(
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _tableHeaderCell(
                                 "",
@@ -2034,6 +2057,11 @@ class _PRCreateState
                                 fixedWidth: 110,
                                 align: TextAlign.right,
                               ),
+                              _tableHeaderCell(
+                                "CANCELLED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
                               if (_binMode == "item")
                                 _tableHeaderCell("BIN", fixedWidth: 160),
                               _buildQtyHeaderCell(
@@ -2046,6 +2074,7 @@ class _PRCreateState
                               ),
                             ],
                           ),
+                        ),
                         ),
                       // Table Rows
                       if (_items.isEmpty)
@@ -2101,6 +2130,7 @@ class _PRCreateState
     Widget? child,
   }) {
     final content = Container(
+      alignment: align == TextAlign.right ? Alignment.centerRight : Alignment.centerLeft,
       decoration: BoxDecoration(
         border: Border(
           right: isLastColumn
@@ -2833,6 +2863,7 @@ class _PRCreateState
                                   ordered: poItem.quantity,
                                   received: recQty,
                                   inTransit: 0,
+                                  cancelled: poItem.cancelledQuantity,
                                 )
                               : PurchaseReceiveItem(),
                         );
@@ -2853,6 +2884,7 @@ class _PRCreateState
                             ordered: poItem.quantity,
                             received: recQty,
                             inTransit: 0,
+                            cancelled: poItem.cancelledQuantity,
                           );
                           if (index == _items.length - 1) {
                             _items.add(PurchaseReceiveItem());
@@ -2918,6 +2950,28 @@ class _PRCreateState
                 child: SizedBox(),
               ),
             ),
+            _tableBodyCell(
+              fixedWidth: 100,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Text(
+                  item.ordered > 0
+                      ? item.cancelled.toStringAsFixed(
+                          item.cancelled == item.cancelled.roundToDouble() ? 0 : 2,
+                        )
+                      : "",
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: "Inter",
+                  ),
+                ),
+              ),
+            ),
             if (_binMode == "item")
               _tableBodyCell(
                 fixedWidth: 160,
@@ -2955,46 +3009,64 @@ class _PRCreateState
                             final bins = binsAsync.asData?.value ?? [];
                             final binItems = bins.map((b) => b['bin_code']!.toString()).toList();
 
-                            return FormDropdown<String>(
-                              height: 32,
-                              value: selectedBin,
-                              items: binItems,
-                              hint: "Select Bin",
-                              showSearch: true,
-                              border: Border.all(
-                                color:
-                                    (_hoveredBinFields.contains("manual-bin-$index") ||
-                                        _focusedBinFields.contains("manual-bin-$index"))
-                                    ? _focusBorder
-                                    : Colors.transparent,
-                                width:
-                                    (_hoveredBinFields.contains("manual-bin-$index") ||
-                                        _focusedBinFields.contains("manual-bin-$index"))
-                                    ? 1.2
-                                    : 1,
-                              ),
-                              itemBuilder: (item, isSelected, isHovered) =>
-                                  _buildDropdownOverlayItem(
-                                    item,
-                                    isSelected,
-                                    isHovered,
+                            final binLink = _binLayerLinks.putIfAbsent(index, () => LayerLink());
+                            return CompositedTransformTarget(
+                              link: binLink,
+                              child: MouseRegion(
+                                onEnter: (_) {
+                                  if (selectedBin != null && selectedBin.isNotEmpty) {
+                                    _showValueTooltip(context, selectedBin, binLink);
+                                  }
+                                },
+                                onExit: (_) {
+                                  _hideValueTooltip();
+                                },
+                                child: FormDropdown<String>(
+                                  height: 32,
+                                  value: selectedBin,
+                                  items: binItems,
+                                  hint: "Select Bin",
+                                  showSearch: true,
+                                  border: Border.all(
+                                    color:
+                                        (_hoveredBinFields.contains("manual-bin-$index") ||
+                                            _focusedBinFields.contains("manual-bin-$index"))
+                                        ? _focusBorder
+                                        : Colors.transparent,
+                                    width:
+                                        (_hoveredBinFields.contains("manual-bin-$index") ||
+                                            _focusedBinFields.contains("manual-bin-$index"))
+                                        ? 1.2
+                                        : 1,
                                   ),
-                              onChanged: (bin) {
-                                if (index >= _preferredBins.length) return;
-                                setState(() {
-                                  _preferredBins[index] = bin;
-                                  _focusedBinFields.remove("manual-bin-$index");
-                                  
-                                  final selectedBinObj = bins.firstWhere(
-                                    (b) => b['bin_code'] == bin,
-                                    orElse: () => <String, String>{},
-                                  );
-                                  _items[index] = _items[index].copyWith(
-                                    binId: selectedBinObj.isNotEmpty ? selectedBinObj['id'] : null,
-                                    binLabel: bin,
-                                  );
-                                });
-                              },
+                                  itemBuilder: (item, isSelected, isHovered) =>
+                                      _buildDropdownOverlayItem(
+                                        item,
+                                        isSelected,
+                                        isHovered,
+                                      ),
+                                  onChanged: (bin) {
+                                    if (index >= _preferredBins.length) return;
+                                    setState(() {
+                                      _preferredBins[index] = bin;
+                                      _focusedBinFields.remove("manual-bin-$index");
+                                      
+                                      final selectedBinObj = bins.firstWhere(
+                                        (b) => b['bin_code'] == bin,
+                                        orElse: () => <String, String>{},
+                                      );
+                                      _items[index] = _items[index].copyWith(
+                                        binId: selectedBinObj.isNotEmpty ? selectedBinObj['id'] : null,
+                                        binLabel: bin,
+                                      );
+                                    });
+                                    _hideValueTooltip();
+                                    if (bin != null && bin.isNotEmpty && _hoveredBinFields.contains("manual-bin-$index")) {
+                                      _showValueTooltip(context, bin, binLink);
+                                    }
+                                  },
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -3256,6 +3328,23 @@ class _PRCreateState
                 ),
               ),
             ),
+            _tableBodyCell(
+              fixedWidth: 100,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  item.cancelled.toStringAsFixed(
+                    item.cancelled == item.cancelled.roundToDouble() ? 0 : 2,
+                  ),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: "Inter",
+                  ),
+                ),
+              ),
+            ),
             if (_binMode == "item")
               _tableBodyCell(
                 fixedWidth: 160,
@@ -3292,47 +3381,66 @@ class _PRCreateState
                             final bins = binsAsync.asData?.value ?? [];
                             final binItems = bins.map((b) => b['bin_code']!.toString()).toList();
 
-                            return FormDropdown<String>(
-                              height: 32,
-                              value: index < _preferredBins.length
-                                  ? _preferredBins[index]
-                                  : null,
-                              items: binItems,
-                              hint: "Select Bin",
-                              showSearch: true,
-                              border: Border.all(
-                                color:
-                                    (_hoveredBinFields.contains("po-bin-$index") ||
-                                        _focusedBinFields.contains("po-bin-$index"))
-                                    ? _focusBorder
-                                    : Colors.transparent,
-                                width:
-                                    (_hoveredBinFields.contains("po-bin-$index") ||
-                                        _focusedBinFields.contains("po-bin-$index"))
-                                    ? 1.2
-                                    : 1,
-                              ),
-                              itemBuilder: (item, isSelected, isHovered) =>
-                                  _buildDropdownOverlayItem(
-                                    item,
-                                    isSelected,
-                                    isHovered,
-                                  ),
-                              onChanged: (bin) {
-                                if (index >= _preferredBins.length) return;
-                                setState(() {
-                                  _preferredBins[index] = bin;
-                                  _focusedBinFields.remove("po-bin-$index");
-                                  
-                                  final selectedBinObj = bins.firstWhere(
-                                    (b) => b['bin_code'] == bin,
-                                    orElse: () => <String, String>{},
-                                  );
-                                  if (selectedBinObj.isNotEmpty) {
-                                    _items[index] = _items[index].copyWith(binId: selectedBinObj['id']);
+                            final binVal = index < _preferredBins.length
+                                ? _preferredBins[index]
+                                : null;
+                            final binLink = _binLayerLinks.putIfAbsent(index, () => LayerLink());
+                            return CompositedTransformTarget(
+                              link: binLink,
+                              child: MouseRegion(
+                                onEnter: (_) {
+                                  if (binVal != null && binVal.isNotEmpty) {
+                                    _showValueTooltip(context, binVal, binLink);
                                   }
-                                });
-                              },
+                                },
+                                onExit: (_) {
+                                  _hideValueTooltip();
+                                },
+                                child: FormDropdown<String>(
+                                  height: 32,
+                                  value: binVal,
+                                  items: binItems,
+                                  hint: "Select Bin",
+                                  showSearch: true,
+                                  border: Border.all(
+                                    color:
+                                        (_hoveredBinFields.contains("po-bin-$index") ||
+                                            _focusedBinFields.contains("po-bin-$index"))
+                                        ? _focusBorder
+                                        : Colors.transparent,
+                                    width:
+                                        (_hoveredBinFields.contains("po-bin-$index") ||
+                                            _focusedBinFields.contains("po-bin-$index"))
+                                        ? 1.2
+                                        : 1,
+                                  ),
+                                  itemBuilder: (item, isSelected, isHovered) =>
+                                      _buildDropdownOverlayItem(
+                                        item,
+                                        isSelected,
+                                        isHovered,
+                                      ),
+                                  onChanged: (bin) {
+                                    if (index >= _preferredBins.length) return;
+                                    setState(() {
+                                      _preferredBins[index] = bin;
+                                      _focusedBinFields.remove("po-bin-$index");
+                                      
+                                      final selectedBinObj = bins.firstWhere(
+                                        (b) => b['bin_code'] == bin,
+                                        orElse: () => <String, String>{},
+                                      );
+                                      if (selectedBinObj.isNotEmpty) {
+                                        _items[index] = _items[index].copyWith(binId: selectedBinObj['id']);
+                                      }
+                                    });
+                                    _hideValueTooltip();
+                                    if (bin != null && bin.isNotEmpty && _hoveredBinFields.contains("po-bin-$index")) {
+                                      _showValueTooltip(context, bin, binLink);
+                                    }
+                                  },
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -3522,114 +3630,17 @@ class _PRCreateState
             ),
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              // Upload Button (Strictly for picking files)
-              CompositedTransformTarget(
-                link: _filePopupLayerLink,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  onEnter: (_) => setState(() => _hoveredFormFields.add('uploadFile')),
-                  onExit: (_) => setState(() => _hoveredFormFields.remove('uploadFile')),
-                  child: GestureDetector(
-                    onTap: _pickFiles, // Strictly upload
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: _hoveredFormFields.contains('uploadFile')
-                              ? const Color(0xFF3B82F6)
-                              : _fieldBorder,
-                          width: _hoveredFormFields.contains('uploadFile') ? 1.5 : 1.0,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.uploadCloud,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Upload File',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade700,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            LucideIcons.chevronDown,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (_uploadedFiles.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                // Link Icon (Strictly for showing the list)
-                GestureDetector(
-                  onTap: () {
-                    if (_showFilePopup) {
-                      _hideFilePopupOverlay();
-                    } else {
-                      _displayFilePopupOverlay();
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _linkBlue,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.link,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _uploadedFiles.length.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Allowed files: ${_uploadedFiles.length}/$_maxUploadFiles',
+          const Text(
+            'Attach File(s) to Purchase Receive',
             style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade500,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: _labelColor,
               fontFamily: 'Inter',
             ),
           ),
+          const SizedBox(height: 12),
+          _buildFileUploadSection(),
         ],
       ),
     );
@@ -3940,7 +3951,7 @@ class _PRCreateState
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => _SelectBatchDialog(
+      builder: (context) => SelectBatchDialog(
         itemName: item.itemName,
         batchOptions: batchOptions.toList()..sort(),
         batchDetails: batchDetails,
@@ -3995,10 +4006,458 @@ class _PRCreateState
 
     return 'ZABNIX PVT/LTD';
   }
+
+  void _showValueTooltip(BuildContext context, String message, LayerLink link) {
+    if (_valueTooltipOverlay != null) {
+      _valueTooltipOverlay?.remove();
+      _valueTooltipOverlay = null;
+    }
+
+    _valueTooltipOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned(
+            child: CompositedTransformFollower(
+              link: link,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.bottomCenter,
+              followerAnchor: Alignment.topCenter,
+              offset: const Offset(0, 4),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Color(0xFF374151),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_valueTooltipOverlay!);
+    setState(() {});
+  }
+
+  void _hideValueTooltip() {
+    if (_valueTooltipOverlay != null) {
+      _valueTooltipOverlay?.remove();
+      _valueTooltipOverlay = null;
+      setState(() {});
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FILE UPLOAD — Split-button with dashed border (matches PO create)
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildFileUploadSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CompositedTransformTarget(
+              link: _uploadLink,
+              child: MouseRegion(
+                onEnter: (_) => setState(() => _isUploadButtonHovered = true),
+                onExit: (_) => setState(() => _isUploadButtonHovered = false),
+                child: CustomPaint(
+                  foregroundPainter: _PRDashedBorderPainter(
+                    color: (_isUploadButtonHovered || _uploadOverlay != null)
+                        ? const Color(0xFF3B82F6)
+                        : const Color(0xFFD1D5DB),
+                  ),
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: _pickFiles,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.upload,
+                                  size: 14,
+                                  color: Color(0xFF6B7280),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Upload File',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF374151),
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(
+                          width: 1,
+                          color: Color(0xFFE5E7EB),
+                          thickness: 1,
+                          indent: 6,
+                          endIndent: 6,
+                        ),
+                        InkWell(
+                          onTap: _toggleUploadOverlay,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(4),
+                            bottomRight: Radius.circular(4),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              _uploadOverlay != null
+                                  ? LucideIcons.chevronUp
+                                  : LucideIcons.chevronDown,
+                              size: 16,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (_uploadedFiles.isNotEmpty) _buildAttachmentBadge(),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'You can upload a maximum of $_maxUploadFiles files, ${_maxUploadFileSizeBytes ~/ (1024 * 1024)}MB each',
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF6B7280),
+            fontFamily: 'Inter',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentBadge() {
+    return CompositedTransformTarget(
+      link: _attachmentBadgeLink,
+      child: InkWell(
+        onTap: _toggleAttachmentListOverlay,
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF3B82F6),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.paperclip, size: 14, color: Colors.white),
+              const SizedBox(width: 4),
+              Text(
+                '${_uploadedFiles.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toggleAttachmentListOverlay() {
+    if (_attachmentListOverlay != null) {
+      _attachmentListOverlay?.remove();
+      _attachmentListOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    _attachmentListOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _attachmentListOverlay?.remove();
+                _attachmentListOverlay = null;
+                setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _attachmentBadgeLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 300,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _uploadedFiles
+                          .map((file) => _buildAttachmentListItem(file))
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_attachmentListOverlay!);
+    setState(() {});
+  }
+
+  Widget _buildAttachmentListItem(PlatformFile file) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setItemState) {
+        return MouseRegion(
+          onEnter: (_) => setItemState(() => isHovered = true),
+          onExit: (_) => setItemState(() => isHovered = false),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.file,
+                  size: 16,
+                  color: isHovered ? Colors.white : const Color(0xFF3B82F6),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        file.name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isHovered
+                              ? Colors.white
+                              : const Color(0xFF374151),
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'File Size: ${(file.size / 1024).toStringAsFixed(2)} KB',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isHovered
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : const Color(0xFF6B7280),
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isHovered)
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _uploadedFiles.remove(file);
+                        if (_uploadedFiles.isEmpty) {
+                          _attachmentListOverlay?.remove();
+                          _attachmentListOverlay = null;
+                        }
+                      });
+                      _attachmentListOverlay?.markNeedsBuild();
+                    },
+                    child: const Icon(
+                      LucideIcons.trash,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _toggleUploadOverlay() {
+    if (_uploadOverlay != null) {
+      _uploadOverlay?.remove();
+      _uploadOverlay = null;
+      if (mounted) setState(() {});
+      return;
+    }
+
+    _uploadOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _uploadOverlay?.remove();
+                _uploadOverlay = null;
+                if (mounted) setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _uploadLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.topLeft,
+            followerAnchor: Alignment.bottomLeft,
+            offset: const Offset(0, -8),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 240,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 4),
+                    _buildUploadItem('Attach From Desktop'),
+                    _buildUploadItem('Attach From Documents'),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_uploadOverlay!);
+    if (mounted) setState(() {});
+  }
+
+  Widget _buildUploadItem(String label) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setOverlayState) {
+        return MouseRegion(
+          onEnter: (_) => setOverlayState(() => isHovered = true),
+          onExit: (_) => setOverlayState(() => isHovered = false),
+          child: GestureDetector(
+            onTap: () async {
+              _uploadOverlay?.remove();
+              _uploadOverlay = null;
+              if (mounted) setState(() {});
+              await _pickFiles();
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: isHovered
+                    ? const Color(0xFF3B82F6)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isHovered ? FontWeight.w600 : FontWeight.w500,
+                  color: isHovered
+                      ? Colors.white
+                      : const Color(0xFF374151),
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 
-class _SelectBatchDialog extends StatefulWidget {
+class SelectBatchDialog extends StatefulWidget {
   final String itemName;
   final String warehouseName;
   final double ordered;
@@ -4011,7 +4470,7 @@ class _SelectBatchDialog extends StatefulWidget {
   final void Function(String message)? onTopError;
   final Function(List<BatchInfo>) onSave;
 
-  _SelectBatchDialog({
+  SelectBatchDialog({
     required this.itemName,
     required this.warehouseName,
     required this.ordered,
@@ -4026,7 +4485,7 @@ class _SelectBatchDialog extends StatefulWidget {
   });
 
   @override
-  State<_SelectBatchDialog> createState() => _SelectBatchDialogState();
+  State<SelectBatchDialog> createState() => _SelectBatchDialogState();
 }
 
 class _PurchaseReceivePreferencesDialog extends StatefulWidget {
@@ -4402,7 +4861,7 @@ class _PurchaseReceivePreferencesDialogState
   }
 }
 
-class _SelectBatchDialogState extends State<_SelectBatchDialog> {
+class _SelectBatchDialogState extends State<SelectBatchDialog> {
   final List<_BatchItemRowController> _rows = [];
   final Map<_BatchItemRowController, TextEditingController>
   _batchInputControllers = {};
@@ -5482,4 +5941,67 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
     );
   }
 }
+
+class _PRDashedBorderPainter extends CustomPainter {
+  final Color color;
+  final bool isFocused;
+  final bool isHovered;
+
+  const _PRDashedBorderPainter({
+    this.color = const Color(0xFFCBD5E1),
+    this.isFocused = false,
+    this.isHovered = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0.5, 0.5, size.width - 1, size.height - 1),
+      const Radius.circular(6),
+    );
+
+    if (isFocused) {
+      // Draw glow
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: 0.15)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
+      canvas.drawRRect(rrect, glowPaint);
+
+      // Draw solid border
+      final solidPaint = Paint()
+        ..color = color
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+      canvas.drawRRect(rrect, solidPaint);
+      return;
+    }
+
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    const dash = 4.0;
+    const gap = 3.0;
+
+    final path = Path()..addRRect(rrect);
+
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PRDashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.isFocused != isFocused ||
+      oldDelegate.isHovered != isHovered;
+}
+
 

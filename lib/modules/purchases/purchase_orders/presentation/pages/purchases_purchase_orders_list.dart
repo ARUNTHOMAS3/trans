@@ -2577,6 +2577,7 @@ class _PurchaseOrderOverviewScreenState
                                                 .update({'status': 'Issued'})
                                                 .eq('id', order.id!);
 
+                                            ref.read(apiClientProvider).clearCache('purchase-orders');
                                             ref.invalidate(
                                               purchaseOrdersProvider(
                                                 PurchaseOrderFilter(limit: 500),
@@ -2585,6 +2586,11 @@ class _PurchaseOrderOverviewScreenState
                                             ref.invalidate(
                                               purchaseOrderProvider(order.id!),
                                             );
+                                            setState(() {
+                                              _currentPoTxnSummaryOrderId = null;
+                                              _currentPoTxnStatus = null;
+                                              _currentPoTxnUpdatedAt = null;
+                                            });
 
                                             if (context.mounted) {
                                               ZerpaiToast.success(
@@ -3430,7 +3436,14 @@ class _PurchaseOrderOverviewScreenState
                         .read(purchaseReceivesProvider.notifier)
                         .deleteReceive(r['id']?.toString() ?? '');
                     if (success) {
+                      ref.read(apiClientProvider).clearCache('purchase-orders');
                       ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
+                      ref.invalidate(purchaseOrderProvider(order.id!));
+                      setState(() {
+                        _currentPoTxnSummaryOrderId = null;
+                        _currentPoTxnStatus = null;
+                        _currentPoTxnUpdatedAt = null;
+                      });
                       ZerpaiToast.success(context, 'Purchase receive deleted successfully');
                     } else {
                       ZerpaiToast.error(context, 'Failed to delete purchase receive');
@@ -3545,10 +3558,16 @@ class _PurchaseOrderOverviewScreenState
                       })
                       .eq('id', order.id!);
 
+                  ref.read(apiClientProvider).clearCache('purchase-orders');
                   ref.invalidate(
                     purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)),
                   );
                   ref.invalidate(purchaseOrderProvider(order.id!));
+                  setState(() {
+                    _currentPoTxnSummaryOrderId = null;
+                    _currentPoTxnStatus = null;
+                    _currentPoTxnUpdatedAt = null;
+                  });
 
                   if (context.mounted) {
                     ZerpaiToast.success(context, 'Expected delivery date updated');

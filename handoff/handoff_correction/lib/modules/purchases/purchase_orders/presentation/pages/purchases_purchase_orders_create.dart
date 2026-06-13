@@ -8975,7 +8975,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const SizedBox(height: 4),
-                    _buildUploadItem('Attach From Desktop', true),
+                    _buildUploadItem('Attach From Desktop', false),
                     _buildUploadItem('Attach From Documents', false),
                     const SizedBox(height: 8),
                   ],
@@ -8994,34 +8994,35 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     bool isHovered = false;
     return StatefulBuilder(
       builder: (context, setOverlayState) {
-        return InkWell(
-          onHover: (v) => setOverlayState(() => isHovered = v),
-          onTap: () async {
-            _uploadOverlay?.remove();
-            _uploadOverlay = null;
-            if (mounted) setState(() {});
-            await _pickUploadFiles();
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFF3B82F6)
-                  : (isHovered ? const Color(0xFFEFF6FF) : Colors.transparent),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected
-                    ? Colors.white
-                    : (isHovered
-                          ? const Color(0xFF1D4ED8)
-                          : const Color(0xFF374151)),
+        return MouseRegion(
+          onEnter: (_) => setOverlayState(() => isHovered = true),
+          onExit: (_) => setOverlayState(() => isHovered = false),
+          child: GestureDetector(
+            onTap: () async {
+              _uploadOverlay?.remove();
+              _uploadOverlay = null;
+              if (mounted) setState(() {});
+              await _pickUploadFiles();
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: isHovered
+                    ? const Color(0xFF3B82F6)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isHovered ? FontWeight.w600 : FontWeight.w500,
+                  color: isHovered
+                      ? Colors.white
+                      : const Color(0xFF374151),
+                ),
               ),
             ),
           ),
