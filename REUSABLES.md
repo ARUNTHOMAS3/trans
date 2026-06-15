@@ -45,7 +45,7 @@
 | `CategoryDropdown` | `inputs/category_dropdown.dart` | Recursive category tree dropdown with optional manage footer and search |
 | `TransactionSeriesDropdown` | `inputs/transaction_series_dropdown.dart` | Transaction series selector (Default always highlighted, optional add button) |
 | `ResizableBox` | `inputs/resizable_box.dart` | Container with draggable bottom resize handle |
-| `HsnSacSearchModal` | `hsn_sac_search_modal.dart` | Modal for searching HSN/SAC codes with debounced API lookup |
+| `HsnSacSearchModal` | `hsn_sac_search_modal.dart` | Modal for searching HSN/SAC codes with debounced API lookup |FavoriteFilterDropdown
 | `PhoneInputField` | `inputs/phone_input_field.dart` | Compound phone-number input: 90 px country-code `FormDropdown` + digits-only `CustomTextField` with per-country max-digit enforcement. Params: `selectedPrefix`, `controller`, `onPrefixChanged`, `hintText`, `enabled`. |
 | `WarehouseHoverPopover` | `inputs/warehouse_popover.dart` | Overlay popover showing warehouse stock breakdown (Accounting/Physical) with location selector. Wraps any child widget; opens on tap. Params: `child`, `warehouseName`, `selectedView`, `onWarehouseChanged`, `onViewChanged`. |
 | `FavoriteFilterDropdown` | `inputs/favorite_filter_dropdown.dart` | Reusable search-enabled view filter dropdown with collapsible Favorites and Default Filters sections, synced to DB |

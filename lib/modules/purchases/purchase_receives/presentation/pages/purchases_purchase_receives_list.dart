@@ -1426,6 +1426,12 @@ class _PurchaseReceiveDetailPanelState
   final Set<String> _expandedItems = {};
   bool _isBatchesExpanded = true;
 
+  String _fmtQty(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     final receiveAsync = ref.watch(purchaseReceiveByIdProvider(widget.id));
@@ -1919,9 +1925,16 @@ class _PurchaseReceiveDetailPanelState
                             _pwDataCell('${e.key + 1}'),
                             _pwDataCell(e.value.itemName),
                             _pwDataCell(
-                              e.value.batches
-                                  .fold<double>(0, (sum, b) => sum + b.quantity)
-                                  .toStringAsFixed(2),
+                              (() {
+                                final totalQty = e.value.batches.isNotEmpty
+                                    ? e.value.batches.fold<double>(0, (sum, b) => sum + b.quantity)
+                                    : e.value.quantityToReceive;
+                                final totalFoc = e.value.batches.isNotEmpty
+                                    ? e.value.batches.fold<double>(0, (sum, b) => sum + b.foc)
+                                    : 0.0;
+                                final displaySum = totalQty + totalFoc;
+                                return '${_fmtQty(displaySum)} pcs\n(${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc)';
+                              })(),
                               align: pw.Alignment.centerRight,
                             ),
                           ],
@@ -2723,10 +2736,13 @@ class _PurchaseReceiveDetailPanelState
         ),
         ...receive.items.asMap().entries.map((e) {
           final i = e.value;
-          final totalQty = i.batches.fold<double>(
-            0,
-            (sum, b) => sum + b.quantity,
-          );
+          final totalQty = i.batches.isNotEmpty
+              ? i.batches.fold<double>(0, (sum, b) => sum + b.quantity)
+              : i.quantityToReceive;
+          final totalFoc = i.batches.isNotEmpty
+              ? i.batches.fold<double>(0, (sum, b) => sum + b.foc)
+              : 0.0;
+          final displaySum = totalQty + totalFoc;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: const BoxDecoration(
@@ -2774,12 +2790,27 @@ class _PurchaseReceiveDetailPanelState
                 ),
                 SizedBox(
                   width: 100,
-                  child: Text(
-                    '${totalQty.toInt()} pcs',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF374151),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_fmtQty(displaySum)} pcs',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF374151),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(
@@ -2859,6 +2890,12 @@ class _PurchaseReceivePdfViewState
     extends ConsumerState<_PurchaseReceivePdfView> {
   final Set<String> _expandedItems = {};
   bool _isBatchesExpanded = true;
+
+  String _fmtQty(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3439,10 +3476,13 @@ class _PurchaseReceivePdfViewState
           ),
           ...List.generate(widget.receive.items.length, (index) {
             final item = widget.receive.items[index];
-            final totalQty = item.batches.fold<double>(
-              0,
-              (sum, b) => sum + b.quantity,
-            );
+            final totalQty = item.batches.isNotEmpty
+                ? item.batches.fold<double>(0, (sum, b) => sum + b.quantity)
+                : item.quantityToReceive;
+            final totalFoc = item.batches.isNotEmpty
+                ? item.batches.fold<double>(0, (sum, b) => sum + b.foc)
+                : 0.0;
+            final displaySum = totalQty + totalFoc;
             return Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: const BoxDecoration(
@@ -3483,12 +3523,12 @@ class _PurchaseReceivePdfViewState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          totalQty.toStringAsFixed(2),
+                          '${_fmtQty(displaySum)} pcs',
                           style: const TextStyle(fontSize: 12),
                         ),
-                        const Text(
-                          'pcs',
-                          style: TextStyle(
+                        Text(
+                          '${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc',
+                          style: const TextStyle(
                             fontSize: 10,
                             color: Color(0xFF6B7280),
                           ),

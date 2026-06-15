@@ -174,28 +174,61 @@ export class BillsService {
                 layerId = existingLayer?.id || null;
               } else {
                 // CASE 2: DIRECT BILL
-                const { data: layer, error: layerError } = await supabase
+                const targetWarehouseId = warehouseIdInput || dto.warehouseId || dto.warehouse_id;
+                const { data: existingLayer, error: getLayerError } = await supabase
                   .from("batch_stock_layers")
-                  .insert({
-                    batch_id: batchId,
-                    product_id: item.item_id,
-                    entity_id: entityId,
-                    warehouse_id: warehouseIdInput || dto.warehouseId || dto.warehouse_id,
-                    bin_id: resolvedBinId,
-                    qty: quantity,
-                    foc_qty: focQty,
-                    purchase_rate: purchaseRate,
-                    mrp: mrp,
-                    ref_type: "BILL",
-                    ref_id: billId,
-                  })
-                  .select()
-                  .single();
+                  .select("*")
+                  .eq("batch_id", batchId)
+                  .eq("product_id", item.item_id)
+                  .eq("entity_id", entityId)
+                  .eq("warehouse_id", targetWarehouseId)
+                  .eq("bin_id", resolvedBinId)
+                  .maybeSingle();
 
-                if (layerError) {
-                  throw new HttpException(`Failed to create batch stock layer: ${layerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+                if (getLayerError) {
+                  throw new HttpException(`Failed to query existing batch stock layer: ${getLayerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
                 }
-                layerId = layer.id;
+
+                if (existingLayer) {
+                  const { data: updatedLayer, error: updateLayerError } = await supabase
+                    .from("batch_stock_layers")
+                    .update({
+                      qty: Number(existingLayer.qty) + Number(quantity),
+                      foc_qty: Number(existingLayer.foc_qty) + Number(focQty),
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", existingLayer.id)
+                    .select()
+                    .single();
+
+                  if (updateLayerError) {
+                    throw new HttpException(`Failed to update batch stock layer: ${updateLayerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+                  }
+                  layerId = updatedLayer.id;
+                } else {
+                  const { data: layer, error: layerError } = await supabase
+                    .from("batch_stock_layers")
+                    .insert({
+                      batch_id: batchId,
+                      product_id: item.item_id,
+                      entity_id: entityId,
+                      warehouse_id: targetWarehouseId,
+                      bin_id: resolvedBinId,
+                      qty: quantity,
+                      foc_qty: focQty,
+                      purchase_rate: purchaseRate,
+                      mrp: mrp,
+                      ref_type: "BILL",
+                      ref_id: billId,
+                    })
+                    .select()
+                    .single();
+
+                  if (layerError) {
+                    throw new HttpException(`Failed to create batch stock layer: ${layerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+                  }
+                  layerId = layer.id;
+                }
               }
 
               // Step 3: Insert into batch_transactions
@@ -466,28 +499,61 @@ export class BillsService {
                 layerId = existingLayer?.id || null;
               } else {
                 // CASE 2: DIRECT BILL
-                const { data: layer, error: layerError } = await supabase
+                const targetWarehouseId = warehouseIdInput || dto.warehouseId || dto.warehouse_id;
+                const { data: existingLayer, error: getLayerError } = await supabase
                   .from("batch_stock_layers")
-                  .insert({
-                    batch_id: batchId,
-                    product_id: item.item_id,
-                    entity_id: entityId,
-                    warehouse_id: warehouseIdInput || dto.warehouseId || dto.warehouse_id,
-                    bin_id: resolvedBinId,
-                    qty: quantity,
-                    foc_qty: focQty,
-                    purchase_rate: purchaseRate,
-                    mrp: mrp,
-                    ref_type: "BILL",
-                    ref_id: id,
-                  })
-                  .select()
-                  .single();
+                  .select("*")
+                  .eq("batch_id", batchId)
+                  .eq("product_id", item.item_id)
+                  .eq("entity_id", entityId)
+                  .eq("warehouse_id", targetWarehouseId)
+                  .eq("bin_id", resolvedBinId)
+                  .maybeSingle();
 
-                if (layerError) {
-                  throw new HttpException(`Failed to create batch stock layer: ${layerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+                if (getLayerError) {
+                  throw new HttpException(`Failed to query existing batch stock layer: ${getLayerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
                 }
-                layerId = layer.id;
+
+                if (existingLayer) {
+                  const { data: updatedLayer, error: updateLayerError } = await supabase
+                    .from("batch_stock_layers")
+                    .update({
+                      qty: Number(existingLayer.qty) + Number(quantity),
+                      foc_qty: Number(existingLayer.foc_qty) + Number(focQty),
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", existingLayer.id)
+                    .select()
+                    .single();
+
+                  if (updateLayerError) {
+                    throw new HttpException(`Failed to update batch stock layer: ${updateLayerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+                  }
+                  layerId = updatedLayer.id;
+                } else {
+                  const { data: layer, error: layerError } = await supabase
+                    .from("batch_stock_layers")
+                    .insert({
+                      batch_id: batchId,
+                      product_id: item.item_id,
+                      entity_id: entityId,
+                      warehouse_id: targetWarehouseId,
+                      bin_id: resolvedBinId,
+                      qty: quantity,
+                      foc_qty: focQty,
+                      purchase_rate: purchaseRate,
+                      mrp: mrp,
+                      ref_type: "BILL",
+                      ref_id: id,
+                    })
+                    .select()
+                    .single();
+
+                  if (layerError) {
+                    throw new HttpException(`Failed to create batch stock layer: ${layerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+                  }
+                  layerId = layer.id;
+                }
               }
 
               // Step 3: Insert into batch_transactions
@@ -668,6 +734,318 @@ export class BillsService {
     }
 
     return data;
+  }
+
+  async updateBillStatus(id: string, entityId: string, status: string, reason: string) {
+    const supabase = this.supabaseService.getClient();
+
+    // 1. Fetch current bill to get order_number and verify it exists
+    const { data: bill, error: fetchError } = await supabase
+      .from('bills')
+      .select('status, order_number')
+      .eq('id', id)
+      .eq('entity_id', entityId)
+      .single();
+
+    if (fetchError || !bill) {
+      throw new HttpException(`Bill not found: ${fetchError?.message || ''}`, HttpStatus.NOT_FOUND);
+    }
+
+    const oldStatus = (bill.status || '').toLowerCase();
+    const newStatus = status.toLowerCase();
+    const statusChangedToActive = (oldStatus === 'draft' || oldStatus === 'void') && (newStatus !== 'draft' && newStatus !== 'void');
+
+    // 2. Prepare update payload
+    const updatePayload: any = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (status === 'void') {
+      updatePayload.reason_to_void = reason;
+    } else if (status === 'draft') {
+      updatePayload.reason_to_draft = reason;
+    }
+
+    // 3. Update status in database
+    const { data: updatedBill, error: updateError } = await supabase
+      .from('bills')
+      .update(updatePayload)
+      .eq('id', id)
+      .eq('entity_id', entityId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new HttpException(`Failed to update bill status: ${updateError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // 4. Reverse or Apply stock updates based on status change
+    if (newStatus === 'void' || newStatus === 'draft') {
+      await this.reverseStockForBill(supabase, id, entityId);
+    } else if (statusChangedToActive) {
+      await this.applyStockForBill(supabase, id, entityId);
+    }
+
+    // 5. Update purchase order status if PO exists
+    if (bill.order_number) {
+      await updatePurchaseOrderStatusByOrderNumber(supabase, bill.order_number, entityId);
+    }
+
+    return updatedBill;
+  }
+
+  private async applyStockForBill(supabase: any, id: string, entityId: string) {
+    // 1. Fetch bill details
+    const { data: bill } = await supabase
+      .from('bills')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!bill) return;
+
+    // 2. Fetch bill items
+    const { data: items } = await supabase
+      .from('bill_items')
+      .select('*')
+      .eq('bill_id', id);
+
+    if (!items || items.length === 0) return;
+
+    // 3. For each item, fetch its batches and apply stock
+    for (const item of items) {
+      const { data: batches } = await supabase
+        .from('bill_item_batches')
+        .select('*')
+        .eq('bill_item_id', item.id);
+
+      if (!batches || batches.length === 0) continue;
+
+      for (const batch of batches) {
+        const batchNo = batch.manufacture_batch_no || `BATCH-${Date.now()}`;
+        const expiryDate = batch.expiry_date || null;
+        const manufactureDate = batch.manufacture_date || null;
+        const unitPack = batch.unit_pack || null;
+        const focQty = Number(batch.foc_quantity || 0);
+        const purchaseRate = Number(batch.purchase_rate || 0);
+        const mrp = Number(batch.mrp || 0);
+        const quantity = Number(batch.quantity || 0);
+        const binIdInput = batch.bin_id || null;
+        const warehouseIdInput = batch.warehouse_id || bill.warehouse_id || null;
+
+        let batchId = null;
+        let layerId = null;
+        let resolvedBinId = binIdInput || null;
+
+        // Step 1: Check/create batch master
+        const { data: existingBatch } = await supabase
+          .from("batch_master")
+          .select("id")
+          .eq("batch_no", batchNo)
+          .eq("product_id", item.product_id)
+          .maybeSingle();
+
+        batchId = existingBatch?.id;
+
+        if (!batchId) {
+          const { data: newBatch, error: batchError } = await supabase
+            .from("batch_master")
+            .insert({
+              batch_no: batchNo,
+              product_id: item.product_id,
+              expiry_date: expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              unit_pack: unitPack,
+              manufacture_batch_number: batchNo,
+              manufacture_exp: expiryDate,
+              created_by_entity_id: entityId,
+              source_type: "BILL",
+            })
+            .select()
+            .single();
+
+          if (batchError) {
+            throw new HttpException(`Failed to create batch master: ${batchError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+          }
+          batchId = newBatch.id;
+        }
+
+        // Resolve bin
+        if (!resolvedBinId && warehouseIdInput) {
+          const { data: firstBin } = await supabase
+            .from("bin_master")
+            .select("id")
+            .eq("warehouse_id", warehouseIdInput)
+            .limit(1)
+            .maybeSingle();
+          resolvedBinId = firstBin?.id;
+        }
+
+        // Direct Bill (Case 2) layer update/insert
+        const { data: existingLayer, error: getLayerError } = await supabase
+          .from("batch_stock_layers")
+          .select("*")
+          .eq("batch_id", batchId)
+          .eq("product_id", item.product_id)
+          .eq("entity_id", entityId)
+          .eq("warehouse_id", warehouseIdInput)
+          .eq("bin_id", resolvedBinId)
+          .maybeSingle();
+
+        if (getLayerError) {
+          throw new HttpException(`Failed to query existing batch stock layer: ${getLayerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        if (existingLayer) {
+          const { data: updatedLayer, error: updateLayerError } = await supabase
+            .from("batch_stock_layers")
+            .update({
+              qty: Number(existingLayer.qty) + Number(quantity),
+              foc_qty: Number(existingLayer.foc_qty) + Number(focQty),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existingLayer.id)
+            .select()
+            .single();
+
+          if (updateLayerError) {
+            throw new HttpException(`Failed to update batch stock layer: ${updateLayerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+          }
+          layerId = updatedLayer.id;
+        } else {
+          const { data: layer, error: layerError } = await supabase
+            .from("batch_stock_layers")
+            .insert({
+              batch_id: batchId,
+              product_id: item.product_id,
+              entity_id: entityId,
+              warehouse_id: warehouseIdInput,
+              bin_id: resolvedBinId,
+              qty: quantity,
+              foc_qty: focQty,
+              purchase_rate: purchaseRate,
+              mrp: mrp,
+              ref_type: "BILL",
+              ref_id: id,
+            })
+            .select()
+            .single();
+
+          if (layerError) {
+            throw new HttpException(`Failed to create batch stock layer: ${layerError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+          }
+          layerId = layer.id;
+        }
+
+        // Update bill_item_batches to associate batchId and layerId
+        await supabase
+          .from('bill_item_batches')
+          .update({
+            batch_id: batchId,
+            layer_id: layerId,
+          })
+          .eq('id', batch.id);
+
+        // Step 3: Insert into batch_transactions
+        const { error: transError } = await supabase
+          .from("batch_transactions")
+          .insert({
+            batch_id: batchId,
+            layer_id: layerId,
+            product_id: item.product_id,
+            entity_id: entityId,
+            warehouse_id: warehouseIdInput,
+            bin_id: resolvedBinId,
+            trans_type: "BILL",
+            qty_in: quantity,
+            rate: purchaseRate,
+            ref_id: id,
+            ref_no: bill.bill_number || `BILL-${Date.now()}`,
+          });
+
+        if (transError) {
+          throw new HttpException(`Failed to create batch transaction: ${transError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+      }
+    }
+  }
+
+  private async reverseStockForBill(supabase: any, id: string, entityId: string) {
+    // 1. Fetch item IDs
+    const { data: billItems, error: itemsError } = await supabase
+      .from('bill_items')
+      .select('id')
+      .eq('bill_id', id);
+
+    if (itemsError) {
+      throw new HttpException(`Failed to query bill items for stock reversal: ${itemsError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    const itemIds = (billItems || []).map((item) => item.id);
+    if (itemIds.length === 0) {
+      return;
+    }
+
+    // 2. Fetch item batches
+    const { data: itemBatches, error: fetchError } = await supabase
+      .from('bill_item_batches')
+      .select('layer_id, quantity, foc_quantity')
+      .in('bill_item_id', itemIds);
+
+    if (fetchError) {
+      throw new HttpException(`Failed to query item batches for stock reversal: ${fetchError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    if (itemBatches && itemBatches.length > 0) {
+      for (const batch of itemBatches) {
+        if (batch.layer_id) {
+          const { data: layer } = await supabase
+            .from('batch_stock_layers')
+            .select('*')
+            .eq('id', batch.layer_id)
+            .maybeSingle();
+
+          if (layer) {
+            const billQty = Number(batch.quantity || 0);
+            const billFocQty = Number(batch.foc_quantity || 0);
+
+            if (layer.ref_type === 'BILL' && layer.ref_id === id) {
+              await supabase
+                .from('batch_stock_layers')
+                .delete()
+                .eq('id', layer.id);
+            } else {
+              const newQty = Math.max(0, Number(layer.qty || 0) - billQty);
+              const newFocQty = Math.max(0, Number(layer.foc_qty || 0) - billFocQty);
+              await supabase
+                .from('batch_stock_layers')
+                .update({
+                  qty: newQty.toString(),
+                  foc_qty: newFocQty.toString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', layer.id);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Clear batch transactions
+    await supabase
+      .from('batch_transactions')
+      .delete()
+      .eq('ref_id', id)
+      .eq('trans_type', 'BILL')
+      .eq('entity_id', entityId);
+
+    // 3. Delete any residual batch stock layers with ref_id = id
+    await supabase
+      .from('batch_stock_layers')
+      .delete()
+      .eq('ref_id', id)
+      .eq('ref_type', 'BILL')
+      .eq('entity_id', entityId);
   }
 
   async remove(id: string, tenant: TenantContext) {

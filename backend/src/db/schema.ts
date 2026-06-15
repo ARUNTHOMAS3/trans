@@ -1213,6 +1213,18 @@ export const purchaseOrderAttachments = pgTable("purchase_order_attachments", {
     .references(() => organisationBranchMaster.id),
 });
 
+export const purchaseReceiveAttachments = pgTable("purchase_receive_attachments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  purchaseReceiveId: uuid("purchase_receive_id")
+    .notNull()
+    .references(() => purchaseReceives.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  filePath: text("file_path").notNull(),
+  fileSize: varchar("file_size"),
+  fileType: varchar("file_type", { length: 50 }),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).defaultNow(),
+});
+
 export const purchaseReceives = pgTable("purchase_receives", {
   id: uuid("id").primaryKey().defaultRandom(),
   purchaseReceiveNumber: varchar("purchase_receive_number").notNull(),
@@ -2154,6 +2166,8 @@ export const bills = pgTable("bills", {
   sourceType: varchar("source_type", { length: 30 }), // PURCHASE_RECEIVE / DIRECT
   sourceId: uuid("source_id"),
   status: varchar("status", { length: 30 }).default("draft"),
+  reasonToVoid: text("reason_to_void"),
+  reasonToDraft: text("reason_to_draft"),
   isDelete: boolean("is_delete").notNull().default(false),
   
   createdBy: uuid("created_by"),

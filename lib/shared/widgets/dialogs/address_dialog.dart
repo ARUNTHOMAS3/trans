@@ -88,32 +88,6 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
     super.dispose();
   }
 
-  InputDecoration _inputDec({String? hint, bool multiline = false}) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF), fontFamily: 'Inter'),
-      isDense: true,
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: multiline ? 10 : 9,
-      ),
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: _kBlue),
-      ),
-    );
-  }
-
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(
@@ -219,26 +193,14 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                       children: [
                         if (dialogTitle == 'Drop Shipping Address') ...[
                           _label('Company Name'),
-                          TextField(
+                          _HoverableTextField(
                             controller: _companyNameCtrl,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: _kBodyText,
-                              fontFamily: 'Inter',
-                            ),
-                            decoration: _inputDec(),
                           ),
                           const SizedBox(height: 16),
                         ],
                         _label('Attention'),
-                        TextField(
+                        _HoverableTextField(
                           controller: _attentionCtrl,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _kBodyText,
-                            fontFamily: 'Inter',
-                          ),
-                          decoration: _inputDec(),
                         ),
                         const SizedBox(height: 16),
                         _label('Country/Region'),
@@ -270,6 +232,7 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                               hint: 'Select',
                               isLoading: countriesAsync.isLoading,
                               items: countries,
+                              border: Border.all(color: const Color(0xFFD1D5DB)),
                               displayStringForValue: (c) => c['name'] ?? '',
                               itemBuilder: (c, isSelected, isHovered) =>
                                   _dropdownItemBuilder(
@@ -288,45 +251,25 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                         ),
                         const SizedBox(height: 16),
                         _label('Address'),
-                        TextField(
+                        _HoverableTextField(
                           controller: _street1Ctrl,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _kBodyText,
-                            fontFamily: 'Inter',
-                          ),
                           maxLines: 2,
                           minLines: 2,
-                          decoration: _inputDec(
-                            hint: 'Street 1',
-                            multiline: true,
-                          ),
+                          hint: 'Street 1',
+                          multiline: true,
                         ),
                         const SizedBox(height: 6),
-                        TextField(
+                        _HoverableTextField(
                           controller: _street2Ctrl,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _kBodyText,
-                            fontFamily: 'Inter',
-                          ),
                           maxLines: 2,
                           minLines: 2,
-                          decoration: _inputDec(
-                            hint: 'Street 2',
-                            multiline: true,
-                          ),
+                          hint: 'Street 2',
+                          multiline: true,
                         ),
                         const SizedBox(height: 16),
                         _label('City'),
-                        TextField(
+                        _HoverableTextField(
                           controller: _cityCtrl,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _kBodyText,
-                            fontFamily: 'Inter',
-                          ),
-                          decoration: _inputDec(),
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -367,6 +310,7 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                                         hint: 'Select or type to add',
                                         isLoading: statesAsync.isLoading,
                                         items: states,
+                                        border: Border.all(color: const Color(0xFFD1D5DB)),
                                         displayStringForValue: (s) =>
                                             s['name'] ?? '',
                                         itemBuilder:
@@ -390,19 +334,13 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _label('Pin Code'),
-                                  TextField(
+                                  _HoverableTextField(
                                     controller: _pinCtrl,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _kBodyText,
-                                      fontFamily: 'Inter',
-                                    ),
                                     keyboardType: TextInputType.number,
                                     inputFormatters: [
                                       FilteringTextInputFormatter.digitsOnly,
                                       LengthLimitingTextInputFormatter(6),
                                     ],
-                                    decoration: _inputDec(),
                                   ),
                                 ],
                               ),
@@ -420,60 +358,21 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                                   _label('Phone'),
                                   Row(
                                     children: [
-                                      Container(
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          border: Border.all(
-                                            color: const Color(0xFFD1D5DB),
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        alignment: Alignment.center,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                        ),
-                                        child: DropdownButtonHideUnderline(
-                                          child: DropdownButton<String>(
-                                            value: _phoneCode,
-                                            isDense: true,
-                                            alignment: Alignment.center,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontFamily: 'Inter',
-                                              color: _kBodyText,
-                                            ),
-                                            items: _phoneCodes
-                                                .map(
-                                                  (c) => DropdownMenuItem(
-                                                    value: c,
-                                                    alignment: Alignment.center,
-                                                    child: Text(c),
-                                                  ),
-                                                )
-                                                .toList(),
-                                            onChanged: (v) =>
-                                                setState(() => _phoneCode = v!),
-                                          ),
-                                        ),
+                                      _HoverablePhoneCodeDropdown(
+                                        value: _phoneCode,
+                                        items: _phoneCodes,
+                                        onChanged: (v) =>
+                                            setState(() => _phoneCode = v!),
                                       ),
                                       const SizedBox(width: 6),
                                       Expanded(
-                                        child: TextField(
+                                        child: _HoverableTextField(
                                           controller: _phoneCtrl,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: _kBodyText,
-                                            fontFamily: 'Inter',
-                                          ),
                                           keyboardType: TextInputType.phone,
                                           inputFormatters: [
                                             FilteringTextInputFormatter.digitsOnly,
                                             LengthLimitingTextInputFormatter(10),
                                           ],
-                                          decoration: _inputDec(),
                                         ),
                                       ),
                                     ],
@@ -487,15 +386,9 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _label('Fax Number'),
-                                  TextField(
+                                  _HoverableTextField(
                                     controller: _faxCtrl,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _kBodyText,
-                                      fontFamily: 'Inter',
-                                    ),
                                     keyboardType: TextInputType.number,
-                                    decoration: _inputDec(),
                                   ),
                                 ],
                               ),
@@ -596,6 +489,163 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HoverableTextField extends StatefulWidget {
+  final TextEditingController controller;
+  final String? hint;
+  final bool multiline;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final int? maxLines;
+  final int? minLines;
+
+  const _HoverableTextField({
+    required this.controller,
+    this.hint,
+    this.multiline = false,
+    this.keyboardType,
+    this.inputFormatters,
+    this.maxLines = 1,
+    this.minLines = 1,
+  });
+
+  @override
+  State<_HoverableTextField> createState() => _HoverableTextFieldState();
+}
+
+class _HoverableTextFieldState extends State<_HoverableTextField> {
+  bool _isHovered = false;
+  bool _isFocused = false;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final borderSide = _isFocused || _isHovered
+        ? const BorderSide(color: _kBlue, width: 1.5)
+        : const BorderSide(color: Color(0xFFD1D5DB));
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: TextField(
+        controller: widget.controller,
+        focusNode: _focusNode,
+        keyboardType: widget.keyboardType,
+        inputFormatters: widget.inputFormatters,
+        maxLines: widget.maxLines,
+        minLines: widget.minLines,
+        style: const TextStyle(
+          fontSize: 13,
+          color: _kBodyText,
+          fontFamily: 'Inter',
+        ),
+        decoration: InputDecoration(
+          hintText: widget.hint,
+          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF), fontFamily: 'Inter'),
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: widget.multiline ? 10 : 9,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: borderSide,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: borderSide,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: const BorderSide(color: _kBlue, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HoverablePhoneCodeDropdown extends StatefulWidget {
+  final String value;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
+
+  const _HoverablePhoneCodeDropdown({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  State<_HoverablePhoneCodeDropdown> createState() => _HoverablePhoneCodeDropdownState();
+}
+
+class _HoverablePhoneCodeDropdownState extends State<_HoverablePhoneCodeDropdown> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderSide = _isHovered
+        ? const BorderSide(color: _kBlue, width: 1.5)
+        : const BorderSide(color: Color(0xFFD1D5DB));
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.fromBorderSide(borderSide),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: widget.value,
+            isDense: true,
+            alignment: Alignment.center,
+            style: const TextStyle(
+              fontSize: 12,
+              fontFamily: 'Inter',
+              color: _kBodyText,
+            ),
+            items: widget.items
+                .map(
+                  (c) => DropdownMenuItem(
+                    value: c,
+                    alignment: Alignment.center,
+                    child: Text(c),
+                  ),
+                )
+                .toList(),
+            onChanged: widget.onChanged,
           ),
         ),
       ),

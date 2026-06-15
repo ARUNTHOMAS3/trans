@@ -82,7 +82,7 @@ class BatchInfo {
       mrp: (json['mrp'] as num?)?.toDouble() ?? 0,
       ptr: (json['ptr'] as num?)?.toDouble() ?? 0,
       quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
-      foc: (json['foc'] as num?)?.toDouble() ?? 0,
+      foc: (json['foc'] as num?)?.toDouble() ?? (json['foc_qty'] as num?)?.toDouble() ?? 0,
       manufactureBatch: json['manufacture_batch'] as String? ?? '',
       manufactureDate: json['manufacture_date'] != null
           ? DateTime.parse(json['manufacture_date'] as String)

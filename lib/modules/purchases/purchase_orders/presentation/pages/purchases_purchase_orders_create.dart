@@ -264,167 +264,202 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       alignment: Alignment.topCenter,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 0),
-      child: Container(
-        width: 600,
-        height: 250,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
-              child: Row(
-                children: [
-                  const Text(
-                    'Select Account',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.x,
-                      size: 16,
-                      color: AppTheme.errorRed,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => context.pop(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: AppTheme.borderColor),
-
-            // Content
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Account',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
+      child: StatefulBuilder(
+        builder: (context, dialogSetState) {
+          return Container(
+            width: 600,
+            height: 250,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Select Account',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                          fontFamily: 'Inter',
+                        ),
                       ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: AppTheme.errorRed,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => context.pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppTheme.borderColor),
+
+                // Content
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Account',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FormDropdown<AccountNode>(
+                            height: 32,
+                            value: _selectedPopupAccount,
+                            items: _buildNestedAccountsList(availableAccounts),
+                            isItemEnabled: (v) => !v.id.startsWith('header_'),
+                            displayStringForValue: (v) => v.id.startsWith('header_') ? v.accountType : v.name,
+                            hint: 'Select an account',
+                            boldSelected: false,
+                            onChanged: (v) {
+                              if (v != null && v.id.startsWith('header_')) return;
+                              dialogSetState(() {
+                                _selectedPopupAccount = v;
+                              });
+                              setState(() {
+                                _selectedPopupAccount = v;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: _fieldBorder),
+                            itemBuilder: (account, isSelected, isHovered) {
+                              if (account.id.startsWith('header_')) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  child: Text(
+                                    account.accountType,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF111827),
+                                      fontSize: 11,
+                                      letterSpacing: 0.5,
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                );
+                              }
+                              final depth = _getAccountDepth(account, availableAccounts);
+                              final name = depth == 0
+                                  ? (account.systemAccountName.isNotEmpty
+                                      ? account.systemAccountName
+                                      : account.name)
+                                  : account.name;
+                              return _buildStandardLookupRow(
+                                name,
+                                isSelected,
+                                isHovered,
+                                indentation: 20.0 + (depth * 16.0),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FormDropdown<AccountNode>(
-                        height: 32,
-                        value: _selectedPopupAccount,
-                        items: availableAccounts,
-                        displayStringForValue: (v) => v.name,
-                        hint: 'Select an account',
-                        onChanged: (v) {
+                  ),
+                ),
+
+                const Divider(height: 1, color: AppTheme.borderColor),
+
+                // Footer
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          final notifier = ref.read(
+                            purchaseOrderFormNotifierProvider.notifier,
+                          );
+                          final poState = ref.read(
+                            purchaseOrderFormNotifierProvider,
+                          );
+                          for (int i = 0; i < poState.items.length; i++) {
+                            final item = poState.items[i];
+                            if (item.productId.isNotEmpty && !item.isHeader) {
+                              notifier.updateItem(
+                                i,
+                                item.copyWith(
+                                  accountId: _selectedPopupAccount?.id,
+                                  accountName: _selectedPopupAccount?.name,
+                                ),
+                              );
+                            }
+                          }
+                          context.pop();
                           setState(() {
-                            _selectedPopupAccount = v;
+                            _bulkMode = false;
+                            _selectedRows.clear();
+                            _selectedPopupAccount = null;
                           });
                         },
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: _fieldBorder),
-                        itemBuilder: (account, isSelected, isHovered) {
-                          return _buildStandardLookupRow(
-                            account.name,
-                            isSelected,
-                            isHovered,
-                          );
-                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF28A745), // Success Green
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text(
+                          'Save',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      OutlinedButton(
+                        onPressed: () => context.pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textPrimary,
+                          side: const BorderSide(color: AppTheme.borderColor),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-
-            const Divider(height: 1, color: AppTheme.borderColor),
-
-            // Footer
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      final notifier = ref.read(
-                        purchaseOrderFormNotifierProvider.notifier,
-                      );
-                      final poState = ref.read(
-                        purchaseOrderFormNotifierProvider,
-                      );
-                      for (int i = 0; i < poState.items.length; i++) {
-                        final item = poState.items[i];
-                        if (item.productId.isNotEmpty && !item.isHeader) {
-                          notifier.updateItem(
-                            i,
-                            item.copyWith(
-                              accountId: _selectedPopupAccount?.id,
-                              accountName: _selectedPopupAccount?.name,
-                            ),
-                          );
-                        }
-                      }
-                      context.pop();
-                      setState(() {
-                        _bulkMode = false;
-                        _selectedRows.clear();
-                        _selectedPopupAccount = null;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF28A745), // Success Green
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: () => context.pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.textPrimary,
-                      side: const BorderSide(color: AppTheme.borderColor),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -611,7 +646,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       final lookupsService = LookupsApiService();
 
       // 1. Sync Shipment Preference if it's new
-      if (poState.shipmentPreference != null &&
+      final isExistingId = _shipmentPreferencesList.any(
+        (p) => p['id']?.toString() == poState.shipmentPreference,
+      );
+
+      if (!isExistingId &&
+          poState.shipmentPreference != null &&
           poState.shipmentPreference!.isNotEmpty) {
         final exists = _shipmentPreferencesList.any(
           (p) =>
@@ -635,7 +675,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       // 2. Prepare PO Model
       // Find shipment preference ID if it's a name
       String? shipmentPreferenceId = poState.shipmentPreference;
-      if (poState.shipmentPreference != null &&
+      if (!isExistingId &&
+          poState.shipmentPreference != null &&
           poState.shipmentPreference!.isNotEmpty) {
         final selectedPref = _shipmentPreferencesList.firstWhere(
           (p) => p['name'] == poState.shipmentPreference,
@@ -709,6 +750,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       }
 
       if (mounted) {
+        final targetId = savedPo?.id ?? _editingOrderId;
+        if (targetId != null) {
+          ref.invalidate(purchaseOrderProvider(targetId));
+        }
         ref.invalidate(purchaseOrdersProvider);
         ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
 
@@ -718,10 +763,23 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               ? 'Purchase Order updated successfully'
               : 'Purchase Order saved successfully',
         );
-        if (savedPo != null && savedPo.id != null) {
-          context.go('/purchases/purchase-orders/${savedPo.id}/email');
+        if (_isEditMode) {
+          final id = savedPo?.id ?? _editingOrderId;
+          if (status == 'Draft') {
+            context.go('/purchases/purchase-orders/$id');
+          } else if (savedPo != null && savedPo.id != null) {
+            context.go('/purchases/purchase-orders/${savedPo.id}/email');
+          } else {
+            context.go('/purchases/purchase-orders/$id');
+          }
         } else {
-          context.go('/purchases/purchase-orders');
+          if (status == 'Draft') {
+            context.go('/purchases/purchase-orders');
+          } else if (savedPo != null && savedPo.id != null) {
+            context.go('/purchases/purchase-orders/${savedPo.id}/email');
+          } else {
+            context.go('/purchases/purchase-orders');
+          }
         }
       }
     } catch (e) {
@@ -1528,16 +1586,46 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     onItemsSelected: (selectedItems) {
                                       final List<PurchaseOrderItem> newItems =
                                           [];
+                                      PriceList? pl;
+                                      if (_selectedPriceListId != null) {
+                                        try {
+                                          final activePriceLists = ref.read(activePriceListsProvider);
+                                          pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                                        } catch (_) {}
+                                      }
                                       selectedItems.forEach((item, quantity) {
+                                        double rate = item.costPrice ?? 0.0;
+                                        double discountVal = 0.0;
+                                        String? plId;
+
+                                        if (pl != null) {
+                                          rate = pl.calculatePrice(
+                                            item.id ?? '',
+                                            item.costPrice ?? 0.0,
+                                            quantity: quantity.toDouble(),
+                                          );
+                                          plId = pl.id;
+                                          
+                                          final override = pl.itemRates?.firstWhere(
+                                            (r) => r.itemId == item.id,
+                                            orElse: () => const PriceListItemRate(itemId: ''),
+                                          );
+                                          if (override != null && override.itemId.isNotEmpty) {
+                                            if (override.discountPercentage != null) {
+                                              discountVal = override.discountPercentage!;
+                                            }
+                                          }
+                                        }
                                         newItems.add(
                                           PurchaseOrderItem(
                                             productId: item.id ?? '',
                                             productName: item.productName,
                                             quantity: quantity.toDouble(),
-                                            rate: item.costPrice ?? 0.0,
-                                            amount:
-                                                (item.costPrice ?? 0.0) *
-                                                quantity,
+                                            rate: rate,
+                                            discount: discountVal,
+                                            discountType: 'percentage',
+                                            priceListId: plId,
+                                            amount: rate * quantity,
                                           ),
                                         );
                                       });
@@ -1573,14 +1661,46 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   builder: (context) => PurchaseRequestsItemsDialog(
                                     onItemsSelected: (selectedPrItems) {
                                       final List<PurchaseOrderItem> newItems = [];
+                                      PriceList? pl;
+                                      if (_selectedPriceListId != null) {
+                                        try {
+                                          final activePriceLists = ref.read(activePriceListsProvider);
+                                          pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                                        } catch (_) {}
+                                      }
                                       for (var prItem in selectedPrItems) {
+                                        double rate = prItem.rate;
+                                        double discountVal = 0.0;
+                                        String? plId;
+
+                                        if (pl != null) {
+                                          rate = pl.calculatePrice(
+                                            prItem.productId,
+                                            prItem.rate,
+                                            quantity: prItem.quantity,
+                                          );
+                                          plId = pl.id;
+
+                                          final override = pl.itemRates?.firstWhere(
+                                            (r) => r.itemId == prItem.productId,
+                                            orElse: () => const PriceListItemRate(itemId: ''),
+                                          );
+                                          if (override != null && override.itemId.isNotEmpty) {
+                                            if (override.discountPercentage != null) {
+                                              discountVal = override.discountPercentage!;
+                                            }
+                                          }
+                                        }
                                         newItems.add(
                                           PurchaseOrderItem(
                                             productId: prItem.productId,
                                             productName: prItem.productName,
                                             quantity: prItem.quantity,
-                                            rate: prItem.rate,
-                                            amount: prItem.quantity * prItem.rate,
+                                            rate: rate,
+                                            discount: discountVal,
+                                            discountType: 'percentage',
+                                            priceListId: plId,
+                                            amount: prItem.quantity * rate,
                                           ),
                                         );
                                       }
@@ -1880,19 +2000,29 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     ) {
       if (next.hasValue && next.value!.isNotEmpty) {
         final currentPoState = ref.read(purchaseOrderFormNotifierProvider);
+        final defaultWh = next.value!.firstWhere(
+          (w) => w.isDefaultForBranch,
+          orElse: () => next.value!.first,
+        );
+        
+        if (currentPoState.warehouseId == null || currentPoState.warehouseId!.isEmpty) {
+          ref.read(purchaseOrderFormNotifierProvider.notifier).updateField(
+            warehouseId: defaultWh.id,
+          );
+        }
+        
         if (currentPoState.deliveryType == 'warehouse' &&
             (currentPoState.deliveryWarehouseId == null ||
                 currentPoState.deliveryWarehouseId!.isEmpty)) {
-          final firstWh = next.value!.first;
           ref
               .read(purchaseOrderFormNotifierProvider.notifier)
               .updateField(
-                deliveryWarehouseId: firstWh.id,
-                deliveryAddressName: firstWh.name,
+                deliveryWarehouseId: defaultWh.id,
+                deliveryAddressName: defaultWh.name,
               );
           // Small delay to ensure controller is available if needed
           Future.microtask(() {
-            _deliveryNameCtrl.text = firstWh.name;
+            _deliveryNameCtrl.text = defaultWh.name;
           });
         }
       }
@@ -1905,20 +2035,40 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         warehouseState.value != null &&
         warehouseState.value!.isNotEmpty) {
       final currentPoState = ref.read(purchaseOrderFormNotifierProvider);
+      final defaultWh = warehouseState.value!.firstWhere(
+        (w) => w.isDefaultForBranch,
+        orElse: () => warehouseState.value!.first,
+      );
+      
+      bool needsUpdate = false;
+      String? newWarehouseId;
+      String? newDeliveryWarehouseId;
+      String? newDeliveryAddressName;
+      
+      if (currentPoState.warehouseId == null || currentPoState.warehouseId!.isEmpty) {
+        needsUpdate = true;
+        newWarehouseId = defaultWh.id;
+      }
+      
       if (currentPoState.deliveryType == 'warehouse' &&
           (currentPoState.deliveryWarehouseId == null ||
               currentPoState.deliveryWarehouseId!.isEmpty)) {
-        final firstWh = warehouseState.value!.first;
-        // We shouldn't do side effects directly in build, so we'll use a post-frame callback
+        needsUpdate = true;
+        newDeliveryWarehouseId = defaultWh.id;
+        newDeliveryAddressName = defaultWh.name;
+      }
+      
+      if (needsUpdate) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            ref
-                .read(purchaseOrderFormNotifierProvider.notifier)
-                .updateField(
-                  deliveryWarehouseId: firstWh.id,
-                  deliveryAddressName: firstWh.name,
-                );
-            _deliveryNameCtrl.text = firstWh.name;
+            ref.read(purchaseOrderFormNotifierProvider.notifier).updateField(
+              warehouseId: newWarehouseId ?? currentPoState.warehouseId,
+              deliveryWarehouseId: newDeliveryWarehouseId ?? currentPoState.deliveryWarehouseId,
+              deliveryAddressName: newDeliveryAddressName ?? currentPoState.deliveryAddressName,
+            );
+            if (newDeliveryAddressName != null) {
+              _deliveryNameCtrl.text = newDeliveryAddressName;
+            }
           }
         });
       }
@@ -2300,7 +2450,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                 i,
                                                 item.copyWith(
                                                   rate: newRate,
-                                                  priceListId: null,
+                                                  priceListId: pl.id,
                                                   discount: discountVal,
                                                   discountType: 'percentage',
                                                 ),
@@ -2974,7 +3124,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     items: vendors,
                     hint: 'Select a Vendor',
                     showSearch: true,
-                    boldSelected: false,
+                    boldSelected: true,
                     allowClear: hasVendor && !_isEditMode,
                     menuWidth: 550,
                     onChanged: (v) =>
@@ -3753,9 +3903,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final phone = address['phone'] as String? ?? '';
 
     final activeAddress = isBilling ? vendor.billingAddress : vendor.shippingAddress;
-    final isSelected = activeAddress != null && 
-        activeAddress['street1'] == street1 &&
-        activeAddress['city'] == city;
+    final isSelected = activeAddress != null && _areAddressesEqual(activeAddress, address);
 
     final lines = <String>[
       if (street1.isNotEmpty) street1,
@@ -3774,10 +3922,24 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           child: GestureDetector(
             onTap: () async {
               _closeAddressDropdownOverlay();
+              final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                vendor: vendor,
+                selectedAddr: address,
+                isBilling: isBilling,
+              );
               final updated = isBilling
-                  ? vendor.copyWith(billingAddress: address)
-                  : vendor.copyWith(shippingAddress: address);
+                  ? vendor.copyWith(
+                      billingAddress: address,
+                      vendorAddresses: updatedAddresses,
+                    )
+                  : vendor.copyWith(
+                      shippingAddress: address,
+                      vendorAddresses: updatedAddresses,
+                    );
               try {
+                ref
+                    .read(vendorProvider.notifier)
+                    .updateVendorLocally(vendor.id, updated);
                 await ref
                     .read(vendorProvider.notifier)
                     .updateVendor(vendor.id, updated);
@@ -3785,6 +3947,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ZerpaiToast.success(context, 'Vendor address updated');
                 }
               } catch (e) {
+                ref
+                    .read(vendorProvider.notifier)
+                    .updateVendorLocally(vendor.id, vendor);
                 if (mounted) {
                   ZerpaiToast.error(context, 'Failed to update address: $e');
                 }
@@ -3842,13 +4007,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 color: isHovered ? Colors.white : const Color(0xFF6B7280),
                               ),
                             ),
-                          if (isHovered && isSelected) const SizedBox(width: 8),
-                          if (isSelected)
-                            Icon(
-                              LucideIcons.checkCircle,
-                              size: 14,
-                              color: isHovered ? Colors.white : const Color(0xFF3B82F6),
-                            ),
+                            // Selection indicator checkCircle removed per user request
                         ],
                       ),
                     ],
@@ -3871,6 +4030,114 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         );
       },
     );
+  }
+
+  List<Map<String, dynamic>> _updateVendorAddressesDefaultFlags({
+    required Vendor vendor,
+    required Map<String, dynamic> selectedAddr,
+    required bool isBilling,
+  }) {
+    final currentList = vendor.vendorAddresses ?? [];
+    bool found = false;
+    final newList = currentList.map((addr) {
+      final isMatch = _areAddressesEqual(addr, selectedAddr);
+      final updatedAddr = Map<String, dynamic>.from(addr);
+      if (isMatch) {
+        found = true;
+        if (isBilling) {
+          updatedAddr['is_default_billing'] = true;
+          updatedAddr['isDefaultBilling'] = true;
+          updatedAddr['address_type'] = 'billing';
+          updatedAddr['addressType'] = 'billing';
+        } else {
+          updatedAddr['is_default_shipping'] = true;
+          updatedAddr['isDefaultShipping'] = true;
+          updatedAddr['address_type'] = 'shipping';
+          updatedAddr['addressType'] = 'shipping';
+        }
+      } else {
+        if (isBilling && (addr['address_type'] == 'billing' || addr['is_default_billing'] == true || addr['isDefaultBilling'] == true)) {
+          updatedAddr['is_default_billing'] = false;
+          updatedAddr['isDefaultBilling'] = false;
+          updatedAddr['address_type'] = 'additional';
+          updatedAddr['addressType'] = 'additional';
+        } else if (!isBilling && (addr['address_type'] == 'shipping' || addr['is_default_shipping'] == true || addr['isDefaultShipping'] == true)) {
+          updatedAddr['is_default_shipping'] = false;
+          updatedAddr['isDefaultShipping'] = false;
+          updatedAddr['address_type'] = 'additional';
+          updatedAddr['addressType'] = 'additional';
+        }
+      }
+      return updatedAddr;
+    }).toList();
+
+    if (!found) {
+      final newAddr = {
+        ...selectedAddr,
+        'is_default_billing': isBilling,
+        'isDefaultBilling': isBilling,
+        'is_default_shipping': !isBilling,
+        'isDefaultShipping': !isBilling,
+        'address_type': isBilling ? 'billing' : 'shipping',
+        'addressType': isBilling ? 'billing' : 'shipping',
+      };
+      newList.add(newAddr);
+    }
+    return newList;
+  }
+
+  List<AccountNode> _buildNestedAccountsList(List<AccountNode> accounts) {
+    final List<AccountNode> nested = [];
+    final Map<String, List<AccountNode>> grouped = {};
+    for (var acc in accounts) {
+      grouped.putIfAbsent(acc.accountType, () => []).add(acc);
+    }
+
+    for (var entry in grouped.entries) {
+      final type = entry.key;
+      final typeAccounts = entry.value;
+      nested.add(AccountNode(
+        id: 'header_$type',
+        systemAccountName: type,
+        userAccountName: type,
+        name: type,
+        accountGroup: 'Expenses',
+        accountType: type,
+        isSystem: false,
+        isDeletable: false,
+        isActive: false,
+        parentId: null,
+      ));
+
+      final accountMap = {for (var a in typeAccounts) a.id: a};
+      final rootNodes = typeAccounts
+          .where((a) => a.parentId == null || !accountMap.containsKey(a.parentId))
+          .toList();
+
+      void addNode(AccountNode node) {
+        nested.add(node);
+        final children = typeAccounts.where((a) => a.parentId == node.id).toList();
+        for (var child in children) {
+          addNode(child);
+        }
+      }
+
+      for (var root in rootNodes) {
+        addNode(root);
+      }
+    }
+    return nested;
+  }
+
+  int _getAccountDepth(AccountNode node, List<AccountNode> accounts) {
+    int depth = 0;
+    AccountNode? current = node;
+    final accountMap = {for (var a in accounts) a.id: a};
+    while (current?.parentId != null && accountMap.containsKey(current!.parentId)) {
+      depth++;
+      current = accountMap[current.parentId];
+    }
+    return depth;
   }
 
   List<Map<String, dynamic>> _getAllVendorAddresses(Vendor vendor) {
@@ -5809,46 +6076,64 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                           }
 
                                           final targetCtrl =
-                                              _rowControllers[targetIndex];
-                                          targetCtrl.nameCtrl.text =
-                                              i.productName;
-                                          targetCtrl.qtyCtrl.text = '';
-                                          targetCtrl.rateCtrl.text =
-                                              (i.costPrice ?? 0.0) % 1 == 0
-                                              ? (i.costPrice ?? 0.0)
-                                                    .toInt()
-                                                    .toString()
-                                              : (i.costPrice ?? 0.0)
-                                                    .toStringAsFixed(2);
-                                          double discountVal = 0.0;
-                                          if (_selectedPriceListId != null) {
-                                            try {
-                                              final activePriceLists = ref.read(activePriceListsProvider);
-                                              final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
-                                              final override = pl.itemRates?.firstWhere(
-                                                (r) => r.itemId == i.id,
-                                                orElse: () => const PriceListItemRate(itemId: ''),
-                                              );
-                                              if (override != null && override.itemId.isNotEmpty) {
-                                                if (override.discountPercentage != null) {
-                                                  discountVal = override.discountPercentage!;
-                                                }
-                                              }
-                                            } catch (_) {}
-                                          }
-                                          targetCtrl.discountCtrl.text = discountVal.toStringAsFixed(2);
-                                          targetCtrl.descCtrl.text =
-                                              i.purchaseDescription ?? '';
+                                               _rowControllers[targetIndex];
+                                           targetCtrl.nameCtrl.text =
+                                               i.productName;
+                                           targetCtrl.qtyCtrl.text = '';
+                                           double discountVal = 0.0;
+                                           double? priceListRate;
+                                           if (_selectedPriceListId != null) {
+                                             try {
+                                               final activePriceLists = ref.read(activePriceListsProvider);
+                                               final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                                               final override = pl.itemRates?.firstWhere(
+                                                 (r) => r.itemId == i.id,
+                                                 orElse: () => const PriceListItemRate(itemId: ''),
+                                               );
+                                               if (override != null && override.itemId.isNotEmpty) {
+                                                 if (override.discountPercentage != null) {
+                                                   discountVal = override.discountPercentage!;
+                                                 }
+                                               }
+                                               priceListRate = pl.calculatePrice(
+                                                 i.id ?? '',
+                                                 i.costPrice ?? 0.0,
+                                               );
+                                             } catch (_) {}
+                                           }
+                                           final finalRate = priceListRate ?? (i.costPrice ?? 0.0);
+                                           targetCtrl.rateCtrl.text =
+                                               finalRate % 1 == 0
+                                               ? finalRate.toInt().toString()
+                                               : finalRate.toStringAsFixed(2);
+                                           targetCtrl.discountCtrl.text = discountVal.toStringAsFixed(2);
+                                           targetCtrl.descCtrl.text =
+                                               i.purchaseDescription ?? '';
 
-                                          await notifier.selectProductForItem(
-                                            targetIndex,
-                                            i,
-                                            item.warehouseId ?? poState.warehouseId ?? '',
-                                            
-                                          );
+                                           await notifier.selectProductForItem(
+                                             targetIndex,
+                                             i,
+                                             item.warehouseId ?? poState.warehouseId ?? '',
+                                           );
 
-                                          // Price list is NOT auto-applied;
-                                          // user must choose from the dropdown.
+                                           if (_selectedPriceListId != null) {
+                                             try {
+                                               final activePriceLists = ref.read(activePriceListsProvider);
+                                               final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                                               final currentItems = ref.read(purchaseOrderFormNotifierProvider).items;
+                                               if (targetIndex >= 0 && targetIndex < currentItems.length) {
+                                                 notifier.updateItem(
+                                                   targetIndex,
+                                                   currentItems[targetIndex].copyWith(
+                                                     rate: finalRate,
+                                                     priceListId: pl.id,
+                                                     discount: discountVal,
+                                                     discountType: 'percentage',
+                                                   ),
+                                                 );
+                                               }
+                                             } catch (_) {}
+                                           }
                                         },
                                       ),
                                     ),
@@ -5998,22 +6283,63 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                                 builder: (ctx) => SalesItemQuickEditDialog(
                                                                   item:
                                                                       selectedItem,
-                                                                  onUpdated: (newItem) {
-                                                                    setState(() {
-                                                                      notifier.selectProductForItem(
-                                                                        index,
-                                                                        newItem,
-                                                                        item.warehouseId ??
-                                                                            poState.warehouseId ??
-                                                                            '',
-                                                                      );
-                                                                      ctrl.rateCtrl.text =
-                                                                          newItem
-                                                                              .costPrice
-                                                                              ?.toString() ??
-                                                                          '0';
-                                                                    });
-                                                                  },
+                                                                  onUpdated: (newItem) async {
+                                                                     await notifier.selectProductForItem(
+                                                                       index,
+                                                                       newItem,
+                                                                       item.warehouseId ??
+                                                                           poState.warehouseId ??
+                                                                           '',
+                                                                     );
+                                                                     double discountVal = 0.0;
+                                                                     double? priceListRate;
+                                                                     if (_selectedPriceListId != null) {
+                                                                       try {
+                                                                         final activePriceLists = ref.read(activePriceListsProvider);
+                                                                         final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                                                                         final override = pl.itemRates?.firstWhere(
+                                                                           (r) => r.itemId == newItem.id,
+                                                                           orElse: () => const PriceListItemRate(itemId: ''),
+                                                                         );
+                                                                         if (override != null && override.itemId.isNotEmpty) {
+                                                                           if (override.discountPercentage != null) {
+                                                                             discountVal = override.discountPercentage!;
+                                                                           }
+                                                                         }
+                                                                         priceListRate = pl.calculatePrice(
+                                                                           newItem.id ?? '',
+                                                                           newItem.costPrice ?? 0.0,
+                                                                         );
+                                                                       } catch (_) {}
+                                                                     }
+                                                                     final finalRate = priceListRate ?? (newItem.costPrice ?? 0.0);
+                                                                     setState(() {
+                                                                       ctrl.rateCtrl.text = finalRate % 1 == 0
+                                                                           ? finalRate.toInt().toString()
+                                                                           : finalRate.toStringAsFixed(2);
+                                                                       if (poState.discountLevel == 'item') {
+                                                                         ctrl.discountCtrl.text = discountVal.toStringAsFixed(2);
+                                                                       }
+                                                                     });
+                                                                     if (_selectedPriceListId != null) {
+                                                                       try {
+                                                                         final activePriceLists = ref.read(activePriceListsProvider);
+                                                                         final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                                                                         final currentItems = ref.read(purchaseOrderFormNotifierProvider).items;
+                                                                         if (index >= 0 && index < currentItems.length) {
+                                                                           notifier.updateItem(
+                                                                             index,
+                                                                             currentItems[index].copyWith(
+                                                                               rate: finalRate,
+                                                                               priceListId: pl.id,
+                                                                               discount: discountVal,
+                                                                               discountType: 'percentage',
+                                                                             ),
+                                                                           );
+                                                                         }
+                                                                       } catch (_) {}
+                                                                     }
+                                                                   },
                                                                 ),
                                                               );
                                                             }
@@ -6495,11 +6821,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       Expanded(
                         flex: 5,
                         child: Padding(
-                          padding: EdgeInsets.only(
-                            left: (notIncluded && _showPriceList && activePriceLists.isNotEmpty) ? 0 : 12,
-                            right: 12,
-                            top: 4,
-                            bottom: 4,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -6528,7 +6852,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 if (_showPriceList &&
                                     activePriceLists.isNotEmpty)
                                   Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.max,
                                     children: [
                                       if (notIncluded) ...[
                                         ZTooltip(
@@ -6541,31 +6866,31 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                             color: Colors.orange,
                                           ),
                                         ),
+                                        const SizedBox(width: 8),
                                       ],
-                                      CompositedTransformTarget(
-                                          link: ctrl.priceListLink,
-                                          child: MouseRegion(
-                                            onEnter: (_) {
-                                              if (item.priceListId != null) {
-                                                final pl = activePriceLists
-                                                    .where(
-                                                      (pl) =>
-                                                          pl.id ==
-                                                          item.priceListId,
-                                                    )
-                                                    .firstOrNull;
-                                                if (pl != null) {
-                                                  _showValueTooltip(
-                                                    context,
-                                                    pl.name,
-                                                    ctrl.priceListLink,
-                                                  );
+                                      Expanded(
+                                        child: CompositedTransformTarget(
+                                            link: ctrl.priceListLink,
+                                            child: MouseRegion(
+                                              onEnter: (_) {
+                                                if (item.priceListId != null) {
+                                                  final pl = activePriceLists
+                                                      .where(
+                                                        (pl) =>
+                                                            pl.id ==
+                                                            item.priceListId,
+                                                      )
+                                                      .firstOrNull;
+                                                  if (pl != null) {
+                                                    _showValueTooltip(
+                                                      context,
+                                                      pl.name,
+                                                      ctrl.priceListLink,
+                                                    );
+                                                  }
                                                 }
-                                              }
-                                            },
-                                            onExit: (_) => _hideValueTooltip(),
-                                            child: SizedBox(
-                                              width: 120,
+                                              },
+                                              onExit: (_) => _hideValueTooltip(),
                                               child: FormDropdown<PriceList>(
                                                 height: 32,
                                                 value: activePriceLists
@@ -6652,12 +6977,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                 ),
                                                 borderRadius: BorderRadius.circular(4),
                                                 border: Border.all(color: _borderCol),
-                                                                                              ),
+                                              ),
                                             ),
-                                          ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
+                                  ),
                                 if (_showRecentTransactions)
                                   Builder(
                                     builder: (innerContext) => GestureDetector(
@@ -9043,10 +9368,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       ),
       child: Row(
         children: [
-          TextButton(
+          OutlinedButton(
             onPressed: (_isSavingDraft || _isSavingOpen)
                 ? null
                 : () => _handleSave(poState, status: 'Draft'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _textPrimary,
+              side: BorderSide(color: _borderCol),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
             child: _isSavingDraft
                 ? const SizedBox(
                     width: 16,
@@ -9058,7 +9391,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   )
                 : const Text(
                     'Save as Draft',
-                    style: TextStyle(color: _textPrimary, fontSize: 13),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
           ),
           const SizedBox(width: 8),
@@ -9089,11 +9422,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ),
           ),
           const SizedBox(width: 8),
-          TextButton(
+          OutlinedButton(
             onPressed: () => context.go('/purchases/purchase-orders'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _textPrimary,
+              side: BorderSide(color: _borderCol),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
             child: const Text(
               'Cancel',
-              style: TextStyle(color: _textPrimary, fontSize: 13),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
             ),
           ),
           const Spacer(),
@@ -9217,27 +9558,33 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             if (vendor != null) {
               Vendor updated;
               if (isNewAddress) {
-                final currentList = vendor.vendorAddresses ?? [];
                 final Map<String, dynamic> newAddr = {
                   ...data,
                   'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                  'address_type': isFirstBilling
-                      ? 'billing'
-                      : (isFirstShipping ? 'shipping' : 'additional'),
-                  'addressType': isFirstBilling
-                      ? 'billing'
-                      : (isFirstShipping ? 'shipping' : 'additional'),
                 };
+                final currentList = vendor.vendorAddresses ?? [];
                 final newList = [...currentList, newAddr];
+                final tempVendor = vendor.copyWith(vendorAddresses: newList);
+                
+                final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                  vendor: tempVendor,
+                  selectedAddr: newAddr,
+                  isBilling: isBilling,
+                );
+                
                 updated = isBilling
-                    ? vendor.copyWith(vendorAddresses: newList, billingAddress: newAddr)
-                    : vendor.copyWith(vendorAddresses: newList, shippingAddress: newAddr);
+                    ? tempVendor.copyWith(
+                        billingAddress: newAddr,
+                        vendorAddresses: updatedAddresses,
+                      )
+                    : tempVendor.copyWith(
+                        shippingAddress: newAddr,
+                        vendorAddresses: updatedAddresses,
+                      );
               } else if (initialAddress != null) {
                 final currentList = vendor.vendorAddresses ?? [];
-                bool foundInList = false;
                 final newList = currentList.map((addr) {
                   if (_areAddressesEqual(addr, initialAddress)) {
-                    foundInList = true;
                     return {
                       ...addr,
                       ...data,
@@ -9245,38 +9592,44 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   }
                   return addr;
                 }).toList();
-
-                if (foundInList) {
-                  updated = vendor.copyWith(vendorAddresses: newList);
-                  if (isBilling && vendor.billingAddress != null && _areAddressesEqual(vendor.billingAddress!, initialAddress)) {
-                    updated = updated.copyWith(billingAddress: {
-                      ...vendor.billingAddress!,
-                      ...data,
-                    });
-                  } else if (!isBilling && vendor.shippingAddress != null && _areAddressesEqual(vendor.shippingAddress!, initialAddress)) {
-                    updated = updated.copyWith(shippingAddress: {
-                      ...vendor.shippingAddress!,
-                      ...data,
-                    });
-                  }
-                } else {
-                  if (isBilling && vendor.billingAddress != null && _areAddressesEqual(vendor.billingAddress!, initialAddress)) {
-                    updated = vendor.copyWith(billingAddress: data);
-                  } else if (!isBilling && vendor.shippingAddress != null && _areAddressesEqual(vendor.shippingAddress!, initialAddress)) {
-                    updated = vendor.copyWith(shippingAddress: data);
-                  } else {
-                    updated = isBilling
-                        ? vendor.copyWith(billingAddress: data)
-                        : vendor.copyWith(shippingAddress: data);
-                  }
-                }
-              } else {
+                
+                final tempVendor = vendor.copyWith(vendorAddresses: newList);
+                final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                  vendor: tempVendor,
+                  selectedAddr: data,
+                  isBilling: isBilling,
+                );
+                
                 updated = isBilling
-                    ? vendor.copyWith(billingAddress: data)
-                    : vendor.copyWith(shippingAddress: data);
+                    ? tempVendor.copyWith(
+                        billingAddress: data,
+                        vendorAddresses: updatedAddresses,
+                      )
+                    : tempVendor.copyWith(
+                        shippingAddress: data,
+                        vendorAddresses: updatedAddresses,
+                      );
+              } else {
+                final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                  vendor: vendor,
+                  selectedAddr: data,
+                  isBilling: isBilling,
+                );
+                updated = isBilling
+                    ? vendor.copyWith(
+                        billingAddress: data,
+                        vendorAddresses: updatedAddresses,
+                      )
+                    : vendor.copyWith(
+                        shippingAddress: data,
+                        vendorAddresses: updatedAddresses,
+                      );
               }
 
               try {
+                ref
+                    .read(vendorProvider.notifier)
+                    .updateVendorLocally(vendor.id, updated);
                 await ref
                     .read(vendorProvider.notifier)
                     .updateVendor(vendor.id, updated);
@@ -9284,6 +9637,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ZerpaiToast.success(context, 'Vendor address updated in database');
                 }
               } catch (e) {
+                ref
+                    .read(vendorProvider.notifier)
+                    .updateVendorLocally(vendor.id, vendor);
                 if (context.mounted) {
                   ZerpaiToast.error(context, 'Failed to update address in database: $e');
                 }

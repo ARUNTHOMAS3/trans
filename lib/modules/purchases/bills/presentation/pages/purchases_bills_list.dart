@@ -37,6 +37,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:flutter/services.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_receives/providers/purchase_receives_provider.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart';
 
 class _ClearBillsSelectionIntent extends Intent {
   const _ClearBillsSelectionIntent();
@@ -702,20 +704,55 @@ class _PurchasesBillsListScreenState
                   decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
                   child: Row(
                     children: [
-                      _buildToolbarButton(
-                        LucideIcons.pencil,
-                        'Edit',
-                        onPressed: () {
-                          context.go(
-                            '/purchases/bills/create?editId=${bill.id}',
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      _buildPdfPrintDropdown(bill),
-                      if (bill.status.toLowerCase() != 'paid' &&
-                          bill.status.toLowerCase() != 'void' &&
-                          bill.status.toLowerCase() != 'draft') ...[
+                      if (bill.status.toLowerCase() == 'void') ...[
+                        _buildPdfPrintDropdown(bill),
+                        _buildDivider(),
+                        _buildToolbarButton(
+                          LucideIcons.rotateCcw,
+                          'Convert to Draft',
+                          onPressed: () {
+                            _showReasonDialog(context, bill, 'draft');
+                          },
+                        ),
+                        _buildDivider(),
+                        MenuAnchor(
+                          style: _menuStyle(),
+                          builder: (context, controller, child) {
+                            return IconButton(
+                              onPressed: () => controller.isOpen
+                                  ? controller.close()
+                                  : controller.open(),
+                              icon: Icon(
+                                LucideIcons.moreHorizontal,
+                                size: 18,
+                                color: AppTheme.textSecondary,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            );
+                          },
+                          menuChildren: _menuChildrenForStatus(bill),
+                        ),
+                      ] else if (bill.status.toLowerCase() == 'draft') ...[
+                        _buildToolbarButton(
+                          LucideIcons.pencil,
+                          'Edit',
+                          onPressed: () {
+                            context.go(
+                              '/purchases/bills/create?editId=${bill.id}',
+                            );
+                          },
+                        ),
+                        _buildDivider(),
+                        _buildPdfPrintDropdown(bill),
+                        _buildDivider(),
+                        _buildToolbarButton(
+                          LucideIcons.fileCheck,
+                          'Convert to Open',
+                          onPressed: () {
+                            _handleConvertBillToOpen(bill);
+                          },
+                        ),
                         _buildDivider(),
                         _buildToolbarButton(
                           LucideIcons.wallet,
@@ -726,26 +763,70 @@ class _PurchasesBillsListScreenState
                             });
                           },
                         ),
+                        _buildDivider(),
+                        MenuAnchor(
+                          style: _menuStyle(),
+                          builder: (context, controller, child) {
+                            return IconButton(
+                              onPressed: () => controller.isOpen
+                                  ? controller.close()
+                                  : controller.open(),
+                              icon: Icon(
+                                LucideIcons.moreHorizontal,
+                                size: 18,
+                                color: AppTheme.textSecondary,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            );
+                          },
+                          menuChildren: _menuChildrenForStatus(bill),
+                        ),
+                      ] else ...[
+                        _buildToolbarButton(
+                          LucideIcons.pencil,
+                          'Edit',
+                          onPressed: () {
+                            context.go(
+                              '/purchases/bills/create?editId=${bill.id}',
+                            );
+                          },
+                        ),
+                        _buildDivider(),
+                        _buildPdfPrintDropdown(bill),
+                        if (bill.status.toLowerCase() != 'paid' &&
+                            bill.status.toLowerCase() != 'void') ...[
+                          _buildDivider(),
+                          _buildToolbarButton(
+                            LucideIcons.wallet,
+                            'Record Payment',
+                            onPressed: () {
+                              setState(() {
+                                _showPaymentFormForId = bill.id;
+                              });
+                            },
+                          ),
+                        ],
+                        _buildDivider(),
+                        MenuAnchor(
+                          style: _menuStyle(),
+                          builder: (context, controller, child) {
+                            return IconButton(
+                              onPressed: () => controller.isOpen
+                                  ? controller.close()
+                                  : controller.open(),
+                              icon: Icon(
+                                LucideIcons.moreHorizontal,
+                                size: 18,
+                                color: AppTheme.textSecondary,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            );
+                          },
+                          menuChildren: _menuChildrenForStatus(bill),
+                        ),
                       ],
-                      _buildDivider(),
-                      MenuAnchor(
-                        style: _menuStyle(),
-                        builder: (context, controller, child) {
-                          return IconButton(
-                            onPressed: () => controller.isOpen
-                                ? controller.close()
-                                : controller.open(),
-                            icon: Icon(
-                              LucideIcons.moreHorizontal,
-                              size: 18,
-                              color: AppTheme.textSecondary,
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          );
-                        },
-                        menuChildren: _menuChildrenForStatus(bill),
-                      ),
                     ],
                   ),
                 ),
@@ -2080,6 +2161,22 @@ class _PurchasesBillsListScreenState
   }
 
   List<Widget> _menuChildrenForStatus(PurchasesBill bill) {
+    if (bill.status.toLowerCase() == 'void') {
+      return [
+        _detailActionMenuItem('Clone', bill),
+        const Divider(height: 1, color: AppTheme.borderLight),
+        _detailActionMenuItem('Delete', bill),
+      ];
+    }
+    if (bill.status.toLowerCase() == 'draft') {
+      return [
+        _detailActionMenuItem('Void', bill),
+        _detailActionMenuItem('Clone', bill),
+        _detailActionMenuItem('Create Vendor Credits', bill),
+        const Divider(height: 1, color: AppTheme.borderLight),
+        _detailActionMenuItem('Delete', bill),
+      ];
+    }
     return [
       _detailActionMenuItem('Void', bill),
       _detailActionMenuItem('Expected Payment Date', bill),
@@ -2097,35 +2194,7 @@ class _PurchasesBillsListScreenState
       style: _menuItemStyle(),
       onPressed: () async {
         if (label == 'Void') {
-          final confirmed = await showZerpaiConfirmationDialog(
-            context,
-            title: 'Void Bill',
-            message:
-                'Are you sure you want to mark bill ${bill.billNumber} as Void?',
-            confirmLabel: 'Void',
-            cancelLabel: 'Cancel',
-            variant: ZerpaiConfirmationVariant.danger,
-          );
-          if (!confirmed) return;
-          try {
-            final supabase = Supabase.instance.client;
-            await supabase
-                .from('bills')
-                .update({'status': 'void'})
-                .eq('id', bill.id);
-
-            ref.read(apiClientProvider).clearCache('bills');
-
-            ref.invalidate(purchaseBillProvider(bill.id));
-            ref.read(billsProvider.notifier).loadBills();
-            if (context.mounted) {
-              ZerpaiToast.success(context, 'Bill marked as Void');
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ZerpaiToast.error(context, 'Failed to void bill: $e');
-            }
-          }
+          _showReasonDialog(context, bill, 'void');
         } else if (label == 'Expected Payment Date') {
           final result = await showDialog<Map<String, dynamic>>(
             context: context,
@@ -2705,11 +2774,86 @@ class _PurchasesBillsListScreenState
       );
       setState(() => _selectedIds.clear());
     } else if (actionLabel == 'Mark as Received') {
-      ZerpaiToast.success(
-        context,
-        'Marked ${_selectedIds.length} bill(s) as Received',
-      );
+      final ids = _selectedIds.toList();
       setState(() => _selectedIds.clear());
+      
+      try {
+        final repo = ref.read(purchaseReceiveRepositoryProvider);
+        int receivedCount = 0;
+        int failedCount = 0;
+
+        for (final id in ids) {
+          final bill = await ref.read(purchaseBillProvider(id).future);
+
+          // Check if any item has batches or serial number or bin tracking
+          final hasTrackedItems = bill.lineItems.any((item) {
+            return item.trackBatches || item.trackSerialNumber || item.trackBinLocation;
+          });
+
+          if (hasTrackedItems) {
+            failedCount++;
+            continue;
+          }
+
+          // If track_batches is false (i.e., hasTrackedItems is false), create a new purchase receive
+          final nextNumberData = await repo.getNextPurchaseReceiveNumber();
+          final nextReceiveNumber = nextNumberData['formatted'] ?? '';
+
+          final receive = PurchaseReceive(
+            purchaseReceiveNumber: nextReceiveNumber,
+            receivedDate: DateTime.now(),
+            vendorId: bill.vendorId,
+            vendorName: bill.vendorName,
+            purchaseOrderId: null,
+            purchaseOrderNumber: bill.orderNumber,
+            warehouseId: bill.warehouseId,
+            status: 'received',
+            notes: 'Automatically created via Bill Mark as Received',
+            billNo: bill.billNumber,
+            billDate: bill.billDate,
+            invoiceTotal: bill.total,
+            items: bill.lineItems.map((item) {
+              return PurchaseReceiveItem(
+                itemId: item.itemId,
+                itemName: item.itemName ?? '',
+                description: item.description,
+                ordered: item.quantity,
+                received: 0,
+                inTransit: 0,
+                cancelled: 0,
+                quantityToReceive: item.quantity,
+                batches: [],
+                purchaseOrderNumber: bill.orderNumber,
+              );
+            }).toList(),
+          );
+
+          await repo.createPurchaseReceive(receive);
+          receivedCount++;
+        }
+
+        ref.read(apiClientProvider).clearCache('bills');
+        ref.read(billsProvider.notifier).loadBills();
+        ref.read(purchaseReceivesProvider.notifier).fetchReceives();
+
+        if (context.mounted) {
+          if (failedCount > 0) {
+            ZerpaiToast.info(
+              context,
+              'Marked $receivedCount bill(s) as Received. $failedCount bill(s) skipped because they contain tracked items.',
+            );
+          } else {
+            ZerpaiToast.success(
+              context,
+              'Marked $receivedCount bill(s) as Received successfully',
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ZerpaiToast.error(context, 'Failed to mark as received: $e');
+        }
+      }
     } else if (actionLabel == 'Undo Receive') {
       ZerpaiToast.success(
         context,
@@ -3288,6 +3432,75 @@ class _PurchasesBillsListScreenState
 
 
   Widget _detailBanners(PurchasesBill bill) {
+    if (bill.status.toLowerCase() == 'draft') {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFFEEEEEE)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(
+                LucideIcons.sparkles,
+                size: 16,
+                color: Color(0xFF8B5CF6),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: RichText(
+                  text: const TextSpan(
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: Color(0xFF374151),
+                      height: 1.4,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: "WHAT'S NEXT? ",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text:
+                            "Bill has been created. Convert this draft bill to open status to record payment. ",
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton(
+                onPressed: () => _handleConvertBillToOpen(bill),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF28A745),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  minimumSize: const Size(0, 32),
+                  fixedSize: const Size.fromHeight(32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: const Text(
+                  'Convert to Open',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -4527,6 +4740,70 @@ class _PurchasesBillsListScreenState
       ],
     );
   }
+
+  void _showReasonDialog(BuildContext context, PurchasesBill bill, String targetStatus) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return _ReasonInputDialog(
+          bill: bill,
+          targetStatus: targetStatus,
+          onConfirm: (reason) async {
+            try {
+              await ref.read(billsProvider.notifier).updateBillStatus(
+                bill.id,
+                targetStatus,
+                reason,
+              );
+              
+              ref.read(apiClientProvider).clearCache('bills');
+              ref.invalidate(purchaseBillProvider(bill.id));
+              ref.read(billsProvider.notifier).loadBills();
+              
+              if (context.mounted) {
+                ZerpaiToast.success(
+                  context,
+                  targetStatus == 'void'
+                      ? 'Bill marked as Void'
+                      : 'Bill converted to Draft',
+                );
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ZerpaiToast.error(
+                  context,
+                  'Failed to update status: $e',
+                );
+              }
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleConvertBillToOpen(PurchasesBill bill) async {
+    try {
+      await ref.read(billsProvider.notifier).updateBillStatus(
+        bill.id,
+        'open',
+        '',
+      );
+
+      ref.read(apiClientProvider).clearCache('bills');
+      ref.invalidate(purchaseBillProvider(bill.id));
+      ref.read(billsProvider.notifier).loadBills();
+
+      if (context.mounted) {
+        ZerpaiToast.success(context, 'Bill converted to Open');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ZerpaiToast.error(context, 'Failed to convert bill to Open: $e');
+      }
+    }
+  }
 }
 
 // ─── Resizable Header Cell ────────────────────────────────────────────────
@@ -5722,6 +5999,171 @@ class _ExpectedPaymentDateDialogState extends State<ExpectedPaymentDateDialog> {
                     ),
                   ),
                   child: const Text('Cancel'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReasonInputDialog extends StatefulWidget {
+  final PurchasesBill bill;
+  final String targetStatus;
+  final Future<void> Function(String reason) onConfirm;
+
+  const _ReasonInputDialog({
+    required this.bill,
+    required this.targetStatus,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_ReasonInputDialog> createState() => _ReasonInputDialogState();
+}
+
+class _ReasonInputDialogState extends State<_ReasonInputDialog> {
+  final TextEditingController _reasonController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isVoid = widget.targetStatus == 'void';
+    final title = isVoid
+        ? 'Enter a reason for marking this transaction as Void.'
+        : 'Note down the reason as to why you want to undo a void transaction.';
+    
+    final confirmLabel = isVoid ? 'Void it' : 'Convert to Draft';
+
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: const EdgeInsets.only(top: 0),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      child: Container(
+        width: 480,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13.5,
+                fontWeight: FontWeight.normal,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reasonController,
+              maxLines: 4,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: Color(0xFF1E293B),
+              ),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                ElevatedButton(
+                  onPressed: _submitting
+                      ? null
+                      : () async {
+                          final text = _reasonController.text.trim();
+                          if (text.isEmpty) {
+                            ZerpaiToast.error(
+                              context,
+                              'Reason cannot be empty',
+                            );
+                            return;
+                          }
+                          setState(() => _submitting = true);
+                          await widget.onConfirm(text);
+                          if (mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981), // Emerald green
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFFA7F3D0),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          confirmLabel,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: _submitting ? null : () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1E293B),
+                    side: const BorderSide(color: Color(0xFFD1D5DB)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math' show max;
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,11 +10,13 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart' hide Skeleton;
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../../models/purchases_purchase_receives_model.dart';
 import '../../providers/purchase_receives_provider.dart';
 import '../../../vendors/providers/vendor_provider.dart';
@@ -125,7 +128,12 @@ class _BatchItemRowController {
 // ═════════════════════════════════════════════════════════════════════════════
 class PurchasesPurchaseReceivesCreateScreen extends ConsumerStatefulWidget {
   final String? initialPoId;
-  const PurchasesPurchaseReceivesCreateScreen({super.key, this.initialPoId});
+  final String? initialReceiveId;
+  const PurchasesPurchaseReceivesCreateScreen({
+    super.key,
+    this.initialPoId,
+    this.initialReceiveId,
+  });
 
   @override
   ConsumerState<PurchasesPurchaseReceivesCreateScreen> createState() =>
@@ -134,6 +142,9 @@ class PurchasesPurchaseReceivesCreateScreen extends ConsumerStatefulWidget {
 
 class _PRCreateState
     extends ConsumerState<PurchasesPurchaseReceivesCreateScreen> {
+  bool _isLoadingData = false;
+  bool get _isEditMode => widget.initialReceiveId != null && widget.initialReceiveId!.isNotEmpty;
+
   final _receiveNumberCtrl = TextEditingController();
   final _receivedDateCtrl = TextEditingController();
   final _billNoCtrl = TextEditingController();
@@ -149,6 +160,7 @@ class _PRCreateState
   PurchaseOrder? _selectedPO;
   String? _selectedPONumber;
   String? _selectedPOId;
+  String? _selectedWarehouseId;
 
   List<PurchaseOrder> _vendorPOs = [];
   final Map<String, double> _receivedQuantities = {};
@@ -170,14 +182,10 @@ class _PRCreateState
 
   final Set<int> _hiddenManualIndices = <int>{};
   String _binMode = 'item'; // 'transaction' or 'item'
-  bool _showFilePopup = false;
-  int? _hoveredAttachmentIndex;
   int? _hoveredRowIndex;
   final ScrollController _attachmentListScrollController = ScrollController();
-  final LayerLink _filePopupLayerLink = LayerLink();
   final LayerLink _uploadLink = LayerLink();
   final LayerLink _attachmentBadgeLink = LayerLink();
-  OverlayEntry? _filePopupOverlayEntry;
   OverlayEntry? _uploadOverlay;
   OverlayEntry? _attachmentListOverlay;
   OverlayEntry? _topErrorOverlayEntry;
@@ -231,15 +239,21 @@ class _PRCreateState
   @override
   void initState() {
     super.initState();
-    _receiveNumberCtrl.text = _generateReceiveNumber();
-    _receivedDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    if (!_isEditMode) {
+      _receiveNumberCtrl.text = _generateReceiveNumber();
+      _receivedDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    }
 
     // Load vendors and next number when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(vendorProvider.notifier).loadVendors();
-      await _fetchNextNumber();
+      if (!_isEditMode) {
+        await _fetchNextNumber();
+      }
 
-      if (widget.initialPoId != null && mounted) {
+      if (_isEditMode && mounted) {
+        await _loadReceiveData(widget.initialReceiveId!);
+      } else if (widget.initialPoId != null && mounted) {
         try {
           setState(() {
             _isLoadingPOs = true;
@@ -270,6 +284,125 @@ class _PRCreateState
         }
       }
     });
+  }
+
+  Future<void> _loadReceiveData(String receiveId) async {
+    setState(() => _isLoadingData = true);
+    try {
+      final repository = ref.read(purchaseReceiveRepositoryProvider);
+      final receive = await repository.getPurchaseReceive(receiveId);
+
+      if (receive == null) {
+        if (mounted) {
+          ZerpaiToast.error(context, 'Purchase Receive not found');
+          context.pop();
+        }
+        return;
+      }
+
+      await _loadAttachmentsForReceive(receiveId);
+
+      if (!mounted) return;
+
+      // Extract unique PO IDs from the receive items
+      final uniquePOIds = receive.items
+          .map((i) => i.purchaseOrderId)
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet();
+
+      // Load actual PurchaseOrder objects
+      final loadedPOs = <PurchaseOrder>[];
+      for (final poId in uniquePOIds) {
+        try {
+          final po = await ref.read(purchaseOrderProvider(poId).future);
+          if (po != null) loadedPOs.add(po);
+        } catch (e) {
+          AppLogger.warning(
+            'Could not load PO $poId for edit flow',
+            error: e,
+            module: 'purchases',
+          );
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _receiveNumberCtrl.text = receive.purchaseReceiveNumber;
+        _receivedDateCtrl.text = receive.receivedDate != null
+            ? DateFormat('dd-MM-yyyy').format(receive.receivedDate!)
+            : '';
+        _billNoCtrl.text = receive.billNo ?? '';
+        _billDateCtrl.text = receive.billDate != null
+            ? DateFormat('dd-MM-yyyy').format(receive.billDate!)
+            : '';
+        _invoiceTotalCtrl.text = receive.invoiceTotal.toString();
+        _notesCtrl.text = receive.notes ?? '';
+
+        _selectedVendorId = receive.vendorId;
+        if ((_selectedVendorId == null || _selectedVendorId!.isEmpty) && loadedPOs.isNotEmpty) {
+          _selectedVendorId = loadedPOs.first.vendorId;
+        }
+        _selectedVendorName = receive.vendorName;
+        if ((_selectedVendorName == null || _selectedVendorName!.isEmpty) && loadedPOs.isNotEmpty) {
+          _selectedVendorName = loadedPOs.first.vendorName;
+        }
+
+        if (loadedPOs.isNotEmpty) {
+          _selectedPO = loadedPOs.first;
+          _selectedPONumber = _selectedPO?.orderNumber;
+          _selectedPOId = _selectedPO?.id;
+          _vendorPOs = loadedPOs;
+        } else if (receive.purchaseOrderId != null && receive.purchaseOrderId!.isNotEmpty) {
+          final po = PurchaseOrder(
+            id: receive.purchaseOrderId,
+            orderNumber: receive.purchaseOrderNumber ?? '',
+            orderDate: DateTime.now(),
+            vendorId: receive.vendorId ?? '',
+            vendorName: receive.vendorName,
+          );
+          _selectedPO = po;
+          _selectedPONumber = po.orderNumber;
+          _selectedPOId = po.id;
+          _vendorPOs = [po];
+        }
+
+        _binMode = receive.transactionBinLabel != null ? 'transaction' : 'item';
+        _selectedTransactionBin = receive.transactionBinLabel;
+        _selectedTransactionBinId = receive.transactionBinId;
+
+        // Populate items
+        _items.clear();
+        _rowControllers.clear();
+        _preferredBins.clear();
+        _damageControllers.clear();
+
+        for (final item in receive.items) {
+          _items.add(item);
+          final ctrl = _ReceiveItemRowController();
+          final qty = item.batches.isNotEmpty ? _sumBatchQuantity(item.batches) : item.quantityToReceive;
+          final foc = _sumBatchFoc(item.batches);
+          ctrl.qtyCtrl.text = _fmtPcs(qty + foc);
+          _rowControllers.add(ctrl);
+          _preferredBins.add(item.binLabel);
+          _damageControllers.add(TextEditingController());
+        }
+
+        _isLoadingData = false;
+      });
+    } catch (e, st) {
+      AppLogger.error(
+        'Failed to load purchase receive',
+        error: e,
+        stackTrace: st,
+        module: 'purchases',
+      );
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to load purchase receive data');
+        context.pop();
+      }
+    }
   }
 
   String _generateReceiveNumber() {
@@ -551,7 +684,10 @@ class _PRCreateState
       return;
     }
 
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withData: true,
+    );
     if (result == null || result.files.isEmpty) return;
 
     final files = result.files;
@@ -578,25 +714,128 @@ class _PRCreateState
     );
   }
 
-  void _removeUploadedFile(int index) {
-    if (index < 0 || index >= _uploadedFiles.length) return;
-    setState(() {
-      _uploadedFiles.removeAt(index);
-      if (_hoveredAttachmentIndex != null &&
-          _hoveredAttachmentIndex! >= _uploadedFiles.length) {
-        _hoveredAttachmentIndex = null;
+  Future<void> _saveAttachments(String receiveId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final apiClient = ApiClient();
+
+      for (var file in _uploadedFiles) {
+        if (file.bytes == null) {
+          AppLogger.info(
+            'Skipping file ${file.name} because bytes are null (already uploaded)',
+            module: 'purchases',
+          );
+          continue;
+        }
+
+        final base64Data = base64Encode(file.bytes!);
+
+        // Upload to Cloudflare R2 via backend
+        final response = await apiClient.post(
+          '/lookups/uploads',
+          data: {
+            'fileName': file.name,
+            'fileData': base64Data,
+            'mimeType': 'application/octet-stream',
+            'prefix': 'purchase_receives',
+          },
+        );
+
+        final fileKey =
+            response.data['fileKey'] ?? 'purchase_receives/${file.name}';
+
+        final double sizeInKb = file.size / 1024;
+        final String formattedSize = sizeInKb >= 1024
+            ? '${(sizeInKb / 1024).toStringAsFixed(2)} MB'
+            : '${sizeInKb.toStringAsFixed(2)} KB';
+
+        await supabase.from('purchase_receive_attachments').insert({
+          'purchase_receive_id': receiveId,
+          'file_name': file.name,
+          'file_path': fileKey,
+          'file_size': formattedSize,
+          'file_type': file.extension,
+        });
       }
-      if (_uploadedFiles.isEmpty) {
-        _hideFilePopupOverlay();
+    } catch (e) {
+      AppLogger.error(
+        'Error saving attachments',
+        error: e,
+        module: 'purchases',
+      );
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to save attachments: $e');
       }
-    });
+    }
+  }
+
+  Future<void> _loadAttachmentsForReceive(String receiveId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final attachmentsData = await supabase
+          .from('purchase_receive_attachments')
+          .select()
+          .eq('purchase_receive_id', receiveId);
+
+      if (mounted) {
+        setState(() {
+          _uploadedFiles.clear();
+          _uploadedFiles.addAll((attachmentsData as List).map<PlatformFile>((row) {
+            final sizeVal = row['file_size'];
+            int parsedSize = 0;
+            if (sizeVal is int) {
+              parsedSize = sizeVal;
+            } else if (sizeVal is String) {
+              parsedSize =
+                  int.tryParse(sizeVal.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+            }
+            return PlatformFile(name: row['file_name'] ?? '', size: parsedSize);
+          }));
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error loading attachments', error: e, module: 'purchases');
+    }
+  }
+
+  Future<void> _deleteAttachmentFromDb(String fileName) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('purchase_receive_attachments')
+          .select('id, file_path')
+          .eq('purchase_receive_id', widget.initialReceiveId!)
+          .eq('file_name', fileName)
+          .maybeSingle();
+
+      if (res != null) {
+        final id = res['id'];
+        final filePath = res['file_path']?.toString();
+
+        if (filePath != null) {
+          final apiClient = ApiClient();
+          await apiClient.delete(
+            '/lookups/uploads',
+            data: {'fileKey': filePath},
+          );
+        }
+
+        await supabase
+            .from('purchase_receive_attachments')
+            .delete()
+            .eq('id', id);
+
+        AppLogger.info('Attachment $fileName deleted from database', module: 'purchases');
+      }
+    } catch (e) {
+      AppLogger.error('Failed to delete attachment from db', error: e, module: 'purchases');
+    }
   }
 
   @override
   void dispose() {
     _closeVendorSidebar();
     _dismissTopError();
-    _hideFilePopupOverlay();
     _uploadOverlay?.remove();
     _uploadOverlay = null;
     _attachmentListOverlay?.remove();
@@ -664,190 +903,22 @@ class _PRCreateState
   }
 
   bool get _hasValidSelection =>
-      _selectedVendorName != null &&
-      _selectedVendorName!.isNotEmpty &&
-      _selectedPONumber != null &&
-      _selectedPONumber!.isNotEmpty;
+      _isEditMode ||
+      (_selectedVendorName != null &&
+          _selectedVendorName!.isNotEmpty &&
+          _selectedPONumber != null &&
+          _selectedPONumber!.isNotEmpty);
 
-  void _displayFilePopupOverlay() {
-    if (_filePopupOverlayEntry != null) return;
 
-    _filePopupOverlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          // Background listener to close when clicking outside
-          GestureDetector(
-            onTap: _hideFilePopupOverlay,
-            behavior: HitTestBehavior.translucent,
-            child: Container(
-              color: Colors.transparent,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          ),
-          CompositedTransformFollower(
-            link: _filePopupLayerLink,
-            showWhenUnlinked: false,
-            targetAnchor: Alignment.bottomLeft,
-            followerAnchor: Alignment.topLeft,
-            offset: const Offset(0, 8),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Material(
-                color: Colors.transparent,
-                elevation: 8,
-                child: IntrinsicWidth(
-                  child: Container(
-                constraints: const BoxConstraints(minWidth: 200, maxWidth: 450),
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: (_uploadedFiles.isEmpty
-                            ? 56
-                        : (_uploadedFiles.length > 3
-                                  ? 3
-                                      : _uploadedFiles.length) *
-                                  56),
-                      ),
-                      child: Scrollbar(
-                        controller: _attachmentListScrollController,
-                    thumbVisibility: _uploadedFiles.length > 3,
-                        child: SingleChildScrollView(
-                          controller: _attachmentListScrollController,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: List.generate(_uploadedFiles.length, (index) {
-                              final file = _uploadedFiles[index];
-                              final fileSizeKb = file.size / 1024;
-                              final isHovered =
-                                  _hoveredAttachmentIndex == index;
-
-                              return MouseRegion(
-                                onEnter: (_) => setState(
-                                  () => _hoveredAttachmentIndex = index,
-                                ),
-                                onExit: (_) => setState(() {
-                                  if (_hoveredAttachmentIndex == index) {
-                                    _hoveredAttachmentIndex = null;
-                                  }
-                                }),
-                                child: Container(
-                                  height: 56,
-                                  margin:
-                                      const EdgeInsets.symmetric(horizontal: 4),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isHovered
-                                        ? const Color(0xFFEFF6FF)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        LucideIcons.image,
-                                        size: 16,
-                                        color: const Color(0xFF3B82F6),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Flexible(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              file.name,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: isHovered
-                                                    ? const Color(0xFF3B82F6)
-                                                    : const Color(0xFF111827),
-                                                fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              'File Size: ${fileSizeKb.toStringAsFixed(2)} KB',
-                                          style: TextStyle(
-                                                fontSize: 12,
-                                            color: isHovered
-                                                ? const Color(0xFFEAF2FF)
-                                                : const Color(0xFF6B7280),
-                                                fontFamily: 'Inter',
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      InkWell(
-                                        onTap: () => _removeUploadedFile(index),
-                                    child: Icon(
-                                          LucideIcons.trash2,
-                                          size: 15,
-                                      color: isHovered
-                                          ? Colors.white
-                                          : const Color(0xFF3B82F6),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    Overlay.of(context).insert(_filePopupOverlayEntry!);
-    setState(() => _showFilePopup = true);
-  }
-
-  void _hideFilePopupOverlay() {
-    _filePopupOverlayEntry?.remove();
-    _filePopupOverlayEntry = null;
-    if (mounted) {
-      setState(() => _showFilePopup = false);
-    }
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingData) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return ZerpaiLayout(
       pageTitle: '',
       enableBodyScroll: true,
@@ -902,8 +973,8 @@ class _PRCreateState
         children: [
           const Icon(LucideIcons.package, size: 22, color: _textPrimary),
           const SizedBox(width: 10),
-          const Text(
-            'New Purchase Receive',
+          Text(
+            _isEditMode ? 'Edit Purchase Receive' : 'New Purchase Receive',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -913,7 +984,13 @@ class _PRCreateState
           ),
           const Spacer(),
           InkWell(
-            onTap: () => context.go('/purchases/purchase-receives'),
+            onTap: () {
+              if (widget.initialPoId != null && widget.initialPoId!.isNotEmpty) {
+                context.go('/purchases/purchase-orders/${widget.initialPoId}');
+              } else {
+                context.go('/purchases/purchase-receives');
+              }
+            },
             borderRadius: BorderRadius.circular(4),
             child: const Padding(
               padding: EdgeInsets.all(4),
@@ -1094,11 +1171,26 @@ class _PRCreateState
               children: [
                 Builder(
                   builder: (context) {
-                    final selectedVendor = ref.watch(vendorProvider).vendors.firstWhere(
+                    var selectedVendor = ref.watch(vendorProvider).vendors.firstWhere(
                       (v) => v.id == _selectedVendorId,
                       orElse: () => Vendor(id: '', displayName: ''),
                     );
+                    if (selectedVendor.id.isEmpty && _selectedVendorName != null && _selectedVendorName!.isNotEmpty) {
+                      final matched = ref.watch(vendorProvider).vendors.firstWhere(
+                        (v) => v.displayName.toLowerCase() == _selectedVendorName!.toLowerCase(),
+                        orElse: () => Vendor(id: '', displayName: ''),
+                      );
+                      if (matched.id.isNotEmpty) {
+                        selectedVendor = matched;
+                      } else {
+                        selectedVendor = Vendor(
+                          id: _selectedVendorId ?? '',
+                          displayName: _selectedVendorName!,
+                        );
+                      }
+                    }
                     final hasVendor = selectedVendor.id.isNotEmpty;
+                    final hasDisplayName = selectedVendor.displayName.isNotEmpty;
                     return _buildFormRow(
                       label: "Vendor Name",
                       isRequired: true,
@@ -1109,11 +1201,13 @@ class _PRCreateState
                               width: 550,
                               child: FormDropdown<Vendor>(
                                 height: 32,
-                                value: hasVendor ? selectedVendor : null,
+                                enabled: !_isEditMode,
+                                fillColor: _isEditMode ? const Color(0xFFF1F5F9) : Colors.white,
+                                value: hasDisplayName ? selectedVendor : null,
                                 items: ref.watch(vendorProvider).vendors,
                                 hint: "Select or type to search",
                                 showSearch: true,
-                                allowClear: hasVendor,
+                                allowClear: hasDisplayName && !_isEditMode,
                                 menuWidth: 550,
                                 onChanged: (vendor) {
                                   if (vendor != null) {
@@ -1144,9 +1238,9 @@ class _PRCreateState
                             Container(
                               height: 32,
                               width: 32,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF10B981),
-                                borderRadius: BorderRadius.only(
+                              decoration: BoxDecoration(
+                                color: _isEditMode ? const Color(0xFF94A3B8) : const Color(0xFF10B981),
+                                borderRadius: const BorderRadius.only(
                                   topRight: Radius.circular(4),
                                   bottomRight: Radius.circular(4),
                                 ),
@@ -1212,6 +1306,8 @@ class _PRCreateState
                     width: 550,
                     child: FormDropdown<PurchaseOrder>(
                       height: 32,
+                      enabled: !_isEditMode,
+                      fillColor: _isEditMode ? const Color(0xFFF1F5F9) : Colors.white,
                       menuWidth: 550,
                       itemHeight: 60.0,
                       value: _selectedPO,
@@ -2274,18 +2370,21 @@ class _PRCreateState
   void _adjustRowQuantity(int index, {required int delta}) {
     if (index >= _items.length || index >= _rowControllers.length) return;
     final ctrl = _rowControllers[index];
-    final currentQty =
+    final item = _items[index];
+    final totalFoc = _sumBatchFoc(item.batches);
+    final currentSum =
         double.tryParse(ctrl.qtyCtrl.text.isEmpty ? '0' : ctrl.qtyCtrl.text) ??
         0;
-    final item = _items[index];
     double maxQty = double.infinity;
     if (item.ordered > 0) {
-      maxQty = (item.ordered - item.received).clamp(0.0, double.infinity);
+      maxQty = (item.ordered - item.received - item.cancelled).clamp(0.0, double.infinity);
     }
-    final nextQty = (currentQty + delta).clamp(0.0, maxQty).toDouble();
-    final display = nextQty == nextQty.roundToDouble()
-        ? nextQty.toInt().toString()
-        : nextQty.toStringAsFixed(2);
+    final maxSum = maxQty + totalFoc;
+    final nextSum = (currentSum + delta).clamp(0.0, maxSum).toDouble();
+    final nextQty = (nextSum - totalFoc).clamp(0.0, double.infinity);
+    final display = nextSum == nextSum.roundToDouble()
+        ? nextSum.toInt().toString()
+        : nextSum.toStringAsFixed(2);
 
     setState(() {
       ctrl.qtyCtrl.text = display;
@@ -2295,7 +2394,10 @@ class _PRCreateState
 
   void _onRowQtyChanged(int index, String value) {
     if (index >= _items.length) return;
-    final qty = double.tryParse(value.isEmpty ? '0' : value) ?? 0;
+    final parsed = double.tryParse(value.isEmpty ? '0' : value) ?? 0;
+    final item = _items[index];
+    final totalFoc = _sumBatchFoc(item.batches);
+    final qty = (parsed - totalFoc).clamp(0.0, double.infinity);
     setState(() {
       _items[index] = _items[index].copyWith(quantityToReceive: qty);
     });
@@ -2343,8 +2445,19 @@ class _PRCreateState
   Widget _buildQtyAndFocBreakdown(PurchaseReceiveItem item) {
     final qty = _sumBatchQuantity(item.batches);
     final foc = _sumBatchFoc(item.batches);
-    if (item.batches.isEmpty || foc <= 0) {
-      return const SizedBox.shrink();
+    if (item.batches.isEmpty) {
+      if (item.quantityToReceive <= 0) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          '${_fmtPcs(item.quantityToReceive)}pcs + 0foc',
+          style: const TextStyle(
+            fontSize: 10,
+            color: _hintColor,
+            fontFamily: 'Inter',
+          ),
+        ),
+      );
     }
     return Padding(
       padding: const EdgeInsets.only(top: 4),
@@ -3709,7 +3822,13 @@ class _PRCreateState
 
           // Cancel
           TextButton(
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (widget.initialPoId != null && widget.initialPoId!.isNotEmpty) {
+                context.go('/purchases/purchase-orders/${widget.initialPoId}');
+              } else {
+                context.pop();
+              }
+            },
             style: TextButton.styleFrom(
               foregroundColor: _textPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -3860,10 +3979,12 @@ class _PRCreateState
 
     setState(() => _isSaving = true);
 
-    final targetWarehouseId = _selectedPO?.warehouseId ?? _selectedPO?.deliveryWarehouseId;
+    final targetWarehouseId = _selectedWarehouseId ?? _selectedPO?.warehouseId ?? _selectedPO?.deliveryWarehouseId;
     final receive = PurchaseReceive(
+      id: widget.initialReceiveId,
       purchaseReceiveNumber: _receiveNumberCtrl.text.trim(),
       receivedDate: DateFormat('dd-MM-yyyy').parse(_receivedDateCtrl.text.trim()),
+      vendorId: _selectedVendorId,
       vendorName: _selectedVendorName,
       purchaseOrderId: _selectedPOId,
       purchaseOrderNumber: _selectedPONumber,
@@ -3895,27 +4016,58 @@ class _PRCreateState
       module: 'purchases',
     );
 
-    final errorMsg = await ref
-        .read(purchaseReceivesProvider.notifier)
-        .createReceive(receive);
+    String? errorMsg;
+    PurchaseReceive? savedReceive;
+    final repository = ref.read(purchaseReceiveRepositoryProvider);
+
+    try {
+      if (_isEditMode) {
+        savedReceive = await repository.updatePurchaseReceive(widget.initialReceiveId!, receive);
+        if (savedReceive == null) {
+          errorMsg = 'Failed to update purchase receive';
+        }
+      } else {
+        savedReceive = await repository.createPurchaseReceive(receive);
+      }
+    } catch (e) {
+      errorMsg = e.toString();
+      if (errorMsg.startsWith('Exception: ')) {
+        errorMsg = errorMsg.substring('Exception: '.length);
+      }
+    }
 
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    if (errorMsg == null) {
-      if (_selectedPOId != null) {
-        ref.invalidate(purchaseOrderProvider(_selectedPOId!));
+    if (errorMsg == null && savedReceive != null) {
+      if (_uploadedFiles.isNotEmpty) {
+        await _saveAttachments(savedReceive.id!);
+      }
+
+      final uniquePOIds = _items.map((e) => e.purchaseOrderId).whereType<String>().toSet();
+      for (final poId in uniquePOIds) {
+        ref.invalidate(purchaseOrderProvider(poId));
       }
       ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
+      ref.read(purchaseReceivesProvider.notifier).fetchReceives();
+      if (_isEditMode) {
+        ref.invalidate(purchaseReceiveByIdProvider(widget.initialReceiveId!));
+      }
 
       _showTopSuccess(
-        status == 'received'
-            ? 'Purchase receive saved successfully'
-            : 'Purchase receive saved as draft',
+        _isEditMode
+            ? 'Purchase receive updated successfully'
+            : (status == 'received'
+                ? 'Purchase receive saved successfully'
+                : 'Purchase receive saved as draft'),
       );
-      context.go('/purchases/purchase-receives');
+      if (widget.initialPoId != null && widget.initialPoId!.isNotEmpty) {
+        context.go('/purchases/purchase-orders/${widget.initialPoId}');
+      } else {
+        context.go('/purchases/purchase-receives');
+      }
     } else {
-      _showTopError(errorMsg);
+      _showTopError(errorMsg ?? 'Failed to save purchase receive');
     }
   }
 
@@ -4327,6 +4479,9 @@ class _PRCreateState
                 if (isHovered)
                   InkWell(
                     onTap: () {
+                      if (file.bytes == null && _isEditMode) {
+                        _deleteAttachmentFromDb(file.name);
+                      }
                       setState(() {
                         _uploadedFiles.remove(file);
                         if (_uploadedFiles.isEmpty) {

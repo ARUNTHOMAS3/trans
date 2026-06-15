@@ -72,7 +72,6 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purcha
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart';
-import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_edit.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_create.dart';
@@ -1387,9 +1386,11 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/purchase-receives/edit/:id',
               name: AppRoutes.purchaseReceivesEdit,
-              builder: (context, state) => PurchasesPurchaseReceivesEditScreen(
-                id: state.pathParameters['id']!,
-              ),
+              builder: (context, state) =>
+                  PurchasesPurchaseReceivesCreateScreen(
+                    initialReceiveId: state.pathParameters['id'],
+                    initialPoId: state.uri.queryParameters['poId'],
+                  ),
             ),
             GoRoute(
               path: 'purchases/expenses',

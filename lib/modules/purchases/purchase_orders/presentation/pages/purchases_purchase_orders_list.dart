@@ -23,6 +23,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/providers/purchase_receives_provider.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart';
 import 'package:printing/printing.dart';
 import 'dart:typed_data';
 import 'package:zerpai_erp/shared/widgets/z_expandable_tabs.dart';
@@ -1022,28 +1023,94 @@ class _PurchaseOrderOverviewScreenState
       }
     } else if (actionLabel == 'Mark as Received') {
       try {
-        final supabase = Supabase.instance.client;
-        await supabase
-            .from('purchase_orders')
-            .update({'status': 'Closed'})
-            .filter('id', 'in', _selectedIds.toList());
+        final ids = _selectedIds.toList();
+        setState(() => _selectedIds.clear());
+
+        final repo = ref.read(purchaseReceiveRepositoryProvider);
+        int receivedCount = 0;
+        int failedCount = 0;
+
+        for (final id in ids) {
+          final order = await ref.read(purchaseOrderProvider(id).future);
+          if (order == null) continue;
+
+          final hasTrackedItems = order.items.any((item) {
+            if (item.isHeader) return false;
+            return item.trackBatches || item.trackSerialNumber || item.trackBinLocation;
+          });
+
+          if (hasTrackedItems) {
+            failedCount++;
+            continue;
+          }
+
+          final nextNumberData = await repo.getNextPurchaseReceiveNumber();
+          final nextReceiveNumber = nextNumberData['formatted'] ?? '';
+
+          final receive = PurchaseReceive(
+            purchaseReceiveNumber: nextReceiveNumber,
+            receivedDate: DateTime.now(),
+            vendorId: order.vendorId,
+            vendorName: order.vendorName,
+            purchaseOrderId: order.id,
+            purchaseOrderNumber: order.orderNumber,
+            warehouseId: order.warehouseId ?? order.deliveryWarehouseId,
+            status: 'received',
+            notes: 'Automatically created via PO bulk Mark as Received',
+            items: order.items.where((item) => !item.isHeader).map((item) {
+              return PurchaseReceiveItem(
+                itemId: item.productId,
+                itemName: item.productName ?? '',
+                description: item.description,
+                ordered: item.quantity,
+                received: 0,
+                inTransit: 0,
+                cancelled: item.cancelledQuantity,
+                quantityToReceive: item.quantity - item.cancelledQuantity,
+                batches: [],
+                purchaseOrderId: order.id,
+                purchaseOrderNumber: order.orderNumber,
+              );
+            }).toList(),
+          );
+
+          await repo.createPurchaseReceive(receive);
+
+          final supabase = Supabase.instance.client;
+          await supabase
+              .from('purchase_orders')
+              .update({'status': 'Closed'})
+              .eq('id', order.id!);
+
+          receivedCount++;
+        }
 
         ref.read(apiClientProvider).clearCache('purchase-orders');
         ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
-        for (var id in _selectedIds) {
+        for (var id in ids) {
           ref.invalidate(purchaseOrderProvider(id));
         }
+        ref.read(purchaseReceivesProvider.notifier).fetchReceives();
 
-        ZerpaiToast.success(
-          context,
-          'Selected purchase orders marked as Received (Closed)',
-        );
         setState(() {
           _currentPoTxnSummaryOrderId = null;
           _currentPoTxnStatus = null;
           _currentPoTxnUpdatedAt = null;
-          _selectedIds.clear();
         });
+
+        if (context.mounted) {
+          if (failedCount > 0) {
+            ZerpaiToast.info(
+              context,
+              'Marked $receivedCount purchase order(s) as Received. $failedCount skipped because they contain tracked items.',
+            );
+          } else {
+            ZerpaiToast.success(
+              context,
+              'Selected purchase orders marked as Received (Closed) & Receives created successfully',
+            );
+          }
+        }
       } catch (e) {
         ZerpaiToast.error(context, 'Failed to update status: $e');
       }
@@ -2215,27 +2282,28 @@ class _PurchaseOrderOverviewScreenState
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color color;
+  Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'draft':
-        color = AppTheme.warningOrange;
-        break;
-      case 'pending':
-      case 'issued':
-        color = AppTheme.primaryBlue;
-        break;
+        return AppTheme.warningOrange;
       case 'approved':
       case 'closed':
-        color = AppTheme.successGreen;
-        break;
+        return AppTheme.successGreen;
+      case 'pending':
+      case 'issued':
+        return AppTheme.primaryBlue;
       case 'rejected':
-        color = AppTheme.errorRed;
-        break;
+        return AppTheme.errorRed;
+      case 'cancelled':
+      case 'canceled':
+        return const Color(0xFF6B7280); // Grey color
       default:
-        color = AppTheme.textSecondary;
+        return AppTheme.textSecondary;
     }
+  }
 
+  Widget _buildStatusBadge(String status) {
+    final color = _getStatusColor(status);
     return Text(
       status.toUpperCase(),
       style: AppTheme.metaHelper.copyWith(
@@ -2327,7 +2395,10 @@ class _PurchaseOrderOverviewScreenState
                 }
 
                 String displayStatus = order.status;
-                if (order.status.toLowerCase() != 'draft') {
+                final lowerStatus = order.status.toLowerCase();
+                if (lowerStatus != 'draft' && 
+                    lowerStatus != 'cancelled' && 
+                    lowerStatus != 'canceled') {
                   if (isFullyBilled) {
                     displayStatus = 'Closed';
                   } else {
@@ -3370,7 +3441,7 @@ class _PurchaseOrderOverviewScreenState
           InkWell(
             onTap: () {
               final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
-              context.go('/$orgId/purchases/purchase-receives/edit/${r['id']}');
+              context.go('/$orgId/purchases/purchase-receives/edit/${r['id']}?poId=${order.id}');
             },
             child: Text(
               r['purchase_receive_number']?.toString() ?? '-',
@@ -3712,7 +3783,7 @@ class _PurchaseOrderOverviewScreenState
             final supabase = Supabase.instance.client;
             await supabase
                 .from('purchase_orders')
-                .update({'status': 'Closed'})
+                .update({'status': 'Cancelled'})
                 .eq('id', order.id!);
 
             ref.read(apiClientProvider).clearCache('purchase-orders');
@@ -3775,6 +3846,39 @@ class _PurchaseOrderOverviewScreenState
           }
 
           try {
+            final repo = ref.read(purchaseReceiveRepositoryProvider);
+            final nextNumberData = await repo.getNextPurchaseReceiveNumber();
+            final nextReceiveNumber = nextNumberData['formatted'] ?? '';
+
+            final receive = PurchaseReceive(
+              purchaseReceiveNumber: nextReceiveNumber,
+              receivedDate: DateTime.now(),
+              vendorId: order.vendorId,
+              vendorName: order.vendorName,
+              purchaseOrderId: order.id,
+              purchaseOrderNumber: order.orderNumber,
+              warehouseId: order.warehouseId ?? order.deliveryWarehouseId,
+              status: 'received',
+              notes: 'Automatically created via PO Mark as Received',
+              items: order.items.where((item) => !item.isHeader).map((item) {
+                return PurchaseReceiveItem(
+                  itemId: item.productId,
+                  itemName: item.productName ?? '',
+                  description: item.description,
+                  ordered: item.quantity,
+                  received: 0,
+                  inTransit: 0,
+                  cancelled: item.cancelledQuantity,
+                  quantityToReceive: item.quantity - item.cancelledQuantity,
+                  batches: [],
+                  purchaseOrderId: order.id,
+                  purchaseOrderNumber: order.orderNumber,
+                );
+              }).toList(),
+            );
+
+            await repo.createPurchaseReceive(receive);
+
             final supabase = Supabase.instance.client;
             await supabase
                 .from('purchase_orders')
@@ -3786,6 +3890,7 @@ class _PurchaseOrderOverviewScreenState
               purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)),
             );
             ref.invalidate(purchaseOrderProvider(order.id!));
+            ref.read(purchaseReceivesProvider.notifier).fetchReceives();
             setState(() {
               _currentPoTxnSummaryOrderId = null;
               _currentPoTxnStatus = null;
@@ -3793,7 +3898,7 @@ class _PurchaseOrderOverviewScreenState
             });
 
             if (context.mounted) {
-              ZerpaiToast.success(context, 'Purchase order marked as Received');
+              ZerpaiToast.success(context, 'Purchase order marked as Received & Receive created successfully');
             }
           } catch (e) {
             if (context.mounted) {
@@ -3822,6 +3927,7 @@ class _PurchaseOrderOverviewScreenState
       },
       menuChildren: [
         MenuItemButton(
+          style: ZTableMoreMenu.menuItemButtonStyle(),
           onPressed: () async {
             final bytes = await _generatePdf(order, orgSettings);
             await Printing.sharePdf(
@@ -3832,6 +3938,7 @@ class _PurchaseOrderOverviewScreenState
           child: const Text('Download PDF'),
         ),
         MenuItemButton(
+          style: ZTableMoreMenu.menuItemButtonStyle(),
           onPressed: () async {
             final bytes = await _generatePdf(order, orgSettings);
             await Printing.layoutPdf(onLayout: (_) async => bytes);
@@ -3937,7 +4044,7 @@ class _PurchaseOrderOverviewScreenState
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(width: 3, height: 100, color: AppTheme.warningOrange),
+        Container(width: 3, height: 100, color: _getStatusColor(order.status)),
         const SizedBox(width: 16),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3955,7 +4062,7 @@ class _PurchaseOrderOverviewScreenState
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              color: AppTheme.primaryBlue,
+              color: _getStatusColor(order.status),
               child: Text(
                 order.status.toUpperCase(),
                 style: const TextStyle(
@@ -4274,7 +4381,7 @@ class _PurchaseOrderOverviewScreenState
                       children: [
                         Text(
                           itemFocQty > 0
-                              ? '${itemReceivedQty.toInt()} pcs Received + ${itemFocQty.toInt()} foc'
+                              ? '${itemReceivedQty.toInt()} pcs + ${itemFocQty.toInt()} foc Received'
                               : '${itemReceivedQty.toInt()} pcs Received',
                           style: AppTheme.bodyText.copyWith(fontSize: 11),
                           textAlign: TextAlign.left,
@@ -4669,23 +4776,13 @@ extension on _PurchaseOrderOverviewScreenState {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
+                        flex: 1,
                         child: Container(
                           height: 1,
                           color: AppTheme.textPrimary,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  Wrap(
-                    spacing: 42,
-                    runSpacing: 16,
-                    children: [
-                      _infoPair(
-                        'Payment Terms',
-                        order.paymentTermsName ?? order.paymentTerms ?? '',
-                      ),
-                      _infoPair('Notes', order.notes ?? 'No notes available'),
+                      const Spacer(flex: 3),
                     ],
                   ),
                 ],
@@ -4998,22 +5095,6 @@ extension on _PurchaseOrderOverviewScreenState {
     );
   }
 
-  Widget _infoPair(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTheme.metaHelper.copyWith(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(value, style: AppTheme.bodyText.copyWith(fontSize: 13)),
-      ],
-    );
-  }
 
   BoxDecoration _paperDecoration() {
     return BoxDecoration(
@@ -5344,8 +5425,27 @@ $orgName''';
       initialBody: _bodyCtrl.text,
       attachmentName: order.orderNumber,
       attachmentLabel: 'Attach Purchase Order PDF',
-      onCancel: () {
-        context.go('/purchases/purchase-orders/${order.id}');
+      onCancel: () async {
+        try {
+          final supabase = Supabase.instance.client;
+          await supabase
+              .from('purchase_orders')
+              .update({'status': 'Draft'})
+              .eq('id', order.id!);
+
+          ref.read(apiClientProvider).clearCache('purchase-orders');
+          ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
+          ref.invalidate(purchaseOrderProvider(order.id!));
+        } catch (e) {
+          AppLogger.error(
+            'Failed to revert PO to Draft status on cancel',
+            error: e,
+            module: 'purchases',
+          );
+        }
+        if (context.mounted) {
+          context.go('/purchases/purchase-orders/${order.id}');
+        }
       },
       onSend: (from, to, subject, body, attachPdf) async {
         try {
@@ -5355,6 +5455,7 @@ $orgName''';
               .update({'status': 'Issued'})
               .eq('id', order.id!);
 
+          ref.read(apiClientProvider).clearCache('purchase-orders');
           ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
           ref.invalidate(purchaseOrderProvider(order.id!));
 

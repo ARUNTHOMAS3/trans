@@ -12,6 +12,7 @@ abstract class PurchasesBillsRepository {
   Future<PurchasesBill> getBill(String id);
   Future<PurchasesBill> createBill(PurchasesBill bill);
   Future<PurchasesBill> updateBill(String id, PurchasesBill bill);
+  Future<PurchasesBill> updateBillStatus(String id, String status, String reason);
   Future<void> deleteBill(String id);
 }
 
@@ -68,6 +69,17 @@ class PurchasesBillsRepositoryImpl implements PurchasesBillsRepository {
       data: bill.toJson(),
     );
     return PurchasesBill.fromJson(response.data);
+  }
+
+  @override
+  Future<PurchasesBill> updateBillStatus(String id, String status, String reason) async {
+    final response = await _apiClient.post(
+      '${ApiEndpoints.bills}/$id/status',
+      data: {'status': status, 'reason': reason},
+    );
+    final data = response.data;
+    final json = data is Map && data.containsKey('data') ? data['data'] : data;
+    return PurchasesBill.fromJson(json);
   }
 
   @override

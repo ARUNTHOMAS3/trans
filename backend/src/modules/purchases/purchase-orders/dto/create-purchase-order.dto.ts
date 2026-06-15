@@ -11,7 +11,7 @@ import {
 import { Type } from "class-transformer";
 
 class PurchaseOrderItemDto {
-  @IsUUID()
+  @IsString()
   @IsOptional()
   product_id?: string;
 
@@ -19,11 +19,11 @@ class PurchaseOrderItemDto {
   @IsOptional()
   description?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   account_id?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   accounts?: string;
 
@@ -35,7 +35,7 @@ class PurchaseOrderItemDto {
   @IsOptional()
   rate?: number;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   tax_id?: string;
 
@@ -82,7 +82,7 @@ class PurchaseOrderItemDto {
   @IsOptional()
   header_text?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   id?: string;
 
@@ -120,7 +120,7 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   warehouse_name?: string;
 
-  @IsUUID()
+  @IsString()
   vendor_id: string;
 
   @IsString()
@@ -138,11 +138,11 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   reference_number?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   payment_terms_id?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   shipment_preference_id?: string;
 
@@ -150,15 +150,15 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   delivery_type?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   delivery_warehouse_id?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   delivery_customer_id?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   warehouse_id?: string;
 
@@ -166,7 +166,7 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   discount_level?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   discount_account_id?: string;
 
@@ -202,7 +202,7 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   tds_tcs_type?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   tds_id?: string;
 

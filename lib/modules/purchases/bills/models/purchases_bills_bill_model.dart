@@ -36,6 +36,8 @@ class PurchasesBill {
   final String? vendorAddress;
   final String? vendorPhone;
   final String? vendorGstin;
+  final String? reasonToVoid;
+  final String? reasonToDraft;
 
   PurchasesBill({
     required this.id,
@@ -75,6 +77,8 @@ class PurchasesBill {
     this.vendorAddress,
     this.vendorPhone,
     this.vendorGstin,
+    this.reasonToVoid,
+    this.reasonToDraft,
   });
 
   factory PurchasesBill.fromJson(Map<String, dynamic> json) {
@@ -188,6 +192,8 @@ class PurchasesBill {
       vendorAddress: vendorAddress,
       vendorPhone: vendorPhone,
       vendorGstin: vendorData?['gstin'] as String? ?? json['vendor_gstin'] as String? ?? json['vendorGstin'] as String?,
+      reasonToVoid: json['reason_to_void'] ?? json['reasonToVoid'],
+      reasonToDraft: json['reason_to_draft'] ?? json['reasonToDraft'],
     );
   }
 
@@ -225,6 +231,8 @@ class PurchasesBill {
       'attachmentUrls': attachmentUrls,
       'status': status,
       if (vendorGstin != null) 'vendorGstin': vendorGstin,
+      if (reasonToVoid != null) 'reasonToVoid': reasonToVoid,
+      if (reasonToDraft != null) 'reasonToDraft': reasonToDraft,
     };
   }
 }
@@ -256,6 +264,9 @@ class PurchasesBillLineItem {
   final double amount;
   final bool isLandedCost;
   final List<dynamic>? batches;
+  final bool trackBatches;
+  final bool trackSerialNumber;
+  final bool trackBinLocation;
 
   PurchasesBillLineItem({
     this.id,
@@ -284,6 +295,9 @@ class PurchasesBillLineItem {
     this.amount = 0,
     this.isLandedCost = false,
     this.batches,
+    this.trackBatches = false,
+    this.trackSerialNumber = false,
+    this.trackBinLocation = false,
   });
 
   double get computedAmount {
@@ -332,6 +346,9 @@ class PurchasesBillLineItem {
       amount: _parseDouble(json['amount'] ?? 0),
       isLandedCost: json['is_landed_cost'] ?? false,
       batches: json['batches'] as List<dynamic>?,
+      trackBatches: productData?['track_batches'] as bool? ?? json['track_batches'] as bool? ?? false,
+      trackSerialNumber: productData?['track_serial_number'] as bool? ?? json['track_serial_number'] as bool? ?? false,
+      trackBinLocation: productData?['track_bin_location'] as bool? ?? json['track_bin_location'] as bool? ?? false,
     );
   }
 
@@ -359,6 +376,9 @@ class PurchasesBillLineItem {
       'amount': computedAmount,
       'is_landed_cost': isLandedCost,
       if (batches != null) 'batches': batches,
+      'track_batches': trackBatches,
+      'track_serial_number': trackSerialNumber,
+      'track_bin_location': trackBinLocation,
     };
   }
 
@@ -387,6 +407,9 @@ class PurchasesBillLineItem {
     String? discountType,
     bool? isLandedCost,
     List<dynamic>? batches,
+    bool? trackBatches,
+    bool? trackSerialNumber,
+    bool? trackBinLocation,
   }) {
     return PurchasesBillLineItem(
       id: id,
@@ -415,6 +438,9 @@ class PurchasesBillLineItem {
       amount: 0, // Recalculated by computedAmount
       isLandedCost: isLandedCost ?? this.isLandedCost,
       batches: batches ?? this.batches,
+      trackBatches: trackBatches ?? this.trackBatches,
+      trackSerialNumber: trackSerialNumber ?? this.trackSerialNumber,
+      trackBinLocation: trackBinLocation ?? this.trackBinLocation,
     );
   }
 }

@@ -96,6 +96,19 @@ class BillsNotifier extends StateNotifier<BillsState> {
     }
   }
 
+  Future<PurchasesBill> updateBillStatus(String id, String status, String reason) async {
+    try {
+      final updated = await _repository.updateBillStatus(id, status, reason);
+      state = state.copyWith(
+        bills: state.bills.map((b) => b.id == id ? updated : b).toList(),
+      );
+      return updated;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
+
   Future<void> deleteBill(String id) async {
     try {
       await _repository.deleteBill(id);

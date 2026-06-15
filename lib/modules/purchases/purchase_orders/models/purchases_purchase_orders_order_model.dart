@@ -104,6 +104,7 @@ class PurchaseOrderItem {
       trackBatches: productData?['track_batches'] as bool? ?? json['track_batches'] as bool? ?? false,
       trackSerialNumber: productData?['track_serial_number'] as bool? ?? json['track_serial_number'] as bool? ?? false,
       trackBinLocation: productData?['track_bin_location'] as bool? ?? json['track_bin_location'] as bool? ?? false,
+      productType: json['product_type'] as String? ?? json['productType'] as String? ?? productData?['product_type'] as String? ?? productData?['productType'] as String? ?? 'goods',
     );
   }
 
@@ -124,8 +125,6 @@ class PurchaseOrderItem {
       'amount': amount,
       if (pricelist != null) 'pricelist': pricelist,
       if (hsnCode != null) 'hsn_code': hsnCode,
-      if (warehouseId != null) 'warehouse_id': warehouseId,
-      if (warehouseName != null) 'warehouse_name': warehouseName,
       'is_header': isHeader,
       if (headerText != null) 'header_text': headerText,
       if (index != null) 'sort_order': index,
@@ -623,6 +622,7 @@ class WarehouseModel {
   final String? locationType;
   final String? parentBranchId;
   final String? entityId;
+  final bool isDefaultForBranch;
 
   WarehouseModel({
     required this.id,
@@ -641,6 +641,7 @@ class WarehouseModel {
     this.locationType,
     this.parentBranchId,
     this.entityId,
+    this.isDefaultForBranch = true,
   });
 
   factory WarehouseModel.fromJson(Map<String, dynamic> json) {
@@ -668,6 +669,7 @@ class WarehouseModel {
       locationType: (json['locationType'] ?? json['location_type'])?.toString(),
       parentBranchId: (json['parentBranchId'] ?? json['parent_branch_id'] ?? json['branch_id'])?.toString(),
       entityId: (json['entity_id'] ?? json['entityId'])?.toString(),
+      isDefaultForBranch: json['is_default_for_branch'] as bool? ?? json['isDefaultForBranch'] as bool? ?? true,
     );
   }
 
@@ -688,8 +690,10 @@ class WarehouseModel {
       'location_type': locationType,
       'parent_branch_id': parentBranchId,
       'entity_id': entityId,
+      'is_default_for_branch': isDefaultForBranch,
     };
   }
+
 
   String get displayAddress {
     final List<String> parts = [];

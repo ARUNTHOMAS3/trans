@@ -1998,3 +1998,57 @@ Fixed the quantity mismatch validation and remaining quantity constraints when r
   - **Select Batch Dialog Save**: Synced `onSave` in the edit screen's batch dialog to sum `batch.quantity` only.
 
 Timestamp of Log Update: June 11, 2026 - 11:18 PM (IST)
+
+
+## 47. Consolidation of Purchase Receives Edit Page into Create Page (June 14, 2026)
+
+### Summary
+Consolidated the Purchase Receives edit and create workflows into a single unified file. Clicking "Edit" on a purchase receive now routes directly to the create screen, which dynamically loads the receive details, updates the form state, adjusts the page title, and saves/updates the receive via the API. The old edit page and its unused imports/warnings were completely cleaned up.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **Dynamic Title Header**: Added _isEditMode detection and updated title header to show "Edit Purchase Receive" dynamically.
+  - **Warehouse Selection Fallback**: Prioritized local _selectedWarehouseId over _selectedPO properties in _handleSave.
+  - **API Save & Update Integration**: Integrated ef.read(purchaseReceivesProvider.notifier).updateReceive in _handleSave when _isEditMode is active.
+  - **Cache Invalidation**: Added invalidation for purchaseReceiveByIdProvider upon successful update.
+  - **Unused Elements Cleanup**: Removed _showFilePopup, _hoveredAttachmentIndex, _displayFilePopupOverlay, _hideFilePopupOverlay and associated variables/calls to keep the page warning-free.
+- lib/app/routing/app_router.dart:
+  - **Route Builder Redirection**: Updated purchaseReceivesEdit route path builder to instantiate PurchasesPurchaseReceivesCreateScreen(initialReceiveId: state.pathParameters['id']) directly.
+  - **Unused Import Removal**: Removed import of presentation/purchases_purchase_receives_edit.dart.
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_edit.dart [DELETE]:
+  - Removed edit page file from workspace directory as all edit page features are now handled inside the create page.
+- lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_edit.dart [DELETE]:
+  - Removed unused presentation shim file.
+
+Timestamp of Log Update: June 14, 2026 - 10:15 PM (IST)
+  - **FOC Quantity Database Mapping**: Fixed FOC fields failing to load from database by updating BatchInfo.fromJson in purchases_purchase_receives_model.dart to check for foc_qty fallback.
+
+## 48. Draft Bill Options, Convert to Open Status, and Automatic Purchase Receives Creation (June 15, 2026)
+
+### Summary
+1. Configured custom options toolbar and three-dots menu actions for Draft status bills. Added a green "Convert to Open" banner for draft bills and wired backend status transitions to automatically update stock quantities/layers.
+2. Implemented automated Purchase Receives creation when marking a Bill or Purchase Order as "Received", specifically when none of the items require serial/batch/bin tracking (`track_batches` is false). Auto-increments purchase receive numbers sequentially.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- backend/src/modules/purchases/bills/services/bills.service.ts:
+  - **updateBillStatus**: Added check for transitions from draft/void to active status (e.g. open/paid) to call the new `applyStockForBill` stock mapping method.
+  - **applyStockForBill**: Created this helper to query bill items and batches, insert/update batch stock layers, and create batch transactions dynamically, resolving stock discrepancies when converting draft bills.
+
+#### Frontend Files
+- lib/modules/purchases/bills/models/purchases_bills_bill_model.dart:
+  - **PurchasesBillLineItem**: Added `trackBatches`, `trackSerialNumber`, and `trackBinLocation` fields to support checking for batch and serial tracking.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_list.dart:
+  - **_menuChildrenForStatus**: Restricted options for draft bills to Void, Clone, Create Vendor Credits, and Delete.
+  - **Toolbar actions**: Conditioned toolbar to show Edit, PDF/Print, Convert to Open, and Record Payment for draft status.
+  - **_detailBanners**: Implemented a "Convert to Open" banner with a green button for draft bills.
+  - **Mark as Received bulk action**: Added validation to check if any item has tracking enabled. If all items are untracked, automatically queries the next sequence number and inserts a corresponding `PurchaseReceive` record.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - **Mark as Received (Single & Bulk actions)**: Added automated receive creation logic. If all items in a purchase order are untracked, generates the next PR number sequentially and creates a corresponding `PurchaseReceive` with status 'received'. Added null-safety check inside bulk action loop.
+
+**Verifications**: Verified NestJS backend compiles cleanly via `npm run build` and Flutter frontend compiles successfully with `dart analyze`.
+
+Timestamp of Log Update: June 15, 2026 - 1:40 PM (IST)

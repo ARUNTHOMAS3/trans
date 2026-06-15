@@ -49,6 +49,20 @@ export class BillsController {
     return this.billsService.findOne(id, tenant);
   }
 
+  @Post(":id/status")
+  async updateStatus(
+    @Tenant() tenant: TenantContext,
+    @Param("id") id: string,
+    @Body() body: { status: string; reason: string },
+  ) {
+    return this.billsService.updateBillStatus(
+      id,
+      tenant.entityId,
+      body.status,
+      body.reason,
+    );
+  }
+
   @Delete(":id")
   async deleteBill(
     @Tenant() tenant: TenantContext,

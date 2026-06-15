@@ -61,6 +61,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart' hide warehousesProvider;
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+
 
 
 
@@ -362,7 +364,9 @@ class _PurchasesBillCreateScreenState
 
   // ─── Form state ────────────────────────────────────────────────────────────
   Vendor? _selectedVendor;
+  List<PurchaseOrder> _openPurchaseOrders = [];
   bool _vendorDropdownOpen = false;
+
   final TextEditingController _vendorSearchCtrl = TextEditingController();
 
   final LayerLink _vendorLayerLink = LayerLink();
@@ -759,6 +763,7 @@ class _PurchasesBillCreateScreenState
         if (_lineItems.isEmpty) {
           _lineItems.add(_BillLineItemRow());
         }
+        _loadOpenPurchaseOrders();
       });
     } catch (e) {
       AppLogger.error('Failed to load bill for editing', error: e, module: 'purchases');
@@ -872,6 +877,7 @@ class _PurchasesBillCreateScreenState
         if (_lineItems.isEmpty) {
           _lineItems.add(_BillLineItemRow());
         }
+        _loadOpenPurchaseOrders();
       });
     } catch (e) {
       AppLogger.error('Failed to load purchase order for billing', error: e, module: 'purchases');
@@ -880,6 +886,575 @@ class _PurchasesBillCreateScreenState
       setState(() => _isLoading = false);
     }
   }
+
+  Future<void> _loadOpenPurchaseOrders() async {
+    final vendorId = _selectedVendor?.id;
+    if (vendorId == null) {
+      if (mounted) {
+        setState(() {
+          _openPurchaseOrders = [];
+        });
+      }
+      return;
+    }
+    try {
+      final repository = ref.read(purchaseOrderRepositoryProvider);
+      final allOrders = await repository.getPurchaseOrders(
+        vendorId: vendorId,
+        status: 'Issued',
+      );
+      if (mounted) {
+        setState(() {
+          _openPurchaseOrders = allOrders;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading open purchase orders: $e');
+    }
+  }
+
+  Widget _buildPendingOrdersBanner() {
+    if (_selectedVendor == null || _openPurchaseOrders.isEmpty) {
+      return const SizedBox();
+    }
+
+    final count = _openPurchaseOrders.length;
+    final linkText = count == 1
+        ? '1 Open Purchase Order'
+        : '$count Open Purchase Orders';
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(top: 12, bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF5F5), // Soft Pink/Red (matching sales implementation)
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: const Color(0xFFFEE2E2),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.info,
+              size: 15,
+              color: Color(0xFFEF4444),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Include ',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF374151),
+              ),
+            ),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: _showPendingOrdersDialog,
+                child: Text(
+                  linkText,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPendingOrdersDialog() {
+    final List<PurchaseOrder> selectedOrders = [];
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              alignment: Alignment.topCenter,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              insetPadding: const EdgeInsets.only(top: 0, left: 16, right: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Container(
+                width: 700,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Open Purchase Orders',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(dialogContext),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color(0xFF2563EB),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                LucideIcons.x,
+                                size: 14,
+                                color: Color(0xFFEF4444),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: _borderColor),
+                    const SizedBox(height: 8),
+                    if (_openPurchaseOrders.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text(
+                            'No open purchase orders found for this vendor.',
+                            style: TextStyle(color: Color(0xFF6B7280)),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Table(
+                            columnWidths: const {
+                              0: FlexColumnWidth(1), // Checkbox
+                              1: FlexColumnWidth(4), // Purchase Order Details
+                              2: FlexColumnWidth(4), // Location
+                              3: FlexColumnWidth(3), // Date
+                              4: FlexColumnWidth(3), // Amount
+                            },
+                            defaultVerticalAlignment:
+                                TableCellVerticalAlignment.middle,
+                            children: [
+                              TableRow(
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: _borderColor,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: Checkbox(
+                                          value:
+                                              _openPurchaseOrders.isNotEmpty &&
+                                              selectedOrders.length ==
+                                                  _openPurchaseOrders.length,
+                                          activeColor: const Color(0xFF2563EB),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              3,
+                                            ),
+                                          ),
+                                          side: const BorderSide(
+                                            color: Color(0xFFD1D5DB),
+                                            width: 1.5,
+                                          ),
+                                          onChanged: (val) {
+                                            setDialogState(() {
+                                              if (val == true) {
+                                                selectedOrders.clear();
+                                                selectedOrders.addAll(
+                                                  _openPurchaseOrders,
+                                                );
+                                              } else {
+                                                selectedOrders.clear();
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                      'PURCHASE ORDER DETAILS',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4B5563),
+                                      ),
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                      'LOCATION',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4B5563),
+                                      ),
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                      'DATE',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4B5563),
+                                      ),
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 4,
+                                    ),
+                                    child: Text(
+                                      'AMOUNT',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4B5563),
+                                      ),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              ..._openPurchaseOrders.map((order) {
+                                final dateStr = DateFormat(
+                                  'dd-MM-yyyy',
+                                ).format(order.orderDate);
+                                final isChecked = selectedOrders.contains(
+                                  order,
+                                );
+                                final locationStr = order.warehouseName ?? '—';
+                                final amountFormatter =
+                                    NumberFormat.currency(
+                                      locale: 'en_IN',
+                                      symbol: '₹',
+                                      decimalDigits: 2,
+                                    );
+                                final amountStr = amountFormatter.format(
+                                  order.total,
+                                );
+
+                                return TableRow(
+                                  decoration: const BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(color: _borderColor),
+                                    ),
+                                  ),
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: Checkbox(
+                                            value: isChecked,
+                                            activeColor: const Color(
+                                              0xFF2563EB,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(3),
+                                            ),
+                                            side: const BorderSide(
+                                              color: Color(0xFFD1D5DB),
+                                              width: 1.5,
+                                            ),
+                                            onChanged: (val) {
+                                              setDialogState(() {
+                                                if (val == true) {
+                                                  selectedOrders.add(order);
+                                                } else {
+                                                  selectedOrders.remove(order);
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            order.orderNumber,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF2563EB),
+                                            ),
+                                          ),
+                                          if (order.referenceNumber != null &&
+                                              order.referenceNumber!.isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              order.referenceNumber!,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Text(
+                                        locationStr,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF4B5563),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Text(
+                                        dateStr,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF374151),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 4,
+                                      ),
+                                      child: Text(
+                                        amountStr,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF374151),
+                                        ),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          ElevatedButton(
+                            onPressed: selectedOrders.isEmpty
+                                ? null
+                                : () {
+                                    Navigator.pop(dialogContext);
+                                    _addItemsFromMultiplePurchaseOrders(
+                                      selectedOrders,
+                                    );
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF54B999),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0x8054B999),
+                              disabledForegroundColor: const Color(0xCCFFFFFF),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              'Add',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF4B5563),
+                              side: const BorderSide(color: Color(0xFFD1D5DB)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _addItemsFromMultiplePurchaseOrders(List<PurchaseOrder> orders) async {
+    if (orders.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final repository = ref.read(purchaseOrderRepositoryProvider);
+      final List<PurchaseOrder?> fullOrders = await Future.wait(
+        orders.map((o) async {
+          if (o.id == null) return null;
+          return await repository.getPurchaseOrder(o.id!);
+        }),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        if (_lineItems.length == 1 &&
+            (_lineItems.first.itemId == null || _lineItems.first.itemId!.isEmpty)) {
+          _lineItems.clear();
+        }
+
+        int addedCount = 0;
+        for (final order in fullOrders) {
+          if (order == null) continue;
+          for (final item in order.items) {
+            if (item.isHeader) continue;
+            final row = _BillLineItemRow();
+            row.itemId = item.productId;
+            row.itemName = item.productName;
+            row.itemNameCtrl.text = item.productName ?? '';
+            row.hsnCode = item.hsnCode;
+            row.hsnCtrl.text = item.hsnCode ?? '';
+            row.descriptionCtrl.text = item.description ?? '';
+            row.accountId = item.accountId;
+            row.accountName = item.accountName;
+            row.quantityCtrl.text = item.quantity.toInt().toString();
+            row.rateCtrl.text = item.rate.toStringAsFixed(2);
+            row.taxId = item.taxId;
+            row.taxName = item.taxName;
+            row.taxRate = item.taxRate;
+            row.discountCtrl.text = item.discount.toString();
+            row.discountType = item.discountType == 'percentage' ? '%' : '₹';
+            row.priceListId = item.priceListId;
+            row.itemType = item.productType;
+
+            _lineItems.add(row);
+            addedCount++;
+          }
+
+          if (_orderNumberCtrl.text.isEmpty) {
+            _orderNumberCtrl.text = order.orderNumber;
+          } else if (!_orderNumberCtrl.text.contains(order.orderNumber)) {
+            _orderNumberCtrl.text += ', ${order.orderNumber}';
+          }
+        }
+
+        _updateAllRowTaxes();
+
+        final orderNumbers = orders.map((o) => o.orderNumber).join(', ');
+        if (addedCount > 0) {
+          ZerpaiToast.success(
+            context,
+            'Added $addedCount items from Purchase Orders: $orderNumbers',
+          );
+        } else {
+          ZerpaiToast.info(
+            context,
+            'No items found in selected Purchase Orders: $orderNumbers',
+          );
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(
+          context,
+          'Failed to load details for selected Purchase Orders: $e',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+
 
   Future<void> _loadLookups() async {
     try {
@@ -1585,11 +2160,7 @@ class _PurchasesBillCreateScreenState
         }
         ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
 
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go(AppRoutes.bills);
-        }
+        context.go(AppRoutes.bills);
       }
     } catch (e) {
       AppLogger.error('Failed to save bill', error: e, module: 'purchases');
@@ -1856,7 +2427,7 @@ class _PurchasesBillCreateScreenState
             _buildFormSection(vendorState),
             // ── Document Fields + Item Table + Totals ────────────────────
             Padding(
-              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
+              padding: const EdgeInsets.only(left: 32, right: 32, top: 24, bottom: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2063,7 +2634,6 @@ class _PurchasesBillCreateScreenState
             label: 'Vendor Name',
             isRequired: true,
             maxWidth: 850,
-            gap: 12,
             child: Row(
               children: [
                 _buildVendorDropdown(vendorState),
@@ -2155,7 +2725,7 @@ class _PurchasesBillCreateScreenState
         const SizedBox(height: 16),
         // Indented section for addresses and GST
         Padding(
-          padding: const EdgeInsets.only(left: 224),
+          padding: const EdgeInsets.only(left: 236),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2223,6 +2793,7 @@ class _PurchasesBillCreateScreenState
               _customBillingAddress = null;
             }
             _updateAllRowTaxes();
+            _loadOpenPurchaseOrders();
           });
         },
         showSettings: true,
@@ -3150,6 +3721,7 @@ class _PurchasesBillCreateScreenState
                 );
             _customBillingAddress = null;
             _updateAllRowTaxes();
+            _loadOpenPurchaseOrders();
           });
         },
       ),
@@ -3371,6 +3943,7 @@ class _PurchasesBillCreateScreenState
                                                   );
                                               _customBillingAddress = null;
                                               _updateAllRowTaxes();
+                                              _loadOpenPurchaseOrders();
                                             });
                                             _removeVendorOverlay();
                                           },
@@ -4557,6 +5130,7 @@ class _PurchasesBillCreateScreenState
             ),
           ],
         ),
+        _buildPendingOrdersBanner(),
       ],
     );
   }
