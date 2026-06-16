@@ -134,7 +134,7 @@ class _CreateBatchDialogState extends State<CreateBatchDialog> {
               ),
               const SizedBox(height: 10),
               _buildRow(
-                'Unit Pack',
+                'Pack Size',
                 _buildNumberField(unitPackController, hint: '0'),
               ),
               const SizedBox(height: 10),

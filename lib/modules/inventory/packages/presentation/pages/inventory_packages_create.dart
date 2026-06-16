@@ -3963,7 +3963,7 @@ class _PackageBatchSelectionDialogState
                         children: [
                           _headerCell('BIN LOCATION*', 15),
                           _headerCell('BATCH NO*', 15),
-                          _headerCell('UNIT PACK*', 15),
+                          _headerCell('PACK SIZE*', 15),
                           _headerCell('MRP*', 15),
                           _headerCell('PTR', 15),
                           _headerCell('EXPIRY DATE*', 15),
@@ -4406,7 +4406,7 @@ class _PackageBatchSelectionDialogState
                         if (row.unitPackCtrl.text.isEmpty) {
                           ZerpaiToast.error(
                             context,
-                            'Please enter Unit Pack in Row ${i + 1}.',
+                            'Please enter Pack Size in Row ${i + 1}.',
                           );
                           return;
                         }

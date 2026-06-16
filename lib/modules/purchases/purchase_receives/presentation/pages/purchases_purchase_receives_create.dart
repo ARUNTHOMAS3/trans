@@ -157,6 +157,7 @@ class _PRCreateState
   final GlobalKey _billDateFieldKey = GlobalKey();
   String? _selectedVendorName;
   String? _selectedVendorId;
+  List<PurchaseOrder> _selectedPOs = [];
   PurchaseOrder? _selectedPO;
   String? _selectedPONumber;
   String? _selectedPOId;
@@ -271,7 +272,7 @@ class _PRCreateState
               await _fetchPOsForVendor(po.vendorId);
             }
             // 4. Select the PO and populate its items
-            await _onPOSelected(po);
+            await _onPOsSelected([po]);
           }
         } catch (e) {
           AppLogger.error('Failed to load initial purchase order for receive', error: e, module: 'purchases');
@@ -350,8 +351,9 @@ class _PRCreateState
         }
 
         if (loadedPOs.isNotEmpty) {
+          _selectedPOs = loadedPOs;
           _selectedPO = loadedPOs.first;
-          _selectedPONumber = _selectedPO?.orderNumber;
+          _selectedPONumber = _selectedPOs.map((p) => p.orderNumber).join(', ');
           _selectedPOId = _selectedPO?.id;
           _vendorPOs = loadedPOs;
         } else if (receive.purchaseOrderId != null && receive.purchaseOrderId!.isNotEmpty) {
@@ -362,6 +364,7 @@ class _PRCreateState
             vendorId: receive.vendorId ?? '',
             vendorName: receive.vendorName,
           );
+          _selectedPOs = [po];
           _selectedPO = po;
           _selectedPONumber = po.orderNumber;
           _selectedPOId = po.id;
@@ -886,19 +889,21 @@ class _PRCreateState
 
     // Switching back to PO mode should keep existing rows/batches.
     // Only repopulate from PO when there is nothing meaningful to show.
-    if (!nextIsManual && !hasPersistedRows && _selectedPO != null) {
-      _onPOSelected(_selectedPO!);
+    if (!nextIsManual && !hasPersistedRows && _selectedPOs.isNotEmpty) {
+      _onPOsSelected(_selectedPOs);
     }
   }
 
   void _addAllItemsFromPO() {
-    if (_selectedPO == null) {
+    if (_selectedPOs.isEmpty) {
       _showTopError("Please select a Purchase Order first.");
       return;
     }
     setState(() {
       _clearAllRows();
-      _populateRowsFromPO(_selectedPO);
+      for (final po in _selectedPOs) {
+        _populateRowsFromPO(po);
+      }
     });
   }
 
@@ -906,8 +911,7 @@ class _PRCreateState
       _isEditMode ||
       (_selectedVendorName != null &&
           _selectedVendorName!.isNotEmpty &&
-          _selectedPONumber != null &&
-          _selectedPONumber!.isNotEmpty);
+          _selectedPOs.isNotEmpty);
 
 
 
@@ -1009,6 +1013,7 @@ class _PRCreateState
     setState(() {
       _isLoadingPOs = true;
       _vendorPOs.clear();
+      _selectedPOs.clear();
       _selectedPO = null;
       _selectedPONumber = null;
       _selectedPOId = null;
@@ -1042,79 +1047,109 @@ class _PRCreateState
     }
   }
 
-  Future<void> _onPOSelected(PurchaseOrder po) async {
+  Future<void> _onPOsSelected(List<PurchaseOrder> pos) async {
     setState(() {
-      _selectedPO = po;
-      _selectedPONumber = po.orderNumber;
-      _selectedPOId = po.id;
+      _selectedPOs = pos;
+      _selectedPO = pos.isNotEmpty ? pos.first : null;
+      _selectedPONumber = pos.map((p) => p.orderNumber).join(', ');
+      _selectedPOId = pos.isNotEmpty ? pos.first.id : null;
       _isManualMode = false;
       _isLoadingPOs = true;
     });
 
     try {
-      final poId = po.id?.trim();
-      final isValidPoId = poId != null &&
-          RegExp(
-            r'^[0-9a-fA-F]{8}-'
-            r'[0-9a-fA-F]{4}-'
-            r'[0-9a-fA-F]{4}-'
-            r'[0-9a-fA-F]{4}-'
-            r'[0-9a-fA-F]{12}$',
-          ).hasMatch(poId);
-
-      final shouldFetchDetails = isValidPoId && po.items.isEmpty;
-      final fullPO = shouldFetchDetails
-          ? await ref.read(purchaseOrderProvider(poId).future)
-          : po;
-      if (!mounted) return;
-
       final Map<String, double> tempReceived = {};
-      if (isValidPoId) {
-        try {
-          final supabase = Supabase.instance.client;
-          final response = await supabase
-              .from('purchase_receives')
-              .select('id, status, purchase_receive_items(item_id, received, quantity_to_receive, purchase_receive_item_batches(quantity))')
-              .eq('purchase_order_id', poId)
-              .eq('is_delete', false)
-              .eq('status', 'received');
+      final List<PurchaseReceiveItem> newItems = [];
+      final List<_ReceiveItemRowController> newRowControllers = [];
+      final List<String?> newPreferredBins = [];
+      final List<TextEditingController> newDamageControllers = [];
 
-          for (final r in response) {
-            final itemsList = r['purchase_receive_items'] as List<dynamic>? ?? [];
-            for (final recItem in itemsList) {
-              final productId = recItem['item_id']?.toString() ?? '';
-              if (productId.isEmpty) continue;
+      for (final po in pos) {
+        final poId = po.id?.trim();
+        final isValidPoId = poId != null &&
+            RegExp(
+              r'^[0-9a-fA-F]{8}-'
+              r'[0-9a-fA-F]{4}-'
+              r'[0-9a-fA-F]{4}-'
+              r'[0-9a-fA-F]{4}-'
+              r'[0-9a-fA-F]{12}$',
+            ).hasMatch(poId);
 
-              double itemRecQty = 0.0;
-              final batches = recItem['purchase_receive_item_batches'] as List<dynamic>? ?? [];
-              if (batches.isNotEmpty) {
-                for (final b in batches) {
-                  itemRecQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+        final shouldFetchDetails = isValidPoId && po.items.isEmpty;
+        final fullPO = shouldFetchDetails
+            ? await ref.read(purchaseOrderProvider(poId).future)
+            : po;
+
+        if (isValidPoId) {
+          try {
+            final supabase = Supabase.instance.client;
+            final response = await supabase
+                .from('purchase_receives')
+                .select('id, status, purchase_receive_items(item_id, received, quantity_to_receive, purchase_receive_item_batches(quantity))')
+                .eq('purchase_order_id', poId)
+                .eq('is_delete', false)
+                .eq('status', 'received');
+
+            for (final r in response) {
+              final itemsList = r['purchase_receive_items'] as List<dynamic>? ?? [];
+              for (final recItem in itemsList) {
+                final productId = recItem['item_id']?.toString() ?? '';
+                if (productId.isEmpty) continue;
+
+                double itemRecQty = 0.0;
+                final batches = recItem['purchase_receive_item_batches'] as List<dynamic>? ?? [];
+                if (batches.isNotEmpty) {
+                  for (final b in batches) {
+                    itemRecQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+                  }
+                } else {
+                  itemRecQty += double.tryParse(recItem['quantity_to_receive']?.toString() ?? recItem['received']?.toString() ?? '0.0') ?? 0.0;
                 }
-              } else {
-                itemRecQty += double.tryParse(recItem['quantity_to_receive']?.toString() ?? recItem['received']?.toString() ?? '0.0') ?? 0.0;
+                tempReceived[productId] = (tempReceived[productId] ?? 0.0) + itemRecQty;
               }
-              tempReceived[productId] = (tempReceived[productId] ?? 0.0) + itemRecQty;
             }
+          } catch (dbErr) {
+            AppLogger.error(
+              'Failed to load existing purchase receives for received quantities mapping',
+              error: dbErr,
+              module: 'purchases',
+            );
           }
-        } catch (dbErr) {
-          AppLogger.error(
-            'Failed to load existing purchase receives for received quantities mapping',
-            error: dbErr,
-            module: 'purchases',
+        }
+
+        final activePO = fullPO ?? po;
+        for (final poItem in activePO.items) {
+          final recQty = tempReceived[poItem.productId] ?? 0.0;
+          newItems.add(
+            PurchaseReceiveItem(
+              itemId: poItem.productId,
+              itemName: poItem.productName ?? poItem.itemCode ?? "",
+              description: poItem.description,
+              ordered: poItem.quantity,
+              received: recQty,
+              inTransit: 0,
+              cancelled: poItem.cancelledQuantity,
+              quantityToReceive: 0,
+              purchaseOrderId: po.id,
+            ),
           );
+          final controller = _ReceiveItemRowController();
+          controller.qtyCtrl.text = '0';
+          newRowControllers.add(controller);
+          newPreferredBins.add(null);
+          newDamageControllers.add(TextEditingController());
         }
       }
 
       setState(() {
         _receivedQuantities.clear();
         _receivedQuantities.addAll(tempReceived);
-        _selectedPO = fullPO ?? po;
         _isLoadingPOs = false;
         _clearAllRows();
-        if (!_isManualMode) {
-          _populateRowsFromPO(_selectedPO);
-        }
+        _items.addAll(newItems);
+        _rowControllers.addAll(newRowControllers);
+        _preferredBins.addAll(newPreferredBins);
+        _damageControllers.addAll(newDamageControllers);
       });
     } catch (e) {
       AppLogger.error(
@@ -1125,9 +1160,8 @@ class _PRCreateState
       if (mounted) {
         setState(() {
           _isLoadingPOs = false;
-          _selectedPO = po;
-          if (!_isManualMode) {
-            _clearAllRows();
+          _clearAllRows();
+          for (final po in pos) {
             _populateRowsFromPO(po);
           }
         });
@@ -1310,13 +1344,15 @@ class _PRCreateState
                       fillColor: _isEditMode ? const Color(0xFFF1F5F9) : Colors.white,
                       menuWidth: 550,
                       itemHeight: 60.0,
-                      value: _selectedPO,
+                      multiSelect: true,
+                      selectedValues: _selectedPOs,
+                      value: null,
                       items: _vendorPOs,
                       hint: _selectedVendorId == null
                           ? "Select a vendor first"
                           : (_vendorPOs.isEmpty && !_isLoadingPOs
                                 ? "No POs found"
-                                : "Select a Purchase Order"),
+                                : "Select Purchase Orders"),
                       showSearch: true,
                       isLoading: _isLoadingPOs,
                       displayStringForValue: (po) => po.orderNumber,
@@ -1385,10 +1421,9 @@ class _PRCreateState
                           ),
                         );
                       },
-                      onChanged: (po) {
-                        if (po != null) {
-                          _onPOSelected(po);
-                        }
+                      onChanged: (_) {},
+                      onSelectedValuesChanged: (pos) {
+                        _onPOsSelected(pos);
                       },
                     ),
                   ),
@@ -1895,6 +1930,19 @@ class _PRCreateState
                   _binMode = val;
                   if (_binMode == 'transaction') {
                     _preferredBins.clear();
+                  } else if (_binMode == 'item') {
+                    while (_preferredBins.length < _items.length) {
+                      _preferredBins.add(null);
+                    }
+                    for (int i = 0; i < _items.length; i++) {
+                      if (_selectedTransactionBin != null) {
+                        _preferredBins[i] = _selectedTransactionBin;
+                        _items[i] = _items[i].copyWith(
+                          binId: _selectedTransactionBinId,
+                          binLabel: _selectedTransactionBin,
+                        );
+                      }
+                    }
                   }
                 });
               },
@@ -1930,8 +1978,15 @@ class _PRCreateState
                             orElse: () => <String, String>{},
                           );
                           _selectedTransactionBinId = matched['id'];
-                          for (int i = 0; i < _preferredBins.length; i++) {
+                          while (_preferredBins.length < _items.length) {
+                            _preferredBins.add(null);
+                          }
+                          for (int i = 0; i < _items.length; i++) {
                             _preferredBins[i] = val;
+                            _items[i] = _items[i].copyWith(
+                              binId: _selectedTransactionBinId,
+                              binLabel: val,
+                            );
                           }
                         } else {
                           _selectedTransactionBinId = null;
@@ -2443,22 +2498,11 @@ class _PRCreateState
   }
 
   Widget _buildQtyAndFocBreakdown(PurchaseReceiveItem item) {
+    if (item.batches.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final qty = _sumBatchQuantity(item.batches);
     final foc = _sumBatchFoc(item.batches);
-    if (item.batches.isEmpty) {
-      if (item.quantityToReceive <= 0) return const SizedBox.shrink();
-      return Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          '${_fmtPcs(item.quantityToReceive)}pcs + 0foc',
-          style: const TextStyle(
-            fontSize: 10,
-            color: _hintColor,
-            fontFamily: 'Inter',
-          ),
-        ),
-      );
-    }
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Text(
@@ -2475,8 +2519,6 @@ class _PRCreateState
   Widget _batchText(String text) {
     return Text(
       text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
       style: const TextStyle(
         fontSize: 10,
         height: 1.35,
@@ -2579,17 +2621,17 @@ class _PRCreateState
             width: 24,
             child: InkWell(
               onTap: onDecrement,
-              child: const Center(
+              child: Center(
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Color(0xFFF3F4F6),
                     shape: BoxShape.circle,
                   ),
                   child: Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      LucideIcons.minus,
-                      size: 10,
+                    padding: const EdgeInsets.all(4),
+                    child: Container(
+                      width: 10,
+                      height: 2.2,
                       color: _focusBorder,
                     ),
                   ),
@@ -2627,7 +2669,7 @@ class _PRCreateState
                     onChanged: onChanged,
                     style: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.normal,
                       fontFamily: 'Inter',
                     ),
                     textAlign: TextAlign.center,
@@ -2643,7 +2685,7 @@ class _PRCreateState
                         color: _hintColor,
                         fontFamily: 'Inter',
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.normal,
                       ),
                     ),
                   ),
@@ -2656,18 +2698,32 @@ class _PRCreateState
             width: 24,
             child: InkWell(
               onTap: onIncrement,
-              child: const Center(
+              child: Center(
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Color(0xFFEAF2FF),
                     shape: BoxShape.circle,
                   ),
                   child: Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      LucideIcons.plus,
-                      size: 10,
-                      color: _focusBorder,
+                    padding: const EdgeInsets.all(4),
+                    child: SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 2.2,
+                            color: _focusBorder,
+                          ),
+                          Container(
+                            width: 2.2,
+                            height: 10,
+                            color: _focusBorder,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2916,6 +2972,7 @@ class _PRCreateState
                   items: availablePoItems,
                   hint: 'Type or click to select an item',
                   showSearch: true,
+                  boldSelected: false,
                   displayStringForValue: (poItem) =>
                       poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
                   searchStringForValue: (poItem) =>
@@ -2941,7 +2998,7 @@ class _PRCreateState
                             poItem.productName ?? 'Unnamed item',
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.normal,
                               color: isHovered ? Colors.white : _textPrimary,
                               fontFamily: 'Inter',
                             ),
@@ -3057,9 +3114,19 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 110,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: SizedBox(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Text(
+                  item.inTransit.toStringAsFixed(
+                    item.inTransit == item.inTransit.roundToDouble() ? 0 : 2,
+                  ),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: "Inter",
+                  ),
+                ),
               ),
             ),
             _tableBodyCell(
@@ -3363,7 +3430,7 @@ class _PRCreateState
                                 : "Select an item",
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.normal,
                               color: item.itemName.isNotEmpty
                                   ? _textPrimary
                                   : _hintColor,
@@ -4124,12 +4191,16 @@ class _PRCreateState
               0,
               (sum, batch) => sum + batch.quantity,
             );
+            final combinedFoc = newBatches.fold<double>(
+              0,
+              (sum, batch) => sum + batch.foc,
+            );
 
             _items[itemIndex] = item.copyWith(
               batches: newBatches,
               quantityToReceive: combinedQty,
             );
-            _rowControllers[itemIndex].qtyCtrl.text = _fmtPcs(combinedQty);
+            _rowControllers[itemIndex].qtyCtrl.text = _fmtPcs(combinedQty + combinedFoc);
           });
         },
       ),
@@ -5149,10 +5220,10 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
       return '$rowLabel: Batch No is required';
     }
     if (unitPack.isEmpty) {
-      return '$rowLabel: Unit Pack is required';
+      return '$rowLabel: Pack Size is required';
     }
     if (double.tryParse(unitPack) == null) {
-      return '$rowLabel: Unit Pack must be a valid number';
+      return '$rowLabel: Pack Size must be a valid number';
     }
     if (mrp.isEmpty) {
       return '$rowLabel: MRP is required';
@@ -5775,7 +5846,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
               child: Row(
                 children: [
                   _headerCell('BATCH NO*', 3),
-                  _headerCell('UNIT PACK*', 2),
+                  _headerCell('PACK SIZE*', 2),
                   _headerCell('MRP*', 2),
                   _headerCell('P RATE', 2),
                   _headerCell('EXPIRY DATE*', 3),
@@ -5837,9 +5908,12 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                               targetKey: row.expKey,
                               flex: 3,
                               onTap: () async {
+                                final now = DateTime.now();
+                                final today = DateTime(now.year, now.month, now.day);
                                 final picked = await ZerpaiDatePicker.show(
                                   context,
-                                  initialDate: row.expDate ?? DateTime.now(),
+                                  initialDate: row.expDate ?? now,
+                                  firstDate: today,
                                   targetKey: row.expKey,
                                 );
                                 if (picked != null) {

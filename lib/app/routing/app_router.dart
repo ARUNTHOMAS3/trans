@@ -1373,6 +1373,7 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) => PurchasesPurchaseReceivesListScreen(
                 initialFilter: state.uri.queryParameters['filter'] ??
                     state.uri.queryParameters['status'],
+                initialSelectedId: state.uri.queryParameters['id'],
               ),
             ),
             GoRoute(

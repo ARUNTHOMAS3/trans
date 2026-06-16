@@ -26,13 +26,14 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:flutter/foundation.dart';
-
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/modules/items/items/repositories/items_repository_provider.dart';
 
 class _ClearReceiveSelectionIntent extends Intent {
   const _ClearReceiveSelectionIntent();
 }
-// Removed redundant imports after reorganizing above
 
 const _receiveFilterOptions = <FavoriteFilterOption>[
   FavoriteFilterOption(label: 'All', value: 'all'),
@@ -43,7 +44,8 @@ const _receiveFilterOptions = <FavoriteFilterOption>[
 ];
 
 Color _getStatusColor(String status) {
-  switch (status.toLowerCase()) {
+  final clean = status.toLowerCase().replaceAll(' ', '').replaceAll('_', '');
+  switch (clean) {
     case 'received':
       return const Color(0xFF22A95E); // Green
     case 'intransit':
@@ -57,10 +59,12 @@ Color _getStatusColor(String status) {
 
 class PurchasesPurchaseReceivesListScreen extends ConsumerStatefulWidget {
   final String? initialFilter;
+  final String? initialSelectedId;
 
   const PurchasesPurchaseReceivesListScreen({
     super.key,
     this.initialFilter,
+    this.initialSelectedId,
   });
 
   @override
@@ -101,6 +105,7 @@ class _PurchasesPurchaseReceivesListScreenState
   @override
   void initState() {
     super.initState();
+    _activeReceiveId = widget.initialSelectedId;
     _initializeColumns();
     _loadColumnSettings();
     if (widget.initialFilter != null) {
@@ -119,6 +124,7 @@ class _PurchasesPurchaseReceivesListScreenState
 
   @override
   void dispose() {
+    POItemDetailsSidebar.hide();
     _horizontalScrollController.dispose();
     super.dispose();
   }
@@ -594,7 +600,7 @@ class _PurchasesPurchaseReceivesListScreenState
                 final filtered = state.receives.where((r) {
                   final val = _activeOption.value;
                   if (val == 'all') return true;
-                  if (val == 'intransit') return r.status.toLowerCase() == 'intransit';
+                  if (val == 'intransit') return r.status.toLowerCase().replaceAll(' ', '').replaceAll('_', '') == 'intransit';
                   if (val == 'received') return r.status.toLowerCase() == 'received';
                   if (val == 'billed') return r.billed == true;
                   if (val == 'partially_billed') return r.status.toLowerCase() == 'received' && r.billed == false;
@@ -1294,9 +1300,18 @@ class _PurchasesPurchaseReceivesListScreenState
         );
         break;
       case 'po#':
-        content = Text(
-          receive.purchaseOrderNumber ?? '-',
-          style: AppTheme.tableCell.copyWith(color: AppTheme.primaryBlue),
+        final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+        content = InkWell(
+          onTap: (receive.purchaseOrderId == null || receive.purchaseOrderId!.isEmpty)
+              ? null
+              : () => context.go('/$orgId/purchases/purchase-orders/${receive.purchaseOrderId}'),
+          child: Text(
+            receive.purchaseOrderNumber ?? '-',
+            style: AppTheme.tableCell.copyWith(
+              color: AppTheme.primaryBlue,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         );
         break;
       case 'vendor':
@@ -1505,62 +1520,66 @@ class _PurchaseReceiveDetailPanelState
             border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
           child: receiveAsync.when(
-            data: (receive) => receive == null
-                ? const SizedBox.shrink()
-                : Row(
-                    children: [
-                      _buildToolbarButton(
-                        LucideIcons.edit,
-                        'Edit',
-                        onPressed: () {
-                          final orgId = GoRouterState.of(
-                            context,
-                          ).pathParameters['orgSystemId']!;
-                          context.pushNamed(
-                            AppRoutes.purchaseReceivesEdit,
-                            pathParameters: {
-                              'orgSystemId': orgId,
-                              'id': receive.id!,
-                            },
-                          );
+            data: (receive) {
+              if (receive == null) return const SizedBox.shrink();
+              final currentStatus = (_localStatus ?? receive.status)
+                  .toLowerCase()
+                  .replaceAll(' ', '')
+                  .replaceAll('_', '');
+              return Row(
+                children: [
+                  _buildToolbarButton(
+                    LucideIcons.edit,
+                    'Edit',
+                    onPressed: () {
+                      final orgId = GoRouterState.of(
+                        context,
+                      ).pathParameters['orgSystemId']!;
+                      context.pushNamed(
+                        AppRoutes.purchaseReceivesEdit,
+                        pathParameters: {
+                          'orgSystemId': orgId,
+                          'id': receive.id!,
                         },
-                      ),
-                      _buildDivider(),
-                      _buildPdfPrintDropdown(receive),
-                      _buildDivider(),
-                      _buildToolbarButton(
-                        LucideIcons.fileText,
-                        'Convert to Bill',
-                        onPressed: () {
-                          // [Planned] Convert to bill — see todo.md
-                        },
-                      ),
-                      _buildDivider(),
-                      if ((_localStatus ?? receive.status).toLowerCase() ==
-                              'draft' ||
-                          (_localStatus ?? receive.status).toLowerCase() ==
-                              'intransit')
-                        _buildToolbarButton(
-                          LucideIcons.checkCircle,
-                          'Mark as Received',
-                          onPressed: () => _updateStatus(receive, 'RECEIVED'),
-                        ),
-                      if ((_localStatus ?? receive.status).toLowerCase() ==
-                          'received')
-                        _buildToolbarButton(
-                          LucideIcons.truck,
-                          'Mark as In Transit',
-                          onPressed: () => _updateStatus(receive, 'INTRANSIT'),
-                        ),
-
-                      _buildToolbarButton(
-                        LucideIcons.trash2,
-                        'Delete',
-                        color: AppTheme.errorRed,
-                        onPressed: () => _deleteReceive(receive.id!),
-                      ),
-                    ],
+                      );
+                    },
                   ),
+                  _buildDivider(),
+                  _buildPdfPrintDropdown(receive),
+                  _buildDivider(),
+                  _buildToolbarButton(
+                    LucideIcons.fileText,
+                    'Convert to Bill',
+                    onPressed: () {
+                      // [Planned] Convert to bill — see todo.md
+                    },
+                  ),
+                  _buildDivider(),
+                  if (currentStatus == 'draft' || currentStatus == 'intransit') ...[
+                    _buildToolbarButton(
+                      LucideIcons.checkCircle,
+                      'Mark as Received',
+                      onPressed: () => _updateStatus(receive, 'RECEIVED'),
+                    ),
+                    _buildDivider(),
+                  ],
+                  if (currentStatus == 'received') ...[
+                    _buildToolbarButton(
+                      LucideIcons.truck,
+                      'Mark as In Transit',
+                      onPressed: () => _updateStatus(receive, 'INTRANSIT'),
+                    ),
+                    _buildDivider(),
+                  ],
+                  _buildToolbarButton(
+                    LucideIcons.trash2,
+                    'Delete',
+                    color: AppTheme.errorRed,
+                    onPressed: () => _deleteReceive(receive.id!),
+                  ),
+                ],
+              );
+            },
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
@@ -1944,7 +1963,7 @@ class _PurchaseReceiveDetailPanelState
                   ),
                 ],
               ),
-              if (receive.status.toLowerCase() == 'intransit')
+              if (receive.status.toLowerCase().replaceAll(' ', '').replaceAll('_', '') == 'intransit')
                 pw.Positioned(
                   top: 20,
                   left: -20,
@@ -2222,7 +2241,7 @@ class _PurchaseReceiveDetailPanelState
                 flex: 3,
                 child: InkWell(
                   onTap: () => context.go(
-                    '/$orgId/purchases/orders/${receive.purchaseOrderId}',
+                    '/$orgId/purchases/purchase-orders/${receive.purchaseOrderId}',
                   ),
                   child: Text(
                     receive.purchaseOrderNumber ?? '-',
@@ -2321,6 +2340,7 @@ class _PurchaseReceiveDetailPanelState
                   ),
                 ],
               ),
+              const SizedBox(width: 64),
             ],
           ),
           const SizedBox(height: 40),
@@ -2347,15 +2367,23 @@ class _PurchaseReceiveDetailPanelState
                   ],
                 ),
               ),
-              const SizedBox(width: 64),
+              const SizedBox(width: 120),
               _buildInfoSection(
                 'PURCHASE ORDER#',
-                Text(
-                  receive.purchaseOrderNumber ?? '-',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF0088FF),
-                    fontWeight: FontWeight.w500,
+                InkWell(
+                  onTap: (receive.purchaseOrderId == null || receive.purchaseOrderId!.isEmpty)
+                      ? null
+                      : () {
+                          final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+                          context.go('/$orgId/purchases/purchase-orders/${receive.purchaseOrderId}');
+                        },
+                  child: Text(
+                    receive.purchaseOrderNumber ?? '-',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF0088FF),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
@@ -2421,14 +2449,15 @@ class _PurchaseReceiveDetailPanelState
         if (_isBatchesExpanded) ...[
           const SizedBox(height: 16),
           ...() {
-            final Map<String, List<BatchInfo>> grouped = {};
+            final Map<String, (String? itemId, List<BatchInfo> batches)> grouped = {};
             for (var item in receive.items) {
-              grouped[item.itemName] = item.batches;
+              grouped[item.itemName] = (item.itemId, item.batches);
             }
 
             return grouped.entries.map((itemEntry) {
               final itemName = itemEntry.key;
-              final batches = itemEntry.value;
+              final itemId = itemEntry.value.$1;
+              final batches = itemEntry.value.$2;
               final isExpanded = _expandedItems.contains(itemName);
 
               return Column(
@@ -2453,12 +2482,52 @@ class _PurchaseReceiveDetailPanelState
                       ),
                       child: Row(
                         children: [
-                          Text(
-                            itemName.toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.primaryBlue,
+                          InkWell(
+                            onTap: (itemId == null || itemId.isEmpty)
+                                ? null
+                                : () async {
+                                    try {
+                                      final item = await ref
+                                          .read(itemRepositoryProvider)
+                                          .getItemById(itemId);
+                                      if (item != null) {
+                                        if (context.mounted) {
+                                          POItemDetailsSidebar.show(
+                                            context,
+                                            PurchaseOrderItem(
+                                              productId: item.id ?? '',
+                                              productName: item.productName,
+                                              itemCode: item.sku ?? item.itemCode,
+                                              productType: item.type,
+                                              rate: item.costPrice ?? 0.0,
+                                              accountName: item.purchaseAccountName ?? 'Cost of Goods Sold',
+                                              quantity: 1.0,
+                                              amount: item.costPrice ?? 0.0,
+                                              trackBatches: item.trackBatches,
+                                              trackSerialNumber: item.trackSerialNumber,
+                                              trackBinLocation: item.trackBinLocation,
+                                            ),
+                                            vendorName: receive.vendorName,
+                                          );
+                                        }
+                                      } else {
+                                        if (context.mounted) {
+                                          ZerpaiToast.error(context, 'Item details not found');
+                                        }
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ZerpaiToast.error(context, 'Error loading item: $e');
+                                      }
+                                    }
+                                  },
+                            child: Text(
+                              itemName.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.primaryBlue,
+                              ),
                             ),
                           ),
                           const Spacer(),
@@ -2777,12 +2846,52 @@ class _PurchaseReceiveDetailPanelState
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        i.itemName,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF0088FF),
-                          fontWeight: FontWeight.w500,
+                      InkWell(
+                        onTap: (i.itemId == null || i.itemId!.isEmpty)
+                            ? null
+                            : () async {
+                                try {
+                                  final item = await ref
+                                      .read(itemRepositoryProvider)
+                                      .getItemById(i.itemId!);
+                                  if (item != null) {
+                                    if (context.mounted) {
+                                      POItemDetailsSidebar.show(
+                                        context,
+                                        PurchaseOrderItem(
+                                          productId: item.id ?? '',
+                                          productName: item.productName,
+                                          itemCode: item.sku ?? item.itemCode,
+                                          productType: item.type,
+                                          rate: item.costPrice ?? 0.0,
+                                          accountName: item.purchaseAccountName ?? 'Cost of Goods Sold',
+                                          quantity: 1.0,
+                                          amount: item.costPrice ?? 0.0,
+                                          trackBatches: item.trackBatches,
+                                          trackSerialNumber: item.trackSerialNumber,
+                                          trackBinLocation: item.trackBinLocation,
+                                        ),
+                                        vendorName: receive.vendorName,
+                                      );
+                                    }
+                                  } else {
+                                    if (context.mounted) {
+                                      ZerpaiToast.error(context, 'Item details not found');
+                                    }
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ZerpaiToast.error(context, 'Error loading item: $e');
+                                  }
+                                }
+                              },
+                        child: Text(
+                          i.itemName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF0088FF),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -3223,14 +3332,15 @@ class _PurchaseReceivePdfViewState
         if (_isBatchesExpanded) ...[
           const SizedBox(height: 16),
           ...() {
-            final Map<String, List<BatchInfo>> grouped = {};
+            final Map<String, (String? itemId, List<BatchInfo> batches)> grouped = {};
             for (var item in widget.receive.items) {
-              grouped[item.itemName] = item.batches;
+              grouped[item.itemName] = (item.itemId, item.batches);
             }
 
             return grouped.entries.map((itemEntry) {
               final itemName = itemEntry.key;
-              final batches = itemEntry.value;
+              final itemId = itemEntry.value.$1;
+              final batches = itemEntry.value.$2;
               final isExpanded = _expandedItems.contains(itemName);
 
               return Column(
@@ -3255,12 +3365,52 @@ class _PurchaseReceivePdfViewState
                       ),
                       child: Row(
                         children: [
-                          Text(
-                            itemName.toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.primaryBlue,
+                          InkWell(
+                            onTap: (itemId == null || itemId.isEmpty)
+                                ? null
+                                : () async {
+                                    try {
+                                      final item = await ref
+                                          .read(itemRepositoryProvider)
+                                          .getItemById(itemId);
+                                      if (item != null) {
+                                        if (context.mounted) {
+                                          POItemDetailsSidebar.show(
+                                            context,
+                                            PurchaseOrderItem(
+                                              productId: item.id ?? '',
+                                              productName: item.productName,
+                                              itemCode: item.sku ?? item.itemCode,
+                                              productType: item.type,
+                                              rate: item.costPrice ?? 0.0,
+                                              accountName: item.purchaseAccountName ?? 'Cost of Goods Sold',
+                                              quantity: 1.0,
+                                              amount: item.costPrice ?? 0.0,
+                                              trackBatches: item.trackBatches,
+                                              trackSerialNumber: item.trackSerialNumber,
+                                              trackBinLocation: item.trackBinLocation,
+                                            ),
+                                            vendorName: widget.receive.vendorName,
+                                          );
+                                        }
+                                      } else {
+                                        if (context.mounted) {
+                                          ZerpaiToast.error(context, 'Item details not found');
+                                        }
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ZerpaiToast.error(context, 'Error loading item: $e');
+                                      }
+                                    }
+                                  },
+                            child: Text(
+                              itemName.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.primaryBlue,
+                              ),
                             ),
                           ),
                           const Spacer(),

@@ -727,9 +727,26 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         thumbVisibility: shouldShowListScrollbar,
                         thickness: 6,
                         radius: const Radius.circular(3),
-                        child: SingleChildScrollView(
-                          controller: _listScrollCtrl,
-                          child: widget.listBuilder!(_filteredItems, (item) {
+                        child: Listener(
+                          onPointerSignal: (event) {
+                            if (event is PointerScrollEvent) {
+                              if (!_listScrollCtrl.hasClients) return;
+
+                              final delta = event.scrollDelta.dy * 0.18;
+                              final max =
+                                  _listScrollCtrl.position.maxScrollExtent;
+                              final min =
+                                  _listScrollCtrl.position.minScrollExtent;
+
+                              final next = (_listScrollCtrl.offset + delta)
+                                  .clamp(min, max);
+                              _listScrollCtrl.jumpTo(next);
+                            }
+                          },
+                          child: SingleChildScrollView(
+                            controller: _listScrollCtrl,
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: widget.listBuilder!(_filteredItems, (item) {
                             final int index = _filteredItems.indexOf(item);
                             final bool isSelected = widget.multiSelect
                                 ? widget.selectedValues.contains(item)
@@ -778,7 +795,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           }),
                         ),
                       ),
-                    )
+                    ),
+                  )
                   else
                     ConstrainedBox(
                       constraints: BoxConstraints(maxHeight: listHeight),
@@ -792,7 +810,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                             if (event is PointerScrollEvent) {
                               if (!_listScrollCtrl.hasClients) return;
 
-                              final delta = event.scrollDelta.dy;
+                              final delta = event.scrollDelta.dy * 0.18;
                               final max =
                                   _listScrollCtrl.position.maxScrollExtent;
                               final min =
@@ -805,6 +823,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           },
                           child: ListView.builder(
                             controller: _listScrollCtrl,
+                            physics: const NeverScrollableScrollPhysics(),
                             shrinkWrap: true,
                             padding: EdgeInsets.zero,
                             itemCount: _filteredItems.length,

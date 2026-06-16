@@ -33,6 +33,7 @@ import '../../../../../../shared/widgets/tables/column_customizer.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../../../../core/providers/entity_provider.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
 
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
@@ -385,6 +386,7 @@ class _PurchaseOrderOverviewScreenState
 
   @override
   void dispose() {
+    POItemDetailsSidebar.hide();
     _horizontalScrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -2313,6 +2315,19 @@ class _PurchaseOrderOverviewScreenState
     );
   }
 
+  void _showItemDetailsSidebar(
+    PurchaseOrderItem row, {
+    String? vendorName,
+    int initialTabIndex = 0,
+  }) {
+    POItemDetailsSidebar.show(
+      context,
+      row,
+      initialTabIndex: initialTabIndex,
+      vendorName: vendorName,
+    );
+  }
+
   Widget _detailPane(String orderId, PurchaseOrder? poSummary) {
     final detailAsync = ref.watch(purchaseOrderProvider(orderId));
     return detailAsync.when(
@@ -3320,6 +3335,11 @@ class _PurchaseOrderOverviewScreenState
       if (poItem.isHeader) continue;
       double totalReceivedForProduct = 0.0;
       for (final r in summary.receives) {
+        final rStatus = (r['status']?.toString() ?? '')
+            .toLowerCase()
+            .replaceAll(' ', '')
+            .replaceAll('_', '');
+        if (rStatus != 'received') continue;
         final itemsList =
             r['purchases_purchase_receive_items'] as List<dynamic>? ??
             r['purchase_receive_items'] as List<dynamic>? ??
@@ -3360,11 +3380,16 @@ class _PurchaseOrderOverviewScreenState
     }
 
     if (summary.receives.isNotEmpty) {
-      return [
-        _detailActionMenuItem('Cancel Items', order, summary),
-        _detailActionMenuItem('Clone', order, summary),
-        _detailActionMenuItem('Delete', order, summary),
-      ];
+      final isTransitYetBilled = (summary.receiveStatus.toLowerCase() == 'in transit' ||
+              summary.receiveStatus.toLowerCase() == 'partially received') &&
+          summary.billStatus.toLowerCase() == 'yet to be billed';
+      if (!isTransitYetBilled) {
+        return [
+          _detailActionMenuItem('Cancel Items', order, summary),
+          _detailActionMenuItem('Clone', order, summary),
+          _detailActionMenuItem('Delete', order, summary),
+        ];
+      }
     }
 
     final status = order.status.toLowerCase();
@@ -3441,7 +3466,7 @@ class _PurchaseOrderOverviewScreenState
           InkWell(
             onTap: () {
               final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
-              context.go('/$orgId/purchases/purchase-receives/edit/${r['id']}?poId=${order.id}');
+              context.go('/$orgId/purchases/purchase-receives?id=${r['id']}');
             },
             child: Text(
               r['purchase_receive_number']?.toString() ?? '-',
@@ -3460,7 +3485,11 @@ class _PurchaseOrderOverviewScreenState
             statusText,
             style: AppTheme.bodyText.copyWith(
               fontSize: 13,
-              color: statusText == 'Received' ? AppTheme.successGreen : AppTheme.textSecondary,
+              color: statusText == 'Received'
+                  ? AppTheme.successGreen
+                  : (statusText == 'In Transit' || statusText.toLowerCase() == 'intransit'
+                      ? AppTheme.warningOrange
+                      : AppTheme.textSecondary),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -4024,7 +4053,7 @@ class _PurchaseOrderOverviewScreenState
                 ],
               ),
               const SizedBox(height: 32),
-              _itemsTable(order.items, summary, order.warehouseName),
+              _itemsTable(order.items, summary, order.warehouseName, order.vendorName),
               const SizedBox(height: 24),
               Align(
                 alignment: Alignment.centerRight,
@@ -4167,6 +4196,7 @@ class _PurchaseOrderOverviewScreenState
     List<PurchaseOrderItem> items,
     _PoTxnSummary summary,
     String? warehouseName,
+    String? vendorName,
   ) {
     return Container(
       decoration: BoxDecoration(
@@ -4326,9 +4356,17 @@ class _PurchaseOrderOverviewScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                item.productName ?? 'Unnamed Item',
-                                style: AppTheme.linkText.copyWith(fontSize: 13),
+                              InkWell(
+                                onTap: item.productId.isEmpty
+                                    ? null
+                                    : () => _showItemDetailsSidebar(
+                                          item,
+                                          vendorName: vendorName,
+                                        ),
+                                child: Text(
+                                  item.productName ?? 'Unnamed Item',
+                                  style: AppTheme.linkText.copyWith(fontSize: 13),
+                                ),
                               ),
                               if (item.description != null &&
                                   item.description!.isNotEmpty) ...[
