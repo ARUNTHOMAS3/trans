@@ -27,7 +27,7 @@
 		"db:pull:insecure": "powershell -ExecutionPolicy Bypass -File ./scripts/db-pull-safe.ps1 -Insecure"
 	},
 	"dependencies": {
-		"@aws-sdk/client-s3": "^3.1004.0",
+		"@aws-sdk/client-s3": "^3.1069.0",
 		"@aws-sdk/s3-request-presigner": "^3.1004.0",
 		"@bull-board/api": "^6.20.6",
 		"@bull-board/express": "^6.20.6",
