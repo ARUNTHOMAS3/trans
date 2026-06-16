@@ -3148,8 +3148,8 @@ class _PurchaseReceivePdfViewState
         return const Color(0xFF1E8E3E);
       case 'DRAFT':
         return const Color(0xFF78909C);
-      case 'INTRANSIT':
-        return const Color(0xFFFF8800); // Orange
+      case 'IN TRANSIT':
+        return const Color(0xFFFF8800);
       default:
         return const Color(0xFFC4C4C4);
     }

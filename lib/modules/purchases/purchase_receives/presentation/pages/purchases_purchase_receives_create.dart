@@ -2715,7 +2715,6 @@ class _PRCreateState
             _selectedVendorName = v.displayName;
           });
           _fetchPOsForVendor(v.id);
-          Navigator.pop(ctx);
         },
       ),
     );
@@ -6099,13 +6098,9 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
 
 class _PRDashedBorderPainter extends CustomPainter {
   final Color color;
-  final bool isFocused;
-  final bool isHovered;
 
   const _PRDashedBorderPainter({
     this.color = const Color(0xFFCBD5E1),
-    this.isFocused = false,
-    this.isHovered = false,
   });
 
   @override
@@ -6114,24 +6109,6 @@ class _PRDashedBorderPainter extends CustomPainter {
       Rect.fromLTWH(0.5, 0.5, size.width - 1, size.height - 1),
       const Radius.circular(6),
     );
-
-    if (isFocused) {
-      // Draw glow
-      final glowPaint = Paint()
-        ..color = color.withValues(alpha: 0.15)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3;
-      canvas.drawRRect(rrect, glowPaint);
-
-      // Draw solid border
-      final solidPaint = Paint()
-        ..color = color
-        ..strokeWidth = 1.2
-        ..style = PaintingStyle.stroke;
-      canvas.drawRRect(rrect, solidPaint);
-      return;
-    }
 
     final paint = Paint()
       ..color = color
@@ -6154,9 +6131,7 @@ class _PRDashedBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PRDashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.isFocused != isFocused ||
-      oldDelegate.isHovered != isHovered;
+      oldDelegate.color != color;
 }
 
 

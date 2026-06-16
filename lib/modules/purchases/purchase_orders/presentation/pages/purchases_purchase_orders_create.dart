@@ -3261,7 +3261,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ? v.sourceOfSupply!
                 : '',
           );
-          Navigator.pop(ctx);
         },
       ),
     );
@@ -4319,6 +4318,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 )
               : FormDropdown<WarehouseModel>(
                   height: 32,
+                  itemHeight: 56.0,
+                  itemEstimatedHeight: 56.0,
                   value: wh.id.isEmpty ? null : wh,
                   items: liveWarehouses,
                   hint: liveWarehouses.isEmpty
@@ -4436,7 +4437,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
     final lines = <_AddrLine>[
       if (wh.city != null && wh.city!.isNotEmpty)
-        _AddrLine(wh.city!, isBold: true),
+        _AddrLine(wh.city!, isBold: false),
       if ((wh.addressStreet1 ?? '').isNotEmpty || (wh.state ?? '').isNotEmpty)
         _AddrLine(
           [
@@ -4463,6 +4464,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             style: const TextStyle(
               fontSize: 13,
               color: _textPrimary,
+              fontWeight: FontWeight.bold,
             ),
             decoration: InputDecoration(
               isDense: true,
