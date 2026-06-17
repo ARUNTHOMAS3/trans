@@ -711,7 +711,7 @@ Aligned the Purchases Bills list-details overview pane vendor address presentati
 #### Frontend Files
 - lib/modules/purchases/bills/models/purchases_bills_bill_model.dart:
   - **Relational Field Alignment**: Added endorAddress and endorPhone properties to PurchasesBill model and parsed them dynamically from nested endor JSON data.
-  - **Coalesced API Field Parsing**: Updated romJson key mappings to check both snake_case and camelCase parameters (e.g. sub_total/subtotal, grand_total/	otal, discount_total/discount_amount) to prevent API parsing mismatch which led to ?0.00 totals display.
+  - **Coalesced API Field Parsing**: Updated 0romJson key mappings to check both snake_case and camelCase parameters (e.g. sub_total/subtotal, grand_total/	otal, discount_total/discount_amount) to prevent API parsing mismatch which led to ?0.00 totals display.
 - lib/modules/purchases/bills/presentation/pages/purchases_bills_list.dart:
   - **Metadata Layout Restructuring**: Replaced vertical _meta cards with a clean Table layout, displaying BILL DATE, DUE DATE, PAYMENT TERMS, BALANCE DUE, and TOTAL in columns matching Zoho Standard.
   - **Address Formatting**: Formatted vendor address parts to display address lines (attention, street, place, city, state, country, zip, and phone) without prepending 'Phone: ' prefix.
@@ -734,13 +734,13 @@ Removed delivery warehouse and place of supply blocks from the bills detail over
   - **Sidebar Vendor Name Color**: Changed color to always be AppTheme.textPrimary (black) instead of AppTheme.primaryBlue when selected.
   - **Metadata Blocks Removal**: Removed DELIVERY WAREHOUSE and PLACE OF SUPPLY address blocks from the right column of the detail overview pane.
 - lib/modules/purchases/bills/models/purchases_bills_bill_model.dart:
-  - **Payment Terms Parsing**: Refactored paymentTerms in romJson to dynamically check if json['payment_terms'] is a Map (resolving nested database join values like 	erm_name) or string.
+  - **Payment Terms Parsing**: Refactored paymentTerms in 0romJson to dynamically check if json['payment_terms'] is a Map (resolving nested database join values like 	erm_name) or string.
 - lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
   - **Tax Dropdown Arrow Retention**: Restored Icons.arrow_drop_down visibility and the standard border in _taxCell when vendor is unregistered, ensuring it visually remains a dropdown box while keeping onTap: null (readonly).
 
 #### Backend Files
 - ackend/src/modules/purchases/bills/services/bills.service.ts:
-  - **Payment Terms DB Join**: Added payment_terms:payment_terms(term_name) to Supabase queries in createBill, indAll, and indOne methods to return actual payment term values.
+  - **Payment Terms DB Join**: Added payment_terms:payment_terms(term_name) to Supabase queries in createBill, 0indAll, and 0indOne methods to return actual payment term values.
 
 Timestamp of Log Update: May 29, 2026 - 4:10 PM (IST)
 
@@ -1002,7 +1002,7 @@ Aligned the First Expired, First Out (FEFO) preferred bin suggestions format to 
   - **Dynamic Batch Card Sizing**: Substituted the hardcoded `width: 94` constraint on the green batch detail cards with `constraints: const BoxConstraints(minWidth: 94)`, allowing horizontal size expansion based on child text length.
   - **Batch Text Truncation Removal**: Refactored `_batchText` to remove `maxLines: 1` and `overflow: TextOverflow.ellipsis` constraints, allowing the card to render the full length of the batch number inside horizontal scrolling containers.
 
-**Verifications**: Verified compilation successfully with lutter analyze on modified scopes.
+**Verifications**: Verified compilation successfully with 0lutter analyze on modified scopes.
 
 Timestamp of Log Update: June 1, 2026 - 5:25 PM (IST)
 
@@ -1019,7 +1019,7 @@ Enhanced QUANTITY TO RECEIVE column auto-scaling in the Purchase Receives create
   - **Auto-Scaling Column Width**: Replaced static width clamp configurations in _dynamicQtyToReceiveColumnWidth() with dynamic measurement aggregation of active batch cards to guarantee that the column cell has sufficient width to fully show the greenboxes.
   - **Bin Dropdown Box Sizing**: Changed height constraint from 44 to 32 in manual and PO row wrapping SizedBox widgets, and set FormDropdown height parameter to 32.
 
-**Verifications**: Verified compilation successfully with lutter analyze on modified scopes.
+**Verifications**: Verified compilation successfully with 0lutter analyze on modified scopes.
 
 Timestamp of Log Update: June 1, 2026 - 6:00 PM (IST)
   - **Explicit Measured Container Width**: Updated green box batch cards inside _buildItemRow and _buildManualRow to use the explicit dynamically-measured TextPainter width (width: _batchCardWidth(batch)) to completely prevent any text clipping/truncating inside card borders.
@@ -1108,7 +1108,7 @@ Fixed a critical layout issue in the Purchase Receives creation page (purchases_
   - **Tighter Batch Card Width Clamp**: Reduced _batchCardWidth clamp upper bound from 114.0 to 110.0 and dynamic horizontal card margin/padding constants (maxLineWidth + 14 instead of 18) to hug the text closer and eliminate trailing blank space. Mapped BoxConstraints to _batchCardWidth(batch) dynamically instead of using a hardcoded maxWidth: 114.
 
 Timestamp of Log Update: June 1, 2026 - 5:55 PM (IST)
-- **Quantity Column Width Expansion**: Increased aseWidth from 124.0 to 160.0 and ixedContentWidth from 116.0 to 140.0 in _dynamicQtyToReceiveColumnWidth() to give the batch cards more horizontal space and prevent overflow/tight layouts.
+- **Quantity Column Width Expansion**: Increased aseWidth from 124.0 to 160.0 and 0ixedContentWidth from 116.0 to 140.0 in _dynamicQtyToReceiveColumnWidth() to give the batch cards more horizontal space and prevent overflow/tight layouts.
 
 Timestamp of Log Update: June 1, 2026 - 6:01 PM (IST)
 - **Batch Dialog Overwrite Logic Fix**: Configured the dialog Save onPressed callback to bypass exceeds and mismatch validation errors when _overwriteLineItem is enabled. Wired the checkbox onChanged event to immediately clear any existing mismatch or exceeds error messages. Changed the error banner text to dynamically display the active _dialogErrorMessage instead of the hardcoded _quantityMismatchMessage string.
@@ -1302,7 +1302,7 @@ Fixed a critical layout issue in the Purchase Receives creation page (purchases_
   - **Tighter Batch Card Width Clamp**: Reduced _batchCardWidth clamp upper bound from 114.0 to 110.0 and dynamic horizontal card margin/padding constants (maxLineWidth + 14 instead of 18) to hug the text closer and eliminate trailing blank space. Mapped BoxConstraints to _batchCardWidth(batch) dynamically instead of using a hardcoded maxWidth: 114.
 
 Timestamp of Log Update: June 1, 2026 - 5:55 PM (IST)
-- **Quantity Column Width Expansion**: Increased  aseWidth from 124.0 to 160.0 and ixedContentWidth from 116.0 to 140.0 in _dynamicQtyToReceiveColumnWidth() to give the batch cards more horizontal space and prevent overflow/tight layouts.
+- **Quantity Column Width Expansion**: Increased  aseWidth from 124.0 to 160.0 and 0ixedContentWidth from 116.0 to 140.0 in _dynamicQtyToReceiveColumnWidth() to give the batch cards more horizontal space and prevent overflow/tight layouts.
 
 Timestamp of Log Update: June 1, 2026 - 6:01 PM (IST)
 - **Batch Dialog Overwrite Logic Fix**: Configured the dialog Save onPressed callback to bypass exceeds and mismatch validation errors when _overwriteLineItem is enabled. Wired the checkbox onChanged event to immediately clear any existing mismatch or exceeds error messages. Changed the error banner text to dynamically display the active _dialogErrorMessage instead of the hardcoded _quantityMismatchMessage string.
@@ -1470,7 +1470,7 @@ Fixed the tax column dropdown box outline hover/selection aesthetics in the Purc
 
 #### Frontend Files
 - lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
-  - **Tax Dropdown Outline**: Wrapped the tax dropdown container inside a MouseRegion and StatefulBuilder to render a blue border outline ( xFF0088FF) on hover or when selected, and transparent otherwise.
+  - **Tax Dropdown Outline**: Wrapped the tax dropdown container inside a MouseRegion and StatefulBuilder to render a blue border outline (0xFF0088FF) on hover or when selected, and transparent otherwise.
   - **Unregistered Treatment Tax Placeholder**: If the vendor's GST treatment is unregistered, show the 'Select Tax' placeholder inside the tax dropdown cell instead of 'Non-Taxable'.
 
 #### Backend Files
@@ -1494,7 +1494,7 @@ Added quantity validation to PO creation flow. Styled the account dropdown box o
 #### Frontend Files
 - lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
   - **Quantity Validation**: Added checks inside the _handleSave loop to ensure item quantities are greater than zero, throwing a ZerpaiToast.error with the exact message 'Please enter a valid quantity for item ' if not.
-  - **Account Dropdown Outline**: Added _activeAccountRowIndex state tracking and _closeAccountOverlay(). Wrapped the account dropdown container in a StatefulBuilder and MouseRegion to draw a blue outline ( xFF0088FF) on hover or selection, transparent otherwise.
+  - **Account Dropdown Outline**: Added _activeAccountRowIndex state tracking and _closeAccountOverlay(). Wrapped the account dropdown container in a StatefulBuilder and MouseRegion to draw a blue outline (0xFF0088FF) on hover or selection, transparent otherwise.
   - **Read-Only Tax Dropdown**: Always show the dropdown arrow icon even when the vendor's GST treatment is unregistered. Disabled the hover blue outline highlight on the tax box when the vendor is unregistered.
 
 **Verifications**: Verified frontend compiles cleanly with dart analyze.
@@ -2011,7 +2011,8 @@ Consolidated the Purchase Receives edit and create workflows into a single unifi
 - lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
   - **Dynamic Title Header**: Added _isEditMode detection and updated title header to show "Edit Purchase Receive" dynamically.
   - **Warehouse Selection Fallback**: Prioritized local _selectedWarehouseId over _selectedPO properties in _handleSave.
-  - **API Save & Update Integration**: Integrated ef.read(purchaseReceivesProvider.notifier).updateReceive in _handleSave when _isEditMode is active.
+  - **API Save & Update Integration**: Integrated 
+ef.read(purchaseReceivesProvider.notifier).updateReceive in _handleSave when _isEditMode is active.
   - **Cache Invalidation**: Added invalidation for purchaseReceiveByIdProvider upon successful update.
   - **Unused Elements Cleanup**: Removed _showFilePopup, _hoveredAttachmentIndex, _displayFilePopupOverlay, _hideFilePopupOverlay and associated variables/calls to keep the page warning-free.
 - lib/app/routing/app_router.dart:
@@ -2052,3 +2053,214 @@ Timestamp of Log Update: June 14, 2026 - 10:15 PM (IST)
 **Verifications**: Verified NestJS backend compiles cleanly via `npm run build` and Flutter frontend compiles successfully with `dart analyze`.
 
 Timestamp of Log Update: June 15, 2026 - 1:40 PM (IST)
+
+#### 49. Visual Adjustments, Bin Propagation, In-Transit Column, and Dropdown Scroll Adjustments (June 16, 2026)
+
+### Summary
+1. Removed visual boldness from item name description text and quantity input fields.
+2. Increased thickness/boldness of decrement and increment control buttons using custom responsive container-based icons.
+3. Enabled automatic propagation of transaction-level selected bin values down to item-level rows and models upon mode toggles.
+4. Resolved empty cell rendering under "IN TRANSIT" column in manual rows by outputting the actual `inTransit` value.
+5. Reduced scroll speed and item scroll count in all form-input dropdown overlays by intercepting and scaling down pointer scroll events.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **_buildQtyControl**: Swapped `LucideIcons.minus` and `LucideIcons.plus` with custom Container and Stack designs to increase stroke line thickness dynamically.
+  - **_buildQtyControl & _buildQtyInputField**: Replaced `FontWeight.w600` with `FontWeight.normal` to remove input text boldness.
+  - **_buildItemRow & _buildManualRow**: Removed `FontWeight.w500` / `FontWeight.bold` from item name and description text and dropdown fields.
+  - **_binMode toggles**: Propagated `_selectedTransactionBin` and its id to `_preferredBins` and line items when changing mode to `item` or selecting a bin in `transaction` mode.
+  - **_buildManualRow**: Changed in-transit cell from empty `SizedBox()` to render `item.inTransit.toStringAsFixed`.
+- lib/shared/widgets/inputs/dropdown_input.dart:
+  - **FormDropdown**: Added custom `Listener` to intercept pointer scroll signals in `listBuilder` path, scaling the delta by 0.18.
+  - **ListView & SingleChildScrollView**: Wrapped both scrolling paths inside `Listener` and configured `NeverScrollableScrollPhysics` to avoid native fast double-scrolling and ensure a controlled, slower scroll pace on all dropdown elements.
+
+**Verifications**: Verified Flutter frontend compiles warning-free and analyzer checks pass successfully with `dart analyze`.
+
+Timestamp of Log Update: June 16, 2026 - 2:30 PM (IST)
+
+## 50. Expiry Date Picker Validation and Batch Card Text Wrapping in Purchase Receives (June 16, 2026)
+
+### Summary
+1. Disabled all past dates (before today) in the batch expiry date picker overlay to enforce validity.
+2. Removed text truncation (ellipsis `...`) and added automatic soft wrapping for all values in the batch details info card.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **_batchText**: Removed `maxLines: 1` and `overflow: TextOverflow.ellipsis` to support full item details text wrapping inside the batch card.
+  - **_buildDatePicker (expDateCtrl)**: Configured `ZerpaiDatePicker.show` to accept `firstDate: DateTime(now.year, now.month, now.day)` to prevent selecting past dates.
+
+**Verifications**: Verified Flutter frontend compiles warning-free and analyzer checks pass successfully with `dart analyze`.
+
+Timestamp of Log Update: June 16, 2026 - 2:45 PM (IST)
+
+
+## 51. Reusable Purchase Item Details Sidebar Overlay (June 16, 2026)
+
+### Summary
+Made the POItemDetailsSidebar widget reusable across all purchase pages by refactoring it to expose static `show` and `hide` methods that internally manage a global `OverlayEntry`. Integrated the sidebar into the purchase receives list panel, receives detail panel, and receive PDF viewer.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart:
+  - **Reusable Overlay API**: Added static `show` and `hide` methods to construct and insert/remove `OverlayEntry` dynamically.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - **Refactored overlay management**: Delegated `_showItemDetailsSidebar` directly to the new static `POItemDetailsSidebar.show` API. Added `POItemDetailsSidebar.hide()` to `dispose()` to clean up the overlay state.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - **Refactored overlay management**: Delegated `_showItemDetailsSidebar` directly to the new static `POItemDetailsSidebar.show` API. Added `POItemDetailsSidebar.hide()` to `dispose()`.
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart:
+  - **POItemDetailsSidebar Integration**: Changed the items table click handlers (inside detail panel accordion and standard list) to load dynamic `PurchaseOrderItem` rows and open the overlay-based details sidebar instead of the generic `ItemDetailsSidebar`.
+  - **PDF View Integration**: Updated the items preview click handler inside the PDF View to open the `POItemDetailsSidebar` overlay.
+  - **Cleanup**: Removed the unused generic `ItemDetailsSidebar` widget from scaffold `endDrawer` and imports.
+
+**Verifications**: Verified Flutter frontend compiles warning-free and analyzer checks pass successfully with `dart analyze`.
+
+Timestamp of Log Update: June 16, 2026 - 4:00 PM (IST)
+
+## 52. Purchase Receive Redirection and Detail Panel Alignments (June 16, 2026)
+
+### Summary
+Redirected clicks on purchase receives numbers to the receives list view page with the corresponding receive item pre-selected. Adjusted metadata alignments in the receives detail panel by shifting the "VENDOR NAME" block left and the "PURCHASE ORDER#" / "DATE" blocks right.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/app/routing/app_router.dart:
+  - **Route Parameter Support**: Updated the `purchases/purchase-receives` route to extract the `id` query parameter and pass it as `initialSelectedId` to the list page widget.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - **Redirect URL Modification**: Modified the clickable link on the purchase receives number within the PO details table/banner to navigate to `/$orgId/purchases/purchase-receives?id=${r['id']}` instead of redirecting to the edit screen.
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart:
+  - **Constructor & State Initialization**: Added `initialSelectedId` to `PurchasesPurchaseReceivesListScreen` constructor and assigned it to `_activeReceiveId` in `initState` to pre-select the receive item on page load.
+  - **Metadata Layout Spacing**: Shifted the "VENDOR NAME" block left in `_buildStandardView` by adding a `const SizedBox(width: 64)` after it. Shifted the "PURCHASE ORDER#" and "DATE" blocks right by increasing the spacing width between STATUS and PURCHASE ORDER# from `64` to `120`.
+
+**Verifications**: Verified compilation using the `dart analyze` command. Both modified pages and the router analyzed successfully with zero errors.
+
+Timestamp of Log Update: June 16, 2026 - 4:05 PM (IST)
+
+
+## 53. Purchase Order In-Transit Status Color and 3-Dots Actions Support (June 16, 2026)
+
+### Summary
+1. Standardized "In Transit" status coloring to orange across purchase receive list row items, details, and PO list screen receives banner.
+2. Fixed syntax error in the receives list page toolbar (Row children declaration list builder).
+3. Removed unused `_onPOSelected` method in `purchases_purchase_receives_create.dart`.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart:
+  - **Toolbar children layout syntax fix**: Updated `receiveAsync.when` data builder to use a block body instead of an inline expression. Pre-computed `currentStatus` and wrapped conditional action buttons in standard collection-if syntax to satisfy the dart compiler.
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **Cleanup**: Deleted unused private helper `_onPOSelected` method which was superseded by the multiselect PO dropdown implementation.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - **Receives Banner Status Color**: Updated the receive status text color mapping inside the PO receives banner to render in orange (`AppTheme.warningOrange`) if status is "In Transit" or "intransit" instead of default grey.
+
+**Verifications**: Verified compilation using the `dart analyze` command. All modified files analyzed successfully with zero errors.
+
+Timestamp of Log Update: June 16, 2026 - 4:15 PM (IST)
+
+
+## 54. Implementation of Mark as Received for In-Transit Purchases (June 16, 2026)
+
+### Summary
+Implemented the "Mark as Received" dropdown action button handler in the purchase orders list screen detail panel to support purchase orders with in-transit receives. Instead of failing on tracked items check or creating a duplicate receive, it fetches and marks existing associated in-transit receive records as received in the database and updates the purchase order status.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - **Mark as Received Action**: Refactored `_detailActionMenuItem` to identify existing in-transit receives from `summary.receives`. If present, it updates them to `'received'` status using `purchaseReceiveRepositoryProvider.updatePurchaseReceive` and updates the purchase order status to `'Closed'` in the database without throwing a tracked items validation error.
+
+**Verifications**: Verified compilation using the `dart analyze` command. The page analyzed successfully with zero errors.
+
+Timestamp of Log Update: June 16, 2026 - 4:30 PM (IST)
+
+
+## 54. Filter Out In-Transit Receives from Purchase Order Received Quantities (June 16, 2026)
+
+### Summary
+Fixed the purchase order 3-dots action menu dropdown logic where purchase orders with active "In Transit" receives were incorrectly treated as fully received, hiding expected actions. 
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - **_isAllItemsReceived Filter**: Modified the receive row loop in `_isAllItemsReceived` to skip summation of item quantities if the receive status is not exactly `'received'` (i.e. skipping `'intransit'` or `'draft'`). This prevents in-transit receives from incorrectly marking the parent purchase order as fully received, which resolves the 3-dots action menu displaying the correct standard actions instead of only the fully received actions.
+
+**Verifications**: Verified compilation using the `dart analyze` command. All modified files analyzed successfully with zero errors.
+
+Timestamp of Log Update: June 16, 2026 - 4:55 PM (IST)
+
+
+## 55. Case-Insensitive String Check in PO 3-Dots Dropdown Options (June 16, 2026)
+
+### Summary
+Fixed a casing mismatch bug in the `isTransitYetBilled` conditional check inside the purchase order 3-dots action menu dropdown builder. This resolves the dropdown menu displaying only 3 items instead of the expected 6 items when the receive status is "In Transit" and the bill status is "Yet to be Billed".
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - **Case-Insensitive Options Check**: Updated the `isTransitYetBilled` boolean assignment in `_menuChildrenForStatus` to compare lowercased status string values (`summary.receiveStatus.toLowerCase()` and `summary.billStatus.toLowerCase()`) rather than strict camel-cased literals, preventing casing mismatches like `'Yet to be Billed' == 'Yet To Be Billed'` from failing.
+
+**Verifications**: Verified compilation using the `dart analyze` command. All modified files analyzed successfully with zero errors.
+
+Timestamp of Log Update: June 16, 2026 - 5:05 PM (IST)
+
+
+## 56. Bill Item Amount Calculation & Validation Updates (June 16, 2026)
+
+### Summary
+Fixed the line item amount calculation on the Purchases Bills creation screen (purchases_bills_create.dart) to ignore free-of-charge (FOC) quantities. Amount calculations are now strictly based on charged quantities. Also removed mandatory customer ID validation on bill items.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Quantity Resolvers**: Refactored the quantity getter on _BillLineItemRow to sum 'qtyOut' values from selected batches (charged quantity only) instead of returning quantityCtrl.text (which contains totalQty + totalFoc). Added a corresponding freeQuantity getter.
+  - **Validation Updates**: Removed mandatory customer selection validation block on bill items.
+  - **Load Updates**: Configured _loadBillForEdit to set quantityCtrl.text to the sum of loaded batch charged quantity and FOC quantity.
+
+**Verifications**: Verified compilation using the dart analyze command.
+
+Timestamp of Log Update: June 16, 2026 - 7:15 PM (IST)
+
+
+## 57. Reverse Charge Tax Exclusion in Bills & Purchase Orders (June 16, 2026)
+
+### Summary
+Excluded tax calculation from purchase order and bill totals when 'This transaction is applicable for reverse charge' is checked.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Reverse Charge Tax Check**: Configured _taxAmount getter to return 0.0 if _reverseCharge is true, immediately excluding tax from UI totals and model saves.
+- lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart:
+  - **PO State calculations**: Configured taxAmount getter in PurchaseOrderState to return 0.0 when isReverseCharge is true.
+  - **Item calculation check**: Configured _recalculateItem to calculate item tax amount as 0.0 when isReverseCharge is true. Updated updateField trigger criteria to run recalculations when isReverseCharge toggles.
+
+**Verifications**: Verified compilation using the dart analyze command.
+
+Timestamp of Log Update: June 16, 2026 - 7:20 PM (IST)
+
+## 58. Custom Detailed Batch Dropdown in Purchases & Receives Dialog (June 16, 2026)
+
+### Summary
+Replaced standard batch autocomplete with rich custom dropdown list inside the SelectBatchDialog.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **SelectBatchDialog dropdown**: Swapped RawAutocomplete<String> for FormDropdown<Map<String, dynamic>>.
+  - **Batch info mapping**: Transformed sorted batch options to list of maps with attributes (balance, expiry_date, mrp, prate).
+  - **Custom list rendering**: Structured dropdown items list with visual highlights, hover effects, search, and dynamic heights.
+
+**Verifications**: Verified compilation using the dart analyze command.
+
+Timestamp of Log Update: June 16, 2026 - 7:25 PM (IST)

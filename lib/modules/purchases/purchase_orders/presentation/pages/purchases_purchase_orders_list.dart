@@ -340,7 +340,21 @@ class _PurchaseOrderOverviewScreenState
         ? 'Partially Received'
         : 'Received';
 
-    final billStatus = bills.isEmpty ? 'Yet to be Billed' : 'Billed';
+    double totalBilled = 0.0;
+    for (final b in bills) {
+      final statusStr = b['status']?.toString().toLowerCase() ?? '';
+      if (statusStr == 'void') continue;
+      final itemsList = b['bill_items'] as List<dynamic>? ?? [];
+      for (final item in itemsList) {
+        totalBilled += double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+      }
+    }
+
+    final billStatus = totalBilled <= 0.0
+        ? 'Yet to be Billed'
+        : totalBilled < expectedTotalQuantity
+        ? 'Partially Billed'
+        : 'Billed';
     return _PoTxnSummary(
       receives: receives,
       bills: bills,
@@ -2915,7 +2929,9 @@ class _PurchaseOrderOverviewScreenState
                                     fontSize: 12,
                                     color: summary.billStatus == 'Billed'
                                         ? AppTheme.successDark
-                                        : AppTheme.textSecondary,
+                                        : summary.billStatus == 'Partially Billed'
+                                            ? AppTheme.warningOrange
+                                            : AppTheme.textSecondary,
                                   ),
                                 ),
                                 const Spacer(),
@@ -4120,7 +4136,9 @@ class _PurchaseOrderOverviewScreenState
               style: AppTheme.bodyText.copyWith(
                 color: summary.billStatus == 'Billed'
                     ? AppTheme.successDark
-                    : AppTheme.textSecondary,
+                    : summary.billStatus == 'Partially Billed'
+                        ? AppTheme.warningOrange
+                        : AppTheme.textSecondary,
               ),
             ),
           ],

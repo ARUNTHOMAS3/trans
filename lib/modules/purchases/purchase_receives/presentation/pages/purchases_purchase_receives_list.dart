@@ -30,6 +30,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/items/items/repositories/items_repository_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _ClearReceiveSelectionIntent extends Intent {
   const _ClearReceiveSelectionIntent();
@@ -1441,15 +1442,138 @@ class _PurchaseReceiveDetailPanelState
   final Set<String> _expandedItems = {};
   bool _isBatchesExpanded = true;
 
+  String? _lastLoadedReceiveId;
+  List<Map<String, dynamic>>? _poBills;
+  List<Map<String, dynamic>>? _poReceives;
+  String? _poStatus;
+
+  Future<void> _loadAdditionalData(PurchaseReceive receive) async {
+    if (receive.purchaseOrderId == null || receive.purchaseOrderId!.isEmpty) {
+      return;
+    }
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // 1. Fetch the Purchase Order to get its actual status
+      final poResp = await supabase
+          .from('purchase_orders')
+          .select('status, order_date')
+          .eq('id', receive.purchaseOrderId!)
+          .maybeSingle();
+      
+      // 2. Fetch all receives for this PO to perform FIFO allocation
+      final receivesResp = await supabase
+          .from('purchase_receives')
+          .select('id, purchase_receive_number, received_date, status, purchase_receive_items(item_id, quantity_to_receive)')
+          .eq('purchase_order_id', receive.purchaseOrderId!)
+          .order('created_at', ascending: true);
+          
+      // 3. Fetch all bills for this PO
+      final billsResp = await supabase
+          .from('bills')
+          .select('id, bill_number, bill_date, status, grand_total, due_date, bill_items(product_id, quantity)')
+          .eq('order_number', receive.purchaseOrderNumber ?? '')
+          .order('created_at', ascending: true);
+
+      if (mounted) {
+        setState(() {
+          _poStatus = poResp != null ? poResp['status'] as String? : null;
+          _poReceives = (receivesResp as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _poBills = (billsResp as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading additional receive data: $e');
+    }
+  }
+
+  String _getReceiveBillStatus(PurchaseReceive receive) {
+    if (_poBills == null || _poReceives == null) {
+      return 'Yet to be Billed';
+    }
+
+    final Map<String, double> billedQuantities = {};
+    for (final bill in _poBills!) {
+      final statusStr = bill['status']?.toString().toLowerCase() ?? '';
+      if (statusStr == 'void') continue;
+
+      final items = bill['bill_items'] as List<dynamic>? ?? [];
+      for (final item in items) {
+        final prodId = item['product_id']?.toString() ?? '';
+        final qty = double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+        billedQuantities[prodId] = (billedQuantities[prodId] ?? 0.0) + qty;
+      }
+    }
+
+    double totalReceiveQty = 0.0;
+    double totalBilledForThisReceive = 0.0;
+
+    for (final rx in _poReceives!) {
+      final rxId = rx['id']?.toString() ?? '';
+      final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
+      
+      final isTargetReceive = (rxId == receive.id);
+
+      for (final item in rxItems) {
+        final prodId = item['item_id']?.toString() ?? '';
+        final qtyToReceive = double.tryParse(item['quantity_to_receive']?.toString() ?? '0.0') ?? 0.0;
+
+        if (isTargetReceive) {
+          totalReceiveQty += qtyToReceive;
+        }
+
+        final availableBilled = billedQuantities[prodId] ?? 0.0;
+        final allocated = availableBilled >= qtyToReceive ? qtyToReceive : availableBilled;
+        
+        billedQuantities[prodId] = availableBilled - allocated;
+
+        if (isTargetReceive) {
+          totalBilledForThisReceive += allocated;
+        }
+      }
+    }
+
+    if (totalReceiveQty <= 0.0) {
+      return 'Yet to be Billed';
+    }
+    if (totalBilledForThisReceive <= 0.0) {
+      return 'Yet to be Billed';
+    }
+    if (totalBilledForThisReceive < totalReceiveQty) {
+      return 'Partially Billed';
+    }
+    return 'Billed';
+  }
+
   String _fmtQty(double value) {
     return value == value.roundToDouble()
         ? value.toInt().toString()
         : value.toStringAsFixed(2);
   }
 
+  Color _getPoStatusColor(String status) {
+    final clean = status.toLowerCase().trim();
+    if (clean == 'closed' || clean == 'received') {
+      return const Color(0xFF22A95E); // Green
+    }
+    if (clean == 'issued' || clean == 'open') {
+      return const Color(0xFF0088FF); // Blue
+    }
+    if (clean == 'draft') {
+      return Colors.grey;
+    }
+    return const Color(0xFF6B7280);
+  }
+
   @override
   Widget build(BuildContext context) {
     final receiveAsync = ref.watch(purchaseReceiveByIdProvider(widget.id));
+    receiveAsync.whenData((receive) {
+      if (receive != null && _lastLoadedReceiveId != receive.id) {
+        _lastLoadedReceiveId = receive.id;
+        Future.microtask(() => _loadAdditionalData(receive));
+      }
+    });
 
     return Column(
       children: [
@@ -2078,7 +2202,7 @@ class _PurchaseReceiveDetailPanelState
                   ),
                   _buildDropdownOption(
                     'Associated bills',
-                    0, // [Planned] Fetch real bills count — see todo.md
+                    _poBills?.length ?? 0,
                     _activeTabIndex == 1,
                     () => setState(() {
                       _activeTabIndex = 1;
@@ -2265,10 +2389,10 @@ class _PurchaseReceiveDetailPanelState
               Expanded(
                 flex: 3,
                 child: Text(
-                  (_localStatus ?? receive.status).toUpperCase(),
+                  (_poStatus ?? receive.status).toUpperCase(),
                   style: TextStyle(
                     fontSize: 13,
-                    color: _getStatusColor(_localStatus ?? receive.status),
+                    color: _getPoStatusColor(_poStatus ?? receive.status),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -2281,11 +2405,164 @@ class _PurchaseReceiveDetailPanelState
   }
 
   Widget _buildBillsTable(PurchaseReceive receive) {
-    // For now, return empty state as we don't have a direct provider for bills by receive ID
-    return _buildEmptyState('No associated bills found');
+    if (_poBills == null || _poBills!.isEmpty) {
+      return _buildEmptyState('No associated bills found');
+    }
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: const Color(0xFFF9FAFB),
+          child: Row(
+            children: const [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'BILL#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Amount',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        ..._poBills!.map((bill) {
+          final billId = bill['id']?.toString() ?? '';
+          final billNo = bill['bill_number']?.toString() ?? '-';
+          final billDateStr = bill['bill_date']?.toString();
+          DateTime? billDate;
+          if (billDateStr != null) {
+            billDate = DateTime.tryParse(billDateStr);
+          }
+          final status = bill['status']?.toString() ?? 'draft';
+          final grandTotal = double.tryParse(bill['grand_total']?.toString() ?? bill['total']?.toString() ?? '0.0') ?? 0.0;
+
+          Color statusColor;
+          switch (status.toLowerCase()) {
+            case 'paid':
+              statusColor = const Color(0xFF22A95E); // Green
+              break;
+            case 'open':
+            case 'overdue':
+              statusColor = const Color(0xFFFF8800); // Orange
+              break;
+            case 'void':
+              statusColor = Colors.red;
+              break;
+            default:
+              statusColor = Colors.grey;
+          }
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: InkWell(
+                    onTap: billId.isEmpty
+                        ? null
+                        : () => context.go(
+                              '/$orgId/purchases/bills/$billId',
+                            ),
+                    child: Text(
+                      billNo,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    billDate != null
+                        ? DateFormat('dd-MM-yyyy').format(billDate)
+                        : '-',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    '₹${grandTotal.toStringAsFixed(2)}',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
   }
 
   Widget _buildStandardView(PurchaseReceive receive) {
+    final bStatus = _getReceiveBillStatus(receive);
+    final bColor = bStatus == 'Billed'
+        ? const Color(0xFF22A95E) // Green
+        : bStatus == 'Partially Billed'
+            ? const Color(0xFFFF8800) // Orange
+            : const Color(0xFF6B7280); // Gray
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Column(
@@ -2360,8 +2637,8 @@ class _PurchaseReceiveDetailPanelState
                     const SizedBox(height: 12),
                     _buildStatusRow(
                       'Bill',
-                      'Billed',
-                      const Color(0xFF0088FF),
+                      bStatus,
+                      bColor,
                       isLabelOnly: true,
                     ),
                   ],

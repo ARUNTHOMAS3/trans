@@ -94,6 +94,7 @@ class PurchaseOrderState {
   }
 
   double get taxAmount {
+    if (isReverseCharge) return 0.0;
     return items
         .where((i) => !i.isHeader)
         .fold(0.0, (sum, item) => sum + item.taxAmount);
@@ -633,9 +634,11 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     }
 
     final double activeTaxRate = isUnregistered ? 0.0 : item.taxRate;
-    double taxAmount = state.taxType == 'inclusive'
-        ? net * activeTaxRate / (100 + activeTaxRate)
-        : net * (activeTaxRate / 100);
+    double taxAmount = state.isReverseCharge
+        ? 0.0
+        : (state.taxType == 'inclusive'
+            ? net * activeTaxRate / (100 + activeTaxRate)
+            : net * (activeTaxRate / 100));
 
     double amountValue = net;
 
@@ -688,6 +691,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     final oldTaxType = state.taxType;
     final oldVendorId = state.vendorId;
     final oldDestinationOfSupply = state.destinationOfSupply;
+    final oldIsReverseCharge = state.isReverseCharge;
     state = state.copyWith(
       orderNumber: orderNumber,
       orderDate: orderDate,
@@ -724,6 +728,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     );
 
     if (forceRecalculateTaxes ||
+        (isReverseCharge != null && isReverseCharge != oldIsReverseCharge) ||
         (discountLevel != null && discountLevel != oldLevel) ||
         (taxType != null && taxType != oldTaxType) ||
         (vendorId != null && vendorId != oldVendorId) ||

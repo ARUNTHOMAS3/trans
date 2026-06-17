@@ -1,2 +1,0 @@
-lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart
-lib/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart

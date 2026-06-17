@@ -4114,6 +4114,7 @@ class _PRCreateState
       for (final poId in uniquePOIds) {
         ref.invalidate(purchaseOrderProvider(poId));
       }
+      ref.read(apiClientProvider).clearCache('purchase-orders');
       ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
       ref.read(purchaseReceivesProvider.notifier).fetchReceives();
       if (_isEditMode) {
@@ -4171,6 +4172,7 @@ class _PRCreateState
       barrierDismissible: true,
       builder: (context) => SelectBatchDialog(
         itemName: item.itemName,
+        productId: itemId,
         batchOptions: batchOptions.toList()..sort(),
         batchDetails: batchDetails,
         initialBatches: item.batches,
@@ -4694,6 +4696,7 @@ class SelectBatchDialog extends StatefulWidget {
   final ValueChanged<bool>? onDamageChanged;
   final void Function(String message)? onTopError;
   final Function(List<BatchInfo>) onSave;
+  final String? productId;
 
   SelectBatchDialog({
     required this.itemName,
@@ -4707,6 +4710,7 @@ class SelectBatchDialog extends StatefulWidget {
     this.onDamageChanged,
     this.onTopError,
     required this.onSave,
+    this.productId,
   });
 
   @override
@@ -5109,10 +5113,45 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
         return oldValue;
       });
 
+  String? _productUnitPackId;
+
+  Future<void> _fetchProductUnitPack() async {
+    if (widget.productId == null || widget.productId!.isEmpty) return;
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('products')
+          .select('unit_pack_id')
+          .eq('id', widget.productId!)
+          .maybeSingle();
+      if (response != null && mounted) {
+        final unitPackId = response['unit_pack_id']?.toString();
+        if (unitPackId != null && unitPackId.isNotEmpty) {
+          final packResponse = await supabase
+              .from('product_pack_sizes')
+              .select('pack_name')
+              .eq('id', unitPackId)
+              .maybeSingle();
+          if (packResponse != null && mounted) {
+            setState(() {
+              _productUnitPackId = packResponse['pack_name']?.toString() ?? '';
+              for (var row in _rows) {
+                if (row.unitPackCtrl.text.isEmpty) {
+                  row.unitPackCtrl.text = _productUnitPackId!;
+                }
+              }
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
     _showDamage = widget.initialDamageEnabled;
+    _fetchProductUnitPack();
     if (widget.initialBatches.isEmpty) {
       final firstRow = _BatchItemRowController();
       firstRow.qtyCtrl.text = widget.ordered.toString();
@@ -5148,7 +5187,11 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
 
   void _addRow() {
     setState(() {
-      _rows.add(_BatchItemRowController());
+      final newRow = _BatchItemRowController();
+      if (_productUnitPackId != null && _productUnitPackId!.isNotEmpty) {
+        newRow.unitPackCtrl.text = _productUnitPackId!;
+      }
+      _rows.add(newRow);
     });
   }
 
@@ -5163,9 +5206,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
     });
   }
 
-  TextEditingController _ensureBatchInputController(
-    _BatchItemRowController row,
-  ) {
+  TextEditingController _ensureBatchInputController(_BatchItemRowController row) {
     return _batchInputControllers.putIfAbsent(
       row,
       () => TextEditingController(text: row.batchNoCtrl.text),
@@ -5309,13 +5350,34 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
     );
   }
 
+
   Widget _buildBatchNoDropdown(_BatchItemRowController row) {
     final current = row.batchNoCtrl.text.trim();
     final batchItems = <String>{...widget.batchOptions};
     if (current.isNotEmpty) {
       batchItems.add(current);
     }
-    final sortedBatchItems = batchItems.toList()..sort();
+    final sortedBatchNames = batchItems.toList()..sort();
+
+    final List<Map<String, dynamic>> dropdownItems = sortedBatchNames.map((name) {
+      final existing = widget.batchDetails.firstWhere(
+        (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim() == name.trim(),
+        orElse: () => <String, dynamic>{},
+      );
+      if (existing.isNotEmpty) {
+        return existing;
+      }
+      return <String, dynamic>{
+        'batch_no': name,
+        'batchNo': name,
+        'balance': '0',
+        'expiry_date': '-',
+        'expiryDate': '-',
+        'mrp': '0.00',
+        'prate': '0.00',
+        'ptr': '0.00',
+      };
+    }).toList();
 
     final inputController = _ensureBatchInputController(row);
     final inputFocusNode = _ensureBatchInputFocusNode(row);
@@ -5334,102 +5396,139 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
         child: SizedBox(
           height: 40,
           width: double.infinity,
-          child: RawAutocomplete<String>(
+          child: RawAutocomplete<Map<String, dynamic>>(
             textEditingController: inputController,
             focusNode: inputFocusNode,
-            displayStringForOption: (option) => option,
+            displayStringForOption: (option) => (option['batch_no'] ?? option['batchNo'])?.toString() ?? '',
             optionsBuilder: (textEditingValue) {
               final query = textEditingValue.text.trim().toLowerCase();
               if (query.isEmpty) {
-                return sortedBatchItems;
+                return dropdownItems;
               }
-
-              return sortedBatchItems.where(
-                (item) => item.toLowerCase().contains(query),
-              );
+              return dropdownItems.where((item) {
+                final batchNo = (item['batch_no'] ?? item['batchNo'])?.toString().toLowerCase() ?? '';
+                return batchNo.contains(query);
+              });
             },
-            onSelected: (selection) {
+            onSelected: (selectionMap) {
+              final selection = (selectionMap['batch_no'] ?? selectionMap['batchNo'])?.toString().trim() ?? '';
               row.batchNoCtrl.text = selection;
+
               // Autofill other fields if details available
               final details = widget.batchDetails.firstWhere(
                 (b) => (b['batch_no'] ?? b['batchNo']) == selection,
                 orElse: () => <String, dynamic>{},
               );
-              if (details.isNotEmpty) {
-                row.mrpCtrl.text = details['mrp']?.toString() ?? '';
-                row.ptrCtrl.text = details['ptr']?.toString() ?? '';
-                
-                final expDateStr = details['expiry_date']?.toString() ?? details['expiryDate']?.toString();
-                if (expDateStr != null && expDateStr.isNotEmpty) {
-                  final expDate = DateTime.tryParse(expDateStr);
-                  if (expDate != null) {
-                    row.expDate = expDate;
-                    row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
+              setState(() {
+                if (details.isNotEmpty) {
+                  row.mrpCtrl.text = details['mrp']?.toString() ?? '';
+                  row.ptrCtrl.text = details['ptr']?.toString() ?? details['prate']?.toString() ?? '';
+                  
+                  final expDateStr = details['expiry_date']?.toString() ?? details['expiryDate']?.toString();
+                  if (expDateStr != null && expDateStr.isNotEmpty) {
+                    final expDate = DateTime.tryParse(expDateStr);
+                    if (expDate != null) {
+                      row.expDate = expDate;
+                      row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
+                    }
                   }
-                }
-                
-                final mfgDateStr = details['manufacture_date']?.toString() ?? details['manufactureDate']?.toString();
-                if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
-                  final mfgDate = DateTime.tryParse(mfgDateStr);
-                  if (mfgDate != null) {
-                    row.mfgDate = mfgDate;
-                    row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
+                  
+                  final mfgDateStr = details['manufacture_date']?.toString() ?? details['manufactureDate']?.toString();
+                  if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
+                    final mfgDate = DateTime.tryParse(mfgDateStr);
+                    if (mfgDate != null) {
+                      row.mfgDate = mfgDate;
+                      row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
+                    }
                   }
+                  
+                  row.mfgBatchCtrl.text = details['manufacture_batch']?.toString() ?? details['manufactureBatch']?.toString() ?? '';
+                  row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty)
+                      ? _productUnitPackId!
+                      : (details['unit_pack']?.toString() ?? details['unitPack']?.toString() ?? '');
+                } else {
+                  // Reset autofilled fields if custom batch is entered/selected
+                  row.mrpCtrl.text = '';
+                  row.ptrCtrl.text = '';
+                  row.expDateCtrl.text = '';
+                  row.expDate = null;
+                  row.mfgDateCtrl.text = '';
+                  row.mfgDate = null;
+                  row.mfgBatchCtrl.text = '';
+                  row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty) ? _productUnitPackId! : '';
                 }
-                
-                row.mfgBatchCtrl.text = details['manufacture_batch']?.toString() ?? details['manufactureBatch']?.toString() ?? '';
-                row.unitPackCtrl.text = details['unit_pack']?.toString() ?? details['unitPack']?.toString() ?? '';
-              }
+              });
             },
-            fieldViewBuilder:
-                (
-                  context,
-                  textEditingController,
-                  focusNode,
-                  onFieldSubmitted,
-                ) {
-                  return TextField(
-                    controller: textEditingController,
-                    focusNode: focusNode,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                    textAlignVertical: TextAlignVertical.center,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 10,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(4),
-                        borderSide: const BorderSide(color: _fieldBorder),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(4),
-                        borderSide: const BorderSide(
-                          color: _focusBorder,
-                          width: 1.5,
-                        ),
-                      ),
-                      hintText: 'Batch No',
-                      hintStyle: const TextStyle(
-                        color: _hintColor,
-                        fontSize: 13,
-                      ),
-                    ),
-                    onChanged: (value) {
-                      row.batchNoCtrl.text = value;
-                    },
-                    onSubmitted: (value) {
-                      row.batchNoCtrl.text = value.trim();
-                    },
+            fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+              return TextField(
+                controller: textEditingController,
+                focusNode: focusNode,
+                textAlignVertical: TextAlignVertical.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _textPrimary,
+                  fontFamily: 'Inter',
+                ),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: _fieldBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: _focusBorder, width: 1.5),
+                  ),
+                  hintText: 'Select Batch',
+                  hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
+                ),
+                onChanged: (value) {
+                  row.batchNoCtrl.text = value;
+                  final details = widget.batchDetails.firstWhere(
+                    (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim().toLowerCase() == value.trim().toLowerCase(),
+                    orElse: () => <String, dynamic>{},
                   );
+                  if (details.isNotEmpty) {
+                    setState(() {
+                      row.mrpCtrl.text = details['mrp']?.toString() ?? '';
+                      row.ptrCtrl.text = details['ptr']?.toString() ?? details['prate']?.toString() ?? '';
+                      
+                      final expDateStr = details['expiry_date']?.toString() ?? details['expiryDate']?.toString();
+                      if (expDateStr != null && expDateStr.isNotEmpty) {
+                        final expDate = DateTime.tryParse(expDateStr);
+                        if (expDate != null) {
+                          row.expDate = expDate;
+                          row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
+                        }
+                      }
+                      
+                      final mfgDateStr = details['manufacture_date']?.toString() ?? details['manufactureDate']?.toString();
+                      if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
+                        final mfgDate = DateTime.tryParse(mfgDateStr);
+                        if (mfgDate != null) {
+                          row.mfgDate = mfgDate;
+                          row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
+                        }
+                      }
+                      
+                      row.mfgBatchCtrl.text = details['manufacture_batch']?.toString() ?? details['manufactureBatch']?.toString() ?? '';
+                      row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty)
+                          ? _productUnitPackId!
+                          : (details['unit_pack']?.toString() ?? details['unitPack']?.toString() ?? '');
+                    });
+                  }
                 },
+                onSubmitted: (value) {
+                  row.batchNoCtrl.text = value.trim();
+                },
+              );
+            },
             optionsViewBuilder: (context, onSelected, options) {
               final optionList = options.toList();
               return Align(
@@ -5465,57 +5564,66 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                             int? hoveredIndex;
                             return StatefulBuilder(
                               builder: (context, setOptionsState) {
-                              return ListView.builder(
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                itemCount: optionList.length,
-                                itemBuilder: (context, index) {
-                                  final item = optionList[index];
-                                  final isHovered = hoveredIndex == index;
-                                  final isSelected =
-                                      row.batchNoCtrl.text.trim() == item;
-                                  return MouseRegion(
-                                    onEnter: (_) => setOptionsState(
-                                      () => hoveredIndex = index,
-                                    ),
-                                    onExit: (_) => setOptionsState(
-                                      () => hoveredIndex = null,
-                                    ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () => onSelected(item),
-                                        hoverColor: Colors.transparent,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
-                                          ),
-                                          decoration: BoxDecoration(
+                                return ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  shrinkWrap: true,
+                                  itemCount: optionList.length,
+                                  itemBuilder: (context, index) {
+                                    final item = optionList[index];
+                                    final isHovered = hoveredIndex == index;
+                                    final isSelected =
+                                        row.batchNoCtrl.text.trim() == 
+                                        ((item['batch_no'] ?? item['batchNo'])?.toString() ?? '');
+                                    
+                                    final batchNo = item['batch_no'] ?? item['batchNo'] ?? '-';
+                                    final balance = item['balance']?.toString() ?? '0';
+                                    final expDate = item['expiry_date'] ?? item['expiryDate'] ?? '-';
+                                    final mrp = item['mrp']?.toString() ?? '0.00';
+                                    final ptr = item['prate']?.toString() ?? item['ptr']?.toString() ?? '0.00';
+
+                                    final displayText =
+                                        '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr';
+
+                                    return MouseRegion(
+                                      onEnter: (_) => setOptionsState(
+                                        () => hoveredIndex = index,
+                                      ),
+                                      onExit: (_) => setOptionsState(
+                                        () => hoveredIndex = null,
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: () => onSelected(item),
+                                          hoverColor: Colors.transparent,
+                                          child: Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
                                             color: isHovered
                                                 ? const Color(0xFF3B82F6)
                                                 : (isSelected
-                                                      ? const Color(
-                                                          0xFFF3F4F6,
-                                                        )
-                                                      : Colors.white),
-                                          ),
-                                          child: Text(
-                                            item,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: isHovered
-                                                  ? Colors.white
-                                                  : _textPrimary,
-                                              fontFamily: 'Inter',
+                                                    ? const Color(0xFFF3F4F6)
+                                                    : Colors.transparent),
+                                            child: Text(
+                                              displayText,
+                                              softWrap: true,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isHovered
+                                                    ? Colors.white
+                                                    : const Color(0xFF1F2937),
+                                                fontFamily: 'Inter',
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  );
-                                },
-                              );
+                                    );
+                                  },
+                                );
                               },
                             );
                           })(),

@@ -203,7 +203,26 @@ class _BillLineItemRow {
     return newRow;
   }
 
-  double get quantity => double.tryParse(quantityCtrl.text) ?? 0;
+  double get quantity {
+    if (hasBatchData && savedBatchData != null && savedBatchData!.isNotEmpty) {
+      return savedBatchData!.fold<double>(
+        0.0,
+        (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+      );
+    }
+    return double.tryParse(quantityCtrl.text) ?? 0;
+  }
+
+  double get freeQuantity {
+    if (hasBatchData && savedBatchData != null && savedBatchData!.isNotEmpty) {
+      return savedBatchData!.fold<double>(
+        0.0,
+        (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+      );
+    }
+    return double.tryParse(freeQtyCtrl.text) ?? 0;
+  }
+
   double get rate => double.tryParse(rateCtrl.text) ?? 0;
   double get discountValue => double.tryParse(discountCtrl.text) ?? 0;
 
@@ -282,7 +301,7 @@ class _BillLineItemRow {
       expiry: expiry,
       mrp: double.tryParse(mrpCtrl.text) ?? 0,
       ptr: double.tryParse(ptrCtrl.text) ?? 0,
-      freeQuantity: double.tryParse(freeQtyCtrl.text) ?? 0,
+      freeQuantity: freeQuantity,
       accountId: accountId,
       accountName: accountName,
       quantity: quantity,
@@ -756,6 +775,18 @@ class _PurchasesBillCreateScreenState
           row.savedBatchData = batchDataList;
           row.hasBatchData = batchDataList.isNotEmpty;
           row.batchCount = batchDataList.length;
+
+          if (row.hasBatchData) {
+            final totalQty = batchDataList.fold<double>(
+              0.0,
+              (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+            );
+            final totalFoc = batchDataList.fold<double>(
+              0.0,
+              (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+            );
+            row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+          }
 
           _lineItems.add(row);
         }
@@ -1961,12 +1992,13 @@ class _PurchasesBillCreateScreenState
   double get _total {
     final taxSign = _tdsTcsType == 'tds' ? -1.0 : (_tdsTcsType == 'tcs' ? 1.0 : 0.0);
     final tdsTcsVal = _tdsTcsAmount;
+    final activeTax = _reverseCharge ? 0.0 : _taxAmount;
     if (_discountType == 'At Line Item Level') {
-      return _subTotal + _taxAmount + (taxSign * tdsTcsVal) + _adjustment;
+      return _subTotal + activeTax + (taxSign * tdsTcsVal) + _adjustment;
     }
     return _subTotal -
         _discountAmount +
-        _taxAmount +
+        activeTax +
         (taxSign * tdsTcsVal) +
         _adjustment;
   }
@@ -2063,12 +2095,6 @@ class _PurchasesBillCreateScreenState
         );
         return;
       }
-      if (row.customerId == null || row.customerId!.trim().isEmpty) {
-        _showValidationError(
-          'Please select a customer for item: ${row.itemName ?? 'Selected Item'}.',
-        );
-        return;
-      }
     }
 
     final warehouses = ref.read(warehousesProvider).value ?? [];
@@ -2155,6 +2181,7 @@ class _PurchasesBillCreateScreenState
       }
 
       if (mounted) {
+        ref.read(apiClientProvider).clearCache('purchase-orders');
         if (widget.poId != null) {
           ref.invalidate(purchaseOrderProvider(widget.poId!));
         }
@@ -3636,6 +3663,7 @@ class _PurchasesBillCreateScreenState
       barrierDismissible: true,
       builder: (context) => SelectBatchDialog(
         itemName: row.itemName ?? '',
+        productId: itemId,
         batchOptions: batchOptions.toList()..sort(),
         batchDetails: batchDetails,
         initialBatches: initialBatches,
