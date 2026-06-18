@@ -2264,3 +2264,119 @@ Replaced standard batch autocomplete with rich custom dropdown list inside the S
 **Verifications**: Verified compilation using the dart analyze command.
 
 Timestamp of Log Update: June 16, 2026 - 7:25 PM (IST)
+
+## 59. Pack Size Alphanumeric Resolution, PO Load Improvements, and Receive-to-Bill Conversion Enhancements (June 17, 2026)
+
+### Summary
+1. Resolved the Pack Size field inside the Select Batch Dialog to load the human-readable `pack_name` string from database lookups instead of UUIDs, and updated the field to accept alphanumeric/varchar string values.
+2. Updated the open Purchase Orders selection popup in the Bills creation page to automatically display batch information inline immediately upon item load.
+3. Enhanced the Purchase Receive to Bill conversion workflow to correctly load bill number, date, and invoice total values, resolve state UUIDs into formatted names, fix incorrect subject defaults, and enforce invoice total as a mandatory field with validations.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - **Alphanumeric Pack Size Support**: Removed numeric input formatters and parsing checks from `unitPackCtrl` inside the Select Batch Dialog.
+  - **Dynamic Pack Size Name Resolver**: Fetched `unit_pack_id` from the products lookup and mapped it to the actual `pack_name` string from `product_pack_sizes` lookup before showing the dialog.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **State Name Resolver**: Added a `_stateIdMap` state variable and a `_resolveStateName` utility method inside `_PurchasesBillCreateScreenState` to dynamically translate UUID-based states from the vendor registry or PO shipment preferences to readable formatted strings (e.g. `[KL] - Kerala`).
+  - **Conversion Fields Loading**: Loaded the `billNo`, `billDate`, and `invoiceTotal` from the source Purchase Receive model.
+  - **Corrected Subject Default**: Changed the default subject value when converting a receive to load from the parent purchase order's reference number instead of showing the receive's tracking number.
+  - **Mandatory Invoice Total**: Swapped the plain text label for `Invoice Total` to a RichText element with a red asterisk (`*`), and added presence/greater-than-zero validation blocks on save.
+  - **Automatic Batch Info Display**: Set `row.showAdditionalInfo = true` on lines loaded via `_addItemsFromMultiplePurchaseOrders`, `_loadPoForConvert`, and `_loadReceiveForConvert`, making batch/expiry input controls visible immediately.
+
+**Verifications**: Verified compilation using the `dart analyze` command.
+
+Timestamp of Log Update: June 17, 2026 - 12:40 PM (IST)
+
+## 60. Place of Supply Conversion Fixes and Backend Bills Schema Mapping (June 17, 2026)
+
+### Summary
+1. Resolved place of supply conversion UUID display issue when converting Purchase Receives or Purchase Orders to Bills: defaulted Source/Destination of Supply state fields to the Vendor's resolved state name string (e.g. `[KL] - Kerala`) instead of carrier preference UUIDs.
+2. Added schema definitions and service mapping for `source_of_supply`, `destination_to_supply`, and `billing_address` columns in the backend `bills` table to align with database updates.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- backend/src/db/schema.ts & backend/drizzle/schema.ts:
+  - **Schema definition**: Added `sourceOfSupply` (source_of_supply), `destinationToSupply` (destination_to_supply), and `billingAddress` (billing_address) fields to `bills` pgTable definition.
+- backend/src/modules/purchases/bills/dto/create-bill.dto.ts:
+  - **CreateBillDto**: Added optional `sourceOfSupply`, `destinationToSupply`, and `billingAddress` string properties.
+- backend/src/modules/purchases/bills/services/bills.service.ts:
+  - **createBill & updateBill**: Mapped new DTO parameters directly to database columns.
+
+#### Frontend Files
+- lib/modules/purchases/bills/models/purchases_bills_bill_model.dart:
+  - **PurchasesBill Model**: Defined `sourceOfSupply`, `destinationToSupply`, and `billingAddress` properties, mapped them in `fromJson`, and added serializations to `toJson`.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Conversion mappings**: Removed shipment preference UUID overrides and mapped `resolvedState` directly to `_sourceOfSupply` and `_destinationOfSupply` inside `_loadReceiveForConvert` and `_loadPoForConvert`.
+  - **Billing Address Resolver**: Added default billing address UUID extraction logic from `vendorAddresses` and passed it when constructing a `PurchasesBill` model during save.
+
+**Verifications**: Verified NestJS backend compiles cleanly via `npm run build` and Flutter frontend compiles successfully with `dart analyze`.
+
+Timestamp of Log Update: June 17, 2026 - 2:00 PM (IST)
+
+## 61. Autoload Vendor Address & Payment Terms in Bill Conversions (June 17, 2026)
+
+### Summary
+1. Configured automatic loading of vendor payment terms and billing address availability (`_hasAddress` / `_paymentTerms`) when converting Purchase Receives or Purchase Orders to Bills. This ensures values match exactly what is autoloaded when manually selecting a vendor on the Bills creation screen.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - **Autoload details**: Integrated `_hasAddress`, `_paymentTerms`, and `_customBillingAddress = null` initialization inside both `_loadReceiveForConvert` and `_loadPoForConvert` workflows.
+
+**Verifications**: Verified Flutter frontend compiles successfully with `dart analyze`.
+
+Timestamp of Log Update: June 17, 2026 - 2:10 PM (IST)
+
+## 62. Vendor Full Fetch & State Resolution Fixes on Bill Conversion (June 17, 2026)
+
+### Summary
+Fixed vendor details rendering issues (billing address, GST treatment, GSTIN) and Place of Supply defaults when converting Purchase Receives, Purchase Orders, or editing Bills. Resolved the issue where a vendor might not be found in the memory-cached/paged list by dynamically fetching the full Vendor object from the backend database repository. Improved the state resolution algorithm to perform clean fuzzy matching of state names.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - **Dynamic Vendor Fetch**: Updated `_loadBillForEdit`, `_loadReceiveForConvert`, and `_loadPoForConvert` to query `vendorRepositoryProvider`'s `getVendorById` if the vendor is not present in the Riverpod-cached/paged list or if it falls back to a dummy placeholder. This ensures billingAddress, GST treatment, and GSTIN are correctly initialized and displayed instead of hidden or hardcoded.
+  - **State Name Resolution Refinement**: Enhanced `_resolveStateName` method to strip bracketed codes (like `[MH] - `) and extra strings (like zip/pin codes) to perform clean fuzzy matching against state lists. This prevents falling back to default states like Bihar when the state name in the billing address is not exactly formatted.
+
+#### Backend Files
+- None
+
+Timestamp of Log Update: June 17, 2026 - 02:55 PM (IST)
+
+## 63. Vendor Matching by Display Name on Bill Conversions (June 17, 2026)
+
+### Summary
+Fixed vendor details autoloading (billing address, GST treatment, GSTIN) on Bill Conversion when the source purchase receive lacks a `vendorId` in the database. Enabled matching the converted vendor to the local state list by `displayName` in addition to `vendorId`, ensuring all vendor-related details are resolved and rendered exactly like manual dropdown selections.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - **Fuzzy Name Matching**: Updated `_loadBillForEdit`, `_loadReceiveForConvert`, and `_loadPoForConvert` to search by `displayName` (case-insensitively) as a fallback if `vendorId` matching fails. This ensures the correct vendor object is matched and assigned to `_selectedVendor`.
+
+#### Backend Files
+- None
+
+Timestamp of Log Update: June 17, 2026 - 03:06 PM (IST)
+
+## 64. Recalculate Batch Quantity and Sync PO Details (June 17, 2026)
+
+### Summary
+Fixed the issue where the "Save as Open" button was disabled when converting a Purchase Receive to a Bill, by ensuring the total line item quantity is correctly recalculated based on the sum of active batch quantities (including FOC). Added complete mapping and auto-loading of purchase order level details (discount type, discount level, adjustment, payment terms, TDS/TCS type and rates) when associating a purchase order from the open POs selection modal.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - **Batch Quantity Recalculation**: Updated both `po != null` and `po == null` branches in `_loadReceiveForConvert` to calculate and update `quantityCtrl.text` with the sum of batch `qtyOut` and `foc` values. This ensures the line item input quantity exactly equals the total batch quantity, allowing the "Save as Open" button validator to enable the button.
+  - **Purchase Order Details Sync**: Added PO-level properties copy logic to `_addItemsFromMultiplePurchaseOrders`. It now maps notes, subject reference, warehouse name, payment terms, discount level, discount percent/type, reverse charge, adjustment amount, and TDS/TCS types and rates when a PO is associated.
+
+#### Backend Files
+- None
+
+Timestamp of Log Update: June 17, 2026 - 03:00 PM (IST)

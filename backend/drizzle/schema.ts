@@ -3821,6 +3821,9 @@ export const bills = pgTable("bills", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	isDelete: boolean("is_delete").notNull(),
+	sourceOfSupply: varchar("source_of_supply"),
+	destinationToSupply: varchar("destination_to_supply"),
+	billingAddress: uuid("billing_address"),
 }, (table) => [
 	foreignKey({
 			columns: [table.entityId],
@@ -3841,6 +3844,11 @@ export const bills = pgTable("bills", {
 			columns: [table.warehouseId],
 			foreignColumns: [warehouses.id],
 			name: "bills_warehouse_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.billingAddress],
+			foreignColumns: [vendorAddresses.id],
+			name: "bills_billing_address_fkey"
 		}),
 ]);
 

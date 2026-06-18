@@ -2168,6 +2168,9 @@ export const bills = pgTable("bills", {
   status: varchar("status", { length: 30 }).default("draft"),
   reasonToVoid: text("reason_to_void"),
   reasonToDraft: text("reason_to_draft"),
+  sourceOfSupply: varchar("source_of_supply"),
+  destinationToSupply: varchar("destination_to_supply"),
+  billingAddress: uuid("billing_address").references(() => vendorAddress.id),
   isDelete: boolean("is_delete").notNull().default(false),
   
   createdBy: uuid("created_by"),
