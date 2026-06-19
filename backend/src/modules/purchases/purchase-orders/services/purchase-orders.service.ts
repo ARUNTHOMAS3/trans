@@ -96,7 +96,6 @@ export class PurchaseOrdersService {
     if (dto.delivery_customer_id !== undefined) dbData.delivery_customer_id = dto.delivery_customer_id;
     if (dto.warehouse_id !== undefined) dbData.warehouse_id = dto.warehouse_id;
     if (dto.warehouse_name !== undefined) dbData.warehouse_name = dto.warehouse_name;
-    if (dto.place_of_supply !== undefined) dbData.place_of_supply = dto.place_of_supply;
     if (dto.document_type !== undefined) dbData.document_type = dto.document_type;
     if (dto.status !== undefined) dbData.status = dto.status;
     if (dto.subtotal !== undefined) dbData.subtotal = dto.subtotal;
@@ -116,6 +115,10 @@ export class PurchaseOrdersService {
     if (dto.discount_account_id !== undefined) dbData.discount_account_id = dto.discount_account_id;
     if (dto.tax_type !== undefined) dbData.tax_type = dto.tax_type;
     if (dto.is_delete !== undefined) dbData.is_delete = dto.is_delete;
+    if (dto.source_of_supply !== undefined) dbData.source_of_supply = dto.source_of_supply;
+    if (dto.destination_to_supply !== undefined) dbData.destination_to_supply = dto.destination_to_supply;
+    if (dto.shipping_address !== undefined) dbData.shipping_address = dto.shipping_address;
+    if (dto.billing_address !== undefined) dbData.billing_address = dto.billing_address;
     return dbData;
   }
 

@@ -432,33 +432,33 @@ export class GlobalLookupsController {
       if (countryData) {
         resolvedCountryId = countryData.id;
       }
+    } else if (countryValue && countryValue.length !== 36) {
+      // Handle country names (e.g., "India", "Andorra")
+      const { data: countryData } = await client
+        .from("countries")
+        .select("id")
+        .eq("name", countryValue)
+        .maybeSingle();
+
+      if (countryData) {
+        resolvedCountryId = countryData.id;
+      }
     }
 
-    const runQuery = async (countryColumn: "country_id" | "state_id") => {
-      let query = client
-        .from("states")
-        .select("id,name,code")
-        .eq("is_active", true);
+    let query = client
+      .from("states")
+      .select("id,name,code")
+      .eq("is_active", true);
 
-      if (resolvedCountryId) {
-        query = query.eq(countryColumn, resolvedCountryId);
-      }
-
-      if (search) {
-        query = query.ilike("name", `%${search}%`);
-      }
-
-      return query.order("name", { ascending: true });
-    };
-
-    let { data, error } = await runQuery("country_id");
-    if (
-      error &&
-      typeof error.message === "string" &&
-      error.message.toLowerCase().includes("country_id")
-    ) {
-      ({ data, error } = await runQuery("state_id"));
+    if (resolvedCountryId) {
+      query = query.eq("state_id", resolvedCountryId);
     }
+
+    if (search) {
+      query = query.ilike("name", `%${search}%`);
+    }
+
+    const { data, error } = await query.order("name", { ascending: true });
 
     if (error) throw error;
 

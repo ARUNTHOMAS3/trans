@@ -540,7 +540,6 @@ class _SalesItemQuickEditDialogState
                 hint: "Select Unit",
                 onChanged: (v) => setState(() => selectedUnitId = v),
                 displayStringForValue: unitLabelForId,
-                boldSelected: false,
               ),
             ),
             SharedFieldLayout(
@@ -584,7 +583,6 @@ class _SalesItemQuickEditDialogState
                 items: _taxPreferenceOptions,
                 hint: "Select Tax Preference",
                 onChanged: (v) => setState(() => taxPreference = v!),
-                boldSelected: false,
               ),
             ),
             SharedFieldLayout(
@@ -638,7 +636,6 @@ class _SalesItemQuickEditDialogState
                 hint: "Select Unit",
                 onChanged: (v) => setState(() => selectedUnitId = v),
                 displayStringForValue: unitLabelForId,
-                boldSelected: false,
               ),
             ),
             SharedFieldLayout(
@@ -1262,7 +1259,6 @@ class _SalesItemQuickEditDialogState
       onSettingsTap: onSettingsTap,
       allowClear: allowClear,
       enabled: enabled,
-      boldSelected: false,
     );
   }
 }

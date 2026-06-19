@@ -1671,14 +1671,28 @@ class _PurchaseReceiveDetailPanelState
                   _buildDivider(),
                   _buildPdfPrintDropdown(receive),
                   _buildDivider(),
-                  _buildToolbarButton(
-                    LucideIcons.fileText,
-                    'Convert to Bill',
-                    onPressed: () {
-                      // [Planned] Convert to bill — see todo.md
-                    },
-                  ),
-                  _buildDivider(),
+                  if (!(currentStatus == 'received' &&
+                      _getReceiveBillStatus(receive).toLowerCase() == 'billed')) ...[
+                    _buildToolbarButton(
+                      LucideIcons.fileText,
+                      'Convert to Bill',
+                      onPressed: () {
+                        final orgId = GoRouterState.of(
+                          context,
+                        ).pathParameters['orgSystemId']!;
+                        context.pushNamed(
+                          AppRoutes.billsCreate,
+                          pathParameters: {
+                            'orgSystemId': orgId,
+                          },
+                          queryParameters: {
+                            'receiveId': receive.id!,
+                          },
+                        );
+                      },
+                    ),
+                    _buildDivider(),
+                  ],
                   if (currentStatus == 'draft' || currentStatus == 'intransit') ...[
                     _buildToolbarButton(
                       LucideIcons.checkCircle,

@@ -1,6 +1,7 @@
 // ignore_for_file: unused_element, unused_element_parameter, unused_field, unused_local_variable
 
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:go_router/go_router.dart';
@@ -49,6 +50,7 @@ import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_receives/providers/purchase_receives_provider.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 import 'package:dio/dio.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
@@ -355,7 +357,8 @@ class PurchasesBillCreateScreen extends ConsumerStatefulWidget {
   final String? editBillId;
   final String? cloneBillId;
   final String? poId;
-  const PurchasesBillCreateScreen({super.key, this.editBillId, this.cloneBillId, this.poId});
+  final String? receiveId;
+  const PurchasesBillCreateScreen({super.key, this.editBillId, this.cloneBillId, this.poId, this.receiveId});
 
   @override
   ConsumerState<PurchasesBillCreateScreen> createState() =>
@@ -377,19 +380,26 @@ class _PurchasesBillCreateScreenState
       });
 
   bool get _isKeralaPlaceOfSupply {
-    final pos = (_destinationOfSupply ?? _sourceOfSupply ?? '').toLowerCase();
-    return pos.contains('[kl]') || pos.contains('kerala');
+    final srcKL = _sourceOfSupply?.toLowerCase().contains('kerala') ?? false;
+    final destKL = _destinationOfSupply?.toLowerCase().contains('kerala') ?? false;
+    return srcKL && destKL;
   }
 
   // ─── Form state ────────────────────────────────────────────────────────────
   Vendor? _selectedVendor;
   List<PurchaseOrder> _openPurchaseOrders = [];
+  List<Map<String, dynamic>> _poReceivesList = [];
+  List<Map<String, dynamic>> _poBillsList = [];
   bool _vendorDropdownOpen = false;
 
   final TextEditingController _vendorSearchCtrl = TextEditingController();
 
   final LayerLink _vendorLayerLink = LayerLink();
   OverlayEntry? _vendorOverlayEntry;
+
+  final LayerLink _billingAddressLink = LayerLink();
+  final LayerLink _shippingAddressLink = LayerLink();
+  OverlayEntry? _addressDropdownOverlay;
 
   final TextEditingController _billNumberCtrl = TextEditingController();
   final TextEditingController _orderNumberCtrl = TextEditingController();
@@ -434,6 +444,7 @@ class _PurchasesBillCreateScreenState
   String? _orgDefaultState;
 
   final List<String> _statesList = [];
+  final Map<String, String> _stateIdMap = {};
   final List<String> _gstTreatments = [];
 
   @override
@@ -442,6 +453,8 @@ class _PurchasesBillCreateScreenState
     _transactionDiscountTypeOverlay = null;
     _vendorOverlayEntry?.remove();
     _vendorOverlayEntry = null;
+    _addressDropdownOverlay?.remove();
+    _addressDropdownOverlay = null;
     _itemOverlayEntry?.remove();
     _itemOverlayEntry = null;
     _hsnOverlayEntry?.remove();
@@ -588,6 +601,8 @@ class _PurchasesBillCreateScreenState
         await _loadBillForEdit();
       } else if (widget.poId != null) {
         await _loadPoForConvert();
+      } else if (widget.receiveId != null) {
+        await _loadReceiveForConvert();
       }
     });
   }
@@ -608,10 +623,21 @@ class _PurchasesBillCreateScreenState
           .getBill(billId);
 
       final vendors = ref.read(vendorProvider).vendors;
-      final matchingVendor = vendors.firstWhere(
-        (v) => v.id == bill.vendorId,
-        orElse: () => Vendor(id: bill.vendorId, displayName: bill.vendorName, companyName: ''),
-      );
+      final billVendorName = bill.vendorName;
+      Vendor? foundVendor = vendors.where((v) {
+        if (bill.vendorId.isNotEmpty && v.id == bill.vendorId) return true;
+        if (billVendorName.isNotEmpty && v.displayName.toLowerCase() == billVendorName.toLowerCase()) return true;
+        return false;
+      }).firstOrNull;
+
+      if (foundVendor == null && bill.vendorId.isNotEmpty) {
+        try {
+          final repo = ref.read(vendorRepositoryProvider);
+          foundVendor = await repo.getVendorById(bill.vendorId);
+        } catch (_) {}
+      }
+
+      final Vendor matchingVendor = foundVendor ?? Vendor(id: bill.vendorId, displayName: billVendorName, companyName: '');
 
       final isClone = widget.cloneBillId != null;
 
@@ -690,8 +716,8 @@ class _PurchasesBillCreateScreenState
                   ? billingState
                   : '[KL] - Kerala');
 
-        _sourceOfSupply = bill.placeOfSupply ?? resolvedState;
-        _destinationOfSupply = bill.placeOfSupply ?? resolvedState;
+        _sourceOfSupply = bill.sourceOfSupply ?? bill.placeOfSupply ?? resolvedState;
+        _destinationOfSupply = bill.destinationToSupply ?? bill.placeOfSupply ?? resolvedState;
 
         if (bill.warehouseName != null) {
           _warehouse = bill.warehouseName;
@@ -804,6 +830,255 @@ class _PurchasesBillCreateScreenState
     }
   }
 
+  Future<void> _loadReceiveForConvert() async {
+    final receiveId = widget.receiveId;
+    if (receiveId == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final rxRepository = ref.read(purchaseReceiveRepositoryProvider);
+      final rx = await rxRepository.getPurchaseReceive(receiveId);
+      if (rx == null) return;
+
+      PurchaseOrder? po;
+      if (rx.purchaseOrderId != null && rx.purchaseOrderId!.isNotEmpty) {
+        try {
+          final poRepository = ref.read(purchaseOrderRepositoryProvider);
+          po = await poRepository.getPurchaseOrder(rx.purchaseOrderId!);
+        } catch (_) {}
+      }
+
+      final vendors = ref.read(vendorProvider).vendors;
+      final rxVendorId = rx.vendorId ?? po?.vendorId;
+      final rxVendorName = rx.vendorName ?? po?.vendorName;
+
+      Vendor? foundVendor;
+      if (rxVendorId != null && rxVendorId.isNotEmpty) {
+        try {
+          final repo = ref.read(vendorRepositoryProvider);
+          foundVendor = await repo.getVendorById(rxVendorId);
+        } catch (_) {}
+      }
+
+      if (foundVendor == null && rxVendorName != null && rxVendorName.isNotEmpty) {
+        final match = vendors.where((v) => v.displayName.toLowerCase() == rxVendorName.toLowerCase()).firstOrNull;
+        if (match != null) {
+          try {
+            final repo = ref.read(vendorRepositoryProvider);
+            foundVendor = await repo.getVendorById(match.id);
+          } catch (_) {}
+        }
+      }
+
+      final Vendor matchingVendor = foundVendor ?? Vendor(id: rxVendorId ?? '', displayName: rxVendorName ?? '', companyName: '');
+
+      setState(() {
+        _selectedVendor = matchingVendor;
+        if (matchingVendor.paymentTerms != null && matchingVendor.paymentTerms!.isNotEmpty) {
+          _paymentTerms = matchingVendor.paymentTerms;
+        }
+        _hasAddress = matchingVendor.billingAddress != null &&
+            matchingVendor.billingAddress!.values.any(
+              (val) => val != null && val.toString().trim().isNotEmpty,
+            );
+        _customBillingAddress = null;
+        _orderNumberCtrl.text = rx.purchaseOrderNumber ?? po?.orderNumber ?? '';
+        _notesCtrl.text = rx.notes ?? po?.notes ?? '';
+        _subjectCtrl.text = po?.referenceNumber ?? '';
+
+        _billNumberCtrl.text = rx.billNo ?? '';
+        _billDateCtrl.text = rx.billDate != null ? DateFormat('dd-MM-yyyy').format(rx.billDate!) : '';
+        _invoiceTotalCtrl.text = rx.invoiceTotal > 0 ? rx.invoiceTotal.toStringAsFixed(2) : '';
+
+        final String? vendorSource = matchingVendor.sourceOfSupply;
+        final String? billingState = matchingVendor.billingAddress?['state']?.toString();
+        final String resolvedSource =
+            (vendorSource != null && vendorSource.isNotEmpty)
+            ? _resolveStateName(vendorSource)
+            : ((billingState != null && billingState.isNotEmpty)
+                  ? _resolveStateName(billingState)
+                  : '[KL] - Kerala');
+
+        final String resolvedDest = resolvedSource;
+
+        _sourceOfSupply = resolvedSource;
+        _destinationOfSupply = resolvedDest;
+
+        final rxWarehouseId = rx.warehouseId;
+        if (rxWarehouseId != null) {
+          final warehouses = ref.read(warehousesProvider).value ?? <Warehouse>[];
+          final match = warehouses.firstWhere(
+            (w) => w.id == rxWarehouseId,
+            orElse: () => Warehouse(id: rxWarehouseId, name: ''),
+          );
+          if (match.name.isNotEmpty) {
+            _warehouse = match.name;
+          }
+        } else if (po?.warehouseName != null) {
+          _warehouse = po!.warehouseName;
+        }
+
+        final poVal = po;
+        if (poVal != null && poVal.paymentTerms != null) {
+          final terms = poVal.paymentTerms;
+          final matchingTerm = _paymentTermsList.firstWhere(
+            (t) => t['term_name'] == terms || t['id'] == terms,
+            orElse: () => <String, dynamic>{},
+          );
+          if (matchingTerm.isNotEmpty) {
+            _paymentTerms = matchingTerm['id'];
+          }
+        }
+
+        if (po != null) {
+          _discountType = po.discountLevel == 'transaction' ? 'At Transaction Level' : 'At Line Item Level';
+          _discountPercentCtrl.text = po.discount.toString();
+          _discountPercent = po.discount;
+          _transactionDiscountType = po.discountType == 'percentage' ? '%' : '₹';
+          _reverseCharge = po.isReverseCharge;
+          _adjustment = po.adjustment;
+          _adjustmentAmountCtrl.text = po.adjustment.toStringAsFixed(2);
+
+          _tdsTcsType = (po.tdsTcsType == null || po.tdsTcsType == 'none') ? 'tds' : po.tdsTcsType!;
+          _selectedTdsTcsId = po.tdsTcsId;
+          _tdsTcsRate = 0.0;
+          if (_tdsTcsType == 'tds' && _selectedTdsTcsId != null) {
+            final matchedRate = _tdsRatesList.firstWhere(
+              (r) => r['id']?.toString() == _selectedTdsTcsId,
+              orElse: () => <String, dynamic>{},
+            );
+            if (matchedRate.isNotEmpty) {
+              _tdsTcsRate = double.tryParse(matchedRate['base_rate']?.toString() ?? '0') ?? 0.0;
+            }
+          } else if (_tdsTcsType == 'tcs' && _selectedTdsTcsId != null) {
+            final matchedRate = _tcsRatesList.firstWhere(
+              (r) => r['id']?.toString() == _selectedTdsTcsId,
+              orElse: () => <String, dynamic>{},
+            );
+            if (matchedRate.isNotEmpty) {
+              _tdsTcsRate = double.tryParse(matchedRate['rate']?.toString() ?? '0') ?? 0.0;
+            }
+          }
+        }
+
+        _lineItems.clear();
+        if (po != null) {
+          for (final poItem in po.items) {
+            if (poItem.isHeader) continue;
+
+            final rxItems = rx.items.where((i) => i.itemId == poItem.productId).toList();
+            if (rxItems.isEmpty) continue;
+            final rxItem = rxItems.first;
+
+            final row = _BillLineItemRow();
+            row.itemId = poItem.productId;
+            row.itemName = poItem.productName;
+            row.itemNameCtrl.text = poItem.productName ?? '';
+            row.hsnCode = poItem.hsnCode;
+            row.hsnCtrl.text = poItem.hsnCode ?? '';
+            row.descriptionCtrl.text = poItem.description ?? '';
+            row.accountId = poItem.accountId;
+            row.accountName = poItem.accountName;
+            row.quantityCtrl.text = rxItem.quantityToReceive.toInt().toString();
+            row.rateCtrl.text = poItem.rate.toStringAsFixed(2);
+            row.taxId = poItem.taxId;
+            row.taxName = poItem.taxName;
+            row.taxRate = poItem.taxRate;
+            row.discountCtrl.text = poItem.discount.toString();
+            row.discountType = poItem.discountType == 'percentage' ? '%' : '₹';
+            row.priceListId = poItem.priceListId;
+            row.itemType = poItem.productType;
+            row.showAdditionalInfo = true;
+
+            if (rxItem.batches.isNotEmpty) {
+              row.savedBatchData = rxItem.batches.map((b) {
+                return {
+                  'batchId': b.batchNo,
+                  'qtyOut': b.quantity.toString(),
+                  'foc': b.foc.toString(),
+                  'mrp': b.mrp.toString(),
+                  'prate': b.ptr.toString(),
+                  'expDate': b.expiryDate != null ? DateFormat('dd-MM-yyyy').format(b.expiryDate!) : '',
+                  'mfgDate': b.manufactureDate != null ? DateFormat('dd-MM-yyyy').format(b.manufactureDate!) : '',
+                  'mfgBatch': b.manufactureBatch,
+                  'unitPack': b.unitPack,
+                  'binId': b.binId ?? '',
+                };
+              }).toList();
+              row.hasBatchData = true;
+              row.batchCount = rxItem.batches.length;
+
+              final totalQty = row.savedBatchData!.fold<double>(
+                0.0,
+                (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+              );
+              final totalFoc = row.savedBatchData!.fold<double>(
+                0.0,
+                (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+              );
+              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+            }
+
+            _lineItems.add(row);
+          }
+        } else {
+          for (final rxItem in rx.items) {
+            final row = _BillLineItemRow();
+            row.itemId = rxItem.itemId;
+            row.itemName = rxItem.itemName;
+            row.itemNameCtrl.text = rxItem.itemName;
+            row.descriptionCtrl.text = rxItem.description ?? '';
+            row.quantityCtrl.text = rxItem.quantityToReceive.toInt().toString();
+            row.rateCtrl.text = '0.00';
+            row.discountCtrl.text = '0';
+            row.discountType = '%';
+            row.showAdditionalInfo = true;
+
+            if (rxItem.batches.isNotEmpty) {
+              row.savedBatchData = rxItem.batches.map((b) {
+                return {
+                  'batchId': b.batchNo,
+                  'qtyOut': b.quantity.toString(),
+                  'foc': b.foc.toString(),
+                  'mrp': b.mrp.toString(),
+                  'prate': b.ptr.toString(),
+                  'expDate': b.expiryDate != null ? DateFormat('dd-MM-yyyy').format(b.expiryDate!) : '',
+                  'mfgDate': b.manufactureDate != null ? DateFormat('dd-MM-yyyy').format(b.manufactureDate!) : '',
+                  'mfgBatch': b.manufactureBatch,
+                  'unitPack': b.unitPack,
+                  'binId': b.binId ?? '',
+                };
+              }).toList();
+              row.hasBatchData = true;
+              row.batchCount = rxItem.batches.length;
+
+              final totalQty = row.savedBatchData!.fold<double>(
+                0.0,
+                (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+              );
+              final totalFoc = row.savedBatchData!.fold<double>(
+                0.0,
+                (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+              );
+              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+            }
+
+            _lineItems.add(row);
+          }
+        }
+
+        if (_lineItems.isEmpty) {
+          _lineItems.add(_BillLineItemRow());
+        }
+        _loadOpenPurchaseOrders();
+      });
+    } catch (e) {
+      AppLogger.error('Failed to load purchase receive for billing', error: e, module: 'purchases');
+      ZerpaiToast.error(context, 'Failed to load Receive data: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _loadPoForConvert() async {
     final poId = widget.poId;
     if (poId == null) return;
@@ -814,36 +1089,61 @@ class _PurchasesBillCreateScreenState
       if (po == null) return;
 
       final vendors = ref.read(vendorProvider).vendors;
-      final matchingVendor = vendors.firstWhere(
-        (v) => v.id == po.vendorId,
-        orElse: () => Vendor(id: po.vendorId, displayName: po.vendorName ?? '', companyName: ''),
-      );
+      final poVendorId = po.vendorId;
+      final poVendorName = po.vendorName;
+      Vendor? foundVendor;
+      if (poVendorId.isNotEmpty) {
+        try {
+          final repo = ref.read(vendorRepositoryProvider);
+          foundVendor = await repo.getVendorById(poVendorId);
+        } catch (_) {}
+      }
+
+      if (foundVendor == null && poVendorName != null && poVendorName.isNotEmpty) {
+        final match = vendors.where((v) => v.displayName.toLowerCase() == poVendorName.toLowerCase()).firstOrNull;
+        if (match != null) {
+          try {
+            final repo = ref.read(vendorRepositoryProvider);
+            foundVendor = await repo.getVendorById(match.id);
+          } catch (_) {}
+        }
+      }
+
+      final Vendor matchingVendor = foundVendor ?? Vendor(id: poVendorId, displayName: poVendorName ?? '', companyName: '');
 
       setState(() {
         _selectedVendor = matchingVendor;
+        _hasAddress = matchingVendor.billingAddress != null &&
+            matchingVendor.billingAddress!.values.any(
+              (val) => val != null && val.toString().trim().isNotEmpty,
+            );
+        _customBillingAddress = null;
         _orderNumberCtrl.text = po.orderNumber;
         _notesCtrl.text = po.notes ?? '';
         _subjectCtrl.text = po.referenceNumber ?? '';
 
         final String? vendorSource = matchingVendor.sourceOfSupply;
         final String? billingState = matchingVendor.billingAddress?['state']?.toString();
-        final String resolvedState =
+        final String resolvedSource =
             (vendorSource != null && vendorSource.isNotEmpty)
-            ? vendorSource
+            ? _resolveStateName(vendorSource)
             : ((billingState != null && billingState.isNotEmpty)
-                  ? billingState
+                  ? _resolveStateName(billingState)
                   : '[KL] - Kerala');
 
-        _sourceOfSupply = po.shipmentPreference ?? resolvedState;
-        _destinationOfSupply = po.shipmentPreference ?? resolvedState;
+        final String resolvedDest = resolvedSource;
+
+        _sourceOfSupply = resolvedSource;
+        _destinationOfSupply = resolvedDest;
 
         if (po.warehouseName != null) {
           _warehouse = po.warehouseName;
         }
 
-        if (po.paymentTerms != null) {
+        final terms = po.paymentTerms;
+        if (terms != null) {
           final matchingTerm = _paymentTermsList.firstWhere(
-            (t) => t['term_name'] == po.paymentTerms || t['id'] == po.paymentTerms,
+            (t) => t['term_name'] == terms || t['id'] == terms,
             orElse: () => <String, dynamic>{},
           );
           if (matchingTerm.isNotEmpty) {
@@ -901,6 +1201,7 @@ class _PurchasesBillCreateScreenState
           row.discountType = item.discountType == 'percentage' ? '%' : '₹';
           row.priceListId = item.priceListId;
           row.itemType = item.productType;
+          row.showAdditionalInfo = true;
 
           _lineItems.add(row);
         }
@@ -924,6 +1225,8 @@ class _PurchasesBillCreateScreenState
       if (mounted) {
         setState(() {
           _openPurchaseOrders = [];
+          _poReceivesList = [];
+          _poBillsList = [];
         });
       }
       return;
@@ -934,14 +1237,81 @@ class _PurchasesBillCreateScreenState
         vendorId: vendorId,
         status: 'Issued',
       );
+
+      List<Map<String, dynamic>> receives = [];
+      List<Map<String, dynamic>> bills = [];
+      List<PurchaseOrder> detailedOrders = [];
+
+      if (allOrders.isNotEmpty) {
+        final poIds = allOrders.map((o) => o.id).whereType<String>().toList();
+        final poNumbers = allOrders.map((o) => o.orderNumber).toList();
+
+        final supabase = Supabase.instance.client;
+
+        final receivesResp = await supabase
+            .from('purchase_receives')
+            .select('id, purchase_receive_number, received_date, status, purchase_order_id, bill_no, purchase_receive_items(item_id, quantity_to_receive)')
+            .filter('purchase_order_id', 'in', poIds)
+            .eq('is_delete', false)
+            .order('created_at', ascending: true);
+
+        final billsResp = await supabase
+            .from('bills')
+            .select('id, bill_number, bill_date, status, grand_total, order_number, bill_items(product_id, quantity)')
+            .filter('order_number', 'in', poNumbers)
+            .order('created_at', ascending: true);
+
+        receives = (receivesResp as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
+        bills = (billsResp as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
+
+        detailedOrders = await Future.wait(
+          allOrders.map((o) async {
+            if (o.id == null) return o;
+            try {
+              final detailed = await repository.getPurchaseOrder(o.id!);
+              return detailed ?? o;
+            } catch (_) {
+              return o;
+            }
+          }),
+        );
+      }
+
       if (mounted) {
         setState(() {
-          _openPurchaseOrders = allOrders;
+          _openPurchaseOrders = detailedOrders;
+          _poReceivesList = receives;
+          _poBillsList = bills;
         });
       }
     } catch (e) {
       debugPrint('Error loading open purchase orders: $e');
     }
+  }
+
+  double _getUnreceivedQuantity(PurchaseOrder order) {
+    final orderId = order.id;
+    if (orderId == null) return 0.0;
+
+    // Total Ordered Quantity
+    final totalOrdered = order.items.fold(0.0, (sum, item) => sum + (item.isHeader ? 0.0 : item.quantity));
+
+    // Total Received Quantity from active, received transactions
+    final poReceives = _poReceivesList.where((rx) =>
+        rx['purchase_order_id'] == orderId &&
+        rx['status']?.toString().toLowerCase() == 'received').toList();
+
+    double totalReceived = 0.0;
+    for (final rx in poReceives) {
+      final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
+      for (final item in rxItems) {
+        final qty = double.tryParse(item['quantity_to_receive']?.toString() ?? '0.0') ?? 0.0;
+        totalReceived += qty;
+      }
+    }
+
+    final unreceived = totalOrdered - totalReceived;
+    return unreceived > 0 ? unreceived : 0.0;
   }
 
   Widget _buildPendingOrdersBanner() {
@@ -1004,13 +1374,35 @@ class _PurchasesBillCreateScreenState
   }
 
   void _showPendingOrdersDialog() {
-    final List<PurchaseOrder> selectedOrders = [];
+    final List<String> selectedReceiveIds = [];
+    final List<String> selectedUnreceivedPoIds = [];
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            // Gather all available options across all open POs
+            final allRxIds = <String>[];
+            final allPoIdsForUnreceived = <String>[];
+            for (final order in _openPurchaseOrders) {
+              final rxList = _poReceivesList.where((rx) =>
+                  rx['purchase_order_id'] == order.id
+              ).toList();
+              for (final rx in rxList) {
+                if (rx['id'] != null) {
+                  allRxIds.add(rx['id'].toString());
+                }
+              }
+              if (_getUnreceivedQuantity(order) > 0 && order.id != null) {
+                allPoIdsForUnreceived.add(order.id!);
+              }
+            }
+
+            final bool allChecked = (allRxIds.isNotEmpty || allPoIdsForUnreceived.isNotEmpty) &&
+                selectedReceiveIds.length == allRxIds.length &&
+                selectedUnreceivedPoIds.length == allPoIdsForUnreceived.length;
+
             return Dialog(
               alignment: Alignment.topCenter,
               backgroundColor: Colors.white,
@@ -1082,14 +1474,14 @@ class _PurchasesBillCreateScreenState
                         child: SingleChildScrollView(
                           child: Table(
                             columnWidths: const {
-                              0: FlexColumnWidth(1), // Checkbox
-                              1: FlexColumnWidth(4), // Purchase Order Details
-                              2: FlexColumnWidth(4), // Location
-                              3: FlexColumnWidth(3), // Date
-                              4: FlexColumnWidth(3), // Amount
+                              0: FixedColumnWidth(36.0), // Checkbox column
+                              1: FlexColumnWidth(6.5),   // Purchase Order Details
+                              2: FlexColumnWidth(2.5),   // Warehouse column
+                              3: FlexColumnWidth(2.0),   // Date column
+                              4: FlexColumnWidth(2.0),   // Amount column
                             },
                             defaultVerticalAlignment:
-                                TableCellVerticalAlignment.middle,
+                                TableCellVerticalAlignment.top,
                             children: [
                               TableRow(
                                 decoration: const BoxDecoration(
@@ -1102,24 +1494,17 @@ class _PurchasesBillCreateScreenState
                                 ),
                                 children: [
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
                                     child: Align(
                                       alignment: Alignment.centerLeft,
                                       child: SizedBox(
                                         width: 20,
                                         height: 20,
                                         child: Checkbox(
-                                          value:
-                                              _openPurchaseOrders.isNotEmpty &&
-                                              selectedOrders.length ==
-                                                  _openPurchaseOrders.length,
+                                          value: allChecked,
                                           activeColor: const Color(0xFF2563EB),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              3,
-                                            ),
+                                            borderRadius: BorderRadius.circular(3),
                                           ),
                                           side: const BorderSide(
                                             color: Color(0xFFD1D5DB),
@@ -1128,12 +1513,13 @@ class _PurchasesBillCreateScreenState
                                           onChanged: (val) {
                                             setDialogState(() {
                                               if (val == true) {
-                                                selectedOrders.clear();
-                                                selectedOrders.addAll(
-                                                  _openPurchaseOrders,
-                                                );
+                                                selectedReceiveIds.clear();
+                                                selectedReceiveIds.addAll(allRxIds);
+                                                selectedUnreceivedPoIds.clear();
+                                                selectedUnreceivedPoIds.addAll(allPoIdsForUnreceived);
                                               } else {
-                                                selectedOrders.clear();
+                                                selectedReceiveIds.clear();
+                                                selectedUnreceivedPoIds.clear();
                                               }
                                             });
                                           },
@@ -1155,7 +1541,7 @@ class _PurchasesBillCreateScreenState
                                   const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 8),
                                     child: Text(
-                                      'LOCATION',
+                                      'WAREHOUSE',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -1163,15 +1549,26 @@ class _PurchasesBillCreateScreenState
                                       ),
                                     ),
                                   ),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8),
-                                    child: Text(
-                                      'DATE',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF4B5563),
-                                      ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'DATE',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF4B5563),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          LucideIcons.arrowDown,
+                                          size: 12,
+                                          color: Color(0xFF4B5563),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   const Padding(
@@ -1195,9 +1592,6 @@ class _PurchasesBillCreateScreenState
                                 final dateStr = DateFormat(
                                   'dd-MM-yyyy',
                                 ).format(order.orderDate);
-                                final isChecked = selectedOrders.contains(
-                                  order,
-                                );
                                 final locationStr = order.warehouseName ?? '—';
                                 final amountFormatter =
                                     NumberFormat.currency(
@@ -1209,6 +1603,35 @@ class _PurchasesBillCreateScreenState
                                   order.total,
                                 );
 
+                                // Fetch ALL receives for this PO (even billed ones)
+                                final rxList = _poReceivesList.where((rx) =>
+                                    rx['purchase_order_id'] == order.id
+                                ).toList();
+                                final unreceivedQty = _getUnreceivedQuantity(order);
+
+                                // Selectable options for checking the main PO checkbox
+                                final selectableRxIds = rxList
+                                    .map((rx) => rx['id'].toString())
+                                    .toList();
+                                final bool hasUnreceived = unreceivedQty > 0;
+                                final int totalSelectableChildren = selectableRxIds.length + (hasUnreceived ? 1 : 0);
+
+                                int selectedChildrenCount = 0;
+                                for (final id in selectableRxIds) {
+                                  if (selectedReceiveIds.contains(id)) {
+                                    selectedChildrenCount++;
+                                  }
+                                }
+                                if (hasUnreceived && selectedUnreceivedPoIds.contains(order.id)) {
+                                  selectedChildrenCount++;
+                                }
+
+                                final bool? poCheckedState = totalSelectableChildren == 0
+                                    ? false
+                                    : (selectedChildrenCount == totalSelectableChildren
+                                        ? true
+                                        : (selectedChildrenCount == 0 ? false : null));
+
                                 return TableRow(
                                   decoration: const BoxDecoration(
                                     border: Border(
@@ -1216,34 +1639,47 @@ class _PurchasesBillCreateScreenState
                                     ),
                                   ),
                                   children: [
+                                    // Column 0: Main PO Checkbox
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
+                                        vertical: 12,
                                       ),
                                       child: Align(
-                                        alignment: Alignment.centerLeft,
+                                        alignment: Alignment.topLeft,
                                         child: SizedBox(
                                           width: 20,
                                           height: 20,
                                           child: Checkbox(
-                                            value: isChecked,
-                                            activeColor: const Color(
-                                              0xFF2563EB,
-                                            ),
+                                            value: poCheckedState,
+                                            tristate: true,
+                                            activeColor: const Color(0xFF2563EB),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(3),
+                                              borderRadius: BorderRadius.circular(3),
                                             ),
                                             side: const BorderSide(
                                               color: Color(0xFFD1D5DB),
                                               width: 1.5,
                                             ),
-                                            onChanged: (val) {
+                                            onChanged: totalSelectableChildren == 0 ? null : (val) {
                                               setDialogState(() {
                                                 if (val == true) {
-                                                  selectedOrders.add(order);
+                                                  for (final id in selectableRxIds) {
+                                                    if (!selectedReceiveIds.contains(id)) {
+                                                      selectedReceiveIds.add(id);
+                                                    }
+                                                  }
+                                                  if (hasUnreceived && order.id != null) {
+                                                    if (!selectedUnreceivedPoIds.contains(order.id)) {
+                                                      selectedUnreceivedPoIds.add(order.id!);
+                                                    }
+                                                  }
                                                 } else {
-                                                  selectedOrders.remove(order);
+                                                  for (final id in selectableRxIds) {
+                                                    selectedReceiveIds.remove(id);
+                                                  }
+                                                  if (order.id != null) {
+                                                    selectedUnreceivedPoIds.remove(order.id);
+                                                  }
                                                 }
                                               });
                                             },
@@ -1251,6 +1687,7 @@ class _PurchasesBillCreateScreenState
                                         ),
                                       ),
                                     ),
+                                    // Column 1: Details
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12,
@@ -1278,9 +1715,140 @@ class _PurchasesBillCreateScreenState
                                               ),
                                             ),
                                           ],
-                                        ],
-                                      ),
-                                    ),
+
+                                          // Render child Receives
+                                          ...rxList.map((rx) {
+                                            final rxId = rx['id']?.toString() ?? '';
+                                            final isRxChecked = selectedReceiveIds.contains(rxId);
+                                            final rxNumber = rx['purchase_receive_number'] ?? '';
+                                            final label = rxNumber.toString();
+
+                                            return Padding(
+                                              padding: const EdgeInsets.only(left: 16, top: 6),
+                                              child: Row(
+                                                children: [
+                                                  SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: Checkbox(
+                                                      value: isRxChecked,
+                                                      activeColor: const Color(0xFF2563EB),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(2),
+                                                      ),
+                                                      side: const BorderSide(
+                                                        color: Color(0xFFD1D5DB),
+                                                        width: 1.2,
+                                                      ),
+                                                      onChanged: (val) {
+                                                        setDialogState(() {
+                                                          if (val == true) {
+                                                            selectedReceiveIds.add(rxId);
+                                                          } else {
+                                                            selectedReceiveIds.remove(rxId);
+                                                          }
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: GestureDetector(
+                                                      onTap: () {
+                                                        setDialogState(() {
+                                                          if (selectedReceiveIds.contains(rxId)) {
+                                                            selectedReceiveIds.remove(rxId);
+                                                          } else {
+                                                            selectedReceiveIds.add(rxId);
+                                                          }
+                                                        });
+                                                      },
+                                                      child: MouseRegion(
+                                                        cursor: SystemMouseCursors.click,
+                                                        child: Text(
+                                                          label,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: const TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: Color(0xFF2563EB),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }),
+
+                                          // Render unreceived quantity option
+                                          if (unreceivedQty > 0) ...[
+                                            Padding(
+                                              padding: const EdgeInsets.only(left: 16, top: 6),
+                                              child: Row(
+                                                children: [
+                                                  SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: Checkbox(
+                                                      value: selectedUnreceivedPoIds.contains(order.id),
+                                                      activeColor: const Color(0xFF2563EB),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(2),
+                                                      ),
+                                                      side: const BorderSide(
+                                                        color: Color(0xFFD1D5DB),
+                                                        width: 1.2,
+                                                      ),
+                                                      onChanged: (val) {
+                                                        setDialogState(() {
+                                                          if (val == true) {
+                                                            if (order.id != null) {
+                                                              selectedUnreceivedPoIds.add(order.id!);
+                                                            }
+                                                          } else {
+                                                            selectedUnreceivedPoIds.remove(order.id);
+                                                          }
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: GestureDetector(
+                                                      onTap: () {
+                                                        setDialogState(() {
+                                                          if (selectedUnreceivedPoIds.contains(order.id)) {
+                                                            selectedUnreceivedPoIds.remove(order.id);
+                                                          } else {
+                                                            if (order.id != null) {
+                                                              selectedUnreceivedPoIds.add(order.id!);
+                                                            }
+                                                          }
+                                                        });
+                                                      },
+                                                      child: MouseRegion(
+                                                        cursor: SystemMouseCursors.click,
+                                                        child: Text(
+                                                          'Quantity yet to receive : ${unreceivedQty.toStringAsFixed(2)}',
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: const TextStyle(
+                                                            fontSize: 12.5,
+                                                            color: Color(0xFF374151),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                 ],
+                                               ),
+                                             ),
+                                           ],
+                                         ],
+                                       ),
+                                     ),
+                                    // Column 2: Warehouse
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12,
@@ -1289,12 +1857,11 @@ class _PurchasesBillCreateScreenState
                                         locationStr,
                                         style: const TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF4B5563),
+                                          color: Color(0xFF374151),
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    // Column 3: Date
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12,
@@ -1307,6 +1874,7 @@ class _PurchasesBillCreateScreenState
                                         ),
                                       ),
                                     ),
+                                    // Column 4: Amount
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12,
@@ -1333,12 +1901,13 @@ class _PurchasesBillCreateScreenState
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           ElevatedButton(
-                            onPressed: selectedOrders.isEmpty
+                            onPressed: (selectedReceiveIds.isEmpty && selectedUnreceivedPoIds.isEmpty)
                                 ? null
                                 : () {
                                     Navigator.pop(dialogContext);
-                                    _addItemsFromMultiplePurchaseOrders(
-                                      selectedOrders,
+                                    _addItemsFromSelectedOptions(
+                                      selectedReceiveIds,
+                                      selectedUnreceivedPoIds,
                                     );
                                   },
                             style: ElevatedButton.styleFrom(
@@ -1399,83 +1968,400 @@ class _PurchasesBillCreateScreenState
     );
   }
 
-  Future<void> _addItemsFromMultiplePurchaseOrders(List<PurchaseOrder> orders) async {
-    if (orders.isEmpty) return;
+  Future<void> _addItemsFromSelectedOptions(
+    List<String> selectedReceiveIds,
+    List<String> selectedUnreceivedPoIds,
+  ) async {
+    if (selectedReceiveIds.isEmpty && selectedUnreceivedPoIds.isEmpty) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final repository = ref.read(purchaseOrderRepositoryProvider);
-      final List<PurchaseOrder?> fullOrders = await Future.wait(
-        orders.map((o) async {
-          if (o.id == null) return null;
-          return await repository.getPurchaseOrder(o.id!);
-        }),
-      );
+      final poRepository = ref.read(purchaseOrderRepositoryProvider);
+      final rxRepository = ref.read(purchaseReceiveRepositoryProvider);
 
-      if (!mounted) return;
+      final Set<String> poNumbers = {};
+      final Set<String> refNumbers = {};
+      final Set<String> notes = {};
+      String? firstWarehouse;
+      String? firstPaymentTerms;
+      String? firstDiscountLevel;
+      double? firstDiscount;
+      String? firstDiscountType;
+      bool? firstReverseCharge;
+      double? firstAdjustment;
+      String? firstTdsTcsType;
+      String? firstTdsTcsId;
+      String? firstBillingAddressId;
+      String? firstSourceOfSupply;
+      String? firstDestinationOfSupply;
 
-      setState(() {
-        if (_lineItems.length == 1 &&
-            (_lineItems.first.itemId == null || _lineItems.first.itemId!.isEmpty)) {
-          _lineItems.clear();
+      if (mounted) {
+        setState(() {
+          if (_lineItems.length == 1 &&
+              (_lineItems.first.itemId == null || _lineItems.first.itemId!.isEmpty)) {
+            _lineItems.clear();
+          }
+        });
+      }
+
+      int addedCount = 0;
+
+      // 1. Process selected Purchase Receives
+      for (final rxId in selectedReceiveIds) {
+        final rx = await rxRepository.getPurchaseReceive(rxId);
+        if (rx == null) continue;
+
+        PurchaseOrder? po;
+        if (rx.purchaseOrderId != null && rx.purchaseOrderId!.isNotEmpty) {
+          po = await poRepository.getPurchaseOrder(rx.purchaseOrderId!);
         }
 
-        int addedCount = 0;
-        for (final order in fullOrders) {
-          if (order == null) continue;
-          for (final item in order.items) {
-            if (item.isHeader) continue;
-            final row = _BillLineItemRow();
-            row.itemId = item.productId;
-            row.itemName = item.productName;
-            row.itemNameCtrl.text = item.productName ?? '';
-            row.hsnCode = item.hsnCode;
-            row.hsnCtrl.text = item.hsnCode ?? '';
-            row.descriptionCtrl.text = item.description ?? '';
-            row.accountId = item.accountId;
-            row.accountName = item.accountName;
-            row.quantityCtrl.text = item.quantity.toInt().toString();
-            row.rateCtrl.text = item.rate.toStringAsFixed(2);
-            row.taxId = item.taxId;
-            row.taxName = item.taxName;
-            row.taxRate = item.taxRate;
-            row.discountCtrl.text = item.discount.toString();
-            row.discountType = item.discountType == 'percentage' ? '%' : '₹';
-            row.priceListId = item.priceListId;
-            row.itemType = item.productType;
+        if (rx.purchaseOrderNumber != null) {
+          poNumbers.add(rx.purchaseOrderNumber!);
+        } else if (po != null) {
+          poNumbers.add(po.orderNumber);
+        }
 
-            _lineItems.add(row);
+        if (po != null && po.referenceNumber != null && po.referenceNumber!.isNotEmpty) {
+          refNumbers.add(po.referenceNumber!);
+        }
+        if (rx.notes != null && rx.notes!.isNotEmpty) {
+          notes.add(rx.notes!);
+        } else if (po != null && po.notes != null && po.notes!.isNotEmpty) {
+          notes.add(po.notes!);
+        }
+
+        if (po != null) {
+          firstWarehouse ??= po.warehouseName;
+          firstPaymentTerms ??= po.paymentTerms;
+          firstDiscountLevel ??= po.discountLevel;
+          firstDiscount ??= po.discount;
+          firstDiscountType ??= po.discountType;
+          firstReverseCharge ??= po.isReverseCharge;
+          firstAdjustment ??= po.adjustment;
+          firstTdsTcsType ??= po.tdsTcsType;
+          firstTdsTcsId ??= po.tdsTcsId;
+          firstBillingAddressId ??= po.billingAddressId;
+          firstSourceOfSupply ??= po.sourceOfSupply;
+          firstDestinationOfSupply ??= po.destinationToSupply;
+        }
+
+        if (po != null) {
+          for (final poItem in po.items) {
+            if (poItem.isHeader) continue;
+
+            final rxItems = rx.items.where((i) => i.itemId == poItem.productId).toList();
+            if (rxItems.isEmpty) continue;
+            final rxItem = rxItems.first;
+
+            final row = _BillLineItemRow();
+            row.itemId = poItem.productId;
+            row.itemName = poItem.productName;
+            row.itemNameCtrl.text = poItem.productName ?? '';
+            row.hsnCode = poItem.hsnCode;
+            row.hsnCtrl.text = poItem.hsnCode ?? '';
+            row.descriptionCtrl.text = poItem.description ?? '';
+            row.accountId = poItem.accountId;
+            row.accountName = poItem.accountName;
+            row.quantityCtrl.text = rxItem.quantityToReceive.toInt().toString();
+            row.rateCtrl.text = poItem.rate.toStringAsFixed(2);
+            row.taxId = poItem.taxId;
+            row.taxName = poItem.taxName;
+            row.taxRate = poItem.taxRate;
+            row.discountCtrl.text = poItem.discount.toString();
+            row.discountType = poItem.discountType == 'percentage' ? '%' : '₹';
+            row.priceListId = poItem.priceListId;
+            row.itemType = poItem.productType;
+            row.showAdditionalInfo = true;
+
+            if (rxItem.batches.isNotEmpty) {
+              row.savedBatchData = rxItem.batches.map((b) {
+                return {
+                  'batchId': b.batchNo,
+                  'qtyOut': b.quantity.toString(),
+                  'foc': b.foc.toString(),
+                  'mrp': b.mrp.toString(),
+                  'prate': b.ptr.toString(),
+                  'expDate': b.expiryDate != null ? DateFormat('dd-MM-yyyy').format(b.expiryDate!) : '',
+                  'mfgDate': b.manufactureDate != null ? DateFormat('dd-MM-yyyy').format(b.manufactureDate!) : '',
+                  'mfgBatch': b.manufactureBatch,
+                  'unitPack': b.unitPack,
+                  'binId': b.binId ?? '',
+                };
+              }).toList();
+              row.hasBatchData = true;
+              row.batchCount = rxItem.batches.length;
+
+              final totalQty = row.savedBatchData!.fold<double>(
+                0.0,
+                (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+              );
+              final totalFoc = row.savedBatchData!.fold<double>(
+                0.0,
+                (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+              );
+              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+            }
+
+            if (mounted) {
+              setState(() {
+                _lineItems.add(row);
+              });
+            }
             addedCount++;
           }
+        } else {
+          for (final rxItem in rx.items) {
+            final row = _BillLineItemRow();
+            row.itemId = rxItem.itemId;
+            row.itemName = rxItem.itemName;
+            row.itemNameCtrl.text = rxItem.itemName;
+            row.descriptionCtrl.text = rxItem.description ?? '';
+            row.quantityCtrl.text = rxItem.quantityToReceive.toInt().toString();
+            row.rateCtrl.text = '0.00';
+            row.discountCtrl.text = '0';
+            row.discountType = '%';
+            row.showAdditionalInfo = true;
 
-          if (_orderNumberCtrl.text.isEmpty) {
-            _orderNumberCtrl.text = order.orderNumber;
-          } else if (!_orderNumberCtrl.text.contains(order.orderNumber)) {
-            _orderNumberCtrl.text += ', ${order.orderNumber}';
+            if (rxItem.batches.isNotEmpty) {
+              row.savedBatchData = rxItem.batches.map((b) {
+                return {
+                  'batchId': b.batchNo,
+                  'qtyOut': b.quantity.toString(),
+                  'foc': b.foc.toString(),
+                  'mrp': b.mrp.toString(),
+                  'prate': b.ptr.toString(),
+                  'expDate': b.expiryDate != null ? DateFormat('dd-MM-yyyy').format(b.expiryDate!) : '',
+                  'mfgDate': b.manufactureDate != null ? DateFormat('dd-MM-yyyy').format(b.manufactureDate!) : '',
+                  'mfgBatch': b.manufactureBatch,
+                  'unitPack': b.unitPack,
+                  'binId': b.binId ?? '',
+                };
+              }).toList();
+              row.hasBatchData = true;
+              row.batchCount = rxItem.batches.length;
+
+              final totalQty = row.savedBatchData!.fold<double>(
+                0.0,
+                (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+              );
+              final totalFoc = row.savedBatchData!.fold<double>(
+                0.0,
+                (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+              );
+              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+            }
+
+            if (mounted) {
+              setState(() {
+                _lineItems.add(row);
+              });
+            }
+            addedCount++;
+          }
+        }
+      }
+
+      // 2. Process selected PO unreceived quantities
+      for (final poId in selectedUnreceivedPoIds) {
+        final po = await poRepository.getPurchaseOrder(poId);
+        if (po == null) continue;
+
+        poNumbers.add(po.orderNumber);
+        if (po.referenceNumber != null && po.referenceNumber!.isNotEmpty) {
+          refNumbers.add(po.referenceNumber!);
+        }
+        if (po.notes != null && po.notes!.isNotEmpty) {
+          notes.add(po.notes!);
+        }
+
+        firstWarehouse ??= po.warehouseName;
+        firstPaymentTerms ??= po.paymentTerms;
+        firstDiscountLevel ??= po.discountLevel;
+        firstDiscount ??= po.discount;
+        firstDiscountType ??= po.discountType;
+        firstReverseCharge ??= po.isReverseCharge;
+        firstAdjustment ??= po.adjustment;
+        firstTdsTcsType ??= po.tdsTcsType;
+        firstTdsTcsId ??= po.tdsTcsId;
+        firstBillingAddressId ??= po.billingAddressId;
+        firstSourceOfSupply ??= po.sourceOfSupply;
+        firstDestinationOfSupply ??= po.destinationToSupply;
+
+        final poReceives = _poReceivesList.where((rx) =>
+            rx['purchase_order_id'] == poId &&
+            rx['status']?.toString().toLowerCase() == 'received').toList();
+
+        final Map<String, double> productReceivedQty = {};
+        for (final rx in poReceives) {
+          final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
+          for (final item in rxItems) {
+            final productId = item['item_id']?.toString();
+            if (productId != null) {
+              final qty = double.tryParse(item['quantity_to_receive']?.toString() ?? '0.0') ?? 0.0;
+              productReceivedQty[productId] = (productReceivedQty[productId] ?? 0.0) + qty;
+            }
           }
         }
 
-        _updateAllRowTaxes();
+        for (final poItem in po.items) {
+          if (poItem.isHeader) continue;
 
-        final orderNumbers = orders.map((o) => o.orderNumber).join(', ');
+          final orderedQty = poItem.quantity;
+          final receivedQty = productReceivedQty[poItem.productId] ?? 0.0;
+          final remainingQty = orderedQty - receivedQty;
+
+          if (remainingQty > 0) {
+            final row = _BillLineItemRow();
+            row.itemId = poItem.productId;
+            row.itemName = poItem.productName;
+            row.itemNameCtrl.text = poItem.productName ?? '';
+            row.hsnCode = poItem.hsnCode;
+            row.hsnCtrl.text = poItem.hsnCode ?? '';
+            row.descriptionCtrl.text = poItem.description ?? '';
+            row.accountId = poItem.accountId;
+            row.accountName = poItem.accountName;
+            row.quantityCtrl.text = remainingQty.toInt().toString();
+            row.rateCtrl.text = poItem.rate.toStringAsFixed(2);
+            row.taxId = poItem.taxId;
+            row.taxName = poItem.taxName;
+            row.taxRate = poItem.taxRate;
+            row.discountCtrl.text = poItem.discount.toString();
+            row.discountType = poItem.discountType == 'percentage' ? '%' : '₹';
+            row.priceListId = poItem.priceListId;
+            row.itemType = poItem.productType;
+            row.showAdditionalInfo = true;
+
+            if (mounted) {
+              setState(() {
+                _lineItems.add(row);
+              });
+            }
+            addedCount++;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          final existingOrderNo = _orderNumberCtrl.text.trim();
+          if (existingOrderNo.isEmpty) {
+            _orderNumberCtrl.text = poNumbers.join(', ');
+          } else {
+            final Set<String> combined = existingOrderNo
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toSet();
+            combined.addAll(poNumbers);
+            _orderNumberCtrl.text = combined.join(', ');
+          }
+
+          if (notes.isNotEmpty && _notesCtrl.text.trim().isEmpty) {
+            _notesCtrl.text = notes.join('\n');
+          }
+          if (refNumbers.isNotEmpty && _subjectCtrl.text.trim().isEmpty) {
+            _subjectCtrl.text = refNumbers.join(', ');
+          }
+
+          if (firstWarehouse != null && _warehouse == null) {
+            _warehouse = firstWarehouse;
+          }
+
+          if (firstPaymentTerms != null && _paymentTerms == null) {
+            final matchingTerm = _paymentTermsList.firstWhere(
+              (t) => t['term_name'] == firstPaymentTerms || t['id'] == firstPaymentTerms,
+              orElse: () => <String, dynamic>{},
+            );
+            if (matchingTerm.isNotEmpty) {
+              _paymentTerms = matchingTerm['id'];
+            }
+          }
+
+          if (firstDiscountLevel != null) {
+            _discountType = firstDiscountLevel == 'transaction' ? 'At Transaction Level' : 'At Line Item Level';
+          }
+          if (firstDiscount != null) {
+            _discountPercentCtrl.text = firstDiscount.toString();
+            _discountPercent = firstDiscount;
+          }
+          if (firstDiscountType != null) {
+            _transactionDiscountType = firstDiscountType == 'percentage' ? '%' : '₹';
+          }
+          if (firstReverseCharge != null) {
+            _reverseCharge = firstReverseCharge;
+          }
+          if (firstAdjustment != null) {
+            _adjustment = firstAdjustment;
+            _adjustmentAmountCtrl.text = firstAdjustment.toStringAsFixed(2);
+          }
+
+          if (firstTdsTcsType != null) {
+            _tdsTcsType = (firstTdsTcsType == 'none') ? 'tds' : firstTdsTcsType;
+          }
+          if (firstTdsTcsId != null) {
+            _selectedTdsTcsId = firstTdsTcsId;
+            _tdsTcsRate = 0.0;
+            if (_tdsTcsType == 'tds' && _selectedTdsTcsId != null) {
+              final matchedRate = _tdsRatesList.firstWhere(
+                (r) => r['id']?.toString() == _selectedTdsTcsId,
+                orElse: () => <String, dynamic>{},
+              );
+              if (matchedRate.isNotEmpty) {
+                _tdsTcsRate = double.tryParse(matchedRate['base_rate']?.toString() ?? '0') ?? 0.0;
+              }
+            } else if (_tdsTcsType == 'tcs' && _selectedTdsTcsId != null) {
+              final matchedRate = _tcsRatesList.firstWhere(
+                (r) => r['id']?.toString() == _selectedTdsTcsId,
+                orElse: () => <String, dynamic>{},
+              );
+              if (matchedRate.isNotEmpty) {
+                _tdsTcsRate = double.tryParse(matchedRate['rate']?.toString() ?? '0') ?? 0.0;
+              }
+            }
+          }
+
+          if (firstBillingAddressId != null && _selectedVendor != null) {
+            final allAddrs = _getAllVendorAddresses(_selectedVendor!);
+            final match = allAddrs.firstWhere(
+              (a) => a['id']?.toString() == firstBillingAddressId,
+              orElse: () => <String, dynamic>{},
+            );
+            if (match.isNotEmpty) {
+              _customBillingAddress = match;
+              _hasAddress = true;
+            }
+          }
+
+          if (firstSourceOfSupply != null && firstSourceOfSupply.isNotEmpty) {
+            _sourceOfSupply = _resolveStateName(firstSourceOfSupply);
+          }
+          if (firstDestinationOfSupply != null && firstDestinationOfSupply.isNotEmpty) {
+            _destinationOfSupply = _resolveStateName(firstDestinationOfSupply);
+          }
+
+          _updateAllRowTaxes();
+        });
+
+        final sourceListStr = poNumbers.join(', ');
         if (addedCount > 0) {
           ZerpaiToast.success(
             context,
-            'Added $addedCount items from Purchase Orders: $orderNumbers',
+            'Added $addedCount items from selected options of: $sourceListStr',
           );
         } else {
           ZerpaiToast.info(
             context,
-            'No items found in selected Purchase Orders: $orderNumbers',
+            'No items found in selected options of: $sourceListStr',
           );
         }
-      });
+      }
     } catch (e) {
       if (mounted) {
         ZerpaiToast.error(
           context,
-          'Failed to load details for selected Purchase Orders: $e',
+          'Failed to load details for selected options: $e',
         );
       }
     } finally {
@@ -1511,13 +2397,19 @@ class _PurchasesBillCreateScreenState
       if (!mounted) return;
 
       final List<String> loadedStates = [];
+      final Map<String, String> loadedStateIdMap = {};
       if (statesData is List) {
         for (final s in statesData) {
           if (s is Map) {
+            final id = s['id']?.toString() ?? '';
             final code = s['code']?.toString() ?? '';
             final name = s['name']?.toString() ?? '';
             if (code.isNotEmpty && name.isNotEmpty) {
-              loadedStates.add('[$code] - $name');
+              final formatted = '[$code] - $name';
+              loadedStates.add(formatted);
+              if (id.isNotEmpty) {
+                loadedStateIdMap[id] = formatted;
+              }
             }
           }
         }
@@ -1572,6 +2464,9 @@ class _PurchasesBillCreateScreenState
       setState(() {
         _statesList.clear();
         _statesList.addAll(loadedStates);
+
+        _stateIdMap.clear();
+        _stateIdMap.addAll(loadedStateIdMap);
 
         _gstTreatments.clear();
         _gstTreatments.addAll(loadedGst);
@@ -2043,6 +2938,24 @@ class _PurchasesBillCreateScreenState
     }
   }
 
+  String _resolveStateName(String? input) {
+    if (input == null || input.isEmpty) return '[KL] - Kerala';
+    if (_stateIdMap.containsKey(input)) {
+      return _stateIdMap[input]!;
+    }
+    for (final entry in _stateIdMap.entries) {
+      if (entry.value.toLowerCase().contains(input.toLowerCase())) {
+        return entry.value;
+      }
+      final cleanEntry = entry.value.replaceAll(RegExp(r'\[.*\]\s*-\s*'), '').trim().toLowerCase();
+      final cleanInput = input.replaceAll(RegExp(r'\[.*\]\s*-\s*'), '').trim().toLowerCase();
+      if (cleanInput.contains(cleanEntry) || cleanEntry.contains(cleanInput)) {
+        return entry.value;
+      }
+    }
+    return input;
+  }
+
   void _showValidationError(String message) {
     ZerpaiToast.error(context, message);
   }
@@ -2062,6 +2975,16 @@ class _PurchasesBillCreateScreenState
 
     if (_billDateCtrl.text.trim().isEmpty) {
       _showValidationError('Please select a bill date.');
+      return;
+    }
+
+    if (_invoiceTotalCtrl.text.trim().isEmpty) {
+      _showValidationError('Please enter an invoice total.');
+      return;
+    }
+    final parsedInvoiceTotal = double.tryParse(_invoiceTotalCtrl.text.trim()) ?? 0.0;
+    if (parsedInvoiceTotal <= 0.0) {
+      _showValidationError('Please enter a valid invoice total greater than zero.');
       return;
     }
 
@@ -2123,6 +3046,17 @@ class _PurchasesBillCreateScreenState
         .map((r) => r.toModel(warehouseId: whId, isUnregistered: isUnregistered))
         .toList();
 
+    String? billingAddressId;
+    if (_selectedVendor != null && _selectedVendor!.vendorAddresses != null) {
+      final billingAddr = _selectedVendor!.vendorAddresses!.firstWhere(
+        (a) => (a['is_default_billing'] == true || a['isDefaultBilling'] == true || a['address_type'] == 'billing' || a['addressType'] == 'billing'),
+        orElse: () => <String, dynamic>{},
+      );
+      if (billingAddr.isNotEmpty) {
+        billingAddressId = billingAddr['id']?.toString();
+      }
+    }
+
     setState(() => _isLoading = true);
     try {
       final bill = PurchasesBill(
@@ -2132,6 +3066,9 @@ class _PurchasesBillCreateScreenState
         vendorName: _selectedVendor!.displayName,
         vendorNumber: _selectedVendor!.vendorNumber,
         placeOfSupply: placeOfSupply,
+        sourceOfSupply: _sourceOfSupply,
+        destinationToSupply: _destinationOfSupply,
+        billingAddress: billingAddressId,
         orderNumber: _orderNumberCtrl.text.trim().isEmpty
             ? null
             : _orderNumberCtrl.text.trim(),
@@ -2746,6 +3683,12 @@ class _PurchasesBillCreateScreenState
   // VENDOR INFO SECTION (Address, GST, Supply)
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _vendorInfoSection() {
+    if (_selectedVendor == null) return const SizedBox.shrink();
+    final vendor = _selectedVendor!;
+    final hasAddressesInDb = (vendor.billingAddress != null && vendor.billingAddress!.isNotEmpty) ||
+        (vendor.shippingAddress != null && vendor.shippingAddress!.isNotEmpty) ||
+        (vendor.vendorAddresses != null && vendor.vendorAddresses!.isNotEmpty);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2756,7 +3699,48 @@ class _PurchasesBillCreateScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildVendorAddressSection(),
+              // Billing & Shipping Address side by side
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAddressBlock(
+                    title: 'BILLING ADDRESS',
+                    address: _customBillingAddress ?? vendor.billingAddress,
+                    showPencil: hasAddressesInDb,
+                    link: _billingAddressLink,
+                    onEdit: () => _showAddressDropdownList(
+                      vendor: vendor,
+                      isBilling: true,
+                      link: _billingAddressLink,
+                    ),
+                    onNewAddress: () => _showAddressModal(
+                      vendor: vendor,
+                      isBilling: true,
+                      customTitle: hasAddressesInDb ? 'Additional Address' : 'New Billing Address',
+                      isNewAddress: true,
+                    ),
+                  ),
+                  const SizedBox(width: 64),
+                  _buildAddressBlock(
+                    title: 'SHIPPING ADDRESS',
+                    address: vendor.shippingAddress,
+                    showPencil: hasAddressesInDb,
+                    link: _shippingAddressLink,
+                    onEdit: () => _showAddressDropdownList(
+                      vendor: vendor,
+                      isBilling: false,
+                      link: _shippingAddressLink,
+                    ),
+                    onNewAddress: () => _showAddressModal(
+                      vendor: vendor,
+                      isBilling: false,
+                      customTitle: hasAddressesInDb ? 'Additional Address' : 'New Shipping Address',
+                      isNewAddress: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               _buildGstTreatmentRow(),
               _buildGstinRow(),
             ],
@@ -2780,6 +3764,11 @@ class _PurchasesBillCreateScreenState
       child: FormDropdown<Vendor>(
         height: 32,
         value: _selectedVendor,
+        textStyle: TextStyle(
+          fontSize: 13,
+          fontWeight: hasVendor ? FontWeight.bold : FontWeight.normal,
+          color: hasVendor ? _textPrimary : _hintColor,
+        ),
         items: vendors,
         hint: 'Select a Vendor',
         showSearch: true,
@@ -2947,124 +3936,130 @@ class _PurchasesBillCreateScreenState
     );
   }
 
-  Widget _buildVendorAddressSection() {
-    if (_selectedVendor == null) return const SizedBox.shrink();
-    final address = _customBillingAddress ?? _selectedVendor!.billingAddress;
-    final hasAddr =
-        address != null &&
-        address.values.any(
-          (val) => val != null && val.toString().trim().isNotEmpty,
-        );
-
-    // Build formatted address lines (only non-empty values)
+  Widget _buildAddressBlock({
+    required String title,
+    required Map<String, dynamic>? address,
+    required VoidCallback onEdit,
+    required VoidCallback onNewAddress,
+    required bool showPencil,
+    required LayerLink link,
+  }) {
+    final hasAddress = address != null && address.isNotEmpty;
     final lines = <String>[];
-    if (hasAddr) {
-      if (address['attention'] != null &&
-          (address['attention'] as String).isNotEmpty)
-        lines.add(address['attention']);
-      if (address['street1'] != null &&
-          (address['street1'] as String).isNotEmpty)
-        lines.add(address['street1']);
-      if (address['street2'] != null &&
-          (address['street2'] as String).isNotEmpty)
-        lines.add(address['street2']);
-      if (address['city'] != null && (address['city'] as String).isNotEmpty)
-        lines.add(address['city']);
+    if (hasAddress) {
+      final attention = address['attention'] as String? ?? '';
+      final street1 = address['street1'] as String? ?? 
+                      address['street'] as String? ?? 
+                      address['address_street'] as String? ?? 
+                      address['addressStreet'] as String? ?? '';
+      final street2 = address['street2'] as String? ?? 
+                      address['place'] as String? ?? 
+                      address['address_place'] as String? ?? 
+                      address['addressPlace'] as String? ?? '';
+      final city = address['city'] as String? ?? '';
+      final state = address['state'] as String? ?? '';
+      final zip = address['zip'] as String? ?? 
+                  address['pincode'] as String? ?? 
+                  address['zipCode'] as String? ?? '';
+      final country = address['country'] as String? ?? 
+                      address['countryRegion'] as String? ?? 
+                      address['country_region'] as String? ?? '';
+      final phone = address['phone'] as String? ?? '';
+      final fax = address['fax'] as String? ?? '';
+
+      if (attention.isNotEmpty) lines.add(attention);
+      if (street1.isNotEmpty) lines.add(street1);
+      if (street2.isNotEmpty) lines.add(street2);
+      if (city.isNotEmpty) lines.add(city);
       final stateZip = [
-        address['state'],
-        address['zip'],
-      ].where((s) => s != null && s.toString().isNotEmpty).join(' - ');
+        state,
+        zip,
+      ].where((s) => s.isNotEmpty).join(' ');
       if (stateZip.isNotEmpty) lines.add(stateZip);
-      if (address['country'] != null &&
-          (address['country'] as String).isNotEmpty)
-        lines.add(address['country']);
-      if (address['phone'] != null && (address['phone'] as String).isNotEmpty)
-        lines.add('Phone: ${address['phone']}');
+      if (country.isNotEmpty) lines.add(country);
+      if (phone.isNotEmpty) lines.add('Phone: $phone');
+      if (fax.isNotEmpty) lines.add('Fax Number: $fax');
     }
 
-    Widget billingHeader = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'BILLING ADDRESS',
-          style: TextStyle(
-            fontSize: 12,
-            color: _textMuted,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Inter',
-          ),
-        ),
-        if (hasAddr) ...[
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _showNewAddressDialog,
-            child: const Icon(
-              Icons.edit_outlined,
-              size: 14,
-              color: _primaryBlue,
-            ),
-          ),
-        ],
-      ],
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+    return SizedBox(
+      width: 260,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          billingHeader,
-          const SizedBox(height: 6),
-          if (!hasAddr)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: _showNewAddressDialog,
-                child: const Text(
-                  'New Address',
-                  style: TextStyle(
-                    color: _primaryBlue,
-                    fontSize: 13,
-                    fontFamily: 'Inter',
-                  ),
+          // Header
+          Row(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6B7280),
+                  letterSpacing: 0.5,
                 ),
               ),
-            )
-          else ...[
-            if (lines.isNotEmpty)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (address['attention'] != null &&
-                      (address['attention'] as String).isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Text(
-                        address['attention'] as String,
+              if (showPencil) ...[
+                const SizedBox(width: 4),
+                CompositedTransformTarget(
+                  link: link,
+                  child: InkWell(
+                    onTap: onEdit,
+                    child: const Icon(
+                      LucideIcons.pencil,
+                      size: 11,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (hasAddress)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (address['attention'] != null &&
+                    (address['attention'] as String).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      address['attention'] as String,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF111827),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ...lines
+                    .where(
+                      (l) => l != address['attention'],
+                    ) // Skip attention if already added
+                    .map(
+                      (l) => Text(
+                        l,
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: _textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          color: Color(0xFF4B5563),
+                          height: 1.5,
                         ),
                       ),
                     ),
-                  ...lines
-                      .where((l) => l != address['attention'])
-                      .map(
-                        (l) => Text(
-                          l,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: _textMuted,
-                            height: 1.5,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                ],
+              ],
+            )
+          else
+            GestureDetector(
+              onTap: onNewAddress,
+              child: const Text(
+                'New Address',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF2563EB),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-          ],
+            ),
         ],
       ),
     );
@@ -3168,281 +4163,621 @@ class _PurchasesBillCreateScreenState
     _gstinOverlay = null;
   }
 
-  Future<void> _showNewAddressDialog() async {
-    // Pre-populate from existing address data
-    final existingAddress =
-        _customBillingAddress ?? _selectedVendor?.billingAddress ?? {};
-
-    final attentionCtrl = TextEditingController(
-      text:
-          existingAddress['attention']?.toString() ??
-          _selectedVendor?.displayName ??
-          '',
-    );
-    final street1Ctrl = TextEditingController(
-      text: existingAddress['street1']?.toString() ?? '',
-    );
-    final street2Ctrl = TextEditingController(
-      text: existingAddress['street2']?.toString() ?? '',
-    );
-    final cityCtrl = TextEditingController(
-      text: existingAddress['city']?.toString() ?? '',
-    );
-    final zipCtrl = TextEditingController(
-      text: existingAddress['zip']?.toString() ?? '',
-    );
-    final phoneCtrl = TextEditingController(
-      text: existingAddress['phone']?.toString() ?? '',
-    );
-    final faxCtrl = TextEditingController(
-      text: existingAddress['fax']?.toString() ?? '',
-    );
-    String? selectedCountry = existingAddress['country']?.toString();
-    if (selectedCountry == null || selectedCountry.isEmpty)
-      selectedCountry = 'India';
-    String? selectedState = existingAddress['state']?.toString();
-    if (selectedState != null && selectedState.isEmpty) selectedState = null;
-
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          alignment: Alignment.topCenter,
-          insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 12, 12),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Billing Address',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+  void _showAddressDropdownList({
+    required Vendor vendor,
+    required bool isBilling,
+    required LayerLink link,
+  }) {
+    _closeAddressDropdownOverlay();
+    final allAddresses = _getAllVendorAddresses(vendor);
+    
+    _addressDropdownOverlay = OverlayEntry(
+      builder: (ctx) {
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _closeAddressDropdownOverlay,
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: SizedBox.expand(),
+              ),
+              CompositedTransformFollower(
+                link: link,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: const Offset(0, 4),
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white,
+                    child: Container(
+                      width: 340,
+                      constraints: const BoxConstraints(maxHeight: 320),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(6),
+                        color: Colors.white,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.all(8),
+                              itemCount: allAddresses.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (ctx, i) {
+                                final addr = allAddresses[i];
+                                return _buildAddressDropdownItem(
+                                  vendor: vendor,
+                                  address: addr,
+                                  isBilling: isBilling,
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.close,
-                          size: 18,
-                          color: Color(0xFFEF4444),
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 20,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildDialogField('Attention', attentionCtrl),
-                        _buildDialogDropdown(
-                          'Country/Region',
-                          ['India', 'USA', 'UK'],
-                          selectedCountry,
-                          (v) => setDialogState(() => selectedCountry = v),
-                        ),
-                        _buildDialogField(
-                          'Address',
-                          street1Ctrl,
-                          hint: 'Street',
-                          isMultiline: true,
-                        ),
-                        _buildDialogField(
-                          '',
-                          street2Ctrl,
-                          hint: 'Place',
-                          isMultiline: true,
-                        ),
-                        _buildDialogField('City', cityCtrl),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildDialogDropdown(
-                                'State',
-                                _statesList,
-                                selectedState,
-                                (v) => setDialogState(() => selectedState = v),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          InkWell(
+                            onTap: () {
+                              _closeAddressDropdownOverlay();
+                              _showAddressModal(
+                                vendor: vendor,
+                                isBilling: isBilling,
+                                customTitle: 'Additional Address',
+                                isNewAddress: true,
+                              );
+                            },
+                            child: Container(
+                              height: 40,
+                              alignment: Alignment.center,
+                              color: Colors.white,
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(LucideIcons.plus, size: 14, color: Color(0xFF2563EB)),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Add New Address',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF2563EB),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildDialogField('Pin Code', zipCtrl),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildDialogField('Phone', phoneCtrl),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildDialogField('Fax Number', faxCtrl),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Note: Changes made here will be updated for this customer.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _textMuted,
-                            fontStyle: FontStyle.italic,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    Overlay.of(context).insert(_addressDropdownOverlay!);
+  }
+
+  void _closeAddressDropdownOverlay() {
+    _addressDropdownOverlay?.remove();
+    _addressDropdownOverlay = null;
+  }
+
+  Map<String, dynamic> _normalizeAddress(Map<String, dynamic> address) {
+    return {
+      'attention': address['attention']?.toString() ?? '',
+      'street1': (address['street1'] ?? address['street'] ?? address['address_street'] ?? address['addressStreet'] ?? '').toString(),
+      'street2': (address['street2'] ?? address['place'] ?? address['address_place'] ?? address['addressPlace'] ?? '').toString(),
+      'city': address['city']?.toString() ?? '',
+      'state': address['state']?.toString() ?? '',
+      'zip': (address['zip'] ?? address['pincode'] ?? address['zipCode'] ?? '').toString(),
+      'country': (address['country'] ?? address['countryRegion'] ?? address['country_region'] ?? '').toString(),
+      'phone': address['phone']?.toString() ?? '',
+      'fax': address['fax']?.toString() ?? '',
+      if (address['id'] != null) 'id': address['id'].toString(),
+    };
+  }
+
+  bool _areAddressesEqual(Map<String, dynamic> a, Map<String, dynamic> b) {
+    String norm(dynamic val) => (val?.toString() ?? '').trim().toLowerCase();
+    
+    final streetA = norm(a['street1'] ?? a['street'] ?? a['address_street']);
+    final streetB = norm(b['street1'] ?? b['street'] ?? b['address_street']);
+    if (streetA != streetB) return false;
+    
+    final placeA = norm(a['street2'] ?? a['place'] ?? a['address_place'] ?? a['street_2']);
+    final placeB = norm(b['street2'] ?? b['place'] ?? b['address_place'] ?? b['street_2']);
+    if (placeA != placeB) return false;
+    
+    if (norm(a['city']) != norm(b['city'])) return false;
+    if (norm(a['state']) != norm(b['state'])) return false;
+    
+    final zipA = norm(a['zip'] ?? a['pincode']);
+    final zipB = norm(b['zip'] ?? b['pincode']);
+    if (zipA != zipB) return false;
+    
+    final countryA = norm(a['country'] ?? a['countryRegion'] ?? a['country_region']);
+    final countryB = norm(b['country'] ?? b['countryRegion'] ?? b['country_region']);
+    if (countryA != countryB) return false;
+    
+    if (norm(a['phone']) != norm(b['phone'])) return false;
+    if (norm(a['attention']) != norm(b['attention'])) return false;
+    
+    return true;
+  }
+
+  Widget _buildAddressDropdownItem({
+    required Vendor vendor,
+    required Map<String, dynamic> address,
+    required bool isBilling,
+  }) {
+    final attention = address['attention'] as String? ?? '';
+    final street1 = address['street1'] as String? ?? 
+                    address['street'] as String? ?? 
+                    address['address_street'] as String? ?? 
+                    address['addressStreet'] as String? ?? '';
+    final street2 = address['street2'] as String? ?? 
+                    address['place'] as String? ?? 
+                    address['address_place'] as String? ?? 
+                    address['addressPlace'] as String? ?? '';
+    final city = address['city'] as String? ?? '';
+    final state = address['state'] as String? ?? '';
+    final zip = address['zip'] as String? ?? 
+                address['pincode'] as String? ?? 
+                address['zipCode'] as String? ?? '';
+    final country = address['country'] as String? ?? 
+                    address['countryRegion'] as String? ?? 
+                    address['country_region'] as String? ?? '';
+    final phone = address['phone'] as String? ?? '';
+
+    final activeAddress = isBilling ? vendor.billingAddress : vendor.shippingAddress;
+    final isSelected = activeAddress != null && _areAddressesEqual(activeAddress, address);
+
+    final lines = <String>[
+      if (street1.isNotEmpty) street1,
+      if (street2.isNotEmpty) street2,
+      [city, state, zip].where((s) => s.isNotEmpty).join(', '),
+      if (country.isNotEmpty) country,
+      if (phone.isNotEmpty) 'Phone: $phone',
+    ];
+
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (ctx, setSt) {
+        return MouseRegion(
+          onEnter: (_) => setSt(() => isHovered = true),
+          onExit: (_) => setSt(() => isHovered = false),
+          child: GestureDetector(
+            onTap: () async {
+              _closeAddressDropdownOverlay();
+              final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                vendor: vendor,
+                selectedAddr: address,
+                isBilling: isBilling,
+              );
+              final normalizedAddr = _normalizeAddress(address);
+              final updated = isBilling
+                  ? vendor.copyWith(
+                      billingAddress: normalizedAddr,
+                      vendorAddresses: updatedAddresses,
+                    )
+                  : vendor.copyWith(
+                      shippingAddress: normalizedAddr,
+                      vendorAddresses: updatedAddresses,
+                    );
+              
+              setState(() {
+                _selectedVendor = updated;
+                if (isBilling) {
+                  _customBillingAddress = null;
+                  _hasAddress = true;
+                  final String? billingState = normalizedAddr['state']?.toString();
+                  if (billingState != null && billingState.isNotEmpty) {
+                    _sourceOfSupply = _resolveStateName(billingState);
+                    _destinationOfSupply = _resolveStateName(billingState);
+                  }
+                }
+              });
+
+              try {
+                ref
+                    .read(vendorProvider.notifier)
+                    .updateVendorLocally(vendor.id, updated);
+                await ref
+                    .read(vendorProvider.notifier)
+                    .updateVendor(vendor.id, updated);
+                if (mounted) {
+                  ZerpaiToast.success(context, 'Vendor address updated');
+                }
+              } catch (e) {
+                setState(() {
+                  _selectedVendor = vendor;
+                });
+                ref
+                    .read(vendorProvider.notifier)
+                    .updateVendorLocally(vendor.id, vendor);
+                if (mounted) {
+                  ZerpaiToast.error(context, 'Failed to update address: $e');
+                }
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isHovered
+                    ? const Color(0xFF3B82F6)
+                    : (isSelected ? const Color(0xFFEFF6FF) : Colors.white),
+                border: Border.all(
+                  color: isHovered
+                      ? const Color(0xFF3B82F6)
+                      : (isSelected ? const Color(0xFF3B82F6) : const Color(0xFFE5E7EB)),
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _customBillingAddress = {
-                              'attention': attentionCtrl.text,
-                              'street1': street1Ctrl.text,
-                              'street2': street2Ctrl.text,
-                              'city': cityCtrl.text,
-                              'state': selectedState,
-                              'zip': zipCtrl.text,
-                              'country': selectedCountry,
-                              'phone': phoneCtrl.text,
-                              'fax': faxCtrl.text,
-                            };
-                            _hasAddress = true;
-                          });
-                          Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryGreen,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
+                      Expanded(
+                        child: Text(
+                          attention.isNotEmpty
+                              ? attention
+                              : (isBilling ? 'Billing Address' : 'Shipping Address'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isHovered ? Colors.white : (isSelected ? const Color(0xFF2563EB) : const Color(0xFF1F2937)),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        child: const Text(
-                          'Save',
-                          style: TextStyle(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          side: const BorderSide(color: Color(0xFFD1D5DB)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Color(0xFF374151)),
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isHovered)
+                            GestureDetector(
+                              onTap: () {
+                                _closeAddressDropdownOverlay();
+                                _showAddressModal(
+                                  vendor: vendor,
+                                  isBilling: isBilling,
+                                  initialAddress: address,
+                                  customTitle: 'Additional Address',
+                                );
+                              },
+                              child: Icon(
+                                LucideIcons.pencil,
+                                size: 13,
+                                color: isHovered ? Colors.white : const Color(0xFF6B7280),
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  ...lines.map(
+                    (l) => Text(
+                      l,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isHovered ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF4B5563),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildDialogField(
-    String label,
-    TextEditingController ctrl, {
-    String? hint,
-    bool isMultiline = false,
+  List<Map<String, dynamic>> _updateVendorAddressesDefaultFlags({
+    required Vendor vendor,
+    required Map<String, dynamic> selectedAddr,
+    required bool isBilling,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (label.isNotEmpty) ...[
-            Text(
-              label,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 6),
-          ],
-          TextField(
-            controller: ctrl,
-            maxLines: isMultiline ? 3 : 1,
-            decoration: InputDecoration(
-              hintText: hint,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    final currentList = vendor.vendorAddresses ?? [];
+    bool found = false;
+    final newList = currentList.map((addr) {
+      final isMatch = _areAddressesEqual(addr, selectedAddr);
+      final updatedAddr = Map<String, dynamic>.from(addr);
+      
+      if (isMatch) {
+        found = true;
+        if (isBilling) {
+          updatedAddr['is_default_billing'] = true;
+          updatedAddr['isDefaultBilling'] = true;
+        } else {
+          updatedAddr['is_default_shipping'] = true;
+          updatedAddr['isDefaultShipping'] = true;
+        }
+      } else {
+        if (isBilling) {
+          updatedAddr['is_default_billing'] = false;
+          updatedAddr['isDefaultBilling'] = false;
+        } else {
+          updatedAddr['is_default_shipping'] = false;
+          updatedAddr['isDefaultShipping'] = false;
+        }
+      }
+
+      final billingFlag = updatedAddr['is_default_billing'] == true || updatedAddr['isDefaultBilling'] == true;
+      final shippingFlag = updatedAddr['is_default_shipping'] == true || updatedAddr['isDefaultShipping'] == true;
+      if (billingFlag && shippingFlag) {
+        updatedAddr['address_type'] = isBilling ? 'billing' : 'shipping';
+        updatedAddr['addressType'] = isBilling ? 'billing' : 'shipping';
+      } else if (billingFlag) {
+        updatedAddr['address_type'] = 'billing';
+        updatedAddr['addressType'] = 'billing';
+      } else if (shippingFlag) {
+        updatedAddr['address_type'] = 'shipping';
+        updatedAddr['addressType'] = 'shipping';
+      } else {
+        updatedAddr['address_type'] = 'additional';
+        updatedAddr['addressType'] = 'additional';
+      }
+
+      return updatedAddr;
+    }).toList();
+
+    if (!found) {
+      final newAddr = {
+        ...selectedAddr,
+        'is_default_billing': isBilling,
+        'isDefaultBilling': isBilling,
+        'is_default_shipping': !isBilling,
+        'isDefaultShipping': !isBilling,
+        'address_type': isBilling ? 'billing' : 'shipping',
+        'addressType': isBilling ? 'billing' : 'shipping',
+      };
+      newList.add(newAddr);
+    }
+    return newList;
   }
 
-  Widget _buildDialogDropdown(
-    String label,
-    List<String> items,
-    String? value,
-    ValueChanged<String?> onChanged,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 6),
-          FormDropdown<String>(
-            value: value,
-            items: items,
-            displayStringForValue: (e) => e,
-            onChanged: onChanged,
-            height: _fieldHeight,
-          ),
-        ],
+  List<Map<String, dynamic>> _getAllVendorAddresses(Vendor vendor) {
+    final list = <Map<String, dynamic>>[];
+    if (vendor.vendorAddresses != null && vendor.vendorAddresses!.isNotEmpty) {
+      for (final addr in vendor.vendorAddresses!) {
+        final mapped = Map<String, dynamic>.from(addr);
+        if (mapped['is_default_billing'] == null && mapped['isDefaultBilling'] != null) {
+          mapped['is_default_billing'] = mapped['isDefaultBilling'];
+        }
+        if (mapped['is_default_shipping'] == null && mapped['isDefaultShipping'] != null) {
+          mapped['is_default_shipping'] = mapped['isDefaultShipping'];
+        }
+        if (mapped['isDefaultBilling'] == null && mapped['is_default_billing'] != null) {
+          mapped['isDefaultBilling'] = mapped['is_default_billing'];
+        }
+        if (mapped['isDefaultShipping'] == null && mapped['is_default_shipping'] != null) {
+          mapped['isDefaultShipping'] = mapped['is_default_shipping'];
+        }
+        list.add(mapped);
+      }
+    } else {
+      if (vendor.billingAddress != null && vendor.billingAddress!.isNotEmpty) {
+        final Map<String, dynamic> billing = Map<String, dynamic>.from(vendor.billingAddress!);
+        billing['is_default_billing'] = true;
+        billing['isDefaultBilling'] = true;
+        billing['address_type'] = 'billing';
+        list.add(billing);
+      }
+      if (vendor.shippingAddress != null && vendor.shippingAddress!.isNotEmpty) {
+        final Map<String, dynamic> shipping = Map<String, dynamic>.from(vendor.shippingAddress!);
+        shipping['is_default_shipping'] = true;
+        shipping['isDefaultShipping'] = true;
+        shipping['address_type'] = 'shipping';
+        list.add(shipping);
+      }
+    }
+
+    final uniqueList = <Map<String, dynamic>>[];
+    for (final addr in list) {
+      bool exists = false;
+      for (final existing in uniqueList) {
+        if (_areAddressesEqual(addr, existing)) {
+          exists = true;
+          if (addr['is_default_billing'] == true || addr['isDefaultBilling'] == true) {
+            existing['is_default_billing'] = true;
+            existing['isDefaultBilling'] = true;
+          }
+          if (addr['is_default_shipping'] == true || addr['isDefaultShipping'] == true) {
+            existing['is_default_shipping'] = true;
+            existing['isDefaultShipping'] = true;
+          }
+          break;
+        }
+      }
+      if (!exists) {
+        uniqueList.add(addr);
+      }
+    }
+    return uniqueList;
+  }
+
+  void _showAddressModal({
+    Vendor? vendor,
+    bool isBilling = true,
+    String? customTitle,
+    Map<String, dynamic>? initialAddress,
+    bool isNewAddress = false,
+  }) {
+    Map<String, dynamic> existingAddress = {};
+    if (initialAddress != null) {
+      existingAddress = initialAddress;
+    } else if (isNewAddress) {
+      existingAddress = {};
+    } else if (vendor != null) {
+      existingAddress = isBilling
+          ? (vendor.billingAddress ?? {})
+          : (vendor.shippingAddress ?? {});
+    }
+
+    String dialogTitle = customTitle ?? 'New address';
+    if (customTitle == null && vendor != null) {
+      dialogTitle = isBilling ? 'Billing Address' : 'Shipping Address';
+    }
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Address Dialog',
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (ctx, _, __) {
+        return AddressDialog(
+          title: dialogTitle,
+          initialAddress: existingAddress,
+          onSave: (val) async {
+            final isFirstBilling = vendor != null && isBilling && 
+                (vendor.billingAddress == null || vendor.billingAddress!.isEmpty);
+            final isFirstShipping = vendor != null && !isBilling && 
+                (vendor.shippingAddress == null || vendor.shippingAddress!.isEmpty);
+
+            final data = <String, dynamic>{
+              'attention': val['attention'] ?? '',
+              'street1': val['street1'] ?? '',
+              'street2': val['street2'] ?? '',
+              'city': val['city'] ?? '',
+              'state': val['stateName'] ?? val['state'] ?? '',
+              'zip': val['zip'] ?? '',
+              'country': val['countryName'] ?? val['country'] ?? '',
+              'phone': val['phone'] ?? '',
+              'phoneCode': val['phoneCode'] ?? '+91',
+              'fax': val['fax'] ?? '',
+              'is_default_billing': isFirstBilling,
+              'isDefaultBilling': isFirstBilling,
+              'is_default_shipping': isFirstShipping,
+              'isDefaultShipping': isFirstShipping,
+            };
+
+            if (vendor != null) {
+              Vendor updated;
+              if (isNewAddress) {
+                final Map<String, dynamic> newAddr = {
+                  ...data,
+                  'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+                };
+                final currentList = vendor.vendorAddresses ?? [];
+                final newList = [...currentList, newAddr];
+                final tempVendor = vendor.copyWith(vendorAddresses: newList);
+                
+                final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                  vendor: tempVendor,
+                  selectedAddr: newAddr,
+                  isBilling: isBilling,
+                );
+                
+                updated = isBilling
+                    ? tempVendor.copyWith(
+                        billingAddress: _normalizeAddress(newAddr),
+                        vendorAddresses: updatedAddresses,
+                      )
+                    : tempVendor.copyWith(
+                        shippingAddress: _normalizeAddress(newAddr),
+                        vendorAddresses: updatedAddresses,
+                      );
+              } else if (initialAddress != null) {
+                final currentList = vendor.vendorAddresses ?? [];
+                final newList = currentList.map((addr) {
+                  if (_areAddressesEqual(addr, initialAddress)) {
+                    return {
+                      ...addr,
+                      ...data,
+                    };
+                  }
+                  return addr;
+                }).toList();
+                
+                final tempVendor = vendor.copyWith(vendorAddresses: newList);
+                final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                  vendor: tempVendor,
+                  selectedAddr: data,
+                  isBilling: isBilling,
+                );
+                
+                updated = isBilling
+                    ? tempVendor.copyWith(
+                        billingAddress: _normalizeAddress(data),
+                        vendorAddresses: updatedAddresses,
+                      )
+                    : tempVendor.copyWith(
+                        shippingAddress: _normalizeAddress(data),
+                        vendorAddresses: updatedAddresses,
+                      );
+              } else {
+                final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                  vendor: vendor,
+                  selectedAddr: data,
+                  isBilling: isBilling,
+                );
+                updated = isBilling
+                    ? vendor.copyWith(
+                        billingAddress: _normalizeAddress(data),
+                        vendorAddresses: updatedAddresses,
+                      )
+                    : vendor.copyWith(
+                        shippingAddress: _normalizeAddress(data),
+                        vendorAddresses: updatedAddresses,
+                      );
+              }
+
+              setState(() {
+                _selectedVendor = updated;
+                if (isBilling) {
+                  _customBillingAddress = null;
+                  _hasAddress = true;
+                  final String? billingState = updated.billingAddress?['state']?.toString();
+                  if (billingState != null && billingState.isNotEmpty) {
+                    _sourceOfSupply = _resolveStateName(billingState);
+                    _destinationOfSupply = _resolveStateName(billingState);
+                  }
+                }
+              });
+
+              try {
+                ref
+                    .read(vendorProvider.notifier)
+                    .updateVendorLocally(vendor.id, updated);
+                await ref
+                    .read(vendorProvider.notifier)
+                    .updateVendor(vendor.id, updated);
+                if (context.mounted) {
+                  ZerpaiToast.success(context, 'Vendor address updated in database');
+                }
+              } catch (e) {
+                setState(() {
+                  _selectedVendor = vendor;
+                });
+                ref
+                    .read(vendorProvider.notifier)
+                    .updateVendorLocally(vendor.id, vendor);
+                if (context.mounted) {
+                  ZerpaiToast.error(context, 'Failed to update address in database: $e');
+                }
+              }
+            }
+          },
+        );
+      },
+      transitionBuilder: (ctx, anim, _, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+        child: child,
       ),
     );
   }
@@ -3482,9 +4817,15 @@ class _PurchasesBillCreateScreenState
 
   Widget _buildStatesDropdown(String? value, ValueChanged<String?> onChanged) {
     final items = {if (value != null) value, ..._statesList}.toList();
+    final hasVal = value != null && value.isNotEmpty;
     return FormDropdown<String>(
       value: value,
       items: items,
+      textStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: hasVal ? FontWeight.bold : FontWeight.normal,
+        color: hasVal ? _textPrimary : _hintColor,
+      ),
       displayStringForValue: (s) => s,
       hint: 'Select State',
       onChanged: onChanged,
@@ -3492,7 +4833,6 @@ class _PurchasesBillCreateScreenState
       border: Border.all(color: _fieldBorder),
       borderRadius: BorderRadius.circular(6),
       fillColor: _cardBg,
-      boldSelected: false,
     );
   }
 
@@ -4237,15 +5577,25 @@ class _PurchasesBillCreateScreenState
                 ),
               ),
               const Spacer(),
-              const SizedBox(
+              SizedBox(
                 width: 110,
-                child: Text(
-                  'Invoice Total',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: _labelColor,
-                    fontFamily: 'Inter',
+                child: RichText(
+                  text: const TextSpan(
+                    text: 'Invoice Total',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFEF4444),
+                      fontFamily: 'Inter',
+                    ),
+                    children: [
+                      TextSpan(
+                        text: ' *',
+                        style: TextStyle(
+                          color: Color(0xFFEF4444),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -4339,7 +5689,6 @@ class _PurchasesBillCreateScreenState
           );
         },
         onChanged: (val) => setState(() => _paymentTerms = val),
-        boldSelected: false,
       ),
     );
   }
@@ -5191,7 +6540,9 @@ class _PurchasesBillCreateScreenState
       return;
     }
 
-    final isIntra = _sourceOfSupply == _destinationOfSupply;
+    final srcKL = _sourceOfSupply?.toLowerCase().contains('kerala') ?? false;
+    final destKL = _destinationOfSupply?.toLowerCase().contains('kerala') ?? false;
+    final isIntra = srcKL && destKL;
     final taxId = isIntra ? item.intraStateTaxId : item.interStateTaxId;
     final taxName = isIntra ? item.intraStateTaxName : item.interStateTaxName;
 
@@ -5548,9 +6899,15 @@ class _PurchasesBillCreateScreenState
         !items.contains(_warehouse)) {
       items.insert(0, _warehouse!);
     }
+    final hasWh = _warehouse != null && _warehouse!.isNotEmpty;
     return FormDropdown<String>(
       value: _warehouse,
       items: items,
+      textStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: hasWh ? FontWeight.bold : FontWeight.normal,
+        color: hasWh ? _textPrimary : _hintColor,
+      ),
       displayStringForValue: (w) => w,
       hint: 'Select Warehouse',
       onChanged: (val) {
@@ -5595,6 +6952,11 @@ class _PurchasesBillCreateScreenState
     return FormDropdown<String>(
       height: 36,
       value: _discountType,
+      textStyle: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+        color: _textPrimary,
+      ),
       items: const ['At Transaction Level', 'At Line Item Level'],
       displayStringForValue: (v) => v,
       onChanged: (val) {
@@ -5631,9 +6993,15 @@ class _PurchasesBillCreateScreenState
       }
     }
 
+    final hasAcc = currentVal != null && currentVal.id.isNotEmpty;
     return FormDropdown<shared.AccountNode>(
       height: 36,
       value: currentVal,
+      textStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: hasAcc ? FontWeight.bold : FontWeight.normal,
+        color: hasAcc ? _textPrimary : _hintColor,
+      ),
       items: expenseAccounts,
       hint: 'Discount Account',
       displayStringForValue: (a) => a.name,
@@ -5684,9 +7052,15 @@ class _PurchasesBillCreateScreenState
     final selectedPL = activePriceLists
         .where((pl) => pl.id == _selectedPriceListId)
         .firstOrNull;
+    final hasPL = selectedPL != null;
     return FormDropdown<PriceList>(
       height: 36,
       value: selectedPL,
+      textStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: hasPL ? FontWeight.bold : FontWeight.normal,
+        color: hasPL ? _textPrimary : _hintColor,
+      ),
       items: activePriceLists,
       hint: 'Apply Price List',
       allowClear: true,
@@ -6514,38 +7888,6 @@ class _PurchasesBillCreateScreenState
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Show Additional Information (Highlighted)
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            row.showAdditionalInfo = !row.showAdditionalInfo;
-                          });
-                          _removeMoreOverlay();
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          margin: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF3B82F6),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            row.showAdditionalInfo
-                                ? 'Hide Additional Information'
-                                : 'Show Additional Information',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const Divider(height: 1, color: Color(0xFFF3F4F6)),
                       _buildMoreOption(
                         label: 'Clone',
                         onTap: () {
@@ -7108,53 +8450,6 @@ class _PurchasesBillCreateScreenState
             ),
           ],
         ),
-        if (row.showAdditionalInfo) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: _buildBatchSelector(row)),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildCompactDateField(
-                  context,
-                  row.expiryCtrl,
-                  focusNode: row.expiryFocus,
-                  hint: 'Expiry MM/YY',
-                  onChanged: (v) => setState(() => row.expiry = v),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactTextField(
-                  row.unitPackCtrl,
-                  hint: 'Pack',
-                  focusNode: row.unitPackFocus,
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildCompactNumberField(
-                  row.mrpCtrl,
-                  focusNode: row.mrpFocus,
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildCompactNumberField(
-                  row.ptrCtrl,
-                  focusNode: row.ptrFocus,
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }
@@ -7507,7 +8802,6 @@ class _PurchasesBillCreateScreenState
                                 .toList(),
                             hint: 'Apply Price List',
                             allowClear: true,
-                            boldSelected: false,
                             displayStringForValue: (pl) => pl.name,
                             textStyle: const TextStyle(
                               fontSize: 11,
@@ -8111,157 +9405,245 @@ class _PurchasesBillCreateScreenState
       alignment: Alignment.topCenter,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 0),
-      child: Container(
-        width: 600,
-        height: 250,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
-              child: Row(
-                children: [
-                  const Text(
-                    'Select Account',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827),
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.x,
-                      size: 16,
-                      color: Color(0xFFEF4444),
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Account',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF111827),
+      child: StatefulBuilder(
+        builder: (context, dialogSetState) {
+          return Container(
+            width: 600,
+            height: 250,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Select Account',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111827),
+                          fontFamily: 'Inter',
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FormDropdown<coa.AccountNode>(
-                        height: 32,
-                        value: _selectedPopupAccount,
-                        items: availableAccounts,
-                        displayStringForValue: (v) => v.name,
-                        hint: 'Select an account',
-                        onChanged: (v) {
-                          setState(() {
-                            _selectedPopupAccount = v;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: _fieldBorder),
-                        itemBuilder: (account, isSelected, isHovered) {
-                          return _buildStandardLookupRow(
-                            account.name,
-                            isSelected,
-                            isHovered,
-                          );
-                        },
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: Color(0xFFEF4444),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      for (int i = 0; i < _lineItems.length; i++) {
-                        final row = _lineItems[i];
-                        if (row.itemId != null &&
-                            (!_bulkMode ||
-                                _selectedRows.isEmpty ||
-                                _selectedRows.contains(i))) {
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Account',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FormDropdown<coa.AccountNode>(
+                            height: 32,
+                            value: _selectedPopupAccount,
+                            items: _buildNestedAccountsList(availableAccounts),
+                            isItemEnabled: (v) => !v.id.startsWith('header_'),
+                            displayStringForValue: (v) => v.id.startsWith('header_') ? v.accountType : v.name,
+                            hint: 'Select an account',
+                            onChanged: (v) {
+                              if (v != null && v.id.startsWith('header_')) return;
+                              dialogSetState(() {
+                                _selectedPopupAccount = v;
+                              });
+                              setState(() {
+                                _selectedPopupAccount = v;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: _fieldBorder),
+                            itemBuilder: (account, isSelected, isHovered) {
+                              if (account.id.startsWith('header_')) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  child: Text(
+                                    account.accountType,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF111827),
+                                      fontSize: 11,
+                                      letterSpacing: 0.5,
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                );
+                              }
+                              final depth = _getAccountDepth(account, availableAccounts);
+                              final name = depth == 0
+                                  ? (account.systemAccountName.isNotEmpty
+                                      ? account.systemAccountName
+                                      : account.name)
+                                  : account.name;
+                              return _buildStandardLookupRow(
+                                name,
+                                isSelected,
+                                isHovered,
+                                indentation: 20.0 + (depth * 16.0),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          for (int i = 0; i < _lineItems.length; i++) {
+                            final row = _lineItems[i];
+                            if (row.itemId != null &&
+                                (!_bulkMode ||
+                                    _selectedRows.isEmpty ||
+                                    _selectedRows.contains(i))) {
+                              setState(() {
+                                row.accountId = _selectedPopupAccount?.id;
+                                row.accountName = _selectedPopupAccount?.name;
+                              });
+                            }
+                          }
+                          Navigator.pop(context);
                           setState(() {
-                            row.accountId = _selectedPopupAccount?.id;
-                            row.accountName = _selectedPopupAccount?.name;
+                            _bulkMode = false;
+                            _selectedRows.clear();
+                            _selectedPopupAccount = null;
                           });
-                        }
-                      }
-                      Navigator.pop(context);
-                      setState(() {
-                        _bulkMode = false;
-                        _selectedRows.clear();
-                        _selectedPopupAccount = null;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF28A745),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF28A745),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text(
+                          'Save',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                      const SizedBox(width: 10),
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF111827),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF111827),
-                      side: const BorderSide(color: Color(0xFFE5E7EB)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
+
+  List<coa.AccountNode> _buildNestedAccountsList(List<coa.AccountNode> accounts) {
+    final List<coa.AccountNode> nested = [];
+    final Map<String, List<coa.AccountNode>> grouped = {};
+    for (var acc in accounts) {
+      grouped.putIfAbsent(acc.accountType, () => []).add(acc);
+    }
+
+    for (var entry in grouped.entries) {
+      final type = entry.key;
+      final typeAccounts = entry.value;
+      nested.add(coa.AccountNode(
+        id: 'header_$type',
+        systemAccountName: type,
+        userAccountName: type,
+        name: type,
+        accountGroup: 'Expenses',
+        accountType: type,
+        isSystem: false,
+        isDeletable: false,
+        isActive: false,
+        parentId: null,
+      ));
+
+      final accountMap = {for (var a in typeAccounts) a.id: a};
+      final rootNodes = typeAccounts
+          .where((a) => a.parentId == null || !accountMap.containsKey(a.parentId))
+          .toList();
+
+      void addNode(coa.AccountNode node) {
+        nested.add(node);
+        final children = typeAccounts.where((a) => a.parentId == node.id).toList();
+        for (var child in children) {
+          addNode(child);
+        }
+      }
+
+      for (var root in rootNodes) {
+        addNode(root);
+      }
+    }
+    return nested;
+  }
+
+  int _getAccountDepth(coa.AccountNode node, List<coa.AccountNode> accounts) {
+    int depth = 0;
+    coa.AccountNode? current = node;
+    final accountMap = {for (var a in accounts) a.id: a};
+    while (current?.parentId != null && accountMap.containsKey(current!.parentId)) {
+      depth++;
+      current = accountMap[current.parentId];
+    }
+    return depth;
   }
 
   Widget _buildUpdateDiscountDialog() {
@@ -13943,7 +15325,7 @@ class _ConfigureTaxPreferencesDialogState
           width: 380,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFDDDDDD)),
             boxShadow: [
               BoxShadow(
@@ -14012,9 +15394,9 @@ class _ConfigureTaxPreferencesDialogState
                             horizontal: 12,
                             vertical: 8,
                           ),
-                          color: isSelected
+                          color: isHovered
                               ? const Color(0xFF3B82F6)
-                              : (isHovered
+                              : (isSelected
                                     ? const Color(0xFFF3F4F6)
                                     : Colors.transparent),
                           child: Column(
@@ -14025,7 +15407,7 @@ class _ConfigureTaxPreferencesDialogState
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: isSelected
+                                  color: isHovered
                                       ? Colors.white
                                       : const Color(0xFF111827),
                                   fontFamily: 'Inter',
@@ -14036,7 +15418,7 @@ class _ConfigureTaxPreferencesDialogState
                                 item['desc']!,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: isSelected
+                                  color: isHovered
                                       ? Colors.white.withValues(alpha: 0.8)
                                       : const Color(0xFF6B7280),
                                   fontFamily: 'Inter',
@@ -14220,7 +15602,7 @@ class _GstinPopoverState extends State<_GstinPopover> {
           width: 320,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFDDDDDD)),
             boxShadow: [
               BoxShadow(

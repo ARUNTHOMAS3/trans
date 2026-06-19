@@ -84,7 +84,7 @@ class _BatchItemRowController {
       mrpCtrl.text = initial.mrp.toString();
       ptrCtrl.text = initial.ptr.toString();
       qtyCtrl.text = initial.quantity.toString();
-      focCtrl.text = initial.foc.toString();
+      focCtrl.text = initial.foc == 0 ? '' : initial.foc.toString();
       mfgBatchCtrl.text = initial.manufactureBatch;
       mfgDate = initial.manufactureDate;
       expDate = initial.expiryDate;
@@ -1238,6 +1238,11 @@ class _PRCreateState
                                 enabled: !_isEditMode,
                                 fillColor: _isEditMode ? const Color(0xFFF1F5F9) : Colors.white,
                                 value: hasDisplayName ? selectedVendor : null,
+                                textStyle: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: hasDisplayName ? FontWeight.bold : FontWeight.normal,
+                                  color: hasDisplayName ? _textPrimary : _hintColor,
+                                ),
                                 items: ref.watch(vendorProvider).vendors,
                                 hint: "Select or type to search",
                                 showSearch: true,
@@ -2972,7 +2977,6 @@ class _PRCreateState
                   items: availablePoItems,
                   hint: 'Type or click to select an item',
                   showSearch: true,
-                  boldSelected: false,
                   displayStringForValue: (poItem) =>
                       poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
                   searchStringForValue: (poItem) =>
@@ -4128,7 +4132,9 @@ class _PRCreateState
                 ? 'Purchase receive saved successfully'
                 : 'Purchase receive saved as draft'),
       );
-      if (widget.initialPoId != null && widget.initialPoId!.isNotEmpty) {
+      if (status == 'received') {
+        context.go('/purchases/purchase-receives?id=${savedReceive.id}');
+      } else if (widget.initialPoId != null && widget.initialPoId!.isNotEmpty) {
         context.go('/purchases/purchase-orders/${widget.initialPoId}');
       } else {
         context.go('/purchases/purchase-receives');
@@ -5263,9 +5269,6 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
     if (unitPack.isEmpty) {
       return '$rowLabel: Pack Size is required';
     }
-    if (double.tryParse(unitPack) == null) {
-      return '$rowLabel: Pack Size must be a valid number';
-    }
     if (mrp.isEmpty) {
       return '$rowLabel: MRP is required';
     }
@@ -5994,7 +5997,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                               controller: row.unitPackCtrl,
                               hint: 'Pack',
                               flex: 2,
-                              isNumeric: true,
+                              isNumeric: false,
                               readOnly: row.isAutoLoaded,
                             ),
                             _buildTextField(

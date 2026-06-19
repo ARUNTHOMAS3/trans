@@ -324,7 +324,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             isItemEnabled: (v) => !v.id.startsWith('header_'),
                             displayStringForValue: (v) => v.id.startsWith('header_') ? v.accountType : v.name,
                             hint: 'Select an account',
-                            boldSelected: false,
                             onChanged: (v) {
                               if (v != null && v.id.startsWith('header_')) return;
                               dialogSetState(() {
@@ -701,6 +700,28 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       final double totalQty = updatedItems.fold<double>(0.0, (sum, item) => sum + item.quantity);
       final double calculatedTdsTcsAmount = poState.tdsTcsAmount;
 
+      final vendorsState = ref.read(vendorProvider);
+      final vendor = vendorsState.vendors.firstWhere(
+        (v) => v.id == poState.vendorId,
+        orElse: () => Vendor(id: '', displayName: ''),
+      );
+
+      String? findAddressId(Map<String, dynamic>? currentAddr) {
+        if (currentAddr == null) return null;
+        if (currentAddr['id'] != null) return currentAddr['id'].toString();
+        if (vendor.vendorAddresses != null) {
+          for (final addr in vendor.vendorAddresses!) {
+            if (_areAddressesEqual(addr, currentAddr)) {
+              return addr['id']?.toString();
+            }
+          }
+        }
+        return null;
+      }
+
+      final billingAddressId = findAddressId(vendor.billingAddress);
+      final shippingAddressId = findAddressId(vendor.shippingAddress);
+
       final po = PurchaseOrder(
         id: _editingOrderId,
         orderNumber: poState.orderNumber,
@@ -733,6 +754,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         isDelete: false,
         totalQuantity: totalQty,
         items: updatedItems,
+        sourceOfSupply: vendor.sourceOfSupply,
+        destinationToSupply: poState.destinationOfSupply.isNotEmpty ? poState.destinationOfSupply : '[KL] - Kerala',
+        shippingAddressId: shippingAddressId,
+        billingAddressId: billingAddressId,
       );
 
       // 3. Save to Backend
@@ -2109,6 +2134,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 child: FormDropdown<String>(
                                   height: 36,
                                   value: poState.warehouseId,
+                                  textStyle: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: poState.warehouseId != null && poState.warehouseId!.isNotEmpty
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: poState.warehouseId != null && poState.warehouseId!.isNotEmpty
+                                        ? _textPrimary
+                                        : _hintColor,
+                                  ),
                                   items: warehouses.map((w) => w.id).toList(),
                                   displayStringForValue: (id) => warehouses
                                       .firstWhere(
@@ -2156,6 +2190,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     value: poState.taxType == 'inclusive'
                                         ? 'Tax Inclusive'
                                         : 'Tax Exclusive',
+                                    textStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: _textPrimary,
+                                    ),
                                     items: const ['Tax Exclusive', 'Tax Inclusive'],
                                     onChanged: (v) {
                                       if (v != null) {
@@ -2216,6 +2255,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 child: FormDropdown<String>(
                                   height: 36,
                                   value: poState.discountLevel,
+                                  textStyle: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: _textPrimary,
+                                  ),
                                   items: const ['transaction', 'item'],
                                   displayStringForValue: (v) => v == 'transaction'
                                       ? 'At Transaction Level'
@@ -2375,6 +2419,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       value: activePriceLists
                                           .where((pl) => pl.id == _selectedPriceListId)
                                           .firstOrNull,
+                                      textStyle: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: _selectedPriceListId != null
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: _selectedPriceListId != null
+                                            ? _textPrimary
+                                            : _hintColor,
+                                      ),
                                       items: activePriceLists,
                                       displayStringForValue: (pl) => pl.name,
                                       onChanged: (pl) {
@@ -2604,7 +2657,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         enabled: !_isEditMode,
                         value: 'Default Transaction Series',
                         items: const ['Default Transaction Series'],
-                        boldSelected: false,
                         onChanged: (v) {},
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: _fieldBorder),
@@ -2683,7 +2735,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   items: _paymentTermsList
                       .map((t) => t['id'] as String)
                       .toList(),
-                  boldSelected: false,
                   hint: 'Select Terms',
                   showSettings: true,
                   settingsLabel: 'Configure Terms',
@@ -2730,7 +2781,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       .map((p) => p['id']?.toString() ?? '')
                       .where((id) => id.isNotEmpty)
                       .toList(),
-                  boldSelected: false,
                   hint: 'Choose the shipment preference',
                   allowCustomValue: true,
                   showSettings: true,
@@ -3091,10 +3141,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     height: 32,
                     enabled: !_isEditMode,
                     value: selectedVendor.id.isEmpty ? null : selectedVendor,
+                    textStyle: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selectedVendor.id.isNotEmpty ? FontWeight.bold : FontWeight.normal,
+                      color: selectedVendor.id.isNotEmpty ? _textPrimary : _hintColor,
+                    ),
                     items: vendors,
                     hint: 'Select a Vendor',
                     showSearch: true,
-                    boldSelected: true,
                     allowClear: hasVendor && !_isEditMode,
                     menuWidth: 550,
                     onChanged: (v) =>
@@ -3531,6 +3585,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 child: SizedBox(
                   width: 320,
                   child: FormDropdown<String>(
+                    height: 36,
                     value:
                         vendor.sourceOfSupply != null &&
                             vendor.sourceOfSupply!.isNotEmpty
@@ -3538,9 +3593,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         : (_sourceOfSupplyList.isNotEmpty
                               ? _sourceOfSupplyList.first
                               : ''),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _textPrimary,
+                    ),
                     items: _sourceOfSupplyList,
                     showSearch: true,
-                    boldSelected: false,
                     onChanged: (val) {
                       if (val == null) return;
                       final updatedVendor = vendor.copyWith(
@@ -3560,13 +3619,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 child: SizedBox(
                   width: 320,
                   child: FormDropdown<String>(
-                    height: 32,
+                    height: 36,
                     value: poState.destinationOfSupply.isNotEmpty
                         ? poState.destinationOfSupply
                         : '[KL] - Kerala',
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _textPrimary,
+                    ),
                     items: _sourceOfSupplyList,
                     showSearch: true,
-                    boldSelected: false,
                     onChanged: (val) =>
                         notifier.updateField(destinationOfSupply: val ?? ''),
                     borderRadius: BorderRadius.circular(4),
@@ -3819,6 +3882,21 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _addressDropdownOverlay = null;
   }
 
+  Map<String, dynamic> _normalizeAddress(Map<String, dynamic> address) {
+    return {
+      'attention': address['attention']?.toString() ?? '',
+      'street1': (address['street1'] ?? address['street'] ?? address['address_street'] ?? address['addressStreet'] ?? '').toString(),
+      'street2': (address['street2'] ?? address['place'] ?? address['address_place'] ?? address['addressPlace'] ?? '').toString(),
+      'city': address['city']?.toString() ?? '',
+      'state': address['state']?.toString() ?? '',
+      'zip': (address['zip'] ?? address['pincode'] ?? address['zipCode'] ?? '').toString(),
+      'country': (address['country'] ?? address['countryRegion'] ?? address['country_region'] ?? '').toString(),
+      'phone': address['phone']?.toString() ?? '',
+      'fax': address['fax']?.toString() ?? '',
+      if (address['id'] != null) 'id': address['id'].toString(),
+    };
+  }
+
   bool _areAddressesEqual(Map<String, dynamic> a, Map<String, dynamic> b) {
     String norm(dynamic val) => (val?.toString() ?? '').trim().toLowerCase();
     
@@ -3896,13 +3974,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 selectedAddr: address,
                 isBilling: isBilling,
               );
+              final normalizedAddr = _normalizeAddress(address);
               final updated = isBilling
                   ? vendor.copyWith(
-                      billingAddress: address,
+                      billingAddress: normalizedAddr,
                       vendorAddresses: updatedAddresses,
                     )
                   : vendor.copyWith(
-                      shippingAddress: address,
+                      shippingAddress: normalizedAddr,
                       vendorAddresses: updatedAddresses,
                     );
               try {
@@ -4011,32 +4090,44 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final newList = currentList.map((addr) {
       final isMatch = _areAddressesEqual(addr, selectedAddr);
       final updatedAddr = Map<String, dynamic>.from(addr);
+      
+      // 1. Update default flags
       if (isMatch) {
         found = true;
         if (isBilling) {
           updatedAddr['is_default_billing'] = true;
           updatedAddr['isDefaultBilling'] = true;
-          updatedAddr['address_type'] = 'billing';
-          updatedAddr['addressType'] = 'billing';
         } else {
           updatedAddr['is_default_shipping'] = true;
           updatedAddr['isDefaultShipping'] = true;
-          updatedAddr['address_type'] = 'shipping';
-          updatedAddr['addressType'] = 'shipping';
         }
       } else {
-        if (isBilling && (addr['address_type'] == 'billing' || addr['is_default_billing'] == true || addr['isDefaultBilling'] == true)) {
+        if (isBilling) {
           updatedAddr['is_default_billing'] = false;
           updatedAddr['isDefaultBilling'] = false;
-          updatedAddr['address_type'] = 'additional';
-          updatedAddr['addressType'] = 'additional';
-        } else if (!isBilling && (addr['address_type'] == 'shipping' || addr['is_default_shipping'] == true || addr['isDefaultShipping'] == true)) {
+        } else {
           updatedAddr['is_default_shipping'] = false;
           updatedAddr['isDefaultShipping'] = false;
-          updatedAddr['address_type'] = 'additional';
-          updatedAddr['addressType'] = 'additional';
         }
       }
+
+      // 2. Resolve address_type based on the final default flags
+      final billingFlag = updatedAddr['is_default_billing'] == true || updatedAddr['isDefaultBilling'] == true;
+      final shippingFlag = updatedAddr['is_default_shipping'] == true || updatedAddr['isDefaultShipping'] == true;
+      if (billingFlag && shippingFlag) {
+        updatedAddr['address_type'] = isBilling ? 'billing' : 'shipping';
+        updatedAddr['addressType'] = isBilling ? 'billing' : 'shipping';
+      } else if (billingFlag) {
+        updatedAddr['address_type'] = 'billing';
+        updatedAddr['addressType'] = 'billing';
+      } else if (shippingFlag) {
+        updatedAddr['address_type'] = 'shipping';
+        updatedAddr['addressType'] = 'shipping';
+      } else {
+        updatedAddr['address_type'] = 'additional';
+        updatedAddr['addressType'] = 'additional';
+      }
+
       return updatedAddr;
     }).toList();
 
@@ -4119,6 +4210,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         }
         if (mapped['is_default_shipping'] == null && mapped['isDefaultShipping'] != null) {
           mapped['is_default_shipping'] = mapped['isDefaultShipping'];
+        }
+        if (mapped['isDefaultBilling'] == null && mapped['is_default_billing'] != null) {
+          mapped['isDefaultBilling'] = mapped['is_default_billing'];
+        }
+        if (mapped['isDefaultShipping'] == null && mapped['is_default_shipping'] != null) {
+          mapped['isDefaultShipping'] = mapped['is_default_shipping'];
         }
         list.add(mapped);
       }
@@ -4296,7 +4393,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       ? 'No warehouses found'
                       : 'Select Warehouse',
                   showSearch: true,
-                  boldSelected: false,
                   displayStringForValue: (w) => w.name,
                   searchStringForValue: (w) =>
                       '${w.name} ${w.city ?? ''} ${w.state ?? ''} ${w.addressStreet1 ?? ''}',
@@ -4336,7 +4432,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   items: customers,
                   hint: 'Select Customer',
                   showSearch: true,
-                  boldSelected: false,
                   displayStringForValue: (c) => c.displayName,
                   onChanged: (c) =>
                       notifier.updateField(deliveryCustomerId: c?.id ?? ''),
@@ -5648,8 +5743,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 selectedVendor.sourceOfSupply != null &&
                                 selectedVendor.sourceOfSupply!.isNotEmpty &&
                                 poState.destinationOfSupply.isNotEmpty) {
-                              isInterstate = selectedVendor.sourceOfSupply!.toLowerCase().trim() !=
-                                  poState.destinationOfSupply.toLowerCase().trim();
+                              final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
+                              final destKL = poState.destinationOfSupply.toLowerCase().contains('kerala');
+                              isInterstate = srcKL != destKL;
                             }
                           } catch (_) {}
                         }
@@ -6878,7 +6974,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                     .toList(),
                                                 hint: 'Apply Price List',
                                                 allowClear: true,
-                                                boldSelected: false,
                                                 displayStringForValue: (pl) => pl.name,
                                                 onChanged: (pl) {
                                                    if (pl != null) {
@@ -7989,8 +8084,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       }
     }
 
+    final vendorsState = ref.read(vendorProvider);
+    final vendor = vendorsState.vendors.firstWhere(
+      (v) => v.id == poState.vendorId,
+      orElse: () => Vendor(id: '', displayName: ''),
+    );
+    final source = (vendor.sourceOfSupply ?? '').toLowerCase();
     final destination = poState.destinationOfSupply.toLowerCase();
-    final isKerala = destination.contains('[kl]') || destination.contains('kerala');
+    final isKerala = source.contains('kerala') && destination.contains('kerala');
 
     final widgets = <Widget>[];
     for (final tax in groups.values) {
@@ -8096,8 +8197,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   ) {
     _closeTaxAmountOverlay();
 
+    final vendorsState = ref.read(vendorProvider);
+    final vendor = vendorsState.vendors.firstWhere(
+      (v) => v.id == poState.vendorId,
+      orElse: () => Vendor(id: '', displayName: ''),
+    );
+    final source = (vendor.sourceOfSupply ?? '').toLowerCase();
     final destination = poState.destinationOfSupply.toLowerCase();
-    final isKerala = destination.contains('[kl]') || destination.contains('kerala');
+    final isKerala = source.contains('kerala') && destination.contains('kerala');
 
     final Map<String, ({String name, double rate, double amount})>
     initialTaxes = {};
@@ -9535,11 +9642,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 
                 updated = isBilling
                     ? tempVendor.copyWith(
-                        billingAddress: newAddr,
+                        billingAddress: _normalizeAddress(newAddr),
                         vendorAddresses: updatedAddresses,
                       )
                     : tempVendor.copyWith(
-                        shippingAddress: newAddr,
+                        shippingAddress: _normalizeAddress(newAddr),
                         vendorAddresses: updatedAddresses,
                       );
               } else if (initialAddress != null) {
@@ -9563,11 +9670,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 
                 updated = isBilling
                     ? tempVendor.copyWith(
-                        billingAddress: data,
+                        billingAddress: _normalizeAddress(data),
                         vendorAddresses: updatedAddresses,
                       )
                     : tempVendor.copyWith(
-                        shippingAddress: data,
+                        shippingAddress: _normalizeAddress(data),
                         vendorAddresses: updatedAddresses,
                       );
               } else {
@@ -9578,11 +9685,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 );
                 updated = isBilling
                     ? vendor.copyWith(
-                        billingAddress: data,
+                        billingAddress: _normalizeAddress(data),
                         vendorAddresses: updatedAddresses,
                       )
                     : vendor.copyWith(
-                        shippingAddress: data,
+                        shippingAddress: _normalizeAddress(data),
                         vendorAddresses: updatedAddresses,
                       );
               }
@@ -10300,7 +10407,7 @@ class _ConfigureTaxPreferencesDialogState
           width: 380,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFDDDDDD)),
             boxShadow: [
               BoxShadow(
@@ -10364,9 +10471,9 @@ class _ConfigureTaxPreferencesDialogState
                             horizontal: 12,
                             vertical: 8,
                           ),
-                          color: isSelected
+                          color: isHovered
                               ? const Color(0xFF3B82F6)
-                              : (isHovered
+                              : (isSelected
                                     ? const Color(0xFFF3F4F6)
                                     : Colors.transparent),
                           child: Column(
@@ -10377,7 +10484,7 @@ class _ConfigureTaxPreferencesDialogState
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: isSelected
+                                  color: isHovered
                                       ? Colors.white
                                       : const Color(0xFF111827),
                                 ),
@@ -10387,7 +10494,7 @@ class _ConfigureTaxPreferencesDialogState
                                 item['desc']!,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: isSelected
+                                  color: isHovered
                                       ? Colors.white.withValues(alpha: 0.8)
                                       : const Color(0xFF6B7280),
                                 ),
@@ -12722,7 +12829,7 @@ class _GstinPopoverState extends State<_GstinPopover> {
           width: 320,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFDDDDDD)),
             boxShadow: [
               BoxShadow(

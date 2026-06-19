@@ -200,7 +200,6 @@ class FormulationSection extends StatelessWidget {
       items: packSizeOptions,
       hint: hint,
       onChanged: onChanged,
-      boldSelected: false,
       showSettings: true,
       settingsLabel: 'Manage Pack Sizes',
       onSettingsTap: onManagePackSizesTap,

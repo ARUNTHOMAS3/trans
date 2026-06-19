@@ -68,7 +68,6 @@ class FormDropdown<T> extends StatefulWidget {
   final Widget? prefixWidget;
   final bool isHovered;
   final TextStyle? textStyle;
-  final bool boldSelected;
   final TextAlign textAlign;
 
   const FormDropdown({
@@ -123,7 +122,6 @@ class FormDropdown<T> extends StatefulWidget {
     this.textStyle,
     this.textAlign = TextAlign.start,
     this.forceDownward = false,
-    this.boldSelected = true,
   });
 
   @override
@@ -1194,16 +1192,12 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                 : (widget.hint ?? ''),
                             textAlign: widget.textAlign,
                             overflow: TextOverflow.ellipsis,
-                            style: (widget.textStyle ??
+                            style: widget.textStyle ??
                                 TextStyle(
                                   fontSize: 13,
                                   color: hasValue
                                       ? AppTheme.textPrimary
                                       : AppTheme.textMuted,
-                                )).copyWith(
-                                  fontWeight: (hasValue && widget.boldSelected)
-                                      ? FontWeight.bold
-                                      : null,
                                 ),
                           ),
                   ),

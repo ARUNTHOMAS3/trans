@@ -507,8 +507,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
             selectedVendor.sourceOfSupply != null &&
             selectedVendor.sourceOfSupply!.isNotEmpty &&
             state.destinationOfSupply.isNotEmpty) {
-          isInterstate = selectedVendor.sourceOfSupply!.toLowerCase().trim() !=
-              state.destinationOfSupply.toLowerCase().trim();
+          final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
+          final destKL = state.destinationOfSupply.toLowerCase().contains('kerala');
+          isInterstate = srcKL != destKL;
         }
       } catch (_) {}
     }
@@ -765,9 +766,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
                 selectedVendor.sourceOfSupply != null &&
                 selectedVendor.sourceOfSupply!.isNotEmpty &&
                 state.destinationOfSupply.isNotEmpty) {
-              isInterstate =
-                  selectedVendor.sourceOfSupply!.toLowerCase().trim() !=
-                      state.destinationOfSupply.toLowerCase().trim();
+              final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
+              final destKL = state.destinationOfSupply.toLowerCase().contains('kerala');
+              isInterstate = srcKL != destKL;
             }
           } catch (_) {}
         }
@@ -851,9 +852,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
               selectedVendor.sourceOfSupply != null &&
               selectedVendor.sourceOfSupply!.isNotEmpty &&
               state.destinationOfSupply.isNotEmpty) {
-            activeInterstate =
-                selectedVendor.sourceOfSupply!.toLowerCase().trim() !=
-                    state.destinationOfSupply.toLowerCase().trim();
+            final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
+            final destKL = state.destinationOfSupply.toLowerCase().contains('kerala');
+            activeInterstate = srcKL != destKL;
           }
         } catch (_) {}
       }

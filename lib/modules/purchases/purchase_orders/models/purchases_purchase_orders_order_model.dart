@@ -321,6 +321,10 @@ class PurchaseOrder {
   final DateTime? updatedAt;
   final String? receiveStatus;
   final String? billStatus;
+  final String? sourceOfSupply;
+  final String? destinationToSupply;
+  final String? shippingAddressId;
+  final String? billingAddressId;
 
   PurchaseOrder({
     this.id,
@@ -366,6 +370,10 @@ class PurchaseOrder {
     this.updatedAt,
     this.receiveStatus = 'none',
     this.billStatus = 'none',
+    this.sourceOfSupply,
+    this.destinationToSupply,
+    this.shippingAddressId,
+    this.billingAddressId,
   });
 
   factory PurchaseOrder.fromJson(Map<String, dynamic> json) {
@@ -435,6 +443,10 @@ class PurchaseOrder {
           : null,
       receiveStatus: json['receive_status'] as String? ?? 'none',
       billStatus: json['bill_status'] as String? ?? 'none',
+      sourceOfSupply: json['source_of_supply'] as String?,
+      destinationToSupply: json['destination_to_supply'] as String?,
+      shippingAddressId: json['shipping_address'] as String?,
+      billingAddressId: json['billing_address'] as String?,
     );
   }
 
@@ -507,7 +519,11 @@ class PurchaseOrder {
       'total_quantity': totalQuantity,
       'currency': currency,
       'tax_type': taxType,
-      'tds_tcs_amount': tdsTcsAmount,
+      if (tdsTcsAmount != 0) 'tds_tcs_amount': tdsTcsAmount,
+      if (sourceOfSupply != null) 'source_of_supply': sourceOfSupply,
+      if (destinationToSupply != null) 'destination_to_supply': destinationToSupply,
+      if (shippingAddressId != null) 'shipping_address': shippingAddressId,
+      if (billingAddressId != null) 'billing_address': billingAddressId,
       'items': items.asMap().entries.map((entry) => entry.value.toJson(index: entry.key)).toList(),
     };
   }
@@ -555,6 +571,10 @@ class PurchaseOrder {
     DateTime? updatedAt,
     String? receiveStatus,
     String? billStatus,
+    String? sourceOfSupply,
+    String? destinationToSupply,
+    String? shippingAddressId,
+    String? billingAddressId,
   }) {
     return PurchaseOrder(
       id: id ?? this.id,
@@ -598,6 +618,10 @@ class PurchaseOrder {
       updatedAt: updatedAt ?? this.updatedAt,
       receiveStatus: receiveStatus ?? this.receiveStatus,
       billStatus: billStatus ?? this.billStatus,
+      sourceOfSupply: sourceOfSupply ?? this.sourceOfSupply,
+      destinationToSupply: destinationToSupply ?? this.destinationToSupply,
+      shippingAddressId: shippingAddressId ?? this.shippingAddressId,
+      billingAddressId: billingAddressId ?? this.billingAddressId,
     );
   }
 

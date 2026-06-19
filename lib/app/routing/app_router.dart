@@ -1422,6 +1422,7 @@ final GoRouter appRouter = GoRouter(
                     editBillId: state.uri.queryParameters['editId'],
                     cloneBillId: state.uri.queryParameters['cloneId'],
                     poId: state.uri.queryParameters['poId'],
+                    receiveId: state.uri.queryParameters['receiveId'],
                   ),
                 ),
                 GoRoute(

@@ -38,6 +38,9 @@ class PurchasesBill {
   final String? vendorGstin;
   final String? reasonToVoid;
   final String? reasonToDraft;
+  final String? sourceOfSupply;
+  final String? destinationToSupply;
+  final String? billingAddress;
 
   PurchasesBill({
     required this.id,
@@ -45,6 +48,9 @@ class PurchasesBill {
     required this.vendorId,
     required this.vendorName,
     this.placeOfSupply,
+    this.sourceOfSupply,
+    this.destinationToSupply,
+    this.billingAddress,
     this.vendorNumber,
     this.orderNumber,
     this.billDate,
@@ -194,6 +200,9 @@ class PurchasesBill {
       vendorGstin: vendorData?['gstin'] as String? ?? json['vendor_gstin'] as String? ?? json['vendorGstin'] as String?,
       reasonToVoid: json['reason_to_void'] ?? json['reasonToVoid'],
       reasonToDraft: json['reason_to_draft'] ?? json['reasonToDraft'],
+      sourceOfSupply: json['source_of_supply'] ?? json['sourceOfSupply'],
+      destinationToSupply: json['destination_to_supply'] ?? json['destinationToSupply'],
+      billingAddress: json['billing_address'] ?? json['billingAddress'],
     );
   }
 
@@ -204,6 +213,9 @@ class PurchasesBill {
       'vendorName': vendorName,
       if (placeOfSupply != null && placeOfSupply!.isNotEmpty)
         'placeOfSupply': placeOfSupply,
+      if (sourceOfSupply != null) 'sourceOfSupply': sourceOfSupply,
+      if (destinationToSupply != null) 'destinationToSupply': destinationToSupply,
+      if (billingAddress != null) 'billingAddress': billingAddress,
       if (vendorNumber != null) 'vendorNumber': vendorNumber,
       if (orderNumber != null) 'orderNumber': orderNumber,
       if (billDate != null)

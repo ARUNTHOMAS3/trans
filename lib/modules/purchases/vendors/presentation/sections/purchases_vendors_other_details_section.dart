@@ -64,7 +64,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
 
           if (!_shouldHideSourceOfSupply()) ...[
             _buildFormRow(
-              label: 'Source of Supply*',
+              label: 'Source of Supply',
               isRequired: true,
               tooltip: 'State used for GST source of supply.',
               child: FormDropdown<String>(

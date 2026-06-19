@@ -229,6 +229,22 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   terms_and_conditions?: string;
 
+  @IsString()
+  @IsOptional()
+  source_of_supply?: string;
+
+  @IsString()
+  @IsOptional()
+  destination_to_supply?: string;
+
+  @IsString()
+  @IsOptional()
+  shipping_address?: string;
+
+  @IsString()
+  @IsOptional()
+  billing_address?: string;
+
   @ValidateNested({ each: true })
   @Type(() => PurchaseOrderItemDto)
   @ArrayMinSize(1)

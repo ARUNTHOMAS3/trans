@@ -216,6 +216,18 @@ export class CreateBillDto {
   @IsString()
   status?: string;
 
+  @IsOptional()
+  @IsString()
+  sourceOfSupply?: string;
+
+  @IsOptional()
+  @IsString()
+  destinationToSupply?: string;
+
+  @IsOptional()
+  @IsString()
+  billingAddress?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateBillItemDto)
