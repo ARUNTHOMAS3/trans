@@ -1144,7 +1144,6 @@ export const purchaseOrders = pgTable("purchase_orders", {
   warehouseId: uuid("warehouse_id").references(() => warehouses.id),
   warehouseName: varchar("warehouse_name"),
   priceListId: uuid("price_list_id").references(() => priceList.id),
-  placeOfSupply: varchar("place_of_supply"),
   documentType: varchar("document_type", { length: 50 }).notNull(),
   status: varchar("status", { length: 50 }).default("Draft"),
   subTotal: numeric("sub_total").notNull().default("0.00"),
@@ -1161,6 +1160,10 @@ export const purchaseOrders = pgTable("purchase_orders", {
   vendorNotes: text("vendor_notes"),
   termsAndConditions: text("terms_and_conditions"),
   isDelete: boolean("is_delete").notNull().default(false),
+  sourceOfSupply: varchar("source_of_supply"),
+  destinationToSupply: varchar("destination_to_supply"),
+  shippingAddress: uuid("shipping_address").references(() => vendorAddress.id),
+  billingAddress: uuid("billing_address").references(() => vendorAddress.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   entityId: uuid("entity_id")

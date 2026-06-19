@@ -2380,3 +2380,22 @@ Fixed the issue where the "Save as Open" button was disabled when converting a P
 - None
 
 Timestamp of Log Update: June 17, 2026 - 03:00 PM (IST)
+
+## 65. Batch Selection FOC Hint and Save Redirect (June 18, 2026)
+
+### Summary
+1. Configured the batch selection dialog's FOC text field to display "0" as a hint text instead of as an initial text value.
+2. Updated the successful save/received callback route redirection logic to navigate directly to the detailed view page of the newly created/saved Purchase Receive.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **FOC Hint Logic**: Updated `_BatchItemRowController` initialization to not pre-fill `focCtrl.text` with "0" when the value is 0, allowing the TextField's placeholder hint "0" to render instead.
+  - **Redirect Handler**: Modified `_handleSave` success callback to route directly to `/purchases/purchase-receives?id=${savedReceive.id}` upon status == `'received'`.
+
+#### Backend Files
+- None
+
+Timestamp of Log Update: June 18, 2026 - 12:58 PM (IST)
+
