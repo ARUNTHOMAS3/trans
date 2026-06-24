@@ -2399,3 +2399,389 @@ Timestamp of Log Update: June 17, 2026 - 03:00 PM (IST)
 
 Timestamp of Log Update: June 18, 2026 - 12:58 PM (IST)
 
+
+
+## 73. Fix Multi-PO Selection Blank Items Table Bug (June 20, 2026)
+
+### Summary
+1. Resolved a critical bug where selecting multiple Purchase Orders (POs) caused the unbilled items table to display as empty.
+2. The root cause was unscoped billed quantity calculation (`itemBilledQty` map) that aggregated quantities globally by `productId` across all POs. This caused billed quantities from one PO to exceed the remaining unbilled quantities of other POs, masking visible items.
+3. Modified the Supabase query to retrieve `order_number` from the `bills` table and mapped the correct `purchaseOrderId` to each bill item.
+4. Scoped the `itemBilledQty` calculation using composite `"$purchaseOrderId-$productId"` keys, ensuring each PO item is evaluated only against its own associated bills.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - **Bills Query Expansion**: Added `order_number` to the `.select(...)` statement inside `_onPOsSelected`.
+  - **Correct PO Association**: Replaced the hardcoded/unscoped `pos.first.id` with a matching `PurchaseOrder` search loop based on `order_number`.
+  - **Scoped Billed Aggregation**: Keyed the `itemBilledQty` calculation map using `"$poId-$productId"` composite keys instead of just `productId` inside `_buildItemsTableNormal()`, scoping unbilled check strictly per PO.
+
+#### Backend Files
+- None
+
+Timestamp of Log Update: June 20, 2026 - 02:00 PM (IST)
+
+
+## 30. Standardized Dropdown Dividers & SD- Deletion Prefixes (June 20, 2026)
+
+### Summary
+Enhanced the Item/Product search dropdown menus across five modules to render horizontal divider lines separating lookup options. Integrated a deletion document numbering prefix system whereby soft-deleted records have their transaction/document number prepended with 'SD-' across both Flutter front-end list interfaces and NestJS backend repositories.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - Added bottom border/divider highlights to standard item dropdown list rows.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - Added bottom border/divider highlights to standard item dropdown list rows.
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - Implemented bottom border/divider styling on custom dropdown option builder rows.
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart:
+  - Implemented bottom border/divider styling on custom dropdown option builder rows.
+- lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart:
+  - Configured divider highlights on inline item dropdown list option widgets.
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart:
+  - Updated single and bulk deletion routines to prepend 'SD-' to 'sale_number' values during Supabase soft-deletion updates.
+- lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart:
+  - Updated single and bulk deletion routines to prepend 'SD-' to 'sale_number' values during Supabase soft-deletion updates.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - Programmed both single and bulk soft-delete actions to query existing order numbers and prefix them with 'SD-' prior to updating the database.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_list.dart:
+  - Refactored single and bulk soft-delete actions to query existing bill numbers and prefix them with 'SD-' prior to updating the database.
+
+#### Backend Files
+- backend/src/modules/purchases/purchase-receives/services/purchase-receives.service.ts:
+  - Verified and ensured existing backend service prepends 'SD-' to 'purchase_receive_number' on entity removal.
+- backend/src/modules/purchases/purchase-orders/services/purchase-orders.service.ts:
+  - Verified and ensured existing backend service prepends 'SD-' to 'order_number' on entity removal.
+- backend/src/modules/purchases/bills/services/bills.service.ts:
+  - Verified and ensured existing backend service prepends 'SD-' to 'bill_number' on entity removal.
+
+Timestamp of Log Update: June 20, 2026 - 5:25 PM (IST)
+
+
+## 31. Purchases Bills Adaptive Row Menu Positioning (June 21, 2026)
+
+### Summary
+Refactored the three-dots row action menu in Purchases Bills creation (purchases_bills_create.dart) to use ZAdaptiveMenu.show. This ensures the dropdown options dynamically check available viewport height and automatically open upwards or downwards to prevent screen clipping at the bottom.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - Replaced manual OverlayEntry and CompositedTransformFollower with ZAdaptiveMenu.show in _showItemMenu.
+  - Removed manual Overlay.insert invocation since ZAdaptiveMenu.show handles insertion internally.
+
+Timestamp of Log Update: June 21, 2026 - 3:35 PM (IST)
+
+## 32. Purchase Receive Billing Status Query Case Sensitivity Fix (June 21, 2026)
+
+### Summary
+1. Resolved a critical issue where the billing status circle for Purchase Receives displayed as "none" (grey circle) despite bills being successfully created.
+2. The root cause was that the backend queries for associated bills filtered by `source_type = "PURCHASE_RECEIVE"` case-sensitively, whereas the database stored `'purchase_receive'` in lowercase as sent by the client.
+3. Updated the backend service query to search for `source_type` in both cases, as well as with dashes (e.g., `purchase-receive`).
+4. Fixed the frontend view filter to query `r.billStatus` dynamically instead of using the static `r.billed` boolean.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart`:
+  - **Dynamic View Filter**: Changed the filter conditions for "Billed" and "Partially Billed" from `r.billed` to inspect `r.billStatus` using the correct string mappings (`full`, `billed`, `partial`, `partially_billed`, `partially billed`).
+
+#### Backend Files
+- `backend/src/modules/purchases/purchase-receives/services/purchase-receives.service.ts`:
+  - **Case-Insensitive source_type Filter**: Refactored database queries filtering bills for purchase receives to search for `source_type` inside a list of valid matches (`["PURCHASE_RECEIVE", "purchase_receive", "purchase-receive", "PURCHASE-RECEIVE"]`) using Supabase's `.in()` operator.
+
+Timestamp of Log Update: June 21, 2026 - 11:30 PM (IST)
+
+
+## 33. Purchase Order UUID Parsing Bugfix (June 22, 2026)
+
+### Summary
+1. Resolved a critical 500 error when saving a Purchase Order: `invalid input syntax for type uuid: ""`.
+2. The issue was caused by the frontend sending empty string values `""` for unselected fields (like `tds_id`, `shipping_address`, `billing_address`, etc.), which the NestJS backend did not sanitize before querying PostgreSQL.
+3. Implemented a `cleanUuid` sanitization utility in the backend to convert empty strings, undefined, and null values to database `null`.
+4. Applied the sanitization to all UUID fields inside `mapDtoToDb`, `create`, and `update` logic in `purchase-orders.service.ts`.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- None
+
+#### Backend Files
+- `backend/src/modules/purchases/purchase-orders/services/purchase-orders.service.ts`:
+  - Added `cleanUuid` helper method.
+  - Sanitized primary PO fields (`vendor_id`, `payment_terms_id`, `shipment_preference_id`, `delivery_warehouse_id`, `delivery_customer_id`, `warehouse_id`, `tds_id`, `discount_account_id`, `shipping_address`, `billing_address`).
+  - Sanitized line item fields (`product_id`, `account_id`, `accounts`, `tax_id`).
+  - Refactored `warehouse_id` resolution checking logic to clean DTO values first.
+
+Timestamp of Log Update: June 22, 2026 - 08:50 AM (IST)
+
+## 34. Sales Order MRP and Auto-Calculation Fixes (June 22, 2026)
+
+### Summary
+1. Resolved a critical issue in Sales Order creation where entering an item Rate or selecting a batch did not automatically compute or validate the MRP rate.
+2. Configured the MRP column to auto-fill based on the selected batch's MRP, or fallback to the product's master MRP rate.
+3. Implemented a fallback validation to auto-select the first batch and bin location if only one batch is available when selecting an item.
+4. Cleaned up unused variables and unused color constants, ensuring 100% clean frontend compilation and static analysis.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [sales_order_create.dart](file:///C:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart):
+  - **Batch Auto-selection and Fallback**: Updated item selection logic to auto-select the first batch and bin when an item has exactly one batch available.
+  - **MRP Auto-Calculation**: Configured mrpCtrl.text to automatically populate with the selected batch's MRP value, falling back to the item's master MRP value if not present.
+  - **Unused Color Constant Removal**: Removed the unused private _kGreen color constant to resolve static analysis warning.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified Flutter frontend compiles successfully with dart analyze and NestJS backend builds cleanly with 
+pm run build.
+
+Timestamp of Log Update: June 22, 2026 - 10:05 AM (IST)
+
+## 35. Dynamic Overlays and Duplicate Item Warnings Row Numbers (June 22, 2026)
+
+### Summary
+1. Migrated account selection and row action overlays in sales orders and sales invoices to `ZAdaptiveMenu.show` to support dynamic scroll-aware and space-aware layout positioning (flipping above or below the anchor based on viewport boundaries).
+2. Extended `ZAdaptiveMenu` class to support left-alignment (`alignLeft: true`) for left-anchored form inputs.
+3. Implemented row-specific duplicate item selection warnings in purchase bills and purchase orders create pages, matching Zoho-style exact warnings.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [z_adaptive_menu.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/z_adaptive_menu.dart):
+  - Added support for left alignment with anchors setting to `topLeft`/`bottomLeft` depending on vertical scroll metrics.
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart) & [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Refactored `_toggleAccountsOverlay` and `_toggleRowActionsOverlay` to use `ZAdaptiveMenu.show`.
+  - Simplified `_AccountSelectionPopover` to delegate outer box decorations to the adaptive menu shell.
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart) & [purchases_purchase_orders_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart):
+  - Added item selection duplicate validation on item dropdown onChanged callback to warn users using row-specific indexes.
+
+**Verifications**: Verified compilation using dart analyze. No static warnings or compile errors remain.
+
+Timestamp of Log Update: June 22, 2026 - 01:25 PM (IST)
+
+
+## 36. Accounts Popover UI Padding and Scrollbar Dragging Fixes (June 22, 2026)
+
+### Summary
+1. Restored the default edge-to-edge layout for the Accounts popover menu by removing the default 8px padding introduced by ZAdaptiveMenu.
+2. Restored draggable scrollbars inside all dropdown overlays (FormDropdown) by replacing NeverScrollableScrollPhysics with ClampingScrollPhysics and removing custom mouse pointer listener overrides that hijacked native scroll physics.
+3. Cleaned up static analysis warnings by removing the unused package:flutter/gestures.dart import from dropdown_input.dart.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [z_adaptive_menu.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/z_adaptive_menu.dart):
+  - Added support for an optional padding parameter in the show method, which defaults to const EdgeInsets.all(8).
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart) & [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Updated _toggleAccountsOverlay to pass padding: EdgeInsets.zero and orderRadius: 8 into ZAdaptiveMenu.show, restoring the flush edge-to-edge table styling.
+- [dropdown_input.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/inputs/dropdown_input.dart):
+  - Swapped physics: const NeverScrollableScrollPhysics() to physics: const ClampingScrollPhysics() inside the dropdown selection overlay list views (both custom listBuilder and default ListView).
+  - Removed manual Listener blocks capturing pointer scroll events to resolve interaction blocks.
+  - Removed unused package:flutter/gestures.dart import.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified that the modified files compile cleanly using dart analyze.
+
+Timestamp of Log Update: June 22, 2026 - 02:15 PM (IST)
+
+## 37. Sales Item Row Hover Actions and Unregistered GST Tax Customizations (June 22, 2026)
+
+### Summary
+1. Restructured row interactions in the item details tables of Sales Orders and Sales Invoices: row actions (3-dots and 'X' delete buttons) now only display when hovering over the row.
+2. Formatted header rows to completely hide the row actions column (3-dots and 'X' delete buttons) and omit the additional details/reporting tags footer banner.
+3. Removed static outlines from the tax selection dropdowns in the item row, replacing them with a borderless state that only displays a blue focus outline upon hover.
+4. Set the tax dropdown cell to read-only and display no selected value ('Select Tax') when the active customer's GST registration status is unregistered. Added a close button on hover to clear any selected tax.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart) & [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Added stateful hover tracking variables (_hoveredRowIndex) and getter (_isCustomerUnregistered) to check customer GST treatment status.
+  - Wrapped each item row widget inside a MouseRegion to trigger the active hover state.
+  - Set the actions cell to show actions only when _hoveredRowIndex == idx and !row.isHeader.
+  - Added conditional check to prevent rendering the additional details/reporting tags banner on header rows (!row.isHeader).
+  - Swapped the tax dropdown container decoration to utilize a transparent border by default, showing a blue border only on hover when active.
+  - Set the tax cell onTap gesture detector callback to null if _isCustomerUnregistered is true, displaying 'Select Tax' with grey text and hiding the dropdown icon.
+  - Added a hover-triggered close icon inside the tax cell row when a tax rate is selected to allow clearing it.
+  - Updated _calculateTotals to omit row tax calculations if _isCustomerUnregistered evaluates to true.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation using targeted static analysis (dart analyze).
+
+Timestamp of Log Update: June 22, 2026 - 02:45 PM (IST)
+
+## 38. ReorderableListView Key Assertion Fix (June 22, 2026)
+
+### Summary
+1. Resolved a runtime assertion crash in the item detail tables of Sales Orders and Sales Invoices: Assertion failed: Every item of ReorderableListView must have a key.
+2. Replaced key mapping assignments to ensure the top-level returned widget from the list's itemBuilder (MouseRegion) receives the item's ValueKey instead of delegation to its child Column widget.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart) & [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Moved the key parameter assignment from the inner Column to the top-level returned MouseRegion widget in the _buildItemRow method.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation using static analysis (dart analyze).
+
+Timestamp of Log Update: June 22, 2026 - 03:00 PM (IST)
+
+## 39. Sales Table Vertical Dividers and Auto-Append Item Rows (June 22, 2026)
+
+### Summary
+1. Enhanced the layout of Sales Order and Sales Invoice item tables by introducing a vertical separator line between the left-most drag handle / checkbox column and the main content columns.
+2. Implemented an auto-appended blank row UX: when selecting a product in the final row of the items table, a new blank row is appended automatically.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart) & [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Inserted _vLine() into the table header column collection directly after the left-most drag handle space.
+  - Inserted _vLine() inside the _buildItemRow column collection directly after the drag handle widget column.
+  - Updated the onChanged item select dropdown callback to check if idx == rows.length - 1. If so, a new row is appended using ows.add(_createItemRow()).
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation using static analysis (dart analyze).
+
+Timestamp of Log Update: June 22, 2026 - 03:15 PM (IST)
+
+## 40. Procurement Module Enablement & Warehouse Popover Default Stock Selection (June 23, 2026)
+
+### Summary
+1. Standardized the Warehouse Locations popover default stock selection to "Physical Stock" instead of "Accounting Stock" across the ERP.
+2. Reduced the dropdown list container width in the popover overlay from 160 to 130 for a tighter, cleaner alignment.
+3. Enabled and registered the Procurement module in the frontend sidebar navigation and GoRouter configurations, making it accessible with "Purchase Requests" and "Approvals" menu items.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [warehouse_popover.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/inputs/warehouse_popover.dart):
+  - Reduced the dropdown list container width from 160 to 130.
+  - Changed the fallback default value of selectedStockType to 'Physical'.
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart):
+  - Initialized _selectedStockType state variable to 'Physical'.
+- [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Initialized _selectedStockType state variable to 'Physical'.
+- [app_routes.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/core/routing/app_routes.dart):
+  - Defined route constant strings: procurementPurchaseRequests, procurementPurchaseRequestsCreate, procurementPurchaseRequestOverview, procurementRequestedItems, procurementApprovals, procurementApprovalsOverview.
+- [app_router.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/app/routing/app_router.dart):
+  - Imported procurement page widgets and registered GoRouter routes under the nested /:orgSystemId ShellRoute.
+- [navigation_registry.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/app/navigation/navigation_registry.dart):
+  - Appended the 'procurement' module configuration containing "Purchase Requests" and "Approvals" NavItems to the registry.
+- [sidebar_builder.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/app/navigation/sidebar_builder.dart):
+  - Added prefix route matching rule for '/procurement/' to resolve Procurement parent leaf menu label in the sidebar.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation using static analysis (dart analyze).
+
+Timestamp of Log Update: June 23, 2026 - 11:15 AM (IST)
+
+## 41. Routing Duplicates and Procurement Provider Fixes (June 23, 2026)
+
+### Summary
+1. Resolved multiple compilation errors in the routing file by removing redundant/duplicated static route constant declarations.
+2. Fixed a compilation error in the Procurement Demand Pool dialog by resolving the undefined `supabaseUsersProvider` reference to the correct `allUsersProvider` from auth module.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [app_routes.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/core/routing/app_routes.dart):
+  - Removed duplicate route constants declared twice for `bills`, `reports`, `accountsChartOfAccounts`, and `accountantManualJournals` structures.
+- [procurement_demand_pool_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/procurement/purchase_request/presentation/pages/procurement_demand_pool_dialog.dart):
+  - Substituted the nonexistent `supabaseUsersProvider` with `allUsersProvider` to watch the users list state.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified by reviewing active build logs.
+
+Timestamp of Log Update: June 23, 2026 - 12:35 PM (IST)
+
+## 42. Procurement Sidebar Position and Quick-Add (June 23, 2026)
+
+### Summary
+1. Moved the Procurement module above the Accountant module in the sidebar configuration.
+2. Enabled the quick-add `+` button in the sidebar for "Purchase Requests" to directly navigate to the request creation page.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [navigation_registry.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/app/navigation/navigation_registry.dart):
+  - Moved the `procurement` AppModule block above the `accountant` AppModule.
+  - Assigned `permissionKey: 'purchase_requests'` to the "Purchase Requests" AppNavItem.
+- [permission_registry.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/core/auth/permission_registry.dart):
+  - Added `'purchase_requests'` mapping to `legacyPermissionPrefixesByKey` targeting `procurement.purchase_request`.
+  - Registered `procurement.purchase_request.view` and `procurement.purchase_request.create` definitions in `permissionsRegistry`.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation.
+
+Timestamp of Log Update: June 23, 2026 - 12:50 PM (IST)
+
+## 43. PO Vendor Address Restricting and Modal Title Fix (June 23, 2026)
+
+### Summary
+1. Set the header of the address editor popup box to explicitly show "Billing Address" or "Shipping Address" depending on the context being edited.
+2. Restructured editing accessibility: shipping-only addresses in the billing address dropdown list cannot be edited, and billing-only addresses in the shipping address dropdown list cannot be edited.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_orders_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart):
+  - Updated `_showAddressDropdownList` to pass `isBilling ? 'Billing Address' : 'Shipping Address'` as customTitle to `_showAddressModal`.
+  - Updated `_buildAddressDropdownItem` to calculate edit accessibility by checking the address flags (`is_default_billing`, `is_default_shipping`) vs the active dropdown context (`isBilling`).
+  - Added conditional checks to only render and trigger the edit pencil icon when `canEdit` is true, and pass the explicit context title.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation.
+
+Timestamp of Log Update: June 23, 2026 - 02:15 PM (IST)
+
+## 44. Billing & Shipping Address Creation and Edit Standardization (June 23, 2026)
+
+### Summary
+1. Verified address editor title formatting and editing restrictions on Purchases Bills, Sales Invoices, and Sales Orders creation pages to ensure complete alignment with vendor address rules.
+2. Restructured address editor header rendering to dynamically show "Billing Address" or "Shipping Address" depending on the target edit context.
+3. Verified editing accessibility flow for customer models on Sales screens where single addresses are resolved directly, ensuring clean user experience.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Verified and confirmed that the editing access checks (`canEdit` based on `address_type`, `is_default_billing`, and `is_default_shipping`) hide the pencil edit icon for non-matching address types in both billing and shipping dropdown lists.
+  - Ensured correct titles are forwarded to the address modal.
+- [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Confirmed `_showAddressDialog` and private `_AddressDialog` map the context-specific title to "Billing Address" or "Shipping Address" correctly.
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart):
+  - Confirmed the page delegates direct edit actions to the shared `AddressDialog` widget, passing context-aware titles.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified address dialogues and models configurations.
+
+Timestamp of Log Update: June 23, 2026 - 03:15 PM (IST)
+
+
+
+

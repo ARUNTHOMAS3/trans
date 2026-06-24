@@ -691,7 +691,7 @@ export const product = pgTable("products", {
   pushToEcommerce: boolean("push_to_ecommerce").default(false),
 
   // Tax & Regulatory
-  hsnCode: varchar("hsn_code", { length: 50 }),
+  hsnCode: varchar("hsn_sac_code", { length: 50 }),
   taxPreference: taxPreferenceEnum("tax_preference"),
   intraStateTaxId: uuid("intra_state_tax_id").references(() => taxRate.id),
   interStateTaxId: uuid("inter_state_tax_id").references(() => taxRate.id),
@@ -2165,6 +2165,7 @@ export const bills = pgTable("bills", {
   adjustmentAmount: numeric("adjustment_amount", { precision: 15, scale: 2 }).default("0"),
   roundOff: numeric("round_off", { precision: 15, scale: 2 }).default("0"),
   grandTotal: numeric("grand_total", { precision: 15, scale: 2 }).default("0"),
+  invoiceTotal: numeric("invoice_total", { precision: 15, scale: 2 }).default("0"),
   
   sourceType: varchar("source_type", { length: 30 }), // PURCHASE_RECEIVE / DIRECT
   sourceId: uuid("source_id"),
