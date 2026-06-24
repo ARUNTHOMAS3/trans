@@ -66,9 +66,9 @@ export class HsnSacService {
     const client = this.supabaseService.getClient();
     const { data, error } = await client
       .from("products")
-      .select("hsn_code,product_name")
-      .not("hsn_code", "is", null)
-      .or(`hsn_code.ilike.%${query}%,product_name.ilike.%${query}%`)
+      .select("hsn_sac_code,product_name")
+      .not("hsn_sac_code", "is", null)
+      .or(`hsn_sac_code.ilike.%${query}%,product_name.ilike.%${query}%`)
       .limit(100);
 
     if (error) {
@@ -78,11 +78,11 @@ export class HsnSacService {
     return Array.from(
       new Map(
         (data ?? [])
-          .filter((row) => (row.hsn_code ?? "").trim().length > 0)
+          .filter((row) => (row.hsn_sac_code ?? "").trim().length > 0)
           .map((row) => [
-            (row.hsn_code ?? "").trim(),
+            (row.hsn_sac_code ?? "").trim(),
             {
-              code: (row.hsn_code ?? "").trim(),
+              code: (row.hsn_sac_code ?? "").trim(),
               description: row.product_name ?? "",
             },
           ]),

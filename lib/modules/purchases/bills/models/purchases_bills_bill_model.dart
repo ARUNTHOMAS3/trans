@@ -25,6 +25,7 @@ class PurchasesBill {
   final String? adjustmentLabel;
   final double adjustment;
   final double total;
+  final double invoiceTotal;
   final double tdsTotal;
   final double tcsTotal;
   final String? notes;
@@ -41,6 +42,8 @@ class PurchasesBill {
   final String? sourceOfSupply;
   final String? destinationToSupply;
   final String? billingAddress;
+  final String? sourceType;
+  final String? sourceId;
 
   PurchasesBill({
     required this.id,
@@ -51,6 +54,8 @@ class PurchasesBill {
     this.sourceOfSupply,
     this.destinationToSupply,
     this.billingAddress,
+    this.sourceType,
+    this.sourceId,
     this.vendorNumber,
     this.orderNumber,
     this.billDate,
@@ -72,6 +77,7 @@ class PurchasesBill {
     this.adjustmentLabel = 'Adjustment',
     this.adjustment = 0,
     this.total = 0,
+    this.invoiceTotal = 0,
     this.tdsTotal = 0,
     this.tcsTotal = 0,
     this.notes,
@@ -182,6 +188,7 @@ class PurchasesBill {
       adjustmentLabel: json['adjustment_label'] ?? 'Adjustment',
       adjustment: _parseDouble(json['adjustment'] ?? json['adjustment_amount'] ?? 0),
       total: _parseDouble(json['total'] ?? json['grand_total'] ?? 0),
+      invoiceTotal: _parseDouble(json['invoice_total'] ?? json['invoiceTotal'] ?? 0),
       tdsTotal: _parseDouble(json['tds_total'] ?? json['tdsTotal'] ?? 0),
       tcsTotal: _parseDouble(json['tcs_total'] ?? json['tcsTotal'] ?? 0),
       notes: json['notes'],
@@ -203,6 +210,8 @@ class PurchasesBill {
       sourceOfSupply: json['source_of_supply'] ?? json['sourceOfSupply'],
       destinationToSupply: json['destination_to_supply'] ?? json['destinationToSupply'],
       billingAddress: json['billing_address'] ?? json['billingAddress'],
+      sourceType: json['source_type'] ?? json['sourceType'],
+      sourceId: json['source_id'] ?? json['sourceId'],
     );
   }
 
@@ -216,6 +225,8 @@ class PurchasesBill {
       if (sourceOfSupply != null) 'sourceOfSupply': sourceOfSupply,
       if (destinationToSupply != null) 'destinationToSupply': destinationToSupply,
       if (billingAddress != null) 'billingAddress': billingAddress,
+      if (sourceType != null) 'sourceType': sourceType,
+      if (sourceId != null) 'sourceId': sourceId,
       if (vendorNumber != null) 'vendorNumber': vendorNumber,
       if (orderNumber != null) 'orderNumber': orderNumber,
       if (billDate != null)
@@ -237,6 +248,7 @@ class PurchasesBill {
       'adjustmentLabel': adjustmentLabel ?? 'Adjustment',
       'adjustment': adjustment,
       'total': total,
+      'invoiceTotal': invoiceTotal,
       'tdsTotal': tdsTotal,
       'tcsTotal': tcsTotal,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
@@ -279,6 +291,7 @@ class PurchasesBillLineItem {
   final bool trackBatches;
   final bool trackSerialNumber;
   final bool trackBinLocation;
+  final String? productType;
 
   PurchasesBillLineItem({
     this.id,
@@ -310,6 +323,7 @@ class PurchasesBillLineItem {
     this.trackBatches = false,
     this.trackSerialNumber = false,
     this.trackBinLocation = false,
+    this.productType,
   });
 
   double get computedAmount {
@@ -326,6 +340,17 @@ class PurchasesBillLineItem {
     final accountData = json['account'] as Map<String, dynamic>?;
     final customerData = json['customer'] as Map<String, dynamic>?;
 
+    double freeQty = _parseDouble(json['free_quantity'] ?? json['freeQuantity'] ?? 0);
+    if (freeQty == 0 && json['batches'] != null) {
+      final batchesList = json['batches'] as List<dynamic>;
+      for (final b in batchesList) {
+        if (b is Map) {
+          final focVal = b['foc_quantity'] ?? b['focQuantity'] ?? b['foc'] ?? 0;
+          freeQty += _parseDouble(focVal);
+        }
+      }
+    }
+
     return PurchasesBillLineItem(
       id: json['id'],
       itemId: json['item_id'] ?? json['product_id'],
@@ -341,7 +366,7 @@ class PurchasesBillLineItem {
       expiry: json['expiry'] != null ? DateTime.tryParse(json['expiry']) : null,
       mrp: _parseDouble(json['mrp'] ?? 0),
       ptr: _parseDouble(json['ptr'] ?? 0),
-      freeQuantity: _parseDouble(json['free_quantity'] ?? 0),
+      freeQuantity: freeQty,
       accountId: json['account_id'] ?? json['accountId'],
       accountName: accountData?['user_account_name'] as String? ??
                   accountData?['system_account_name'] as String? ??
@@ -361,6 +386,7 @@ class PurchasesBillLineItem {
       trackBatches: productData?['track_batches'] as bool? ?? json['track_batches'] as bool? ?? false,
       trackSerialNumber: productData?['track_serial_number'] as bool? ?? json['track_serial_number'] as bool? ?? false,
       trackBinLocation: productData?['track_bin_location'] as bool? ?? json['track_bin_location'] as bool? ?? false,
+      productType: json['product_type'] as String? ?? json['productType'] as String? ?? productData?['type'] as String? ?? productData?['product_type'] as String? ?? productData?['productType'] as String? ?? 'goods',
     );
   }
 
@@ -391,6 +417,7 @@ class PurchasesBillLineItem {
       'track_batches': trackBatches,
       'track_serial_number': trackSerialNumber,
       'track_bin_location': trackBinLocation,
+      if (productType != null) 'product_type': productType,
     };
   }
 
@@ -422,6 +449,7 @@ class PurchasesBillLineItem {
     bool? trackBatches,
     bool? trackSerialNumber,
     bool? trackBinLocation,
+    String? productType,
   }) {
     return PurchasesBillLineItem(
       id: id,
@@ -453,6 +481,7 @@ class PurchasesBillLineItem {
       trackBatches: trackBatches ?? this.trackBatches,
       trackSerialNumber: trackSerialNumber ?? this.trackSerialNumber,
       trackBinLocation: trackBinLocation ?? this.trackBinLocation,
+      productType: productType ?? this.productType,
     );
   }
 }

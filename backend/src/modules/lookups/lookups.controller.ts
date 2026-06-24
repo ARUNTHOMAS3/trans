@@ -133,7 +133,7 @@ export class LookupsController {
 
     if (type === "products") {
       queryBuilder = queryBuilder.or(
-        `product_name.ilike.${searchPattern},item_code.ilike.${searchPattern},sku.ilike.${searchPattern},hsn_code.ilike.${searchPattern}`,
+        `product_name.ilike.${searchPattern},item_code.ilike.${searchPattern},sku.ilike.${searchPattern},hsn_sac_code.ilike.${searchPattern}`,
       );
     } else if (type === "storage-locations") {
       queryBuilder = queryBuilder.or(

@@ -224,6 +224,7 @@ class PurchaseReceive {
   final String? billNo;
   final DateTime? billDate;
   final double invoiceTotal;
+  final String billStatus;
 
   double get totalQuantity =>
       items.fold(0, (sum, item) => sum + item.quantityToReceive);
@@ -249,6 +250,7 @@ class PurchaseReceive {
     this.billNo,
     this.billDate,
     this.invoiceTotal = 0,
+    this.billStatus = 'none',
   }) : items = items ?? [];
 
   PurchaseReceive copyWith({
@@ -272,6 +274,7 @@ class PurchaseReceive {
     String? billNo,
     DateTime? billDate,
     double? invoiceTotal,
+    String? billStatus,
   }) {
     return PurchaseReceive(
       id: id ?? this.id,
@@ -295,6 +298,7 @@ class PurchaseReceive {
       billNo: billNo ?? this.billNo,
       billDate: billDate ?? this.billDate,
       invoiceTotal: invoiceTotal ?? this.invoiceTotal,
+      billStatus: billStatus ?? this.billStatus,
     );
   }
 
@@ -363,6 +367,7 @@ class PurchaseReceive {
           ? DateTime.tryParse(json['bill_date'] as String)
           : null,
       invoiceTotal: (json['invoice_total'] as num?)?.toDouble() ?? 0,
+      billStatus: json['bill_status'] as String? ?? 'none',
     );
   }
 }

@@ -69,6 +69,7 @@ class POItemDetailsSidebar extends ConsumerStatefulWidget {
 
 class _POItemDetailsSidebarState extends ConsumerState<POItemDetailsSidebar> {
   late int _activeTabIndex;
+  String _stockView = 'Physical Stock';
 
   @override
   void initState() {
@@ -325,44 +326,56 @@ class _POItemDetailsSidebarState extends ConsumerState<POItemDetailsSidebar> {
   }
 
   Widget _buildItemDetailsTab() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final itemAsync = ref.watch(itemDetailByIdProvider(widget.row.productId));
+    return itemAsync.when(
+      loading: () => const FormSkeleton(),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text('Error: $e'),
+      ),
+      data: (item) {
+        final toBeShippedVal = item?.toBeShipped?.toStringAsFixed(2) ?? '0.00';
+        final toBeReceivedVal = item?.toBeReceived?.toStringAsFixed(2) ?? '0.00';
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _infoBox('To Be Shipped', '0.00', Icons.local_shipping_outlined),
-              _infoBox('To Be Received', '11.00', Icons.arrow_downward),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _infoBox('To Be Shipped', toBeShippedVal, Icons.local_shipping_outlined),
+                  _infoBox('To Be Received', toBeReceivedVal, Icons.arrow_downward),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Sales Information',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
+              _detailRow('Account', widget.row.accountName ?? item?.salesAccountName ?? '-'),
+              const SizedBox(height: 24),
+              const Text(
+                'Purchase Information',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
+              _detailRow('Account', widget.row.accountName ?? item?.purchaseAccountName ?? '-'),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Sales Information',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
-          _detailRow('Account', widget.row.accountName ?? 'Sales'),
-          const SizedBox(height: 24),
-          const Text(
-            'Purchase Information',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
-          _detailRow('Account', widget.row.accountName ?? 'Cost of Goods Sold'),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -446,13 +459,79 @@ class _POItemDetailsSidebarState extends ConsumerState<POItemDetailsSidebar> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Physical Stock',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
+              MenuAnchor(
+                style: const MenuStyle(
+                  backgroundColor: WidgetStatePropertyAll(Colors.white),
+                  surfaceTintColor: WidgetStatePropertyAll(Colors.white),
                 ),
+                builder: (context, controller, child) {
+                  return InkWell(
+                    onTap: () {
+                      if (controller.isOpen) {
+                        controller.close();
+                      } else {
+                        controller.open();
+                      }
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _stockView,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.arrow_drop_down,
+                          size: 20,
+                          color: Color(0xFF111827),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                menuChildren: [
+                  MenuItemButton(
+                    onPressed: () => setState(() => _stockView = 'Physical Stock'),
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+                          return const Color(0xFF0088FF);
+                        }
+                        return Colors.white;
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+                          return Colors.white;
+                        }
+                        return const Color(0xFF111827);
+                      }),
+                    ),
+                    child: const Text('Physical Stock'),
+                  ),
+                  MenuItemButton(
+                    onPressed: () => setState(() => _stockView = 'Accounting Stock'),
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+                          return const Color(0xFF0088FF);
+                        }
+                        return Colors.white;
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+                          return Colors.white;
+                        }
+                        return const Color(0xFF111827);
+                      }),
+                    ),
+                    child: const Text('Accounting Stock'),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Table(
@@ -473,6 +552,9 @@ class _POItemDetailsSidebarState extends ConsumerState<POItemDetailsSidebar> {
                     ],
                   ),
                   ...stocks.map((wh) {
+                    final numbers = _stockView == 'Accounting Stock'
+                        ? wh.accounting
+                        : wh.physical;
                     return TableRow(
                       children: [
                         Padding(
@@ -488,9 +570,9 @@ class _POItemDetailsSidebarState extends ConsumerState<POItemDetailsSidebar> {
                             ],
                           ),
                         ),
-                        _tableCell(wh.physical.onHand.toStringAsFixed(2)),
-                        _tableCell(wh.physical.committed.toStringAsFixed(2)),
-                        _tableCell(wh.physical.available.toStringAsFixed(2)),
+                        _tableCell(numbers.onHand.toStringAsFixed(2)),
+                        _tableCell(numbers.committed.toStringAsFixed(2)),
+                        _tableCell(numbers.available.toStringAsFixed(2)),
                       ],
                     );
                   }).toList(),

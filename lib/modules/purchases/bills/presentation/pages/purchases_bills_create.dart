@@ -1,6 +1,7 @@
 // ignore_for_file: unused_element, unused_element_parameter, unused_field, unused_local_variable
 
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/shared/widgets/z_adaptive_menu.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
@@ -407,6 +408,8 @@ class _PurchasesBillCreateScreenState
   final TextEditingController _dueDateCtrl = TextEditingController();
   final TextEditingController _invoiceTotalCtrl = TextEditingController();
   String? _paymentTerms;
+  String? _existingBillSourceType;
+  String? _existingBillSourceId;
   bool _reverseCharge = false;
   OverlayEntry? _itemOverlayEntry;
   OverlayEntry? _hsnOverlayEntry;
@@ -642,6 +645,8 @@ class _PurchasesBillCreateScreenState
       final isClone = widget.cloneBillId != null;
 
       setState(() {
+        _existingBillSourceType = bill.sourceType;
+        _existingBillSourceId = bill.sourceId;
         _selectedVendor = matchingVendor;
         _billNumberCtrl.text = isClone ? '' : (bill.billNumber ?? '');
         _orderNumberCtrl.text = bill.orderNumber ?? '';
@@ -670,6 +675,7 @@ class _PurchasesBillCreateScreenState
         _adjustment = bill.adjustment;
         _discountPercentCtrl.text = bill.discountPercent.toString();
         _discountPercent = bill.discountPercent;
+        _invoiceTotalCtrl.text = bill.invoiceTotal > 0 ? bill.invoiceTotal.toStringAsFixed(2) : '';
         // Reconstruct TDS/TCS type, ID, and rate
         if (bill.tdsTotal > 0) {
           _tdsTcsType = 'tds';
@@ -753,6 +759,7 @@ class _PurchasesBillCreateScreenState
           row.customerName = item.customerName;
           row.discountCtrl.text = item.discount.toString();
           row.discountType = item.discountType;
+          row.itemType = item.productType;
 
           final taxId = item.taxId;
           final matchedTax = itemsState.taxGroups
@@ -1511,6 +1518,21 @@ class _PurchasesBillCreateScreenState
                                             width: 1.5,
                                           ),
                                           onChanged: (val) {
+                                            if (val == true) {
+                                              final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+                                              bool hasLoaded = false;
+                                              for (final order in _openPurchaseOrders) {
+                                                if (loadedPOs.contains(order.orderNumber)) {
+                                                  ZerpaiToast.error(
+                                                    context,
+                                                    'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                  );
+                                                  hasLoaded = true;
+                                                  break;
+                                                }
+                                              }
+                                              if (hasLoaded) return;
+                                            }
                                             setDialogState(() {
                                               if (val == true) {
                                                 selectedReceiveIds.clear();
@@ -1661,6 +1683,16 @@ class _PurchasesBillCreateScreenState
                                               width: 1.5,
                                             ),
                                             onChanged: totalSelectableChildren == 0 ? null : (val) {
+                                              if (val == true) {
+                                                final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+                                                if (loadedPOs.contains(order.orderNumber)) {
+                                                  ZerpaiToast.error(
+                                                    context,
+                                                    'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                  );
+                                                  return;
+                                                }
+                                              }
                                               setDialogState(() {
                                                 if (val == true) {
                                                   for (final id in selectableRxIds) {
@@ -1741,6 +1773,16 @@ class _PurchasesBillCreateScreenState
                                                         width: 1.2,
                                                       ),
                                                       onChanged: (val) {
+                                                        if (val == true) {
+                                                          final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+                                                          if (loadedPOs.contains(order.orderNumber)) {
+                                                            ZerpaiToast.error(
+                                                              context,
+                                                              'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                            );
+                                                            return;
+                                                          }
+                                                        }
                                                         setDialogState(() {
                                                           if (val == true) {
                                                             selectedReceiveIds.add(rxId);
@@ -1755,6 +1797,18 @@ class _PurchasesBillCreateScreenState
                                                   Expanded(
                                                     child: GestureDetector(
                                                       onTap: () {
+                                                        final rxId = rx['id']?.toString() ?? '';
+                                                        final isRxChecked = selectedReceiveIds.contains(rxId);
+                                                        if (!isRxChecked) {
+                                                          final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+                                                          if (loadedPOs.contains(order.orderNumber)) {
+                                                            ZerpaiToast.error(
+                                                              context,
+                                                              'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                            );
+                                                            return;
+                                                          }
+                                                        }
                                                         setDialogState(() {
                                                           if (selectedReceiveIds.contains(rxId)) {
                                                             selectedReceiveIds.remove(rxId);
@@ -1802,6 +1856,16 @@ class _PurchasesBillCreateScreenState
                                                         width: 1.2,
                                                       ),
                                                       onChanged: (val) {
+                                                        if (val == true) {
+                                                          final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+                                                          if (loadedPOs.contains(order.orderNumber)) {
+                                                            ZerpaiToast.error(
+                                                              context,
+                                                              'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                            );
+                                                            return;
+                                                          }
+                                                        }
                                                         setDialogState(() {
                                                           if (val == true) {
                                                             if (order.id != null) {
@@ -1818,6 +1882,17 @@ class _PurchasesBillCreateScreenState
                                                   Expanded(
                                                     child: GestureDetector(
                                                       onTap: () {
+                                                        final isChecked = selectedUnreceivedPoIds.contains(order.id);
+                                                        if (!isChecked) {
+                                                          final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+                                                          if (loadedPOs.contains(order.orderNumber)) {
+                                                            ZerpaiToast.error(
+                                                              context,
+                                                              'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                            );
+                                                            return;
+                                                          }
+                                                        }
                                                         setDialogState(() {
                                                           if (selectedUnreceivedPoIds.contains(order.id)) {
                                                             selectedUnreceivedPoIds.remove(order.id);
@@ -2987,6 +3062,10 @@ class _PurchasesBillCreateScreenState
       _showValidationError('Please enter a valid invoice total greater than zero.');
       return;
     }
+    if ((parsedInvoiceTotal - _total).abs() >= 0.01) {
+      _showValidationError('invoice total amount mismatch with the total amount');
+      return;
+    }
 
     final validRows = _lineItems
         .where((r) => r.itemId != null && r.itemId!.isNotEmpty)
@@ -3098,7 +3177,12 @@ class _PurchasesBillCreateScreenState
             : _adjustmentLabelCtrl.text.trim(),
         adjustment: _adjustment,
         total: _total,
+        invoiceTotal: parsedInvoiceTotal,
         notes: _notesCtrl.text,
+        sourceType: widget.poId != null
+            ? 'purchase_order'
+            : (widget.receiveId != null ? 'purchase_receive' : _existingBillSourceType),
+        sourceId: widget.poId ?? widget.receiveId ?? _existingBillSourceId,
         status: status,
       );
 
@@ -3331,6 +3415,7 @@ class _PurchasesBillCreateScreenState
                     onTapOutside: (_) => _removeHsnOverlay(),
                     child: _HSNCodeEditPopover(
                       initialHsnCode: row.hsnCode ?? '',
+                      isService: row.itemType == 'service',
                       onCancel: _removeHsnOverlay,
                       onSave: (hsn) {
                         setState(() {
@@ -4089,12 +4174,22 @@ class _PurchasesBillCreateScreenState
               color: Colors.transparent,
               child: _ConfigureTaxPreferencesDialog(
                 initialTreatment: currentTreatment,
-                onUpdate: (val, isPermanent) {
+                onUpdate: (val, isPermanent) async {
                   if (_selectedVendor != null) {
+                    final updatedVendor = _selectedVendor!.copyWith(
+                      gstTreatment: val,
+                    );
+                    if (isPermanent) {
+                      await ref
+                          .read(vendorProvider.notifier)
+                          .updateVendor(_selectedVendor!.id, updatedVendor);
+                    } else {
+                      ref
+                          .read(vendorProvider.notifier)
+                          .updateVendorLocally(_selectedVendor!.id, updatedVendor);
+                    }
                     setState(() {
-                      _selectedVendor = _selectedVendor!.copyWith(
-                        gstTreatment: val,
-                      );
+                      _selectedVendor = updatedVendor;
                     });
                   }
                   _closeGstTaxOverlay();
@@ -4228,7 +4323,7 @@ class _PurchasesBillCreateScreenState
                               _showAddressModal(
                                 vendor: vendor,
                                 isBilling: isBilling,
-                                customTitle: 'Additional Address',
+                                customTitle: isBilling ? 'Billing Address' : 'Shipping Address',
                                 isNewAddress: true,
                               );
                             },
@@ -4350,6 +4445,26 @@ class _PurchasesBillCreateScreenState
       if (phone.isNotEmpty) 'Phone: $phone',
     ];
 
+    final bool isAddrBilling = address['is_default_billing'] == true ||
+        address['isDefaultBilling'] == true ||
+        address['address_type'] == 'billing' ||
+        address['addressType'] == 'billing';
+    final bool isAddrShipping = address['is_default_shipping'] == true ||
+        address['isDefaultShipping'] == true ||
+        address['address_type'] == 'shipping' ||
+        address['addressType'] == 'shipping';
+
+    bool canEdit = true;
+    if (isBilling) {
+      if (isAddrShipping && !isAddrBilling) {
+        canEdit = false;
+      }
+    } else {
+      if (isAddrBilling && !isAddrShipping) {
+        canEdit = false;
+      }
+    }
+
     bool isHovered = false;
     return StatefulBuilder(
       builder: (ctx, setSt) {
@@ -4445,7 +4560,7 @@ class _PurchasesBillCreateScreenState
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (isHovered)
+                          if (isHovered && canEdit)
                             GestureDetector(
                               onTap: () {
                                 _closeAddressDropdownOverlay();
@@ -4453,7 +4568,7 @@ class _PurchasesBillCreateScreenState
                                   vendor: vendor,
                                   isBilling: isBilling,
                                   initialAddress: address,
-                                  customTitle: 'Additional Address',
+                                  customTitle: isBilling ? 'Billing Address' : 'Shipping Address',
                                 );
                               },
                               child: Icon(
@@ -4996,6 +5111,25 @@ class _PurchasesBillCreateScreenState
       // keep existing local options if remote lookup fails
     }
 
+    final warehouses = ref.read(warehousesProvider).value ?? [];
+    final matchingWarehouse = warehouses.firstWhere(
+      (w) =>
+          w.name.trim().toLowerCase() ==
+          (_warehouse ?? '').trim().toLowerCase(),
+      orElse: () => Warehouse(id: '', name: ''),
+    );
+    final String? whId = matchingWarehouse.id.isNotEmpty
+        ? matchingWarehouse.id
+        : null;
+
+    List<Map<String, dynamic>> bins = [];
+    if (whId != null && whId.isNotEmpty) {
+      try {
+        final binsList = await ref.read(binsLookupProvider(whId).future);
+        bins = binsList.map((e) => Map<String, dynamic>.from(e)).toList();
+      } catch (_) {}
+    }
+
     if (!mounted) return;
 
     showDialog(
@@ -5007,6 +5141,7 @@ class _PurchasesBillCreateScreenState
         batchOptions: batchOptions.toList()..sort(),
         batchDetails: batchDetails,
         initialBatches: initialBatches,
+        bins: bins,
         ordered: double.tryParse(row.quantityCtrl.text.trim()) ?? 1.0,
         maxQuantity: double.infinity,
         warehouseName: _warehouse ?? '',
@@ -7852,80 +7987,46 @@ class _PurchasesBillCreateScreenState
 
   void _showLineItemMoreOverlay(int index, _BillLineItemRow row) {
     _removeMoreOverlay();
-    final overlay = Overlay.of(context);
 
-    _moreOverlayEntry = OverlayEntry(
-      builder: (context) {
-        return CompositedTransformFollower(
-          link: row.moreLayerLink,
-          showWhenUnlinked: false,
-          targetAnchor: Alignment.bottomRight,
-          followerAnchor: Alignment.topRight,
-          offset: const Offset(0, 4),
-          child: Align(
-            alignment: Alignment.topRight,
-            child: TapRegion(
-              onTapOutside: (_) => _removeMoreOverlay(),
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(8),
-                clipBehavior: Clip.antiAlias,
-                color: Colors.white,
-                child: Container(
-                  width: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildMoreOption(
-                        label: 'Clone',
-                        onTap: () {
-                          setState(() {
-                            _lineItems.insert(index + 1, row.clone());
-                          });
-                          _removeMoreOverlay();
-                        },
-                      ),
-                      const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                      _buildMoreOption(
-                        label: 'Insert New Row',
-                        onTap: () {
-                          setState(() {
-                            _lineItems.insert(index + 1, _BillLineItemRow());
-                          });
-                          _removeMoreOverlay();
-                        },
-                      ),
-                      const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                      _buildMoreOption(
-                        label: 'Insert Items in Bulk',
-                        onTap: () {
-                          // Bulk insert logic would go here
-                          _removeMoreOverlay();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+    _moreOverlayEntry = ZAdaptiveMenu.show(
+      context: context,
+      link: row.moreLayerLink,
+      onClose: _removeMoreOverlay,
+      builder: (ctx) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMoreOption(
+              label: 'Clone',
+              onTap: () {
+                setState(() {
+                  _lineItems.insert(index + 1, row.clone());
+                });
+                _removeMoreOverlay();
+              },
             ),
-          ),
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+            _buildMoreOption(
+              label: 'Insert New Row',
+              onTap: () {
+                setState(() {
+                  _lineItems.insert(index + 1, _BillLineItemRow());
+                });
+                _removeMoreOverlay();
+              },
+            ),
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+            _buildMoreOption(
+              label: 'Insert Items in Bulk',
+              onTap: () {
+                // Bulk insert logic would go here
+                _removeMoreOverlay();
+              },
+            ),
+          ],
         );
       },
     );
-
-    overlay.insert(_moreOverlayEntry!);
     setState(() {
       row.isMoreDropdownOpen = true;
     });
@@ -8081,33 +8182,67 @@ class _PurchasesBillCreateScreenState
                                           hint:
                                               'Type or click to select an item.',
                                           hideBorderDefault: true,
-                                          items: allItems.take(20).toList(),
+                                          itemEstimatedHeight: 48,
+                                          maxVisibleItems: 5,
+                                          menuWidth: 420,
+                                          items: row.isLandedCost
+                                              ? allItems
+                                                  .where((i) => i.type == 'service')
+                                                  .take(20)
+                                                  .toList()
+                                              : allItems.take(20).toList(),
                                           displayStringForValue: (i) =>
                                               i.productName,
                                           onSearch: (query) async {
                                             if (query.length < 2) return [];
-                                            return await ref
+                                            final results = await ref
                                                 .read(
                                                   itemsControllerProvider
                                                       .notifier,
                                                 )
                                                 .searchProductsNoState(query);
+                                            if (row.isLandedCost) {
+                                              return results
+                                                  .where((i) => i.type == 'service')
+                                                  .toList();
+                                            }
+                                            return results;
                                           },
                                           itemBuilder:
                                               (
                                                 i,
                                                 isSelected,
                                                 isHovered,
-                                              ) => _buildStandardLookupRow(
-                                                i.productName,
-                                                isSelected,
-                                                isHovered,
-                                                sublabel: i.costPrice != null
-                                                    ? 'Purchase Rate: ₹${i.costPrice!.toStringAsFixed(2)}'
-                                                    : null,
+                                              ) => Container(
+                                                decoration: BoxDecoration(
+                                                  border: Border(
+                                                    bottom: BorderSide(
+                                                      color: isHovered || isSelected
+                                                          ? Colors.transparent
+                                                          : const Color(0xFFE5E7EB),
+                                                      width: 1.0,
+                                                    ),
+                                                  ),
+                                                ),
+                                                child: _buildStandardLookupRow(
+                                                  i.productName,
+                                                  isSelected,
+                                                  isHovered,
+                                                  sublabel: i.costPrice != null
+                                                      ? 'Purchase Rate: ₹${i.costPrice!.toStringAsFixed(2)}'
+                                                      : null,
+                                                ),
                                               ),
                                           onChanged: (i) async {
                                             if (i == null) return;
+                                            final dupIdx = _lineItems.indexWhere((r) => r.itemId == i.id);
+                                            if (dupIdx != -1) {
+                                              ZerpaiToast.error(
+                                                context,
+                                                "Item '${i.productName}' is already selected in row ${dupIdx + 1}.",
+                                              );
+                                              return;
+                                            }
                                             setState(() {
                                               row.itemId = i.id;
                                               row.itemName = i.productName;
@@ -8153,6 +8288,12 @@ class _PurchasesBillCreateScreenState
                                                       _selectedPriceListId;
                                                 });
                                               }
+                                            }
+                                            final index = _lineItems.indexOf(row);
+                                            if (index == _lineItems.length - 1) {
+                                              setState(() {
+                                                _lineItems.add(_BillLineItemRow());
+                                              });
                                             }
                                           },
                                         ),
@@ -8413,14 +8554,16 @@ class _PurchasesBillCreateScreenState
             _infoChip(
               (row.itemType ?? 'goods').toUpperCase(),
               row.itemType == 'service'
-                  ? const Color(0xFF7C3AED)
+                  ? const Color(0xFFF97316)
                   : const Color(0xFF0088FF),
               Colors.white,
             ),
             const SizedBox(width: 8),
-            const Text(
-              'HSN Code: ',
-              style: TextStyle(fontSize: 11, color: _hintColor),
+            Text(
+              row.itemType == 'service'
+                  ? 'SAC Code: '
+                  : 'HSN Code: ',
+              style: const TextStyle(fontSize: 11, color: _hintColor),
             ),
             CompositedTransformTarget(
               link: row.hsnLayerLink,
@@ -8457,69 +8600,90 @@ class _PurchasesBillCreateScreenState
   Widget _accountCell(_BillLineItemRow row, List<coa.AccountNode> mappedNodes) {
     return Expanded(
       flex: 5,
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: CompositedTransformTarget(
-            link: row.accountLink,
-            child: GestureDetector(
-              onTap: () {
-                _showAccountMenu(
-                  context,
-                  _lineItems.indexOf(row),
-                  row,
-                  mappedNodes,
-                  link: row.accountLink,
-                );
-              },
-              child: _CellDropdownWrapper(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: () {
-                          final displayAccountName =
-                              (row.accountName != null &&
-                                  row.accountName!.isNotEmpty)
-                              ? row.accountName!
-                              : (row.accountId != null &&
-                                            row.accountId!.isNotEmpty
-                                        ? mappedNodes
-                                              .where(
-                                                (a) => a.id == row.accountId,
-                                              )
-                                              .firstOrNull
-                                              ?.name
-                                        : null) ??
-                                    'Select Account';
-                          final isPlaceholder =
-                              displayAccountName == 'Select Account';
-                          return Text(
-                            displayAccountName,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isPlaceholder ? _hintColor : _textPrimary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          );
-                        }(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: FormDropdown<coa.AccountNode>(
+          height: 32,
+          value: mappedNodes.where((a) => a.id == row.accountId).firstOrNull,
+          items: mappedNodes,
+          hint: 'Select Account',
+          hideBorderDefault: true,
+          menuWidth: 420,
+          displayStringForValue: (a) => a.name,
+          onChanged: (val) {
+            setState(() {
+              if (val != null) {
+                row.accountId = val.id;
+                row.accountName = val.name;
+              } else {
+                row.accountId = null;
+                row.accountName = null;
+              }
+            });
+          },
+          itemBuilder: (node, isSelected, isHovered) {
+            final depth = _getAccountDepth(node, mappedNodes);
+            final name = depth == 0
+                ? (node.systemAccountName.isNotEmpty
+                    ? node.systemAccountName
+                    : node.name)
+                : node.name;
+            return _buildStandardLookupRow(
+              name,
+              isSelected,
+              isHovered,
+              indentation: 20.0 + (depth * 16.0),
+            );
+          },
+          listBuilder: (filteredNodes, buildItem) {
+            final Map<String, List<coa.AccountNode>> grouped = {};
+            for (var node in filteredNodes) {
+              grouped.putIfAbsent(node.accountType, () => []).add(node);
+            }
+
+            return ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              children: grouped.entries.expand((entry) {
+                return [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Text(
+                      entry.key,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _textPrimary,
+                        letterSpacing: 0.5,
                       ),
-                      const Icon(
-                        Icons.arrow_drop_down,
-                        size: 16,
-                        color: _hintColor,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ),
+                  ...() {
+                    final List<Widget> items = [];
+                    final groupAccounts = entry.value;
+                    final accountMap = {for (var a in groupAccounts) a.id: a};
+                    final rootNodes = groupAccounts.where((a) => a.parentId == null || !accountMap.containsKey(a.parentId)).toList();
+                    
+                    void addNode(coa.AccountNode node, int depth) {
+                      items.add(buildItem(node));
+                      final children = groupAccounts.where((a) => a.parentId == node.id).toList();
+                      for (var child in children) {
+                        addNode(child, depth + 1);
+                      }
+                    }
+                    
+                    for (var root in rootNodes) {
+                      addNode(root, 0);
+                    }
+                    return items;
+                  }(),
+                ];
+              }).toList(),
+            );
+          },
         ),
       ),
     );
@@ -8578,7 +8742,7 @@ class _PurchasesBillCreateScreenState
                 textAlign: TextAlign.right,
               ),
             ],
-            if (row.itemId != null && row.itemId!.isNotEmpty) ...[
+            if (row.itemId != null && row.itemId!.isNotEmpty && _showStockInfo) ...[
               const SizedBox(height: 4),
               Builder(
                 builder: (context) {
@@ -8998,65 +9162,33 @@ class _PurchasesBillCreateScreenState
   }
 
   Widget _customerCell(_BillLineItemRow row) {
+    final customersAsync = ref.watch(salesCustomersProvider);
+    final customers = customersAsync.value ?? const <SalesCustomer>[];
+
     return Expanded(
       flex: 6,
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: CompositedTransformTarget(
-            link: row.customerLayerLink,
-            child: GestureDetector(
-              onTap: () {
-                final customersAsync = ref.read(salesCustomersProvider);
-                customersAsync.whenData((customers) {
-                  _showCustomerOverlay(
-                    link: row.customerLayerLink,
-                    searchCtrl: row.customerSearchCtrl,
-                    focusNode: row.customerSearchFocus,
-                    customers: customers,
-                    selectedValue: row.customerId,
-                    onSelected: (val) {
-                      setState(() {
-                        row.customerId = val.id;
-                        row.customerName = val.displayName;
-                      });
-                    },
-                    width: 160,
-                  );
-                });
-              },
-              child: _CellDropdownWrapper(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          row.customerName ?? 'Select Customer',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: row.customerName == null
-                                ? _hintColor
-                                : _textPrimary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const Icon(
-                        Icons.arrow_drop_down,
-                        size: 16,
-                        color: _hintColor,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: FormDropdown<SalesCustomer>(
+          height: 32,
+          value: customers.where((c) => c.id == row.customerId).firstOrNull,
+          items: customers,
+          hint: 'Select Customer',
+          allowClear: true,
+          hideBorderDefault: true,
+          menuWidth: 420,
+          displayStringForValue: (c) => c.displayName,
+          onChanged: (val) {
+            setState(() {
+              if (val != null) {
+                row.customerId = val.id;
+                row.customerName = val.displayName;
+              } else {
+                row.customerId = null;
+                row.customerName = null;
+              }
+            });
+          },
         ),
       ),
     );
@@ -10100,163 +10232,129 @@ class _PurchasesBillCreateScreenState
       _activeMenuRowIndex = index;
     });
 
-    _itemMenuOverlay = OverlayEntry(
+    _itemMenuOverlay = ZAdaptiveMenu.show(
+      context: context,
+      link: link,
+      onClose: _closeItemMenu,
+      width: 180,
+      gap: 4,
+      borderColor: _borderColor,
       builder: (ctx) {
         String? hoveredItem;
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _closeItemMenu,
-                behavior: HitTestBehavior.translucent,
-                child: const ColoredBox(color: Colors.transparent),
-              ),
-            ),
-            CompositedTransformFollower(
-              link: link,
-              showWhenUnlinked: false,
-              targetAnchor: Alignment.bottomRight,
-              followerAnchor: Alignment.topRight,
-              offset: const Offset(0, 4),
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  width: 180,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _borderColor),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+        return StatefulBuilder(
+          builder: (context, setOverlayState) {
+            final isHidden = _hiddenDetails.contains(index);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSettingsOverlayItem(
+                  label: isHidden
+                      ? 'Show Additional Information'
+                      : 'Hide Additional Information',
+                  showHighlight: hoveredItem == 'toggle_info',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'toggle_info' : null,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: StatefulBuilder(
-                      builder: (context, setOverlayState) {
-                        final isHidden = _hiddenDetails.contains(index);
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildSettingsOverlayItem(
-                              label: isHidden
-                                  ? 'Show Additional Information'
-                                  : 'Hide Additional Information',
-                              showHighlight: hoveredItem == 'toggle_info',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'toggle_info' : null,
-                              ),
-                              onTap: () {
-                                setState(() {
-                                  if (_hiddenDetails.contains(index)) {
-                                    _hiddenDetails.remove(index);
-                                  } else {
-                                    _hiddenDetails.add(index);
-                                  }
-                                });
-                                _closeItemMenu();
-                              },
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSettingsOverlayItem(
-                              label: 'Clone',
-                              showHighlight: hoveredItem == 'clone',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'clone' : null,
-                              ),
-                              onTap: () {
-                                setState(() {
-                                  _lineItems.insert(index + 1, row.clone());
-                                });
-                                _closeItemMenu();
-                              },
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSettingsOverlayItem(
-                              label: 'Insert New Row',
-                              showHighlight: hoveredItem == 'insert_row',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'insert_row' : null,
-                              ),
-                              onTap: () {
-                                setState(() {
-                                  _lineItems.insert(
-                                    index + 1,
-                                    _BillLineItemRow(),
-                                  );
-                                });
-                                _closeItemMenu();
-                              },
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSettingsOverlayItem(
-                              label: 'Insert Items in Bulk',
-                              showHighlight: hoveredItem == 'bulk',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'bulk' : null,
-                              ),
-                              onTap: () {
-                                _closeItemMenu();
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => BulkItemsDialog(
-                                    products: allItems,
-                                    onItemsSelected: (selectedItems) {
-                                      setState(() {
-                                        selectedItems.forEach((item, quantity) {
-                                          final newRow = _BillLineItemRow();
-                                          newRow.itemId = item.id;
-                                          newRow.itemName = item.productName;
-                                          newRow.itemNameCtrl.text =
-                                              item.productName;
-                                          newRow.hsnCode = item.hsnCode;
-                                          newRow.hsnCtrl.text =
-                                              item.hsnCode ?? '';
-                                          newRow.itemCode = item.itemCode;
-                                          newRow.rateCtrl.text =
-                                              (item.costPrice ?? 0.0)
-                                                  .toStringAsFixed(2);
-                                          newRow.quantityCtrl.text = quantity
-                                              .toString();
-                                          newRow.taxId = item.intraStateTaxId;
-                                          newRow.taxName =
-                                              item.intraStateTaxName;
-                                          final matchedTax = itemsState
-                                              .taxGroups
-                                              .where(
-                                                (tg) =>
-                                                    tg.id ==
-                                                    item.intraStateTaxId,
-                                              )
-                                              .firstOrNull;
-                                          newRow.taxRate =
-                                              matchedTax?.taxRate ?? 0.0;
-                                          _lineItems.insert(index + 1, newRow);
-                                        });
-                                      });
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
+                  onTap: () {
+                    setState(() {
+                      if (_hiddenDetails.contains(index)) {
+                        _hiddenDetails.remove(index);
+                      } else {
+                        _hiddenDetails.add(index);
+                      }
+                    });
+                    _closeItemMenu();
+                  },
                 ),
-              ),
-            ),
-          ],
+                const SizedBox(height: 4),
+                _buildSettingsOverlayItem(
+                  label: 'Clone',
+                  showHighlight: hoveredItem == 'clone',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'clone' : null,
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _lineItems.insert(index + 1, row.clone());
+                    });
+                    _closeItemMenu();
+                  },
+                ),
+                const SizedBox(height: 4),
+                _buildSettingsOverlayItem(
+                  label: 'Insert New Row',
+                  showHighlight: hoveredItem == 'insert_row',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'insert_row' : null,
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _lineItems.insert(
+                        index + 1,
+                        _BillLineItemRow(),
+                      );
+                    });
+                    _closeItemMenu();
+                  },
+                ),
+                const SizedBox(height: 4),
+                _buildSettingsOverlayItem(
+                  label: 'Insert Items in Bulk',
+                  showHighlight: hoveredItem == 'bulk',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'bulk' : null,
+                  ),
+                  onTap: () {
+                    _closeItemMenu();
+                    showDialog(
+                      context: context,
+                      builder: (context) => BulkItemsDialog(
+                        products: allItems,
+                        onItemsSelected: (selectedItems) {
+                          setState(() {
+                            selectedItems.forEach((item, quantity) {
+                              final newRow = _BillLineItemRow();
+                              newRow.itemId = item.id;
+                              newRow.itemName = item.productName;
+                              newRow.itemNameCtrl.text =
+                                  item.productName;
+                              newRow.hsnCode = item.hsnCode;
+                              newRow.hsnCtrl.text =
+                                  item.hsnCode ?? '';
+                              newRow.itemCode = item.itemCode;
+                              newRow.rateCtrl.text =
+                                  (item.costPrice ?? 0.0)
+                                      .toStringAsFixed(2);
+                              newRow.quantityCtrl.text = quantity
+                                  .toString();
+                              newRow.taxId = item.intraStateTaxId;
+                              newRow.taxName =
+                                  item.intraStateTaxName;
+                              final matchedTax = itemsState
+                                  .taxGroups
+                                  .where(
+                                    (tg) =>
+                                        tg.id ==
+                                        item.intraStateTaxId,
+                                  )
+                                  .firstOrNull;
+                              newRow.taxRate =
+                                  matchedTax?.taxRate ?? 0.0;
+                              _lineItems.insert(index + 1, newRow);
+                            });
+                          });
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
-    Overlay.of(context).insert(_itemMenuOverlay!);
   }
 
   Widget _buildSettingsOverlayItem({
@@ -13691,25 +13789,13 @@ class _HoverableToggleMenuItemState extends State<_HoverableToggleMenuItem> {
           borderRadius: BorderRadius.circular(6),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: _hover ? FontWeight.w600 : FontWeight.w500,
-                  color: _hover ? Colors.white : const Color(0xFF374151),
-                ),
-              ),
-            ),
-            if (widget.value)
-              Icon(
-                Icons.check,
-                size: 14,
-                color: _hover ? Colors.white : const Color(0xFF2563EB),
-              ),
-          ],
+        child: Text(
+          widget.label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: _hover ? FontWeight.w600 : FontWeight.w500,
+            color: _hover ? Colors.white : const Color(0xFF374151),
+          ),
         ),
       ),
     );
@@ -13757,11 +13843,13 @@ class _HoverableMenuItemState extends State<_HoverableMenuItem> {
 // ─── HSN Code Edit Popover ──────────────────────────────────────────────────
 class _HSNCodeEditPopover extends StatefulWidget {
   final String initialHsnCode;
+  final bool isService;
   final VoidCallback onCancel;
   final Function(String) onSave;
 
   const _HSNCodeEditPopover({
     required this.initialHsnCode,
+    this.isService = false,
     required this.onCancel,
     required this.onSave,
   });
@@ -13793,7 +13881,7 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
       context: context,
       useSafeArea: false,
       builder: (context) =>
-          HsnSacSearchModal(type: 'HSN', initialQuery: _ctrl.text),
+          HsnSacSearchModal(type: widget.isService ? 'SAC' : 'HSN', initialQuery: _ctrl.text),
     );
 
     if (result != null) {
@@ -13836,9 +13924,9 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                child: const Text(
-                  'HSN Code',
-                  style: TextStyle(
+                child: Text(
+                  widget.isService ? 'SAC Code' : 'HSN Code',
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: _textPrimary,
@@ -13864,7 +13952,7 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
                       borderRadius: BorderRadius.circular(4),
                       borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
                     ),
-                    hintText: 'Enter HSN Code',
+                    hintText: widget.isService ? 'Enter SAC Code' : 'Enter HSN Code',
                     hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
                     suffixIcon: IconButton(
                       icon: const Icon(
@@ -14442,6 +14530,7 @@ class _ItemDetailsSidebar extends ConsumerStatefulWidget {
 
 class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
   late int _activeTabIndex;
+  String _stockView = 'Physical Stock';
 
   @override
   void initState() {
@@ -14698,44 +14787,59 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
   }
 
   Widget _buildItemDetailsTab() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final itemId = widget.row.itemId;
+    final itemAsync = itemId != null
+        ? ref.watch(itemDetailByIdProvider(itemId))
+        : const AsyncValue<Item?>.data(null);
+    return itemAsync.when(
+      loading: () => const FormSkeleton(),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text('Error: $e'),
+      ),
+      data: (item) {
+        final toBeShippedVal = item?.toBeShipped?.toStringAsFixed(2) ?? '0.00';
+        final toBeReceivedVal = item?.toBeReceived?.toStringAsFixed(2) ?? '0.00';
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _infoBox('To Be Shipped', '0.00', Icons.local_shipping_outlined),
-              _infoBox('To Be Received', '11.00', Icons.arrow_downward),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _infoBox('To Be Shipped', toBeShippedVal, Icons.local_shipping_outlined),
+                  _infoBox('To Be Received', toBeReceivedVal, Icons.arrow_downward),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Sales Information',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
+              _detailRow('Account', widget.row.accountName ?? item?.salesAccountName ?? '-'),
+              const SizedBox(height: 24),
+              const Text(
+                'Purchase Information',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
+              _detailRow('Account', widget.row.accountName ?? item?.purchaseAccountName ?? '-'),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Sales Information',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
-          _detailRow('Account', widget.row.accountName ?? 'Sales'),
-          const SizedBox(height: 24),
-          const Text(
-            'Purchase Information',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
-          _detailRow('Account', widget.row.accountName ?? 'Cost of Goods Sold'),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -14819,13 +14923,79 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Physical Stock',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
+              MenuAnchor(
+                style: const MenuStyle(
+                  backgroundColor: WidgetStatePropertyAll(Colors.white),
+                  surfaceTintColor: WidgetStatePropertyAll(Colors.white),
                 ),
+                builder: (context, controller, child) {
+                  return InkWell(
+                    onTap: () {
+                      if (controller.isOpen) {
+                        controller.close();
+                      } else {
+                        controller.open();
+                      }
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _stockView,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.arrow_drop_down,
+                          size: 20,
+                          color: Color(0xFF111827),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                menuChildren: [
+                  MenuItemButton(
+                    onPressed: () => setState(() => _stockView = 'Physical Stock'),
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+                          return const Color(0xFF0088FF);
+                        }
+                        return Colors.white;
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+                          return Colors.white;
+                        }
+                        return const Color(0xFF111827);
+                      }),
+                    ),
+                    child: const Text('Physical Stock'),
+                  ),
+                  MenuItemButton(
+                    onPressed: () => setState(() => _stockView = 'Accounting Stock'),
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+                          return const Color(0xFF0088FF);
+                        }
+                        return Colors.white;
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+                          return Colors.white;
+                        }
+                        return const Color(0xFF111827);
+                      }),
+                    ),
+                    child: const Text('Accounting Stock'),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Table(
@@ -14846,6 +15016,9 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                     ],
                   ),
                   ...stocks.map((wh) {
+                    final numbers = _stockView == 'Accounting Stock'
+                        ? wh.accounting
+                        : wh.physical;
                     return TableRow(
                       children: [
                         Padding(
@@ -14861,9 +15034,9 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                             ],
                           ),
                         ),
-                        _tableCell(wh.physical.onHand.toStringAsFixed(2)),
-                        _tableCell(wh.physical.committed.toStringAsFixed(2)),
-                        _tableCell(wh.physical.available.toStringAsFixed(2)),
+                        _tableCell(numbers.onHand.toStringAsFixed(2)),
+                        _tableCell(numbers.committed.toStringAsFixed(2)),
+                        _tableCell(numbers.available.toStringAsFixed(2)),
                       ],
                     );
                   }).toList(),
@@ -14990,7 +15163,7 @@ class _HoverableDescriptionContainerState
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Container(
-        height: 44,
+        height: 72,
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(

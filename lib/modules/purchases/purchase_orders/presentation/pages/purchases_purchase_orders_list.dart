@@ -34,6 +34,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../../../../core/providers/entity_provider.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
@@ -1213,10 +1214,24 @@ class _PurchaseOrderOverviewScreenState
     } else if (actionLabel == 'Delete') {
       try {
         final supabase = Supabase.instance.client;
-        await supabase
+        final selectedIds = _selectedIds.toList();
+        final response = await supabase
             .from('purchase_orders')
-            .update({'is_delete': true})
-            .filter('id', 'in', _selectedIds.toList());
+            .select('id, order_number')
+            .filter('id', 'in', selectedIds);
+
+        for (final row in response) {
+          final id = row['id'] as String;
+          final currentNum = row['order_number'] as String;
+          final newNum = currentNum.startsWith('SD-') ? currentNum : 'SD-$currentNum';
+          await supabase
+              .from('purchase_orders')
+              .update({
+                'is_delete': true,
+                'order_number': newNum,
+              })
+              .eq('id', id);
+        }
 
         ref.read(apiClientProvider).clearCache('purchase-orders');
         ref.invalidate(purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)));
@@ -3051,10 +3066,12 @@ class _PurchaseOrderOverviewScreenState
 
   Widget _buildCommentsSidebar(PurchaseOrder order, _PoTxnSummary summary) {
     final List<_HistoryEvent> events = [];
+    final user = ref.read(authUserProvider);
+    final currentUsername = user?.fullName ?? user?.email.split('@').first ?? 'system';
 
     events.add(
       _HistoryEvent(
-        username: 'zabnixprivatelimited',
+        username: currentUsername,
         time: order.createdAt ?? order.orderDate,
         content:
             'Purchase Order created for ₹${order.total.toStringAsFixed(2)}',
@@ -3067,7 +3084,7 @@ class _PurchaseOrderOverviewScreenState
         order.updatedAt!.difference(order.createdAt!).inSeconds.abs() > 1) {
       events.add(
         _HistoryEvent(
-          username: 'zabnixprivatelimited',
+          username: currentUsername,
           time: order.updatedAt!,
           content: 'Purchase Order edited',
           icon: LucideIcons.edit3,
@@ -3082,7 +3099,7 @@ class _PurchaseOrderOverviewScreenState
           : null;
       events.add(
         _HistoryEvent(
-          username: 'zabnixprivatelimited',
+          username: currentUsername,
           time: dt ?? order.createdAt ?? order.orderDate,
           content: 'Attachment modified',
           icon: LucideIcons.fileText,
@@ -3096,7 +3113,7 @@ class _PurchaseOrderOverviewScreenState
       final dt = createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
       events.add(
         _HistoryEvent(
-          username: 'zabnixprivatelimited',
+          username: currentUsername,
           time: dt ?? order.createdAt ?? order.orderDate,
           content:
               'Purchase Receive ${r['purchase_receive_number'] ?? ''} created.',
@@ -3111,7 +3128,7 @@ class _PurchaseOrderOverviewScreenState
       final dt = createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
       events.add(
         _HistoryEvent(
-          username: 'zabnixprivatelimited',
+          username: currentUsername,
           time: dt ?? order.createdAt ?? order.orderDate,
           content:
               'Bill ${b['bill_number'] ?? ''} created for ₹${(double.tryParse(b['total']?.toString() ?? '0.0') ?? 0.0).toStringAsFixed(2)}',
@@ -3858,9 +3875,14 @@ class _PurchaseOrderOverviewScreenState
         } else if (label == 'Delete') {
           try {
             final supabase = Supabase.instance.client;
+            final originalNumber = order.orderNumber;
+            final newNumber = originalNumber.startsWith('SD-') ? originalNumber : 'SD-$originalNumber';
             await supabase
                 .from('purchase_orders')
-                .update({'is_delete': true})
+                .update({
+                  'is_delete': true,
+                  'order_number': newNumber,
+                })
                 .eq('id', order.id!);
 
             ref.read(apiClientProvider).clearCache('purchase-orders');
@@ -4438,7 +4460,7 @@ class _PurchaseOrderOverviewScreenState
                         Text(
                           itemFocQty > 0
                               ? '${itemReceivedQty.toInt()} pcs + ${itemFocQty.toInt()} foc Received'
-                              : '${itemReceivedQty.toInt()} pcs Received',
+                              : '${itemReceivedQty.toInt()} Received',
                           style: AppTheme.bodyText.copyWith(fontSize: 11),
                           textAlign: TextAlign.left,
                         ),
@@ -5403,8 +5425,9 @@ class _PurchaseOrderEmailScreenState
       final order = await repository.getPurchaseOrder(widget.orderId);
       if (order != null) {
         final orgSettings = ref.read(orgSettingsProvider).asData?.value;
-        final orgName = orgSettings?.name ?? 'ZABNIX PRIVATE LIMITED';
-        const orgEmail = 'zabnixprivatelimited@gmail.com';
+        final orgName = orgSettings?.name ?? '';
+        final user = ref.read(authUserProvider);
+        final orgEmail = orgSettings?.email ?? user?.email ?? 'info@zerpai.com';
         final vendorName = order.vendorName ?? 'Vendor';
         final vendorEmail = order.vendor?.email ?? 'vendor@example.com';
 

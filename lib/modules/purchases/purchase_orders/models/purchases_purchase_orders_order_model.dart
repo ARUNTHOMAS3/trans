@@ -104,7 +104,7 @@ class PurchaseOrderItem {
       trackBatches: productData?['track_batches'] as bool? ?? json['track_batches'] as bool? ?? false,
       trackSerialNumber: productData?['track_serial_number'] as bool? ?? json['track_serial_number'] as bool? ?? false,
       trackBinLocation: productData?['track_bin_location'] as bool? ?? json['track_bin_location'] as bool? ?? false,
-      productType: json['product_type'] as String? ?? json['productType'] as String? ?? productData?['product_type'] as String? ?? productData?['productType'] as String? ?? 'goods',
+      productType: json['product_type'] as String? ?? json['productType'] as String? ?? productData?['type'] as String? ?? productData?['product_type'] as String? ?? productData?['productType'] as String? ?? 'goods',
     );
   }
 
@@ -627,6 +627,20 @@ class PurchaseOrder {
 
   // Backward-compatible alias for code that has moved to outlet naming.
   String? get outletId => branchId;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! PurchaseOrder) return false;
+    if (id != null && other.id != null) return id == other.id;
+    return orderNumber == other.orderNumber;
+  }
+
+  @override
+  int get hashCode {
+    if (id != null) return id.hashCode;
+    return orderNumber.hashCode;
+  }
 }
 
 class WarehouseModel {

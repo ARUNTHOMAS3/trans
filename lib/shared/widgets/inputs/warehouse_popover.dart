@@ -95,7 +95,7 @@ class _WarehouseHoverPopoverState extends ConsumerState<WarehouseHoverPopover> {
                       child: _WarehousePopoverContent(
                         warehouseName: widget.warehouseName,
                         selectedView: widget.selectedView,
-                        selectedStockType: widget.selectedStockType ?? 'Accounting',
+                        selectedStockType: widget.selectedStockType ?? 'Physical',
                         onViewChanged: (v) {
                           if (widget.onViewChanged != null) {
                             widget.onViewChanged!(v);
@@ -193,6 +193,7 @@ class _WarehousePopoverContentState extends ConsumerState<_WarehousePopoverConte
   late String _localSelectedView;
   late String _localSelectedStockType;
   bool isDropdownOpen = false;
+  final LayerLink _dropdownLink = LayerLink();
 
   @override
   void initState() {
@@ -253,21 +254,24 @@ class _WarehousePopoverContentState extends ConsumerState<_WarehousePopoverConte
                     Row(
                       children: [
                         const Text('View: ', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter')),
-                        GestureDetector(
-                          onTap: () => setState(() => isDropdownOpen = !isDropdownOpen),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
-                              borderRadius: BorderRadius.circular(4),
-                              color: Colors.white,
-                            ),
-                            child: Row(
-                              children: [
-                                Text(_localSelectedView, style: const TextStyle(fontSize: 12, fontFamily: 'Inter', color: Color(0xFF374151))),
-                                const SizedBox(width: 4),
-                                const Icon(LucideIcons.chevronDown, size: 14, color: Color(0xFF6B7280)),
-                              ],
+                        CompositedTransformTarget(
+                          link: _dropdownLink,
+                          child: GestureDetector(
+                            onTap: () => setState(() => isDropdownOpen = !isDropdownOpen),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                                borderRadius: BorderRadius.circular(4),
+                                color: Colors.white,
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(_localSelectedView, style: const TextStyle(fontSize: 12, fontFamily: 'Inter', color: Color(0xFF374151))),
+                                  const SizedBox(width: 4),
+                                  const Icon(LucideIcons.chevronDown, size: 14, color: Color(0xFF6B7280)),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -438,11 +442,11 @@ class _WarehousePopoverContentState extends ConsumerState<_WarehousePopoverConte
                             String wHand, wComm, wAvail;
                             if (_localSelectedStockType == 'Accounting') {
                               wHand = '0.00';
-                              wComm = isSelected ? (name.contains('ZABNIX') ? '5.00' : '0.00') : '0.00';
+                              wComm = '0.00';
                               wAvail = '0.00';
                             } else {
                               wHand = '0.00';
-                              wComm = isSelected ? (name.contains('ZABNIX') ? '10.00' : '0.00') : '0.00';
+                              wComm = '0.00';
                               wAvail = '0.00';
                             }
 
@@ -643,14 +647,15 @@ class _WarehousePopoverContentState extends ConsumerState<_WarehousePopoverConte
         ),
         
         if (isDropdownOpen)
-          Positioned(
-            top: 42,
-            left: 204,
+          CompositedTransformFollower(
+            link: _dropdownLink,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 32),
             child: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(4),
               child: Container(
-                width: 160,
+                width: 130,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(4),

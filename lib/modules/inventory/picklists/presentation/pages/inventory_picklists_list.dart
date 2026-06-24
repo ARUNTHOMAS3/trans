@@ -2490,7 +2490,7 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                       ),
                       _buildInfoBlock(
                         'Location',
-                        p.location ?? 'ZABNIX PRIVATE LIMITED',
+                        p.location ?? (ref.watch(orgSettingsProvider).asData?.value?.name ?? 'Main Office'),
                       ),
                       _buildInfoBlock('Group', 'No Grouping'),
                     ],

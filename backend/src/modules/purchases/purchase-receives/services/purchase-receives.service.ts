@@ -363,6 +363,7 @@ export class PurchaseReceivesService {
         `
         *,
         items:purchase_receive_items(
+          quantity_to_receive,
           batches:purchase_receive_item_batches(quantity)
         )
       `,
@@ -389,21 +390,187 @@ export class PurchaseReceivesService {
       throw new Error(`Failed to fetch purchase receives: ${error.message}`);
     }
 
+    const receiveIds = (data || []).map((r) => r.id);
+    const poIds = [...new Set((data || []).map((r) => r.purchase_order_id).filter((id) => !!id))];
+    const poNumbers = [...new Set((data || []).map((r) => r.purchase_order_number).filter((num) => !!num))];
+
+    const receiveIdToBillStatusMap = new Map<string, string>();
+
+    // 1. Fetch direct bills (fallback)
+    let directBillsData: any[] = [];
+    if (receiveIds.length > 0) {
+      const { data: dbData } = await this.supabaseService
+        .getClient()
+        .from("bills")
+        .select("id, source_id, status, bill_items(quantity)")
+        .eq("entity_id", tenant.entityId)
+        .eq("is_delete", false)
+        .neq("status", "void")
+        .in("source_type", ["PURCHASE_RECEIVE", "purchase_receive", "purchase-receive", "PURCHASE-RECEIVE"])
+        .in("source_id", receiveIds);
+      directBillsData = dbData || [];
+    }
+
+    const directBillsByRx = new Map<string, any[]>();
+    for (const bill of directBillsData) {
+      const rxId = bill.source_id;
+      if (rxId) {
+        const list = directBillsByRx.get(rxId) ?? [];
+        list.push(bill);
+        directBillsByRx.set(rxId, list);
+      }
+    }
+
+    // 2. Fetch PO-based bills & receives for FIFO allocation
+    if (poIds.length > 0 && poNumbers.length > 0) {
+      const { data: billsData } = await this.supabaseService
+        .getClient()
+        .from("bills")
+        .select("id, order_number, status, bill_items(product_id, quantity)")
+        .eq("entity_id", tenant.entityId)
+        .eq("is_delete", false)
+        .neq("status", "void")
+        .in("order_number", poNumbers);
+
+      const { data: allReceivesData } = await this.supabaseService
+        .getClient()
+        .from("purchase_receives")
+        .select(`
+          id,
+          purchase_order_id,
+          status,
+          items:purchase_receive_items(
+            item_id,
+            quantity_to_receive,
+            batches:purchase_receive_item_batches(quantity)
+          )
+        `)
+        .eq("entity_id", tenant.entityId)
+        .eq("is_delete", false)
+        .in("purchase_order_id", poIds)
+        .order("created_at", { ascending: true });
+
+      const billsByPo = new Map<string, any[]>();
+      for (const bill of billsData || []) {
+        const orderNum = bill.order_number;
+        if (orderNum) {
+          const list = billsByPo.get(orderNum) ?? [];
+          list.push(bill);
+          billsByPo.set(orderNum, list);
+        }
+      }
+
+      const receivesByPo = new Map<string, any[]>();
+      for (const rx of allReceivesData || []) {
+        const poId = rx.purchase_order_id;
+        if (poId) {
+          const list = receivesByPo.get(poId) ?? [];
+          list.push(rx);
+          receivesByPo.set(poId, list);
+        }
+      }
+
+      for (const poId of poIds) {
+        const poReceives = receivesByPo.get(poId) ?? [];
+        const poNumber = (data || []).find((r) => r.purchase_order_id === poId)?.purchase_order_number;
+        if (!poNumber) continue;
+
+        const poBills = billsByPo.get(poNumber) ?? [];
+
+        const billedQuantities: Record<string, number> = {};
+        for (const bill of poBills) {
+          const items = bill.bill_items || [];
+          for (const item of items) {
+            const prodId = item.product_id;
+            if (prodId) {
+              billedQuantities[prodId] = (billedQuantities[prodId] ?? 0) + Number(item.quantity || 0);
+            }
+          }
+        }
+
+        for (const rx of poReceives) {
+          let totalReceiveQty = 0;
+          let totalBilledForThisReceive = 0;
+
+          const rxItems = rx.items || [];
+          for (const item of rxItems) {
+            const prodId = item.item_id;
+            if (!prodId) continue;
+
+            let qtyToReceive = 0;
+            if (item.batches && item.batches.length > 0) {
+              for (const batch of item.batches) {
+                qtyToReceive += Number(batch.quantity || 0);
+              }
+            } else {
+              qtyToReceive = Number(item.quantity_to_receive || 0);
+            }
+
+            totalReceiveQty += qtyToReceive;
+
+            const availableBilled = billedQuantities[prodId] ?? 0;
+            const allocated = Math.min(availableBilled, qtyToReceive);
+            billedQuantities[prodId] = availableBilled - allocated;
+            totalBilledForThisReceive += allocated;
+          }
+
+          let rxBillStatus = "none";
+          if (totalReceiveQty > 0 && totalBilledForThisReceive > 0) {
+            if (totalBilledForThisReceive >= totalReceiveQty - 0.0001) {
+              rxBillStatus = "full";
+            } else {
+              rxBillStatus = "partial";
+            }
+          }
+          receiveIdToBillStatusMap.set(rx.id, rxBillStatus);
+        }
+      }
+    }
+
     // Flatten total quantity for list view
     const enrichedData = (data || []).map((receive: any) => {
       let totalQty = 0;
       if (receive.items) {
         for (const item of receive.items) {
-          if (item.batches) {
+          let itemQty = 0;
+          if (item.batches && item.batches.length > 0) {
             for (const batch of item.batches) {
-              totalQty += Number(batch.quantity || 0);
+              itemQty += Number(batch.quantity || 0);
+            }
+          } else {
+            itemQty = Number(item.quantity_to_receive || 0);
+          }
+          totalQty += itemQty;
+        }
+      }
+
+      let bill_status = receiveIdToBillStatusMap.get(receive.id);
+      if (!bill_status) {
+        // Fallback to direct bills
+        let totalBilled = 0;
+        const rxBills = directBillsByRx.get(receive.id) ?? [];
+        for (const bill of rxBills) {
+          if (bill.bill_items) {
+            for (const bi of bill.bill_items) {
+              totalBilled += Number(bi.quantity || 0);
             }
           }
         }
+        if (totalBilled > 0) {
+          if (totalBilled >= totalQty - 0.0001) {
+            bill_status = "full";
+          } else {
+            bill_status = "partial";
+          }
+        } else {
+          bill_status = "none";
+        }
       }
+
       return {
         ...receive,
         quantity: totalQty,
+        bill_status,
         items: undefined, // Remove nested items to keep payload light
       };
     });
@@ -443,6 +610,133 @@ export class PurchaseReceivesService {
 
     if (data) {
       data.invoice_total = data.bill_invoice_total ? parseFloat(data.bill_invoice_total) : 0;
+
+      // Calculate total receive qty
+      let totalQty = 0;
+      if (data.items) {
+        for (const item of data.items) {
+          let itemQty = 0;
+          if (item.batches && item.batches.length > 0) {
+            for (const batch of item.batches) {
+              itemQty += Number(batch.quantity || 0);
+            }
+          } else {
+            itemQty = Number(item.quantity_to_receive || 0);
+          }
+          totalQty += itemQty;
+        }
+      }
+
+      let bill_status = "none";
+      if (data.purchase_order_id && data.purchase_order_number) {
+        // Fetch all receives for this PO
+        const { data: allReceivesData } = await this.supabaseService
+          .getClient()
+          .from("purchase_receives")
+          .select(`
+            id,
+            purchase_order_id,
+            status,
+            items:purchase_receive_items(
+              item_id,
+              quantity_to_receive,
+              batches:purchase_receive_item_batches(quantity)
+            )
+          `)
+          .eq("entity_id", tenant.entityId)
+          .eq("is_delete", false)
+          .eq("purchase_order_id", data.purchase_order_id)
+          .order("created_at", { ascending: true });
+
+        // Fetch all bills for this PO
+        const { data: billsData } = await this.supabaseService
+          .getClient()
+          .from("bills")
+          .select("id, order_number, status, bill_items(product_id, quantity)")
+          .eq("entity_id", tenant.entityId)
+          .eq("is_delete", false)
+          .neq("status", "void")
+          .eq("order_number", data.purchase_order_number);
+
+        // Sum billed quantities by product_id
+        const billedQuantities: Record<string, number> = {};
+        for (const bill of billsData || []) {
+          const items = bill.bill_items || [];
+          for (const item of items) {
+            const prodId = item.product_id;
+            if (prodId) {
+              billedQuantities[prodId] = (billedQuantities[prodId] ?? 0) + Number(item.quantity || 0);
+            }
+          }
+        }
+
+        // Chronologically allocate billed quantities to receives
+        for (const rx of allReceivesData || []) {
+          let totalRxQty = 0;
+          let totalBilledForRx = 0;
+
+          const rxItems = rx.items || [];
+          for (const item of rxItems) {
+            const prodId = item.item_id;
+            if (!prodId) continue;
+
+            let qtyToReceive = 0;
+            if (item.batches && item.batches.length > 0) {
+              for (const batch of item.batches) {
+                qtyToReceive += Number(batch.quantity || 0);
+              }
+            } else {
+              qtyToReceive = Number(item.quantity_to_receive || 0);
+            }
+
+            totalRxQty += qtyToReceive;
+
+            const availableBilled = billedQuantities[prodId] ?? 0;
+            const allocated = Math.min(availableBilled, qtyToReceive);
+            billedQuantities[prodId] = availableBilled - allocated;
+            totalBilledForRx += allocated;
+          }
+
+          if (rx.id === data.id) {
+            if (totalRxQty > 0 && totalBilledForRx > 0) {
+              if (totalBilledForRx >= totalRxQty - 0.0001) {
+                bill_status = "full";
+              } else {
+                bill_status = "partial";
+              }
+            }
+            break;
+          }
+        }
+      } else {
+        // Fallback to direct bills
+        const { data: billsData } = await this.supabaseService
+          .getClient()
+          .from("bills")
+          .select("id, status, bill_items(quantity)")
+          .eq("entity_id", tenant.entityId)
+          .eq("is_delete", false)
+          .neq("status", "void")
+          .in("source_type", ["PURCHASE_RECEIVE", "purchase_receive", "purchase-receive", "PURCHASE-RECEIVE"])
+          .eq("source_id", id);
+
+        let totalBilled = 0;
+        for (const bill of billsData || []) {
+          if (bill.bill_items) {
+            for (const bi of bill.bill_items) {
+              totalBilled += Number(bi.quantity || 0);
+            }
+          }
+        }
+        if (totalBilled > 0) {
+          if (totalBilled >= totalQty - 0.0001) {
+            bill_status = "full";
+          } else {
+            bill_status = "partial";
+          }
+        }
+      }
+      data.bill_status = bill_status;
     }
 
     return data;
@@ -632,10 +926,16 @@ export class PurchaseReceivesService {
 
   async remove(id: string, tenant: TenantContext) {
     const existingReceive = await this.findOne(id, tenant);
+    const originalNumber = existingReceive?.purchase_receive_number;
+    const newNumber = originalNumber ? (originalNumber.startsWith('SD-') ? originalNumber : `SD-${originalNumber}`) : undefined;
+
     const { error } = await this.supabaseService
       .getClient()
       .from("purchase_receives")
-      .update({ is_delete: true })
+      .update({
+        is_delete: true,
+        ...(newNumber ? { purchase_receive_number: newNumber } : {}),
+      })
       .eq("id", id)
       .eq("entity_id", tenant.entityId);
 

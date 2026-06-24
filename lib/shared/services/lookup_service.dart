@@ -123,7 +123,7 @@ final countriesProvider =
 
       return data
           .map(
-            (json) => {
+            (json) => <String, String>{
               'id': (json['id'] ?? '') as String,
               'name': json['name'] as String,
               'fullLabel': json['full_label'] as String,
@@ -144,7 +144,7 @@ final statesProvider = FutureProvider.family<List<Map<String, String>>, String>(
 
   return data
       .map(
-        (json) => {
+        (json) => <String, String>{
           'id': (json['id'] ?? '') as String,
           'name': (json['name'] ?? '') as String,
           'code': (json['code'] ?? '') as String,
@@ -160,7 +160,7 @@ final storageLocationsProvider =
 
   return data
       .map(
-        (json) => {
+        (json) => <String, String>{
           'id': (json['id'] ?? '') as String,
           'name': (json['locationName'] ?? json['name'] ?? '') as String,
           'description': (json['description'] ?? '') as String,

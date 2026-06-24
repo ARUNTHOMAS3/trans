@@ -18,6 +18,7 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/app/routing/app_router.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 
 class SalesPaymentCreateScreen extends ConsumerStatefulWidget {
   /// Deep-link support: pre-select a customer by ID.
@@ -182,6 +183,9 @@ class _SalesPaymentCreateScreenState
   }
 
   Widget _buildMainForm(AsyncValue<List<SalesCustomer>> customersAsync) {
+    final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+    final orgName = orgSettings?.name.trim().isNotEmpty == true ? orgSettings!.name.trim() : 'Organization Name';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -235,9 +239,9 @@ class _SalesPaymentCreateScreenState
                     _labeledField(
                       'Location',
                       FormDropdown<String>(
-                        value: 'ZABNIX PRIVATE LIMITED',
+                        value: orgName,
                         height: 36,
-                        items: const ['ZABNIX PRIVATE LIMITED'],
+                        items: [orgName],
                         onChanged: (_) {},
                       ),
                     ),

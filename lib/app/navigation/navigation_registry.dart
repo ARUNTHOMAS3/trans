@@ -252,6 +252,25 @@ class NavigationRegistry {
       ],
     ),
     AppModule(
+      id: 'procurement',
+      label: 'Procurement',
+      icon: LucideIcons.clipboardList,
+      items: [
+        AppNavItem(
+          label: 'Purchase Requests',
+          listRoute: AppRoutes.procurementPurchaseRequests,
+          createRoute: AppRoutes.procurementPurchaseRequestsCreate,
+          permissionKey: 'purchase_requests',
+        ),
+        AppNavItem(
+          label: 'Approvals',
+          listRoute: AppRoutes.procurementApprovals,
+          createRoute: AppRoutes.procurementApprovals,
+          showAdd: false,
+        ),
+      ],
+    ),
+    AppModule(
       id: 'accountant',
       label: 'Accountant',
       icon: LucideIcons.landmark,

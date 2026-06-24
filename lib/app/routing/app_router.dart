@@ -99,6 +99,12 @@ import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/invent
 import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/inventory_transfer_orders_create.dart';
 import 'package:zerpai_erp/modules/inventory/move_orders/presentation/inventory_move_orders_list.dart';
 import 'package:zerpai_erp/modules/inventory/move_orders/presentation/inventory_move_orders_create.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/purchase_request_report.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/purchase_requests_create.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/procurement_purchase_request_overview.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/procurement_requested_items_page.dart';
+import 'package:zerpai_erp/modules/procurement/approvals/presentation/pages/procurement_approvals_report.dart';
+import 'package:zerpai_erp/modules/procurement/approvals/presentation/pages/procurement_approvals_overview.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 export 'package:zerpai_erp/core/routing/app_routes.dart';
 
@@ -1683,6 +1689,44 @@ final GoRouter appRouter = GoRouter(
                   builder: (context, state) => RecurringJournalOverviewScreen(
                     initialJournalId: state.pathParameters['id'],
                     initialSearchQuery: state.uri.queryParameters['q'],
+                  ),
+                ),
+              ],
+            ),
+            GoRoute(
+              path: 'procurement/purchase-requests',
+              name: AppRoutes.procurementPurchaseRequests,
+              builder: (context, state) => const ProcurementPurchaseRequestsListPage(),
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  name: AppRoutes.procurementPurchaseRequestsCreate,
+                  builder: (context, state) => const ProcurementPurchaseRequestsCreatePage(),
+                ),
+                GoRoute(
+                  path: ':id',
+                  name: AppRoutes.procurementPurchaseRequestOverview,
+                  builder: (context, state) => ProcurementPurchaseRequestOverviewPage(
+                    id: state.pathParameters['id']!,
+                  ),
+                ),
+              ],
+            ),
+            GoRoute(
+              path: 'procurement/requested-items',
+              name: AppRoutes.procurementRequestedItems,
+              builder: (context, state) => const ProcurementRequestedItemsPage(),
+            ),
+            GoRoute(
+              path: 'procurement/approvals',
+              name: AppRoutes.procurementApprovals,
+              builder: (context, state) => const ProcurementApprovalsReportPage(),
+              routes: [
+                GoRoute(
+                  path: ':id',
+                  name: AppRoutes.procurementApprovalsOverview,
+                  builder: (context, state) => ProcurementApprovalsOverviewPage(
+                    initialRef: state.pathParameters['id'],
                   ),
                 ),
               ],

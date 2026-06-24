@@ -31,6 +31,14 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widget
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/items/items/repositories/items_repository_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:dotted_border/dotted_border.dart';
+import 'package:web/web.dart' as web;
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 class _ClearReceiveSelectionIntent extends Intent {
   const _ClearReceiveSelectionIntent();
@@ -111,8 +119,9 @@ class _PurchasesPurchaseReceivesListScreenState
     _loadColumnSettings();
     if (widget.initialFilter != null) {
       final found = _receiveFilterOptions.where(
-        (v) => v.value.toLowerCase() == widget.initialFilter!.toLowerCase() ||
-               v.label.toLowerCase() == widget.initialFilter!.toLowerCase(),
+        (v) =>
+            v.value.toLowerCase() == widget.initialFilter!.toLowerCase() ||
+            v.label.toLowerCase() == widget.initialFilter!.toLowerCase(),
       );
       if (found.isNotEmpty) {
         _activeOption = found.first;
@@ -601,10 +610,24 @@ class _PurchasesPurchaseReceivesListScreenState
                 final filtered = state.receives.where((r) {
                   final val = _activeOption.value;
                   if (val == 'all') return true;
-                  if (val == 'intransit') return r.status.toLowerCase().replaceAll(' ', '').replaceAll('_', '') == 'intransit';
-                  if (val == 'received') return r.status.toLowerCase() == 'received';
-                  if (val == 'billed') return r.billed == true;
-                  if (val == 'partially_billed') return r.status.toLowerCase() == 'received' && r.billed == false;
+                  if (val == 'intransit')
+                    return r.status
+                            .toLowerCase()
+                            .replaceAll(' ', '')
+                            .replaceAll('_', '') ==
+                        'intransit';
+                  if (val == 'received')
+                    return r.status.toLowerCase() == 'received';
+                  if (val == 'billed') {
+                    final bStatus = r.billStatus.toLowerCase();
+                    return bStatus == 'full' || bStatus == 'billed';
+                  }
+                  if (val == 'partially_billed') {
+                    final bStatus = r.billStatus.toLowerCase();
+                    return bStatus == 'partial' ||
+                        bStatus == 'partially_billed' ||
+                        bStatus == 'partially billed';
+                  }
                   return true;
                 }).toList();
                 final sorted = _getSortedList(filtered);
@@ -882,8 +905,7 @@ class _PurchasesPurchaseReceivesListScreenState
   }
 
   Widget _buildNewButton({bool isIconOnly = false}) {
-    final orgId =
-        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
     if (isIconOnly) {
       return Container(
         width: 32,
@@ -1301,11 +1323,16 @@ class _PurchasesPurchaseReceivesListScreenState
         );
         break;
       case 'po#':
-        final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+        final orgId =
+            GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
         content = InkWell(
-          onTap: (receive.purchaseOrderId == null || receive.purchaseOrderId!.isEmpty)
+          onTap:
+              (receive.purchaseOrderId == null ||
+                  receive.purchaseOrderId!.isEmpty)
               ? null
-              : () => context.go('/$orgId/purchases/purchase-orders/${receive.purchaseOrderId}'),
+              : () => context.go(
+                  '/$orgId/purchases/purchase-orders/${receive.purchaseOrderId}',
+                ),
           child: Text(
             receive.purchaseOrderNumber ?? '-',
             style: AppTheme.tableCell.copyWith(
@@ -1329,7 +1356,34 @@ class _PurchasesPurchaseReceivesListScreenState
         );
         break;
       case 'billed':
-        content = const Icon(Icons.circle, size: 8, color: Color(0xFFE5E7EB));
+        Widget ball;
+        final bStatus = receive.billStatus.toLowerCase();
+        if (bStatus == 'full' || bStatus == 'billed') {
+          ball = const Icon(Icons.circle, color: Colors.green, size: 12);
+        } else if (bStatus == 'partial' ||
+            bStatus == 'partially billed' ||
+            bStatus == 'partially_billed') {
+          ball = Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(Icons.circle_outlined, color: Colors.green, size: 12),
+              ClipRect(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 0.5,
+                  child: const Icon(
+                    Icons.circle,
+                    color: Colors.green,
+                    size: 12,
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          ball = const Icon(Icons.circle, color: Colors.grey, size: 12);
+        }
+        content = Center(child: ball);
         break;
       case 'qty':
         content = Text(_getTotalQuantity(receive), style: AppTheme.tableCell);
@@ -1381,7 +1435,9 @@ class _PurchasesPurchaseReceivesListScreenState
                 : Alignment.centerLeft),
       child: DefaultTextStyle(
         style: AppTheme.tableCell.copyWith(
-          overflow: _shouldWrapText ? TextOverflow.visible : TextOverflow.ellipsis,
+          overflow: _shouldWrapText
+              ? TextOverflow.visible
+              : TextOverflow.ellipsis,
         ),
         maxLines: _shouldWrapText ? null : 1,
         softWrap: _shouldWrapText,
@@ -1442,6 +1498,12 @@ class _PurchaseReceiveDetailPanelState
   final Set<String> _expandedItems = {};
   bool _isBatchesExpanded = true;
 
+  bool _showCommentsSidebar = false;
+  final LayerLink _attachmentBadgeLink = LayerLink();
+  OverlayEntry? _attachmentListOverlay;
+  List<Map<String, dynamic>> _receiveAttachments = [];
+  bool _isLoadingAttachments = false;
+
   String? _lastLoadedReceiveId;
   List<Map<String, dynamic>>? _poBills;
   List<Map<String, dynamic>>? _poReceives;
@@ -1453,33 +1515,41 @@ class _PurchaseReceiveDetailPanelState
     }
     try {
       final supabase = Supabase.instance.client;
-      
+
       // 1. Fetch the Purchase Order to get its actual status
       final poResp = await supabase
           .from('purchase_orders')
           .select('status, order_date')
           .eq('id', receive.purchaseOrderId!)
           .maybeSingle();
-      
+
       // 2. Fetch all receives for this PO to perform FIFO allocation
       final receivesResp = await supabase
           .from('purchase_receives')
-          .select('id, purchase_receive_number, received_date, status, purchase_receive_items(item_id, quantity_to_receive)')
+          .select(
+            'id, purchase_receive_number, received_date, status, purchase_receive_items(item_id, quantity_to_receive)',
+          )
           .eq('purchase_order_id', receive.purchaseOrderId!)
           .order('created_at', ascending: true);
-          
+
       // 3. Fetch all bills for this PO
       final billsResp = await supabase
           .from('bills')
-          .select('id, bill_number, bill_date, status, grand_total, due_date, bill_items(product_id, quantity)')
+          .select(
+            'id, bill_number, bill_date, status, grand_total, due_date, bill_items(product_id, quantity)',
+          )
           .eq('order_number', receive.purchaseOrderNumber ?? '')
           .order('created_at', ascending: true);
 
       if (mounted) {
         setState(() {
           _poStatus = poResp != null ? poResp['status'] as String? : null;
-          _poReceives = (receivesResp as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-          _poBills = (billsResp as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _poReceives = (receivesResp as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _poBills = (billsResp as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
         });
       }
     } catch (e) {
@@ -1487,9 +1557,89 @@ class _PurchaseReceiveDetailPanelState
     }
   }
 
+  Future<void> _loadReceiveAttachments(String? receiveId) async {
+    if (receiveId == null || receiveId.isEmpty) return;
+    if (!mounted) return;
+    setState(() {
+      _isLoadingAttachments = true;
+    });
+    try {
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('purchase_receive_attachments')
+          .select('id, file_name, file_path, file_size, file_type, uploaded_at')
+          .eq('purchase_receive_id', receiveId)
+          .order('uploaded_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _receiveAttachments = (res as List<dynamic>)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _isLoadingAttachments = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading receive attachments: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingAttachments = false;
+        });
+      }
+    }
+  }
+
+  void _toggleAttachmentListOverlay(PurchaseReceive receive) {
+    if (_attachmentListOverlay != null) {
+      _attachmentListOverlay?.remove();
+      _attachmentListOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    _attachmentListOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _attachmentListOverlay?.remove();
+                _attachmentListOverlay = null;
+                setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _attachmentBadgeLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomRight,
+            followerAnchor: Alignment.topRight,
+            offset: const Offset(-8, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: _ReceiveAttachmentOverlayContent(
+                receive: receive,
+                ref: ref,
+                onRefresh: () => _loadReceiveAttachments(receive.id),
+                onClose: () {
+                  _attachmentListOverlay?.remove();
+                  _attachmentListOverlay = null;
+                  setState(() {});
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_attachmentListOverlay!);
+    setState(() {});
+  }
+
   String _getReceiveBillStatus(PurchaseReceive receive) {
     if (_poBills == null || _poReceives == null) {
-      return 'Yet to be Billed';
+      return 'Not Billed Yet';
     }
 
     final Map<String, double> billedQuantities = {};
@@ -1500,7 +1650,8 @@ class _PurchaseReceiveDetailPanelState
       final items = bill['bill_items'] as List<dynamic>? ?? [];
       for (final item in items) {
         final prodId = item['product_id']?.toString() ?? '';
-        final qty = double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+        final qty =
+            double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
         billedQuantities[prodId] = (billedQuantities[prodId] ?? 0.0) + qty;
       }
     }
@@ -1511,20 +1662,24 @@ class _PurchaseReceiveDetailPanelState
     for (final rx in _poReceives!) {
       final rxId = rx['id']?.toString() ?? '';
       final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
-      
+
       final isTargetReceive = (rxId == receive.id);
 
       for (final item in rxItems) {
         final prodId = item['item_id']?.toString() ?? '';
-        final qtyToReceive = double.tryParse(item['quantity_to_receive']?.toString() ?? '0.0') ?? 0.0;
+        final qtyToReceive =
+            double.tryParse(item['quantity_to_receive']?.toString() ?? '0.0') ??
+            0.0;
 
         if (isTargetReceive) {
           totalReceiveQty += qtyToReceive;
         }
 
         final availableBilled = billedQuantities[prodId] ?? 0.0;
-        final allocated = availableBilled >= qtyToReceive ? qtyToReceive : availableBilled;
-        
+        final allocated = availableBilled >= qtyToReceive
+            ? qtyToReceive
+            : availableBilled;
+
         billedQuantities[prodId] = availableBilled - allocated;
 
         if (isTargetReceive) {
@@ -1534,15 +1689,63 @@ class _PurchaseReceiveDetailPanelState
     }
 
     if (totalReceiveQty <= 0.0) {
-      return 'Yet to be Billed';
+      return 'Not Billed Yet';
     }
     if (totalBilledForThisReceive <= 0.0) {
-      return 'Yet to be Billed';
+      return 'Not Billed Yet';
     }
     if (totalBilledForThisReceive < totalReceiveQty) {
       return 'Partially Billed';
     }
     return 'Billed';
+  }
+
+  double _getItemBilledQty(PurchaseReceive receive, String? itemId) {
+    if (itemId == null || itemId.isEmpty) return 0.0;
+    if (_poBills == null || _poReceives == null) return 0.0;
+
+    final Map<String, double> billedQuantities = {};
+    for (final bill in _poBills!) {
+      final statusStr = bill['status']?.toString().toLowerCase() ?? '';
+      if (statusStr == 'void') continue;
+
+      final items = bill['bill_items'] as List<dynamic>? ?? [];
+      for (final item in items) {
+        final prodId = item['product_id']?.toString() ?? '';
+        final qty =
+            double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+        billedQuantities[prodId] = (billedQuantities[prodId] ?? 0.0) + qty;
+      }
+    }
+
+    double itemBilledForThisReceive = 0.0;
+
+    for (final rx in _poReceives!) {
+      final rxId = rx['id']?.toString() ?? '';
+      final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
+
+      final isTargetReceive = (rxId == receive.id);
+
+      for (final item in rxItems) {
+        final prodId = item['item_id']?.toString() ?? '';
+        final qtyToReceive =
+            double.tryParse(item['quantity_to_receive']?.toString() ?? '0.0') ??
+            0.0;
+
+        final availableBilled = billedQuantities[prodId] ?? 0.0;
+        final allocated = availableBilled >= qtyToReceive
+            ? qtyToReceive
+            : availableBilled;
+
+        billedQuantities[prodId] = availableBilled - allocated;
+
+        if (isTargetReceive && prodId == itemId) {
+          itemBilledForThisReceive += allocated;
+        }
+      }
+    }
+
+    return itemBilledForThisReceive;
   }
 
   String _fmtQty(double value) {
@@ -1571,11 +1774,14 @@ class _PurchaseReceiveDetailPanelState
     receiveAsync.whenData((receive) {
       if (receive != null && _lastLoadedReceiveId != receive.id) {
         _lastLoadedReceiveId = receive.id;
-        Future.microtask(() => _loadAdditionalData(receive));
+        Future.microtask(() {
+          _loadAdditionalData(receive);
+          _loadReceiveAttachments(receive.id);
+        });
       }
     });
 
-    return Column(
+    Widget detailContent = Column(
       children: [
         Container(
           height: 64,
@@ -1598,37 +1804,62 @@ class _PurchaseReceiveDetailPanelState
                         ),
                       ),
                       const Spacer(),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          LucideIcons.paperclip,
-                          size: 18,
-                          color: AppTheme.textSecondary,
+                      CompositedTransformTarget(
+                        link: _attachmentBadgeLink,
+                        child: InkWell(
+                          onTap: () => _toggleAttachmentListOverlay(receive),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            height: 34,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  LucideIcons.paperclip,
+                                  size: 15,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                if (_receiveAttachments.isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${_receiveAttachments.length}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
                       ),
-                      const SizedBox(width: 20),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          LucideIcons.messageSquare,
-                          size: 18,
-                          color: AppTheme.textSecondary,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                      const SizedBox(width: 8),
+                      _ActionSquare(
+                        icon: LucideIcons.history,
+                        color: AppTheme.textSecondary,
+                        onTap: () {
+                          setState(() {
+                            _showCommentsSidebar = !_showCommentsSidebar;
+                          });
+                        },
                       ),
-                      const SizedBox(width: 20),
-                      IconButton(
-                        onPressed: widget.onClose,
-                        icon: const Icon(
-                          LucideIcons.x,
-                          size: 20,
-                          color: AppTheme.errorRed,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                      const SizedBox(width: 8),
+                      _ActionSquare(
+                        icon: LucideIcons.x,
+                        color: AppTheme.errorRed,
+                        onTap: widget.onClose,
                       ),
                     ],
                   ),
@@ -1672,7 +1903,8 @@ class _PurchaseReceiveDetailPanelState
                   _buildPdfPrintDropdown(receive),
                   _buildDivider(),
                   if (!(currentStatus == 'received' &&
-                      _getReceiveBillStatus(receive).toLowerCase() == 'billed')) ...[
+                      _getReceiveBillStatus(receive).toLowerCase() ==
+                          'billed')) ...[
                     _buildToolbarButton(
                       LucideIcons.fileText,
                       'Convert to Bill',
@@ -1682,18 +1914,15 @@ class _PurchaseReceiveDetailPanelState
                         ).pathParameters['orgSystemId']!;
                         context.pushNamed(
                           AppRoutes.billsCreate,
-                          pathParameters: {
-                            'orgSystemId': orgId,
-                          },
-                          queryParameters: {
-                            'receiveId': receive.id!,
-                          },
+                          pathParameters: {'orgSystemId': orgId},
+                          queryParameters: {'receiveId': receive.id!},
                         );
                       },
                     ),
                     _buildDivider(),
                   ],
-                  if (currentStatus == 'draft' || currentStatus == 'intransit') ...[
+                  if (currentStatus == 'draft' ||
+                      currentStatus == 'intransit') ...[
                     _buildToolbarButton(
                       LucideIcons.checkCircle,
                       'Mark as Received',
@@ -1734,8 +1963,11 @@ class _PurchaseReceiveDetailPanelState
                   _buildToggleRow(),
                   Expanded(
                     child: _showPdfView
-                        ? _PurchaseReceivePdfView(receive: receive)
-                        : _buildStandardView(receive),
+                      ? _PurchaseReceivePdfView(
+                          receive: receive,
+                          billStatus: _getReceiveBillStatus(receive),
+                        )
+                      : _buildStandardView(receive),
                   ),
                 ],
               );
@@ -1746,6 +1978,25 @@ class _PurchaseReceiveDetailPanelState
         ),
       ],
     );
+
+    if (_showCommentsSidebar) {
+      final receive = receiveAsync.valueOrNull;
+      return Row(
+        children: [
+          Expanded(child: detailContent),
+          if (receive != null) ...[
+            const VerticalDivider(
+              width: 1,
+              thickness: 1,
+              color: AppTheme.borderLight,
+            ),
+            _buildCommentsSidebar(receive),
+          ],
+        ],
+      );
+    } else {
+      return detailContent;
+    }
   }
 
   Future<void> _updateStatus(PurchaseReceive receive, String status) async {
@@ -1821,8 +2072,6 @@ class _PurchaseReceiveDetailPanelState
       margin: const EdgeInsets.symmetric(horizontal: 8),
     );
   }
-
-
 
   Widget _buildPdfPrintDropdown(PurchaseReceive receive) {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
@@ -2084,13 +2333,21 @@ class _PurchaseReceiveDetailPanelState
                             _pwDataCell(
                               (() {
                                 final totalQty = e.value.batches.isNotEmpty
-                                    ? e.value.batches.fold<double>(0, (sum, b) => sum + b.quantity)
+                                    ? e.value.batches.fold<double>(
+                                        0,
+                                        (sum, b) => sum + b.quantity,
+                                      )
                                     : e.value.quantityToReceive;
                                 final totalFoc = e.value.batches.isNotEmpty
-                                    ? e.value.batches.fold<double>(0, (sum, b) => sum + b.foc)
+                                    ? e.value.batches.fold<double>(
+                                        0,
+                                        (sum, b) => sum + b.foc,
+                                      )
                                     : 0.0;
                                 final displaySum = totalQty + totalFoc;
-                                return '${_fmtQty(displaySum)} pcs\n(${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc)';
+                                return totalFoc > 0
+                                    ? '${_fmtQty(displaySum)} pcs\n(${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc)'
+                                    : '${_fmtQty(displaySum)} pcs';
                               })(),
                               align: pw.Alignment.centerRight,
                             ),
@@ -2101,7 +2358,11 @@ class _PurchaseReceiveDetailPanelState
                   ),
                 ],
               ),
-              if (receive.status.toLowerCase().replaceAll(' ', '').replaceAll('_', '') == 'intransit')
+              if (receive.status
+                      .toLowerCase()
+                      .replaceAll(' ', '')
+                      .replaceAll('_', '') ==
+                  'intransit')
                 pw.Positioned(
                   top: 20,
                   left: -20,
@@ -2487,7 +2748,13 @@ class _PurchaseReceiveDetailPanelState
             billDate = DateTime.tryParse(billDateStr);
           }
           final status = bill['status']?.toString() ?? 'draft';
-          final grandTotal = double.tryParse(bill['grand_total']?.toString() ?? bill['total']?.toString() ?? '0.0') ?? 0.0;
+          final grandTotal =
+              double.tryParse(
+                bill['grand_total']?.toString() ??
+                    bill['total']?.toString() ??
+                    '0.0',
+              ) ??
+              0.0;
 
           Color statusColor;
           switch (status.toLowerCase()) {
@@ -2517,9 +2784,7 @@ class _PurchaseReceiveDetailPanelState
                   child: InkWell(
                     onTap: billId.isEmpty
                         ? null
-                        : () => context.go(
-                              '/$orgId/purchases/bills/$billId',
-                            ),
+                        : () => context.go('/$orgId/purchases/bills/$billId'),
                     child: Text(
                       billNo,
                       style: const TextStyle(
@@ -2574,8 +2839,8 @@ class _PurchaseReceiveDetailPanelState
     final bColor = bStatus == 'Billed'
         ? const Color(0xFF22A95E) // Green
         : bStatus == 'Partially Billed'
-            ? const Color(0xFFFF8800) // Orange
-            : const Color(0xFF6B7280); // Gray
+        ? const Color(0xFFFF8800) // Orange
+        : const Color(0xFF6B7280); // Gray
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -2649,12 +2914,7 @@ class _PurchaseReceiveDetailPanelState
                       _getStatusColor(_localStatus ?? receive.status),
                     ),
                     const SizedBox(height: 12),
-                    _buildStatusRow(
-                      'Bill',
-                      bStatus,
-                      bColor,
-                      isLabelOnly: true,
-                    ),
+                    _buildStatusRow('Bill', bStatus, bColor, isLabelOnly: true),
                   ],
                 ),
               ),
@@ -2662,11 +2922,17 @@ class _PurchaseReceiveDetailPanelState
               _buildInfoSection(
                 'PURCHASE ORDER#',
                 InkWell(
-                  onTap: (receive.purchaseOrderId == null || receive.purchaseOrderId!.isEmpty)
+                  onTap:
+                      (receive.purchaseOrderId == null ||
+                          receive.purchaseOrderId!.isEmpty)
                       ? null
                       : () {
-                          final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
-                          context.go('/$orgId/purchases/purchase-orders/${receive.purchaseOrderId}');
+                          final orgId = GoRouterState.of(
+                            context,
+                          ).pathParameters['orgSystemId']!;
+                          context.go(
+                            '/$orgId/purchases/purchase-orders/${receive.purchaseOrderId}',
+                          );
                         },
                   child: Text(
                     receive.purchaseOrderNumber ?? '-',
@@ -2740,7 +3006,8 @@ class _PurchaseReceiveDetailPanelState
         if (_isBatchesExpanded) ...[
           const SizedBox(height: 16),
           ...() {
-            final Map<String, (String? itemId, List<BatchInfo> batches)> grouped = {};
+            final Map<String, (String? itemId, List<BatchInfo> batches)>
+            grouped = {};
             for (var item in receive.items) {
               grouped[item.itemName] = (item.itemId, item.batches);
             }
@@ -2788,27 +3055,38 @@ class _PurchaseReceiveDetailPanelState
                                             PurchaseOrderItem(
                                               productId: item.id ?? '',
                                               productName: item.productName,
-                                              itemCode: item.sku ?? item.itemCode,
+                                              itemCode:
+                                                  item.sku ?? item.itemCode,
                                               productType: item.type,
                                               rate: item.costPrice ?? 0.0,
-                                              accountName: item.purchaseAccountName ?? 'Cost of Goods Sold',
+                                              accountName:
+                                                  item.purchaseAccountName ??
+                                                  'Cost of Goods Sold',
                                               quantity: 1.0,
                                               amount: item.costPrice ?? 0.0,
                                               trackBatches: item.trackBatches,
-                                              trackSerialNumber: item.trackSerialNumber,
-                                              trackBinLocation: item.trackBinLocation,
+                                              trackSerialNumber:
+                                                  item.trackSerialNumber,
+                                              trackBinLocation:
+                                                  item.trackBinLocation,
                                             ),
                                             vendorName: receive.vendorName,
                                           );
                                         }
                                       } else {
                                         if (context.mounted) {
-                                          ZerpaiToast.error(context, 'Item details not found');
+                                          ZerpaiToast.error(
+                                            context,
+                                            'Item details not found',
+                                          );
                                         }
                                       }
                                     } catch (e) {
                                       if (context.mounted) {
-                                        ZerpaiToast.error(context, 'Error loading item: $e');
+                                        ZerpaiToast.error(
+                                          context,
+                                          'Error loading item: $e',
+                                        );
                                       }
                                     }
                                   },
@@ -3155,24 +3433,34 @@ class _PurchaseReceiveDetailPanelState
                                           itemCode: item.sku ?? item.itemCode,
                                           productType: item.type,
                                           rate: item.costPrice ?? 0.0,
-                                          accountName: item.purchaseAccountName ?? 'Cost of Goods Sold',
+                                          accountName:
+                                              item.purchaseAccountName ??
+                                              'Cost of Goods Sold',
                                           quantity: 1.0,
                                           amount: item.costPrice ?? 0.0,
                                           trackBatches: item.trackBatches,
-                                          trackSerialNumber: item.trackSerialNumber,
-                                          trackBinLocation: item.trackBinLocation,
+                                          trackSerialNumber:
+                                              item.trackSerialNumber,
+                                          trackBinLocation:
+                                              item.trackBinLocation,
                                         ),
                                         vendorName: receive.vendorName,
                                       );
                                     }
                                   } else {
                                     if (context.mounted) {
-                                      ZerpaiToast.error(context, 'Item details not found');
+                                      ZerpaiToast.error(
+                                        context,
+                                        'Item details not found',
+                                      );
                                     }
                                   }
                                 } catch (e) {
                                   if (context.mounted) {
-                                    ZerpaiToast.error(context, 'Error loading item: $e');
+                                    ZerpaiToast.error(
+                                      context,
+                                      'Error loading item: $e',
+                                    );
                                   }
                                 }
                               },
@@ -3202,41 +3490,34 @@ class _PurchaseReceiveDetailPanelState
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6B7280),
+                      if (totalFoc > 0) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF6B7280),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
                 SizedBox(
                   width: 100,
-                  child: Row(
-                    children: [
-                      Text(
-                        i.billed ? i.received.toInt().toString() : '0',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF111827),
-                        ),
+                  child: () {
+                    final itemBilledQty = _getItemBilledQty(receive, i.itemId);
+                    return Text(
+                      _fmtQty(itemBilledQty),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: itemBilledQty > 0
+                            ? const Color(0xFF22A95E)
+                            : const Color(0xFF6B7280),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Billed',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: i.billed
-                              ? const Color(0xFF22A95E)
-                              : const Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  }(),
                 ),
               ],
             ),
@@ -3275,11 +3556,215 @@ class _PurchaseReceiveDetailPanelState
       ),
     );
   }
+
+  Widget _buildCommentsSidebar(PurchaseReceive receive) {
+    final List<_HistoryEvent> events = [];
+    final user = ref.read(authUserProvider);
+    final currentUsername = user?.fullName ?? user?.email.split('@').first ?? 'system';
+
+    events.add(
+      _HistoryEvent(
+        username: currentUsername,
+        time: receive.createdAt ?? receive.receivedDate ?? DateTime.now(),
+        content: 'Purchase Receive ${receive.purchaseReceiveNumber} created',
+        icon: LucideIcons.fileSpreadsheet,
+      ),
+    );
+
+    for (final a in _receiveAttachments) {
+      final uploadedAtStr = a['uploaded_at']?.toString();
+      final dt = uploadedAtStr != null ? DateTime.tryParse(uploadedAtStr) : null;
+      events.add(
+        _HistoryEvent(
+          username: currentUsername,
+          time: dt ?? receive.createdAt ?? receive.receivedDate ?? DateTime.now(),
+          content: 'Attachment modified',
+          icon: LucideIcons.fileText,
+        ),
+      );
+    }
+
+    // Sort events by time DESCENDING (newest first)
+    events.sort((a, b) => b.time.compareTo(a.time));
+
+    return Container(
+      width: 320,
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                Text(
+                  'History',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 16),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _showCommentsSidebar = false;
+                    });
+                  },
+                  child: const Icon(
+                    LucideIcons.x,
+                    color: AppTheme.errorRed,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                Text(
+                  'ALL COMMENTS',
+                  style: AppTheme.metaHelper.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${events.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              itemCount: events.length,
+              itemBuilder: (context, index) {
+                final e = events[index];
+                final isLast = index == events.length - 1;
+
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Column(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: Icon(
+                              e.icon,
+                              size: 12,
+                              color: AppTheme.warningOrange,
+                            ),
+                          ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(
+                                width: 1.5,
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    e.username,
+                                    style: AppTheme.bodyText.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.circle,
+                                    size: 3,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat(
+                                      'dd-MM-yyyy hh:mm a',
+                                    ).format(e.time),
+                                    style: AppTheme.metaHelper.copyWith(
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF9FAFB),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  e.content,
+                                  style: AppTheme.bodyText.copyWith(
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PurchaseReceivePdfView extends ConsumerStatefulWidget {
   final PurchaseReceive receive;
-  const _PurchaseReceivePdfView({required this.receive});
+  final String billStatus;
+  const _PurchaseReceivePdfView({
+    required this.receive,
+    required this.billStatus,
+  });
 
   @override
   ConsumerState<_PurchaseReceivePdfView> createState() =>
@@ -3306,6 +3791,16 @@ class _PurchaseReceivePdfViewState
           state.receives.where((r) => r.id == widget.receive.id).firstOrNull,
     );
     final status = receiveFromList?.status ?? widget.receive.status;
+
+    final bStatusStr = widget.billStatus.toUpperCase();
+    final Color bColor;
+    if (bStatusStr == 'BILLED' || bStatusStr == 'FULL') {
+      bColor = const Color(0xFF22A95E); // Green
+    } else if (bStatusStr == 'PARTIALLY BILLED' || bStatusStr == 'PARTIAL') {
+      bColor = const Color(0xFFFF8800); // Orange
+    } else {
+      bColor = const Color(0xFF6B7280); // Gray
+    }
 
     return Container(
       color: Colors.white,
@@ -3345,12 +3840,10 @@ class _PurchaseReceivePdfViewState
                             ),
                           ),
                           TextSpan(
-                            text: widget.receive.billed
-                                ? 'BILLED'
-                                : 'NOT BILLED',
-                            style: const TextStyle(
+                            text: bStatusStr,
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF0088FF),
+                              color: bColor,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -3623,7 +4116,8 @@ class _PurchaseReceivePdfViewState
         if (_isBatchesExpanded) ...[
           const SizedBox(height: 16),
           ...() {
-            final Map<String, (String? itemId, List<BatchInfo> batches)> grouped = {};
+            final Map<String, (String? itemId, List<BatchInfo> batches)>
+            grouped = {};
             for (var item in widget.receive.items) {
               grouped[item.itemName] = (item.itemId, item.batches);
             }
@@ -3671,27 +4165,39 @@ class _PurchaseReceivePdfViewState
                                             PurchaseOrderItem(
                                               productId: item.id ?? '',
                                               productName: item.productName,
-                                              itemCode: item.sku ?? item.itemCode,
+                                              itemCode:
+                                                  item.sku ?? item.itemCode,
                                               productType: item.type,
                                               rate: item.costPrice ?? 0.0,
-                                              accountName: item.purchaseAccountName ?? 'Cost of Goods Sold',
+                                              accountName:
+                                                  item.purchaseAccountName ??
+                                                  'Cost of Goods Sold',
                                               quantity: 1.0,
                                               amount: item.costPrice ?? 0.0,
                                               trackBatches: item.trackBatches,
-                                              trackSerialNumber: item.trackSerialNumber,
-                                              trackBinLocation: item.trackBinLocation,
+                                              trackSerialNumber:
+                                                  item.trackSerialNumber,
+                                              trackBinLocation:
+                                                  item.trackBinLocation,
                                             ),
-                                            vendorName: widget.receive.vendorName,
+                                            vendorName:
+                                                widget.receive.vendorName,
                                           );
                                         }
                                       } else {
                                         if (context.mounted) {
-                                          ZerpaiToast.error(context, 'Item details not found');
+                                          ZerpaiToast.error(
+                                            context,
+                                            'Item details not found',
+                                          );
                                         }
                                       }
                                     } catch (e) {
                                       if (context.mounted) {
-                                        ZerpaiToast.error(context, 'Error loading item: $e');
+                                        ZerpaiToast.error(
+                                          context,
+                                          'Error loading item: $e',
+                                        );
                                       }
                                     }
                                   },
@@ -3967,13 +4473,14 @@ class _PurchaseReceivePdfViewState
                           '${_fmtQty(displaySum)} pcs',
                           style: const TextStyle(fontSize: 12),
                         ),
-                        Text(
-                          '${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF6B7280),
+                        if (totalFoc > 0)
+                          Text(
+                            '${_fmtQty(totalQty)}pcs + ${_fmtQty(totalFoc)}foc',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -4163,3 +4670,632 @@ class _ResizableHeaderCellState extends State<_ResizableHeaderCell> {
   }
 }
 
+class _HistoryEvent {
+  final String username;
+  final DateTime time;
+  final String content;
+  final IconData icon;
+
+  const _HistoryEvent({
+    required this.username,
+    required this.time,
+    required this.content,
+    required this.icon,
+  });
+}
+
+class _ActionSquare extends StatelessWidget {
+  final IconData icon;
+  final Color? color;
+  final VoidCallback? onTap;
+
+  const _ActionSquare({required this.icon, this.color, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.borderLight),
+        ),
+        child: Icon(icon, size: 16, color: color ?? AppTheme.textPrimary),
+      ),
+    );
+  }
+}
+
+class _ReceiveAttachmentOverlayContent extends StatefulWidget {
+  final PurchaseReceive receive;
+  final WidgetRef ref;
+  final VoidCallback onRefresh;
+  final VoidCallback onClose;
+
+  const _ReceiveAttachmentOverlayContent({
+    required this.receive,
+    required this.ref,
+    required this.onRefresh,
+    required this.onClose,
+  });
+
+  @override
+  State<_ReceiveAttachmentOverlayContent> createState() =>
+      _ReceiveAttachmentOverlayContentState();
+}
+
+class _ReceiveAttachmentOverlayContentState extends State<_ReceiveAttachmentOverlayContent> {
+  bool _isUploading = false;
+  List<Map<String, dynamic>> _attachments = [];
+  bool _isLoading = true;
+  bool _displayInPortal = false;
+  String? _expandedAttachmentId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttachments();
+  }
+
+  Future<void> _loadAttachments() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('purchase_receive_attachments')
+          .select('id,file_name,file_path,file_size,file_type,uploaded_at')
+          .eq('purchase_receive_id', widget.receive.id ?? '')
+          .order('uploaded_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _attachments = (res as List<dynamic>)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatFileSize(dynamic size) {
+    if (size == null) return 'File Size: 0 KB';
+    if (size is num) {
+      if (size / 1024 > 1024) {
+        return 'File Size: ${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+      } else {
+        return 'File Size: ${(size / 1024).toStringAsFixed(1)} KB';
+      }
+    }
+    final sizeStr = size.toString().trim();
+    if (sizeStr.toLowerCase().contains('kb') ||
+        sizeStr.toLowerCase().contains('mb') ||
+        sizeStr.toLowerCase().contains('b')) {
+      return 'File Size: $sizeStr';
+    }
+    final parsed = num.tryParse(sizeStr);
+    if (parsed != null) {
+      if (parsed / 1024 > 1024) {
+        return 'File Size: ${(parsed / (1024 * 1024)).toStringAsFixed(1)} MB';
+      } else {
+        return 'File Size: ${(parsed / 1024).toStringAsFixed(1)} KB';
+      }
+    }
+    return 'File Size: $sizeStr';
+  }
+
+  Future<String?> _getSignedUrl(String fileKey) async {
+    try {
+      final apiClient = ApiClient();
+      final response = await apiClient.get(
+        '/lookups/uploads/signed-url',
+        queryParameters: {'fileKey': fileKey},
+        useCache: false,
+      );
+      if (response.data is Map && response.data['signedUrl'] != null) {
+        return response.data['signedUrl'].toString();
+      }
+    } catch (e) {
+      debugPrint('Error getting signed URL: $e');
+    }
+    return null;
+  }
+
+  Future<void> _downloadAttachment(Map<String, dynamic> attachment) async {
+    try {
+      final filePath = attachment['file_path']?.toString();
+      final fileName = attachment['file_name']?.toString() ?? 'download';
+      if (filePath == null) return;
+
+      final signedUrl = await _getSignedUrl(filePath);
+      if (signedUrl != null) {
+        final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
+        anchor.href = signedUrl;
+        anchor.download = fileName;
+        anchor.click();
+      } else {
+        if (mounted) {
+          ZerpaiToast.error(context, 'Failed to get download link');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Error downloading file: $e');
+      }
+    }
+  }
+
+  Future<void> _openAttachmentInNewTab(Map<String, dynamic> attachment) async {
+    try {
+      final filePath = attachment['file_path']?.toString();
+      final fileType = attachment['file_type']?.toString() ?? '';
+      if (filePath == null) return;
+
+      String? mimeType;
+      final ext = fileType.toLowerCase().replaceAll('.', '');
+      if (ext == 'pdf') {
+        mimeType = 'application/pdf';
+      } else if (ext == 'jpg' || ext == 'jpeg') {
+        mimeType = 'image/jpeg';
+      } else if (ext == 'png') {
+        mimeType = 'image/png';
+      } else if (ext == 'gif') {
+        mimeType = 'image/gif';
+      } else if (ext == 'webp') {
+        mimeType = 'image/webp';
+      } else if (ext == 'txt') {
+        mimeType = 'text/plain';
+      }
+
+      final apiClient = ApiClient();
+      final response = await apiClient.get(
+        '/lookups/uploads/signed-url',
+        queryParameters: {
+          'fileKey': filePath,
+          if (mimeType != null) 'mimeType': mimeType,
+        },
+        useCache: false,
+      );
+
+      if (response.data is Map && response.data['signedUrl'] != null) {
+        web.window.open(response.data['signedUrl'].toString(), '_blank');
+      } else {
+        if (mounted) {
+          ZerpaiToast.error(context, 'Failed to get file link');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Error opening file: $e');
+      }
+    }
+  }
+
+  Future<void> _uploadFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+      );
+      if (result == null || !mounted) return;
+
+      setState(() {
+        _isUploading = true;
+      });
+
+      final supabase = Supabase.instance.client;
+      final apiClient = ApiClient();
+      for (final file in result.files) {
+        if (file.bytes == null) continue;
+
+        final base64Data = base64Encode(file.bytes!);
+        final ext = file.extension?.toLowerCase() ?? '';
+        String mimeType = 'application/octet-stream';
+        if (ext == 'pdf') {
+          mimeType = 'application/pdf';
+        } else if (ext == 'jpg' || ext == 'jpeg') {
+          mimeType = 'image/jpeg';
+        } else if (ext == 'png') {
+          mimeType = 'image/png';
+        } else if (ext == 'gif') {
+          mimeType = 'image/gif';
+        } else if (ext == 'webp') {
+          mimeType = 'image/webp';
+        } else if (ext == 'txt') {
+          mimeType = 'text/plain';
+        }
+
+        // Upload to Cloudflare R2 via backend
+        final response = await apiClient.post(
+          '/lookups/uploads',
+          data: {
+            'fileName': file.name,
+            'fileData': base64Data,
+            'mimeType': mimeType,
+            'prefix': 'purchase_receives',
+          },
+        );
+
+        final fileKey =
+            response.data['fileKey'] ?? 'purchase_receives/${file.name}';
+
+        final double sizeInKb = file.size / 1024;
+        final String formattedSize = sizeInKb >= 1024
+            ? '${(sizeInKb / 1024).toStringAsFixed(2)} MB'
+            : '${sizeInKb.toStringAsFixed(2)} KB';
+
+        // Save to DB
+        await supabase.from('purchase_receive_attachments').insert({
+          'purchase_receive_id': widget.receive.id,
+          'file_name': file.name,
+          'file_path': fileKey,
+          'file_size': formattedSize,
+          'file_type': file.extension ?? 'bin',
+          'entity_id':
+              widget.ref.read(entityProvider).entityId ??
+              '00000000-0000-0000-0000-000000000000',
+        });
+      }
+
+      await _loadAttachments();
+      widget.ref.invalidate(purchaseReceiveByIdProvider(widget.receive.id ?? ''));
+      widget.onRefresh();
+      if (mounted) {
+        ZerpaiToast.success(context, 'Attachments uploaded successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to upload attachments: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteAttachment(Map<String, dynamic> attachment) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final id = attachment['id'];
+      final filePath = attachment['file_path']?.toString();
+
+      if (filePath != null) {
+        final apiClient = ApiClient();
+        await apiClient.delete(
+          '/lookups/uploads',
+          data: {'fileKey': filePath},
+        );
+      }
+
+      await supabase.from('purchase_receive_attachments').delete().eq('id', id);
+
+      await _loadAttachments();
+      widget.ref.invalidate(purchaseReceiveByIdProvider(widget.receive.id ?? ''));
+      widget.onRefresh();
+      if (mounted) {
+        ZerpaiToast.success(context, 'Attachment deleted successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to delete attachment: $e');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Text(
+                  'Attachments',
+                  style: AppTheme.bodyText.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                if (_isUploading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  InkWell(
+                    onTap: widget.onClose,
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(LucideIcons.x, color: Colors.red, size: 16),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_attachments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No attachments yet',
+                style: AppTheme.metaHelper,
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.all(12),
+                itemCount: _attachments.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final att = _attachments[index];
+                  final name = att['file_name']?.toString() ?? 'Unnamed';
+                  final isPdf = name.toLowerCase().endsWith('.pdf');
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: isPdf
+                                ? const Color(0xFFFEE2E2)
+                                : const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              LucideIcons.fileText,
+                              color: isPdf
+                                  ? Colors.red.shade700
+                                  : Colors.blue.shade700,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatFileSize(att['file_size']),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              if (_expandedAttachmentId == att['id']?.toString()) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () => _downloadAttachment(att),
+                                      child: const Text(
+                                        'Download',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF3B82F6),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    InkWell(
+                                      onTap: () => _deleteAttachment(att),
+                                      child: const Text(
+                                        'Remove',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF3B82F6),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    ZTooltip(
+                                      message: 'Open in new tab',
+                                      direction: ZTooltipDirection.bottom,
+                                      child: InkWell(
+                                        onTap: () => _openAttachmentInNewTab(att),
+                                        child: const Icon(
+                                          LucideIcons.externalLink,
+                                          size: 14,
+                                          color: Color(0xFF3B82F6),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(
+                            LucideIcons.trash2,
+                            size: 16,
+                            color: Colors.red,
+                          ),
+                          onPressed: () => _deleteAttachment(att),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(
+                            LucideIcons.moreVertical,
+                            size: 16,
+                            color: AppTheme.textSecondary,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              final idStr = att['id']?.toString();
+                              if (_expandedAttachmentId == idStr) {
+                                _expandedAttachmentId = null;
+                              } else {
+                                _expandedAttachmentId = idStr;
+                              }
+                            });
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 16,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Display attachments in vendor portal\nand emails',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textPrimary,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                Transform.scale(
+                  scale: 0.8,
+                  child: Switch(
+                    value: _displayInPortal,
+                    onChanged: (val) {
+                      setState(() {
+                        _displayInPortal = val;
+                      });
+                    },
+                    activeTrackColor: AppTheme.primaryBlue,
+                    activeThumbColor: Colors.white,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: DottedBorder(
+              color: const Color(0xFFD1D5DB),
+              strokeWidth: 1,
+              dashPattern: const [4, 4],
+              borderType: BorderType.RRect,
+              radius: const Radius.circular(8),
+              child: InkWell(
+                onTap: _uploadFile,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.uploadCloud,
+                        color: Color(0xFF3B82F6),
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Upload your Files',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(
+                        LucideIcons.chevronDown,
+                        color: AppTheme.textSecondary,
+                        size: 14,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Text(
+              'You can upload a maximum of 10 files, 10MB each',
+              style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

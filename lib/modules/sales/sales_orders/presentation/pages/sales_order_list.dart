@@ -752,19 +752,33 @@ class _SalesOrderOverviewScreenState
   Future<void> _handleDeleteAction() async {
     final supabase = Supabase.instance.client;
     try {
-      await supabase
+      final selectedIds = _selectedSaleIds.toList();
+      final response = await supabase
           .from('sales_orders')
-          .update({'is_delete': true})
-          .filter('id', 'in', _selectedSaleIds.toList());
+          .select('id, sale_number')
+          .filter('id', 'in', selectedIds);
+      
+      for (final row in response) {
+        final id = row['id'] as String;
+        final currentNum = row['sale_number'] as String;
+        final newNum = currentNum.startsWith('SD-') ? currentNum : 'SD-$currentNum';
+        await supabase
+            .from('sales_orders')
+            .update({
+              'is_delete': true,
+              'sale_number': newNum,
+            })
+            .eq('id', id);
+      }
 
       ZerpaiToast.success(
         context,
-        'Deleted ${_selectedSaleIds.length} sales order(s)',
+        'Deleted ${selectedIds.length} sales order(s)',
       );
       _clearSelection();
       ref
           .read(salesOrderControllerProvider.notifier)
-          .deleteOrdersLocally(_selectedSaleIds.toList());
+          .deleteOrdersLocally(selectedIds);
     } catch (e) {
       ZerpaiToast.error(context, 'Error deleting sales orders: $e');
     }
@@ -789,9 +803,24 @@ class _SalesOrderOverviewScreenState
   Future<void> _deleteSingleOrder(String id) async {
     final supabase = Supabase.instance.client;
     try {
+      final response = await supabase
+          .from('sales_orders')
+          .select('sale_number')
+          .eq('id', id)
+          .maybeSingle();
+
+      String? newNum;
+      if (response != null && response['sale_number'] != null) {
+        final currentNum = response['sale_number'] as String;
+        newNum = currentNum.startsWith('SD-') ? currentNum : 'SD-$currentNum';
+      }
+
       await supabase
           .from('sales_orders')
-          .update({'is_delete': true})
+          .update({
+            'is_delete': true,
+            if (newNum != null) 'sale_number': newNum,
+          })
           .eq('id', id);
 
       ZerpaiToast.success(context, 'Sales order deleted');
@@ -4944,6 +4973,8 @@ class _SalesOrderEmailScreenState extends ConsumerState<SalesOrderEmailScreen> {
       setState(() {
         _order = order;
         final customerName = order.customer?.displayName ?? 'Customer';
+        final orgSettings = ref.read(orgSettingsProvider).asData?.value;
+        final orgName = orgSettings?.name.trim().isNotEmpty == true ? orgSettings!.name.trim() : 'Our Organization';
 
         _bodyCtrl.text =
             '''Dear $customerName,
@@ -4964,13 +4995,12 @@ Amount : ₹${order.total.toStringAsFixed(2)}
 Assuring you of our best services at all times.
 
 Regards,
-zabnixprivatelimited
-ZABNIX PRIVATE LIMITED''';
+$orgName''';
 
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error loading order for email: \$e');
+      debugPrint('Error loading order for email: $e');
       if (mounted) {
         ZerpaiToast.error(context, 'Failed to load order data');
         context.pop();
@@ -4992,14 +5022,17 @@ ZABNIX PRIVATE LIMITED''';
 
     final order = _order!;
     final customerName = order.customer?.displayName ?? 'Customer';
+    final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+    final orgName = orgSettings?.name.trim().isNotEmpty == true ? orgSettings!.name.trim() : 'Our Organization';
+    final orgEmail = orgSettings?.email?.trim().isNotEmpty == true ? orgSettings!.email!.trim() : 'org@example.com';
 
     return EmailComposerScreen(
       title: 'Email To $customerName',
-      initialFrom: 'zabnixprivatelimited <zabnixprivatelimited@gmail.com>',
+      initialFrom: '$orgName <$orgEmail>',
       initialTo:
           '$customerName <${order.customer?.email ?? "customer@example.com"}>',
       initialSubject:
-          'Sales Order from ZABNIX PRIVATE LIMITED (Sales Order #: [${order.saleNumber}])',
+          'Sales Order from $orgName (Sales Order #: [${order.saleNumber}])',
       initialBody: _bodyCtrl.text,
       attachmentName: '[${order.saleNumber}]',
       onSend: (from, to, subject, body, attachPdf) {

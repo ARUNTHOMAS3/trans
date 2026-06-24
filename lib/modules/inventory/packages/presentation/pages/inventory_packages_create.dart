@@ -2323,7 +2323,7 @@ class _InventoryPackagesCreateScreenState
                       _buildQuantityCell(
                         index,
                         _buildNormalQtyInput(index, soItem),
-                        _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD",
+                        _rowSelectedWarehouses[index] ?? (ref.watch(warehousesProvider).valueOrNull?.firstOrNull?.name ?? "Main Office"),
                       ),
                     ],
                   ),
@@ -2783,7 +2783,7 @@ class _InventoryPackagesCreateScreenState
                           child: _buildQuantityCell(
                             index,
                             _buildQtyInput(index),
-                            _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD",
+                            _rowSelectedWarehouses[index] ?? (ref.watch(warehousesProvider).valueOrNull?.firstOrNull?.name ?? "Main Office"),
                           ),
                         ),
                       ),
@@ -3030,7 +3030,7 @@ class _InventoryPackagesCreateScreenState
       builder: (_) => _PackageBatchSelectionDialog(
         itemId: item.itemId,
         itemName: item.itemName,
-        warehouseName: _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD",
+        warehouseName: _rowSelectedWarehouses[index] ?? (ref.read(warehousesProvider).valueOrNull?.firstOrNull?.name ?? "Main Office"),
         warehouseId: _rowSelectedWarehouseIds[index],
         totalQuantity: qtyToPack,
         savedBatches: item.batches,

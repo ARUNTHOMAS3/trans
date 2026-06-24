@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/shared/widgets/z_adaptive_menu.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1503,49 +1504,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       });
     }
 
-    _itemMenuOverlay = OverlayEntry(
+    _itemMenuOverlay = ZAdaptiveMenu.show(
+      context: context,
+      link: link,
+      onClose: _closeItemMenu,
       builder: (ctx) {
-        String? hoveredItem;
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _closeItemMenu,
-                behavior: HitTestBehavior.translucent,
-                child: const ColoredBox(color: Colors.transparent),
-              ),
-            ),
-            CompositedTransformFollower(
-              link: link,
-              showWhenUnlinked: false,
-              targetAnchor: Alignment.bottomRight,
-              followerAnchor: Alignment.topRight,
-              offset: const Offset(0, 4),
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  width: 180,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _borderCol),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: StatefulBuilder(
-                      builder: (context, setOverlayState) {
-                        final isHidden = _hiddenDetails.contains(index);
-                        final notifier = ref.read(
-                          purchaseOrderFormNotifierProvider.notifier,
-                        );
-                        return Column(
+        return StatefulBuilder(
+          builder: (context, setOverlayState) {
+            String? hoveredItem;
+            final isHidden = _hiddenDetails.contains(index);
+            final notifier = ref.read(
+              purchaseOrderFormNotifierProvider.notifier,
+            );
+            return Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -1733,21 +1704,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     },
                                   ),
                                 );
-                              },
+                               },
                             ),
                           ],
                         );
                       },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-    Overlay.of(context).insert(_itemMenuOverlay!);
+                    );
+                  },
+                );
   }
 
   void _closeGstOverlay() {
@@ -3838,7 +3802,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               _showAddressModal(
                                 vendor: vendor,
                                 isBilling: isBilling,
-                                customTitle: 'Additional Address',
+                                customTitle: isBilling ? 'Billing Address' : 'Shipping Address',
                                 isNewAddress: true,
                               );
                             },
@@ -3960,6 +3924,26 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       if (phone.isNotEmpty) 'Phone: $phone',
     ];
 
+    final bool isAddrBilling = address['is_default_billing'] == true ||
+        address['isDefaultBilling'] == true ||
+        address['address_type'] == 'billing' ||
+        address['addressType'] == 'billing';
+    final bool isAddrShipping = address['is_default_shipping'] == true ||
+        address['isDefaultShipping'] == true ||
+        address['address_type'] == 'shipping' ||
+        address['addressType'] == 'shipping';
+
+    bool canEdit = true;
+    if (isBilling) {
+      if (isAddrShipping && !isAddrBilling) {
+        canEdit = false;
+      }
+    } else {
+      if (isAddrBilling && !isAddrShipping) {
+        canEdit = false;
+      }
+    }
+
     bool isHovered = false;
     return StatefulBuilder(
       builder: (ctx, setSt) {
@@ -4038,7 +4022,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (isHovered)
+                          if (isHovered && canEdit)
                             GestureDetector(
                               onTap: () {
                                 _closeAddressDropdownOverlay();
@@ -4046,7 +4030,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   vendor: vendor,
                                   isBilling: isBilling,
                                   initialAddress: address,
-                                  customTitle: 'Additional Address',
+                                  customTitle: isBilling ? 'Billing Address' : 'Shipping Address',
                                 );
                               },
                               child: Icon(
@@ -6102,6 +6086,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                         hint:
                                             'Type or click to select an item.',
                                         hideBorderDefault: true,
+                                        itemEstimatedHeight: 48,
+                                        maxVisibleItems: 5,
+                                        menuWidth: 420,
                                         items: allItems.take(20).toList(),
                                         displayStringForValue: (i) =>
                                             i.productName,
@@ -6119,16 +6106,37 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                               i,
                                               isSelected,
                                               isHovered,
-                                            ) => _buildStandardLookupRow(
-                                              i.productName,
-                                              isSelected,
-                                              isHovered,
-                                              sublabel: i.costPrice != null
-                                                  ? 'Purchase Rate: ₹${i.costPrice!.toStringAsFixed(2)}'
-                                                  : null,
+                                            ) => Container(
+                                              decoration: BoxDecoration(
+                                                border: Border(
+                                                  bottom: BorderSide(
+                                                    color: isHovered || isSelected
+                                                        ? Colors.transparent
+                                                        : const Color(0xFFE5E7EB),
+                                                    width: 1.0,
+                                                  ),
+                                                ),
+                                              ),
+                                              child: _buildStandardLookupRow(
+                                                i.productName,
+                                                isSelected,
+                                                isHovered,
+                                                sublabel: i.costPrice != null
+                                                    ? 'Purchase Rate: ₹${i.costPrice!.toStringAsFixed(2)}'
+                                                    : null,
+                                              ),
                                             ),
                                         onChanged: (i) async {
                                           if (i == null) return;
+
+                                          final dupIdx = poState.items.indexWhere((r) => r.productId == i.id);
+                                          if (dupIdx != -1) {
+                                            ZerpaiToast.error(
+                                              context,
+                                              "Item '${i.productName}' is already selected in row ${dupIdx + 1}.",
+                                            );
+                                            return;
+                                          }
 
                                           int targetIndex = index;
                                           if (index > 0 &&
@@ -6568,7 +6576,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                         item.productType ==
                                                                 'service'
                                                             ? const Color(
-                                                                0xFF7C3AED,
+                                                                0xFFF97316,
                                                               )
                                                             : const Color(
                                                                 0xFF0088FF,
@@ -6577,7 +6585,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                       ),
                                                       const SizedBox(width: 8),
                                                       Text(
-                                                        'HSN Code: ',
+                                                        item.productType == 'service'
+                                                            ? 'SAC Code: '
+                                                            : 'HSN Code: ',
                                                         style: TextStyle(
                                                           fontSize: 11,
                                                           color: _hintColor,
@@ -7526,6 +7536,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   onTapOutside: (_) => _closeHsnOverlay(),
                   child: _HSNCodeEditPopover(
                     initialHsnCode: item.hsnCode ?? '',
+                    isService: item.productType == 'service',
                     onCancel: _closeHsnOverlay,
                     onSave: (hsn) {
                       notifier.updateItem(index, item.copyWith(hsnCode: hsn));
@@ -12241,11 +12252,13 @@ class _HoverableToggleMenuItemState extends State<_HoverableToggleMenuItem> {
 
 class _HSNCodeEditPopover extends StatefulWidget {
   final String initialHsnCode;
+  final bool isService;
   final VoidCallback onCancel;
   final Function(String) onSave;
 
   const _HSNCodeEditPopover({
     required this.initialHsnCode,
+    this.isService = false,
     required this.onCancel,
     required this.onSave,
   });
@@ -12277,7 +12290,7 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
       context: context,
       useSafeArea: false,
       builder: (context) =>
-          HsnSacSearchModal(type: 'HSN', initialQuery: _ctrl.text),
+          HsnSacSearchModal(type: widget.isService ? 'SAC' : 'HSN', initialQuery: _ctrl.text),
     );
 
     if (result != null) {
@@ -12321,9 +12334,9 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                child: const Text(
-                  'HSN Code',
-                  style: TextStyle(
+                child: Text(
+                  widget.isService ? 'SAC Code' : 'HSN Code',
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: _textPrimary,
@@ -12349,7 +12362,7 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
                       borderRadius: BorderRadius.circular(4),
                       borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
                     ),
-                    hintText: 'Enter HSN Code',
+                    hintText: widget.isService ? 'Enter SAC Code' : 'Enter HSN Code',
                     hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
                     suffixIcon: IconButton(
                       icon: const Icon(

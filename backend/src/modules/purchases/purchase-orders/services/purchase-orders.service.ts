@@ -82,19 +82,26 @@ export class PurchaseOrdersService {
     };
   }
 
+  private cleanUuid(val: any): string | null {
+    if (val === "" || val === null || val === undefined) {
+      return null;
+    }
+    return val;
+  }
+
   private mapDtoToDb(dto: any): any {
     const dbData: any = {};
-    if (dto.vendor_id !== undefined) dbData.vendor_id = dto.vendor_id;
+    if (dto.vendor_id !== undefined) dbData.vendor_id = this.cleanUuid(dto.vendor_id);
     if (dto.order_number !== undefined) dbData.order_number = dto.order_number;
     if (dto.order_date !== undefined) dbData.order_date = dto.order_date;
     if (dto.expected_delivery_date !== undefined) dbData.expected_delivery_date = dto.expected_delivery_date;
     if (dto.reference_number !== undefined) dbData.reference_number = dto.reference_number;
-    if (dto.payment_terms_id !== undefined) dbData.payment_terms_id = dto.payment_terms_id;
-    if (dto.shipment_preference_id !== undefined) dbData.shipment_preference_id = dto.shipment_preference_id;
+    if (dto.payment_terms_id !== undefined) dbData.payment_terms_id = this.cleanUuid(dto.payment_terms_id);
+    if (dto.shipment_preference_id !== undefined) dbData.shipment_preference_id = this.cleanUuid(dto.shipment_preference_id);
     if (dto.delivery_type !== undefined) dbData.delivery_type = dto.delivery_type;
-    if (dto.delivery_warehouse_id !== undefined) dbData.delivery_warehouse_id = dto.delivery_warehouse_id;
-    if (dto.delivery_customer_id !== undefined) dbData.delivery_customer_id = dto.delivery_customer_id;
-    if (dto.warehouse_id !== undefined) dbData.warehouse_id = dto.warehouse_id;
+    if (dto.delivery_warehouse_id !== undefined) dbData.delivery_warehouse_id = this.cleanUuid(dto.delivery_warehouse_id);
+    if (dto.delivery_customer_id !== undefined) dbData.delivery_customer_id = this.cleanUuid(dto.delivery_customer_id);
+    if (dto.warehouse_id !== undefined) dbData.warehouse_id = this.cleanUuid(dto.warehouse_id);
     if (dto.warehouse_name !== undefined) dbData.warehouse_name = dto.warehouse_name;
     if (dto.document_type !== undefined) dbData.document_type = dto.document_type;
     if (dto.status !== undefined) dbData.status = dto.status;
@@ -102,7 +109,7 @@ export class PurchaseOrdersService {
     if (dto.tax_amount !== undefined) dbData.tax_amount = dto.tax_amount;
     if (dto.discount !== undefined) dbData.discount = dto.discount;
     if (dto.tds_tcs_type !== undefined) dbData.tds_tcs_type = dto.tds_tcs_type;
-    if (dto.tds_id !== undefined) dbData.tds_id = dto.tds_id;
+    if (dto.tds_id !== undefined) dbData.tds_id = this.cleanUuid(dto.tds_id);
     if (dto.tds_tcs_amount !== undefined) dbData.tds_tcs_amount = dto.tds_tcs_amount;
     if (dto.adjustment !== undefined) dbData.adjustment = dto.adjustment;
     if (dto.total_quantity !== undefined) dbData.total_quantity = dto.total_quantity;
@@ -112,13 +119,13 @@ export class PurchaseOrdersService {
     if (dto.terms_and_conditions !== undefined) dbData.terms_and_conditions = dto.terms_and_conditions;
     if (dto.discount_level !== undefined) dbData.discount_level = dto.discount_level;
     if (dto.discount_type !== undefined) dbData.discount_type = dto.discount_type;
-    if (dto.discount_account_id !== undefined) dbData.discount_account_id = dto.discount_account_id;
+    if (dto.discount_account_id !== undefined) dbData.discount_account_id = this.cleanUuid(dto.discount_account_id);
     if (dto.tax_type !== undefined) dbData.tax_type = dto.tax_type;
     if (dto.is_delete !== undefined) dbData.is_delete = dto.is_delete;
     if (dto.source_of_supply !== undefined) dbData.source_of_supply = dto.source_of_supply;
     if (dto.destination_to_supply !== undefined) dbData.destination_to_supply = dto.destination_to_supply;
-    if (dto.shipping_address !== undefined) dbData.shipping_address = dto.shipping_address;
-    if (dto.billing_address !== undefined) dbData.billing_address = dto.billing_address;
+    if (dto.shipping_address !== undefined) dbData.shipping_address = this.cleanUuid(dto.shipping_address);
+    if (dto.billing_address !== undefined) dbData.billing_address = this.cleanUuid(dto.billing_address);
     return dbData;
   }
 
@@ -538,13 +545,14 @@ export class PurchaseOrdersService {
       tenant,
       createPurchaseOrderDto,
     );
-    let resolvedWarehouseId = createPurchaseOrderDto.warehouse_id;
+    let resolvedWarehouseId = this.cleanUuid(createPurchaseOrderDto.warehouse_id);
     if (!resolvedWarehouseId) {
+      const deliveryWarehouseId = this.cleanUuid(createPurchaseOrderDto.delivery_warehouse_id);
       if (
         createPurchaseOrderDto.delivery_type === "warehouse" &&
-        createPurchaseOrderDto.delivery_warehouse_id
+        deliveryWarehouseId
       ) {
-        resolvedWarehouseId = createPurchaseOrderDto.delivery_warehouse_id;
+        resolvedWarehouseId = deliveryWarehouseId;
       } else {
         const { data: wh } = await this.supabaseService
           .getClient()
@@ -593,8 +601,10 @@ export class PurchaseOrdersService {
         }
         return {
           ...(restItem as any),
-          account_id: accountId,
-          accounts: accountId,
+          product_id: this.cleanUuid(restItem.product_id),
+          account_id: this.cleanUuid(accountId),
+          accounts: this.cleanUuid(accountId),
+          tax_id: this.cleanUuid(restItem.tax_id),
           hsn_code: hsnNumeric,
           purchase_order_id: data.id,
           entity_id: tenant.entityId,
@@ -627,13 +637,14 @@ export class PurchaseOrdersService {
       tenant,
       updatePurchaseOrderDto,
     );
-    let resolvedWarehouseId = updatePurchaseOrderDto.warehouse_id;
+    let resolvedWarehouseId = this.cleanUuid(updatePurchaseOrderDto.warehouse_id);
     if (updatePurchaseOrderDto.hasOwnProperty("warehouse_id") && !resolvedWarehouseId) {
+      const deliveryWarehouseId = this.cleanUuid(updatePurchaseOrderDto.delivery_warehouse_id);
       if (
         updatePurchaseOrderDto.delivery_type === "warehouse" &&
-        updatePurchaseOrderDto.delivery_warehouse_id
+        deliveryWarehouseId
       ) {
-        resolvedWarehouseId = updatePurchaseOrderDto.delivery_warehouse_id;
+        resolvedWarehouseId = deliveryWarehouseId;
       } else {
         const { data: wh } = await this.supabaseService
           .getClient()
@@ -705,8 +716,10 @@ export class PurchaseOrdersService {
         }
         return {
           ...(restItem as any),
-          account_id: accountId,
-          accounts: accountId,
+          product_id: this.cleanUuid(restItem.product_id),
+          account_id: this.cleanUuid(accountId),
+          accounts: this.cleanUuid(accountId),
+          tax_id: this.cleanUuid(restItem.tax_id),
           hsn_code: hsnNumeric,
           purchase_order_id: id,
           entity_id: tenant.entityId,
@@ -729,10 +742,17 @@ export class PurchaseOrdersService {
   }
 
   async remove(id: string, tenant: TenantContext) {
+    const existing = await this.findOne(id, tenant);
+    const originalNumber = existing?.order_number;
+    const newNumber = originalNumber ? (originalNumber.startsWith('SD-') ? originalNumber : `SD-${originalNumber}`) : undefined;
+
     const { error } = await this.supabaseService
       .getClient()
       .from("purchase_orders")
-      .delete()
+      .update({
+        is_delete: true,
+        ...(newNumber ? { order_number: newNumber } : {}),
+      })
       .eq("id", id)
       .eq("entity_id", tenant.entityId);
 

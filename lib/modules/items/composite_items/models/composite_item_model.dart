@@ -157,7 +157,7 @@ class CompositeItem {
       categoryId: json['category_id'],
       isReturnable: json['is_returnable'] ?? false,
       pushToEcommerce: json['push_to_ecommerce'] ?? false,
-      hsnCode: json['hsn_code'],
+      hsnCode: json['hsn_sac_code'] ?? json['hsn_code'],
       taxPreference: json['tax_preference'],
       intraStateTaxId: json['intra_state_tax_id'] ??
           json['intraStateTaxId'] ??
@@ -236,7 +236,7 @@ class CompositeItem {
       if (categoryId != null) 'category_id': categoryId,
       'is_returnable': isReturnable,
       'push_to_ecommerce': pushToEcommerce,
-      if (hsnCode != null) 'hsn_code': hsnCode,
+      if (hsnCode != null) 'hsn_sac_code': hsnCode,
       if (taxPreference != null) 'tax_preference': taxPreference,
       if (intraStateTaxId != null) 'intra_state_tax_id': intraStateTaxId,
       if (interStateTaxId != null) 'inter_state_tax_id': interStateTaxId,

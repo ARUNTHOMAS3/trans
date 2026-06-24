@@ -87,6 +87,9 @@ const Map<String, List<String>> legacyPermissionPrefixesByKey = {
   'reports': ['reports.center'],
   'audit_logs': ['reports.audit_log'],
   'documents': ['reports.document'],
+
+  // Procurement
+  'purchase_requests': ['procurement.purchase_request'],
 };
 
 const List<PermissionDefinition> permissionsRegistry = [
@@ -1620,6 +1623,22 @@ const List<PermissionDefinition> permissionsRegistry = [
     action: PermissionActions.view,
     label: 'View Documents',
     description: 'Can view documents.',
+  ),
+  PermissionDefinition(
+    key: 'procurement.purchase_request.view',
+    module: 'procurement',
+    resource: 'purchase_request',
+    action: PermissionActions.view,
+    label: 'View Purchase Requests',
+    description: 'Can view purchase requests.',
+  ),
+  PermissionDefinition(
+    key: 'procurement.purchase_request.create',
+    module: 'procurement',
+    resource: 'purchase_request',
+    action: PermissionActions.create,
+    label: 'Create Purchase Requests',
+    description: 'Can create purchase requests.',
   ),
 ];
 

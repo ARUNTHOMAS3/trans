@@ -126,7 +126,7 @@ final binsLookupProvider =
 
   final response = await query.order('bin_code');
 
-  return (response as List).map((b) => {
+  return (response as List).map((b) => <String, String>{
         'id': b['id'].toString(),
         'bin_code': b['bin_code'].toString(),
       }).toList();

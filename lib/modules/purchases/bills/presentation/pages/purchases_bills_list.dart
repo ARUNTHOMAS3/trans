@@ -13,6 +13,7 @@ import '../../../../../shared/widgets/tables/table_header_menu.dart';
 import '../../../../../shared/widgets/tables/table_more_menu.dart';
 import '../../../../../shared/widgets/skeleton.dart';
 import '../../providers/purchases_bills_provider.dart';
+import '../../repositories/purchases_bills_repository.dart';
 import '../../models/purchases_bills_bill_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
@@ -39,6 +40,14 @@ import 'package:printing/printing.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/providers/purchase_receives_provider.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart' hide warehousesProvider;
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:dotted_border/dotted_border.dart';
+import 'package:web/web.dart' as web;
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 class _ClearBillsSelectionIntent extends Intent {
   const _ClearBillsSelectionIntent();
@@ -96,6 +105,15 @@ class _PurchasesBillsListScreenState
   String? _showPaymentFormForId;
   final Set<String> _expandedBatchesItems = {};
   bool _isBatchesExpanded = true;
+  bool _showCalendarView = false;
+  DateTime _calendarMonth = DateTime(2026, 6);
+
+  bool _showCommentsSidebar = false;
+  final LayerLink _attachmentBadgeLink = LayerLink();
+  OverlayEntry? _attachmentListOverlay;
+  List<Map<String, dynamic>> _billAttachments = [];
+  bool _isLoadingAttachments = false;
+  String? _lastLoadedBillId;
 
   List<ColumnConfig> _allColumns = [];
   final List<String> _visibleColumns = [];
@@ -188,6 +206,85 @@ class _PurchasesBillsListScreenState
     } catch (e) {
       debugPrint('Error saving column settings: $e');
     }
+  }
+
+  Future<void> _loadBillAttachments(String billId) async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingAttachments = true;
+    });
+    try {
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('bill_attachments')
+          .select('id, file_name, file_url, file_size, file_type, uploaded_at')
+          .eq('bill_id', billId)
+          .order('uploaded_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _billAttachments = (res as List<dynamic>)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _isLoadingAttachments = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading bill attachments: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingAttachments = false;
+        });
+      }
+    }
+  }
+
+  void _toggleAttachmentListOverlay(PurchasesBill bill) {
+    if (_attachmentListOverlay != null) {
+      _attachmentListOverlay?.remove();
+      _attachmentListOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    _attachmentListOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _attachmentListOverlay?.remove();
+                _attachmentListOverlay = null;
+                setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _attachmentBadgeLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomRight,
+            followerAnchor: Alignment.topRight,
+            offset: const Offset(-8, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: _BillAttachmentOverlayContent(
+                bill: bill,
+                ref: ref,
+                onRefresh: () => _loadBillAttachments(bill.id),
+                onClose: () {
+                  _attachmentListOverlay?.remove();
+                  _attachmentListOverlay = null;
+                  setState(() {});
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_attachmentListOverlay!);
+    setState(() {});
   }
 
   void _showCustomizeColumnsDialog() {
@@ -300,7 +397,9 @@ class _PurchasesBillsListScreenState
                             ),
                           ],
                           Expanded(
-                            child: state.bills.isEmpty
+                            child: _showCalendarView
+                                ? _buildCalendarView(sorted)
+                                : state.bills.isEmpty
                                 ? _buildEmptyState()
                                 : filtered.isEmpty
                                 ? _buildNoMatchingState()
@@ -635,6 +734,12 @@ class _PurchasesBillsListScreenState
         ),
       ),
       data: (bill) {
+        if (_lastLoadedBillId != bill.id) {
+          _lastLoadedBillId = bill.id;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _loadBillAttachments(bill.id);
+          });
+        }
         if (_showPaymentFormForId == bill.id) {
           return _PurchasesBillPaymentForm(
             bill: bill,
@@ -647,7 +752,7 @@ class _PurchasesBillsListScreenState
         }
         return StatefulBuilder(
           builder: (context, setInnerState) {
-            return Column(
+            Widget detailContent = Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
@@ -662,16 +767,57 @@ class _PurchasesBillsListScreenState
                             style: AppTheme.metaHelper.copyWith(fontSize: 12),
                           ),
                           const Spacer(),
-                          _ActionSquare(
-                            icon: LucideIcons.paperclip,
-                            color: AppTheme.textSecondary,
-                            onTap: () {},
+                          CompositedTransformTarget(
+                            link: _attachmentBadgeLink,
+                            child: InkWell(
+                              onTap: () => _toggleAttachmentListOverlay(bill),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                height: 34,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.paperclip,
+                                      size: 15,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                    if (_billAttachments.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${_billAttachments.length}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           _ActionSquare(
-                            icon: LucideIcons.messageSquare,
+                            icon: LucideIcons.history,
                             color: AppTheme.textSecondary,
-                            onTap: () {},
+                            onTap: () {
+                              setInnerState(() {
+                                _showCommentsSidebar = !_showCommentsSidebar;
+                              });
+                              setState(() {});
+                            },
                           ),
                           const SizedBox(width: 8),
                           _ActionSquare(
@@ -975,6 +1121,21 @@ class _PurchasesBillsListScreenState
                 ),
               ],
             );
+            if (_showCommentsSidebar) {
+              return Row(
+                children: [
+                  Expanded(child: detailContent),
+                  const VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: AppTheme.borderLight,
+                  ),
+                  _buildCommentsSidebar(bill),
+                ],
+              );
+            } else {
+              return detailContent;
+            }
           },
         );
       },
@@ -1362,9 +1523,28 @@ class _PurchasesBillsListScreenState
                       Expanded(
                         flex: 1,
                         child: Center(
-                          child: Text(
-                            item.quantity.toStringAsFixed(2),
-                            style: AppTheme.bodyText.copyWith(fontSize: 13),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                (item.freeQuantity > 0
+                                        ? (item.quantity + item.freeQuantity)
+                                        : item.quantity)
+                                    .toStringAsFixed(2),
+                                style: AppTheme.bodyText.copyWith(fontSize: 13),
+                              ),
+                              if (item.freeQuantity > 0) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${item.quantity == item.quantity.toInt() ? item.quantity.toInt() : item.quantity.toStringAsFixed(2)} pcs + ${item.freeQuantity == item.freeQuantity.toInt() ? item.freeQuantity.toInt() : item.freeQuantity.toStringAsFixed(2)} foc',
+                                  style: AppTheme.bodyText.copyWith(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
@@ -1636,7 +1816,7 @@ class _PurchasesBillsListScreenState
                         pw.Text(
                           org?.name.trim().isNotEmpty == true
                               ? org!.name.trim()
-                              : 'ZABNIX PRIVATE LIMITED',
+                              : '',
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
                             fontSize: 12,
@@ -2244,9 +2424,14 @@ class _PurchasesBillsListScreenState
           if (!confirmed) return;
           try {
             final supabase = Supabase.instance.client;
+            final originalNumber = bill.billNumber;
+            final newNumber = originalNumber != null ? (originalNumber.startsWith('SD-') ? originalNumber : 'SD-$originalNumber') : null;
             await supabase
                 .from('bills')
-                .update({'is_delete': true})
+                .update({
+                  'is_delete': true,
+                  if (newNumber != null) 'bill_number': newNumber,
+                })
                 .eq('id', bill.id);
 
             ref.read(apiClientProvider).clearCache('bills');
@@ -2387,18 +2572,21 @@ class _PurchasesBillsListScreenState
               children: [
                 InkWell(
                   onTap: () {
+                    setState(() {
+                      _showCalendarView = false;
+                    });
                     context.go('/purchases/bills');
                   },
                   child: Container(
                     width: 32,
                     height: 30,
-                    color: !hasSelection
+                    color: (!hasSelection && !_showCalendarView)
                         ? const Color(0xFFF3F4F6)
                         : Colors.transparent,
                     child: Icon(
                       LucideIcons.menu,
                       size: 15,
-                      color: !hasSelection
+                      color: (!hasSelection && !_showCalendarView)
                           ? AppTheme.textPrimary
                           : AppTheme.textSecondary,
                     ),
@@ -2407,31 +2595,54 @@ class _PurchasesBillsListScreenState
                 Container(width: 1, height: 30, color: AppTheme.borderLight),
                 InkWell(
                   onTap: () {
-                    if (bills.isNotEmpty) {
-                      context.go('/purchases/bills/${bills.first.id}');
-                    } else {
-                      ZerpaiToast.info(
-                        context,
-                        'No bills available to view detail.',
-                      );
-                    }
+                    setState(() {
+                      _showCalendarView = true;
+                    });
                   },
                   child: Container(
                     width: 32,
                     height: 30,
-                    color: hasSelection
+                    color: _showCalendarView
                         ? const Color(0xFFF3F4F6)
                         : Colors.transparent,
                     child: Icon(
-                      LucideIcons.columns,
+                      LucideIcons.calendar,
                       size: 15,
-                      color: hasSelection
+                      color: _showCalendarView
                           ? AppTheme.textPrimary
                           : AppTheme.textSecondary,
                     ),
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => _ExtraQuantityDialog(bills: bills),
+              );
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: AppTheme.borderLight),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'Extra Quantity',
+                style: AppTheme.bodyText.copyWith(
+                  color: AppTheme.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -2668,10 +2879,24 @@ class _PurchasesBillsListScreenState
       if (!confirmed) return;
       try {
         final supabase = Supabase.instance.client;
-        await supabase
+        final selectedIds = _selectedIds.toList();
+        final response = await supabase
             .from('bills')
-            .update({'is_delete': true})
-            .filter('id', 'in', _selectedIds.toList());
+            .select('id, bill_number')
+            .filter('id', 'in', selectedIds);
+
+        for (final row in response) {
+          final id = row['id'] as String;
+          final currentNum = row['bill_number'] as String?;
+          final newNum = currentNum != null ? (currentNum.startsWith('SD-') ? currentNum : 'SD-$currentNum') : null;
+          await supabase
+              .from('bills')
+              .update({
+                'is_delete': true,
+                if (newNum != null) 'bill_number': newNum,
+              })
+              .eq('id', id);
+        }
 
         ref.read(apiClientProvider).clearCache('bills');
 
@@ -3712,7 +3937,7 @@ class _PurchasesBillsListScreenState
                                 Text(
                                   orgSettings?.name.trim().isNotEmpty == true
                                       ? orgSettings!.name.trim()
-                                      : 'ZABNIX PRIVATE LIMITED',
+                                      : '',
                                   style: AppTheme.bodyText.copyWith(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14,
@@ -4574,6 +4799,14 @@ class _PurchasesBillsListScreenState
                                   sum +
                                   ((b['quantity'] as num?)?.toDouble() ?? 0.0),
                             );
+                            final totalFoc = batchList.fold(
+                              0.0,
+                              (sum, b) =>
+                                  sum +
+                                  ((b['foc_quantity'] as num?)?.toDouble() ??
+                                      (b['focQuantity'] as num?)?.toDouble() ??
+                                      0.0),
+                            );
 
                             final expiryRaw =
                                 firstBatch['expiry_date'] ??
@@ -4709,12 +4942,28 @@ class _PurchasesBillsListScreenState
                                           ],
                                         ],
                                       ),
-                                      Text(
-                                        '${totalQty.toStringAsFixed(0)} box',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '${(totalFoc > 0 ? (totalQty + totalFoc) : totalQty).toStringAsFixed(0)} box',
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          if (totalFoc > 0) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${totalQty.toInt()} box + ${totalFoc.toInt()} foc',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -4803,6 +5052,505 @@ class _PurchasesBillsListScreenState
         ZerpaiToast.error(context, 'Failed to convert bill to Open: $e');
       }
     }
+  }
+
+  Widget _buildCalendarView(List<PurchasesBill> bills) {
+    return Column(
+      children: [
+        _buildCalendarHeader(),
+        _buildWeekdayHeader(),
+        Expanded(child: _buildCalendarGrid(bills)),
+      ],
+    );
+  }
+
+  Widget _buildCalendarHeader() {
+    final now = DateTime.now();
+    final thisMonthVal = DateTime(now.year, now.month);
+    
+    final List<DateTime> tabMonths = [];
+    for (int i = -3; i <= 1; i++) {
+      tabMonths.add(DateTime(_calendarMonth.year, _calendarMonth.month + i));
+    }
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ── Title row ──
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Row(
+            children: [
+              const Text(
+                'Bills Summary',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(width: 6),
+              ZTooltip(
+                message: 'Displays month view of Bills, summarized on the basis of their due date.',
+                child: const Icon(
+                  LucideIcons.helpCircle,
+                  size: 15,
+                  color: Color(0xFF9CA3AF),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // ── Month tabs banner ──
+        Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF9FAFB),
+            border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Row(
+            children: [
+              _buildMonthTab(
+                label: 'This Month',
+                isSelected: _calendarMonth.year == thisMonthVal.year && _calendarMonth.month == thisMonthVal.month,
+                onTap: () {
+                  setState(() {
+                    _calendarMonth = thisMonthVal;
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              ...tabMonths.map((m) {
+                final label = DateFormat('MMM yyyy').format(m);
+                final isSelected = _calendarMonth.year == m.year && _calendarMonth.month == m.month;
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: _buildMonthTab(
+                    label: label,
+                    isSelected: isSelected,
+                    onTap: () {
+                      setState(() {
+                        _calendarMonth = m;
+                      });
+                    },
+                  ),
+                );
+              }),
+              const SizedBox(width: 12),
+              _CalendarMonthPickerPopover(
+                initialMonth: _calendarMonth,
+                onMonthSelected: (date) {
+                  setState(() {
+                    _calendarMonth = date;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.borderLight),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(
+                    LucideIcons.calendar,
+                    size: 15,
+                    color: Color(0xFF4B5563),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthTab({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : const Color(0xFFF9FAFB),
+          border: isSelected
+              ? Border.all(color: const Color(0xFFE5E7EB))
+              : Border.all(color: Colors.transparent),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? const Color(0xFFEF4444) : const Color(0xFF4B5563),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildWeekdayHeader() {
+    final weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: weekdays.map((day) {
+          return Expanded(
+            child: Text(
+              day,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF4B5563),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  List<DateTime> getCalendarDays(DateTime month) {
+    final firstDayOfMonth = DateTime(month.year, month.month, 1);
+    final weekday = firstDayOfMonth.weekday;
+    final daysBefore = weekday == 7 ? 0 : weekday;
+    final start = firstDayOfMonth.subtract(Duration(days: daysBefore));
+    
+    final List<DateTime> days = [];
+    for (int i = 0; i < 35; i++) {
+      days.add(start.add(Duration(days: i)));
+    }
+    final endOfMonth = DateTime(month.year, month.month + 1, 0);
+    if (days.last.isBefore(endOfMonth)) {
+      for (int i = 35; i < 42; i++) {
+        days.add(start.add(Duration(days: i)));
+      }
+    }
+    return days;
+  }
+
+  double getDailyTotal(DateTime date, List<PurchasesBill> bills) {
+    double total = 0.0;
+    for (final bill in bills) {
+      if (bill.billDate != null) {
+        final d = bill.billDate!;
+        if (d.year == date.year && d.month == date.month && d.day == date.day) {
+          total += bill.total;
+        }
+      }
+    }
+    return total;
+  }
+
+  Widget _buildCalendarGrid(List<PurchasesBill> bills) {
+    final days = getCalendarDays(_calendarMonth);
+    final List<List<DateTime>> weeks = [];
+    for (int i = 0; i < days.length; i += 7) {
+      weeks.add(days.sublist(i, i + 7));
+    }
+
+    final today = DateTime.now();
+
+    return Column(
+      children: weeks.map((week) {
+        return Expanded(
+          child: Row(
+            children: week.map((date) {
+              final isCurrentMonth = date.month == _calendarMonth.month;
+              final isToday = date.year == today.year &&
+                  date.month == today.month &&
+                  date.day == today.day;
+              
+              final dailyTotal = getDailyTotal(date, bills);
+              final dateBills = bills.where((b) {
+                if (b.billDate == null) return false;
+                final d = b.billDate!;
+                return d.year == date.year && d.month == date.month && d.day == date.day;
+              }).toList();
+              final billCount = dateBills.length;
+              
+              final bgColor = isToday
+                  ? const Color(0xFFFEFBF0)
+                  : (isCurrentMonth ? Colors.white : const Color(0xFFFAFAFA));
+
+              String dateText = '${date.day}';
+              if (date.day == 1) {
+                dateText = '1 ${DateFormat('MMM').format(date)}';
+              }
+
+              return Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    border: Border.all(
+                      color: const Color(0xFFE5E7EB),
+                      width: 0.5,
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Text(
+                          dateText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: date.day == 1 || isToday
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isCurrentMonth
+                                ? const Color(0xFF111827)
+                                : const Color(0xFF9CA3AF),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (dailyTotal > 0)
+                        Center(
+                          child: _BillAmountTooltip(
+                            message: 'Total Count: $billCount',
+                            child: _BillDetailsPopover(
+                              date: date,
+                              bills: bills,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                child: Text(
+                                  '₹${dailyTotal.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFF25C3D),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildCommentsSidebar(PurchasesBill bill) {
+    final List<_HistoryEvent> events = [];
+    final user = ref.read(authUserProvider);
+    final currentUsername = user?.fullName ?? user?.email.split('@').first ?? 'system';
+
+    events.add(
+      _HistoryEvent(
+        username: currentUsername,
+        time: bill.createdAt ?? bill.billDate ?? DateTime.now(),
+        content: 'Bill ${bill.billNumber ?? "Unknown"} created',
+        icon: LucideIcons.fileSpreadsheet,
+      ),
+    );
+
+    for (final a in _billAttachments) {
+      final uploadedAtStr = a['uploaded_at']?.toString();
+      final dt = uploadedAtStr != null ? DateTime.tryParse(uploadedAtStr) : null;
+      events.add(
+        _HistoryEvent(
+          username: currentUsername,
+          time: dt ?? bill.createdAt ?? bill.billDate ?? DateTime.now(),
+          content: 'Attachment modified',
+          icon: LucideIcons.fileText,
+        ),
+      );
+    }
+
+    // Sort events by time DESCENDING (newest first)
+    events.sort((a, b) => b.time.compareTo(a.time));
+
+    return Container(
+      width: 320,
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                Text(
+                  'History',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 16),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _showCommentsSidebar = false;
+                    });
+                  },
+                  child: const Icon(
+                    LucideIcons.x,
+                    color: AppTheme.errorRed,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                Text(
+                  'ALL COMMENTS',
+                  style: AppTheme.metaHelper.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${events.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              itemCount: events.length,
+              itemBuilder: (context, index) {
+                final e = events[index];
+                final isLast = index == events.length - 1;
+
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Column(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: Icon(
+                              e.icon,
+                              size: 12,
+                              color: AppTheme.warningOrange,
+                            ),
+                          ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(
+                                width: 1.5,
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    e.username,
+                                    style: AppTheme.bodyText.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.circle,
+                                    size: 3,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat(
+                                      'dd-MM-yyyy hh:mm a',
+                                    ).format(e.time),
+                                    style: AppTheme.metaHelper.copyWith(
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF9FAFB),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  e.content,
+                                  style: AppTheme.bodyText.copyWith(
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -5094,6 +5842,11 @@ class _PurchasesBillPaymentFormState
 
   @override
   Widget build(BuildContext context) {
+    final warehousesAsync = ref.watch(warehousesProvider);
+    final List<String> warehouseNames = warehousesAsync.maybeWhen(
+      data: (list) => list.map((w) => w.name).toList(),
+      orElse: () => <String>[],
+    );
     final titleText = 'Payment for ${widget.bill.billNumber ?? widget.bill.id}';
 
     return Container(
@@ -5164,13 +5917,12 @@ class _PurchasesBillPaymentFormState
                               _labeledField(
                                 'Location',
                                 FormDropdown<String>(
-                                  value:
-                                      widget.bill.warehouseName ??
-                                      'ZABNIX PRIVATE LIMITED',
+                                  value: widget.bill.warehouseName ?? (warehouseNames.isNotEmpty ? warehouseNames.first : '-'),
                                   height: 36,
                                   items: [
-                                    widget.bill.warehouseName ??
-                                        'ZABNIX PRIVATE LIMITED',
+                                    if (widget.bill.warehouseName != null) widget.bill.warehouseName!,
+                                    ...warehouseNames.where((name) => name != widget.bill.warehouseName),
+                                    if (widget.bill.warehouseName == null && warehouseNames.isEmpty) '-',
                                   ],
                                   onChanged: (_) {},
                                 ),
@@ -6169,6 +6921,1646 @@ class _ReasonInputDialogState extends State<_ReasonInputDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Month Picker Custom Popover ──────────────────────────────────────────
+
+class _CalendarMonthPickerPopover extends StatefulWidget {
+  final Widget child;
+  final DateTime initialMonth;
+  final ValueChanged<DateTime> onMonthSelected;
+
+  const _CalendarMonthPickerPopover({
+    required this.child,
+    required this.initialMonth,
+    required this.onMonthSelected,
+  });
+
+  @override
+  State<_CalendarMonthPickerPopover> createState() => _CalendarMonthPickerPopoverState();
+}
+
+class _CalendarMonthPickerPopoverState extends State<_CalendarMonthPickerPopover> {
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+
+  void _showOverlay() {
+    if (_overlayEntry != null) {
+      _closeOverlay();
+      return;
+    }
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closeOverlay,
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            CompositedTransformFollower(
+              link: _layerLink,
+              targetAnchor: Alignment.bottomRight,
+              followerAnchor: Alignment.topRight,
+              offset: const Offset(0, 6),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1A000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: _MonthPickerPopoverContent(
+                    initialMonth: widget.initialMonth,
+                    onMonthSelected: (date) {
+                      widget.onMonthSelected(date);
+                      _closeOverlay();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _closeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void deactivate() {
+    _closeOverlay();
+    super.deactivate();
+  }
+
+  @override
+  void dispose() {
+    _closeOverlay();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: InkWell(
+        onTap: _showOverlay,
+        borderRadius: BorderRadius.circular(4),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _MonthPickerPopoverContent extends StatefulWidget {
+  final DateTime initialMonth;
+  final ValueChanged<DateTime> onMonthSelected;
+
+  const _MonthPickerPopoverContent({
+    required this.initialMonth,
+    required this.onMonthSelected,
+  });
+
+  @override
+  State<_MonthPickerPopoverContent> createState() => _MonthPickerPopoverContentState();
+}
+
+class _MonthPickerPopoverContentState extends State<_MonthPickerPopoverContent> {
+  late int _pickerYear;
+
+  @override
+  void initState() {
+    super.initState();
+    _pickerYear = widget.initialMonth.year;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 240,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _pickerYear--;
+                  });
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Text(
+                    '«',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF4B5563),
+                    ),
+                  ),
+                ),
+              ),
+              Text(
+                '$_pickerYear',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _pickerYear++;
+                  });
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Text(
+                    '»',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF4B5563),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          const SizedBox(height: 8),
+          ...List.generate(3, (rowIndex) {
+            return Padding(
+              padding: EdgeInsets.only(top: rowIndex > 0 ? 8 : 0),
+              child: Row(
+                children: List.generate(4, (colIndex) {
+                  final monthNum = rowIndex * 4 + colIndex + 1;
+                  final isSelected = widget.initialMonth.year == _pickerYear &&
+                      widget.initialMonth.month == monthNum;
+                  final monthName =
+                      DateFormat('MMM').format(DateTime(_pickerYear, monthNum));
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: colIndex > 0 ? 8 : 0),
+                      child: InkWell(
+                        onTap: () {
+                          widget.onMonthSelected(DateTime(_pickerYear, monthNum));
+                        },
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFFF3F4F6)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            monthName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight:
+                                  isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected
+                                  ? const Color(0xFF111827)
+                                  : const Color(0xFF4B5563),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Bill Details Custom Popover ──────────────────────────────────────────
+
+class _BillDetailsPopover extends StatefulWidget {
+  final Widget child;
+  final DateTime date;
+  final List<PurchasesBill> bills;
+
+  const _BillDetailsPopover({
+    required this.child,
+    required this.date,
+    required this.bills,
+  });
+
+  @override
+  State<_BillDetailsPopover> createState() => _BillDetailsPopoverState();
+}
+
+class _BillDetailsPopoverState extends State<_BillDetailsPopover> {
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+
+  void _showOverlay() {
+    if (_overlayEntry != null) return;
+
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final position = renderBox.localToGlobal(Offset.zero);
+
+    // Determine space right vs left to decide positioning direction
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double spaceRight = screenWidth - position.dx - renderBox.size.width;
+    final double spaceLeft = position.dx;
+
+    final bool showOnRight = spaceRight >= 430 || spaceRight > spaceLeft;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closeOverlay,
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            CompositedTransformFollower(
+              link: _layerLink,
+              targetAnchor: showOnRight ? Alignment.centerRight : Alignment.centerLeft,
+              followerAnchor: showOnRight ? Alignment.centerLeft : Alignment.centerRight,
+              offset: Offset(showOnRight ? 10 : -10, 0),
+              child: Material(
+                color: Colors.transparent,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (showOnRight)
+                      CustomPaint(
+                        size: const Size(8, 14),
+                        painter: _BillDetailsPopoverArrowPainter(
+                          color: Colors.white,
+                          borderColor: const Color(0xFFE5E7EB),
+                          pointingLeft: true,
+                        ),
+                      ),
+                    Container(
+                      width: 420,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1A000000),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: _BillDetailsPopoverContent(
+                        date: widget.date,
+                        bills: widget.bills,
+                        onClose: _closeOverlay,
+                      ),
+                    ),
+                    if (!showOnRight)
+                      CustomPaint(
+                        size: const Size(8, 14),
+                        painter: _BillDetailsPopoverArrowPainter(
+                          color: Colors.white,
+                          borderColor: const Color(0xFFE5E7EB),
+                          pointingLeft: false,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _closeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void deactivate() {
+    _closeOverlay();
+    super.deactivate();
+  }
+
+  @override
+  void dispose() {
+    _closeOverlay();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: InkWell(
+        onTap: _showOverlay,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _BillDetailsPopoverContent extends StatelessWidget {
+  final DateTime date;
+  final List<PurchasesBill> bills;
+  final VoidCallback onClose;
+
+  const _BillDetailsPopoverContent({
+    required this.date,
+    required this.bills,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dateBills = bills.where((b) {
+      if (b.billDate == null) return false;
+      final d = b.billDate!;
+      return d.year == date.year && d.month == date.month && d.day == date.day;
+    }).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                DateFormat('MMMM dd, yyyy').format(date),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              InkWell(
+                onTap: onClose,
+                child: const Icon(
+                  LucideIcons.x,
+                  size: 18,
+                  color: Color(0xFFEF4444),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: AppTheme.borderLight),
+        // Table Header
+        Container(
+          color: const Color(0xFFF9FAFB),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: const Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Text(
+                  'BILL DETAILS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'AMOUNT',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'BALANCE',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: AppTheme.borderLight),
+        // Rows
+        ...dateBills.map((bill) {
+          final isLast = bill == dateBills.last;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              onClose();
+                              context.go('/purchases/bills/${bill.id}');
+                            },
+                            child: Text(
+                              bill.billNumber ?? '-',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryBlue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            bill.vendorName,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF4B5563),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        '₹${bill.total.toStringAsFixed(2)}',
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        '₹${bill.total.toStringAsFixed(2)}',
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isLast) const Divider(height: 1, color: AppTheme.borderLight),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _BillDetailsPopoverArrowPainter extends CustomPainter {
+  final Color color;
+  final Color borderColor;
+  final bool pointingLeft;
+
+  _BillDetailsPopoverArrowPainter({
+    required this.color,
+    required this.borderColor,
+    required this.pointingLeft,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Path path = Path();
+    if (pointingLeft) {
+      path.moveTo(size.width, 0);
+      path.lineTo(0, size.height / 2);
+      path.lineTo(size.width, size.height);
+    } else {
+      path.moveTo(0, 0);
+      path.lineTo(size.width, size.height / 2);
+      path.lineTo(0, size.height);
+    }
+    path.close();
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    canvas.drawPath(path, paint);
+    canvas.drawPath(path, borderPaint);
+
+    final mergePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    if (pointingLeft) {
+      canvas.drawLine(Offset(size.width, 1), Offset(size.width, size.height - 1), mergePaint);
+    } else {
+      canvas.drawLine(const Offset(0, 1), Offset(0, size.height - 1), mergePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BillDetailsPopoverArrowPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.borderColor != borderColor ||
+        oldDelegate.pointingLeft != pointingLeft;
+  }
+}
+
+// ─── Local Bill Amount Tooltip ────────────────────────────────────────────
+
+class _BillAmountTooltip extends StatefulWidget {
+  final String message;
+  final Widget child;
+
+  const _BillAmountTooltip({
+    required this.message,
+    required this.child,
+  });
+
+  @override
+  State<_BillAmountTooltip> createState() => _BillAmountTooltipState();
+}
+
+class _BillAmountTooltipState extends State<_BillAmountTooltip> {
+  OverlayEntry? _entry;
+  final LayerLink _layerLink = LayerLink();
+
+
+  void _showTooltip() {
+    if (_entry != null) return;
+
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+
+    _entry = OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            Positioned(
+              child: CompositedTransformFollower(
+                link: _layerLink,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.topCenter,
+                followerAnchor: Alignment.bottomCenter,
+                offset: const Offset(0, -6),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1F2937), // Dark slate
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          widget.message,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -5,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: CustomPaint(
+                            size: const Size(10, 5),
+                            painter: _TooltipDownArrowPainter(const Color(0xFF1F2937)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_entry!);
+  }
+
+  void _hideTooltip() {
+    if (_entry != null) {
+      _entry?.remove();
+      _entry = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _hideTooltip();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: MouseRegion(
+        onEnter: (_) {
+          _showTooltip();
+        },
+        onExit: (_) {
+          _hideTooltip();
+        },
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _TooltipDownArrowPainter extends CustomPainter {
+  final Color color;
+  _TooltipDownArrowPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TooltipDownArrowPainter oldDelegate) => false;
+}
+
+class _ExtraQuantityDialog extends ConsumerStatefulWidget {
+  final List<PurchasesBill> bills;
+
+  const _ExtraQuantityDialog({required this.bills});
+
+  @override
+  ConsumerState<_ExtraQuantityDialog> createState() => _ExtraQuantityDialogState();
+}
+
+class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
+  late final Future<List<_ExtraQuantityRecord>> _recordsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordsFuture = _loadExtraQuantities();
+  }
+
+  Future<List<_ExtraQuantityRecord>> _loadExtraQuantities() async {
+    final poRepository = ref.read(purchaseOrderRepositoryProvider);
+    final prRepository = ref.read(purchaseReceiveRepositoryProvider);
+    final billRepository = ref.read(purchasesBillsRepositoryProvider);
+
+    final results = await Future.wait([
+      poRepository.getPurchaseOrders(limit: 1000),
+      prRepository.getPurchaseReceives(limit: 1000),
+    ]);
+
+    final List<PurchaseOrder> pos = results[0] as List<PurchaseOrder>;
+    final List<PurchaseReceive> receives = results[1] as List<PurchaseReceive>;
+    final List<_ExtraQuantityRecord> records = [];
+
+    for (final billSummary in widget.bills) {
+      final bill = await billRepository.getBill(billSummary.id);
+
+      if (bill.orderNumber == null || bill.orderNumber!.isEmpty) continue;
+      
+      final poNumbers = bill.orderNumber!
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .where((s) => s.isNotEmpty)
+          .toSet();
+
+      for (final poNum in poNumbers) {
+        final poSummary = pos.where((p) => p.orderNumber.trim().toLowerCase() == poNum).firstOrNull;
+        if (poSummary == null || poSummary.id == null) continue;
+
+        // Fetch full PO containing items
+        final po = await poRepository.getPurchaseOrder(poSummary.id!);
+        if (po == null) continue;
+
+        // Associated purchase receives number(s)
+        final associatedReceives = receives
+            .where((r) => r.purchaseOrderId == po.id || (r.purchaseOrderNumber != null && r.purchaseOrderNumber!.trim().toLowerCase() == poNum))
+            .map((r) => r.purchaseReceiveNumber)
+            .toList();
+        final String? prNumber = associatedReceives.isNotEmpty ? associatedReceives.join(', ') : null;
+
+        for (final billItem in bill.lineItems) {
+          if (billItem.itemId == null) continue;
+          final poItem = po.items.where((pi) => pi.productId == billItem.itemId).firstOrNull;
+          if (poItem == null) continue;
+
+          final double orderedQty = poItem.quantity - poItem.cancelledQuantity;
+          if (billItem.quantity > orderedQty) {
+            records.add(_ExtraQuantityRecord(
+              date: bill.billDate ?? DateTime.now(),
+              itemName: billItem.itemName ?? 'Unknown',
+              purchaseOrderNumber: po.orderNumber,
+              purchaseReceiveNumber: prNumber,
+              vendorName: bill.vendorName,
+              warehouseName: bill.warehouseName ?? '-',
+              quantity: billItem.quantity - orderedQty,
+            ));
+          }
+        }
+      }
+    }
+    return records;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 850),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Extra Quantity',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(
+                      Icons.close,
+                      size: 20,
+                      color: AppTheme.errorRed,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppTheme.borderColor),
+            FutureBuilder<List<_ExtraQuantityRecord>>(
+              future: _recordsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: 250),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: TableSkeleton(
+                        rows: 3,
+                        columns: 6,
+                        showHeader: true,
+                      ),
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppTheme.errorRed)),
+                  );
+                }
+
+                final records = snapshot.data ?? [];
+
+                return ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 450),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        // Table Header
+                        Container(
+                          color: AppTheme.bgLight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          child: Row(
+                            children: const [
+                              Expanded(flex: 2, child: Text('DATE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(flex: 3, child: Text('ITEM NAME', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(flex: 2, child: Text('PURCHASE ORDER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(flex: 3, child: Text('VENDOR NAME', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(flex: 2, child: Text('WAREHOUSE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              SizedBox(width: 80, child: Text('QUANTITY', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1, color: AppTheme.borderColor),
+                        if (records.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(40),
+                            child: Center(
+                              child: Text(
+                                'No extra quantity records found.',
+                                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                              ),
+                            ),
+                          )
+                        else
+                          // Table Rows
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: records.length,
+                            separatorBuilder: (context, index) => const Divider(height: 1, color: AppTheme.borderColor),
+                            itemBuilder: (context, index) {
+                              final r = records[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Expanded(flex: 2, child: Text(DateFormat('dd-MM-yyyy').format(r.date), style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    Expanded(flex: 3, child: Text(r.itemName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            r.purchaseOrderNumber,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.primaryBlue,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          if (r.purchaseReceiveNumber != null) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              r.purchaseReceiveNumber!,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(flex: 3, child: Text(r.vendorName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    Expanded(flex: 2, child: Text(r.warehouseName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    SizedBox(
+                                      width: 80,
+                                      child: Text(
+                                        r.quantity == r.quantity.roundToDouble()
+                                            ? r.quantity.toInt().toString()
+                                            : r.quantity.toStringAsFixed(2),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 1, color: AppTheme.borderColor),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  ZButton.secondary(
+                    label: 'Close',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtraQuantityRecord {
+  final DateTime date;
+  final String itemName;
+  final String purchaseOrderNumber;
+  final String? purchaseReceiveNumber;
+  final String vendorName;
+  final String warehouseName;
+  final double quantity;
+
+  _ExtraQuantityRecord({
+    required this.date,
+    required this.itemName,
+    required this.purchaseOrderNumber,
+    this.purchaseReceiveNumber,
+    required this.vendorName,
+    required this.warehouseName,
+    required this.quantity,
+  });
+}
+
+class _HistoryEvent {
+  final String username;
+  final DateTime time;
+  final String content;
+  final IconData icon;
+
+  const _HistoryEvent({
+    required this.username,
+    required this.time,
+    required this.content,
+    required this.icon,
+  });
+}
+
+
+class _BillAttachmentOverlayContent extends StatefulWidget {
+  final PurchasesBill bill;
+  final WidgetRef ref;
+  final VoidCallback onRefresh;
+  final VoidCallback onClose;
+
+  const _BillAttachmentOverlayContent({
+    required this.bill,
+    required this.ref,
+    required this.onRefresh,
+    required this.onClose,
+  });
+
+  @override
+  State<_BillAttachmentOverlayContent> createState() =>
+      _BillAttachmentOverlayContentState();
+}
+
+class _BillAttachmentOverlayContentState extends State<_BillAttachmentOverlayContent> {
+  bool _isUploading = false;
+  List<Map<String, dynamic>> _attachments = [];
+  bool _isLoading = true;
+  bool _displayInPortal = false;
+  String? _expandedAttachmentId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttachments();
+  }
+
+  Future<void> _loadAttachments() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('bill_attachments')
+          .select('id,file_name,file_url,file_size,file_type,uploaded_at')
+          .eq('bill_id', widget.bill.id)
+          .order('uploaded_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _attachments = (res as List<dynamic>)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatFileSize(dynamic size) {
+    if (size == null) return 'File Size: 0 KB';
+    if (size is num) {
+      if (size / 1024 > 1024) {
+        return 'File Size: ${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+      } else {
+        return 'File Size: ${(size / 1024).toStringAsFixed(1)} KB';
+      }
+    }
+    final sizeStr = size.toString().trim();
+    if (sizeStr.toLowerCase().contains('kb') ||
+        sizeStr.toLowerCase().contains('mb') ||
+        sizeStr.toLowerCase().contains('b')) {
+      return 'File Size: $sizeStr';
+    }
+    final parsed = num.tryParse(sizeStr);
+    if (parsed != null) {
+      if (parsed / 1024 > 1024) {
+        return 'File Size: ${(parsed / (1024 * 1024)).toStringAsFixed(1)} MB';
+      } else {
+        return 'File Size: ${(parsed / 1024).toStringAsFixed(1)} KB';
+      }
+    }
+    return 'File Size: $sizeStr';
+  }
+
+  Future<String?> _getSignedUrl(String fileKey) async {
+    try {
+      final apiClient = ApiClient();
+      final response = await apiClient.get(
+        '/lookups/uploads/signed-url',
+        queryParameters: {'fileKey': fileKey},
+        useCache: false,
+      );
+      if (response.data is Map && response.data['signedUrl'] != null) {
+        return response.data['signedUrl'].toString();
+      }
+    } catch (e) {
+      debugPrint('Error getting signed URL: $e');
+    }
+    return null;
+  }
+
+  Future<void> _downloadAttachment(Map<String, dynamic> attachment) async {
+    try {
+      final filePath = attachment['file_url']?.toString();
+      final fileName = attachment['file_name']?.toString() ?? 'download';
+      if (filePath == null) return;
+
+      final signedUrl = await _getSignedUrl(filePath);
+      if (signedUrl != null) {
+        final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
+        anchor.href = signedUrl;
+        anchor.download = fileName;
+        anchor.click();
+      } else {
+        if (mounted) {
+          ZerpaiToast.error(context, 'Failed to get download link');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Error downloading file: $e');
+      }
+    }
+  }
+
+  Future<void> _openAttachmentInNewTab(Map<String, dynamic> attachment) async {
+    try {
+      final filePath = attachment['file_url']?.toString();
+      final fileType = attachment['file_type']?.toString() ?? '';
+      if (filePath == null) return;
+
+      String? mimeType;
+      final ext = fileType.toLowerCase().replaceAll('.', '');
+      if (ext == 'pdf') {
+        mimeType = 'application/pdf';
+      } else if (ext == 'jpg' || ext == 'jpeg') {
+        mimeType = 'image/jpeg';
+      } else if (ext == 'png') {
+        mimeType = 'image/png';
+      } else if (ext == 'gif') {
+        mimeType = 'image/gif';
+      } else if (ext == 'webp') {
+        mimeType = 'image/webp';
+      } else if (ext == 'txt') {
+        mimeType = 'text/plain';
+      }
+
+      final apiClient = ApiClient();
+      final response = await apiClient.get(
+        '/lookups/uploads/signed-url',
+        queryParameters: {
+          'fileKey': filePath,
+          if (mimeType != null) 'mimeType': mimeType,
+        },
+        useCache: false,
+      );
+
+      if (response.data is Map && response.data['signedUrl'] != null) {
+        web.window.open(response.data['signedUrl'].toString(), '_blank');
+      } else {
+        if (mounted) {
+          ZerpaiToast.error(context, 'Failed to get file link');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Error opening file: $e');
+      }
+    }
+  }
+
+  Future<void> _uploadFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+      );
+      if (result == null || !mounted) return;
+
+      setState(() {
+        _isUploading = true;
+      });
+
+      final supabase = Supabase.instance.client;
+      final apiClient = ApiClient();
+      for (final file in result.files) {
+        if (file.bytes == null) continue;
+
+        final base64Data = base64Encode(file.bytes!);
+        final ext = file.extension?.toLowerCase() ?? '';
+        String mimeType = 'application/octet-stream';
+        if (ext == 'pdf') {
+          mimeType = 'application/pdf';
+        } else if (ext == 'jpg' || ext == 'jpeg') {
+          mimeType = 'image/jpeg';
+        } else if (ext == 'png') {
+          mimeType = 'image/png';
+        } else if (ext == 'gif') {
+          mimeType = 'image/gif';
+        } else if (ext == 'webp') {
+          mimeType = 'image/webp';
+        } else if (ext == 'txt') {
+          mimeType = 'text/plain';
+        }
+
+        // Upload to Cloudflare R2 via backend
+        final response = await apiClient.post(
+          '/lookups/uploads',
+          data: {
+            'fileName': file.name,
+            'fileData': base64Data,
+            'mimeType': mimeType,
+            'prefix': 'bills',
+          },
+        );
+
+        final fileKey =
+            response.data['fileKey'] ?? 'bills/${file.name}';
+
+        final double sizeInKb = file.size / 1024;
+        final String formattedSize = sizeInKb >= 1024
+            ? '${(sizeInKb / 1024).toStringAsFixed(2)} MB'
+            : '${sizeInKb.toStringAsFixed(2)} KB';
+
+        // Save to DB
+        await supabase.from('bill_attachments').insert({
+          'bill_id': widget.bill.id,
+          'file_name': file.name,
+          'original_file_name': file.name,
+          'file_url': fileKey,
+          'file_size': formattedSize,
+          'file_type': file.extension ?? 'bin',
+          'uploaded_by': widget.ref.read(authUserProvider)?.id ?? '00000000-0000-0000-0000-000000000000',
+          'entity_id':
+              widget.ref.read(entityProvider).entityId ??
+              '00000000-0000-0000-0000-000000000000',
+        });
+      }
+
+      await _loadAttachments();
+      widget.ref.invalidate(purchaseBillProvider(widget.bill.id));
+      widget.onRefresh();
+      if (mounted) {
+        ZerpaiToast.success(context, 'Attachments uploaded successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to upload attachments: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteAttachment(Map<String, dynamic> attachment) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final id = attachment['id'];
+      final filePath = attachment['file_url']?.toString();
+
+      if (filePath != null) {
+        final apiClient = ApiClient();
+        await apiClient.delete(
+          '/lookups/uploads',
+          data: {'fileKey': filePath},
+        );
+      }
+
+      await supabase.from('bill_attachments').delete().eq('id', id);
+
+      await _loadAttachments();
+      widget.ref.invalidate(purchaseBillProvider(widget.bill.id));
+      widget.onRefresh();
+      if (mounted) {
+        ZerpaiToast.success(context, 'Attachment deleted successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to delete attachment: $e');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Text(
+                  'Attachments',
+                  style: AppTheme.bodyText.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                if (_isUploading)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  InkWell(
+                    onTap: widget.onClose,
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(LucideIcons.x, color: Colors.red, size: 16),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_attachments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No attachments yet',
+                style: AppTheme.metaHelper,
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.all(12),
+                itemCount: _attachments.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final att = _attachments[index];
+                  final name = att['file_name']?.toString() ?? 'Unnamed';
+                  final isPdf = name.toLowerCase().endsWith('.pdf');
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: isPdf
+                                ? const Color(0xFFFEE2E2)
+                                : const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              LucideIcons.fileText,
+                              color: isPdf
+                                  ? Colors.red.shade700
+                                  : Colors.blue.shade700,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatFileSize(att['file_size']),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              if (_expandedAttachmentId == att['id']?.toString()) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () => _downloadAttachment(att),
+                                      child: const Text(
+                                        'Download',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF3B82F6),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    InkWell(
+                                      onTap: () => _deleteAttachment(att),
+                                      child: const Text(
+                                        'Remove',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF3B82F6),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    ZTooltip(
+                                      message: 'Open in new tab',
+                                      direction: ZTooltipDirection.bottom,
+                                      child: InkWell(
+                                        onTap: () => _openAttachmentInNewTab(att),
+                                        child: const Icon(
+                                          LucideIcons.externalLink,
+                                          size: 14,
+                                          color: Color(0xFF3B82F6),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(
+                            LucideIcons.trash2,
+                            size: 16,
+                            color: Colors.red,
+                          ),
+                          onPressed: () => _deleteAttachment(att),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(
+                            LucideIcons.moreVertical,
+                            size: 16,
+                            color: AppTheme.textSecondary,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              final idStr = att['id']?.toString();
+                              if (_expandedAttachmentId == idStr) {
+                                _expandedAttachmentId = null;
+                              } else {
+                                _expandedAttachmentId = idStr;
+                              }
+                            });
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 16,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Display attachments in vendor portal\nand emails',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textPrimary,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                Transform.scale(
+                  scale: 0.8,
+                  child: Switch(
+                    value: _displayInPortal,
+                    onChanged: (val) {
+                      setState(() {
+                        _displayInPortal = val;
+                      });
+                    },
+                    activeTrackColor: AppTheme.primaryBlue,
+                    activeThumbColor: Colors.white,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: DottedBorder(
+              color: const Color(0xFFD1D5DB),
+              strokeWidth: 1,
+              dashPattern: const [4, 4],
+              borderType: BorderType.RRect,
+              radius: const Radius.circular(8),
+              child: InkWell(
+                onTap: _uploadFile,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.uploadCloud,
+                        color: Color(0xFF3B82F6),
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Upload your Files',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(
+                        LucideIcons.chevronDown,
+                        color: AppTheme.textSecondary,
+                        size: 14,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Text(
+              'You can upload a maximum of 10 files, 10MB each',
+              style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }

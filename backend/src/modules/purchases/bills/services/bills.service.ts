@@ -40,6 +40,9 @@ export class BillsService {
         tcs_total: dto.tcsTotal?.toString(),
         adjustment_amount: dto.adjustment?.toString(),
         grand_total: dto.total?.toString(),
+        invoice_total: dto.invoiceTotal?.toString(),
+        source_type: dto.sourceType || dto.source_type || null,
+        source_id: dto.sourceId || dto.source_id || null,
         status: dto.status || "draft",
         is_delete: false,
       })
@@ -341,6 +344,9 @@ export class BillsService {
         tcs_total: dto.tcsTotal?.toString(),
         adjustment_amount: dto.adjustment?.toString(),
         grand_total: dto.total?.toString(),
+        invoice_total: dto.invoiceTotal?.toString(),
+        source_type: dto.sourceType || dto.source_type || null,
+        source_id: dto.sourceId || dto.source_id || null,
         status: dto.status || "draft",
         updated_at: new Date().toISOString(),
       })
@@ -1058,14 +1064,20 @@ export class BillsService {
     const supabase = this.supabaseService.getClient();
     const { data: bill } = await supabase
       .from("bills")
-      .select("order_number")
+      .select("order_number, bill_number")
       .eq("id", id)
       .eq("entity_id", tenant.entityId)
       .maybeSingle();
 
+    const originalNumber = bill?.bill_number;
+    const newNumber = originalNumber ? (originalNumber.startsWith('SD-') ? originalNumber : `SD-${originalNumber}`) : undefined;
+
     const { data, error } = await supabase
       .from("bills")
-      .update({ is_delete: true })
+      .update({
+        is_delete: true,
+        ...(newNumber ? { bill_number: newNumber } : {}),
+      })
       .eq("id", id)
       .eq("entity_id", tenant.entityId)
       .select()

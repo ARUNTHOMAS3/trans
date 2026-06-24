@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:collection';
@@ -725,26 +724,10 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         thumbVisibility: shouldShowListScrollbar,
                         thickness: 6,
                         radius: const Radius.circular(3),
-                        child: Listener(
-                          onPointerSignal: (event) {
-                            if (event is PointerScrollEvent) {
-                              if (!_listScrollCtrl.hasClients) return;
-
-                              final delta = event.scrollDelta.dy * 0.18;
-                              final max =
-                                  _listScrollCtrl.position.maxScrollExtent;
-                              final min =
-                                  _listScrollCtrl.position.minScrollExtent;
-
-                              final next = (_listScrollCtrl.offset + delta)
-                                  .clamp(min, max);
-                              _listScrollCtrl.jumpTo(next);
-                            }
-                          },
-                          child: SingleChildScrollView(
-                            controller: _listScrollCtrl,
-                            physics: const NeverScrollableScrollPhysics(),
-                            child: widget.listBuilder!(_filteredItems, (item) {
+                        child: SingleChildScrollView(
+                          controller: _listScrollCtrl,
+                          physics: const ClampingScrollPhysics(),
+                          child: widget.listBuilder!(_filteredItems, (item) {
                             final int index = _filteredItems.indexOf(item);
                             final bool isSelected = widget.multiSelect
                                 ? widget.selectedValues.contains(item)
@@ -793,8 +776,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           }),
                         ),
                       ),
-                    ),
-                  )
+                    )
                   else
                     ConstrainedBox(
                       constraints: BoxConstraints(maxHeight: listHeight),
@@ -803,88 +785,71 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         thumbVisibility: shouldShowListScrollbar,
                         thickness: 6,
                         radius: const Radius.circular(3),
-                        child: Listener(
-                          onPointerSignal: (event) {
-                            if (event is PointerScrollEvent) {
-                              if (!_listScrollCtrl.hasClients) return;
+                        child: ListView.builder(
+                          controller: _listScrollCtrl,
+                          physics: const ClampingScrollPhysics(),
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          itemCount: _filteredItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _filteredItems[index];
+                            final bool isSelected = widget.multiSelect
+                                ? widget.selectedValues.contains(item)
+                                : item == widget.value;
+                            final bool isHovered = _hoveredIndex == index;
+                            final bool enabled =
+                                widget.isItemEnabled?.call(item) ?? true;
 
-                              final delta = event.scrollDelta.dy * 0.18;
-                              final max =
-                                  _listScrollCtrl.position.maxScrollExtent;
-                              final min =
-                                  _listScrollCtrl.position.minScrollExtent;
+                            // ✅ If custom renderer exists, use it
+                            final Widget rowChild = widget.itemBuilder != null
+                                ? widget.itemBuilder!(
+                                    item,
+                                    isSelected,
+                                    isHovered,
+                                  )
+                                : _defaultRow(
+                                    item,
+                                    isSelected,
+                                    isHovered,
+                                    enabled,
+                                  );
 
-                              final next = (_listScrollCtrl.offset + delta)
-                                  .clamp(min, max);
-                              _listScrollCtrl.jumpTo(next);
-                            }
-                          },
-                          child: ListView.builder(
-                            controller: _listScrollCtrl,
-                            physics: const NeverScrollableScrollPhysics(),
-                            shrinkWrap: true,
-                            padding: EdgeInsets.zero,
-                            itemCount: _filteredItems.length,
-                            itemBuilder: (context, index) {
-                              final item = _filteredItems[index];
-                              final bool isSelected = widget.multiSelect
-                                  ? widget.selectedValues.contains(item)
-                                  : item == widget.value;
-                              final bool isHovered = _hoveredIndex == index;
-                              final bool enabled =
-                                  widget.isItemEnabled?.call(item) ?? true;
+                            final Color itemBg = enabled
+                                ? (isHovered
+                                    ? const Color(0xFF3B82F6)
+                                    : (isSelected ? const Color(0xFFF3F4F6) : Colors.transparent))
+                                : Colors.transparent;
 
-                              // ✅ If custom renderer exists, use it
-                              final Widget rowChild = widget.itemBuilder != null
-                                  ? widget.itemBuilder!(
-                                      item,
-                                      isSelected,
-                                      isHovered,
-                                    )
-                                  : _defaultRow(
-                                      item,
-                                      isSelected,
-                                      isHovered,
-                                      enabled,
-                                    );
-
-                              final Color itemBg = enabled
-                                  ? (isHovered
-                                      ? const Color(0xFF3B82F6)
-                                      : (isSelected ? const Color(0xFFF3F4F6) : Colors.transparent))
-                                  : Colors.transparent;
-
-                              // If itemBuilder is provided, it should only render content.
-                              // We still need hover tracking + click wrapper.
-                              return MouseRegion(
-                                onEnter: (_) {
-                                  if (!enabled) return;
-                                  setState(() => _hoveredIndex = index);
-                                  _markOverlayNeedsBuild();
-                                },
-                                onExit: (_) {
-                                  if (!enabled) return;
-                                  setState(() => _hoveredIndex = null);
-                                  _markOverlayNeedsBuild();
-                                },
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: enabled
-                                        ? () => _handleItemTap(item)
-                                        : null,
-                                    hoverColor: Colors.transparent,
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    child: Container(
-                                      color: itemBg,
-                                      child: rowChild,
-                                    ),
+                            // If itemBuilder is provided, it should only render content.
+                            // We still need hover tracking + click wrapper.
+                            return MouseRegion(
+                              onEnter: (_) {
+                                if (!enabled) return;
+                                setState(() => _hoveredIndex = index);
+                                _markOverlayNeedsBuild();
+                              },
+                              onExit: (_) {
+                                if (!enabled) return;
+                                setState(() => _hoveredIndex = null);
+                                _markOverlayNeedsBuild();
+                              },
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: enabled
+                                      ? () => _handleItemTap(item)
+                                      : null,
+                                  hoverColor: Colors.transparent,
+                                  splashColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                  child: Container(
+                                    color: itemBg,
+                                    child: rowChild,
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),

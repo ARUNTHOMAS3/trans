@@ -522,7 +522,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                 label: 'Assignee',
                 child: Builder(builder: (context) {
                   final users =
-                      ref.watch(supabaseUsersProvider).valueOrNull ?? [];
+                      ref.watch(allUsersProvider).valueOrNull ?? [];
                   return FormDropdown<User>(
                     value: _assignee,
                     items: users,

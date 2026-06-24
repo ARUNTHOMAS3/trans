@@ -336,6 +336,7 @@ class AppRoutes {
   static const String accountantBulkUpdate = '/accountant/bulk-update';
   static const String accountantTransactionLocking =
       '/accountant/transaction-locking';
+
   static const String accountantOpeningBalances =
       '/accountant/opening-balances';
   static const String accountantOpeningBalancesUpdate =
@@ -343,6 +344,18 @@ class AppRoutes {
   static const String accountantSettings = '/accountant/settings';
   static const String accountantTransactionsReport =
       '/accountant/transactions-report';
+
+  // Procurement
+  static const String procurementPurchaseRequests =
+      '/procurement/purchase-requests';
+  static const String procurementPurchaseRequestsCreate =
+      '/procurement/purchase-requests/create';
+  static const String procurementPurchaseRequestOverview =
+      '/procurement/purchase-requests/:id';
+  static const String procurementRequestedItems =
+      '/procurement/requested-items';
+  static const String procurementApprovals =
+      '/procurement/approvals';
+  static const String procurementApprovalsOverview =
+      '/procurement/approvals/:id';
 }
-
-

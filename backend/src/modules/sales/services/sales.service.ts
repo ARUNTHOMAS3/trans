@@ -100,7 +100,7 @@ export class SalesService {
     if (productIds.length > 0) {
       const { data: productsData } = await client
         .from("products")
-        .select("id, hsn_code, sales_account_id")
+        .select("id, hsn_code:hsn_sac_code, sales_account_id")
         .in("id", productIds);
 
       if (productsData) {
@@ -226,7 +226,7 @@ export class SalesService {
           sku,
           item_code,
           unit_id,
-          hsn_code,
+          hsn_code:hsn_sac_code,
           unit:units(unit_name)
         )
       `,
@@ -290,7 +290,7 @@ export class SalesService {
             sku,
             item_code,
             unit_id,
-            hsn_code,
+            hsn_code:hsn_sac_code,
             unit:units(unit_name)
           )
         )
@@ -488,6 +488,14 @@ export class SalesService {
     if (!documentType)
       throw new BadRequestException("documentType is required");
 
+    const sanitizedTdsTcsType = tdsTcsType
+      ? (tdsTcsType.toUpperCase() === "TDS"
+        ? "TDS"
+        : tdsTcsType.toUpperCase() === "TCS"
+        ? "TCS"
+        : null)
+      : null;
+
     const items = await this.resolveItemFields(rawItems, orgId);
 
     const taxIdSet = [
@@ -607,7 +615,7 @@ export class SalesService {
         warehouse_id: warehouseId || null,
         price_list_id: priceListId || null,
         place_of_supply: placeOfSupply || null,
-        tds_tcs_type: tdsTcsType || null,
+        tds_tcs_type: sanitizedTdsTcsType,
         tds_tcs_tax_id: tdsTcsTaxId || null,
         tds_tcs_amount: tdsTcsAmount ? Number(tdsTcsAmount) : 0,
         is_delete: false,
@@ -674,6 +682,14 @@ export class SalesService {
       tdsTcsTaxId,
       tdsTcsAmount,
     } = body;
+
+    const sanitizedTdsTcsType = tdsTcsType
+      ? (tdsTcsType.toUpperCase() === "TDS"
+        ? "TDS"
+        : tdsTcsType.toUpperCase() === "TCS"
+        ? "TCS"
+        : null)
+      : null;
 
     const items = await this.resolveItemFields(rawItems, orgId);
 
@@ -793,7 +809,7 @@ export class SalesService {
         warehouse_id: warehouseId || null,
         price_list_id: priceListId || null,
         place_of_supply: placeOfSupply || null,
-        tds_tcs_type: tdsTcsType || null,
+        tds_tcs_type: sanitizedTdsTcsType,
         tds_tcs_tax_id: tdsTcsTaxId || null,
         tds_tcs_amount: tdsTcsAmount ? Number(tdsTcsAmount) : 0,
       })
@@ -978,7 +994,7 @@ export class SalesService {
           sku,
           item_code,
           unit_id,
-          hsn_code,
+          hsn_code:hsn_sac_code,
           sales_account_id,
           unit:units(unit_name)
         `,

@@ -807,7 +807,7 @@ class _SalesInvoiceOverviewScreenState
         final String? logoUrl;
 
         if (matchedBranch != null) {
-          branchName = matchedBranch['name']?.toString() ?? 'ZABNIX PRIVATE LIMITED';
+          branchName = matchedBranch['name']?.toString() ?? orgSettings?.name ?? 'Organization Name';
           logoUrl = matchedBranch['logo_url']?.toString() ?? orgSettings?.logoUrl;
           
           final addressParts = <String>[];
@@ -847,7 +847,7 @@ class _SalesInvoiceOverviewScreenState
           fullBranchAddress = addressParts.join('\n');
         } else {
           // Fallback to Org
-          branchName = orgSettings?.name ?? 'ZABNIX PRIVATE LIMITED';
+          branchName = orgSettings?.name ?? 'Organization Name';
           logoUrl = orgSettings?.logoUrl;
           
           final addressParts = <String>[];
@@ -1071,7 +1071,7 @@ class _SalesInvoiceOverviewScreenState
   void _openEmailComposer(SalesOrder invoice) {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
     final String fromEmail = orgSettings?.email ?? '';
-    final String fromName = orgSettings?.name ?? 'ZABNIX PRIVATE LIMITED';
+    final String fromName = orgSettings?.name ?? 'Organization Name';
     
     final String toEmail = invoice.customer?.email ?? '';
     final String toName = invoice.customer?.displayName ?? 'CUS-1';
@@ -1266,9 +1266,14 @@ class _SalesInvoiceOverviewScreenState
             if (!confirmed) return;
             final supabase = Supabase.instance.client;
             try {
+              final originalNumber = invoice.saleNumber;
+              final newNumber = originalNumber.startsWith('SD-') ? originalNumber : 'SD-$originalNumber';
               await supabase
                   .from('invoice_master')
-                  .update({'is_delete': true})
+                  .update({
+                    'is_delete': true,
+                    'sale_number': newNumber,
+                  })
                   .eq('id', invoice.id);
               if (context.mounted) {
                 ZerpaiToast.success(context, 'Invoice deleted successfully');
@@ -3574,14 +3579,28 @@ class _SalesInvoiceOverviewScreenState
 
     final supabase = Supabase.instance.client;
     try {
-      await supabase
+      final selectedIds = _selectedIds.toList();
+      final response = await supabase
           .from('invoice_master')
-          .update({'is_delete': true})
-          .filter('id', 'in', _selectedIds.toList());
+          .select('id, sale_number')
+          .filter('id', 'in', selectedIds);
+
+      for (final row in response) {
+        final id = row['id'] as String;
+        final currentNum = row['sale_number'] as String;
+        final newNum = currentNum.startsWith('SD-') ? currentNum : 'SD-$currentNum';
+        await supabase
+            .from('invoice_master')
+            .update({
+              'is_delete': true,
+              'sale_number': newNum,
+            })
+            .eq('id', id);
+      }
 
       ZerpaiToast.success(
         context,
-        'Deleted ${_selectedIds.length} invoice(s)',
+        'Deleted ${selectedIds.length} invoice(s)',
       );
       _clearSelection();
       ref.invalidate(salesInvoicesProvider);
@@ -4140,7 +4159,7 @@ class _SalesInvoiceOverviewScreenState
     final String? resolvedLogoUrl;
 
     if (matchedBranch != null) {
-      branchName = matchedBranch['name']?.toString() ?? 'ZABNIX PRIVATE LIMITED';
+      branchName = matchedBranch['name']?.toString() ?? org?.name ?? 'Organization Name';
       resolvedLogoUrl = matchedBranch['logo_url']?.toString() ?? org?.logoUrl;
       
       final addressParts = <String>[];
@@ -4179,7 +4198,7 @@ class _SalesInvoiceOverviewScreenState
       fullBranchAddress = addressParts.join('\n');
     } else {
       // Fallback to Org
-      branchName = org?.name ?? 'ZABNIX PRIVATE LIMITED';
+      branchName = org?.name ?? 'Organization Name';
       resolvedLogoUrl = org?.logoUrl;
       
       final addressParts = <String>[];
