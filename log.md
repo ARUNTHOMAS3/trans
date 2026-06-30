@@ -2782,6 +2782,388 @@ Timestamp of Log Update: June 23, 2026 - 02:15 PM (IST)
 
 Timestamp of Log Update: June 23, 2026 - 03:15 PM (IST)
 
+## 45. Bills Converter Uniqueness, Order Number Synchronization and Total Quantity Display (June 24, 2026)
+
+### Summary
+1. Fixed Bills creation dialog to check uniqueness at the item/receive level instead of PO text level, permitting loading multiple receives under a single purchase order.
+2. Synchronized the Order Number textbox in the Bills screen to automatically recalculate and remove loaded PO numbers when their corresponding rows are deleted or cleared from the items table.
+3. Updated the compact sidebar list rendering, sorting, and helper methods in the Purchase Receives list screen to display and sort by the total quantity (quantity + FOC + extra).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Replaced PO-level uniqueness check with `_isReceiveAlreadyLoaded` and `_isPoUnreceivedAlreadyLoaded` checking line items.
+  - Added `_updateOrderNumbersFromRows` helper to parse and format active PO numbers from line items.
+  - Connected `_updateOrderNumbersFromRows` to `_loadPoForConvert`, `_loadReceiveForConvert`, `_addItemsFromSelectedOptions`, product dropdown selections, row clear, and row delete button callbacks.
+- [purchases_purchase_receives_list.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart):
+  - Added `_getTotalQuantityDouble` to calculate the total quantity including FOC and extra.
+  - Updated compact list view quantity display to use `_getTotalQuantity`.
+  - Updated list sorting comparator for the quantity column in `_getSortedList` to sort by `_getTotalQuantityDouble`.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation.
+
+Timestamp of Log Update: June 24, 2026 - 05:00 PM (IST)
+
+## 46. Bills Quantity Split Dialog Improvements (June 25, 2026)
+
+### Summary
+1. Configured the quantity split icon in the items table on the Bills screen to be hidden in create mode and only show in edit mode (`widget.editBillId != null`).
+2. Replaced the quantity split icon with `LucideIcons.fileEdit` (file-pen) instead of `fileText`.
+3. Redesigned the quantity split dialog to open instantly, moving all PO, purchase receive, and billed/unbilled quantity fetching inside the dialog context while using `Skeletonizer` to display skeleton loading fields.
+4. Aligned the dialog layout to the absolute top edge of the screen (top padding set to 0) and set footer buttons to be left-aligned (`Update` green first, `Cancel` outline second).
+5. Standardized the height of textboxes and dropdowns in the dialog to `32` to match the items table's rate column inputs.
+6. Configured the dialog to pre-populate the first split row by default if PO receives are available but no current splits exist.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Updated the quantity split icon rendering condition to check `widget.editBillId != null`.
+  - Changed the quantity split icon to `LucideIcons.fileEdit` (file-pen representation).
+  - Refactored `_openEditQuantityDialog` to open `EditQuantityDialog` instantly without parent loading indicators.
+- [edit_quantity_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/edit_quantity_dialog.dart):
+  - Converted widget to `ConsumerStatefulWidget` to access `purchaseOrderRepositoryProvider`.
+  - Added internal state variables `_isLoading`, `_poReceives`, `_initialUnreceivedQty`, `_poId`.
+  - Implemented `_loadData` in `initState` to fetch PO and receive allocations asynchronously.
+  - Wrapped dialog column in a `Skeletonizer` toggled by `_isLoading`, and displayed a dummy split row during load.
+  - Set dialog `insetPadding` top to 0 and alignment to `Alignment.topCenter`.
+  - Re-ordered footer buttons to: `[Update] [Cancel]` with `MainAxisAlignment.start` alignment.
+  - Standardized the height of text fields and `FormDropdown` inside the dialog to `32`.
+  - Added auto-population of the first split row in `_loadData` when no allocations are loaded.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 25, 2026 - 11:10 AM (IST)
+
+## 47. Bill Edit Quantity Split and PO Resolution Bug Fixes (June 25, 2026)
+
+### Summary
+1. Fixed the duplicate-product same-values bug in the Edit Quantity split dialog by introducing the missing `purchaseReceiveItemId` tracking logic throughout the frontend model serialization, page load/conversion, and dialog splits.
+2. Added `purchaseReceiveItemId` field to `_BillLineItemRow` and mapped it to the `PurchasesBillLineItem` model.
+3. Updated `_loadBillForEdit()` to correctly resolve each item's PO and purchase receive IDs when editing a bill, preventing the dropdown from using fallback search.
+4. Corrected the unreceived quantity calculation logic to `orderedQty - totalReceived` to show the correct outstanding unreceived amount.
+5. Standardized the default auto-fill behavior so that the dialog always defaults to the autofill total quantity stage (`totalRxQty - totalBilledOther`), disabling the button to visual blue state on load.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Added `purchaseReceiveItemId` field to `_BillLineItemRow` class.
+  - Copied `purchaseReceiveItemId` in the `_BillLineItemRow.clone()` method.
+  - Assigned `row.purchaseReceiveItemId` from line items inside `_loadBillForEdit()`.
+  - Mapped `purchaseReceiveItemId` inside `toModel()` when converting rows to line item models.
+  - Configured `_openEditQuantityDialog()` to set the resolved split `purchaseReceiveItemId` on new rows.
+  - Assigned `purchaseReceiveItemId` to rows converted from receive items inside `_loadReceiveForConvert()`.
+  - Separated the asynchronous database lookup calls in `_loadBillForEdit()` outside of the `setState` block to resolve the compilation error.
+  - Passed `initialPurchaseReceiveItemId` to the `EditQuantityDialog` widget from `_openEditQuantityDialog()`.
+- [purchases_bills_bill_model.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/models/purchases_bills_bill_model.dart):
+  - Handled `purchaseReceiveItemId` parsing inside `fromJson()` and `toJson()` in `PurchasesBillLineItem`.
+- [edit_quantity_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/edit_quantity_dialog.dart):
+  - Corrected the `initialUnreceivedQty` calculation from `totalReceived - orderedQty` to `orderedQty - totalReceived`.
+  - Pre-populated the input field to `totalRxQty - totalBilledOther` by default inside _fetchDetailsForSelectedReceive.
+  - Added case-insensitive matching for bill UUID comparisons.
+  - Added `initialPurchaseReceiveItemId` parameter to the dialog widget.
+  - Utilized `initialPurchaseReceiveItemId` and `row.receiveItemId` to uniquely identify the targeted item row in receive allocations, preventing incorrect matching by name/product ID when duplicate items exist.
+- [purchases_purchase_receives_model.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart):
+  - Added `id` field to `PurchaseReceiveItem` model to correctly fetch item-level IDs.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation and logic semantics.
+
+Timestamp of Log Update: June 25, 2026 - 03:00 PM (IST)
+
+## 48. Duplicate Product Matching by PO/Receive Composite Keys (June 25, 2026)
+
+### Summary
+1. Configured purchases modules to support exact matching and isolation of duplicate items (same item ID but different quantities/descriptions) across PO, Receive, and Billing workflows.
+2. Rewrote dropdown tracking logic using key counts in the purchase receives manual rows form to permit selecting duplicate item rows independently.
+3. Enhanced the selection dropdown display and search strings to append quantities and descriptions.
+4. Corrected the Supabase select query in the Edit Quantity dialog to fetch 'ordered' and 'description' columns under purchase receive items.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_receives_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart):
+  - Normalized `compositeKey` definition using `.toStringAsFixed(4)` for double quantity values and trimming item descriptions.
+  - Replaced simple `productId`-based tracking in `availablePoItems` and `selectedItem` with a key counting mechanism (`productId_orderedQty_description`) to allow selecting duplicate items independently.
+  - Precision PO lookup in `onChanged` by searching matching PO items by unique line item ID `it.id == poItem.id`, falling back to composite mapping.
+  - Added quantity and description details to dropdown item labels.
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Updated `_loadReceiveForConvert` and `_processSelectedPOsAndReceives` item mapping logic to match PO items using composite comparison (`i.itemId == poItem.productId && (i.ordered - poItem.quantity).abs() < 0.001 && i.description == poItem.description`), falling back to sequence matching.
+  - Fixed type mismatch error by declaring `matchedRxItemIds` Set with `<String?>` type instead of `<String>` to support nullable item IDs.
+  - Passed `description` to `EditQuantityDialog` instantiation when opening the dialog.
+  - Passed `row.quantity` instead of raw text field `row.quantityCtrl.text` (which includes FOC) to `EditQuantityDialog` constructor parameters (`initialPurchaseReceiveQty` and `currentUnreceivedAllocated`) to ensure billing quantity is matched correctly.
+- [edit_quantity_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/edit_quantity_dialog.dart):
+  - Updated `_fetchReceivesForPo` select query to query `ordered` and `description` under `purchase_receive_items` from Supabase.
+  - Enabled precise double comparisons with `.toStringAsFixed(4)` and parenthesized precedence groupings.
+  - Added `description` parameter and configured robust fallback item matching (`initialRxItem` and `rxItem`) using item ID, quantity, and description to correctly resolve matching duplicate receive items when initial item ID is null.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 25, 2026 - 04:30 PM (IST)
 
 
+## 49. Purchase Receives Quantity Split Integration (June 26, 2026)
 
+### Summary
+1. Implemented a split quantity edit button in the items tables on the Purchase Receives screen to match the behavior on the Bills screen.
+2. Enabled the Edit Quantity split dialog to dynamically toggle between receives (normal mode) and bills (receive mode) depending on the context of the caller.
+3. Configured the dialog dropdown in receive mode to display PO Bill numbers instead of Purchase Receives.
+4. Calculated and updated allocated item quantities in memory across PO Bills and switched the view to Billed Items mode upon save in the dialog.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_receives_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart):
+  - Imported `edit_quantity_dialog.dart`.
+  - Added the blue split quantity button (`LucideIcons.fileEdit`) next to the quantity input fields in both `_buildItemRow` (normal items row) and `_buildBilledItemRow` (billed items row) when `_hasBills` is true.
+  - Implemented `_openEditQuantityDialog(int index)` and `_openEditQuantityDialogFromBilled(int billIndex, int itemIndex)` methods to open the split quantity dialog, map returned allocations to `_associatedBills`, and toggle `_receiveBilledItems` to `true`.
+- [edit_quantity_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/edit_quantity_dialog.dart):
+  - Added `isReceiveMode` constructor parameter, defaulting to `false`.
+  - Modified data loading in `_loadData` to fetch PO Bills and calculate unbilled quantity as `initialUnreceivedQty` when `isReceiveMode` is true.
+  - Added a new database lookup method `_fetchBillsForPo` to fetch active PO Bills.
+  - Updated `_fetchDetailsForSelectedReceive` to load previously received quantities matching the selected Bill's number across other receives.
+  - Rendered table headers, unbilled/unreceived row labels, dropdown selections, detail statuses, and row count footers conditionally based on `isReceiveMode`.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 26, 2026 - 11:20 AM (IST)
+
+
+## 50. Purchase Receive Bills Query OR/ILIKE Refactoring (June 26, 2026)
+
+### Summary
+1. Fixed the bug where the edit quantity split icon (`LucideIcons.fileEdit`) was missing under the "QUANTITY TO RECEIVE" column on the Edit Purchase Receive page.
+2. Replaced the exact-match `inFilter('order_number', poNumbers)` Supabase bills query with a flexible `.or(...)` filter querying each PO number with an `.ilike.%PO_NUMBER%` pattern.
+3. Added a clean, in-memory filtering step after the query returns to accurately match only bills linked to the exact target PO numbers (by splitting comma-separated `order_number` values).
+4. Ensured that `_hasBills` evaluates to true in both the edit flow (`_loadReceiveData`) and the PO selection flow (`_onPOsSelected`) whenever matching bills are found, enabling the split icon next to the quantity inputs.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_receives_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart):
+  - Updated bills loading query in `_loadReceiveData` to use `.or(...)` filter containing comma-separated `.ilike` conditions for each PO number.
+  - Implemented in-memory validation of retrieved bills in `_loadReceiveData` by checking if any comma-split value in the bill's `order_number` matches the normalized PO numbers.
+  - Resolved specific PO references for each bill item in `_loadReceiveData` by iterating over `loadedPOs` and locating the matching PO.
+  - Updated bills loading query in `_onPOsSelected` to utilize the same `.or(...)` + `.ilike` filter pattern.
+  - Refactored matching PO resolution in `_onPOsSelected` to support comma-separated lists of order numbers by checking if the list contains the normalized PO order number.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 26, 2026 - 12:20 PM (IST)
+
+
+## 51. Purchase Receive Billed Items Column Width Standardisation (June 26, 2026)
+
+### Summary
+1. Standardised column width dynamically for the "QUANTITY TO RECEIVE" column in the billed items table of the Purchase Receives page to accommodate horizontal green batch boxes cleanly and prevent UI clipping/overflow.
+2. Replaced the static width constraint of 260px in both the table header cell and row items cell with the `_dynamicBilledQtyToReceiveColumnWidth()` helper method.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_receives_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart):
+  - Changed fixed width `260` of `_tableHeaderCell` for the "QUANTITY TO RECEIVE" column inside `_buildBilledItemsTable` to `_dynamicBilledQtyToReceiveColumnWidth()`.
+  - Changed fixed width `260` of the parent `SizedBox` wrapping the `Container` for the "QUANTITY TO RECEIVE" cell inside `_buildBilledItemRow` to `_dynamicBilledQtyToReceiveColumnWidth()`.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 26, 2026 - 01:00 PM (IST)
+
+
+## 52. Purchase Receive Layout Alignment and Split Quantity Popup UI Polish (June 26, 2026)
+
+### Summary
+1. Repositioned the edit quantity split button (`LucideIcons.fileEdit`) on the Purchase Receives page to display horizontally inline next to the batch quantity/FOC breakdown text (`3pcs`) in a `Row` instead of stacking them vertically in a `Column`.
+2. Redesigned the quantity/received/unreceived details layout inside the `EditQuantityDialog` popup box to align `Quantity: X` on the left under the dropdown, and `Received: Y | Unreceived: Z` on the right under the quantity textfield, matching the second screenshot precisely.
+3. Standardised the dropdown selection list items during loading in the dialog by assigning `'bill_number': 'BILL-XXXXX'` when `isReceiveMode` is active.
+4. Upgraded the `_fetchBillsForPo` method to support flexible `.or(...)` with ILIKE queries on multi-PO comma-separated order numbers.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_receives_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart):
+  - Removed internal top `Padding` from `_buildQtyAndFocBreakdown` to allow clean inline row placement, adding it back directly in `_buildManualItemsTable`.
+  - Nested the `fileEdit` icon and `_buildQtyAndFocBreakdown` inside a horizontal `Row` within the PO table row cell builder `_buildItemRow`.
+  - Nested the `fileEdit` icon and the total batches quantity/FOC text inside a horizontal `Row` within the billed PO table row cell builder `_buildBilledItemRow`.
+- [edit_quantity_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/edit_quantity_dialog.dart):
+  - Refactored `_getAvailableReceivesForIndex` loading state dummy map to specify `bill_number` when in receive mode.
+  - Refactored the row layout beneath the split dropdown and textfield inside the splits list view to render `Quantity: X` and `Received/Unreceived` status side-by-side using an `Expanded` left child and right-aligned `SizedBox` child.
+  - Refactored `_fetchBillsForPo` to query bills using flexible `order_number.ilike` database lookups and in-memory filtering.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 26, 2026 - 01:25 PM (IST)
+
+
+## 53. Purchase Receive/Bill Split Quantity Autoload (June 26, 2026)
+
+### Summary
+1. Standardised the quantity split popup behavior on both Edit Purchase Receives and Edit Bills screens to prevent auto-filling the remaining quantity by default.
+2. Configured the dialog to autoload the already saved received/billed quantity for initial rows, and default to `0` when new rows are added or when dropdown selections change.
+3. Added the `initialQty` member field to the `_SplitRow` helper class to store the initial quantities and resolve compiler errors.
+4. Updated caller invocations on the Purchase Receives page to map and pass the saved allocation quantities from the `_associatedBills` local state down to the dialog.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [edit_quantity_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/edit_quantity_dialog.dart):
+  - Declared `final double initialQty` in `_SplitRow` class and initialized it in the constructor.
+  - Formatted `initialQty` cleanly as integer or decimal string when initializing `qtyCtrl.text` inside constructor.
+- [purchases_purchase_receives_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart):
+  - Updated `_openEditQuantityDialog(index)` to search the local `_associatedBills` list for active items mapping to `item.itemId` and pass `initialBill` attributes and `quantityToReceive` to the dialog.
+  - Replaced `.firstWhere(..., orElse: () => null)` with `.where(...).firstOrNull` when searching for `itemInBill` inside `_openEditQuantityDialog` to prevent runtime `TypeError` subtype mismatch errors during item lookup.
+  - Updated `_openEditQuantityDialogFromBilled(billIndex, itemIndex)` to pass `bill['id']`, `bill['bill_number']`, and the billed item's local `quantityToReceive` to the dialog.
+
+#### Backend Files
+- None
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 26, 2026 - 01:45 PM (IST)
+
+
+## 54. Purchase Order Billed Quantity Multi-PO Filtering (June 26, 2026)
+
+### Summary
+1. Fixed the billed quantity status calculation in both frontend list/detail views and backend status updates when multiple POs are billed under a single shared bill.
+2. Filtered total billed quantities per item to only include quantities linked to the specific PO's receive items, rather than summing the total quantities of both POs.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_orders_list.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart):
+  - Selected `id` under `purchase_receive_items` and `purchase_receive_item_id` under `bill_items` in the query inside `_loadPoTxnSummary`.
+  - Gathered all receive item IDs for the PO receives into `poReceiveItemIds`.
+  - Filtered bill items by checking if `purchase_receive_item_id` is present in `poReceiveItemIds` for list view status calculations, item details table, and cancel item dialog.
+
+#### Backend Files
+- [po-status.ts](file:///c:/Users/User/Documents/work/zerpai-new/backend/src/modules/purchases/purchase-orders/utils/po-status.ts):
+  - Collected `poReceiveItemIds` from PO receives.
+  - Filtered billed item allocations by matching `purchase_receive_item_id` against `poReceiveItemIds` before updating status.
+- [purchase-orders.service.ts](file:///c:/Users/User/Documents/work/zerpai-new/backend/src/modules/purchases/purchase-orders/services/purchase-orders.service.ts):
+  - Resolved individual billed quantities per PO mapping via `purchase_receive_item_id`.
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 26, 2026 - 08:45 PM (IST)
+
+
+## 55. Manage TDS Rates New TDS Group Workflow (June 26, 2026)
+
+### Summary
+1. Implemented the "+ New TDS Group" creation workflow inside the Manage TDS Rates popup dialog.
+2. Configured dynamic inline form fields to only prompt for the "TDS Group Tax Name" when group mode is active.
+3. Rendered multi-selection checkboxes next to each individual TDS rate row allowing users to choose the constituent taxes of the group.
+4. Styled the Cancel button as an outlined button matching the ERP theme.
+5. Programmed backend syncing of the newly created group and its list of items into the `tds_groups` and `tds_group_items` tables respectively.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [manage_tds_tcs_rates_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart):
+  - Added toggle state `_isGroupMode` and item selection set `_selectedGroupItemIds`.
+  - Dynamic switching of inline fields to display only "TDS Group Tax Name" in group mode.
+  - Added outlined Cancel button styling matching `AppTheme.borderColor` and `AppTheme.textSecondary`.
+  - Configured multi-selection checkboxes in list header and item rows when `_isGroupMode` is true.
+  - Computed total rate sum dynamically and returned results to parent callbacks.
+- [lookups_api_service.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/items/items/services/lookups_api_service.dart):
+  - Created `syncTdsGroups(List<Map<String, dynamic>> items)` calling `/products/lookups/tds-groups/sync`.
+
+#### Backend Files
+- [lookups.controller.ts](file:///c:/Users/User/Documents/work/zerpai-new/backend/src/modules/lookups/lookups.controller.ts):
+  - Added controller sync routing for `tds-groups` lookup type.
+  - Upserted group details and deleted/inserted row elements in the `tds_groups` and `tds_group_items` tables.
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 26, 2026 - 09:00 PM (IST)
+
+## 56. Bills Discount Accounting & Journals Tab Integration (June 29, 2026)
+
+### Summary
+1. Implemented dynamic accounts double-entry ledger rows generation for bills containing GST, TDS, TCS, adjustments, and transaction/item level discounts.
+2. Mapped reference_number to display the actual bill number inside the account_transactions table.
+3. Cleared and re-inserted balanced ledger rows dynamically on bill edit operations.
+4. Resolved a database foreign key constraint error by dropping the incorrect bills_discount_value_fkey constraint and converting discount_value column type to numeric on NestJS startup.
+5. Fixed a 404 relation join embedding error in findOne method of bills service by disambiguating the accounts join path.
+6. Styled the footer Draft and Cancel buttons with outlined borders, default-cleared zero values in discount and adjustment textfields to show placeholders, and removed the blue outline focus ring on the item discount cell.
+7. Added a Journals preview tab inside the bill list details container showing the balanced transaction list from account_transactions.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- [db.ts](file:///c:/Users/User/Documents/work/zerpai-new/backend/src/db/db.ts):
+  - Added a startup PL/pgSQL block to drop `bills_discount_value_fkey` constraint, correct `discount_value` column type to `numeric(15,2)`, and add `discount_accounts_id` foreign key references.
+- [bills.service.ts](file:///c:/Users/User/Documents/work/zerpai-new/backend/src/modules/purchases/bills/services/bills.service.ts):
+  - Updated `postBillTransactions` to calculate and post correct double-entry legs for Inventory Asset, GST, AP Discount, Adjustment, TCS, TDS, Accounts Payable, and Purchase Discount.
+  - Set `reference_number` to bill number in transaction rows.
+  - Linked transaction updates inside `updateBill` method.
+  - Disambiguated `findOne` join under `account:accounts!account_id(*)`.
+
+#### Frontend Files
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Cleared default zero values in discount and adjustment text fields so they show `0` and `0.00` placeholders.
+  - Switched Save as Draft and Cancel text buttons to `OutlinedButton` with proper borders.
+  - Added `isTransparentBorder: true` on item discount cell wrapper.
+- [purchases_bills_list.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_list.dart):
+  - Created a bottom `Journals` preview tab listing double-entry transaction rows.
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 29, 2026 - 1:40 PM (IST)
+
+## 57. Customer Address Selection Dropdown Overlay Integration (June 29, 2026)
+
+### Summary
+1. Replicated the interactive vendor billing and shipping address dropdown selection menus for sales customers in both Sales Orders and Sales Invoices screens.
+2. Added state-linked `LayerLink` target anchors and overlay controls to follow target edits.
+3. Constructed a dynamic list of addresses (up to two addresses: Billing and Shipping) from the customer's database properties to populate the dropdown.
+4. Programmed local state updates (`_selectedCustomer`) and customer database updates (`updateCustomer`) via the controller notifier in the Sales Orders screen.
+5. Configured local state updates (`_selectedCustomer`) for invoice generation in the Sales Invoices screen.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart):
+  - Declared `_addressDropdownOverlay`, `_billingAddressLink`, and `_shippingAddressLink` state fields.
+  - Updated `_buildAddressColumn` render method to accept and follow the `LayerLink` anchor.
+  - Implemented `_showAddressDropdownList` list drawer and item selection/hover state helpers.
+  - Linked selection changes to update customer profile in backend database.
+  - Removed top margin padding (`padding: EdgeInsets.zero`) inside `_ManageTaxInfoDialogState` to align it to the top.
+  - Corrected pointer arrow alignment offsets in `_toggleGstTaxOverlay` and `_toggleGstinOverlay` to point exactly to triggering pencil icons.
+- [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Declared `_addressDropdownOverlay`, `_billingAddressLink`, and `_shippingAddressLink` state fields.
+  - Updated `_buildAddressColumn` render method to accept and follow the `LayerLink` anchor.
+  - Implemented `_showAddressDropdownList` list drawer and item selection/hover state helpers.
+  - Configured address selections to update local invoice generation state.
+  - Removed top margin padding (`padding: EdgeInsets.zero`) inside `_ManageTaxInfoDialogState` to align it to the top.
+  - Corrected pointer arrow alignment offsets in `_toggleGstTaxOverlay` and `_toggleGstinOverlay` to point exactly to triggering pencil icons.
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 29, 2026 - 3:00 PM (IST)

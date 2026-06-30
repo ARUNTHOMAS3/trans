@@ -1493,7 +1493,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
 	taxAmount: numeric("tax_amount", { precision: 15, scale:  2 }).default('0.00'),
 	taxType: varchar("tax_type", { length: 20 }).default('exclusive'),
 	tdsTcsType: varchar("tds_tcs_type", { length: 10 }).default('none'),
-	tdsId: uuid("tds_id"),
+	tdsTcsId: uuid("tds_tcs_id"),
 	tdsTcsAmount: numeric("tds_tcs_amount", { precision: 15, scale:  2 }).default('0.00'),
 	adjustment: numeric({ precision: 15, scale:  2 }).default('0.00'),
 	total: numeric({ precision: 15, scale:  2 }).default('0.00'),
@@ -1538,9 +1538,9 @@ export const purchaseOrders = pgTable("purchase_orders", {
 			name: "purchases_purchase_orders_shipment_preference_id_fkey"
 		}),
 	foreignKey({
-			columns: [table.tdsId],
+			columns: [table.tdsTcsId],
 			foreignColumns: [tdsRates.id],
-			name: "purchases_purchase_orders_tds_id_fkey"
+			name: "purchases_purchase_orders_tds_tcs_id_fkey"
 		}),
 	foreignKey({
 			columns: [table.vendorId],
@@ -3824,6 +3824,8 @@ export const bills = pgTable("bills", {
 	sourceOfSupply: varchar("source_of_supply"),
 	destinationToSupply: varchar("destination_to_supply"),
 	billingAddress: uuid("billing_address"),
+	tdsTcsType: varchar("tds_tcs_type", { length: 10 }).default('none'),
+	tdsTcsId: uuid("tds_tcs_id"),
 }, (table) => [
 	foreignKey({
 			columns: [table.entityId],
