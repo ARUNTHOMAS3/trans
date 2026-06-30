@@ -109,7 +109,8 @@ export class PurchaseOrdersService {
     if (dto.tax_amount !== undefined) dbData.tax_amount = dto.tax_amount;
     if (dto.discount !== undefined) dbData.discount = dto.discount;
     if (dto.tds_tcs_type !== undefined) dbData.tds_tcs_type = dto.tds_tcs_type;
-    if (dto.tds_id !== undefined) dbData.tds_id = this.cleanUuid(dto.tds_id);
+    if (dto.tds_tcs_id !== undefined) dbData.tds_tcs_id = this.cleanUuid(dto.tds_tcs_id);
+    else if (dto.tds_id !== undefined) dbData.tds_tcs_id = this.cleanUuid(dto.tds_id);
     if (dto.tds_tcs_amount !== undefined) dbData.tds_tcs_amount = dto.tds_tcs_amount;
     if (dto.adjustment !== undefined) dbData.adjustment = dto.adjustment;
     if (dto.total_quantity !== undefined) dbData.total_quantity = dto.total_quantity;
@@ -141,7 +142,8 @@ export class PurchaseOrdersService {
       subtotal: db.subtotal !== null && db.subtotal !== undefined ? parseFloat(db.subtotal) : 0,
       tax_amount: db.tax_amount !== null && db.tax_amount !== undefined ? parseFloat(db.tax_amount) : 0,
       discount: db.discount !== null && db.discount !== undefined ? parseFloat(db.discount) : 0,
-      tds_id: db.tds_id,
+      tds_id: db.tds_tcs_id ?? db.tds_id,
+      tds_tcs_id: db.tds_tcs_id ?? db.tds_id,
       notes: db.notes,
       total_quantity: db.total_quantity !== null && db.total_quantity !== undefined ? parseFloat(db.total_quantity) : 0,
       total: db.total !== null && db.total !== undefined ? parseFloat(db.total) : 0,
@@ -235,37 +237,55 @@ export class PurchaseOrdersService {
     // 3. Get bills and bill items
     let allBills: any[] = [];
     if (orderNumbers.length > 0) {
-      const { data } = await client
+      let query = client
         .from("bills")
         .select("id, order_number")
-        .in("order_number", orderNumbers)
         .eq("entity_id", entityId)
         .eq("is_delete", false)
         .neq("status", "void");
-      allBills = data ?? [];
+
+      const orConditions = orderNumbers.map((poNum) => `order_number.ilike.%${poNum}%`).join(',');
+      if (orConditions) {
+        query = query.or(orConditions);
+      }
+      const { data } = await query;
+
+      const lowerOrderNumbers = orderNumbers.map((num) => num.trim().toLowerCase());
+      allBills = (data || []).filter((bill) => {
+        if (!bill.order_number) return false;
+        const parts = bill.order_number.split(',').map((p: string) => p.trim().toLowerCase());
+        return parts.some((part) => lowerOrderNumbers.includes(part));
+      });
     }
 
     const billIds = allBills.map((b) => b.id);
     const poToBillIdsMap = new Map<string, string[]>();
     for (const b of allBills) {
-      const list = poToBillIdsMap.get(b.order_number) ?? [];
-      list.push(b.id);
-      poToBillIdsMap.set(b.order_number, list);
+      if (b.order_number) {
+        const parts = b.order_number.split(',').map((p: string) => p.trim()).filter(Boolean);
+        for (const part of parts) {
+          const list = poToBillIdsMap.get(part) ?? [];
+          list.push(b.id);
+          poToBillIdsMap.set(part, list);
+        }
+      }
+    }
+
+    const riIdToPoIdMap = new Map<string, string>();
+    for (const r of allReceives ?? []) {
+      const rItems = allReceiveItems.filter((ri) => ri.purchase_receive_id === r.id);
+      for (const ri of rItems) {
+        riIdToPoIdMap.set(ri.id, r.purchase_order_id);
+      }
     }
 
     let allBillItems: any[] = [];
     if (billIds.length > 0) {
       const { data } = await client
         .from("bill_items")
-        .select("bill_id, quantity")
+        .select("bill_id, quantity, purchase_receive_item_id")
         .in("bill_id", billIds);
       allBillItems = data ?? [];
-    }
-
-    const billQtyMap = new Map<string, number>();
-    for (const bi of allBillItems) {
-      const current = billQtyMap.get(bi.bill_id) ?? 0;
-      billQtyMap.set(bi.bill_id, current + parseFloat(bi.quantity?.toString() ?? "0"));
     }
 
     return rows.map((row) => {
@@ -283,7 +303,21 @@ export class PurchaseOrdersService {
       if (row.order_number) {
         const bIds = poToBillIdsMap.get(row.order_number) ?? [];
         for (const bid of bIds) {
-          billed += billQtyMap.get(bid) ?? 0;
+          const bill = allBills.find((b) => b.id === bid);
+          const orderNumStr = (bill?.order_number ?? "").toString();
+          const isMultiPo = orderNumStr.includes(",");
+          
+          const bItems = allBillItems.filter((bi) => bi.bill_id === bid);
+          for (const bi of bItems) {
+            const prItemId = bi.purchase_receive_item_id;
+            if (prItemId) {
+              if (riIdToPoIdMap.get(prItemId) === row.id) {
+                billed += parseFloat(bi.quantity?.toString() ?? "0");
+              }
+            } else if (!isMultiPo) {
+              billed += parseFloat(bi.quantity?.toString() ?? "0");
+            }
+          }
         }
       }
 

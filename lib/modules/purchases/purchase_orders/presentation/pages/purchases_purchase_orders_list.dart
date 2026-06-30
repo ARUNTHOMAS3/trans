@@ -256,7 +256,7 @@ class _PurchaseOrderOverviewScreenState
       final receivesResp = await supabase
           .from('purchase_receives')
           .select(
-            'id,purchase_receive_number,received_date,status,bill_no,purchase_order_id,purchase_receive_items(item_id,ordered,received,quantity_to_receive,purchase_receive_item_batches(quantity,foc_qty))',
+            'id,purchase_receive_number,received_date,status,bill_no,purchase_order_id,purchase_receive_items(id,item_id,ordered,received,quantity_to_receive,purchase_receive_item_batches(quantity,foc_qty))',
           )
           .eq('purchase_order_id', order.id ?? '')
           .order('created_at', ascending: false);
@@ -270,11 +270,16 @@ class _PurchaseOrderOverviewScreenState
       final billsResp = await supabase
           .from('bills')
           .select(
-            'id,bill_number,bill_date,status,total:grand_total,due_date,order_number,bill_items(product_id,quantity)',
+            'id,bill_number,bill_date,status,total:grand_total,due_date,order_number,bill_items(product_id,quantity,purchase_receive_item_id)',
           )
-          .eq('order_number', order.orderNumber)
+          .ilike('order_number', '%${order.orderNumber}%')
           .order('created_at', ascending: false);
-      billsList = billsResp as List<dynamic>;
+      final normalizedPoNum = order.orderNumber.trim().toLowerCase();
+      billsList = (billsResp as List<dynamic>).where((b) {
+        final orderNumStr = (b['order_number'] ?? '').toString().toLowerCase();
+        final parts = orderNumStr.split(',').map((p) => p.trim()).toList();
+        return parts.contains(normalizedPoNum);
+      }).toList();
     } catch (e) {
       debugPrint('Error loading PO bills: $e');
     }
@@ -341,13 +346,38 @@ class _PurchaseOrderOverviewScreenState
         ? 'Partially Received'
         : 'Received';
 
+    final poReceiveItemIds = <String>{};
+    for (final r in receives) {
+      final itemsList =
+          r['purchases_purchase_receive_items'] as List<dynamic>? ??
+          r['purchase_receive_items'] as List<dynamic>? ??
+          [];
+      for (final item in itemsList) {
+        final itemId = item['id']?.toString();
+        if (itemId != null) {
+          poReceiveItemIds.add(itemId);
+        }
+      }
+    }
+
     double totalBilled = 0.0;
     for (final b in bills) {
       final statusStr = b['status']?.toString().toLowerCase() ?? '';
       if (statusStr == 'void') continue;
+      
+      final orderNumStr = (b['order_number'] ?? '').toString();
+      final isMultiPo = orderNumStr.contains(',');
+      
       final itemsList = b['bill_items'] as List<dynamic>? ?? [];
       for (final item in itemsList) {
-        totalBilled += double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+        final prItemId = item['purchase_receive_item_id']?.toString();
+        if (prItemId != null) {
+          if (poReceiveItemIds.contains(prItemId)) {
+            totalBilled += double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+          }
+        } else if (!isMultiPo) {
+          totalBilled += double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+        }
       }
     }
 
@@ -2413,6 +2443,20 @@ class _PurchaseOrderOverviewScreenState
                 // Compute displayStatus: check whether ordered value = received/billed in purchase_receive_items/bill_items
 
 
+                final poReceiveItemIds = <String>{};
+                for (final r in summary.receives) {
+                  final itemsList =
+                      r['purchases_purchase_receive_items'] as List<dynamic>? ??
+                      r['purchase_receive_items'] as List<dynamic>? ??
+                      [];
+                  for (final item in itemsList) {
+                    final itemId = item['id']?.toString();
+                    if (itemId != null) {
+                      poReceiveItemIds.add(itemId);
+                    }
+                  }
+                }
+
                 bool isFullyBilled = false;
                 if (order.items.isNotEmpty) {
                   isFullyBilled = true;
@@ -2422,12 +2466,24 @@ class _PurchaseOrderOverviewScreenState
                     for (final b in summary.bills) {
                       final status = (b['status']?.toString() ?? 'draft').toLowerCase();
                       if (status == 'void') continue;
+                      
+                      final orderNumStr = (b['order_number'] ?? '').toString();
+                      final isMultiPo = orderNumStr.contains(',');
+                      
                       final itemsList = b['bill_items'] as List<dynamic>? ?? [];
                       for (final item in itemsList) {
                         final billProdId = item['product_id']?.toString();
                         if (billProdId == poItem.productId) {
-                          totalBilledForProduct +=
-                              double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+                          final prItemId = item['purchase_receive_item_id']?.toString();
+                          if (prItemId != null) {
+                            if (poReceiveItemIds.contains(prItemId)) {
+                              totalBilledForProduct +=
+                                  double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+                            }
+                          } else if (!isMultiPo) {
+                            totalBilledForProduct +=
+                                double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+                          }
                         }
                       }
                     }
@@ -3318,26 +3374,50 @@ class _PurchaseOrderOverviewScreenState
     IconData icon,
     String label, {
     required VoidCallback onPressed,
+    bool hasDropdownArrow = false,
   }) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: AppTheme.textPrimary),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTheme.bodyText.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isHovered ? Colors.white : Colors.transparent,
+                border: Border.all(
+                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: AppTheme.textPrimary),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: AppTheme.bodyText.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (hasDropdownArrow) ...[
+                    const SizedBox(width: 4),
+                    const Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.textPrimary),
+                  ],
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -4352,15 +4432,39 @@ class _PurchaseOrderOverviewScreenState
                 }
               }
             }
+            final poReceiveItemIds = <String>{};
+            for (final r in summary.receives) {
+              final itemsList =
+                  r['purchases_purchase_receive_items'] as List<dynamic>? ??
+                  r['purchase_receive_items'] as List<dynamic>? ??
+                  [];
+              for (final recItem in itemsList) {
+                final itemId = recItem['id']?.toString();
+                if (itemId != null) {
+                  poReceiveItemIds.add(itemId);
+                }
+              }
+            }
+
             double itemBilledQty = 0.0;
             for (final b in summary.bills) {
+              final orderNumStr = (b['order_number'] ?? '').toString();
+              final isMultiPo = orderNumStr.contains(',');
               final itemsList = b['bill_items'] as List<dynamic>? ?? [];
               for (final billItem in itemsList) {
                 final billProdId = (billItem['product_id'] ?? billItem['item_id'])
                     ?.toString();
                 if (billProdId == item.productId) {
-                  itemBilledQty +=
-                      double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+                  final prItemId = billItem['purchase_receive_item_id']?.toString();
+                  if (prItemId != null) {
+                    if (poReceiveItemIds.contains(prItemId)) {
+                      itemBilledQty +=
+                          double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+                    }
+                  } else if (!isMultiPo) {
+                    itemBilledQty +=
+                        double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+                  }
                 }
               }
             }
@@ -6542,13 +6646,36 @@ class _CancelItemsDialogState extends State<_CancelItemsDialog> {
       _receivedQuantities[item.productId] = recQty;
 
       // Billed
+      final poReceiveItemIds = <String>{};
+      for (final r in widget.summary.receives) {
+        final itemsList = r['purchases_purchase_receive_items'] as List<dynamic>? ??
+            r['purchase_receive_items'] as List<dynamic>? ??
+            [];
+        for (final recItem in itemsList) {
+          final itemId = recItem['id']?.toString();
+          if (itemId != null) {
+            poReceiveItemIds.add(itemId);
+          }
+        }
+      }
+
       double billQty = 0.0;
       for (final b in widget.summary.bills) {
+        final orderNumStr = (b['order_number'] ?? '').toString();
+        final isMultiPo = orderNumStr.contains(',');
+        
         final itemsList = b['bill_items'] as List<dynamic>? ?? [];
         for (final billItem in itemsList) {
           final billProdId = (billItem['product_id'] ?? billItem['item_id'])?.toString();
           if (billProdId == item.productId) {
-            billQty += double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+            final prItemId = billItem['purchase_receive_item_id']?.toString();
+            if (prItemId != null) {
+              if (poReceiveItemIds.contains(prItemId)) {
+                billQty += double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+              }
+            } else if (!isMultiPo) {
+              billQty += double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+            }
           }
         }
       }

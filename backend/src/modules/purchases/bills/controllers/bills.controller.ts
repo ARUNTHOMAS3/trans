@@ -12,7 +12,7 @@ export class BillsController {
     @Tenant() tenant: TenantContext,
     @Body() createBillDto: any,
   ) {
-    return this.billsService.createBill(tenant.entityId, createBillDto);
+    return this.billsService.createBill(tenant, createBillDto);
   }
 
   @Put(":id")
@@ -21,7 +21,7 @@ export class BillsController {
     @Param("id") id: string,
     @Body() updateBillDto: any,
   ) {
-    return this.billsService.updateBill(id, tenant.entityId, updateBillDto);
+    return this.billsService.updateBill(id, tenant, updateBillDto);
   }
 
   @Get()

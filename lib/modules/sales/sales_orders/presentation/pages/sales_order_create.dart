@@ -167,6 +167,9 @@ class _SalesOrderCreateScreenState
   OverlayEntry? _gstTaxOverlay;
   final _gstinLink = LayerLink();
   OverlayEntry? _gstinOverlay;
+  OverlayEntry? _addressDropdownOverlay;
+  final LayerLink _billingAddressLink = LayerLink();
+  final LayerLink _shippingAddressLink = LayerLink();
 
   final _bulkActionsLink = LayerLink();
   final _settingsLink = LayerLink();
@@ -6257,6 +6260,7 @@ class _SalesOrderCreateScreenState
               child: _buildAddressColumn(
                 label: 'BILLING ADDRESS',
                 hasAddress: hasBilling,
+                link: _billingAddressLink,
                 attention: c.companyName ?? c.displayName,
                 street1: c.billingAddressStreet1,
                 street2: c.billingAddressStreet2,
@@ -6274,6 +6278,7 @@ class _SalesOrderCreateScreenState
               child: _buildAddressColumn(
                 label: 'SHIPPING ADDRESS',
                 hasAddress: hasShipping,
+                link: _shippingAddressLink,
                 attention: c.companyName ?? c.displayName,
                 street1: c.shippingAddressStreet1,
                 street2: c.shippingAddressStreet2,
@@ -6373,6 +6378,7 @@ class _SalesOrderCreateScreenState
   Widget _buildAddressColumn({
     required String label,
     required bool hasAddress,
+    required LayerLink link,
     String? attention,
     String? street1,
     String? street2,
@@ -6382,6 +6388,14 @@ class _SalesOrderCreateScreenState
     String? country,
     String? phone,
   }) {
+    final lines = <String>[
+      if (street1 != null && street1.isNotEmpty) street1,
+      if (street2 != null && street2.isNotEmpty) street2,
+      [city ?? '', state ?? '', zip ?? ''].where((s) => s.isNotEmpty).join(', '),
+      if (country != null && country.isNotEmpty) country,
+      if (phone != null && phone.isNotEmpty) 'Phone: $phone',
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -6397,12 +6411,24 @@ class _SalesOrderCreateScreenState
               ),
             ),
             const SizedBox(width: 4),
-            InkWell(
-              onTap: () => _showAddressDialog(title: label),
-              child: const Icon(
-                LucideIcons.pencil,
-                size: 11,
-                color: Color(0xFF9CA3AF),
+            CompositedTransformTarget(
+              link: link,
+              child: InkWell(
+                onTap: () {
+                  final c = _selectedCustomer;
+                  if (c != null) {
+                    _showAddressDropdownList(
+                      customer: c,
+                      isBilling: label.contains('BILLING'),
+                      link: link,
+                    );
+                  }
+                },
+                child: const Icon(
+                  LucideIcons.pencil,
+                  size: 11,
+                  color: Color(0xFF9CA3AF),
+                ),
               ),
             ),
           ],
@@ -6440,60 +6466,441 @@ class _SalesOrderCreateScreenState
                     ),
                   ),
                 ),
-              if (street1 != null && street1.isNotEmpty)
-                Text(
-                  street1,
+              ...lines.map(
+                (l) => Text(
+                  l,
                   style: const TextStyle(
                     fontSize: 11,
                     color: Color(0xFF4B5563),
                     height: 1.5,
                   ),
                 ),
-              if (street2 != null && street2.isNotEmpty)
-                Text(
-                  street2,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF4B5563),
-                    height: 1.5,
-                  ),
-                ),
-              if ((city != null && city.isNotEmpty) ||
-                  (state != null && state.isNotEmpty) ||
-                  (zip != null && zip.isNotEmpty))
-                Text(
-                  '${city ?? ''}${city != null && (state != null || zip != null) ? ', ' : ''}${state ?? ''} ${zip ?? ''}'
-                      .trim(),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF4B5563),
-                    height: 1.5,
-                  ),
-                ),
-              if (country != null && country.isNotEmpty)
-                Text(
-                  country,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF4B5563),
-                    height: 1.5,
-                  ),
-                ),
-              if (phone != null && phone.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    'Phone: $phone',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF4B5563),
-                      height: 1.5,
-                    ),
-                  ),
-                ),
+              ),
             ],
           ),
       ],
+    );
+  }
+
+  void _closeAddressDropdownOverlay() {
+    _addressDropdownOverlay?.remove();
+    _addressDropdownOverlay = null;
+  }
+
+  Map<String, dynamic> _normalizeAddress(Map<String, dynamic> address) {
+    return {
+      'attention': address['attention']?.toString() ?? '',
+      'street1': (address['street1'] ?? address['street'] ?? '').toString(),
+      'street2': (address['street2'] ?? address['place'] ?? '').toString(),
+      'city': address['city']?.toString() ?? '',
+      'state': address['state']?.toString() ?? '',
+      'zip': (address['zip'] ?? address['pincode'] ?? '').toString(),
+      'country': (address['country'] ?? address['countryRegion'] ?? address['country_region'] ?? '').toString(),
+      'phone': address['phone']?.toString() ?? '',
+      if (address['id'] != null) 'id': address['id'].toString(),
+    };
+  }
+
+  bool _areAddressesEqual(Map<String, dynamic> a, Map<String, dynamic> b) {
+    String norm(dynamic val) => (val?.toString() ?? '').trim().toLowerCase();
+    
+    final streetA = norm(a['street1'] ?? a['street']);
+    final streetB = norm(b['street1'] ?? b['street']);
+    if (streetA != streetB) return false;
+    
+    final placeA = norm(a['street2'] ?? a['place'] ?? a['street_2']);
+    final placeB = norm(b['street2'] ?? b['place'] ?? b['street_2']);
+    if (placeA != placeB) return false;
+    
+    if (norm(a['city']) != norm(b['city'])) return false;
+    if (norm(a['state']) != norm(b['state'])) return false;
+    
+    final zipA = norm(a['zip'] ?? a['pincode']);
+    final zipB = norm(b['zip'] ?? b['pincode']);
+    if (zipA != zipB) return false;
+    
+    final countryA = norm(a['country'] ?? a['countryRegion'] ?? a['country_region']);
+    final countryB = norm(b['country'] ?? b['countryRegion'] ?? b['country_region']);
+    if (countryA != countryB) return false;
+    
+    if (norm(a['phone']) != norm(b['phone'])) return false;
+    if (norm(a['attention']) != norm(b['attention'])) return false;
+    
+    return true;
+  }
+
+  List<Map<String, dynamic>> _getAllCustomerAddresses(SalesCustomer customer) {
+    final list = <Map<String, dynamic>>[];
+    
+    final hasBilling = (customer.billingAddressStreet1 != null && customer.billingAddressStreet1!.isNotEmpty) ||
+        (customer.billingAddressCity != null && customer.billingAddressCity!.isNotEmpty);
+    if (hasBilling) {
+      list.add({
+        'attention': customer.companyName ?? customer.displayName,
+        'street1': customer.billingAddressStreet1 ?? '',
+        'street2': customer.billingAddressStreet2 ?? '',
+        'city': customer.billingAddressCity ?? '',
+        'state': customer.billingAddressStateId ?? '',
+        'zip': customer.billingAddressZip ?? '',
+        'country': customer.billingAddressCountryId ?? '',
+        'phone': customer.billingAddressPhone ?? '',
+        'is_default_billing': true,
+        'address_type': 'billing',
+      });
+    }
+
+    final hasShipping = (customer.shippingAddressStreet1 != null && customer.shippingAddressStreet1!.isNotEmpty) ||
+        (customer.shippingAddressCity != null && customer.shippingAddressCity!.isNotEmpty);
+    if (hasShipping) {
+      list.add({
+        'attention': customer.companyName ?? customer.displayName,
+        'street1': customer.shippingAddressStreet1 ?? '',
+        'street2': customer.shippingAddressStreet2 ?? '',
+        'city': customer.shippingAddressCity ?? '',
+        'state': customer.shippingAddressStateId ?? '',
+        'zip': customer.shippingAddressZip ?? '',
+        'country': customer.shippingAddressCountryId ?? '',
+        'phone': customer.shippingAddressPhone ?? '',
+        'is_default_shipping': true,
+        'address_type': 'shipping',
+      });
+    }
+
+    return list;
+  }
+
+  Future<void> _updateCustomerAddress({
+    required SalesCustomer customer,
+    required Map<String, dynamic> address,
+    required bool isBilling,
+  }) async {
+    final normalizedAddr = _normalizeAddress(address);
+    
+    final countriesList = ref.read(countriesProvider(null)).value ?? [];
+    
+    String? billingCountry = isBilling ? normalizedAddr['country'] : customer.billingAddressCountryId;
+    String? shippingCountry = !isBilling ? normalizedAddr['country'] : customer.shippingAddressCountryId;
+
+    final billingCountryObj = countriesList.firstWhere(
+      (item) => item['id'] == billingCountry ||
+                item['name']?.toLowerCase() == billingCountry?.toLowerCase() ||
+                item['shortCode']?.toLowerCase() == billingCountry?.toLowerCase(),
+      orElse: () => <String, String>{},
+    );
+    final billingCountryUuid = billingCountryObj['id'] ?? billingCountry;
+
+    final shippingCountryObj = countriesList.firstWhere(
+      (item) => item['id'] == shippingCountry ||
+                item['name']?.toLowerCase() == shippingCountry?.toLowerCase() ||
+                item['shortCode']?.toLowerCase() == shippingCountry?.toLowerCase(),
+      orElse: () => <String, String>{},
+    );
+    final shippingCountryUuid = shippingCountryObj['id'] ?? shippingCountry;
+
+    final billingStates = (billingCountryUuid != null && billingCountryUuid.isNotEmpty)
+        ? (ref.read(statesProvider(billingCountryUuid)).value ?? [])
+        : [];
+    String? billingState = isBilling ? normalizedAddr['state'] : customer.billingAddressStateId;
+    final billingStateObj = billingStates.firstWhere(
+      (item) => item['id'] == billingState ||
+                item['name']?.toLowerCase() == billingState?.toLowerCase() ||
+                item['code']?.toLowerCase() == billingState?.toLowerCase(),
+      orElse: () => <String, String>{},
+    );
+    final billingStateUuid = billingStateObj['id'] ?? billingState;
+
+    final shippingStates = (shippingCountryUuid != null && shippingCountryUuid.isNotEmpty)
+        ? (ref.read(statesProvider(shippingCountryUuid)).value ?? [])
+        : [];
+    String? shippingState = !isBilling ? normalizedAddr['state'] : customer.shippingAddressStateId;
+    final shippingStateObj = shippingStates.firstWhere(
+      (item) => item['id'] == shippingState ||
+                item['name']?.toLowerCase() == shippingState?.toLowerCase() ||
+                item['code']?.toLowerCase() == shippingState?.toLowerCase(),
+      orElse: () => <String, String>{},
+    );
+    final shippingStateUuid = shippingStateObj['id'] ?? shippingState;
+
+    final billingAddressPayload = {
+      'street1': isBilling ? normalizedAddr['street1'] : customer.billingAddressStreet1,
+      'place': isBilling ? normalizedAddr['street2'] : customer.billingAddressStreet2,
+      'city': isBilling ? normalizedAddr['city'] : customer.billingAddressCity,
+      'stateId': isBilling ? normalizedAddr['state'] : billingStateUuid,
+      'zip': isBilling ? normalizedAddr['zip'] : customer.billingAddressZip,
+      'countryId': isBilling ? normalizedAddr['country'] : billingCountryUuid,
+      'phone': isBilling ? normalizedAddr['phone'] : customer.billingAddressPhone,
+    };
+
+    final shippingAddressPayload = {
+      'street1': !isBilling ? normalizedAddr['street1'] : customer.shippingAddressStreet1,
+      'place': !isBilling ? normalizedAddr['street2'] : customer.shippingAddressStreet2,
+      'city': !isBilling ? normalizedAddr['city'] : customer.shippingAddressCity,
+      'stateId': !isBilling ? normalizedAddr['state'] : shippingStateUuid,
+      'zip': !isBilling ? normalizedAddr['zip'] : customer.shippingAddressZip,
+      'countryId': !isBilling ? normalizedAddr['country'] : shippingCountryUuid,
+      'phone': !isBilling ? normalizedAddr['phone'] : customer.shippingAddressPhone,
+    };
+
+    setState(() {
+      if (isBilling) {
+        _selectedCustomer = _selectedCustomer?.copyWith(
+          billingAddressStreet1: normalizedAddr['street1'],
+          billingAddressStreet2: normalizedAddr['street2'],
+          billingAddressCity: normalizedAddr['city'],
+          billingAddressStateId: normalizedAddr['state'],
+          billingAddressZip: normalizedAddr['zip'],
+          billingAddressCountryId: normalizedAddr['country'],
+          billingAddressPhone: normalizedAddr['phone'],
+        );
+      } else {
+        _selectedCustomer = _selectedCustomer?.copyWith(
+          shippingAddressStreet1: normalizedAddr['street1'],
+          shippingAddressStreet2: normalizedAddr['street2'],
+          shippingAddressCity: normalizedAddr['city'],
+          shippingAddressStateId: normalizedAddr['state'],
+          shippingAddressZip: normalizedAddr['zip'],
+          shippingAddressCountryId: normalizedAddr['country'],
+          shippingAddressPhone: normalizedAddr['phone'],
+        );
+      }
+    });
+
+    await ref.read(salesOrderControllerProvider.notifier).updateCustomer(
+      customer.id,
+      {
+        'billingAddress': billingAddressPayload,
+        'shippingAddress': shippingAddressPayload,
+      },
+    );
+  }
+
+  void _showAddressDropdownList({
+    required SalesCustomer customer,
+    required bool isBilling,
+    required LayerLink link,
+  }) {
+    _closeAddressDropdownOverlay();
+    final allAddresses = _getAllCustomerAddresses(customer);
+    if (allAddresses.isEmpty) return;
+
+    _addressDropdownOverlay = OverlayEntry(
+      builder: (ctx) {
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _closeAddressDropdownOverlay,
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: SizedBox.expand(),
+              ),
+              CompositedTransformFollower(
+                link: link,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: const Offset(0, 4),
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white,
+                    child: Container(
+                      width: 340,
+                      constraints: const BoxConstraints(maxHeight: 320),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(6),
+                        color: Colors.white,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.all(8),
+                              itemCount: allAddresses.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (ctx, i) {
+                                final addr = allAddresses[i];
+                                return _buildAddressDropdownItem(
+                                  customer: customer,
+                                  address: addr,
+                                  isBilling: isBilling,
+                                );
+                              },
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          InkWell(
+                            onTap: () {
+                              _closeAddressDropdownOverlay();
+                              _showAddressDialog(title: isBilling ? 'BILLING ADDRESS' : 'SHIPPING ADDRESS');
+                            },
+                            child: Container(
+                              height: 40,
+                              alignment: Alignment.center,
+                              color: Colors.white,
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(LucideIcons.plus, size: 14, color: Color(0xFF2563EB)),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Add New Address',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF2563EB),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    Overlay.of(context).insert(_addressDropdownOverlay!);
+  }
+
+  Widget _buildAddressDropdownItem({
+    required SalesCustomer customer,
+    required Map<String, dynamic> address,
+    required bool isBilling,
+  }) {
+    final attention = address['attention'] as String? ?? '';
+    final street1 = address['street1'] as String? ?? '';
+    final street2 = address['street2'] as String? ?? '';
+    final city = address['city'] as String? ?? '';
+    final state = address['state'] as String? ?? '';
+    final zip = address['zip'] as String? ?? '';
+    final country = address['country'] as String? ?? '';
+    final phone = address['phone'] as String? ?? '';
+
+    final activeAddress = {
+      'attention': customer.companyName ?? customer.displayName,
+      'street1': isBilling ? customer.billingAddressStreet1 ?? '' : customer.shippingAddressStreet1 ?? '',
+      'street2': isBilling ? customer.billingAddressStreet2 ?? '' : customer.shippingAddressStreet2 ?? '',
+      'city': isBilling ? customer.billingAddressCity ?? '' : customer.shippingAddressCity ?? '',
+      'state': isBilling ? customer.billingAddressStateId ?? '' : customer.shippingAddressStateId ?? '',
+      'zip': isBilling ? customer.billingAddressZip ?? '' : customer.shippingAddressZip ?? '',
+      'country': isBilling ? customer.billingAddressCountryId ?? '' : customer.shippingAddressCountryId ?? '',
+      'phone': isBilling ? customer.billingAddressPhone ?? '' : customer.shippingAddressPhone ?? '',
+    };
+    final isSelected = _areAddressesEqual(activeAddress, address);
+
+    final lines = <String>[
+      if (street1.isNotEmpty) street1,
+      if (street2.isNotEmpty) street2,
+      [city, state, zip].where((s) => s.isNotEmpty).join(', '),
+      if (country.isNotEmpty) country,
+      if (phone.isNotEmpty) 'Phone: $phone',
+    ];
+
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (ctx, setSt) {
+        return MouseRegion(
+          onEnter: (_) => setSt(() => isHovered = true),
+          onExit: (_) => setSt(() => isHovered = false),
+          child: GestureDetector(
+            onTap: () async {
+              _closeAddressDropdownOverlay();
+              
+              try {
+                await _updateCustomerAddress(
+                  customer: customer,
+                  address: address,
+                  isBilling: isBilling,
+                );
+                if (mounted) {
+                  ZerpaiToast.success(context, 'Customer address updated');
+                }
+              } catch (e) {
+                if (mounted) {
+                  ZerpaiToast.error(context, 'Failed to update address: $e');
+                }
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isHovered
+                    ? const Color(0xFF3B82F6)
+                    : (isSelected ? const Color(0xFFEFF6FF) : Colors.white),
+                border: Border.all(
+                  color: isHovered
+                      ? const Color(0xFF3B82F6)
+                      : (isSelected ? const Color(0xFF3B82F6) : const Color(0xFFE5E7EB)),
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          attention.isNotEmpty
+                              ? attention
+                              : (isBilling ? 'Billing Address' : 'Shipping Address'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isHovered ? Colors.white : (isSelected ? const Color(0xFF2563EB) : const Color(0xFF1F2937)),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isHovered)
+                            GestureDetector(
+                              onTap: () {
+                                _closeAddressDropdownOverlay();
+                                _showAddressDialog(title: isBilling ? 'BILLING ADDRESS' : 'SHIPPING ADDRESS');
+                              },
+                              child: Icon(
+                                LucideIcons.pencil,
+                                size: 13,
+                                color: isHovered ? Colors.white : const Color(0xFF6B7280),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ...lines.map(
+                    (l) => Text(
+                      l,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isHovered ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF4B5563),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -6675,17 +7082,34 @@ class _SalesOrderCreateScreenState
           CompositedTransformFollower(
             link: _gstTaxLink,
             showWhenUnlinked: false,
-            offset: const Offset(-330, 20),
+            offset: const Offset(-333, 20),
             child: Material(
               color: Colors.transparent,
               child: _TaxPreferenceDialog(
                 initialGst: initialGst,
-                onUpdate: (newGst) {
+                onUpdate: (newGst, isPermanent) async {
                   setState(() {
                     _selectedCustomer = _selectedCustomer?.copyWith(
                       gstTreatment: newGst,
                     );
                   });
+                  if (isPermanent && _selectedCustomer != null) {
+                    try {
+                      await ref.read(salesOrderControllerProvider.notifier).updateCustomer(
+                        _selectedCustomer!.id,
+                        {
+                          'gstTreatment': newGst,
+                        },
+                      );
+                      if (context.mounted) {
+                        ZerpaiToast.success(context, 'Tax preference updated in database');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ZerpaiToast.error(context, 'Failed to update database: $e');
+                      }
+                    }
+                  }
                   _gstTaxOverlay?.remove();
                   _gstTaxOverlay = null;
                 },
@@ -6729,7 +7153,7 @@ class _SalesOrderCreateScreenState
           CompositedTransformFollower(
             link: _gstinLink,
             showWhenUnlinked: false,
-            offset: const Offset(-250, 20),
+            offset: const Offset(-277, 20),
             child: Material(
               color: Colors.transparent,
               child: Column(
@@ -6737,7 +7161,7 @@ class _SalesOrderCreateScreenState
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(right: 32),
+                    padding: const EdgeInsets.only(right: 30),
                     child: CustomPaint(
                       size: const Size(14, 8),
                       painter: _ArrowPainter(),
@@ -7718,7 +8142,7 @@ class _ManageTaxInfoDialogState extends ConsumerState<_ManageTaxInfoDialog> {
     return Align(
       alignment: Alignment.topCenter,
       child: Padding(
-        padding: const EdgeInsets.only(top: 40),
+        padding: EdgeInsets.zero,
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -8156,7 +8580,7 @@ class _GstTreatmentOption {
 
 class _TaxPreferenceDialog extends StatefulWidget {
   final String initialGst;
-  final ValueChanged<String>? onUpdate;
+  final void Function(String, bool)? onUpdate;
   final VoidCallback? onClose;
 
   const _TaxPreferenceDialog({
@@ -8171,6 +8595,7 @@ class _TaxPreferenceDialog extends StatefulWidget {
 
 class _TaxPreferenceDialogState extends State<_TaxPreferenceDialog> {
   late _GstTreatmentOption _gst;
+  bool _makePermanent = false;
 
   final _options = const [
     _GstTreatmentOption(
@@ -8310,6 +8735,40 @@ class _TaxPreferenceDialogState extends State<_TaxPreferenceDialog> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    const Text(
+                      'Make it permanent?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _kBodyText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: Checkbox(
+                            value: _makePermanent,
+                            onChanged: (val) =>
+                                setState(() => _makePermanent = val!),
+                            activeColor: const Color(0xFF10B981),
+                            side: const BorderSide(color: Color(0xFFD1D5DB)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Use these settings for all future transactions of this customer.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -8333,7 +8792,7 @@ class _TaxPreferenceDialogState extends State<_TaxPreferenceDialog> {
                       ),
                       onPressed: () {
                         if (widget.onUpdate != null) {
-                          widget.onUpdate!(_gst.label);
+                          widget.onUpdate!(_gst.label, _makePermanent);
                         } else {
                           Navigator.pop(context, _gst.label);
                         }

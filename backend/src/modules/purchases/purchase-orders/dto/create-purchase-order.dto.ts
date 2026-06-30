@@ -206,6 +206,10 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   tds_id?: string;
 
+  @IsString()
+  @IsOptional()
+  tds_tcs_id?: string;
+
   @IsNumber()
   @IsOptional()
   tds_tcs_amount?: number;

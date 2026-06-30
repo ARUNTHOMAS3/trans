@@ -44,6 +44,7 @@ class PurchasesBill {
   final String? billingAddress;
   final String? sourceType;
   final String? sourceId;
+  final String? discountAccountId;
 
   PurchasesBill({
     required this.id,
@@ -91,6 +92,7 @@ class PurchasesBill {
     this.vendorGstin,
     this.reasonToVoid,
     this.reasonToDraft,
+    this.discountAccountId,
   });
 
   factory PurchasesBill.fromJson(Map<String, dynamic> json) {
@@ -179,7 +181,7 @@ class PurchasesBill {
               .toList() ??
           [],
       subTotal: _parseDouble(json['sub_total'] ?? json['subtotal'] ?? 0),
-      discountPercent: _parseDouble(json['discount_percent'] ?? 0),
+      discountPercent: _parseDouble(json['discount_percent'] ?? json['discount_value'] ?? 0),
       discountAmount: _parseDouble(json['discount_amount'] ?? json['discount_total'] ?? 0),
       tdsOrTcs: json['tds_or_tcs'] ?? 'tds',
       taxId: json['tax_id'],
@@ -212,6 +214,7 @@ class PurchasesBill {
       billingAddress: json['billing_address'] ?? json['billingAddress'],
       sourceType: json['source_type'] ?? json['sourceType'],
       sourceId: json['source_id'] ?? json['sourceId'],
+      discountAccountId: json['discount_account_id'] ?? json['discountAccountId'] ?? json['discount_accounts_id'],
     );
   }
 
@@ -257,6 +260,7 @@ class PurchasesBill {
       if (vendorGstin != null) 'vendorGstin': vendorGstin,
       if (reasonToVoid != null) 'reasonToVoid': reasonToVoid,
       if (reasonToDraft != null) 'reasonToDraft': reasonToDraft,
+      if (discountAccountId != null) 'discountAccountId': discountAccountId,
     };
   }
 }
@@ -292,6 +296,8 @@ class PurchasesBillLineItem {
   final bool trackSerialNumber;
   final bool trackBinLocation;
   final String? productType;
+  final String? purchaseReceiveItemId;
+  final String? discountAccountId;
 
   PurchasesBillLineItem({
     this.id,
@@ -324,6 +330,8 @@ class PurchasesBillLineItem {
     this.trackSerialNumber = false,
     this.trackBinLocation = false,
     this.productType,
+    this.purchaseReceiveItemId,
+    this.discountAccountId,
   });
 
   double get computedAmount {
@@ -378,7 +386,7 @@ class PurchasesBillLineItem {
       taxAmount: _parseDouble(json['tax_amount'] ?? 0),
       customerId: json['customer_id'] ?? json['customerId'],
       customerName: customerData?['display_name'] as String? ?? json['customer_name'] as String?,
-      discount: _parseDouble(json['discount'] ?? 0),
+      discount: _parseDouble(json['discount'] ?? json['discount_value'] ?? 0),
       discountType: json['discount_type'] ?? '%',
       amount: _parseDouble(json['amount'] ?? 0),
       isLandedCost: json['is_landed_cost'] ?? false,
@@ -387,6 +395,8 @@ class PurchasesBillLineItem {
       trackSerialNumber: productData?['track_serial_number'] as bool? ?? json['track_serial_number'] as bool? ?? false,
       trackBinLocation: productData?['track_bin_location'] as bool? ?? json['track_bin_location'] as bool? ?? false,
       productType: json['product_type'] as String? ?? json['productType'] as String? ?? productData?['type'] as String? ?? productData?['product_type'] as String? ?? productData?['productType'] as String? ?? 'goods',
+      purchaseReceiveItemId: json['purchase_receive_item_id']?.toString() ?? json['purchaseReceiveItemId']?.toString(),
+      discountAccountId: json['discount_account_id'] ?? json['discountAccountId'] ?? json['discount_accounts_id'],
     );
   }
 
@@ -418,6 +428,8 @@ class PurchasesBillLineItem {
       'track_serial_number': trackSerialNumber,
       'track_bin_location': trackBinLocation,
       if (productType != null) 'product_type': productType,
+      if (purchaseReceiveItemId != null) 'purchase_receive_item_id': purchaseReceiveItemId,
+      if (discountAccountId != null) 'discount_account_id': discountAccountId,
     };
   }
 
@@ -450,6 +462,8 @@ class PurchasesBillLineItem {
     bool? trackSerialNumber,
     bool? trackBinLocation,
     String? productType,
+    String? purchaseReceiveItemId,
+    String? discountAccountId,
   }) {
     return PurchasesBillLineItem(
       id: id,
@@ -482,6 +496,8 @@ class PurchasesBillLineItem {
       trackSerialNumber: trackSerialNumber ?? this.trackSerialNumber,
       trackBinLocation: trackBinLocation ?? this.trackBinLocation,
       productType: productType ?? this.productType,
+      purchaseReceiveItemId: purchaseReceiveItemId ?? this.purchaseReceiveItemId,
+      discountAccountId: discountAccountId ?? this.discountAccountId,
     );
   }
 }

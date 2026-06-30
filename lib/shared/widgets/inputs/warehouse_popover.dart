@@ -339,7 +339,7 @@ class _WarehousePopoverContentState extends ConsumerState<_WarehousePopoverConte
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           child: Row(
                             children: [
-                              const Text('Location Name', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter')),
+                              const Text('Warehouse Name', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter')),
                               const SizedBox(width: 4),
                               const Icon(LucideIcons.search, size: 12, color: Color(0xFF9CA3AF)),
                             ],

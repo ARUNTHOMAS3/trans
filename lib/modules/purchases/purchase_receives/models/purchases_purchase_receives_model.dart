@@ -83,7 +83,7 @@ class BatchInfo {
       ptr: (json['ptr'] as num?)?.toDouble() ?? 0,
       quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
       foc: (json['foc'] as num?)?.toDouble() ?? (json['foc_qty'] as num?)?.toDouble() ?? 0,
-      manufactureBatch: json['manufacture_batch'] as String? ?? '',
+      manufactureBatch: (json['manufacture_batch'] ?? json['manufacture_batch_number']) as String? ?? '',
       manufactureDate: json['manufacture_date'] != null
           ? DateTime.parse(json['manufacture_date'] as String)
           : null,
@@ -98,6 +98,7 @@ class BatchInfo {
 }
 
 class PurchaseReceiveItem {
+  final String? id;
   final String? itemId;
   final String itemName;
   final String? description;
@@ -114,6 +115,7 @@ class PurchaseReceiveItem {
   final bool billed;
 
   PurchaseReceiveItem({
+    this.id,
     this.itemId,
     this.itemName = '',
     this.description,
@@ -131,6 +133,7 @@ class PurchaseReceiveItem {
   }) : batches = batches ?? [];
 
   PurchaseReceiveItem copyWith({
+    String? id,
     String? itemId,
     String? itemName,
     String? description,
@@ -147,6 +150,7 @@ class PurchaseReceiveItem {
     bool? billed,
   }) {
     return PurchaseReceiveItem(
+      id: id ?? this.id,
       itemId: itemId ?? this.itemId,
       itemName: itemName ?? this.itemName,
       description: description ?? this.description,
@@ -165,6 +169,7 @@ class PurchaseReceiveItem {
   }
 
   Map<String, dynamic> toJson() => {
+    if (id != null) 'id': id,
     'item_id': itemId,
     'item_name': itemName,
     'description': description,
@@ -181,6 +186,7 @@ class PurchaseReceiveItem {
 
   factory PurchaseReceiveItem.fromJson(Map<String, dynamic> json) {
     return PurchaseReceiveItem(
+      id: json['id'] as String?,
       itemId: json['item_id'] as String?,
       itemName: json['item_name'] as String? ?? '',
       description: json['description'] as String?,

@@ -12,6 +12,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/edit_quantity_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/bills/providers/purchases_bills_provider.dart';
 import 'package:zerpai_erp/modules/purchases/bills/repositories/purchases_bills_repository.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
@@ -60,6 +61,7 @@ import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vend
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart';
@@ -91,6 +93,11 @@ class _BillLineItemRow {
   String? warehouseName;
   String? itemId;
   String? itemName;
+  String? purchaseOrderId;
+  String? purchaseOrderNumber;
+  String? purchaseReceiveId;
+  String? purchaseReceiveNumber;
+  String? purchaseReceiveItemId;
   final TextEditingController itemNameCtrl = TextEditingController();
   String? hsnCode;
   final TextEditingController descriptionCtrl = TextEditingController();
@@ -161,11 +168,13 @@ class _BillLineItemRow {
   List<Map<String, String>>? savedBatchData;
   bool hasBatchData = false;
   int batchCount = 0;
+  String? discountAccountId;
 
   _BillLineItemRow({this.isLandedCost = false, String? defaultWarehouse}) : warehouseName = defaultWarehouse;
 
   _BillLineItemRow clone() {
     final newRow = _BillLineItemRow(isLandedCost: isLandedCost, defaultWarehouse: warehouseName);
+    newRow.discountAccountId = discountAccountId;
     newRow.itemId = itemId;
     newRow.itemName = itemName;
     newRow.itemNameCtrl.text = itemNameCtrl.text;
@@ -203,27 +212,20 @@ class _BillLineItemRow {
         : null;
     newRow.hasBatchData = hasBatchData;
     newRow.batchCount = batchCount;
+    newRow.purchaseOrderId = purchaseOrderId;
+    newRow.purchaseOrderNumber = purchaseOrderNumber;
+    newRow.purchaseReceiveId = purchaseReceiveId;
+    newRow.purchaseReceiveNumber = purchaseReceiveNumber;
+    newRow.purchaseReceiveItemId = purchaseReceiveItemId;
     return newRow;
   }
 
   double get quantity {
-    if (hasBatchData && savedBatchData != null && savedBatchData!.isNotEmpty) {
-      return savedBatchData!.fold<double>(
-        0.0,
-        (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
-      );
-    }
-    return double.tryParse(quantityCtrl.text) ?? 0;
+    return double.tryParse(quantityCtrl.text.trim()) ?? 0;
   }
 
   double get freeQuantity {
-    if (hasBatchData && savedBatchData != null && savedBatchData!.isNotEmpty) {
-      return savedBatchData!.fold<double>(
-        0.0,
-        (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
-      );
-    }
-    return double.tryParse(freeQtyCtrl.text) ?? 0;
+    return double.tryParse(freeQtyCtrl.text.trim()) ?? 0;
   }
 
   double get rate => double.tryParse(rateCtrl.text) ?? 0;
@@ -318,6 +320,8 @@ class _BillLineItemRow {
       amount: amount,
       isLandedCost: isLandedCost,
       batches: batchesList,
+      purchaseReceiveItemId: purchaseReceiveItemId,
+      discountAccountId: discountAccountId,
     );
   }
 
@@ -516,17 +520,18 @@ class _PurchasesBillCreateScreenState
     text: 'Adjustment',
   );
   final TextEditingController _adjustmentAmountCtrl = TextEditingController(
-    text: '0.00',
+    text: '',
   );
   final TextEditingController _discountPercentCtrl = TextEditingController(
-    text: '0',
+    text: '',
   );
   OverlayEntry? _moreOverlayEntry;
-  String _tdsTcsType = 'tds'; // 'tds' | 'tcs'
+  String _tdsTcsType = 'none'; // 'tds' | 'tcs' | 'none'
   String? _selectedTdsTcsId;
   double _tdsTcsRate = 0.0;
   List<Map<String, dynamic>> _tdsRatesList = [];
   List<Map<String, dynamic>> _tdsSectionsList = [];
+  List<Map<String, dynamic>> _tdsGroupsList = [];
   List<Map<String, dynamic>> _tcsRatesList = [];
   List<Map<String, dynamic>> _tcsNaturesList = [];
   bool _isLoadingTdsRates = false;
@@ -553,12 +558,15 @@ class _PurchasesBillCreateScreenState
   String? _selectedPriceListId;
   coa.AccountNode? _selectedPopupAccount;
   String _stockView = 'availableForSale'; // 'stockOnHand' | 'availableForSale'
+  String _stockType = 'Physical'; // 'Physical' | 'Accounting'
 
   final TextEditingController _totalsTaxSearchCtrl = TextEditingController();
   final FocusNode _totalsTaxSearchFocus = FocusNode();
 
   final TextEditingController _notesCtrl = TextEditingController();
   bool _isLoading = false;
+  bool _isLoadingData = false;
+  late Future<void> _lookupsFuture;
 
   final LayerLink _uploadLink = LayerLink();
   final LayerLink _attachmentBadgeLink = LayerLink();
@@ -594,20 +602,168 @@ class _PurchasesBillCreateScreenState
     _dueDateCtrl.text = DateFormat(
       'dd-MM-yyyy',
     ).format(DateTime.now().add(const Duration(days: 360)));
+    
+    _initData();
+  }
+
+  void _initData() {
+    _isLoadingData = widget.editBillId != null ||
+        widget.cloneBillId != null ||
+        widget.poId != null ||
+        widget.receiveId != null;
+
+    final lookupsCompleter = Completer<void>();
+    _lookupsFuture = lookupsCompleter.future;
+
     Future.microtask(() async {
-      await ref.read(vendorProvider.notifier).loadVendors();
-      await ref.read(itemsControllerProvider.notifier).loadLookupData();
-      await _loadPaymentTerms();
-      await _loadLookups();
-      await _loadTdsRates();
-      if (widget.editBillId != null || widget.cloneBillId != null) {
-        await _loadBillForEdit();
-      } else if (widget.poId != null) {
-        await _loadPoForConvert();
-      } else if (widget.receiveId != null) {
-        await _loadReceiveForConvert();
+      try {
+        final future = Future.wait([
+          ref.read(vendorProvider.notifier).loadVendors(),
+          ref.read(itemsControllerProvider.notifier).loadLookupData(),
+          _loadPaymentTerms(),
+          _loadLookups(),
+          _loadTdsRates(),
+        ]);
+        lookupsCompleter.complete(future.then((_) => null));
+
+        if (widget.editBillId != null || widget.cloneBillId != null) {
+          await _loadBillForEdit();
+        } else if (widget.poId != null) {
+          await _loadPoForConvert();
+        } else if (widget.receiveId != null) {
+          await _loadReceiveForConvert();
+        } else {
+          await _lookupsFuture;
+        }
+      } catch (e) {
+        debugPrint('Error loading page details: $e');
+        if (!lookupsCompleter.isCompleted) {
+          lookupsCompleter.completeError(e);
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoadingData = false;
+            _isLoading = false;
+          });
+        }
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(PurchasesBillCreateScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.editBillId != widget.editBillId ||
+        oldWidget.cloneBillId != widget.cloneBillId ||
+        oldWidget.poId != widget.poId ||
+        oldWidget.receiveId != widget.receiveId) {
+      _resetState();
+      _initData();
+    }
+  }
+
+  void _resetState() {
+    // Remove overlays
+    _transactionDiscountTypeOverlay?.remove();
+    _transactionDiscountTypeOverlay = null;
+    _vendorOverlayEntry?.remove();
+    _vendorOverlayEntry = null;
+    _addressDropdownOverlay?.remove();
+    _addressDropdownOverlay = null;
+    _itemOverlayEntry?.remove();
+    _itemOverlayEntry = null;
+    _hsnOverlayEntry?.remove();
+    _hsnOverlayEntry = null;
+    _sidebarOverlayEntry?.remove();
+    _sidebarOverlayEntry = null;
+    _itemDetailsSidebarOverlay?.remove();
+    _itemDetailsSidebarOverlay = null;
+    _addRowDropdownOverlay?.remove();
+    _addRowDropdownOverlay = null;
+    _moreOverlayEntry?.remove();
+    _moreOverlayEntry = null;
+    _uploadOverlay?.remove();
+    _uploadOverlay = null;
+    _attachmentListOverlay?.remove();
+    _attachmentListOverlay = null;
+    _taxOverlayEntry?.remove();
+    _taxOverlayEntry = null;
+    _customerOverlayEntry?.remove();
+    _customerOverlayEntry = null;
+    _taxAmountOverlay?.remove();
+    _taxAmountOverlay = null;
+    _gstTaxOverlay?.remove();
+    _gstTaxOverlay = null;
+    _gstinOverlay?.remove();
+    _gstinOverlay = null;
+
+    // Reset controllers
+    _vendorSearchCtrl.clear();
+    _billNumberCtrl.clear();
+    _orderNumberCtrl.clear();
+    _billDateCtrl.clear();
+    _invoiceTotalCtrl.clear();
+    _subjectCtrl.clear();
+    _adjustmentLabelCtrl.text = 'Adjustment';
+    _adjustmentAmountCtrl.text = '';
+    _discountPercentCtrl.text = '';
+    _totalsTaxSearchCtrl.clear();
+    _notesCtrl.clear();
+    _itemDetailsSearchCtrl.clear();
+
+    _dueDateCtrl.text = DateFormat(
+      'dd-MM-yyyy',
+    ).format(DateTime.now().add(const Duration(days: 360)));
+
+    // Reset state variables
+    _selectedVendor = null;
+    _openPurchaseOrders = [];
+    _poReceivesList = [];
+    _poBillsList = [];
+    _vendorDropdownOpen = false;
+    _paymentTerms = null;
+    _existingBillSourceType = null;
+    _existingBillSourceId = null;
+    _reverseCharge = false;
+    _isContactPersonsExpanded = true;
+    _isAddressExpanded = false;
+    _activeSidebarTab = 'Details';
+    _hoveredRowIndex = null;
+    _activeMenuRowIndex = null;
+    _highlightedIndex = -1;
+    _customBillingAddress = null;
+    _hasAddress = false;
+    _warehouse = null;
+    _discountType = 'At Transaction Level';
+    _isDiscountBeforeTax = true;
+    _transactionDiscountType = '%';
+    _sourceOfSupply = null;
+    _destinationOfSupply = null;
+    _discountAccountId = null;
+
+    // Reset Totals
+    _discountPercent = 0;
+    _adjustment = 0;
+    _tdsTcsType = 'none';
+    _selectedTdsTcsId = null;
+    _tdsTcsRate = 0.0;
+    _bulkMode = false;
+    _selectedRows.clear();
+    _showSearchItemDetails = false;
+    _itemDetailsSearchQuery = '';
+    _selectedPriceListId = null;
+    _selectedPopupAccount = null;
+    _stockView = 'availableForSale';
+    _stockType = 'Physical';
+    _attachedFiles = [];
+
+    // Clear and reset line items
+    for (var row in _lineItems) {
+      row.dispose();
+    }
+    _lineItems.clear();
+    _lineItems.add(_BillLineItemRow());
   }
 
 
@@ -616,14 +772,49 @@ class _PurchasesBillCreateScreenState
     setState(() {});
   }
 
+  void _updateAllStockAvailableValues() {
+    for (final row in _lineItems) {
+      if (row.itemId != null && row.itemId!.isNotEmpty) {
+        final whName = row.warehouseName ?? _warehouse ?? '';
+        if (whName.isNotEmpty) {
+          ref.read(itemWarehouseStocksProvider(row.itemId!).future).then((stocks) {
+            WarehouseStockRow? whRow;
+            for (final s in stocks) {
+              if (s.name == whName) {
+                whRow = s;
+                break;
+              }
+            }
+            if (whRow != null) {
+              final numbers = _stockType == 'Accounting' ? whRow.accounting : whRow.physical;
+              final isSOH = _stockView == 'stockOnHand';
+              setState(() {
+                row.stockAvailable = isSOH ? numbers.onHand : numbers.available;
+              });
+            } else {
+              setState(() {
+                row.stockAvailable = 0.0;
+              });
+            }
+          }).catchError((_) {});
+        }
+      }
+    }
+  }
+
   Future<void> _loadBillForEdit() async {
     final billId = widget.editBillId ?? widget.cloneBillId;
     if (billId == null) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isLoadingData = true;
+    });
     try {
       final bill = await ref
           .read(purchasesBillsRepositoryProvider)
           .getBill(billId);
+
+      await _lookupsFuture;
 
       final vendors = ref.read(vendorProvider).vendors;
       final billVendorName = bill.vendorName;
@@ -671,9 +862,9 @@ class _PurchasesBillCreateScreenState
         _subjectCtrl.text = bill.subject ?? '';
         _notesCtrl.text = bill.notes ?? '';
         _adjustmentLabelCtrl.text = bill.adjustmentLabel ?? 'Adjustment';
-        _adjustmentAmountCtrl.text = bill.adjustment.toStringAsFixed(2);
+        _adjustmentAmountCtrl.text = bill.adjustment == 0 ? '' : bill.adjustment.toStringAsFixed(2);
         _adjustment = bill.adjustment;
-        _discountPercentCtrl.text = bill.discountPercent.toString();
+        _discountPercentCtrl.text = bill.discountPercent == 0 ? '' : bill.discountPercent.toString();
         _discountPercent = bill.discountPercent;
         _invoiceTotalCtrl.text = bill.invoiceTotal > 0 ? bill.invoiceTotal.toStringAsFixed(2) : '';
         // Reconstruct TDS/TCS type, ID, and rate
@@ -736,6 +927,7 @@ class _PurchasesBillCreateScreenState
           final row = _BillLineItemRow(isLandedCost: item.isLandedCost);
           row.itemId = item.itemId;
           row.itemName = item.itemName;
+          row.purchaseReceiveItemId = item.purchaseReceiveItemId;
           row.itemNameCtrl.text = item.itemName ?? '';
           row.hsnCode = item.hsnCode;
           row.hsnCtrl.text = item.hsnCode ?? '';
@@ -823,12 +1015,103 @@ class _PurchasesBillCreateScreenState
 
           _lineItems.add(row);
         }
-
-        if (_lineItems.isEmpty) {
-          _lineItems.add(_BillLineItemRow());
-        }
-        _loadOpenPurchaseOrders();
       });
+
+      // --- Resolve PO/Receive associations from purchaseReceiveItemId ---
+      // Collect all purchaseReceiveItemIds from loaded bill items
+      final rxItemIds = <String>[];
+      final rxItemIdToRowIndices = <String, List<int>>{};
+      for (int i = 0; i < bill.lineItems.length; i++) {
+        final rxItemId = bill.lineItems[i].purchaseReceiveItemId;
+        if (rxItemId != null && rxItemId.isNotEmpty) {
+          rxItemIds.add(rxItemId);
+          rxItemIdToRowIndices.putIfAbsent(rxItemId, () => []).add(i);
+        }
+      }
+
+      if (rxItemIds.isNotEmpty) {
+        try {
+          final supabase = Supabase.instance.client;
+          // Batch lookup: purchase_receive_items → purchase_receive_id
+          final rxItemsResp = await supabase
+              .from('purchase_receive_items')
+              .select('id, purchase_receive_id')
+              .inFilter('id', rxItemIds);
+
+          final rxItemToReceiveId = <String, String>{};
+          final receiveIds = <String>{};
+          if (rxItemsResp != null && rxItemsResp is List) {
+            for (final ri in rxItemsResp) {
+              final riId = ri['id']?.toString() ?? '';
+              final prId = ri['purchase_receive_id']?.toString() ?? '';
+              if (riId.isNotEmpty && prId.isNotEmpty) {
+                rxItemToReceiveId[riId] = prId;
+                receiveIds.add(prId);
+              }
+            }
+          }
+
+          // Batch lookup: purchase_receives → purchase_order_id, purchase_receive_number, purchase_order_number
+          if (receiveIds.isNotEmpty) {
+            final rxResp = await supabase
+                .from('purchase_receives')
+                .select('id, purchase_order_id, purchase_receive_number, purchase_order_number')
+                .inFilter('id', receiveIds.toList());
+
+            final receiveToPoId = <String, String>{};
+            final receiveToRxNum = <String, String>{};
+            final receiveToPoNum = <String, String>{};
+            if (rxResp != null && rxResp is List) {
+              for (final rx in rxResp) {
+                final rxId = rx['id']?.toString() ?? '';
+                final poId = rx['purchase_order_id']?.toString() ?? '';
+                final rxNum = rx['purchase_receive_number']?.toString() ?? '';
+                final poNum = rx['purchase_order_number']?.toString() ?? '';
+                if (rxId.isNotEmpty) {
+                  if (poId.isNotEmpty) receiveToPoId[rxId] = poId;
+                  if (rxNum.isNotEmpty) receiveToRxNum[rxId] = rxNum;
+                  if (poNum.isNotEmpty) receiveToPoNum[rxId] = poNum;
+                }
+              }
+            }
+
+            // Assign resolved IDs to line item rows
+            if (mounted) {
+              setState(() {
+                for (final entry in rxItemIdToRowIndices.entries) {
+                  final rxItemId = entry.key;
+                  final indices = entry.value;
+                  final receiveId = rxItemToReceiveId[rxItemId];
+                  if (receiveId == null) continue;
+                  final poId = receiveToPoId[receiveId];
+                  final rxNum = receiveToRxNum[receiveId];
+                  final poNum = receiveToPoNum[receiveId];
+                  for (final idx in indices) {
+                    if (idx < _lineItems.length) {
+                      _lineItems[idx].purchaseOrderId = poId;
+                      _lineItems[idx].purchaseOrderNumber = poNum;
+                      _lineItems[idx].purchaseReceiveId = receiveId;
+                      _lineItems[idx].purchaseReceiveNumber = rxNum;
+                    }
+                  }
+                }
+              });
+            }
+          }
+        } catch (e) {
+          debugPrint('Error resolving PO/receive from bill items: $e');
+        }
+      }
+      // --- End PO/Receive resolution ---
+
+      if (mounted) {
+        setState(() {
+          if (_lineItems.isEmpty) {
+            _lineItems.add(_BillLineItemRow());
+          }
+          _loadOpenPurchaseOrders();
+        });
+      }
     } catch (e) {
       AppLogger.error('Failed to load bill for editing', error: e, module: 'purchases');
       ZerpaiToast.error(context, 'Failed to load bill data: $e');
@@ -840,10 +1123,16 @@ class _PurchasesBillCreateScreenState
   Future<void> _loadReceiveForConvert() async {
     final receiveId = widget.receiveId;
     if (receiveId == null) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isLoadingData = true;
+    });
     try {
       final rxRepository = ref.read(purchaseReceiveRepositoryProvider);
       final rx = await rxRepository.getPurchaseReceive(receiveId);
+
+      await _lookupsFuture;
+
       if (rx == null) return;
 
       PurchaseOrder? po;
@@ -938,23 +1227,31 @@ class _PurchasesBillCreateScreenState
 
         if (po != null) {
           _discountType = po.discountLevel == 'transaction' ? 'At Transaction Level' : 'At Line Item Level';
-          _discountPercentCtrl.text = po.discount.toString();
+          _discountPercentCtrl.text = po.discount == 0 ? '' : po.discount.toString();
           _discountPercent = po.discount;
           _transactionDiscountType = po.discountType == 'percentage' ? '%' : '₹';
           _reverseCharge = po.isReverseCharge;
           _adjustment = po.adjustment;
-          _adjustmentAmountCtrl.text = po.adjustment.toStringAsFixed(2);
+          _adjustmentAmountCtrl.text = po.adjustment == 0 ? '' : po.adjustment.toStringAsFixed(2);
 
-          _tdsTcsType = (po.tdsTcsType == null || po.tdsTcsType == 'none') ? 'tds' : po.tdsTcsType!;
+          _tdsTcsType = po.tdsTcsType ?? 'none';
           _selectedTdsTcsId = po.tdsTcsId;
           _tdsTcsRate = 0.0;
-          if (_tdsTcsType == 'tds' && _selectedTdsTcsId != null) {
-            final matchedRate = _tdsRatesList.firstWhere(
-              (r) => r['id']?.toString() == _selectedTdsTcsId,
-              orElse: () => <String, dynamic>{},
-            );
+          if (_tdsTcsType != 'none' && _selectedTdsTcsId != null) {
+            final isTcs = _tdsTcsType == 'tcs';
+            final matchedRate = isTcs
+                ? _tcsRatesList.firstWhere(
+                    (r) => r['id']?.toString() == _selectedTdsTcsId,
+                    orElse: () => <String, dynamic>{},
+                  )
+                : _tdsRatesList.firstWhere(
+                    (r) => r['id']?.toString() == _selectedTdsTcsId,
+                    orElse: () => <String, dynamic>{},
+                  );
             if (matchedRate.isNotEmpty) {
-              _tdsTcsRate = double.tryParse(matchedRate['base_rate']?.toString() ?? '0') ?? 0.0;
+              _tdsTcsRate = double.tryParse(
+                (isTcs ? matchedRate['rate'] : matchedRate['base_rate'])?.toString() ?? '0',
+              ) ?? 0.0;
             }
           } else if (_tdsTcsType == 'tcs' && _selectedTdsTcsId != null) {
             final matchedRate = _tcsRatesList.firstWhere(
@@ -968,15 +1265,30 @@ class _PurchasesBillCreateScreenState
         }
 
         _lineItems.clear();
+        final matchedRxItemIds = <String?>{};
         if (po != null) {
           for (final poItem in po.items) {
             if (poItem.isHeader) continue;
 
-            final rxItems = rx.items.where((i) => i.itemId == poItem.productId).toList();
+            var rxItems = rx.items.where((i) =>
+              i.itemId == poItem.productId &&
+              !matchedRxItemIds.contains(i.id) &&
+              (i.ordered - poItem.quantity).abs() < 0.001 &&
+              (i.description ?? '').trim() == (poItem.description ?? '').trim()
+            ).toList();
+            if (rxItems.isEmpty) {
+              rxItems = rx.items.where((i) => i.itemId == poItem.productId && !matchedRxItemIds.contains(i.id)).toList();
+            }
             if (rxItems.isEmpty) continue;
             final rxItem = rxItems.first;
+            matchedRxItemIds.add(rxItem.id);
 
             final row = _BillLineItemRow();
+            row.purchaseReceiveId = rx.id;
+            row.purchaseReceiveNumber = rx.purchaseReceiveNumber;
+            row.purchaseReceiveItemId = rxItem.id;
+            row.purchaseOrderId = po.id;
+            row.purchaseOrderNumber = po.orderNumber;
             row.itemId = poItem.productId;
             row.itemName = poItem.productName;
             row.itemNameCtrl.text = poItem.productName ?? '';
@@ -1030,6 +1342,11 @@ class _PurchasesBillCreateScreenState
         } else {
           for (final rxItem in rx.items) {
             final row = _BillLineItemRow();
+            row.purchaseReceiveId = rx.id;
+            row.purchaseReceiveNumber = rx.purchaseReceiveNumber;
+            row.purchaseReceiveItemId = rxItem.id;
+            row.purchaseOrderId = rx.purchaseOrderId;
+            row.purchaseOrderNumber = rx.purchaseOrderNumber;
             row.itemId = rxItem.itemId;
             row.itemName = rxItem.itemName;
             row.itemNameCtrl.text = rxItem.itemName;
@@ -1076,6 +1393,7 @@ class _PurchasesBillCreateScreenState
         if (_lineItems.isEmpty) {
           _lineItems.add(_BillLineItemRow());
         }
+        _updateOrderNumbersFromRows();
         _loadOpenPurchaseOrders();
       });
     } catch (e) {
@@ -1089,10 +1407,16 @@ class _PurchasesBillCreateScreenState
   Future<void> _loadPoForConvert() async {
     final poId = widget.poId;
     if (poId == null) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isLoadingData = true;
+    });
     try {
       final repository = ref.read(purchaseOrderRepositoryProvider);
       final po = await repository.getPurchaseOrder(poId);
+
+      await _lookupsFuture;
+
       if (po == null) return;
 
       final vendors = ref.read(vendorProvider).vendors;
@@ -1126,6 +1450,9 @@ class _PurchasesBillCreateScreenState
             );
         _customBillingAddress = null;
         _orderNumberCtrl.text = po.orderNumber;
+        _billNumberCtrl.text = po.referenceNumber ?? '';
+        _billDateCtrl.text = DateFormat('dd-MM-yyyy').format(po.orderDate);
+        _invoiceTotalCtrl.text = po.total.toStringAsFixed(2);
         _notesCtrl.text = po.notes ?? '';
         _subjectCtrl.text = po.referenceNumber ?? '';
 
@@ -1158,32 +1485,34 @@ class _PurchasesBillCreateScreenState
           }
         }
 
+        _updateDueDateFromPaymentTerms();
+
         _discountType = po.discountLevel == 'transaction' ? 'At Transaction Level' : 'At Line Item Level';
-        _discountPercentCtrl.text = po.discount.toString();
+        _discountPercentCtrl.text = po.discount == 0 ? '' : po.discount.toString();
         _discountPercent = po.discount;
         _transactionDiscountType = po.discountType == 'percentage' ? '%' : '₹';
         _reverseCharge = po.isReverseCharge;
         _adjustment = po.adjustment;
-        _adjustmentAmountCtrl.text = po.adjustment.toStringAsFixed(2);
+        _adjustmentAmountCtrl.text = po.adjustment == 0 ? '' : po.adjustment.toStringAsFixed(2);
 
-        _tdsTcsType = (po.tdsTcsType == null || po.tdsTcsType == 'none') ? 'tds' : po.tdsTcsType!;
+        _tdsTcsType = po.tdsTcsType ?? 'none';
         _selectedTdsTcsId = po.tdsTcsId;
         _tdsTcsRate = 0.0;
-        if (_tdsTcsType == 'tds' && _selectedTdsTcsId != null) {
-          final matchedRate = _tdsRatesList.firstWhere(
-            (r) => r['id']?.toString() == _selectedTdsTcsId,
-            orElse: () => <String, dynamic>{},
-          );
+        if (_tdsTcsType != 'none' && _selectedTdsTcsId != null) {
+          final isTcs = _tdsTcsType == 'tcs';
+          final matchedRate = isTcs
+              ? _tcsRatesList.firstWhere(
+                  (r) => r['id']?.toString() == _selectedTdsTcsId,
+                  orElse: () => <String, dynamic>{},
+                )
+              : _tdsRatesList.firstWhere(
+                  (r) => r['id']?.toString() == _selectedTdsTcsId,
+                  orElse: () => <String, dynamic>{},
+                );
           if (matchedRate.isNotEmpty) {
-            _tdsTcsRate = double.tryParse(matchedRate['base_rate']?.toString() ?? '0') ?? 0.0;
-          }
-        } else if (_tdsTcsType == 'tcs' && _selectedTdsTcsId != null) {
-          final matchedRate = _tcsRatesList.firstWhere(
-            (r) => r['id']?.toString() == _selectedTdsTcsId,
-            orElse: () => <String, dynamic>{},
-          );
-          if (matchedRate.isNotEmpty) {
-            _tdsTcsRate = double.tryParse(matchedRate['rate']?.toString() ?? '0') ?? 0.0;
+            _tdsTcsRate = double.tryParse(
+              (isTcs ? matchedRate['rate'] : matchedRate['base_rate'])?.toString() ?? '0',
+            ) ?? 0.0;
           }
         }
 
@@ -1191,6 +1520,8 @@ class _PurchasesBillCreateScreenState
         for (final item in po.items) {
           if (item.isHeader) continue;
           final row = _BillLineItemRow();
+          row.purchaseOrderId = po.id;
+          row.purchaseOrderNumber = po.orderNumber;
           row.itemId = item.productId;
           row.itemName = item.productName;
           row.itemNameCtrl.text = item.productName ?? '';
@@ -1216,6 +1547,7 @@ class _PurchasesBillCreateScreenState
         if (_lineItems.isEmpty) {
           _lineItems.add(_BillLineItemRow());
         }
+        _updateOrderNumbersFromRows();
         _loadOpenPurchaseOrders();
       });
     } catch (e) {
@@ -1257,7 +1589,7 @@ class _PurchasesBillCreateScreenState
 
         final receivesResp = await supabase
             .from('purchase_receives')
-            .select('id, purchase_receive_number, received_date, status, purchase_order_id, bill_no, purchase_receive_items(item_id, quantity_to_receive)')
+            .select('id, purchase_receive_number, received_date, status, purchase_order_id, bill_no, purchase_receive_items(id, item_id, quantity_to_receive)')
             .filter('purchase_order_id', 'in', poIds)
             .eq('is_delete', false)
             .order('created_at', ascending: true);
@@ -1321,6 +1653,178 @@ class _PurchasesBillCreateScreenState
     return unreceived > 0 ? unreceived : 0.0;
   }
 
+  Future<PurchaseOrder?> _getOrFetchPurchaseOrder(String poId) async {
+    final existing = _openPurchaseOrders.where((o) => o.id == poId).firstOrNull;
+    if (existing != null) return existing;
+    try {
+      final repository = ref.read(purchaseOrderRepositoryProvider);
+      return await repository.getPurchaseOrder(poId);
+    } catch (e) {
+      debugPrint('Error fetching PO details: $e');
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchReceivesForPo(String poId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('purchase_receives')
+          .select('id, purchase_receive_number, received_date, status, purchase_order_id, bill_no, purchase_receive_items(id, item_id, quantity_to_receive)')
+          .eq('purchase_order_id', poId)
+          .eq('is_delete', false)
+          .order('created_at', ascending: true);
+      if (response != null) {
+        return (response as List<dynamic>).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching PO receives: $e');
+    }
+    return [];
+  }
+
+  Future<List<Map<String, String>>> _fetchBatchesForReceive(String rxItemId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('purchase_receive_items')
+          .select('id, purchase_receive_item_batches(*)')
+          .eq('id', rxItemId)
+          .maybeSingle();
+
+      if (response != null) {
+        final batches = response['purchase_receive_item_batches'] as List<dynamic>? ?? [];
+        return batches.map((b) {
+          final Map<String, dynamic> bMap = Map<String, dynamic>.from(b as Map);
+          return {
+            'batchId': bMap['batch_id']?.toString() ?? bMap['batch_no']?.toString() ?? '',
+            'binId': bMap['bin_id']?.toString() ?? '',
+            'qtyOut': bMap['quantity']?.toString() ?? '0',
+            'foc': bMap['foc_quantity']?.toString() ?? '0',
+            'mrp': bMap['mrp']?.toString() ?? '0.00',
+            'prate': bMap['purchase_rate']?.toString() ?? '0.00',
+            'expDate': bMap['expiry_date'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(bMap['expiry_date'])) : '',
+            'mfgDate': bMap['manufacture_date'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(bMap['manufacture_date'])) : '',
+            'mfgBatch': bMap['manufacture_batch_no']?.toString() ?? '',
+            'unitPack': bMap['unit_pack']?.toString() ?? '',
+          };
+        }).toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching receive batches: $e');
+    }
+    return [];
+  }
+
+  Future<PurchaseOrder?> _fetchPoByNumber(String poNum, String productId) async {
+    try {
+      final repository = ref.read(purchaseOrderRepositoryProvider);
+      final vendorId = _selectedVendor?.id;
+      if (vendorId != null) {
+        final allOrders = await repository.getPurchaseOrders(
+          vendorId: vendorId,
+        );
+        
+        final parts = poNum.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+        for (final part in parts) {
+          final match = allOrders.where((o) =>
+            o.orderNumber == part ||
+            (o.referenceNumber != null && o.referenceNumber!.trim().toLowerCase() == part.toLowerCase())
+          ).firstOrNull;
+          
+          if (match != null) {
+            final detailed = await repository.getPurchaseOrder(match.id!);
+            if (detailed != null) {
+              final hasProduct = detailed.items.any((i) => !i.isHeader && i.productId == productId);
+              if (hasProduct) {
+                return detailed;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching PO by number: $e');
+    }
+    return null;
+  }
+
+  Future<void> _openEditQuantityDialog(_BillLineItemRow row) async {
+
+    final result = await showDialog<QuantitySplitResult>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return EditQuantityDialog(
+          itemName: row.itemName ?? '',
+          productId: row.itemId ?? '',
+          currentUnreceivedAllocated: row.purchaseReceiveId == null
+              ? row.quantity
+              : 0.0,
+          initialPurchaseReceiveId: row.purchaseReceiveId,
+          initialPurchaseReceiveNumber: row.purchaseReceiveNumber,
+          initialPurchaseReceiveQty: row.quantity,
+          initialPurchaseReceiveItemId: row.purchaseReceiveItemId,
+          description: row.descriptionCtrl.text,
+          poId: row.purchaseOrderId,
+          poNum: (row.purchaseOrderNumber != null && row.purchaseOrderNumber!.isNotEmpty)
+              ? row.purchaseOrderNumber!
+              : _orderNumberCtrl.text,
+          vendorId: _selectedVendor?.id,
+          billId: widget.editBillId,
+        );
+      },
+    );
+
+    if (result != null && mounted) {
+      final newRows = <_BillLineItemRow>[];
+
+      // 1. Unreceived portion
+      if (result.unreceivedQuantity > 0) {
+        final r = row.clone();
+        r.purchaseOrderId = row.purchaseOrderId;
+        r.purchaseOrderNumber = row.purchaseOrderNumber;
+        r.purchaseReceiveId = null;
+        r.purchaseReceiveNumber = null;
+        r.quantityCtrl.text = result.unreceivedQuantity.toInt().toString();
+        newRows.add(r);
+      }
+
+      // 2. Receive portions
+      for (final split in result.receiveSplits) {
+        final r = row.clone();
+        r.purchaseOrderId = row.purchaseOrderId;
+        r.purchaseOrderNumber = row.purchaseOrderNumber;
+        r.purchaseReceiveId = split.receive['id']?.toString();
+        r.purchaseReceiveNumber = split.receive['purchase_receive_number']?.toString();
+        r.purchaseReceiveItemId = split.receiveItemId;
+        r.quantityCtrl.text = split.quantity.toInt().toString();
+
+        final batches = await _fetchBatchesForReceive(
+          split.receiveItemId,
+        );
+        if (batches.isNotEmpty) {
+          r.savedBatchData = batches;
+          r.hasBatchData = true;
+          r.batchCount = batches.length;
+        }
+        newRows.add(r);
+      }
+
+      if (newRows.isNotEmpty) {
+        setState(() {
+          final idx = _lineItems.indexOf(row);
+          if (idx != -1) {
+            _lineItems.removeAt(idx);
+            for (int i = 0; i < newRows.length; i++) {
+              _lineItems.insert(idx + i, newRows[i]);
+            }
+          }
+        });
+      }
+    }
+  }
+
   Widget _buildPendingOrdersBanner() {
     if (_selectedVendor == null || _openPurchaseOrders.isEmpty) {
       return const SizedBox();
@@ -1380,6 +1884,23 @@ class _PurchasesBillCreateScreenState
     );
   }
 
+  bool _isReceiveAlreadyLoaded(String rxId) {
+    return _lineItems.any((row) => row.purchaseReceiveId == rxId);
+  }
+
+  bool _isPoUnreceivedAlreadyLoaded(String poId) {
+    return _lineItems.any((row) => row.purchaseOrderId == poId && row.purchaseReceiveId == null);
+  }
+
+  void _updateOrderNumbersFromRows() {
+    final uniquePoNumbers = _lineItems
+        .map((row) => row.purchaseOrderNumber?.trim())
+        .whereType<String>()
+        .where((no) => no.isNotEmpty)
+        .toSet();
+    _orderNumberCtrl.text = uniquePoNumbers.join(', ');
+  }
+
   void _showPendingOrdersDialog() {
     final List<String> selectedReceiveIds = [];
     final List<String> selectedUnreceivedPoIds = [];
@@ -1406,9 +1927,12 @@ class _PurchasesBillCreateScreenState
               }
             }
 
-            final bool allChecked = (allRxIds.isNotEmpty || allPoIdsForUnreceived.isNotEmpty) &&
-                selectedReceiveIds.length == allRxIds.length &&
-                selectedUnreceivedPoIds.length == allPoIdsForUnreceived.length;
+            final unloadedRxIds = allRxIds.where((id) => !_isReceiveAlreadyLoaded(id)).toList();
+            final unloadedPoIdsForUnreceived = allPoIdsForUnreceived.where((id) => !_isPoUnreceivedAlreadyLoaded(id)).toList();
+
+            final bool allChecked = (unloadedRxIds.isNotEmpty || unloadedPoIdsForUnreceived.isNotEmpty) &&
+                selectedReceiveIds.length == unloadedRxIds.length &&
+                selectedUnreceivedPoIds.length == unloadedPoIdsForUnreceived.length;
 
             return Dialog(
               alignment: Alignment.topCenter,
@@ -1517,34 +2041,23 @@ class _PurchasesBillCreateScreenState
                                             color: Color(0xFFD1D5DB),
                                             width: 1.5,
                                           ),
-                                          onChanged: (val) {
-                                            if (val == true) {
-                                              final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
-                                              bool hasLoaded = false;
-                                              for (final order in _openPurchaseOrders) {
-                                                if (loadedPOs.contains(order.orderNumber)) {
-                                                  ZerpaiToast.error(
-                                                    context,
-                                                    'Purchase Order ${order.orderNumber} is already loaded in the items table.',
-                                                  );
-                                                  hasLoaded = true;
-                                                  break;
-                                                }
-                                              }
-                                              if (hasLoaded) return;
-                                            }
-                                            setDialogState(() {
-                                              if (val == true) {
-                                                selectedReceiveIds.clear();
-                                                selectedReceiveIds.addAll(allRxIds);
-                                                selectedUnreceivedPoIds.clear();
-                                                selectedUnreceivedPoIds.addAll(allPoIdsForUnreceived);
-                                              } else {
-                                                selectedReceiveIds.clear();
-                                                selectedUnreceivedPoIds.clear();
-                                              }
-                                            });
-                                          },
+                                          onChanged: (unloadedRxIds.isEmpty && unloadedPoIdsForUnreceived.isEmpty)
+                                              ? null
+                                              : (val) {
+                                                  if (val == true) {
+                                                    setDialogState(() {
+                                                      selectedReceiveIds.clear();
+                                                      selectedReceiveIds.addAll(unloadedRxIds);
+                                                      selectedUnreceivedPoIds.clear();
+                                                      selectedUnreceivedPoIds.addAll(unloadedPoIdsForUnreceived);
+                                                    });
+                                                  } else {
+                                                    setDialogState(() {
+                                                      selectedReceiveIds.clear();
+                                                      selectedUnreceivedPoIds.clear();
+                                                    });
+                                                  }
+                                                },
                                         ),
                                       ),
                                     ),
@@ -1636,21 +2149,25 @@ class _PurchasesBillCreateScreenState
                                     .map((rx) => rx['id'].toString())
                                     .toList();
                                 final bool hasUnreceived = unreceivedQty > 0;
-                                final int totalSelectableChildren = selectableRxIds.length + (hasUnreceived ? 1 : 0);
+                                
+                                // Only count options that are NOT already loaded in the items table
+                                final unloadedSelectableRxIds = selectableRxIds.where((id) => !_isReceiveAlreadyLoaded(id)).toList();
+                                final bool isUnreceivedUnloaded = hasUnreceived && order.id != null && !_isPoUnreceivedAlreadyLoaded(order.id!);
+                                final int totalUnloadedChildren = unloadedSelectableRxIds.length + (isUnreceivedUnloaded ? 1 : 0);
 
                                 int selectedChildrenCount = 0;
-                                for (final id in selectableRxIds) {
+                                for (final id in unloadedSelectableRxIds) {
                                   if (selectedReceiveIds.contains(id)) {
                                     selectedChildrenCount++;
                                   }
                                 }
-                                if (hasUnreceived && selectedUnreceivedPoIds.contains(order.id)) {
+                                if (isUnreceivedUnloaded && selectedUnreceivedPoIds.contains(order.id)) {
                                   selectedChildrenCount++;
                                 }
 
-                                final bool? poCheckedState = totalSelectableChildren == 0
+                                final bool? poCheckedState = totalUnloadedChildren == 0
                                     ? false
-                                    : (selectedChildrenCount == totalSelectableChildren
+                                    : (selectedChildrenCount == totalUnloadedChildren
                                         ? true
                                         : (selectedChildrenCount == 0 ? false : null));
 
@@ -1682,38 +2199,37 @@ class _PurchasesBillCreateScreenState
                                               color: Color(0xFFD1D5DB),
                                               width: 1.5,
                                             ),
-                                            onChanged: totalSelectableChildren == 0 ? null : (val) {
+                                            onChanged: totalUnloadedChildren == 0 ? null : (val) {
                                               if (val == true) {
-                                                final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
-                                                if (loadedPOs.contains(order.orderNumber)) {
+                                                if (totalUnloadedChildren == 0) {
                                                   ZerpaiToast.error(
                                                     context,
                                                     'Purchase Order ${order.orderNumber} is already loaded in the items table.',
                                                   );
                                                   return;
                                                 }
-                                              }
-                                              setDialogState(() {
-                                                if (val == true) {
-                                                  for (final id in selectableRxIds) {
+                                                setDialogState(() {
+                                                  for (final id in unloadedSelectableRxIds) {
                                                     if (!selectedReceiveIds.contains(id)) {
                                                       selectedReceiveIds.add(id);
                                                     }
                                                   }
-                                                  if (hasUnreceived && order.id != null) {
+                                                  if (isUnreceivedUnloaded && order.id != null) {
                                                     if (!selectedUnreceivedPoIds.contains(order.id)) {
                                                       selectedUnreceivedPoIds.add(order.id!);
                                                     }
                                                   }
-                                                } else {
+                                                });
+                                              } else {
+                                                setDialogState(() {
                                                   for (final id in selectableRxIds) {
                                                     selectedReceiveIds.remove(id);
                                                   }
                                                   if (order.id != null) {
                                                     selectedUnreceivedPoIds.remove(order.id);
                                                   }
-                                                }
-                                              });
+                                                });
+                                              }
                                             },
                                           ),
                                         ),
@@ -1774,11 +2290,10 @@ class _PurchasesBillCreateScreenState
                                                       ),
                                                       onChanged: (val) {
                                                         if (val == true) {
-                                                          final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
-                                                          if (loadedPOs.contains(order.orderNumber)) {
+                                                          if (_isReceiveAlreadyLoaded(rxId)) {
                                                             ZerpaiToast.error(
                                                               context,
-                                                              'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                              'Purchase Receive $rxNumber is already loaded in the items table.',
                                                             );
                                                             return;
                                                           }
@@ -1797,14 +2312,12 @@ class _PurchasesBillCreateScreenState
                                                   Expanded(
                                                     child: GestureDetector(
                                                       onTap: () {
-                                                        final rxId = rx['id']?.toString() ?? '';
                                                         final isRxChecked = selectedReceiveIds.contains(rxId);
                                                         if (!isRxChecked) {
-                                                          final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
-                                                          if (loadedPOs.contains(order.orderNumber)) {
+                                                          if (_isReceiveAlreadyLoaded(rxId)) {
                                                             ZerpaiToast.error(
                                                               context,
-                                                              'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                              'Purchase Receive $rxNumber is already loaded in the items table.',
                                                             );
                                                             return;
                                                           }
@@ -1857,11 +2370,10 @@ class _PurchasesBillCreateScreenState
                                                       ),
                                                       onChanged: (val) {
                                                         if (val == true) {
-                                                          final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
-                                                          if (loadedPOs.contains(order.orderNumber)) {
+                                                          if (_isPoUnreceivedAlreadyLoaded(order.id!)) {
                                                             ZerpaiToast.error(
                                                               context,
-                                                              'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                              'Unreceived quantity for Purchase Order ${order.orderNumber} is already loaded in the items table.',
                                                             );
                                                             return;
                                                           }
@@ -1884,11 +2396,10 @@ class _PurchasesBillCreateScreenState
                                                       onTap: () {
                                                         final isChecked = selectedUnreceivedPoIds.contains(order.id);
                                                         if (!isChecked) {
-                                                          final loadedPOs = _orderNumberCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
-                                                          if (loadedPOs.contains(order.orderNumber)) {
+                                                          if (_isPoUnreceivedAlreadyLoaded(order.id!)) {
                                                             ZerpaiToast.error(
                                                               context,
-                                                              'Purchase Order ${order.orderNumber} is already loaded in the items table.',
+                                                              'Unreceived quantity for Purchase Order ${order.orderNumber} is already loaded in the items table.',
                                                             );
                                                             return;
                                                           }
@@ -1916,13 +2427,13 @@ class _PurchasesBillCreateScreenState
                                                       ),
                                                     ),
                                                   ),
-                                                 ],
-                                               ),
-                                             ),
-                                           ],
-                                         ],
-                                       ),
-                                     ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
                                     // Column 2: Warehouse
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
@@ -2059,6 +2570,9 @@ class _PurchasesBillCreateScreenState
       final Set<String> refNumbers = {};
       final Set<String> notes = {};
       String? firstWarehouse;
+      String? firstBillNo;
+      DateTime? firstBillDate;
+      double? firstInvoiceTotal;
       String? firstPaymentTerms;
       String? firstDiscountLevel;
       double? firstDiscount;
@@ -2092,6 +2606,18 @@ class _PurchasesBillCreateScreenState
           po = await poRepository.getPurchaseOrder(rx.purchaseOrderId!);
         }
 
+        firstBillNo ??= rx.billNo;
+        firstBillDate ??= rx.billDate;
+        if (rx.invoiceTotal > 0) {
+          firstInvoiceTotal ??= rx.invoiceTotal;
+        }
+
+        if (po != null) {
+          firstBillNo ??= po.referenceNumber;
+          firstBillDate ??= po.orderDate;
+          firstInvoiceTotal ??= po.total;
+        }
+
         if (rx.purchaseOrderNumber != null) {
           poNumbers.add(rx.purchaseOrderNumber!);
         } else if (po != null) {
@@ -2123,14 +2649,29 @@ class _PurchasesBillCreateScreenState
         }
 
         if (po != null) {
+          final matchedRxItemIds = <String?>{};
           for (final poItem in po.items) {
             if (poItem.isHeader) continue;
 
-            final rxItems = rx.items.where((i) => i.itemId == poItem.productId).toList();
+            var rxItems = rx.items.where((i) =>
+              i.itemId == poItem.productId &&
+              !matchedRxItemIds.contains(i.id) &&
+              (i.ordered - poItem.quantity).abs() < 0.001 &&
+              (i.description ?? '').trim() == (poItem.description ?? '').trim()
+            ).toList();
+            if (rxItems.isEmpty) {
+              rxItems = rx.items.where((i) => i.itemId == poItem.productId && !matchedRxItemIds.contains(i.id)).toList();
+            }
             if (rxItems.isEmpty) continue;
             final rxItem = rxItems.first;
+            matchedRxItemIds.add(rxItem.id);
 
             final row = _BillLineItemRow();
+            row.purchaseReceiveId = rx.id;
+            row.purchaseReceiveNumber = rx.purchaseReceiveNumber;
+            row.purchaseReceiveItemId = rxItem.id;
+            row.purchaseOrderId = po.id;
+            row.purchaseOrderNumber = po.orderNumber;
             row.itemId = poItem.productId;
             row.itemName = poItem.productName;
             row.itemNameCtrl.text = poItem.productName ?? '';
@@ -2189,6 +2730,11 @@ class _PurchasesBillCreateScreenState
         } else {
           for (final rxItem in rx.items) {
             final row = _BillLineItemRow();
+            row.purchaseReceiveId = rx.id;
+            row.purchaseReceiveNumber = rx.purchaseReceiveNumber;
+            row.purchaseReceiveItemId = rxItem.id;
+            row.purchaseOrderId = rx.purchaseOrderId;
+            row.purchaseOrderNumber = rx.purchaseOrderNumber;
             row.itemId = rxItem.itemId;
             row.itemName = rxItem.itemName;
             row.itemNameCtrl.text = rxItem.itemName;
@@ -2243,6 +2789,10 @@ class _PurchasesBillCreateScreenState
         final po = await poRepository.getPurchaseOrder(poId);
         if (po == null) continue;
 
+        firstBillNo ??= po.referenceNumber;
+        firstBillDate ??= po.orderDate;
+        firstInvoiceTotal ??= po.total;
+
         poNumbers.add(po.orderNumber);
         if (po.referenceNumber != null && po.referenceNumber!.isNotEmpty) {
           refNumbers.add(po.referenceNumber!);
@@ -2289,6 +2839,8 @@ class _PurchasesBillCreateScreenState
 
           if (remainingQty > 0) {
             final row = _BillLineItemRow();
+            row.purchaseOrderId = po.id;
+            row.purchaseOrderNumber = po.orderNumber;
             row.itemId = poItem.productId;
             row.itemName = poItem.productName;
             row.itemNameCtrl.text = poItem.productName ?? '';
@@ -2320,17 +2872,16 @@ class _PurchasesBillCreateScreenState
 
       if (mounted) {
         setState(() {
-          final existingOrderNo = _orderNumberCtrl.text.trim();
-          if (existingOrderNo.isEmpty) {
-            _orderNumberCtrl.text = poNumbers.join(', ');
-          } else {
-            final Set<String> combined = existingOrderNo
-                .split(',')
-                .map((s) => s.trim())
-                .where((s) => s.isNotEmpty)
-                .toSet();
-            combined.addAll(poNumbers);
-            _orderNumberCtrl.text = combined.join(', ');
+          _updateOrderNumbersFromRows();
+
+          if (_billNumberCtrl.text.isEmpty && firstBillNo != null) {
+            _billNumberCtrl.text = firstBillNo;
+          }
+          if (_billDateCtrl.text.isEmpty && firstBillDate != null) {
+            _billDateCtrl.text = DateFormat('dd-MM-yyyy').format(firstBillDate);
+          }
+          if (_invoiceTotalCtrl.text.isEmpty && firstInvoiceTotal != null) {
+            _invoiceTotalCtrl.text = firstInvoiceTotal.toStringAsFixed(2);
           }
 
           if (notes.isNotEmpty && _notesCtrl.text.trim().isEmpty) {
@@ -2354,11 +2905,13 @@ class _PurchasesBillCreateScreenState
             }
           }
 
+          _updateDueDateFromPaymentTerms();
+
           if (firstDiscountLevel != null) {
             _discountType = firstDiscountLevel == 'transaction' ? 'At Transaction Level' : 'At Line Item Level';
           }
           if (firstDiscount != null) {
-            _discountPercentCtrl.text = firstDiscount.toString();
+            _discountPercentCtrl.text = firstDiscount == 0 ? '' : firstDiscount.toString();
             _discountPercent = firstDiscount;
           }
           if (firstDiscountType != null) {
@@ -2369,30 +2922,30 @@ class _PurchasesBillCreateScreenState
           }
           if (firstAdjustment != null) {
             _adjustment = firstAdjustment;
-            _adjustmentAmountCtrl.text = firstAdjustment.toStringAsFixed(2);
+            _adjustmentAmountCtrl.text = firstAdjustment == 0 ? '' : firstAdjustment.toStringAsFixed(2);
           }
 
           if (firstTdsTcsType != null) {
-            _tdsTcsType = (firstTdsTcsType == 'none') ? 'tds' : firstTdsTcsType;
+            _tdsTcsType = firstTdsTcsType;
           }
           if (firstTdsTcsId != null) {
             _selectedTdsTcsId = firstTdsTcsId;
             _tdsTcsRate = 0.0;
-            if (_tdsTcsType == 'tds' && _selectedTdsTcsId != null) {
-              final matchedRate = _tdsRatesList.firstWhere(
-                (r) => r['id']?.toString() == _selectedTdsTcsId,
-                orElse: () => <String, dynamic>{},
-              );
+            if (_tdsTcsType != 'none' && _selectedTdsTcsId != null) {
+              final isTcs = _tdsTcsType == 'tcs';
+              final matchedRate = isTcs
+                  ? _tcsRatesList.firstWhere(
+                      (r) => r['id']?.toString() == _selectedTdsTcsId,
+                      orElse: () => <String, dynamic>{},
+                    )
+                  : _tdsRatesList.firstWhere(
+                      (r) => r['id']?.toString() == _selectedTdsTcsId,
+                      orElse: () => <String, dynamic>{},
+                    );
               if (matchedRate.isNotEmpty) {
-                _tdsTcsRate = double.tryParse(matchedRate['base_rate']?.toString() ?? '0') ?? 0.0;
-              }
-            } else if (_tdsTcsType == 'tcs' && _selectedTdsTcsId != null) {
-              final matchedRate = _tcsRatesList.firstWhere(
-                (r) => r['id']?.toString() == _selectedTdsTcsId,
-                orElse: () => <String, dynamic>{},
-              );
-              if (matchedRate.isNotEmpty) {
-                _tdsTcsRate = double.tryParse(matchedRate['rate']?.toString() ?? '0') ?? 0.0;
+                _tdsTcsRate = double.tryParse(
+                  (isTcs ? matchedRate['rate'] : matchedRate['base_rate'])?.toString() ?? '0',
+                ) ?? 0.0;
               }
             }
           }
@@ -2578,12 +3131,14 @@ class _PurchasesBillCreateScreenState
       final sections = await lookupsService.getTdsSections();
       final tcsRates = await lookupsService.getTcsRates();
       final tcsNatures = await lookupsService.getTcsNatures();
+      final groups = await lookupsService.getTdsGroups();
       if (mounted) {
         setState(() {
           _tdsRatesList = rates;
           _tdsSectionsList = sections;
           _tcsRatesList = tcsRates;
           _tcsNaturesList = tcsNatures;
+          _tdsGroupsList = groups;
         });
       }
     } catch (e) {
@@ -3031,6 +3586,90 @@ class _PurchasesBillCreateScreenState
     return input;
   }
 
+  void _selectVendor(Vendor? v) {
+    if (!mounted) return;
+    setState(() {
+      _selectedVendor = v;
+      _billNumberCtrl.clear();
+      _orderNumberCtrl.clear();
+      _billDateCtrl.clear();
+      _dueDateCtrl.clear();
+      _invoiceTotalCtrl.clear();
+      _notesCtrl.clear();
+      _subjectCtrl.clear();
+      _selectedTdsTcsId = null;
+      _tdsTcsRate = 0.0;
+      _tdsTcsType = 'none';
+      if (v != null && v.tdsRateId != null && v.tdsRateId!.isNotEmpty) {
+        _tdsTcsType = 'tds';
+        _selectedTdsTcsId = v.tdsRateId;
+        final matchedRate = _tdsRatesList.firstWhere(
+          (r) => r['id']?.toString() == v.tdsRateId,
+          orElse: () => <String, dynamic>{},
+        );
+        if (matchedRate.isNotEmpty) {
+          _tdsTcsRate = double.tryParse(matchedRate['base_rate']?.toString() ?? '0') ?? 0.0;
+        }
+      }
+      _adjustmentAmountCtrl.text = '';
+      _adjustment = 0.0;
+      _discountPercentCtrl.text = '';
+      _discountPercent = 0.0;
+      _discountType = 'At Transaction Level';
+      _transactionDiscountType = '%';
+      for (var row in _lineItems) {
+        row.dispose();
+      }
+      _lineItems = [_BillLineItemRow(defaultWarehouse: _warehouse)];
+      _attachedFiles.clear();
+
+      if (v != null) {
+        if (v.paymentTerms != null && v.paymentTerms!.isNotEmpty) {
+          _paymentTerms = v.paymentTerms;
+        }
+        final String? vendorSource = v.sourceOfSupply;
+        final String? billingState = v.billingAddress?['state']?.toString();
+        final String resolvedState =
+            (vendorSource != null && vendorSource.isNotEmpty)
+            ? _resolveStateName(vendorSource)
+            : ((billingState != null && billingState.isNotEmpty)
+                  ? _resolveStateName(billingState)
+                  : '[KL] - Kerala');
+
+        _sourceOfSupply = resolvedState;
+        _destinationOfSupply = resolvedState;
+
+        _hasAddress = v.billingAddress != null &&
+            v.billingAddress!.values.any(
+              (val) => val != null && val.toString().trim().isNotEmpty,
+            );
+        _customBillingAddress = null;
+      } else {
+        _paymentTerms = null;
+        _sourceOfSupply = null;
+        _destinationOfSupply = null;
+        _hasAddress = false;
+        _customBillingAddress = null;
+      }
+      _updateAllRowTaxes();
+      _loadOpenPurchaseOrders();
+    });
+  }
+
+  void _updateDueDateFromPaymentTerms() {
+    if (_paymentTerms == null) return;
+    final term = _paymentTermsList.firstWhere(
+      (t) => t['id'] == _paymentTerms,
+      orElse: () => <String, dynamic>{},
+    );
+    if (term.isNotEmpty) {
+      final days = int.tryParse(term['number_of_days']?.toString() ?? '0') ?? 0;
+      final billDate = _parseUiDate(_billDateCtrl.text) ?? DateTime.now();
+      final newDueDate = billDate.add(Duration(days: days));
+      _dueDateCtrl.text = DateFormat('dd-MM-yyyy').format(newDueDate);
+    }
+  }
+
   void _showValidationError(String message) {
     ZerpaiToast.error(context, message);
   }
@@ -3184,6 +3823,7 @@ class _PurchasesBillCreateScreenState
             : (widget.receiveId != null ? 'purchase_receive' : _existingBillSourceType),
         sourceId: widget.poId ?? widget.receiveId ?? _existingBillSourceId,
         status: status,
+        discountAccountId: _discountAccountId,
       );
 
       final PurchasesBill savedBill;
@@ -3464,136 +4104,129 @@ class _PurchasesBillCreateScreenState
       useHorizontalPadding: false,
       useTopPadding: false,
       footer: _buildFooter(),
-      child: GestureDetector(
-        onTap: _removeItemOverlay,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────────────────────────
-            _buildHeader(),
-            const SizedBox(height: 8),
-            // ── FORM SECTION (Vendor + Info) ────────────────────────────
-            _buildFormSection(vendorState),
-            // ── Document Fields + Item Table + Totals ────────────────────
-            Padding(
-              padding: const EdgeInsets.only(left: 32, right: 32, top: 24, bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMainFields(),
-                  const SizedBox(height: 8),
-                  _buildReverseChargeRow(),
-                  const SizedBox(height: 16),
-                  _buildSubjectRow(),
-                  const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(height: 1, color: Color(0xFFE5E7EB)),
-                  ),
-                  // ── Warehouse / Discount / Pricing Ribbon ──────────────
-                  Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(maxWidth: 1300),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        RichText(
-                          text: const TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'Warehouse',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: _labelColor,
-                                  fontWeight: FontWeight.w500,
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            clipBehavior: Clip.none,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+      child: Skeletonizer(
+        enabled: _isLoadingData,
+        child: GestureDetector(
+          onTap: _removeItemOverlay,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header ──────────────────────────────────────────────────
+              _buildHeader(),
+              const SizedBox(height: 8),
+              // ── FORM SECTION (Vendor + Info) ────────────────────────────
+              _buildFormSection(vendorState),
+              // ── Document Fields + Item Table + Totals ────────────────────
+              Padding(
+                padding: const EdgeInsets.only(left: 32, right: 32, top: 24, bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMainFields(),
+                    const SizedBox(height: 8),
+                    _buildReverseChargeRow(),
+                    const SizedBox(height: 16),
+                    _buildSubjectRow(),
+                    const SizedBox(height: 16),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    ),
+                    // ── Warehouse / Discount / Pricing Ribbon ──────────────
+                    Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxWidth: 1300),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          RichText(
+                            text: const TextSpan(
                               children: [
-                                // 1. Warehouse
-                                SizedBox(
-                                  width: 240,
-                                  child: _buildWarehouseDropdown(),
+                                TextSpan(
+                                  text: 'Warehouse',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: _labelColor,
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: 'Inter',
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
-                                Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
-                                const SizedBox(width: 8),
-                                // 2. Discount Type
-                                SizedBox(
-                                  width: 220,
-                                  child: _buildDiscountTypeDropdown(),
-                                ),
-                                // 3. Discount Account
-                                if (_discountType == 'At Line Item Level') ...[
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              clipBehavior: Clip.none,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // 1. Warehouse
+                                  SizedBox(
+                                    width: 240,
+                                    child: _buildWarehouseDropdown(),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
+                                  const SizedBox(width: 8),
+                                  // 2. Discount Type
+                                  SizedBox(
+                                    width: 220,
+                                    child: _buildDiscountTypeDropdown(),
+                                  ),
+                                  // 4. Price List
                                   const SizedBox(width: 8),
                                   Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
                                   const SizedBox(width: 8),
                                   SizedBox(
                                     width: 200,
-                                    child: _buildDiscountAccountDropdown(),
+                                    child: _buildPriceListDropdown(activePriceLists),
                                   ),
                                 ],
-                                // 4. Price List
-                                const SizedBox(width: 8),
-                                Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 200,
-                                  child: _buildPriceListDropdown(activePriceLists),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(height: 1, color: Color(0xFFE5E7EB)),
-                  ),
-                  const SizedBox(height: 16),
-                  // ── Item Table ─────────────────────────────────────────
-                  _buildItemTable(itemsState, accountsRoots),
-                  const SizedBox(height: 16),
-                  // ── Totals + Notes ─────────────────────────────────────
-                  _buildTotalsSection(),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
-            // ── Notes/Terms/Attachments Banner ──────────────────────────
-            _buildNotesTermsAndAttachments(),
-            // ── Additional Fields Info ──────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 32),
-                  Text(
-                    'Additional Fields: Start adding custom fields for your bills by going to Settings ⇒ Purchases ⇒ Bills.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _hintColor,
-                      fontStyle: FontStyle.italic,
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(height: 1, color: Color(0xFFE5E7EB)),
                     ),
-                  ),
-                  const SizedBox(height: 48),
-                ],
+                    const SizedBox(height: 16),
+                    // ── Item Table ─────────────────────────────────────────
+                    _buildItemTable(itemsState, accountsRoots),
+                    const SizedBox(height: 16),
+                    // ── Totals + Notes ─────────────────────────────────────
+                    _buildTotalsSection(),
+                    const SizedBox(height: 8),
+                  ],
+                ),
               ),
-            ),
-          ],
+              // ── Notes/Terms/Attachments Banner ──────────────────────────
+              _buildNotesTermsAndAttachments(),
+              // ── Additional Fields Info ──────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 32),
+                    Text(
+                      'Additional Fields: Start adding custom fields for your bills by going to Settings ⇒ Purchases ⇒ Bills.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _hintColor,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3858,45 +4491,8 @@ class _PurchasesBillCreateScreenState
         hint: 'Select a Vendor',
         showSearch: true,
         allowClear: hasVendor,
-        menuWidth: 480,
-        onChanged: (v) {
-          setState(() {
-            _selectedVendor = v;
-            if (v != null) {
-              if (v.paymentTerms != null && v.paymentTerms!.isNotEmpty) {
-                _paymentTerms = v.paymentTerms;
-              }
-              // Fetch billing address and source of supply from the vendor
-              final String? vendorSource = v.sourceOfSupply;
-              final String? billingState = v.billingAddress?['state']
-                  ?.toString();
-              final String resolvedState =
-                  (vendorSource != null && vendorSource.isNotEmpty)
-                  ? vendorSource
-                  : ((billingState != null && billingState.isNotEmpty)
-                        ? billingState
-                        : '[KL] - Kerala');
-
-              _sourceOfSupply = resolvedState;
-              _destinationOfSupply = resolvedState;
-
-              _hasAddress =
-                  v.billingAddress != null &&
-                  v.billingAddress!.values.any(
-                    (val) => val != null && val.toString().trim().isNotEmpty,
-                  );
-              _customBillingAddress = null;
-            } else {
-              _paymentTerms = null;
-              _sourceOfSupply = null;
-              _destinationOfSupply = null;
-              _hasAddress = false;
-              _customBillingAddress = null;
-            }
-            _updateAllRowTaxes();
-            _loadOpenPurchaseOrders();
-          });
-        },
+        menuWidth: 550,
+        onChanged: (v) => _selectVendor(v),
         showSettings: true,
         settingsLabel: 'New Vendor',
         settingsIcon: LucideIcons.plus,
@@ -3937,38 +4533,42 @@ class _PurchasesBillCreateScreenState
       padding: const EdgeInsets.only(top: 8, bottom: 12),
       child: Row(
         children: [
-          CompositedTransformTarget(
-            link: _gstTaxLink,
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textMuted,
-                  fontFamily: 'Inter',
-                ),
-                children: [
-                  const TextSpan(text: 'GST Treatment: '),
-                  TextSpan(
-                    text:
-                        _selectedVendor!.gstTreatment ??
-                        'Unregistered Business',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary,
-                    ),
-                  ),
-                ],
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 13,
+                color: _textMuted,
+                fontFamily: 'Inter',
               ),
+              children: [
+                const TextSpan(text: 'GST Treatment: '),
+                TextSpan(
+                  text:
+                      _selectedVendor!.gstTreatment ??
+                      'Unregistered Business',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: _textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () =>
-                _toggleGstTaxOverlay(_selectedVendor!.gstTreatment ?? ''),
-            child: const Icon(
-              Icons.edit_outlined,
-              size: 14,
-              color: _primaryBlue,
+          const SizedBox(width: 6),
+          CompositedTransformTarget(
+            link: _gstTaxLink,
+            child: InkWell(
+              onTap: () =>
+                  _toggleGstTaxOverlay(_selectedVendor!.gstTreatment ?? ''),
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(
+                  LucideIcons.pencil,
+                  size: 11,
+                  color: Color(0xFF2563EB),
+                ),
+              ),
             ),
           ),
         ],
@@ -3985,35 +4585,39 @@ class _PurchasesBillCreateScreenState
       padding: const EdgeInsets.only(bottom: 24),
       child: Row(
         children: [
-          CompositedTransformTarget(
-            link: _gstinLink,
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textMuted,
-                  fontFamily: 'Inter',
-                ),
-                children: [
-                  const TextSpan(text: 'GSTIN: '),
-                  TextSpan(
-                    text: gstin,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary,
-                    ),
-                  ),
-                ],
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 13,
+                color: _textMuted,
+                fontFamily: 'Inter',
               ),
+              children: [
+                const TextSpan(text: 'GSTIN: '),
+                TextSpan(
+                  text: gstin,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: _textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => _toggleGstinOverlay(gstin),
-            child: const Icon(
-              Icons.edit_outlined,
-              size: 14,
-              color: _primaryBlue,
+          const SizedBox(width: 6),
+          CompositedTransformTarget(
+            link: _gstinLink,
+            child: InkWell(
+              onTap: () => _toggleGstinOverlay(gstin),
+              borderRadius: BorderRadius.circular(4),
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(
+                  LucideIcons.pencil,
+                  size: 11,
+                  color: Color(0xFF2563EB),
+                ),
+              ),
             ),
           ),
         ],
@@ -4169,15 +4773,17 @@ class _PurchasesBillCreateScreenState
           CompositedTransformFollower(
             link: _gstTaxLink,
             showWhenUnlinked: false,
-            offset: const Offset(0, 24),
+            offset: const Offset(-30, 20),
             child: Material(
               color: Colors.transparent,
               child: _ConfigureTaxPreferencesDialog(
                 initialTreatment: currentTreatment,
-                onUpdate: (val, isPermanent) async {
+                initialGstin: _selectedVendor?.gstin ?? '',
+                onUpdate: (val, gstin, isPermanent) async {
                   if (_selectedVendor != null) {
                     final updatedVendor = _selectedVendor!.copyWith(
                       gstTreatment: val,
+                      gstin: gstin,
                     );
                     if (isPermanent) {
                       await ref
@@ -4228,7 +4834,7 @@ class _PurchasesBillCreateScreenState
           CompositedTransformFollower(
             link: _gstinLink,
             showWhenUnlinked: false,
-            offset: const Offset(0, 24),
+            offset: const Offset(-30, 20),
             child: Material(
               color: Colors.transparent,
               child: _GstinPopover(
@@ -5147,6 +5753,7 @@ class _PurchasesBillCreateScreenState
         warehouseName: _warehouse ?? '',
         initialDamageEnabled: false,
         onTopError: _showValidationError,
+        readOnly: row.purchaseReceiveId != null,
         onSave: (newBatches) {
           setState(() {
             row.savedBatchData = newBatches.map((b) {
@@ -5197,36 +5804,7 @@ class _PurchasesBillCreateScreenState
       context: context,
       builder: (ctx) => AdvancedVendorSearchDialog(
         vendors: vendors,
-        onSelect: (v) {
-          setState(() {
-            _selectedVendor = v;
-
-            // Fetch billing address and source of supply from the vendor
-            final String? vendorSource = v.sourceOfSupply;
-            final String? billingState = v.billingAddress?['state']?.toString();
-            final String resolvedState =
-                (vendorSource != null && vendorSource.isNotEmpty)
-                ? vendorSource
-                : ((billingState != null && billingState.isNotEmpty)
-                      ? billingState
-                      : '[KL] - Kerala');
-
-            _sourceOfSupply = resolvedState;
-            _destinationOfSupply = resolvedState;
-
-            if (v.paymentTerms != null && v.paymentTerms!.isNotEmpty) {
-              _paymentTerms = v.paymentTerms;
-            }
-            _hasAddress =
-                v.billingAddress != null &&
-                v.billingAddress!.values.any(
-                  (val) => val != null && val.toString().trim().isNotEmpty,
-                );
-            _customBillingAddress = null;
-            _updateAllRowTaxes();
-            _loadOpenPurchaseOrders();
-          });
-        },
+        onSelect: (v) => _selectVendor(v),
       ),
     );
   }
@@ -5412,42 +5990,7 @@ class _PurchasesBillCreateScreenState
                                         ),
                                         child: InkWell(
                                           onTap: () {
-                                            setState(() {
-                                              _selectedVendor = v;
-                                              if (v.paymentTerms != null) {
-                                                _paymentTerms = v.paymentTerms;
-                                              }
-                                              // Default supply states logic
-                                              final billingState =
-                                                  v.billingAddress?['state'];
-                                              if (billingState == null ||
-                                                  billingState
-                                                      .toString()
-                                                      .isEmpty) {
-                                                _sourceOfSupply =
-                                                    '[KL] - Kerala';
-                                                _destinationOfSupply =
-                                                    '[KL] - Kerala';
-                                              } else {
-                                                _sourceOfSupply = billingState;
-                                                _destinationOfSupply =
-                                                    billingState;
-                                              }
-
-                                              _hasAddress =
-                                                  v.billingAddress != null &&
-                                                  v.billingAddress!.values.any(
-                                                    (val) =>
-                                                        val != null &&
-                                                        val
-                                                            .toString()
-                                                            .trim()
-                                                            .isNotEmpty,
-                                                  );
-                                              _customBillingAddress = null;
-                                              _updateAllRowTaxes();
-                                              _loadOpenPurchaseOrders();
-                                            });
+                                            _selectVendor(v);
                                             _removeVendorOverlay();
                                           },
                                           child: Container(
@@ -5707,8 +6250,12 @@ class _PurchasesBillCreateScreenState
                 child: _zDateField(
                   controller: _billDateCtrl,
                   targetKey: GlobalKey(),
-                  value: DateTime.tryParse(_billDateCtrl.text),
-                  onSelected: (date) {},
+                  value: _parseUiDate(_billDateCtrl.text),
+                  onSelected: (date) {
+                    setState(() {
+                      _updateDueDateFromPaymentTerms();
+                    });
+                  },
                 ),
               ),
               const Spacer(),
@@ -5762,7 +6309,7 @@ class _PurchasesBillCreateScreenState
                 child: _zDateField(
                   controller: _dueDateCtrl,
                   targetKey: GlobalKey(),
-                  value: DateTime.tryParse(_dueDateCtrl.text),
+                  value: _parseUiDate(_dueDateCtrl.text),
                   onSelected: (date) {},
                 ),
               ),
@@ -5823,7 +6370,12 @@ class _PurchasesBillCreateScreenState
             isHovered,
           );
         },
-        onChanged: (val) => setState(() => _paymentTerms = val),
+        onChanged: (val) {
+          setState(() {
+            _paymentTerms = val;
+            _updateDueDateFromPaymentTerms();
+          });
+        },
       ),
     );
   }
@@ -7054,7 +7606,7 @@ class _PurchasesBillCreateScreenState
                 ref.read(itemWarehouseStocksProvider(r.itemId!).future).then((stocks) {
                   WarehouseStockRow? whRow;
                   for (final s in stocks) {
-                    if (s.name == val) {
+                    if (s.name.toLowerCase() == val.toLowerCase()) {
                       whRow = s;
                       break;
                     }
@@ -7063,10 +7615,13 @@ class _PurchasesBillCreateScreenState
                     final nonNullWh = whRow;
                     setState(() {
                       if (r.warehouseName == null) {
+                        final numbers = _stockType == 'Accounting'
+                            ? nonNullWh.accounting
+                            : nonNullWh.physical;
                         final isSOH = _stockView == 'stockOnHand';
                         r.stockAvailable = isSOH
-                            ? nonNullWh.physical.onHand
-                            : nonNullWh.physical.available;
+                            ? numbers.onHand
+                            : numbers.available;
                       }
                     });
                   }
@@ -7113,10 +7668,108 @@ class _PurchasesBillCreateScreenState
     );
   }
 
+  String? _getDefaultDiscountAccountId() {
+    try {
+      final accountsRoots = ref.read(chartOfAccountsProvider).roots;
+      final expenseAccounts = _mapExpenseNodes(accountsRoots);
+      final match = expenseAccounts.firstWhere(
+        (a) => a.name.toLowerCase().contains('purchase discount') || a.name.toLowerCase().contains('purchase discounts'),
+      );
+      return match.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _buildRowDiscountAccountDropdown(_BillLineItemRow row) {
+    final accountsRoots = ref.watch(chartOfAccountsProvider).roots;
+    final expenseAccounts = _mapExpenseNodes(accountsRoots);
+
+    if (row.discountAccountId == null) {
+      final defaultId = _getDefaultDiscountAccountId();
+      if (defaultId != null) {
+        row.discountAccountId = defaultId;
+      }
+    }
+
+    shared.AccountNode? currentVal;
+    if (row.discountAccountId != null) {
+      for (final a in expenseAccounts) {
+        if (a.id == row.discountAccountId) {
+          currentVal = a;
+          break;
+        }
+      }
+    }
+
+    final hasAcc = currentVal != null && currentVal.id.isNotEmpty;
+    return FormDropdown<shared.AccountNode>(
+      height: 32,
+      value: currentVal,
+      textStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.normal,
+        color: hasAcc ? _textPrimary : _hintColor,
+      ),
+      items: expenseAccounts,
+      hint: 'Discount Account',
+      displayStringForValue: (a) => a.name,
+      onChanged: (v) {
+        if (v != null && !v.id.startsWith('__account_type__')) {
+          setState(() {
+            row.discountAccountId = v.id;
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(4),
+      hideBorderDefault: true,
+      fillColor: Colors.transparent,
+      border: Border.all(color: Colors.transparent),
+      prefixWidget: const Icon(
+        LucideIcons.shoppingBag,
+        size: 16,
+        color: Color(0xFF6B7280),
+      ),
+      isItemEnabled: (account) => !account.id.startsWith('__account_type__'),
+      itemBuilder: (account, isSelected, isHovered) {
+        final isHeader = account.id.startsWith('__account_type__');
+        if (isHeader) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 6,
+            ),
+            child: Text(
+              account.name,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6B7280),
+                fontSize: 12,
+              ),
+            ),
+          );
+        }
+        return _buildStandardLookupRow(
+          account.name,
+          isSelected,
+          isHovered,
+          indentation: 12.0,
+        );
+      },
+    );
+  }
+
   /// Builds the discount account dropdown shown when "At Line Item Level" is selected.
   Widget _buildDiscountAccountDropdown() {
     final accountsRoots = ref.watch(chartOfAccountsProvider).roots;
     final expenseAccounts = _mapExpenseNodes(accountsRoots);
+
+    if (_discountAccountId == null) {
+      final defaultId = _getDefaultDiscountAccountId();
+      if (defaultId != null) {
+        _discountAccountId = defaultId;
+      }
+    }
 
     shared.AccountNode? currentVal;
     if (_discountAccountId != null) {
@@ -7317,13 +7970,18 @@ class _PurchasesBillCreateScreenState
                                   row.itemType = item.type;
                                   row.itemImageUrl = item.primaryImageUrl;
                                   row.warehouseName = _warehouse;
+                                  row.purchaseOrderId = null;
+                                  row.purchaseOrderNumber = null;
+                                  row.purchaseReceiveId = null;
+                                  row.purchaseReceiveNumber = null;
+                                  _updateOrderNumbersFromRows();
 
                                   final whName = row.warehouseName ?? _warehouse ?? '';
                                   if (whName.isNotEmpty) {
                                     ref.read(itemWarehouseStocksProvider(item.id ?? '').future).then((stocks) {
                                       WarehouseStockRow? whRow;
                                       for (final s in stocks) {
-                                        if (s.name == whName) {
+                                        if (s.name.toLowerCase() == whName.toLowerCase()) {
                                           whRow = s;
                                           break;
                                         }
@@ -7332,10 +7990,13 @@ class _PurchasesBillCreateScreenState
                                         final nonNullWh = whRow;
                                         setState(() {
                                           if (row.itemId == item.id) {
+                                            final numbers = _stockType == 'Accounting'
+                                                ? nonNullWh.accounting
+                                                : nonNullWh.physical;
                                             final isSOH = _stockView == 'stockOnHand';
                                             row.stockAvailable = isSOH
-                                                ? nonNullWh.physical.onHand
-                                                : nonNullWh.physical.available;
+                                                ? numbers.onHand
+                                                : numbers.available;
                                           }
                                         });
                                       }
@@ -8259,6 +8920,11 @@ class _PurchasesBillCreateScreenState
                                               row.discountCtrl.text = '0.00';
                                               row.descriptionCtrl.text =
                                                   i.purchaseDescription ?? '';
+                                              row.purchaseOrderId = null;
+                                              row.purchaseOrderNumber = null;
+                                              row.purchaseReceiveId = null;
+                                              row.purchaseReceiveNumber = null;
+                                              _updateOrderNumbersFromRows();
                                               _updateRowTaxForProduct(
                                                 row,
                                                 i,
@@ -8499,31 +9165,38 @@ class _PurchasesBillCreateScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      _buildIconAction(
-                        LucideIcons.x,
-                        size: 10,
-                        color: Colors.black,
-                        onTap: () {
-                          setState(() {
-                            row.itemId = null;
-                            row.itemName = null;
-                            row.itemNameCtrl.clear();
-                            row.itemCode = null;
-                            row.itemType = null;
-                            row.hsnCode = null;
-                            row.hsnCtrl.clear();
-                            row.rateCtrl.text = '0.00';
-                            row.discountCtrl.text = '0';
-                            row.descriptionCtrl.clear();
-                            row.quantityCtrl.text = '';
-                            row.taxId = null;
-                            row.taxName = null;
-                            row.taxRate = 0;
-                            row.priceListId = null;
-                          });
-                        },
-                      ),
+                      if (!((widget.poId != null || widget.receiveId != null) && (row.purchaseOrderId != null || row.purchaseReceiveId != null))) ...[
+                        const SizedBox(width: 4),
+                        _buildIconAction(
+                          LucideIcons.x,
+                          size: 10,
+                          color: Colors.black,
+                          onTap: () {
+                            setState(() {
+                              row.itemId = null;
+                              row.itemName = null;
+                              row.itemNameCtrl.clear();
+                              row.itemCode = null;
+                              row.itemType = null;
+                              row.hsnCode = null;
+                              row.hsnCtrl.clear();
+                              row.rateCtrl.text = '0.00';
+                              row.discountCtrl.text = '0';
+                              row.descriptionCtrl.clear();
+                              row.quantityCtrl.text = '';
+                              row.taxId = null;
+                              row.taxName = null;
+                              row.taxRate = 0;
+                              row.priceListId = null;
+                              row.purchaseOrderId = null;
+                              row.purchaseOrderNumber = null;
+                              row.purchaseReceiveId = null;
+                              row.purchaseReceiveNumber = null;
+                              _updateOrderNumbersFromRows();
+                            });
+                          },
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -8714,18 +9387,43 @@ class _PurchasesBillCreateScreenState
           mainAxisAlignment: MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _gridField(
-              row.quantityCtrl,
-              focusNode: row.qtyFocus,
-              hint: '0',
-              textAlign: TextAlign.right,
-              valueFontWeight: FontWeight.w400,
-              inputFormatters: [
-                _numericInputFormatter,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Expanded(
+                  child: _gridField(
+                    row.quantityCtrl,
+                    focusNode: row.qtyFocus,
+                    hint: '0',
+                    textAlign: TextAlign.right,
+                    valueFontWeight: FontWeight.w400,
+                    inputFormatters: [
+                      _numericInputFormatter,
+                    ],
+                    onChanged: (v) {
+                      final val = double.tryParse(v) ?? 0.0;
+                      if (row.savedBatchData != null && row.savedBatchData!.isNotEmpty) {
+                        row.savedBatchData![0]['qtyOut'] = val.toString();
+                      }
+                      setState(() {});
+                    },
+                  ),
+                ),
+                if ((row.purchaseOrderId != null || _orderNumberCtrl.text.trim().isNotEmpty) && row.itemId != null && row.itemId!.isNotEmpty && !row.isLandedCost) ...[
+                  const SizedBox(width: 4),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => _openEditQuantityDialog(row),
+                      child: const Icon(
+                        LucideIcons.fileEdit,
+                        size: 14,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-              onChanged: (v) {
-                setState(() {});
-              },
             ),
             if (row.itemId != null &&
                 row.itemId!.isNotEmpty &&
@@ -8744,67 +9442,37 @@ class _PurchasesBillCreateScreenState
             ],
             if (row.itemId != null && row.itemId!.isNotEmpty && _showStockInfo) ...[
               const SizedBox(height: 4),
-              Builder(
-                builder: (context) {
+              Consumer(
+                builder: (context, ref, _) {
                   final whName = row.warehouseName ?? _warehouse ?? '';
                   final isSOH = _stockView == 'stockOnHand';
-                  final stockValue = row.stockAvailable ?? 0.0;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${isSOH ? 'Stock on Hand:' : 'Available for Sale:'} ${stockValue.toStringAsFixed(0)} pcs',
-                        textAlign: TextAlign.left,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: _textPrimary,
+                  final stocksAsync = ref.watch(itemWarehouseStocksProvider(row.itemId!));
+                  return stocksAsync.when(
+                    loading: () => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${isSOH ? 'Stock on Hand:' : 'Available for Sale:'} Loading...',
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: _textPrimary,
+                          ),
                         ),
-                      ),
-                      if (whName.isNotEmpty) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(
-                              LucideIcons.home,
-                              size: 12,
-                              color: Color(0xFF2563EB),
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: WarehouseHoverPopover(
-                                productId: row.itemId,
-                                warehouseName: whName,
-                                selectedView: 'Available for Sale',
-                                onViewChanged: (v) {},
-                                onWarehouseChanged: (newName) {
-                                  setState(() {
-                                    row.warehouseName = newName;
-                                    if (row.itemId != null) {
-                                      final stockAsync = ref.read(itemWarehouseStocksProvider(row.itemId!));
-                                      if (stockAsync.hasValue) {
-                                        final stocks = stockAsync.value ?? [];
-                                        WarehouseStockRow? whRow;
-                                        for (final s in stocks) {
-                                          if (s.name == newName) {
-                                            whRow = s;
-                                            break;
-                                          }
-                                        }
-                                        if (whRow != null) {
-                                          final isSOH = _stockView == 'stockOnHand';
-                                          row.stockAvailable = isSOH
-                                              ? whRow.physical.onHand
-                                              : whRow.physical.available;
-                                        } else {
-                                          row.stockAvailable = 0.0;
-                                        }
-                                      }
-                                    }
-                                  });
-                                },
+                        if (whName.isNotEmpty) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                LucideIcons.home,
+                                size: 12,
+                                color: Color(0xFF2563EB),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
                                 child: Text(
                                   whName.toUpperCase(),
                                   textAlign: TextAlign.left,
@@ -8817,50 +9485,189 @@ class _PurchasesBillCreateScreenState
                                   maxLines: 2,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        if (q > 0) ...[
-                          const SizedBox(height: 4),
-                          Align(
-                            alignment: Alignment.center,
-                            child: GestureDetector(
-                              onTap: () => _openBatchDialogForBillRow(row),
-                              child: MouseRegion(
-                                cursor: SystemMouseCursors.click,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!row.hasBatchData) ...[
-                                      const Icon(
-                                        LucideIcons.alertTriangle,
-                                        size: 10,
-                                        color: Color(0xFFEF4444),
-                                      ),
-                                      const SizedBox(width: 4),
-                                    ],
-                                    Text(
-                                      row.hasBatchData
-                                          ? '${(totalQtyOut + totalFoc).toInt()} pcs taken from\n${row.batchCount} ${row.batchCount <= 1 ? "batch" : "batches"}.'
-                                          : 'Select Batch',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF2563EB),
-                                        fontFamily: 'Inter',
-                                        decoration: TextDecoration.underline,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+                            ],
                           ),
                         ],
                       ],
-                    ],
+                    ),
+                    error: (e, _) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${isSOH ? 'Stock on Hand:' : 'Available for Sale:'} 0 pcs',
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: _textPrimary,
+                          ),
+                        ),
+                        if (whName.isNotEmpty) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                LucideIcons.home,
+                                size: 12,
+                                color: Color(0xFF2563EB),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  whName.toUpperCase(),
+                                  textAlign: TextAlign.left,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF2563EB),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                    data: (stocks) {
+                      final whRow = stocks
+                          .where((s) => s.name.toLowerCase() == whName.toLowerCase())
+                          .firstOrNull ??
+                          stocks.firstOrNull;
+                      double stockValue = 0.0;
+                      if (whRow != null) {
+                        final numbers = _stockType == 'Accounting'
+                            ? whRow.accounting
+                            : whRow.physical;
+                        stockValue = isSOH ? numbers.onHand : numbers.available;
+                        row.stockAvailable = stockValue;
+                      } else {
+                        row.stockAvailable = 0.0;
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${isSOH ? 'Stock on Hand:' : 'Available for Sale:'} ${stockValue.toStringAsFixed(0)} pcs',
+                            textAlign: TextAlign.left,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: _textPrimary,
+                            ),
+                          ),
+                          if (whName.isNotEmpty) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  LucideIcons.home,
+                                  size: 12,
+                                  color: Color(0xFF2563EB),
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: WarehouseHoverPopover(
+                                    productId: row.itemId,
+                                    warehouseName: whName,
+                                    selectedView: _stockView == 'stockOnHand'
+                                        ? 'Stock on Hand'
+                                        : 'Available for Sale',
+                                    selectedStockType: _stockType,
+                                    onViewChanged: (v) {
+                                      setState(() {
+                                        _stockView = v == 'Stock on Hand'
+                                            ? 'stockOnHand'
+                                            : 'availableForSale';
+                                        _updateAllStockAvailableValues();
+                                      });
+                                    },
+                                    onStockTypeChanged: (t) {
+                                      setState(() {
+                                        _stockType = t;
+                                        _updateAllStockAvailableValues();
+                                      });
+                                    },
+                                    onWarehouseChanged: (newName) {
+                                      setState(() {
+                                        row.warehouseName = newName;
+                                        final match = stocks
+                                            .where((s) => s.name.toLowerCase() == newName.toLowerCase())
+                                            .firstOrNull;
+                                        if (match != null) {
+                                          final numbers = _stockType == 'Accounting'
+                                              ? match.accounting
+                                              : match.physical;
+                                          row.stockAvailable = isSOH ? numbers.onHand : numbers.available;
+                                        } else {
+                                          row.stockAvailable = 0.0;
+                                        }
+                                      });
+                                    },
+                                    child: Text(
+                                      whName.toUpperCase(),
+                                      textAlign: TextAlign.left,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF2563EB),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (q > 0) ...[
+                            const SizedBox(height: 4),
+                            Align(
+                              alignment: Alignment.center,
+                              child: GestureDetector(
+                                onTap: () => _openBatchDialogForBillRow(row),
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (!row.hasBatchData) ...[
+                                        const Icon(
+                                          LucideIcons.alertTriangle,
+                                          size: 10,
+                                          color: Color(0xFFEF4444),
+                                        ),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      Text(
+                                        row.hasBatchData
+                                            ? '${(totalQtyOut + totalFoc).toInt()} pcs taken from\n${row.batchCount} ${row.batchCount <= 1 ? "batch" : "batches"}.'
+                                            : 'Select Batch',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF2563EB),
+                                          fontFamily: 'Inter',
+                                          decoration: TextDecoration.underline,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   );
                 },
               ),
@@ -9040,20 +9847,33 @@ class _PurchasesBillCreateScreenState
           mainAxisAlignment: MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCompactNumberField(
-                    row.discountCtrl,
-                    focusNode: row.discountFocus,
-                    onChanged: (v) {
-                      setState(() {});
-                    },
+            InCellWrapper(
+              focusNode: row.discountFocus,
+              isDropdownOpen: _activeDiscountRowIndex == _lineItems.indexOf(row),
+              isTransparentBorder: true,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: row.discountCtrl,
+                      focusNode: row.discountFocus,
+                      onChanged: (v) {
+                        setState(() {});
+                      },
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      textAlign: TextAlign.left,
+                      style: const TextStyle(fontSize: 12),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
                   ),
-                ),
-                _HoverBorderContainer(
-                  isSelected: _activeDiscountRowIndex == _lineItems.indexOf(row),
-                  child: CompositedTransformTarget(
+                  CompositedTransformTarget(
                     link: row.discountTypeLink,
                     child: GestureDetector(
                       onTap: () => _showDiscountMenu(
@@ -9061,8 +9881,9 @@ class _PurchasesBillCreateScreenState
                         _lineItems.indexOf(row),
                         row,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        color: Colors.transparent,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -9071,7 +9892,7 @@ class _PurchasesBillCreateScreenState
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: _textPrimary,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.normal,
                               ),
                             ),
                             const SizedBox(width: 2),
@@ -9085,8 +9906,8 @@ class _PurchasesBillCreateScreenState
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -9255,6 +10076,7 @@ class _PurchasesBillCreateScreenState
                         setState(() {
                           _lineItems.removeAt(index);
                           _hoveredRowIndex = null;
+                          _updateOrderNumbersFromRows();
                         });
                       }
                     },
@@ -9458,6 +10280,13 @@ class _PurchasesBillCreateScreenState
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (_discountType == 'At Line Item Level') ...[
+          SizedBox(
+            width: 200,
+            child: _buildRowDiscountAccountDropdown(row),
+          ),
+          const SizedBox(width: 16),
+        ],
         _propertyButton(
           link: row.reportingTagsLink,
           iconWidget: SvgPicture.string(
@@ -10716,10 +11545,10 @@ class _PurchasesBillCreateScreenState
               ),
             ],
           ),
-          const SizedBox(height: 16),
           // If discount is applied before tax, show discount row first, then divider
           if (_discountType == 'At Transaction Level' && _isDiscountBeforeTax) ...[
             _discountRow(),
+            if (_discountAmount > 0) _buildTransactionDiscountAccountField(),
             const SizedBox(height: 8),
             const Divider(height: 24, color: Color(0xFFE5E7EB)),
             const SizedBox(height: 8),
@@ -10734,6 +11563,7 @@ class _PurchasesBillCreateScreenState
           // If discount is applied after tax, show discount row here
           if (_discountType == 'At Transaction Level' && !_isDiscountBeforeTax) ...[
             _discountRow(),
+            if (_discountAmount > 0) _buildTransactionDiscountAccountField(),
             const SizedBox(height: 12),
           ],
           // TDS / TCS dynamically swapped based on _tdsTcsType
@@ -11101,6 +11931,7 @@ class _PurchasesBillCreateScreenState
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     filled: false,
+                    hintText: '0',
                   ),
                 ),
               ),
@@ -11145,6 +11976,62 @@ class _PurchasesBillCreateScreenState
             textAlign: TextAlign.right,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactionDiscountAccountField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Discount Account*',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFFEF4444),
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ),
+            const Spacer(),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 200,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _fieldBorder),
+                    borderRadius: BorderRadius.circular(4),
+                    color: _bgWhite,
+                  ),
+                  child: _buildDiscountAccountDropdown(),
+                ),
+                const SizedBox(height: 4),
+                const SizedBox(
+                  width: 200,
+                  child: Text(
+                    'You can create a new account with type as Expense or Other Expense.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF6B7280),
+                      fontStyle: FontStyle.italic,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ],
     );
@@ -11220,7 +12107,7 @@ class _PurchasesBillCreateScreenState
           const Spacer(),
           if (_tdsTcsType != 'none') ...[
             SizedBox(
-              width: 180,
+              width: 160,
               child: CompositedTransformTarget(
                 link: _tdsLink,
                 child: Builder(
@@ -11270,6 +12157,23 @@ class _PurchasesBillCreateScreenState
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    if (selectedRate.isNotEmpty)
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedTdsTcsId = null;
+                                            _tdsTcsRate = 0.0;
+                                          });
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4),
+                                          child: Icon(
+                                            Icons.close,
+                                            size: 14,
+                                            color: _hintColor,
+                                          ),
+                                        ),
+                                      ),
                                     const Icon(
                                       Icons.arrow_drop_down,
                                       size: 16,
@@ -11297,7 +12201,7 @@ class _PurchasesBillCreateScreenState
               ),
             ),
           ] else
-            const SizedBox(width: 272),
+            const SizedBox(width: 252),
         ],
       ),
     );
@@ -11349,6 +12253,7 @@ class _PurchasesBillCreateScreenState
                   isTcs: _tdsTcsType == 'tcs',
                   tdsRates: _tdsTcsType == 'tcs' ? _tcsRatesList : _tdsRatesList,
                   tdsSections: _tdsTcsType == 'tcs' ? _tcsNaturesList : _tdsSectionsList,
+                  tdsGroups: _tdsGroupsList,
                   selectedTdsId: _selectedTdsTcsId,
                   onSelected: (rate) {
                     final isTcs = _tdsTcsType == 'tcs';
@@ -11387,8 +12292,8 @@ class _PurchasesBillCreateScreenState
     }
   }
 
-  void _showManageTdsRatesDialog() {
-    showDialog(
+  void _showManageTdsRatesDialog() async {
+    await showDialog(
       context: context,
       builder: (context) => ManageTdsTcsRatesDialog(
         title: 'Manage TDS Rates',
@@ -11437,10 +12342,11 @@ class _PurchasesBillCreateScreenState
         },
       ),
     );
+    await _performLoadTdsRates();
   }
 
-  void _showManageTcsRatesDialog() {
-    showDialog(
+  void _showManageTcsRatesDialog() async {
+    await showDialog(
       context: context,
       builder: (context) => ManageTdsTcsRatesDialog(
         title: 'Manage TCS Rates',
@@ -11489,6 +12395,7 @@ class _PurchasesBillCreateScreenState
         },
       ),
     );
+    await _performLoadTdsRates();
   }
 
 
@@ -12204,8 +13111,15 @@ class _PurchasesBillCreateScreenState
       ),
       child: Row(
         children: [
-          TextButton(
+          OutlinedButton(
             onPressed: _isLoading ? null : () => _saveBill(status: 'draft'),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: _borderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
             child: const Text(
               'Save as Draft',
               style: TextStyle(color: _textPrimary, fontSize: 13),
@@ -12243,7 +13157,7 @@ class _PurchasesBillCreateScreenState
                   ),
           ),
           const SizedBox(width: 8),
-          TextButton(
+          OutlinedButton(
             onPressed: () {
               if (context.canPop()) {
                 context.pop();
@@ -12251,6 +13165,13 @@ class _PurchasesBillCreateScreenState
                 context.go(AppRoutes.bills);
               }
             },
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: _borderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
             child: const Text(
               'Cancel',
               style: TextStyle(color: _textPrimary, fontSize: 13),
@@ -12984,6 +13905,7 @@ class _PurchasesBillCreateScreenState
     Function(String)? onSubmitted,
     FocusNode? focusNode,
     List<TextInputFormatter>? inputFormatters,
+    Widget? suffixIcon,
   }) {
     final fn = focusNode ?? FocusNode();
     return _HoverableField(
@@ -13027,6 +13949,11 @@ class _PurchasesBillCreateScreenState
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  suffixIcon: suffixIcon,
+                  suffixIconConstraints: const BoxConstraints(
+                    minWidth: 24,
+                    minHeight: 24,
+                  ),
                 ),
               ),
             );
@@ -15422,11 +16349,13 @@ class _DashedBorderPainter extends CustomPainter {
 
 class _ConfigureTaxPreferencesDialog extends StatefulWidget {
   final String initialTreatment;
-  final Function(String, bool) onUpdate;
+  final String initialGstin;
+  final Function(String, String, bool) onUpdate;
   final VoidCallback onCancel;
 
   const _ConfigureTaxPreferencesDialog({
     required this.initialTreatment,
+    required this.initialGstin,
     required this.onUpdate,
     required this.onCancel,
   });
@@ -15439,6 +16368,7 @@ class _ConfigureTaxPreferencesDialog extends StatefulWidget {
 class _ConfigureTaxPreferencesDialogState
     extends State<_ConfigureTaxPreferencesDialog> {
   late String _selectedTreatment;
+  late TextEditingController _gstinCtrl;
   bool _makePermanent = false;
 
   final List<Map<String, String>> _treatments = [
@@ -15471,10 +16401,24 @@ class _ConfigureTaxPreferencesDialogState
     },
   ];
 
+  bool get _isRegistered {
+    return _selectedTreatment == 'Registered Business - Regular' ||
+        _selectedTreatment == 'Registered Business - Composition' ||
+        _selectedTreatment == 'Special Economic Zone (SEZ)' ||
+        _selectedTreatment == 'Deemed Export';
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedTreatment = widget.initialTreatment;
+    _gstinCtrl = TextEditingController(text: widget.initialGstin);
+  }
+
+  @override
+  void dispose() {
+    _gstinCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -15603,10 +16547,58 @@ class _ConfigureTaxPreferencesDialogState
                       },
                       onChanged: (val) {
                         if (val != null) {
-                          setState(() => _selectedTreatment = val['label']!);
+                          setState(() {
+                            _selectedTreatment = val['label']!;
+                          });
                         }
                       },
                     ),
+                    if (_isRegistered) ...[
+                      const SizedBox(height: 20),
+                      const Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'GSTIN',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.redAccent,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            TextSpan(
+                              text: '*',
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 32,
+                        child: CustomTextField(
+                          controller: _gstinCtrl,
+                          hintText: 'Enter GSTIN',
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {},
+                        child: const Text(
+                          'Get Taxpayer details',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     const Text(
                       'Make it permanent?',
@@ -15653,7 +16645,7 @@ class _ConfigureTaxPreferencesDialogState
                   children: [
                     ElevatedButton(
                       onPressed: () =>
-                          widget.onUpdate(_selectedTreatment, _makePermanent),
+                          widget.onUpdate(_selectedTreatment, _gstinCtrl.text.trim(), _makePermanent),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF19A05E),
                         foregroundColor: Colors.white,
@@ -15698,6 +16690,7 @@ class _ConfigureTaxPreferencesDialogState
       ],
     );
   }
+
 }
 
 class _GstinPopover extends StatefulWidget {
@@ -16097,6 +17090,7 @@ class _TdsSelectionPopover extends StatefulWidget {
   final bool isTcs;
   final List<Map<String, dynamic>> tdsRates;
   final List<Map<String, dynamic>> tdsSections;
+  final List<Map<String, dynamic>> tdsGroups;
   final String? selectedTdsId;
   final ValueChanged<Map<String, dynamic>> onSelected;
   final VoidCallback onManageTds;
@@ -16105,6 +17099,7 @@ class _TdsSelectionPopover extends StatefulWidget {
     this.isTcs = false,
     required this.tdsRates,
     required this.tdsSections,
+    required this.tdsGroups,
     this.selectedTdsId,
     required this.onSelected,
     required this.onManageTds,
@@ -16122,32 +17117,48 @@ class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     
     if (widget.isTcs) {
-      final natureMap = {
-        for (var n in widget.tdsSections) n['id']?.toString() ?? '': n['nature_name']?.toString() ?? 'Others'
-      };
-      for (var rate in widget.tdsRates) {
-        final taxName = rate['tax_name']?.toString() ?? '';
-        if (_search.isNotEmpty &&
-            !taxName.toLowerCase().contains(_search.toLowerCase())) {
-          continue;
-        }
-        final natureId = rate['nature_id']?.toString() ?? '';
-        final natureName = natureMap[natureId] ?? 'Others';
-        grouped.putIfAbsent(natureName, () => []).add(rate);
-      }
+      return grouped;
     } else {
-      final sectionMap = {
-        for (var s in widget.tdsSections) s['id']?.toString() ?? '': s['section_name']?.toString() ?? 'Others'
-      };
-      for (var rate in widget.tdsRates) {
-        final taxName = rate['tax_name']?.toString() ?? '';
-        if (_search.isNotEmpty &&
-            !taxName.toLowerCase().contains(_search.toLowerCase())) {
-          continue;
+      final Set<String> groupedRateIds = {};
+      for (var group in widget.tdsGroups) {
+        final groupName = group['group_name']?.toString() ?? 'Others';
+        final itemsList = group['tds_group_items'] as List<dynamic>? ?? [];
+        final List<Map<String, dynamic>> ratesInGroup = [];
+
+        for (var item in itemsList) {
+          final rateId = item['tds_rate_id']?.toString();
+          if (rateId != null) {
+            final match = widget.tdsRates.firstWhere(
+              (r) => r['id']?.toString() == rateId,
+              orElse: () => <String, dynamic>{},
+            );
+            if (match.isNotEmpty) {
+              final taxName = match['tax_name']?.toString() ?? '';
+              if (_search.isEmpty || taxName.toLowerCase().contains(_search.toLowerCase())) {
+                ratesInGroup.add(match);
+              }
+              groupedRateIds.add(rateId);
+            }
+          }
         }
-        final secId = rate['section_id']?.toString() ?? '';
-        final sectionName = sectionMap[secId] ?? 'Others';
-        grouped.putIfAbsent(sectionName, () => []).add(rate);
+        if (ratesInGroup.isNotEmpty) {
+          grouped[groupName] = ratesInGroup;
+        }
+      }
+
+      // Add remaining individual rates that are not in any group
+      final List<Map<String, dynamic>> individualRates = [];
+      for (var rate in widget.tdsRates) {
+        final rateId = rate['id']?.toString();
+        if (rateId != null && !groupedRateIds.contains(rateId)) {
+          final taxName = rate['tax_name']?.toString() ?? '';
+          if (_search.isEmpty || taxName.toLowerCase().contains(_search.toLowerCase())) {
+            individualRates.add(rate);
+          }
+        }
+      }
+      if (individualRates.isNotEmpty) {
+        grouped['Individual Rates'] = individualRates;
       }
     }
     return grouped;
@@ -16221,40 +17232,53 @@ class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
               child: ListView(
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                children: groups.entries.expand((entry) {
-                  return [
-                    // Group Header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF111827),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                    // Items
-                    ...entry.value.map((rate) {
-                      final isSelected = rate['id'] == widget.selectedTdsId;
-                      final baseRateStr = widget.isTcs 
-                          ? _formatBaseRate(rate['rate']) 
-                          : _formatBaseRate(rate['base_rate']);
-                      final displayLabel = "${rate['tax_name']} [$baseRateStr]";
-                      return _TdsPopoverListItem(
-                        label: displayLabel,
-                        indent: 1,
-                        isSelected: isSelected,
-                        onTap: () => widget.onSelected(rate),
-                      );
-                    }),
-                  ];
-                }).toList(),
+                children: widget.isTcs
+                    ? widget.tdsRates.where((rate) {
+                        final taxName = rate['tax_name']?.toString() ?? '';
+                        return _search.isEmpty || taxName.toLowerCase().contains(_search.toLowerCase());
+                      }).map((rate) {
+                        final isSelected = rate['id'] == widget.selectedTdsId;
+                        final baseRateStr = _formatBaseRate(rate['rate']);
+                        final displayLabel = "${rate['tax_name']} [$baseRateStr]";
+                        return _TdsPopoverListItem(
+                          label: displayLabel,
+                          indent: 0,
+                          isSelected: isSelected,
+                          onTap: () => widget.onSelected(rate),
+                        );
+                      }).toList()
+                    : groups.entries.expand((entry) {
+                        return [
+                          // Group Header
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Text(
+                              entry.key,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF111827),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          // Items
+                          ...entry.value.map((rate) {
+                            final isSelected = rate['id'] == widget.selectedTdsId;
+                            final baseRateStr = _formatBaseRate(rate['base_rate']);
+                            final displayLabel = "${rate['tax_name']} [$baseRateStr]";
+                            return _TdsPopoverListItem(
+                              label: displayLabel,
+                              indent: 1,
+                              isSelected: isSelected,
+                              onTap: () => widget.onSelected(rate),
+                            );
+                          }),
+                        ];
+                      }).toList(),
               ),
             ),
           ),

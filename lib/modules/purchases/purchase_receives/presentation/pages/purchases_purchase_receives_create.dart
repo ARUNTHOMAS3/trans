@@ -31,6 +31,7 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_pu
 
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/edit_quantity_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
 
@@ -191,6 +192,9 @@ class _PRCreateState
   final Set<String> _focusedQtyFields = <String>{};
   final Set<String> _hoveredFormFields = <String>{};
   final Set<String> _focusedFormFields = <String>{};
+  bool _showSearchItemDetails = false;
+  String _itemDetailsSearchQuery = '';
+  final _itemDetailsSearchCtrl = TextEditingController();
 
   final Set<int> _hiddenManualIndices = <int>{};
   String _binMode = 'item'; // 'transaction' or 'item'
@@ -229,6 +233,25 @@ class _PRCreateState
     return baseWidth;
   }
 
+  double _dynamicBilledQtyToReceiveColumnWidth() {
+    int maxBatches = 0;
+    for (final bill in _associatedBills) {
+      final items = bill['items'] as List<dynamic>? ?? [];
+      for (final item in items) {
+        final batches = (item['batches'] as List<dynamic>?)?.cast<BatchInfo>() ?? [];
+        if (batches.length > maxBatches) {
+          maxBatches = batches.length;
+        }
+      }
+    }
+    const baseWidth = 140.0;
+    const extraPerBatch = 102.0;
+    if (maxBatches > 0) {
+      return (132.0 + (maxBatches * extraPerBatch)).clamp(baseWidth, 700.0);
+    }
+    return baseWidth;
+  }
+
   double _tableMinWidthFactor() {
     return _binMode == 'transaction' ? 0.40 : 0.49;
   }
@@ -253,6 +276,41 @@ class _PRCreateState
     if (!_isEditMode) {
       _receiveNumberCtrl.text = _generateReceiveNumber();
       _receivedDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    } else {
+      _isLoadingData = true;
+      _receiveNumberCtrl.text = 'PR-XXXXX';
+      _billNoCtrl.text = 'BILL-XXXXX';
+      _invoiceTotalCtrl.text = '0.00';
+      _receivedDateCtrl.text = '01-01-2026';
+      _billDateCtrl.text = '01-01-2026';
+      _selectedVendorName = 'Loading Vendor Name...';
+      _selectedPONumber = 'PO-XXXXX';
+      _items.addAll([
+        PurchaseReceiveItem(
+          itemId: 'dummy1',
+          itemName: 'Loading item name and description...',
+          ordered: 10,
+          received: 0,
+          inTransit: 0,
+          cancelled: 0,
+          quantityToReceive: 10,
+        ),
+        PurchaseReceiveItem(
+          itemId: 'dummy2',
+          itemName: 'Loading item name and description...',
+          ordered: 5,
+          received: 0,
+          inTransit: 0,
+          cancelled: 0,
+          quantityToReceive: 5,
+        ),
+      ]);
+      _rowControllers.addAll([
+        _ReceiveItemRowController()..qtyCtrl.text = '10',
+        _ReceiveItemRowController()..qtyCtrl.text = '5',
+      ]);
+      _preferredBins.addAll([null, null]);
+      _damageControllers.addAll([TextEditingController(), TextEditingController()]);
     }
 
     // Load vendors and next number when screen opens
@@ -322,6 +380,10 @@ class _PRCreateState
           .where((id) => id.isNotEmpty)
           .toSet();
 
+      if (uniquePOIds.isEmpty && receive.purchaseOrderId != null && receive.purchaseOrderId!.isNotEmpty) {
+        uniquePOIds.add(receive.purchaseOrderId!);
+      }
+
       // Load actual PurchaseOrder objects
       final loadedPOs = <PurchaseOrder>[];
       for (final poId in uniquePOIds) {
@@ -353,14 +415,22 @@ class _PRCreateState
       if (poNumbers.isNotEmpty) {
         try {
           final supabase = Supabase.instance.client;
+          final orFilter = poNumbers.map((poNum) => "order_number.ilike.%${poNum.trim()}%").join(',');
           final response = await supabase
               .from('bills')
-              .select('id, bill_number, status, bill_items(id, product_id, quantity, description, rate, products(id, product_name, image_urls, hsn_code:hsn_sac_code, track_batches, track_serial_number, track_bin_location))')
-              .inFilter('order_number', poNumbers)
+              .select('id, bill_number, order_number, status, bill_items(id, product_id, quantity, description, rate, products(id, product_name, image_urls, hsn_code:hsn_sac_code, track_batches, track_serial_number, track_bin_location), bill_item_batches(*, batch:batch_master(*)))')
+              .or(orFilter)
               .neq('status', 'void');
+
+          final normalizedPoNumbers = poNumbers.map((p) => p.trim().toLowerCase()).toSet();
 
           for (final b in response) {
             final billData = Map<String, dynamic>.from(b as Map);
+            final orderNumStr = (billData['order_number'] ?? '').toString().toLowerCase();
+            final billPoNumbers = orderNumStr.split(',').map((p) => p.trim()).toList();
+            final hasMatch = billPoNumbers.any((num) => normalizedPoNumbers.contains(num));
+            if (!hasMatch) continue;
+
             final itemsList = billData['bill_items'] as List<dynamic>? ?? [];
             final List<Map<String, dynamic>> billItemsList = [];
 
@@ -375,8 +445,48 @@ class _PRCreateState
               String? initialBinId;
               String? initialBinLabel;
 
-              final matchedReceiveItem = receive.items.firstWhere(
-                (ri) => ri.itemId == productId && ri.billed,
+              double orderedVal = 0.0;
+              double receivedVal = 0.0;
+              double cancelledVal = 0.0;
+              String name = biMap['products']?['product_name'] ?? biMap['product']?['product_name'] ?? biMap['product']?['name'] ?? biMap['product_name'] ?? biMap['item_name'] ?? '';
+              String desc = biMap['description'] ?? '';
+
+              PurchaseOrder? matchedPoForBi;
+              PurchaseOrderItem? poItem;
+              for (final po in loadedPOs) {
+                poItem = po.items.where(
+                  (it) => !it.isHeader &&
+                      it.productId == productId &&
+                      (it.description ?? '').trim() == desc.trim(),
+                ).firstOrNull;
+                if (poItem != null) {
+                  matchedPoForBi = po;
+                  break;
+                }
+              }
+              if (poItem == null) {
+                poItem = loadedPOs.isNotEmpty
+                    ? loadedPOs.first.items.where((it) => !it.isHeader && it.productId == productId).firstOrNull
+                    : null;
+                matchedPoForBi = loadedPOs.isNotEmpty ? loadedPOs.first : null;
+              }
+
+              if (poItem != null) {
+                orderedVal = poItem.quantity;
+                cancelledVal = poItem.cancelledQuantity;
+                if (name.isEmpty) name = poItem.productName ?? poItem.itemCode ?? '';
+                if (desc.isEmpty) desc = poItem.description ?? '';
+              }
+
+              final matchedReceiveItem = receive.items.where(
+                (ri) => ri.itemId == productId &&
+                    (ri.description ?? '').trim() == desc.trim() &&
+                    (ri.ordered - orderedVal).abs() < 0.001
+              ).firstOrNull ?? receive.items.where(
+                (ri) => ri.itemId == productId &&
+                    (ri.description ?? '').trim() == desc.trim()
+              ).firstOrNull ?? receive.items.firstWhere(
+                (ri) => ri.itemId == productId,
                 orElse: () => PurchaseReceiveItem(itemId: ''),
               );
 
@@ -385,26 +495,6 @@ class _PRCreateState
                 initialItemBatches = matchedReceiveItem.batches;
                 initialBinId = matchedReceiveItem.binId;
                 initialBinLabel = matchedReceiveItem.binLabel;
-              }
-
-              double orderedVal = 0.0;
-              double receivedVal = 0.0;
-              double cancelledVal = 0.0;
-              String name = biMap['products']?['product_name'] ?? biMap['product']?['product_name'] ?? biMap['product']?['name'] ?? biMap['product_name'] ?? biMap['item_name'] ?? '';
-              String desc = biMap['description'] ?? '';
-
-              for (final po in loadedPOs) {
-                final poItem = po.items.firstWhere(
-                  (it) => it.productId == productId,
-                  orElse: () => PurchaseOrderItem(productId: '', quantity: 0.0, rate: 0.0, amount: 0.0),
-                );
-                if (poItem.productId.isNotEmpty) {
-                  orderedVal = poItem.quantity;
-                  cancelledVal = poItem.cancelledQuantity;
-                  if (name.isEmpty) name = poItem.productName ?? poItem.itemCode ?? '';
-                  if (desc.isEmpty) desc = poItem.description ?? '';
-                  break;
-                }
               }
 
               billItemsList.add({
@@ -416,8 +506,8 @@ class _PRCreateState
                 'received': receivedVal,
                 'cancelled': cancelledVal,
                 'batches': initialItemBatches,
-                'purchaseOrderId': loadedPOs.isNotEmpty ? loadedPOs.first.id : null,
-                'purchaseOrderNumber': loadedPOs.isNotEmpty ? loadedPOs.first.orderNumber : null,
+                'purchaseOrderId': matchedPoForBi?.id ?? (loadedPOs.isNotEmpty ? loadedPOs.first.id : receive.purchaseOrderId),
+                'purchaseOrderNumber': matchedPoForBi?.orderNumber ?? (loadedPOs.isNotEmpty ? loadedPOs.first.orderNumber : receive.purchaseOrderNumber),
                 'binId': initialBinId,
                 'binLabel': initialBinLabel,
               });
@@ -502,7 +592,7 @@ class _PRCreateState
         _associatedBills = loadedBills;
         _hasBills = loadedBills.isNotEmpty;
         _isFullyBilled = totalBilledQty >= totalOrderedQty && totalOrderedQty > 0;
-        _receiveBilledItems = hasBilledItems || _isFullyBilled;
+        _receiveBilledItems = false;
 
         for (final bill in loadedBills) {
           final bId = bill['id']?.toString();
@@ -969,6 +1059,7 @@ class _PRCreateState
     _billDateCtrl.dispose();
     _invoiceTotalCtrl.dispose();
     _notesCtrl.dispose();
+    _itemDetailsSearchCtrl.dispose();
     for (final c in _damageControllers) {
       c.dispose();
     }
@@ -980,6 +1071,185 @@ class _PRCreateState
     _valueTooltipOverlay?.remove();
     _valueTooltipOverlay = null;
     super.dispose();
+  }
+
+  Future<void> _openEditQuantityDialog(int index) async {
+    final item = _items[index];
+    final poId = item.purchaseOrderId ?? _selectedPOId;
+    final poNum = item.purchaseOrderNumber ?? _selectedPONumber ?? '';
+
+    Map<String, dynamic>? initialBill;
+    Map<String, dynamic>? initialBillItem;
+    for (final bill in _associatedBills) {
+      final billItems = bill['items'] as List<dynamic>? ?? [];
+      final itemInBill = billItems.where((bi) => bi['itemId'] == item.itemId).firstOrNull;
+      if (itemInBill != null) {
+        final qty = double.tryParse(itemInBill['quantityToReceive']?.toString() ?? '0.0') ?? 0.0;
+        if (qty > 0) {
+          initialBill = bill;
+          initialBillItem = itemInBill;
+          break;
+        }
+      }
+    }
+    if (initialBill == null) {
+      for (final bill in _associatedBills) {
+        final billItems = bill['items'] as List<dynamic>? ?? [];
+        final itemInBill = billItems.where((bi) => bi['itemId'] == item.itemId).firstOrNull;
+        if (itemInBill != null) {
+          initialBill = bill;
+          initialBillItem = itemInBill;
+          break;
+        }
+      }
+    }
+
+    final result = await showDialog<QuantitySplitResult>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return EditQuantityDialog(
+          itemName: item.itemName,
+          productId: item.itemId ?? '',
+          currentUnreceivedAllocated: item.quantityToReceive,
+          isReceiveMode: true,
+          poId: poId,
+          poNum: poNum,
+          vendorId: _selectedVendorId,
+          billId: widget.initialReceiveId,
+          initialPurchaseReceiveId: initialBill?['id']?.toString(),
+          initialPurchaseReceiveNumber: initialBill?['bill_number']?.toString(),
+          initialPurchaseReceiveQty: double.tryParse(initialBillItem?['quantityToReceive']?.toString() ?? '0.0') ?? 0.0,
+          initialPurchaseReceiveItemId: initialBillItem?['id']?.toString(),
+        );
+      },
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        item.quantityToReceive = result.unreceivedQuantity;
+        _rowControllers[index].qtyCtrl.text = result.unreceivedQuantity % 1 == 0
+            ? result.unreceivedQuantity.toInt().toString()
+            : result.unreceivedQuantity.toString();
+
+        for (final split in result.receiveSplits) {
+          final billMap = split.receive;
+          final billId = billMap['id']?.toString();
+          if (billId == null) continue;
+
+          final associatedBillIndex = _associatedBills.indexWhere((b) => b['id']?.toString() == billId);
+          if (associatedBillIndex != -1) {
+            final associatedBill = _associatedBills[associatedBillIndex];
+            final billItems = associatedBill['items'] as List<dynamic>? ?? [];
+            final itemInBillIndex = billItems.indexWhere((bi) => bi['itemId'] == item.itemId);
+            if (itemInBillIndex != -1) {
+              final itemInBill = Map<String, dynamic>.from(billItems[itemInBillIndex]);
+              itemInBill['quantityToReceive'] = split.quantity;
+              billItems[itemInBillIndex] = itemInBill;
+              
+              final ctrlKey = "${billId}_${item.itemId}";
+              if (_billedQtyControllers.containsKey(ctrlKey)) {
+                _billedQtyControllers[ctrlKey]!.text = split.quantity % 1 == 0
+                    ? split.quantity.toInt().toString()
+                    : split.quantity.toString();
+              } else {
+                _billedQtyControllers[ctrlKey] = TextEditingController(
+                  text: split.quantity % 1 == 0
+                      ? split.quantity.toInt().toString()
+                      : split.quantity.toString(),
+                );
+              }
+            }
+          }
+        }
+        _receiveBilledItems = true;
+      });
+    }
+  }
+
+  Future<void> _openEditQuantityDialogFromBilled(int billIndex, int itemIndex) async {
+    final bill = _associatedBills[billIndex];
+    final itemMap = Map<String, dynamic>.from(bill['items'][itemIndex]);
+    final productId = itemMap['itemId']?.toString() ?? '';
+    final itemName = itemMap['itemName']?.toString() ?? '';
+
+    int normalItemIndex = _items.indexWhere((it) => it.itemId == productId);
+    double currentUnbilled = 0.0;
+    if (normalItemIndex != -1) {
+      currentUnbilled = _items[normalItemIndex].quantityToReceive;
+    }
+
+    final result = await showDialog<QuantitySplitResult>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return EditQuantityDialog(
+          itemName: itemName,
+          productId: productId,
+          currentUnreceivedAllocated: currentUnbilled,
+          isReceiveMode: true,
+          poId: itemMap['purchaseOrderId'] ?? _selectedPOId,
+          poNum: itemMap['purchaseOrderNumber'] ?? _selectedPONumber ?? '',
+          vendorId: _selectedVendorId,
+          billId: widget.initialReceiveId,
+          initialPurchaseReceiveId: bill['id']?.toString(),
+          initialPurchaseReceiveNumber: bill['bill_number']?.toString(),
+          initialPurchaseReceiveQty: double.tryParse(itemMap['quantityToReceive']?.toString() ?? '0.0') ?? 0.0,
+          initialPurchaseReceiveItemId: itemMap['id']?.toString(),
+        );
+      },
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        if (normalItemIndex != -1) {
+          _items[normalItemIndex].quantityToReceive = result.unreceivedQuantity;
+          _rowControllers[normalItemIndex].qtyCtrl.text = result.unreceivedQuantity % 1 == 0
+              ? result.unreceivedQuantity.toInt().toString()
+              : result.unreceivedQuantity.toString();
+        }
+
+        for (var b in _associatedBills) {
+          final itemsList = b['items'] as List<dynamic>? ?? [];
+          for (int i = 0; i < itemsList.length; i++) {
+            final bi = Map<String, dynamic>.from(itemsList[i]);
+            if (bi['itemId'] == productId) {
+              bi['quantityToReceive'] = 0.0;
+              itemsList[i] = bi;
+              final ctrlKey = "${b['id']}_$productId";
+              if (_billedQtyControllers.containsKey(ctrlKey)) {
+                _billedQtyControllers[ctrlKey]!.text = '0';
+              }
+            }
+          }
+        }
+
+        for (final split in result.receiveSplits) {
+          final billMap = split.receive;
+          final billId = billMap['id']?.toString();
+          if (billId == null) continue;
+
+          final associatedBillIndex = _associatedBills.indexWhere((b) => b['id']?.toString() == billId);
+          if (associatedBillIndex != -1) {
+            final associatedBill = _associatedBills[associatedBillIndex];
+            final billItems = associatedBill['items'] as List<dynamic>? ?? [];
+            final itemInBillIndex = billItems.indexWhere((bi) => bi['itemId'] == productId);
+            if (itemInBillIndex != -1) {
+              final itemInBill = Map<String, dynamic>.from(billItems[itemInBillIndex]);
+              itemInBill['quantityToReceive'] = split.quantity;
+              billItems[itemInBillIndex] = itemInBill;
+              
+              final ctrlKey = "${billId}_$productId";
+              if (_billedQtyControllers.containsKey(ctrlKey)) {
+                _billedQtyControllers[ctrlKey]!.text = split.quantity % 1 == 0
+                    ? split.quantity.toInt().toString()
+                    : split.quantity.toString();
+              }
+            }
+          }
+        }
+      });
+    }
   }
 
   void _switchToManualMode() {
@@ -1041,53 +1311,53 @@ class _PRCreateState
   // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    if (_isLoadingData) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
     return ZerpaiLayout(
       pageTitle: '',
       enableBodyScroll: true,
       useHorizontalPadding: false,
       useTopPadding: false,
       footer: _buildStickyFooter(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Close Button ──
-          _buildHeader(),
-          const SizedBox(height: 8),
-          // ── Vendor/PO (left) + Detail fields (right) ──
-          _buildFormSection(),
-          const SizedBox(height: 20),
-          // ── Dependent Sections (Disabled without PO) ──
-          Opacity(
-            opacity: _hasValidSelection ? 1.0 : 0.5,
-            child: IgnorePointer(
-              ignoring: !_hasValidSelection,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  _buildReceiveModeRadioButtons(),
-                  if (!_receiveBilledItems) ...[
-                    _buildInfoBanner(),
+      child: Skeletonizer(
+        enabled: _isLoadingData,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Close Button ──
+            _buildHeader(),
+            const SizedBox(height: 8),
+            // ── Vendor/PO (left) + Detail fields (right) ──
+            _buildFormSection(),
+            const SizedBox(height: 20),
+            // ── Dependent Sections (Disabled without PO) ──
+            Opacity(
+              opacity: (_isLoadingData || _hasValidSelection) ? 1.0 : 0.5,
+              child: IgnorePointer(
+                ignoring: _isLoadingData || !_hasValidSelection,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     const SizedBox(height: 20),
-                    _buildBinSelectionSection(),
-                    const SizedBox(height: 24),
-                  ] else ...[
-                    const SizedBox(height: 8),
+                    _buildReceiveModeRadioButtons(),
+                    if (!_receiveBilledItems) ...[
+                      _buildInfoBanner(),
+                      const SizedBox(height: 20),
+                      _buildBinSelectionSection(),
+                      const SizedBox(height: 24),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                    ],
+                    // ── Items Table ──
+                    _buildItemsTable(),
+                    const SizedBox(height: 32),
+                    // ── Notes & Upload ──
+                    _buildNotesAndUploadSection(),
+                    const SizedBox(height: 80),
                   ],
-                  // ── Items Table ──
-                  _buildItemsTable(),
-                  const SizedBox(height: 32),
-                  // ── Notes & Upload ──
-                  _buildNotesAndUploadSection(),
-                  const SizedBox(height: 80),
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1154,7 +1424,11 @@ class _PRCreateState
       );
       
       final filtered = pos
-          .where((po) => po.vendorId == vendorId && po.receiveStatus != 'full')
+          .where((po) =>
+              po.vendorId == vendorId &&
+              (po.receiveStatus ?? '').toLowerCase() != 'full' &&
+              po.status.toLowerCase() != 'draft' &&
+              po.status.toLowerCase() != 'drft')
           .toList();
       if (mounted) {
         setState(() {
@@ -1189,6 +1463,7 @@ class _PRCreateState
       final List<String?> newPreferredBins = [];
       final List<TextEditingController> newDamageControllers = [];
       double totalOrderedQty = 0.0;
+      final List<PurchaseOrder> detailedPOs = [];
 
       for (final po in pos) {
         final poId = po.id?.trim();
@@ -1211,7 +1486,7 @@ class _PRCreateState
             final supabase = Supabase.instance.client;
             final response = await supabase
                 .from('purchase_receives')
-                .select('id, status, purchase_receive_items(item_id, received, quantity_to_receive, purchase_receive_item_batches(quantity))')
+                .select('id, status, purchase_receive_items(item_id, received, quantity_to_receive, ordered, description, purchase_receive_item_batches(quantity))')
                 .eq('purchase_order_id', poId)
                 .eq('is_delete', false)
                 .eq('status', 'received');
@@ -1231,35 +1506,42 @@ class _PRCreateState
                 } else {
                   itemRecQty += double.tryParse(recItem['quantity_to_receive']?.toString() ?? recItem['received']?.toString() ?? '0.0') ?? 0.0;
                 }
-                tempReceived[productId] = (tempReceived[productId] ?? 0.0) + itemRecQty;
-              }
-            }
-          } catch (dbErr) {
-            AppLogger.error(
-              'Failed to load existing purchase receives for received quantities mapping',
-              error: dbErr,
-              module: 'purchases',
-            );
-          }
-        }
-
-        final activePO = fullPO ?? po;
-        for (final poItem in activePO.items) {
-          totalOrderedQty += poItem.quantity;
-          final recQty = tempReceived[poItem.productId] ?? 0.0;
-          newItems.add(
-            PurchaseReceiveItem(
-              itemId: poItem.productId,
-              itemName: poItem.productName ?? poItem.itemCode ?? "",
-              description: poItem.description,
-              ordered: poItem.quantity,
-              received: recQty,
-              inTransit: 0,
-              cancelled: poItem.cancelledQuantity,
-              quantityToReceive: 0,
-              purchaseOrderId: po.id,
-            ),
-          );
+                 final double ordered = double.tryParse(recItem['ordered']?.toString() ?? '0.0') ?? 0.0;
+                 final String desc = recItem['description']?.toString() ?? '';
+                 final String compositeKey = '${productId}_${ordered.toStringAsFixed(4)}_${desc.trim()}';
+                 tempReceived[compositeKey] = (tempReceived[compositeKey] ?? 0.0) + itemRecQty;
+                 tempReceived[productId] = (tempReceived[productId] ?? 0.0) + itemRecQty;
+               }
+             }
+           } catch (dbErr) {
+             AppLogger.error(
+               'Failed to load existing purchase receives for received quantities mapping',
+               error: dbErr,
+               module: 'purchases',
+             );
+           }
+         }
+ 
+         final activePO = fullPO ?? po;
+         detailedPOs.add(activePO);
+         for (final poItem in activePO.items) {
+           totalOrderedQty += poItem.quantity;
+           final String compositeKey = '${poItem.productId}_${poItem.quantity.toStringAsFixed(4)}_${(poItem.description ?? '').trim()}';
+           final recQty = tempReceived[compositeKey] ?? tempReceived[poItem.productId] ?? 0.0;
+           newItems.add(
+             PurchaseReceiveItem(
+               itemId: poItem.productId,
+               itemName: poItem.productName ?? poItem.itemCode ?? "",
+               description: poItem.description,
+               ordered: poItem.quantity,
+               received: recQty,
+               inTransit: 0,
+               cancelled: poItem.cancelledQuantity,
+               quantityToReceive: 0,
+               purchaseOrderId: po.id,
+               purchaseOrderNumber: po.orderNumber,
+             ),
+           );
           final controller = _ReceiveItemRowController();
           controller.qtyCtrl.text = '0';
           newRowControllers.add(controller);
@@ -1284,26 +1566,35 @@ class _PRCreateState
           }
 
           final supabase = Supabase.instance.client;
+          final orFilter = poNumbers.map((poNum) => "order_number.ilike.%${poNum.trim()}%").join(',');
           final response = await supabase
               .from('bills')
               .select('id, bill_number, order_number, status, bill_items(id, product_id, quantity, description, rate, products(id, product_name, image_urls, hsn_code:hsn_sac_code, track_batches, track_serial_number, track_bin_location), bill_item_batches(*, batch:batch_master(*)))')
-              .inFilter('order_number', poNumbers)
+              .or(orFilter)
               .neq('status', 'void');
+
+          final normalizedPoNumbers = poNumbers.map((p) => p.trim().toLowerCase()).toSet();
 
           for (final b in response) {
             final billData = Map<String, dynamic>.from(b as Map);
+            final orderNumStr = (billData['order_number'] ?? '').toString().toLowerCase();
+            final billPoNumbers = orderNumStr.split(',').map((p) => p.trim()).toList();
+            final hasMatch = billPoNumbers.any((num) => normalizedPoNumbers.contains(num));
+            if (!hasMatch) continue;
+
             final itemsList = billData['bill_items'] as List<dynamic>? ?? [];
             final List<Map<String, dynamic>> billItemsList = [];
-            final String poNumber = billData['order_number']?.toString() ?? '';
+            
             PurchaseOrder? matchingPo;
             for (final p in pos) {
-              if (p.orderNumber == poNumber) {
+              final normOrderNum = p.orderNumber.trim().toLowerCase();
+              if (billPoNumbers.contains(normOrderNum)) {
                 matchingPo = p;
                 break;
               }
             }
             final String? matchedPoId = matchingPo?.id ?? (pos.isNotEmpty ? pos.first.id : null);
-            final String matchedPoNumber = matchingPo?.orderNumber ?? (pos.isNotEmpty ? pos.first.orderNumber : poNumber);
+            final String matchedPoNumber = matchingPo?.orderNumber ?? (pos.isNotEmpty ? pos.first.orderNumber : (billData['order_number']?.toString() ?? ''));
 
             for (final bi in itemsList) {
               final biMap = Map<String, dynamic>.from(bi as Map);
@@ -1317,20 +1608,27 @@ class _PRCreateState
               String name = biMap['products']?['product_name'] ?? biMap['product']?['product_name'] ?? biMap['product']?['name'] ?? biMap['product_name'] ?? biMap['item_name'] ?? '';
               String desc = biMap['description'] ?? '';
 
-              for (final po in pos) {
-                final poItem = po.items.firstWhere(
-                  (it) => it.productId == productId,
-                  orElse: () => PurchaseOrderItem(productId: '', quantity: 0.0, rate: 0.0, amount: 0.0),
-                );
-                if (poItem.productId.isNotEmpty) {
-                  orderedVal = poItem.quantity;
-                  receivedVal = tempReceived[productId] ?? 0.0;
-                  cancelledVal = poItem.cancelledQuantity;
-                  if (name.isEmpty) name = poItem.productName ?? poItem.itemCode ?? '';
-                  if (desc.isEmpty) desc = poItem.description ?? '';
-                  break;
-                }
-              }
+              final targetPo = matchingPo ?? (pos.isNotEmpty ? pos.first : null);
+              if (targetPo != null) {
+                 PurchaseOrderItem? poItem = targetPo.items.where(
+                   (it) => !it.isHeader &&
+                       it.productId == productId &&
+                       (it.description ?? '').trim() == desc.trim(),
+                 ).firstOrNull;
+                 poItem ??= targetPo.items.firstWhere(
+                   (it) => !it.isHeader && it.productId == productId,
+                   orElse: () => PurchaseOrderItem(productId: '', quantity: 0.0, rate: 0.0, amount: 0.0),
+                 );
+ 
+                 if (poItem.productId.isNotEmpty) {
+                   orderedVal = poItem.quantity;
+                   final String compositeKey = '${poItem.productId}_${poItem.quantity.toStringAsFixed(4)}_${(poItem.description ?? '').trim()}';
+                   receivedVal = tempReceived[compositeKey] ?? tempReceived[productId] ?? 0.0;
+                   cancelledVal = poItem.cancelledQuantity;
+                   if (name.isEmpty) name = poItem.productName ?? poItem.itemCode ?? '';
+                   if (desc.isEmpty) desc = poItem.description ?? '';
+                 }
+               }
 
               final List<BatchInfo> itemBatches = [];
               final bibList = biMap['bill_item_batches'] as List<dynamic>? ?? [];
@@ -1403,6 +1701,9 @@ class _PRCreateState
       }
 
       setState(() {
+        _selectedPOs = detailedPOs;
+        _selectedPO = detailedPOs.isNotEmpty ? detailedPOs.first : null;
+        _selectedPOId = _selectedPO?.id;
         _receivedQuantities.clear();
         _receivedQuantities.addAll(tempReceived);
         _isLoadingPOs = false;
@@ -1418,10 +1719,8 @@ class _PRCreateState
           _isFullyBilled = totalBilledQty >= totalOrderedQty && totalOrderedQty > 0;
           if (_isFullyBilled) {
             _receiveBilledItems = true;
-          } else if (_selectedPOs.length > 1) {
-            _receiveBilledItems = false; // Toggleable, defaults to unbilled
           } else {
-            _receiveBilledItems = true; // Auto-shows billed items table
+            _receiveBilledItems = false; // Toggleable, defaults to unbilled normal table
           }
         } else {
           _isFullyBilled = false;
@@ -1449,7 +1748,8 @@ class _PRCreateState
   void _populateRowsFromPO(PurchaseOrder? po) {
     if (po == null || po.items.isEmpty) return;
     for (final poItem in po.items) {
-      final recQty = _receivedQuantities[poItem.productId] ?? 0.0;
+      final String compositeKey = '${poItem.productId}_${poItem.quantity.toStringAsFixed(4)}_${(poItem.description ?? '').trim()}';
+      final recQty = _receivedQuantities[compositeKey] ?? _receivedQuantities[poItem.productId] ?? 0.0;
       _items.add(
         PurchaseReceiveItem(
           itemId: poItem.productId,
@@ -1460,6 +1760,8 @@ class _PRCreateState
           inTransit: 0,
           cancelled: poItem.cancelledQuantity,
           quantityToReceive: 0,
+          purchaseOrderId: po.id,
+          purchaseOrderNumber: po.orderNumber,
         ),
       );
       final controller = _ReceiveItemRowController();
@@ -2243,9 +2545,7 @@ class _PRCreateState
                   );
                   final binsList = binsAsync.asData?.value ?? [];
                   final bins = binsList.map((b) => b['bin_code']!).toList();
-                  return Skeletonizer(
-                    enabled: binsAsync.isLoading,
-                    child: FormDropdown<String>(
+                  final dropdown = FormDropdown<String>(
                       height: 32,
                       value: _selectedTransactionBin,
                       items: bins,
@@ -2275,7 +2575,15 @@ class _PRCreateState
                           _selectedTransactionBinId = null;
                         }
                       }),
-                    ),
+                    );
+                  return Skeletonizer(
+                    enabled: binsAsync.isLoading,
+                    child: _selectedTransactionBin != null && _selectedTransactionBin!.isNotEmpty
+                        ? _HoverOverlayWrapper(
+                            text: _selectedTransactionBin,
+                            child: dropdown,
+                          )
+                        : dropdown,
                   );
                 },
               ),
@@ -2299,7 +2607,7 @@ class _PRCreateState
   }
 
   Widget _buildReceiveModeRadioButtons() {
-    if (_selectedPOs.length <= 1 || !_hasBills || _isFullyBilled) {
+    if (!_hasBills || _isFullyBilled) {
       return const SizedBox.shrink();
     }
     return Padding(
@@ -2407,7 +2715,7 @@ class _PRCreateState
                               ),
                               _tableHeaderCell(
                                 "QUANTITY TO RECEIVE",
-                                fixedWidth: 260,
+                                fixedWidth: _dynamicBilledQtyToReceiveColumnWidth(),
                                 align: TextAlign.right,
                                 isLastColumn: true,
                               ),
@@ -2618,7 +2926,7 @@ class _PRCreateState
             ),
             // QUANTITY TO RECEIVE
             SizedBox(
-              width: 260,
+              width: _dynamicBilledQtyToReceiveColumnWidth(),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 alignment: Alignment.topRight,
@@ -2632,39 +2940,76 @@ class _PRCreateState
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildQtyInputField(
-                            fieldKey: "billed-qty-$billIndex-$itemIndex",
-                            controller: _billedQtyControllers.putIfAbsent(
-                              "${bill['id']}_${itemMap['itemId']}",
-                              () => TextEditingController(
-                                text: qtyToReceive % 1 == 0
-                                    ? qtyToReceive.toInt().toString()
-                                    : qtyToReceive.toString(),
-                              ),
-                            ),
-                            onChanged: (val) => _onBilledRowQtyChanged(billIndex, itemIndex, val),
-                            height: 32,
-                            isNumeric: true,
-                          ),
-                          const SizedBox(height: 4),
-                          if (!hasBatches)
-                            _buildBilledItemAddBatchesLinkButton(billIndex, itemIndex, itemMap)
-                          else
-                            GestureDetector(
-                              onTap: () => _showSelectBilledItemBatchDialog(billIndex, itemIndex),
-                              child: Text(
-                                _sumBatchFoc(batches) > 0
-                                    ? '${_fmtPcs(_sumBatchQuantity(batches))}pcs + ${_fmtPcs(_sumBatchFoc(batches))}foc'
-                                    : '${_fmtPcs(_sumBatchQuantity(batches))}pcs',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: _linkBlue,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Inter',
-                                  decoration: TextDecoration.underline,
+                            _buildQtyInputField(
+                              fieldKey: "billed-qty-$billIndex-$itemIndex",
+                              controller: _billedQtyControllers.putIfAbsent(
+                                "${bill['id']}_${itemMap['itemId']}",
+                                () => TextEditingController(
+                                  text: qtyToReceive % 1 == 0
+                                      ? qtyToReceive.toInt().toString()
+                                      : qtyToReceive.toString(),
                                 ),
                               ),
+                              onChanged: (val) => _onBilledRowQtyChanged(billIndex, itemIndex, val),
+                              height: 32,
+                              isNumeric: true,
                             ),
+                            const SizedBox(height: 4),
+                            if (!hasBatches) ...[
+                              const SizedBox(height: 4),
+                              _buildBilledItemAddBatchesLinkButton(billIndex, itemIndex, itemMap),
+                              if (_hasBills) ...[
+                                const SizedBox(height: 4),
+                                MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () => _openEditQuantityDialogFromBilled(billIndex, itemIndex),
+                                    child: const Icon(
+                                      LucideIcons.fileEdit,
+                                      size: 14,
+                                      color: Color(0xFF2A95BF),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ] else ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  if (_hasBills) ...[
+                                    MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      child: GestureDetector(
+                                        onTap: () => _openEditQuantityDialogFromBilled(billIndex, itemIndex),
+                                        child: const Icon(
+                                          LucideIcons.fileEdit,
+                                          size: 14,
+                                          color: Color(0xFF2A95BF),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  GestureDetector(
+                                    onTap: () => _showSelectBilledItemBatchDialog(billIndex, itemIndex),
+                                    child: Text(
+                                      _sumBatchFoc(batches) > 0
+                                          ? '${_fmtPcs(_sumBatchQuantity(batches))}pcs + ${_fmtPcs(_sumBatchFoc(batches))}foc'
+                                          : '${_fmtPcs(_sumBatchQuantity(batches))}pcs',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: _linkBlue,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'Inter',
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                         ],
                       ),
                     ),
@@ -2893,8 +3238,26 @@ class _PRCreateState
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _tableHeaderCell(
-                                "ITEMS & DESCRIPTION",
+                                "",
                                 fixedWidth: 300,
+                                child: _buildHeaderSearchField(
+                                  label: "ITEMS & DESCRIPTION",
+                                  controller: _itemDetailsSearchCtrl,
+                                  hintText: "Search items...",
+                                  onChanged: (val) {
+                                    setState(() => _itemDetailsSearchQuery = val);
+                                  },
+                                  isSearchVisible: _showSearchItemDetails,
+                                  onToggle: () {
+                                    setState(() {
+                                      _showSearchItemDetails = !_showSearchItemDetails;
+                                      if (!_showSearchItemDetails) {
+                                        _itemDetailsSearchCtrl.clear();
+                                        _itemDetailsSearchQuery = '';
+                                      }
+                                    });
+                                  },
+                                ),
                               ),
                               _tableHeaderCell(
                                 "ORDERED",
@@ -2945,13 +3308,20 @@ class _PRCreateState
                           }
                         }
 
-                        final visibleItems = _items.asMap().entries.where((entry) {
+                        var visibleItems = _items.asMap().entries.where((entry) {
                           final item = entry.value;
                           final key = "${item.purchaseOrderId}-${item.itemId}";
                           final billedQty = itemBilledQty[key] ?? 0.0;
                           final maxQty = (item.ordered - item.received - item.cancelled).clamp(0.0, double.infinity);
                           return billedQty < maxQty;
                         }).toList();
+
+                        if (_itemDetailsSearchQuery.isNotEmpty) {
+                          final query = _itemDetailsSearchQuery.toLowerCase();
+                          visibleItems = visibleItems.where((entry) {
+                            return entry.value.itemName.toLowerCase().contains(query);
+                          }).toList();
+                        }
 
                         if (visibleItems.isEmpty) {
                           return [_buildEmptyRow()];
@@ -3010,34 +3380,35 @@ class _PRCreateState
                               _tableHeaderCell(
                                 "",
                                 fixedWidth: 300,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text(
-                                      "ITEMS & DESCRIPTION",
+                                child: _buildHeaderSearchField(
+                                  label: "ITEMS & DESCRIPTION",
+                                  controller: _itemDetailsSearchCtrl,
+                                  hintText: "Search items...",
+                                  onChanged: (val) {
+                                    setState(() => _itemDetailsSearchQuery = val);
+                                  },
+                                  isSearchVisible: _showSearchItemDetails,
+                                  onToggle: () {
+                                    setState(() {
+                                      _showSearchItemDetails = !_showSearchItemDetails;
+                                      if (!_showSearchItemDetails) {
+                                        _itemDetailsSearchCtrl.clear();
+                                        _itemDetailsSearchQuery = '';
+                                      }
+                                    });
+                                  },
+                                  subtitleWidget: InkWell(
+                                    onTap: _addAllItemsFromPO,
+                                    child: const Text(
+                                      "add all items",
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w600,
-                                        color: Color(0xFF6B7280),
+                                        color: _linkBlue,
                                         fontFamily: 'Inter',
-                                        letterSpacing: 0.3,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    InkWell(
-                                      onTap: _addAllItemsFromPO,
-                                      child: const Text(
-                                        "add all items",
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: _linkBlue,
-                                          fontFamily: 'Inter',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                               _tableHeaderCell(
@@ -3082,8 +3453,15 @@ class _PRCreateState
                             isEphemeral: true,
                           ),
                         )
-                      else
-                        ..._items.asMap().entries.map((entry) {
+                      else ...(() {
+                        var visibleManualItems = _items.asMap().entries.toList();
+                        if (_itemDetailsSearchQuery.isNotEmpty) {
+                          final query = _itemDetailsSearchQuery.toLowerCase();
+                          visibleManualItems = visibleManualItems.where((entry) {
+                            return entry.value.itemName.toLowerCase().contains(query);
+                          }).toList();
+                        }
+                        return visibleManualItems.map((entry) {
                           final index = entry.key;
                           final item = entry.value;
                           final ctrlKey = _rowControllers.length > index
@@ -3093,7 +3471,8 @@ class _PRCreateState
                             key: ValueKey('row-$ctrlKey'),
                             child: _buildManualRow(index, item),
                           );
-                        }),
+                        }).toList();
+                      })(),
                       // Bottom border
                       Container(
                         height: 1,
@@ -3154,6 +3533,106 @@ class _PRCreateState
     }
 
     return Expanded(flex: flex, child: content);
+  }
+
+  Widget _buildHeaderSearchField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    required ValueChanged<String> onChanged,
+    required bool isSearchVisible,
+    required VoidCallback onToggle,
+    TextAlign textAlign = TextAlign.start,
+    Widget? subtitleWidget,
+  }) {
+    if (!isSearchVisible) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: textAlign == TextAlign.center
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6B7280),
+                  fontFamily: 'Inter',
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: onToggle,
+                child: const Icon(
+                  LucideIcons.search,
+                  size: 13,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+          if (subtitleWidget != null) ...[
+            const SizedBox(height: 2),
+            subtitleWidget,
+          ],
+        ],
+      );
+    }
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _borderCol),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.search, size: 12, color: Color(0xFF9CA3AF)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              autofocus: true,
+              style: const TextStyle(fontSize: 11, color: _textPrimary),
+              textAlign: textAlign,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: hintText,
+                hintStyle: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF9CA3AF),
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              controller.clear();
+              onChanged('');
+              onToggle();
+            },
+            child: const Icon(
+              LucideIcons.x,
+              size: 12,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildQtyHeaderCell({required double fixedWidth}) {
@@ -3273,12 +3752,7 @@ class _PRCreateState
     final currentSum =
         double.tryParse(ctrl.qtyCtrl.text.isEmpty ? '0' : ctrl.qtyCtrl.text) ??
         0;
-    double maxQty = double.infinity;
-    if (item.ordered > 0) {
-      maxQty = (item.ordered - item.received - item.cancelled).clamp(0.0, double.infinity);
-    }
-    final maxSum = maxQty + totalFoc;
-    final nextSum = (currentSum + delta).clamp(0.0, maxSum).toDouble();
+    final nextSum = (currentSum + delta).clamp(0.0, double.infinity).toDouble();
     final nextQty = (nextSum - totalFoc).clamp(0.0, double.infinity);
     final display = nextSum == nextSum.roundToDouble()
         ? nextSum.toInt().toString()
@@ -3370,17 +3844,14 @@ class _PRCreateState
     }
     final qty = _sumBatchQuantity(item.batches);
     final foc = _sumBatchFoc(item.batches);
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Text(
-        foc > 0
-            ? '${_fmtPcs(qty)}pcs + ${_fmtPcs(foc)}foc'
-            : '${_fmtPcs(qty)}pcs',
-        style: const TextStyle(
-          fontSize: 10,
-          color: _hintColor,
-          fontFamily: 'Inter',
-        ),
+    return Text(
+      foc > 0
+          ? '${_fmtPcs(qty)}pcs + ${_fmtPcs(foc)}foc'
+          : '${_fmtPcs(qty)}pcs',
+      style: const TextStyle(
+        fontSize: 10,
+        color: _hintColor,
+        fontFamily: 'Inter',
       ),
     );
   }
@@ -3788,22 +4259,44 @@ class _PRCreateState
     final ctrl = index < _rowControllers.length
         ? _rowControllers[index]
         : _ReceiveItemRowController();
-    final poItems = (_selectedPO?.items ?? <PurchaseOrderItem>[])
-        .map((e) => e)
+    final poItems = _selectedPOs
+        .expand((po) => po.items)
         .toList();
-    final selectedIds = _items.asMap().entries
-        .where((e) => !_hiddenManualIndices.contains(e.key))
-        .map((e) => e.value.itemId)
-        .whereType<String>()
-        .toSet();
+    final poItemKeyCounts = <String, int>{};
+    for (final poItem in poItems) {
+      if (poItem.isHeader) continue;
+      final key = '${poItem.productId}_${poItem.quantity.toStringAsFixed(4)}_${(poItem.description ?? '').trim()}';
+      poItemKeyCounts[key] = (poItemKeyCounts[key] ?? 0) + 1;
+    }
+
+    final selectedPoItemKeyCounts = <String, int>{};
+    for (int i = 0; i < _items.length; i++) {
+      if (i != index && !_hiddenManualIndices.contains(i)) {
+        final it = _items[i];
+        if (it.itemId != null && it.itemId!.isNotEmpty) {
+          final key = '${it.itemId}_${it.ordered.toStringAsFixed(4)}_${(it.description ?? '').trim()}';
+          selectedPoItemKeyCounts[key] = (selectedPoItemKeyCounts[key] ?? 0) + 1;
+        }
+      }
+    }
 
     final availablePoItems = poItems.where((poItem) {
-      return !selectedIds.contains(poItem.productId) ||
-          poItem.productId == item.itemId;
+      if (poItem.isHeader) return false;
+      final key = '${poItem.productId}_${poItem.quantity.toStringAsFixed(4)}_${(poItem.description ?? '').trim()}';
+      final allowedCount = poItemKeyCounts[key] ?? 0;
+      final selectedCount = selectedPoItemKeyCounts[key] ?? 0;
+      return selectedCount < allowedCount || poItem.productId == item.itemId;
     }).toList();
+
     final selectedItem = poItems
-        .where((it) => it.productId == item.itemId)
-        .firstOrNull;
+        .where((it) =>
+            !it.isHeader &&
+            it.productId == item.itemId &&
+            (it.quantity - item.ordered).abs() < 0.001 &&
+            (it.description ?? '').trim() == (item.description ?? '').trim())
+        .firstOrNull ?? (item.itemId != null && item.itemId!.isNotEmpty
+            ? poItems.where((it) => !it.isHeader && it.productId == item.itemId).firstOrNull
+            : null);
     final hasBatches = !isEphemeral && item.batches.isNotEmpty;
 
     if (ctrl.qtyCtrl.text == '0') {
@@ -3836,8 +4329,15 @@ class _PRCreateState
                   items: availablePoItems,
                   hint: 'Type or click to select an item',
                   showSearch: true,
-                  displayStringForValue: (poItem) =>
-                      poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
+                  displayStringForValue: (poItem) {
+                    final qtyStr = poItem.quantity == poItem.quantity.roundToDouble()
+                        ? poItem.quantity.round().toString()
+                        : poItem.quantity.toStringAsFixed(2);
+                    final descStr = poItem.description != null && poItem.description!.isNotEmpty
+                        ? ' - ${poItem.description}'
+                        : '';
+                    return '${poItem.productName ?? poItem.itemCode ?? 'Unnamed item'} (Qty: $qtyStr$descStr)';
+                  },
                   searchStringForValue: (poItem) =>
                       '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
                   itemBuilder: (poItem, isSelected, isHovered) {
@@ -3866,7 +4366,7 @@ class _PRCreateState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            poItem.productName ?? 'Unnamed item',
+                            '${poItem.productName ?? 'Unnamed item'} (Qty: ${poItem.quantity == poItem.quantity.roundToDouble() ? poItem.quantity.round().toString() : poItem.quantity.toStringAsFixed(2)}${poItem.description != null && poItem.description!.isNotEmpty ? ' - ${poItem.description}' : ''})',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.normal,
@@ -3892,8 +4392,23 @@ class _PRCreateState
                   onChanged: (poItem) {
                     if (poItem == null) return;
                     setState(() {
+                      final matchingPo = _selectedPOs.firstWhere(
+                        (po) => po.items.any((it) =>
+                          (poItem.id != null && it.id == poItem.id) ||
+                          (poItem.id == null && it.productId == poItem.productId && it.quantity == poItem.quantity && (it.description ?? '') == (poItem.description ?? ''))
+                        ),
+                        orElse: () => _selectedPOs.isNotEmpty
+                            ? _selectedPOs.first
+                            : PurchaseOrder(
+                                id: '',
+                                orderNumber: '',
+                                orderDate: DateTime.now(),
+                                vendorId: '',
+                              ),
+                      );
                       if (isEphemeral) {
-                        final recQty = _receivedQuantities[poItem.productId] ?? 0.0;
+                        final String compositeKey = '${poItem.productId}_${poItem.quantity.toStringAsFixed(4)}_${(poItem.description ?? '').trim()}';
+                        final recQty = _receivedQuantities[compositeKey] ?? _receivedQuantities[poItem.productId] ?? 0.0;
                         _items.add(
                           poItem.productId.isNotEmpty
                               ? PurchaseReceiveItem(
@@ -3904,6 +4419,8 @@ class _PRCreateState
                                   received: recQty,
                                   inTransit: 0,
                                   cancelled: poItem.cancelledQuantity,
+                                  purchaseOrderId: matchingPo.id,
+                                  purchaseOrderNumber: matchingPo.orderNumber,
                                 )
                               : PurchaseReceiveItem(),
                         );
@@ -3916,7 +4433,8 @@ class _PRCreateState
                         _damageControllers.add(TextEditingController());
                       } else {
                         if (index < _items.length) {
-                          final recQty = _receivedQuantities[poItem.productId] ?? 0.0;
+                          final String compositeKey = '${poItem.productId}_${poItem.quantity.toStringAsFixed(4)}_${(poItem.description ?? '').trim()}';
+                          final recQty = _receivedQuantities[compositeKey] ?? _receivedQuantities[poItem.productId] ?? 0.0;
                           _items[index] = _items[index].copyWith(
                             itemId: poItem.productId,
                             itemName: poItem.productName ?? '',
@@ -3925,6 +4443,8 @@ class _PRCreateState
                             received: recQty,
                             inTransit: 0,
                             cancelled: poItem.cancelledQuantity,
+                            purchaseOrderId: matchingPo.id,
+                            purchaseOrderNumber: matchingPo.orderNumber,
                           );
                           if (index == _items.length - 1) {
                             _items.add(PurchaseReceiveItem());
@@ -4051,14 +4571,17 @@ class _PRCreateState
                                 _adjustRowQuantity(index, delta: -1);
                               },
                             ),
-                            if (!isEphemeral &&
-                                !hasBatches &&
-                                item.quantityToReceive > 0 &&
-                                item.quantityToReceive <= (item.ordered - item.received - item.cancelled)) ...[
-                              const SizedBox(height: 4),
-                              _buildAddBatchesLinkButton(index),
-                            ],
-                            if (!isEphemeral) _buildQtyAndFocBreakdown(item),
+                            Row(
+                              children: [
+                                if (!isEphemeral && !hasBatches && item.quantityToReceive > 0)
+                                  _buildAddBatchesLinkButton(index),
+                              ],
+                            ),
+                            if (!isEphemeral)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: _buildQtyAndFocBreakdown(item),
+                              ),
                           ],
                         ),
                       ),
@@ -4311,13 +4834,36 @@ class _PRCreateState
                               onChanged: (val) => _onRowQtyChanged(index, val),
                               height: 32,
                             ),
-                            if (!hasBatches &&
-                                item.quantityToReceive > 0 &&
-                                item.quantityToReceive <= (item.ordered - item.received - item.cancelled)) ...[
+                            if (!hasBatches && item.quantityToReceive > 0) ...[
                               const SizedBox(height: 4),
                               _buildAddBatchesLinkButton(index),
                             ],
-                            _buildQtyAndFocBreakdown(item),
+                            if (_hasBills || item.batches.isNotEmpty) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    if (_hasBills) ...[
+                                      MouseRegion(
+                                        cursor: SystemMouseCursors.click,
+                                        child: GestureDetector(
+                                          onTap: () => _openEditQuantityDialog(index),
+                                          child: const Icon(
+                                            LucideIcons.fileEdit,
+                                            size: 14,
+                                            color: Color(0xFF2A95BF),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                    ],
+                                    _buildQtyAndFocBreakdown(item),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -4503,7 +5049,7 @@ class _PRCreateState
         children: [
           // Save as Draft
           OutlinedButton(
-            onPressed: _isSaving || !_hasValidSelection
+            onPressed: _isSaving || _isLoadingData || !_hasValidSelection
                 ? null
                 : () => _handleSave('draft'),
             style: OutlinedButton.styleFrom(
@@ -4527,7 +5073,7 @@ class _PRCreateState
 
           // Save as Received (primary green)
           ElevatedButton(
-            onPressed: _isSaving || !_hasValidSelection
+            onPressed: _isSaving || _isLoadingData || !_hasValidSelection
                 ? null
                 : () => _handleSave('received'),
             style: ElevatedButton.styleFrom(
@@ -4684,12 +5230,6 @@ class _PRCreateState
           missingFields.add('Quantity in row ${i + 1}');
         }
         final remaining = (ordered - received - cancelled).clamp(0.0, double.infinity);
-        if (!_receiveBilledItems && ordered > 0 && qty > remaining) {
-          _showTopError(
-            'Quantity to receive in row ${i + 1} cannot exceed remaining quantity (${_fmtPcs(remaining)})',
-          );
-          return;
-        }
       }
     }
 
@@ -4746,6 +5286,51 @@ class _PRCreateState
     setState(() => _isSaving = true);
 
     final targetWarehouseId = _selectedWarehouseId ?? _selectedPO?.warehouseId ?? _selectedPO?.deliveryWarehouseId;
+    final List<PurchaseReceiveItem> finalItems = _receiveBilledItems
+        ? _associatedBills.expand((bill) {
+            final itemsList = bill['items'] as List<dynamic>;
+            return itemsList.map((item) {
+              final Map<String, dynamic> itemMap = Map<String, dynamic>.from(item);
+              final preferredBin = _binMode == 'transaction'
+                  ? _selectedTransactionBin
+                  : itemMap['binLabel'];
+              return PurchaseReceiveItem(
+                itemId: itemMap['itemId'],
+                itemName: itemMap['itemName'],
+                description: itemMap['description'],
+                ordered: itemMap['ordered'] ?? 0.0,
+                received: itemMap['received'] ?? 0.0,
+                inTransit: itemMap['inTransit'] ?? 0.0,
+                cancelled: itemMap['cancelled'] ?? 0.0,
+                quantityToReceive: itemMap['quantityToReceive'] ?? 0.0,
+                batches: (itemMap['batches'] as List<dynamic>?)?.cast<BatchInfo>(),
+                purchaseOrderId: itemMap['purchaseOrderId'],
+                purchaseOrderNumber: itemMap['purchaseOrderNumber'],
+                binId: itemMap['binId'],
+                binLabel: preferredBin,
+                billed: true,
+              );
+            });
+          }).toList()
+        : _items.asMap().entries.map((e) {
+            final i = e.key;
+            final item = e.value;
+            final preferredBin = _binMode == 'transaction'
+                ? _selectedTransactionBin
+                : (i < _preferredBins.length ? _preferredBins[i] : null);
+            return item.copyWith(
+              binLabel: preferredBin,
+            );
+          }).toList();
+
+    final totalReceiveQty = finalItems.fold<double>(0.0, (sum, item) {
+      if (item.batches.isNotEmpty) {
+        return sum + item.batches.fold<double>(0.0, (s, b) => s + b.quantity + b.foc);
+      } else {
+        return sum + item.quantityToReceive;
+      }
+    });
+
     final receive = PurchaseReceive(
       id: widget.initialReceiveId,
       purchaseReceiveNumber: _receiveNumberCtrl.text.trim(),
@@ -4764,42 +5349,8 @@ class _PRCreateState
       invoiceTotal: double.tryParse(_invoiceTotalCtrl.text.trim()) ?? 0,
       transactionBinId: _binMode == 'transaction' ? _selectedTransactionBinId : null,
       transactionBinLabel: _binMode == 'transaction' ? _selectedTransactionBin : null,
-      items: _receiveBilledItems
-          ? _associatedBills.expand((bill) {
-              final itemsList = bill['items'] as List<dynamic>;
-              return itemsList.map((item) {
-                final Map<String, dynamic> itemMap = Map<String, dynamic>.from(item);
-                final preferredBin = _binMode == 'transaction'
-                    ? _selectedTransactionBin
-                    : itemMap['binLabel'];
-                return PurchaseReceiveItem(
-                  itemId: itemMap['itemId'],
-                  itemName: itemMap['itemName'],
-                  description: itemMap['description'],
-                  ordered: itemMap['ordered'] ?? 0.0,
-                  received: itemMap['received'] ?? 0.0,
-                  inTransit: itemMap['inTransit'] ?? 0.0,
-                  cancelled: itemMap['cancelled'] ?? 0.0,
-                  quantityToReceive: itemMap['quantityToReceive'] ?? 0.0,
-                  batches: (itemMap['batches'] as List<dynamic>?)?.cast<BatchInfo>(),
-                  purchaseOrderId: itemMap['purchaseOrderId'],
-                  purchaseOrderNumber: itemMap['purchaseOrderNumber'],
-                  binId: itemMap['binId'],
-                  binLabel: preferredBin,
-                  billed: true,
-                );
-              });
-            }).toList()
-          : _items.asMap().entries.map((e) {
-              final i = e.key;
-              final item = e.value;
-              final preferredBin = _binMode == 'transaction'
-                  ? _selectedTransactionBin
-                  : (i < _preferredBins.length ? _preferredBins[i] : null);
-              return item.copyWith(
-                binLabel: preferredBin,
-              );
-            }).toList(),
+      quantity: totalReceiveQty,
+      items: finalItems,
     );
 
     AppLogger.info(
@@ -4869,12 +5420,6 @@ class _PRCreateState
   Future<void> _showSelectBatchDialog(int itemIndex) async {
     final item = _items[itemIndex];
     final remaining = (item.ordered - item.received - item.cancelled).clamp(0.0, double.infinity);
-    if (item.quantityToReceive > remaining) {
-      _showTopError(
-        'Quantity to receive in row ${itemIndex + 1} cannot exceed remaining quantity (${_fmtPcs(remaining)})',
-      );
-      return;
-    }
 
     final batchOptions = <String>{
       ...item.batches.map((b) => b.batchNo.trim()).where((v) => v.isNotEmpty),
@@ -4913,6 +5458,9 @@ class _PRCreateState
       } catch (_) {}
     }
 
+    final defaultBinId = _binMode == 'transaction' ? _selectedTransactionBinId : item.binId;
+    final defaultBinLabel = _binMode == 'transaction' ? _selectedTransactionBin : item.binLabel;
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -4923,6 +5471,8 @@ class _PRCreateState
         batchDetails: batchDetails,
         initialBatches: item.batches,
         bins: bins,
+        defaultBinId: defaultBinId,
+        defaultBinLabel: defaultBinLabel,
         // Total in batch dialog must follow Quantity to receive in line item.
         ordered: item.quantityToReceive,
         maxQuantity: remaining,
@@ -5387,6 +5937,9 @@ class SelectBatchDialog extends StatefulWidget {
   final Function(List<BatchInfo>) onSave;
   final String? productId;
   final List<Map<String, dynamic>> bins;
+  final String? defaultBinId;
+  final String? defaultBinLabel;
+  final bool readOnly;
 
   SelectBatchDialog({
     required this.itemName,
@@ -5402,6 +5955,9 @@ class SelectBatchDialog extends StatefulWidget {
     required this.onSave,
     this.productId,
     this.bins = const [],
+    this.defaultBinId,
+    this.defaultBinLabel,
+    this.readOnly = false,
   });
 
   @override
@@ -5846,10 +6402,16 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
     if (widget.initialBatches.isEmpty) {
       final firstRow = _BatchItemRowController();
       firstRow.qtyCtrl.text = widget.ordered.toString();
+      firstRow.binId = widget.defaultBinId;
+      firstRow.binLabel = widget.defaultBinLabel;
       _rows.add(firstRow);
     } else {
       for (var b in widget.initialBatches) {
         final row = _BatchItemRowController(initial: b);
+        if (row.binId == null || row.binId!.isEmpty) {
+          row.binId = widget.defaultBinId;
+          row.binLabel = widget.defaultBinLabel;
+        }
         if ((row.binLabel == null || row.binLabel!.isEmpty) && row.binId != null && widget.bins.isNotEmpty) {
           final matchedBin = widget.bins.firstWhere(
             (bin) => bin['id']?.toString() == row.binId,
@@ -5892,6 +6454,8 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
       if (_productUnitPackId != null && _productUnitPackId!.isNotEmpty) {
         newRow.unitPackCtrl.text = _productUnitPackId!;
       }
+      newRow.binId = widget.defaultBinId;
+      newRow.binLabel = widget.defaultBinLabel;
       _rows.add(newRow);
     });
   }
@@ -6107,146 +6671,149 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
       flex: 3,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: SizedBox(
-          height: 38,
-          width: double.infinity,
-          child: RawAutocomplete<Map<String, dynamic>>(
-            textEditingController: inputController,
-            focusNode: inputFocusNode,
-            displayStringForOption: (option) => (option['batch_no'] ?? option['batchNo'])?.toString() ?? '',
-            optionsBuilder: (textEditingValue) {
-              final query = textEditingValue.text.trim().toLowerCase();
-              if (query.isEmpty) {
-                return dropdownItems;
-              }
-              return dropdownItems.where((item) {
-                final batchNo = (item['batch_no'] ?? item['batchNo'])?.toString().toLowerCase() ?? '';
-                return batchNo.contains(query);
-              });
-            },
-            onSelected: (selectionMap) {
-              final selection = (selectionMap['batch_no'] ?? selectionMap['batchNo'])?.toString().trim() ?? '';
-              row.batchNoCtrl.text = selection;
-
-              // Autofill other fields if details available
-              final details = widget.batchDetails.firstWhere(
-                (b) => (b['batch_no'] ?? b['batchNo']) == selection,
-                orElse: () => <String, dynamic>{},
-              );
-              setState(() {
-                if (details.isNotEmpty) {
-                  row.mrpCtrl.text = details['mrp']?.toString() ?? '';
-                  row.ptrCtrl.text = details['ptr']?.toString() ?? details['prate']?.toString() ?? '';
-                  
-                  final expDateStr = details['expiry_date']?.toString() ?? details['expiryDate']?.toString();
-                  if (expDateStr != null && expDateStr.isNotEmpty) {
-                     final expDate = DateTime.tryParse(expDateStr);
-                     if (expDate != null) {
-                       row.expDate = expDate;
-                       row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
-                     }
-                  }
-                  
-                  final mfgDateStr = details['manufacture_date']?.toString() ?? details['manufactureDate']?.toString();
-                  if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
-                    final mfgDate = DateTime.tryParse(mfgDateStr);
-                    if (mfgDate != null) {
-                      row.mfgDate = mfgDate;
-                      row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
-                    }
-                  }
-                  
-                  row.mfgBatchCtrl.text = details['manufacture_batch']?.toString() ?? details['manufactureBatch']?.toString() ?? '';
-                  row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty)
-                      ? _productUnitPackId!
-                      : (details['unit_pack']?.toString() ?? details['unitPack']?.toString() ?? '');
-                } else {
-                  // Reset autofilled fields if custom batch is entered/selected
-                  row.mrpCtrl.text = '';
-                  row.ptrCtrl.text = '';
-                  row.expDateCtrl.text = '';
-                  row.expDate = null;
-                  row.mfgDateCtrl.text = '';
-                  row.mfgDate = null;
-                  row.mfgBatchCtrl.text = '';
-                  row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty) ? _productUnitPackId! : '';
+        child: IgnorePointer(
+          ignoring: widget.readOnly,
+          child: SizedBox(
+            height: 38,
+            width: double.infinity,
+            child: RawAutocomplete<Map<String, dynamic>>(
+              textEditingController: inputController,
+              focusNode: inputFocusNode,
+              displayStringForOption: (option) => (option['batch_no'] ?? option['batchNo'])?.toString() ?? '',
+              optionsBuilder: (textEditingValue) {
+                final query = textEditingValue.text.trim().toLowerCase();
+                if (query.isEmpty) {
+                  return dropdownItems;
                 }
-              });
-            },
-            fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-              return TextField(
-                controller: textEditingController,
-                focusNode: focusNode,
-                textAlignVertical: TextAlignVertical.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
-                ),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white,
-                  isDense: false,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 10,
-                  ),
-                  constraints: const BoxConstraints(
-                    minHeight: 38,
-                    maxHeight: 38,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _focusBorder, width: 1.5),
-                  ),
-                  hintText: 'Select Batch',
-                  hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
-                ),
-                onChanged: (value) {
-                  row.batchNoCtrl.text = value;
-                  final details = widget.batchDetails.firstWhere(
-                    (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim().toLowerCase() == value.trim().toLowerCase(),
-                    orElse: () => <String, dynamic>{},
-                  );
+                return dropdownItems.where((item) {
+                  final batchNo = (item['batch_no'] ?? item['batchNo'])?.toString().toLowerCase() ?? '';
+                  return batchNo.contains(query);
+                });
+              },
+              onSelected: (selectionMap) {
+                final selection = (selectionMap['batch_no'] ?? selectionMap['batchNo'])?.toString().trim() ?? '';
+                row.batchNoCtrl.text = selection;
+
+                // Autofill other fields if details available
+                final details = widget.batchDetails.firstWhere(
+                  (b) => (b['batch_no'] ?? b['batchNo']) == selection,
+                  orElse: () => <String, dynamic>{},
+                );
+                setState(() {
                   if (details.isNotEmpty) {
-                    setState(() {
-                      row.mrpCtrl.text = details['mrp']?.toString() ?? '';
-                      row.ptrCtrl.text = details['ptr']?.toString() ?? details['prate']?.toString() ?? '';
-                      
-                      final expDateStr = details['expiry_date']?.toString() ?? details['expiryDate']?.toString();
-                      if (expDateStr != null && expDateStr.isNotEmpty) {
-                        final expDate = DateTime.tryParse(expDateStr);
-                        if (expDate != null) {
-                          row.expDate = expDate;
-                          row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
-                        }
+                    row.mrpCtrl.text = details['mrp']?.toString() ?? '';
+                    row.ptrCtrl.text = details['ptr']?.toString() ?? details['prate']?.toString() ?? '';
+                    
+                    final expDateStr = details['expiry_date']?.toString() ?? details['expiryDate']?.toString();
+                    if (expDateStr != null && expDateStr.isNotEmpty) {
+                       final expDate = DateTime.tryParse(expDateStr);
+                       if (expDate != null) {
+                         row.expDate = expDate;
+                         row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
+                       }
+                    }
+                    
+                    final mfgDateStr = details['manufacture_date']?.toString() ?? details['manufactureDate']?.toString();
+                    if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
+                      final mfgDate = DateTime.tryParse(mfgDateStr);
+                      if (mfgDate != null) {
+                        row.mfgDate = mfgDate;
+                        row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
                       }
-                      
-                      final mfgDateStr = details['manufacture_date']?.toString() ?? details['manufactureDate']?.toString();
-                      if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
-                        final mfgDate = DateTime.tryParse(mfgDateStr);
-                        if (mfgDate != null) {
-                          row.mfgDate = mfgDate;
-                          row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
-                        }
-                      }
-                      
-                      row.mfgBatchCtrl.text = details['manufacture_batch']?.toString() ?? details['manufactureBatch']?.toString() ?? '';
-                      row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty)
-                          ? _productUnitPackId!
-                          : (details['unit_pack']?.toString() ?? details['unitPack']?.toString() ?? '');
-                    });
+                    }
+                    
+                    row.mfgBatchCtrl.text = details['manufacture_batch']?.toString() ?? details['manufactureBatch']?.toString() ?? '';
+                    row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty)
+                        ? _productUnitPackId!
+                        : (details['unit_pack']?.toString() ?? details['unitPack']?.toString() ?? '');
+                  } else {
+                    // Reset autofilled fields if custom batch is entered/selected
+                    row.mrpCtrl.text = '';
+                    row.ptrCtrl.text = '';
+                    row.expDateCtrl.text = '';
+                    row.expDate = null;
+                    row.mfgDateCtrl.text = '';
+                    row.mfgDate = null;
+                    row.mfgBatchCtrl.text = '';
+                    row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty) ? _productUnitPackId! : '';
                   }
-                },
-                onSubmitted: (value) {
-                  row.batchNoCtrl.text = value.trim();
-                },
-              );
-            },
+                });
+              },
+              fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                return TextField(
+                  controller: textEditingController,
+                  focusNode: focusNode,
+                  readOnly: widget.readOnly,
+                  textAlignVertical: TextAlignVertical.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: 'Inter',
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: widget.readOnly ? const Color(0xFFF3F4F6) : Colors.white,
+                    isDense: false,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    constraints: const BoxConstraints(
+                      minHeight: 38,
+                      maxHeight: 38,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: const BorderSide(color: _fieldBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: const BorderSide(color: _focusBorder, width: 1.5),
+                    ),
+                    hintText: 'Select Batch',
+                    hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
+                  ),
+                  onChanged: (value) {
+                    row.batchNoCtrl.text = value;
+                    final details = widget.batchDetails.firstWhere(
+                      (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim().toLowerCase() == value.trim().toLowerCase(),
+                      orElse: () => <String, dynamic>{},
+                    );
+                    if (details.isNotEmpty) {
+                      setState(() {
+                        row.mrpCtrl.text = details['mrp']?.toString() ?? '';
+                        row.ptrCtrl.text = details['ptr']?.toString() ?? details['prate']?.toString() ?? '';
+                        
+                        final expDateStr = details['expiry_date']?.toString() ?? details['expiryDate']?.toString();
+                        if (expDateStr != null && expDateStr.isNotEmpty) {
+                          final expDate = DateTime.tryParse(expDateStr);
+                          if (expDate != null) {
+                            row.expDate = expDate;
+                            row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
+                          }
+                        }
+                        
+                        final mfgDateStr = details['manufacture_date']?.toString() ?? details['manufactureDate']?.toString();
+                        if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
+                          final mfgDate = DateTime.tryParse(mfgDateStr);
+                          if (mfgDate != null) {
+                            row.mfgDate = mfgDate;
+                            row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
+                          }
+                        }
+                        
+                        row.mfgBatchCtrl.text = details['manufacture_batch']?.toString() ?? details['manufactureBatch']?.toString() ?? '';
+                        row.unitPackCtrl.text = (_productUnitPackId != null && _productUnitPackId!.isNotEmpty)
+                            ? _productUnitPackId!
+                            : (details['unit_pack']?.toString() ?? details['unitPack']?.toString() ?? '');
+                      });
+                    }
+                  },
+                  onSubmitted: (value) {
+                    row.batchNoCtrl.text = value.trim();
+                  },
+                );
+              },
             optionsViewBuilder: (context, onSelected, options) {
               final optionList = options.toList();
               return Align(
@@ -6352,8 +6919,9 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildBinDropdown(_BatchItemRowController row) {
     final binItems = widget.bins.map((b) => b['bin_code']!.toString()).toList();
@@ -6370,6 +6938,8 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
             items: binItems,
             hint: "Select Bin",
             showSearch: true,
+            enabled: !widget.readOnly,
+            fillColor: widget.readOnly ? const Color(0xFFF3F4F6) : Colors.white,
             border: Border.all(
               color: _fieldBorder,
               width: 1,
@@ -6430,6 +7000,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
     int? flex,
     double? width,
     required VoidCallback onTap,
+    bool readOnly = false,
   }) {
     final dateField = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -6439,7 +7010,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
           key: targetKey,
           controller: controller,
           readOnly: true,
-          onTap: onTap,
+          onTap: readOnly ? null : onTap,
           textAlignVertical: TextAlignVertical.center,
           style: const TextStyle(
             fontSize: 13,
@@ -6448,7 +7019,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _bgWhite,
+            fillColor: readOnly ? const Color(0xFFF3F4F6) : _bgWhite,
             isDense: false,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,
@@ -6506,7 +7077,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
               child: Row(
                 children: [
                   const Text(
-                    'Select Batch',
+                    'Add Batch',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -6642,8 +7213,10 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                     width: 20,
                     child: Checkbox(
                       value: _showMfgDetails,
-                      onChanged: (val) =>
-                          setState(() => _showMfgDetails = val ?? false),
+                      onChanged: widget.readOnly
+                          ? null
+                          : (val) =>
+                              setState(() => _showMfgDetails = val ?? false),
                       activeColor: _greenBtn,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -6665,8 +7238,10 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                     width: 20,
                     child: Checkbox(
                       value: _showFoc,
-                      onChanged: (val) =>
-                          setState(() => _showFoc = val ?? false),
+                      onChanged: widget.readOnly
+                          ? null
+                          : (val) =>
+                              setState(() => _showFoc = val ?? false),
                       activeColor: _greenBtn,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -6688,11 +7263,13 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                     width: 20,
                     child: Checkbox(
                       value: _showDamage,
-                      onChanged: (val) {
-                        final enabled = val ?? false;
-                        setState(() => _showDamage = enabled);
-                        widget.onDamageChanged?.call(enabled);
-                      },
+                      onChanged: widget.readOnly
+                          ? null
+                          : (val) {
+                              final enabled = val ?? false;
+                              setState(() => _showDamage = enabled);
+                              widget.onDamageChanged?.call(enabled);
+                            },
                       activeColor: _greenBtn,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -6714,8 +7291,10 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                     width: 20,
                     child: Checkbox(
                       value: _overwriteLineItem,
-                      onChanged: (val) =>
-                          setState(() => _overwriteLineItem = val ?? false),
+                      onChanged: widget.readOnly
+                          ? null
+                          : (val) =>
+                              setState(() => _overwriteLineItem = val ?? false),
                       activeColor: _greenBtn,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -6788,7 +7367,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                               hint: 'Pack',
                               flex: 2,
                               isNumeric: false,
-                              readOnly: row.isAutoLoaded,
+                              readOnly: true,
                               showHoverTooltip: true,
                             ),
                             _buildTextField(
@@ -6796,19 +7375,20 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                               hint: '0',
                               flex: 2,
                               isNumeric: true,
-                              readOnly: row.isAutoLoaded,
+                              readOnly: row.isAutoLoaded || widget.readOnly,
                             ),
                             _buildTextField(
                               controller: row.ptrCtrl,
                               hint: '0',
                               flex: 2,
                               isNumeric: true,
-                              readOnly: row.isAutoLoaded,
+                              readOnly: row.isAutoLoaded || widget.readOnly,
                             ),
                             _buildDatePicker(
                               controller: row.expDateCtrl,
                               targetKey: row.expKey,
                               flex: 3,
+                              readOnly: widget.readOnly,
                               onTap: () async {
                                 final now = DateTime.now();
                                 final today = DateTime(now.year, now.month, now.day);
@@ -6833,6 +7413,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                                 controller: row.mfgDateCtrl,
                                 targetKey: row.mfgKey,
                                 flex: 3,
+                                readOnly: widget.readOnly,
                                 onTap: () async {
                                   final picked = await ZerpaiDatePicker.show(
                                     context,
@@ -6853,6 +7434,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                                 controller: row.mfgBatchCtrl,
                                 hint: 'Mfg Batch',
                                 flex: 2,
+                                readOnly: widget.readOnly,
                               ),
                             ],
                             _buildTextField(
@@ -6860,6 +7442,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                               hint: '0',
                               flex: 2,
                               isNumeric: true,
+                              readOnly: widget.readOnly,
                               onChanged: (_) {
                                 setState(() {
                                   _dialogErrorMessage = null;
@@ -6872,6 +7455,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                                 hint: '0',
                                 flex: 2,
                                 isNumeric: true,
+                                readOnly: widget.readOnly,
                                 onChanged: (_) {
                                   setState(() {
                                     _dialogErrorMessage = null;
@@ -6884,6 +7468,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                                 hint: 'Damage',
                                 flex: 2,
                                 isNumeric: true,
+                                readOnly: widget.readOnly,
                                 onChanged: (val) {
                                   final entered = double.tryParse(val) ?? 0;
                                   final maxQty =
@@ -6908,7 +7493,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                                   size: 16,
                                   color: _dangerRed,
                                 ),
-                                onPressed: _rows.length > 1
+                                onPressed: (_rows.length > 1 && !widget.readOnly)
                                     ? () => _removeRow(index)
                                     : null,
                                 padding: EdgeInsets.zero,
@@ -6924,31 +7509,32 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                 },
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: InkWell(
-                onTap: _addRow,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.plus,
-                      size: 16,
-                      color: Colors.blue.shade600,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'New Row',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+            if (!widget.readOnly)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: InkWell(
+                  onTap: _addRow,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.plus,
+                        size: 16,
                         color: Colors.blue.shade600,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        'New Row',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blue.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             const SizedBox(height: 24),
             const Divider(height: 1, color: _borderCol),
             Padding(
@@ -6957,11 +7543,17 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      if (_totalEnteredQtyOnly > widget.maxQuantity) {
+                      if (widget.readOnly) {
+                        Navigator.pop(context);
+                        return;
+                      }
+
+                      if (!_overwriteLineItem && _totalEnteredQtyOnly != widget.ordered) {
+                        const mismatchMessage = "There's a mismatch between the quantity entered in the line item and the total quantity across all batches.";
                         setState(() {
-                          _dialogErrorMessage = _qtyExceedsMessage;
+                          _dialogErrorMessage = mismatchMessage;
                         });
-                        widget.onTopError?.call(_qtyExceedsMessage);
+                        widget.onTopError?.call(mismatchMessage);
                         return;
                       }
 
@@ -7004,36 +7596,38 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
                         vertical: 12,
                       ),
                     ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(
+                    child: Text(
+                      widget.readOnly ? 'Close' : 'Save',
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _textPrimary,
-                      side: const BorderSide(color: _fieldBorder),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                  if (!widget.readOnly) ...[
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _textPrimary,
+                        side: const BorderSide(color: _fieldBorder),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -7112,11 +7706,13 @@ class _PRDashedBorderPainter extends CustomPainter {
 
 class _HoverOverlayWrapper extends StatefulWidget {
   final Widget child;
-  final TextEditingController controller;
+  final TextEditingController? controller;
+  final String? text;
 
   const _HoverOverlayWrapper({
     required this.child,
-    required this.controller,
+    this.controller,
+    this.text,
   });
 
   @override
@@ -7144,41 +7740,19 @@ class _HoverOverlayWrapperState extends State<_HoverOverlayWrapper> {
                 offset: const Offset(0, 4),
                 child: Material(
                   color: Colors.transparent,
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: widget.controller,
-                    builder: (context, value, _) {
-                      if (value.text.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFD1D5DB)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          value.text,
-                          style: const TextStyle(
-                            color: Color(0xFF374151),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  child: widget.controller != null
+                      ? ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: widget.controller!,
+                          builder: (context, value, _) {
+                            if (value.text.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return _buildOverlayBox(value.text);
+                          },
+                        )
+                      : (widget.text != null && widget.text!.isNotEmpty
+                          ? _buildOverlayBox(widget.text!)
+                          : const SizedBox.shrink()),
                 ),
               ),
             ),
@@ -7188,6 +7762,36 @@ class _HoverOverlayWrapperState extends State<_HoverOverlayWrapper> {
     );
 
     Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  Widget _buildOverlayBox(String textVal) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        textVal,
+        style: const TextStyle(
+          color: Color(0xFF374151),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          fontFamily: 'Inter',
+        ),
+      ),
+    );
   }
 
   void _hideOverlay() {
@@ -7213,5 +7817,7 @@ class _HoverOverlayWrapperState extends State<_HoverOverlayWrapper> {
     );
   }
 }
+
+
 
 

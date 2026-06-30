@@ -5,6 +5,10 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class ManageTdsTcsRatesDialog extends StatefulWidget {
   final String title;
@@ -38,11 +42,15 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
   String? _errorMessage;
   bool _showInlineForm = false;
   int? _editingIndex;
+  bool _isGroupMode = false;
+  final Set<String> _selectedGroupItemIds = {};
 
   // Form controllers
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _rateCtrl = TextEditingController();
   String? _selectedSectionId;
+  DateTime _applicableFrom = DateTime.now();
+  DateTime _applicableTo = DateTime.now().add(const Duration(days: 365));
 
   @override
   void initState() {
@@ -67,6 +75,40 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
     super.dispose();
   }
 
+  Widget _buildDatePicker({
+    required DateTime date,
+    required ValueChanged<DateTime> onDateSelected,
+  }) {
+    final GlobalKey key = GlobalKey();
+    return GestureDetector(
+      key: key,
+      onTap: () async {
+        final picked = await ZerpaiDatePicker.show(
+          context,
+          initialDate: date,
+          targetKey: key,
+        );
+        if (picked != null) {
+          onDateSelected(picked);
+        }
+      },
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFD1D5DB)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        alignment: Alignment.centerLeft,
+        child: Text(
+          "${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}",
+          style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+        ),
+      ),
+    );
+  }
+
   void _startEdit(int index) {
     final item = _rows[index];
     setState(() {
@@ -86,12 +128,67 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
   void _cancel() {
     setState(() {
       _showInlineForm = false;
+      _isGroupMode = false;
       _editingIndex = null;
       _nameCtrl.clear();
       _rateCtrl.clear();
       _selectedSectionId = null;
+      _selectedGroupItemIds.clear();
+      _applicableFrom = DateTime.now();
+      _applicableTo = DateTime.now().add(const Duration(days: 365));
       _errorMessage = null;
     });
+  }
+
+  void _saveGroup() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _errorMessage = 'Group Tax Name is required.');
+      return;
+    }
+    if (_selectedGroupItemIds.isEmpty) {
+      setState(() => _errorMessage = 'Please select at least one tax rate.');
+      return;
+    }
+
+    setState(() => _errorMessage = null);
+
+    try {
+      final lookupsService = LookupsApiService();
+      final results = await lookupsService.syncTdsGroups([
+        {
+          'group_name': name,
+          'is_active': true,
+          'rate_ids': _selectedGroupItemIds.toList(),
+          'applicable_from': _applicableFrom.toIso8601String(),
+          'applicable_to': _applicableTo.toIso8601String(),
+        }
+      ]);
+
+      if (results.isNotEmpty && mounted) {
+        ZerpaiToast.success(context, 'TDS Group created successfully.');
+        final savedGroup = results.first;
+        
+        double totalRateSum = 0.0;
+        for (final itemId in _selectedGroupItemIds) {
+          final match = _rows.firstWhere((r) => r['id'] == itemId, orElse: () => {});
+          final rateVal = widget.isTcs ? match['rate'] : match['base_rate'];
+          totalRateSum += double.tryParse(rateVal?.toString() ?? '0.0') ?? 0.0;
+        }
+
+        final returnData = {
+          'id': savedGroup['id'],
+          'tax_name': savedGroup['group_name'] ?? name,
+          'base_rate': totalRateSum,
+          'is_active': true,
+          'is_group': true,
+        };
+        widget.onSelect(returnData);
+        Navigator.pop(context, returnData);
+      }
+    } catch (e) {
+      setState(() => _errorMessage = e.toString());
+    }
   }
 
   void _saveItem({bool selectAfter = false}) async {
@@ -319,12 +416,12 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
           const Spacer(),
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF0088FF)),
+              border: Border.all(color: AppTheme.borderColor),
               borderRadius: BorderRadius.circular(4),
             ),
             child: IconButton(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close, size: 18, color: Color(0xFF0088FF)),
+              icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
               splashRadius: 20,
               padding: const EdgeInsets.all(4),
               constraints: const BoxConstraints(),
@@ -430,7 +527,18 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
         const SizedBox(width: 8),
         ElevatedButton(
           onPressed: () {
-            ZerpaiToast.info(context, '$typeStr group creation is managed automatically.');
+            setState(() {
+              _showInlineForm = true;
+              _isGroupMode = true;
+              _editingIndex = null;
+              _nameCtrl.clear();
+              _rateCtrl.clear();
+              _selectedSectionId = null;
+              _selectedGroupItemIds.clear();
+              _applicableFrom = DateTime.now();
+              _applicableTo = DateTime.now().add(const Duration(days: 365));
+              _errorMessage = null;
+            });
           },
           style: ElevatedButton.styleFrom(
             elevation: 0,
@@ -452,6 +560,7 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
 
   Widget _buildInlineForm() {
     final sectionStr = widget.isTcs ? 'Nature' : 'Section';
+    final typeStr = widget.isTcs ? 'TCS' : 'TDS';
 
     return Container(
       width: double.infinity,
@@ -464,91 +573,196 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          if (_isGroupMode)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      "Tax Name*",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.errorRed,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${typeStr} Group Tax Name*",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.errorRed,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          CustomTextField(
+                            controller: _nameCtrl,
+                            height: 32,
+                            hintText: 'Enter group tax name',
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    CustomTextField(
-                      controller: _nameCtrl,
-                      height: 32,
-                      hintText: 'Enter tax name',
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 12),
+                Row(
                   children: [
-                    Text(
-                      "Rate (%)*",
+                    const Text(
+                      "Applicable Period",
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.errorRed,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    CustomTextField(
-                      controller: _rateCtrl,
-                      height: 32,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      hintText: '0.00',
+                    const SizedBox(width: 4),
+                    const ZTooltip(
+                      message: "If this TDS rate is applicable only for a certain period, select the date range during which, users can use this rate in transactions.",
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 6),
+                Row(
                   children: [
-                    Text(
-                      "$sectionStr*",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.errorRed,
+                    SizedBox(
+                      width: 200,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Start Date",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildDatePicker(
+                            date: _applicableFrom,
+                            onDateSelected: (date) {
+                              setState(() {
+                                _applicableFrom = date;
+                              });
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    FormDropdown<String>(
-                      height: 32,
-                      value: _selectedSectionId,
-                      items: widget.sections.map((s) => s['id']?.toString() ?? '').toList(),
-                      displayStringForValue: (id) => _getSectionName(id),
-                      hint: 'Select $sectionStr',
-                      onChanged: (id) {
-                        setState(() {
-                          _selectedSectionId = id;
-                        });
-                      },
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 200,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "End Date",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildDatePicker(
+                            date: _applicableTo,
+                            onDateSelected: (date) {
+                              setState(() {
+                                _applicableTo = date;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Tax Name*",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.errorRed,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      CustomTextField(
+                        controller: _nameCtrl,
+                        height: 32,
+                        hintText: 'Enter tax name',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Rate (%)*",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.errorRed,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      CustomTextField(
+                        controller: _rateCtrl,
+                        height: 32,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        hintText: '0.00',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "$sectionStr*",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.errorRed,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      FormDropdown<String>(
+                        height: 32,
+                        value: _selectedSectionId,
+                        items: widget.sections.map((s) => s['id']?.toString() ?? '').toList(),
+                        displayStringForValue: (id) => _getSectionName(id),
+                        hint: 'Select $sectionStr',
+                        onChanged: (id) {
+                          setState(() {
+                            _selectedSectionId = id;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 16),
           Row(
             children: [
               ElevatedButton(
-                onPressed: () => _saveItem(selectAfter: true),
+                onPressed: _isGroupMode ? _saveGroup : () => _saveItem(selectAfter: true),
                 style: ElevatedButton.styleFrom(
                   elevation: 0,
                   backgroundColor: AppTheme.accentGreen,
@@ -557,13 +771,18 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                 ),
                 child: Text(
-                  _editingIndex == null ? "Save and Select" : "Update",
+                  _isGroupMode ? "Save" : (_editingIndex == null ? "Save and Select" : "Update"),
                   style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500),
                 ),
               ),
               const SizedBox(width: 10),
-              TextButton(
+              OutlinedButton(
                 onPressed: _cancel,
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppTheme.borderColor),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                ),
                 child: const Text(
                   "Cancel",
                   style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
@@ -583,6 +802,29 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       child: Row(
         children: [
+          if (_isGroupMode) ...[
+            SizedBox(
+              width: 32,
+              height: 24,
+              child: Checkbox(
+                value: _rows.isNotEmpty && _selectedGroupItemIds.length == _rows.length,
+                onChanged: (val) {
+                  setState(() {
+                    if (val == true) {
+                      for (final r in _rows) {
+                        final id = r['id']?.toString();
+                        if (id != null) _selectedGroupItemIds.add(id);
+                      }
+                    } else {
+                      _selectedGroupItemIds.clear();
+                    }
+                  });
+                },
+                activeColor: const Color(0xFF0088FF),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             flex: 3,
             child: Text(
@@ -650,7 +892,20 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
           onEnter: (_) => setState(() => _hoverIndex = index),
           onExit: (_) => setState(() => _hoverIndex = null),
           child: InkWell(
-            onTap: () => _selectAndClose(item),
+            onTap: _isGroupMode
+                ? () {
+                    final id = item['id']?.toString();
+                    if (id != null) {
+                      setState(() {
+                        if (_selectedGroupItemIds.contains(id)) {
+                          _selectedGroupItemIds.remove(id);
+                        } else {
+                          _selectedGroupItemIds.add(id);
+                        }
+                      });
+                    }
+                  }
+                : () => _selectAndClose(item),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               decoration: BoxDecoration(
@@ -661,6 +916,29 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
               ),
               child: Row(
                 children: [
+                  if (_isGroupMode) ...[
+                    SizedBox(
+                      width: 32,
+                      height: 24,
+                      child: Checkbox(
+                        value: _selectedGroupItemIds.contains(item['id']?.toString()),
+                        onChanged: (val) {
+                          final id = item['id']?.toString();
+                          if (id != null) {
+                            setState(() {
+                              if (val == true) {
+                                _selectedGroupItemIds.add(id);
+                              } else {
+                                _selectedGroupItemIds.remove(id);
+                              }
+                            });
+                          }
+                        },
+                        activeColor: const Color(0xFF0088FF),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
                     flex: 3,
                     child: Text(
@@ -698,7 +976,7 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (hovered) ...[
+                        if (hovered && !_isGroupMode) ...[
                           IconButton(
                             icon: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF0088FF)),
                             onPressed: () => _startEdit(index),

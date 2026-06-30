@@ -105,6 +105,7 @@ class _PurchasesBillsListScreenState
   String? _showPaymentFormForId;
   final Set<String> _expandedBatchesItems = {};
   bool _isBatchesExpanded = true;
+  String _bottomActiveTab = 'batches';
   bool _showCalendarView = false;
   DateTime _calendarMonth = DateTime(2026, 6);
 
@@ -217,9 +218,9 @@ class _PurchasesBillsListScreenState
       final supabase = Supabase.instance.client;
       final res = await supabase
           .from('bill_attachments')
-          .select('id, file_name, file_url, file_size, file_type, uploaded_at')
+          .select('id, file_name, file_url, file_size, file_type, created_at')
           .eq('bill_id', billId)
-          .order('uploaded_at', ascending: false);
+          .order('created_at', ascending: false);
       if (mounted) {
         setState(() {
           _billAttachments = (res as List<dynamic>)
@@ -1114,7 +1115,7 @@ class _PurchasesBillsListScreenState
                               : _overviewCard(bill),
                         ),
                         const SizedBox(height: 24),
-                        _buildBottomDetails(bill),
+                        _buildBottomDetails(bill, setInnerState),
                       ],
                     ),
                   ),
@@ -1678,26 +1679,50 @@ class _PurchasesBillsListScreenState
     IconData icon,
     String label, {
     required VoidCallback onPressed,
+    bool hasDropdownArrow = false,
   }) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: AppTheme.textPrimary),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTheme.bodyText.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isHovered ? Colors.white : Colors.transparent,
+                border: Border.all(
+                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: AppTheme.textPrimary),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: AppTheme.bodyText.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (hasDropdownArrow) ...[
+                    const SizedBox(width: 4),
+                    const Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.textPrimary),
+                  ],
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -2615,34 +2640,6 @@ class _PurchasesBillsListScreenState
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          InkWell(
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => _ExtraQuantityDialog(bills: bills),
-              );
-            },
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: AppTheme.borderLight),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                'Extra Quantity',
-                style: AppTheme.bodyText.copyWith(
-                  color: AppTheme.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -4619,11 +4616,300 @@ class _PurchasesBillsListScreenState
     );
   }
 
-  Widget _buildBottomDetails(PurchasesBill bill) {
+  Future<List<Map<String, dynamic>>> _fetchBillJournals(String billId) async {
+    final supabase = Supabase.instance.client;
+    final res = await supabase
+        .from('account_transactions')
+        .select('*, account:accounts(user_account_name, system_account_name)')
+        .eq('source_id', billId)
+        .eq('source_type', 'BILL');
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  Widget _buildJournalsTab(PurchasesBill bill) {
+    final warehouses = ref.watch(warehousesProvider).value ?? [];
+    String resolvedWarehouseName = '-';
+    if (bill.warehouseName != null && bill.warehouseName!.isNotEmpty) {
+      resolvedWarehouseName = bill.warehouseName!;
+    } else if (bill.warehouseId != null) {
+      for (var w in warehouses) {
+        if (w.id == bill.warehouseId) {
+          resolvedWarehouseName = w.name;
+          break;
+        }
+      }
+    }
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchBillJournals(bill.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Failed to load journals: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red, fontSize: 13),
+            ),
+          );
+        }
+        final txs = snapshot.data ?? [];
+        if (txs.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'No journal entries found for this bill.',
+                style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+              ),
+            ),
+          );
+        }
+
+        // Check if debits and credits match
+        double totalDebit = 0;
+        double totalCredit = 0;
+        for (var tx in txs) {
+          totalDebit += double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+          totalCredit += double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+        }
+        final bool isBalanced = (totalDebit - totalCredit).abs() < 0.01;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 12),
+            if (isBalanced) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD1FAE5),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(
+                          LucideIcons.checkCircle2,
+                          size: 13,
+                          color: Color(0xFF065F46),
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Debits/Credits match',
+                          style: TextStyle(
+                            color: Color(0xFF065F46),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+            Table(
+              columnWidths: const {
+                0: FlexColumnWidth(4),
+                1: FlexColumnWidth(4),
+                2: FlexColumnWidth(2),
+                3: FlexColumnWidth(2),
+              },
+              children: [
+                TableRow(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF9FAFB),
+                    border: Border(
+                      top: BorderSide(color: Color(0xFFE5E7EB)),
+                      bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                  ),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      child: Text(
+                        'ACCOUNT',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4B5563),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      child: Text(
+                        'WAREHOUSE',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4B5563),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      child: Text(
+                        'DEBIT',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4B5563),
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      child: Text(
+                        'CREDIT',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4B5563),
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+                ...txs.map((tx) {
+                  final accountName = tx['account']?['user_account_name'] ??
+                      tx['account']?['system_account_name'] ??
+                      '-';
+                  final debit = double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+                  final credit = double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+
+                  return TableRow(
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Color(0xFFF3F4F6)),
+                      ),
+                    ),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        child: Text(
+                          accountName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        child: Text(
+                          resolvedWarehouseName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF4B5563),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        child: Text(
+                          debit > 0 ? debit.toStringAsFixed(2) : '0.00',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF1F2937),
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        child: Text(
+                          credit > 0 ? credit.toStringAsFixed(2) : '0.00',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF1F2937),
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+                TableRow(
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+                    ),
+                  ),
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      child: Text(
+                        'Total',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1F2937),
+                        ),
+                      ),
+                    ),
+                    const SizedBox.shrink(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      child: Text(
+                        totalDebit.toStringAsFixed(2),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1F2937),
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      child: Text(
+                        totalCredit.toStringAsFixed(2),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1F2937),
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomDetails(PurchasesBill bill, StateSetter setInnerState) {
     final hasBatches = bill.lineItems.any(
       (item) => item.batches != null && item.batches!.isNotEmpty,
     );
-    if (!hasBatches) return const SizedBox.shrink();
+
+    // Auto-resolve tab when current bill lacks batches
+    if (!hasBatches && _bottomActiveTab == 'batches') {
+      _bottomActiveTab = 'journals';
+    }
 
     final binsAsync = ref.watch(binsLookupProvider(bill.warehouseId));
     final bins = binsAsync.value ?? [];
@@ -4638,29 +4924,73 @@ class _PurchasesBillsListScreenState
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: AppTheme.primaryBlue,
-                      width: _isBatchesExpanded ? 2 : 0,
+              if (hasBatches) ...[
+                InkWell(
+                  onTap: () {
+                    setInnerState(() {
+                      _bottomActiveTab = 'batches';
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _bottomActiveTab == 'batches'
+                              ? AppTheme.primaryBlue
+                              : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Batches',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _bottomActiveTab == 'batches'
+                            ? AppTheme.primaryBlue
+                            : const Color(0xFF6B7280),
+                      ),
                     ),
                   ),
                 ),
-                child: const Text(
-                  'Batches',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryBlue,
+                const SizedBox(width: 24),
+              ],
+              InkWell(
+                onTap: () {
+                  setInnerState(() {
+                    _bottomActiveTab = 'journals';
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: _bottomActiveTab == 'journals'
+                            ? AppTheme.primaryBlue
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    'Journals',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _bottomActiveTab == 'journals'
+                          ? AppTheme.primaryBlue
+                          : const Color(0xFF6B7280),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        if (_isBatchesExpanded) ...[
+        if (_bottomActiveTab == 'batches' && hasBatches) ...[
           const SizedBox(height: 16),
           ...() {
             final Map<String, Map<String, List<Map<String, dynamic>>>> grouped =
@@ -4695,7 +5025,7 @@ class _PurchasesBillsListScreenState
               return Column(
                 children: [
                   InkWell(
-                    onTap: () => setState(() {
+                    onTap: () => setInnerState(() {
                       if (isExpanded) {
                         _expandedBatchesItems.remove(itemName);
                       } else {
@@ -4985,6 +5315,9 @@ class _PurchasesBillsListScreenState
               );
             }).toList();
           }(),
+        ],
+        if (_bottomActiveTab == 'journals') ...[
+          _buildJournalsTab(bill),
         ],
       ],
     );
@@ -5368,7 +5701,7 @@ class _PurchasesBillsListScreenState
     );
 
     for (final a in _billAttachments) {
-      final uploadedAtStr = a['uploaded_at']?.toString();
+      final uploadedAtStr = a['created_at']?.toString();
       final dt = uploadedAtStr != null ? DateTime.tryParse(uploadedAtStr) : null;
       events.add(
         _HistoryEvent(
@@ -7675,288 +8008,7 @@ class _TooltipDownArrowPainter extends CustomPainter {
   bool shouldRepaint(covariant _TooltipDownArrowPainter oldDelegate) => false;
 }
 
-class _ExtraQuantityDialog extends ConsumerStatefulWidget {
-  final List<PurchasesBill> bills;
 
-  const _ExtraQuantityDialog({required this.bills});
-
-  @override
-  ConsumerState<_ExtraQuantityDialog> createState() => _ExtraQuantityDialogState();
-}
-
-class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
-  late final Future<List<_ExtraQuantityRecord>> _recordsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _recordsFuture = _loadExtraQuantities();
-  }
-
-  Future<List<_ExtraQuantityRecord>> _loadExtraQuantities() async {
-    final poRepository = ref.read(purchaseOrderRepositoryProvider);
-    final prRepository = ref.read(purchaseReceiveRepositoryProvider);
-    final billRepository = ref.read(purchasesBillsRepositoryProvider);
-
-    final results = await Future.wait([
-      poRepository.getPurchaseOrders(limit: 1000),
-      prRepository.getPurchaseReceives(limit: 1000),
-    ]);
-
-    final List<PurchaseOrder> pos = results[0] as List<PurchaseOrder>;
-    final List<PurchaseReceive> receives = results[1] as List<PurchaseReceive>;
-    final List<_ExtraQuantityRecord> records = [];
-
-    for (final billSummary in widget.bills) {
-      final bill = await billRepository.getBill(billSummary.id);
-
-      if (bill.orderNumber == null || bill.orderNumber!.isEmpty) continue;
-      
-      final poNumbers = bill.orderNumber!
-          .split(',')
-          .map((s) => s.trim().toLowerCase())
-          .where((s) => s.isNotEmpty)
-          .toSet();
-
-      for (final poNum in poNumbers) {
-        final poSummary = pos.where((p) => p.orderNumber.trim().toLowerCase() == poNum).firstOrNull;
-        if (poSummary == null || poSummary.id == null) continue;
-
-        // Fetch full PO containing items
-        final po = await poRepository.getPurchaseOrder(poSummary.id!);
-        if (po == null) continue;
-
-        // Associated purchase receives number(s)
-        final associatedReceives = receives
-            .where((r) => r.purchaseOrderId == po.id || (r.purchaseOrderNumber != null && r.purchaseOrderNumber!.trim().toLowerCase() == poNum))
-            .map((r) => r.purchaseReceiveNumber)
-            .toList();
-        final String? prNumber = associatedReceives.isNotEmpty ? associatedReceives.join(', ') : null;
-
-        for (final billItem in bill.lineItems) {
-          if (billItem.itemId == null) continue;
-          final poItem = po.items.where((pi) => pi.productId == billItem.itemId).firstOrNull;
-          if (poItem == null) continue;
-
-          final double orderedQty = poItem.quantity - poItem.cancelledQuantity;
-          if (billItem.quantity > orderedQty) {
-            records.add(_ExtraQuantityRecord(
-              date: bill.billDate ?? DateTime.now(),
-              itemName: billItem.itemName ?? 'Unknown',
-              purchaseOrderNumber: po.orderNumber,
-              purchaseReceiveNumber: prNumber,
-              vendorName: bill.vendorName,
-              warehouseName: bill.warehouseName ?? '-',
-              quantity: billItem.quantity - orderedQty,
-            ));
-          }
-        }
-      }
-    }
-    return records;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      alignment: Alignment.topCenter,
-      insetPadding: EdgeInsets.zero,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 850),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Extra Quantity',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.close,
-                      size: 20,
-                      color: AppTheme.errorRed,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: AppTheme.borderColor),
-            FutureBuilder<List<_ExtraQuantityRecord>>(
-              future: _recordsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: 250),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: TableSkeleton(
-                        rows: 3,
-                        columns: 6,
-                        showHeader: true,
-                      ),
-                    ),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppTheme.errorRed)),
-                  );
-                }
-
-                final records = snapshot.data ?? [];
-
-                return ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 450),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // Table Header
-                        Container(
-                          color: AppTheme.bgLight,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          child: Row(
-                            children: const [
-                              Expanded(flex: 2, child: Text('DATE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              Expanded(flex: 3, child: Text('ITEM NAME', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              Expanded(flex: 2, child: Text('PURCHASE ORDER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              Expanded(flex: 3, child: Text('VENDOR NAME', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              Expanded(flex: 2, child: Text('WAREHOUSE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              SizedBox(width: 80, child: Text('QUANTITY', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 1, color: AppTheme.borderColor),
-                        if (records.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(40),
-                            child: Center(
-                              child: Text(
-                                'No extra quantity records found.',
-                                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-                              ),
-                            ),
-                          )
-                        else
-                          // Table Rows
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: records.length,
-                            separatorBuilder: (context, index) => const Divider(height: 1, color: AppTheme.borderColor),
-                            itemBuilder: (context, index) {
-                              final r = records[index];
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                child: Row(
-                                  children: [
-                                    Expanded(flex: 2, child: Text(DateFormat('dd-MM-yyyy').format(r.date), style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                                    Expanded(flex: 3, child: Text(r.itemName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            r.purchaseOrderNumber,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              color: AppTheme.primaryBlue,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          if (r.purchaseReceiveNumber != null) ...[
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              r.purchaseReceiveNumber!,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: AppTheme.textSecondary,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(flex: 3, child: Text(r.vendorName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                                    Expanded(flex: 2, child: Text(r.warehouseName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                                    SizedBox(
-                                      width: 80,
-                                      child: Text(
-                                        r.quantity == r.quantity.roundToDouble()
-                                            ? r.quantity.toInt().toString()
-                                            : r.quantity.toStringAsFixed(2),
-                                        textAlign: TextAlign.right,
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            const Divider(height: 1, color: AppTheme.borderColor),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  ZButton.secondary(
-                    label: 'Close',
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtraQuantityRecord {
-  final DateTime date;
-  final String itemName;
-  final String purchaseOrderNumber;
-  final String? purchaseReceiveNumber;
-  final String vendorName;
-  final String warehouseName;
-  final double quantity;
-
-  _ExtraQuantityRecord({
-    required this.date,
-    required this.itemName,
-    required this.purchaseOrderNumber,
-    this.purchaseReceiveNumber,
-    required this.vendorName,
-    required this.warehouseName,
-    required this.quantity,
-  });
-}
 
 class _HistoryEvent {
   final String username;
@@ -8009,9 +8061,9 @@ class _BillAttachmentOverlayContentState extends State<_BillAttachmentOverlayCon
       final supabase = Supabase.instance.client;
       final res = await supabase
           .from('bill_attachments')
-          .select('id,file_name,file_url,file_size,file_type,uploaded_at')
+          .select('id,file_name,file_url,file_size,file_type,created_at')
           .eq('bill_id', widget.bill.id)
-          .order('uploaded_at', ascending: false);
+          .order('created_at', ascending: false);
       if (mounted) {
         setState(() {
           _attachments = (res as List<dynamic>)

@@ -8,7 +8,9 @@ import { updatePurchaseOrderStatusByOrderNumber } from "../../purchase-orders/ut
 export class BillsService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
-  async createBill(entityId: string, dto: any) {
+  async createBill(entityIdOrTenant: string | TenantContext, dto: any) {
+    const tenant = typeof entityIdOrTenant === 'string' ? null : entityIdOrTenant;
+    const entityId = tenant ? tenant.entityId : entityIdOrTenant as string;
     const supabase = this.supabaseService.getClient();
     
     // 1. Create Bill
@@ -35,6 +37,8 @@ export class BillsService {
         notes: dto.notes,
         subtotal: dto.subTotal?.toString(),
         discount_total: dto.discountAmount?.toString(),
+        discount_value: dto.discountPercent?.toString() || dto.discountValue?.toString() || null,
+        discount_accounts_id: dto.discountAccountId || null,
         tax_total: dto.taxAmount?.toString(),
         tds_total: dto.tdsTotal?.toString(),
         tcs_total: dto.tcsTotal?.toString(),
@@ -45,6 +49,8 @@ export class BillsService {
         source_id: dto.sourceId || dto.source_id || null,
         status: dto.status || "draft",
         is_delete: false,
+        tds_tcs_type: dto.tdsTcsType || 'none',
+        tds_tcs_id: dto.tdsTcsId || null,
       })
       .select()
       .single();
@@ -55,22 +61,34 @@ export class BillsService {
 
     // 2. Create Items
     if (dto.lineItems && dto.lineItems.length > 0) {
-      const itemsToInsert = dto.lineItems.map(item => ({
-        id: uuidv4(),
-        bill_id: billId,
-        product_id: item.item_id,
-        account_id: item.account_id,
-        customer_id: item.customer_id,
-        description: item.description,
-        hsn_code: item.hsn_code || item.hsnCode,
-        quantity: item.quantity?.toString() || "0",
-        rate: item.rate?.toString() || "0",
-        discount_type: item.discount_type,
-        discount_amount: item.discount?.toString() || "0",
-        tax_id: item.tax_id,
-        tax_amount: item.tax_amount?.toString() || "0",
-        line_total: item.amount?.toString() || "0",
-      }));
+      const itemsToInsert = dto.lineItems.map(item => {
+        const qty = parseFloat(item.quantity?.toString() || '0');
+        const rate = parseFloat(item.rate?.toString() || '0');
+        const gross = qty * rate;
+        const discVal = parseFloat(item.discount?.toString() || '0');
+        const discType = item.discountType || item.discount_type || '%';
+        const computedDiscountAmt = (discType === '%') ? (gross * discVal / 100) : discVal;
+
+        return {
+          id: uuidv4(),
+          bill_id: billId,
+          product_id: item.item_id || item.itemId,
+          account_id: item.account_id || item.accountId,
+          customer_id: item.customer_id || item.customerId,
+          description: item.description,
+          hsn_code: item.hsn_code || item.hsnCode,
+          quantity: qty.toString(),
+          rate: rate.toString(),
+          discount_type: discType,
+          discount_value: discVal.toString(),
+          discount_accounts_id: item.discount_account_id || item.discountAccountId || null,
+          discount_amount: computedDiscountAmt.toString(),
+          tax_id: item.tax_id || item.taxId,
+          tax_amount: item.tax_amount?.toString() || "0",
+          line_total: item.amount?.toString() || "0",
+          purchase_receive_item_id: item.purchaseReceiveItemId || item.purchase_receive_item_id || null,
+        };
+      });
 
       const { data: itemsData, error: itemsError } = await supabase
         .from('bill_items')
@@ -314,10 +332,20 @@ export class BillsService {
       await updatePurchaseOrderStatusByOrderNumber(supabase, dto.orderNumber, entityId);
     }
 
+    await this.postBillTransactions(
+      supabase,
+      billId,
+      entityId,
+      tenant?.orgId || dto.orgId || '00000000-0000-0000-0000-000000000000',
+      dto,
+    );
+
     return fullBill || billData;
   }
 
-  async updateBill(id: string, entityId: string, dto: any) {
+  async updateBill(id: string, entityIdOrTenant: string | TenantContext, dto: any) {
+    const tenant = typeof entityIdOrTenant === 'string' ? null : entityIdOrTenant;
+    const entityId = tenant ? tenant.entityId : entityIdOrTenant as string;
     const supabase = this.supabaseService.getClient();
 
     const { data: billData, error: billError } = await supabase
@@ -339,6 +367,8 @@ export class BillsService {
         notes: dto.notes,
         subtotal: dto.subTotal?.toString(),
         discount_total: dto.discountAmount?.toString(),
+        discount_value: dto.discountPercent?.toString() || dto.discountValue?.toString() || null,
+        discount_accounts_id: dto.discountAccountId || null,
         tax_total: dto.taxAmount?.toString(),
         tds_total: dto.tdsTotal?.toString(),
         tcs_total: dto.tcsTotal?.toString(),
@@ -349,6 +379,8 @@ export class BillsService {
         source_id: dto.sourceId || dto.source_id || null,
         status: dto.status || "draft",
         updated_at: new Date().toISOString(),
+        tds_tcs_type: dto.tdsTcsType || 'none',
+        tds_tcs_id: dto.tdsTcsId || null,
       })
       .eq('id', id)
       .eq('entity_id', entityId)
@@ -386,22 +418,34 @@ export class BillsService {
 
     // Create Items
     if (dto.lineItems && dto.lineItems.length > 0) {
-      const itemsToInsert = dto.lineItems.map(item => ({
-        id: uuidv4(),
-        bill_id: id,
-        product_id: item.item_id,
-        account_id: item.account_id,
-        customer_id: item.customer_id,
-        description: item.description,
-        hsn_code: item.hsn_code || item.hsnCode,
-        quantity: item.quantity?.toString() || "0",
-        rate: item.rate?.toString() || "0",
-        discount_type: item.discount_type,
-        discount_amount: item.discount?.toString() || "0",
-        tax_id: item.tax_id,
-        tax_amount: item.tax_amount?.toString() || "0",
-        line_total: item.amount?.toString() || "0",
-      }));
+      const itemsToInsert = dto.lineItems.map(item => {
+        const qty = parseFloat(item.quantity?.toString() || '0');
+        const rate = parseFloat(item.rate?.toString() || '0');
+        const gross = qty * rate;
+        const discVal = parseFloat(item.discount?.toString() || '0');
+        const discType = item.discountType || item.discount_type || '%';
+        const computedDiscountAmt = (discType === '%') ? (gross * discVal / 100) : discVal;
+
+        return {
+          id: uuidv4(),
+          bill_id: id,
+          product_id: item.item_id || item.itemId,
+          account_id: item.account_id || item.accountId,
+          customer_id: item.customer_id || item.customerId,
+          description: item.description,
+          hsn_code: item.hsn_code || item.hsnCode,
+          quantity: qty.toString(),
+          rate: rate.toString(),
+          discount_type: discType,
+          discount_value: discVal.toString(),
+          discount_accounts_id: item.discount_account_id || item.discountAccountId || null,
+          discount_amount: computedDiscountAmt.toString(),
+          tax_id: item.tax_id || item.taxId,
+          tax_amount: item.tax_amount?.toString() || "0",
+          line_total: item.amount?.toString() || "0",
+          purchase_receive_item_id: item.purchaseReceiveItemId || item.purchase_receive_item_id || null,
+        };
+      });
 
       const { data: itemsData, error: itemsError } = await supabase
         .from('bill_items')
@@ -645,6 +689,14 @@ export class BillsService {
       await updatePurchaseOrderStatusByOrderNumber(supabase, dto.orderNumber, entityId);
     }
 
+    await this.postBillTransactions(
+      supabase,
+      id,
+      entityId,
+      tenant?.orgId || dto.orgId || '00000000-0000-0000-0000-000000000000',
+      dto,
+    );
+
     return fullBill || billData;
   }
 
@@ -717,7 +769,7 @@ export class BillsService {
         line_items:bill_items(
           *,
           product:products(*),
-          account:accounts(*),
+          account:accounts!account_id(*),
           customer:customers(*)
         )
       `,
@@ -1090,10 +1142,315 @@ export class BillsService {
       );
     }
 
+    // Clear account transactions
+    await supabase
+      .from('account_transactions')
+      .delete()
+      .eq('source_id', id)
+      .eq('source_type', 'BILL')
+      .eq('entity_id', tenant.entityId);
+
     if (bill && bill.order_number) {
       await updatePurchaseOrderStatusByOrderNumber(supabase, bill.order_number, tenant.entityId);
     }
 
     return { message: "Bill deleted successfully" };
+  }
+
+  private async postBillTransactions(
+    supabase: any,
+    billId: string,
+    entityId: string,
+    orgId: string,
+    dto: any,
+  ) {
+    // 1. Clear any existing transactions for this bill
+    await supabase
+      .from('account_transactions')
+      .delete()
+      .eq('source_id', billId)
+      .eq('source_type', 'BILL')
+      .eq('entity_id', entityId);
+
+    // 2. If status is void, don't write new transactions
+    if (dto.status?.toLowerCase() === 'void') {
+      return;
+    }
+
+    // 3. Fetch all active accounts for the branch
+    const { data: dbAccounts, error: accountsError } = await supabase
+      .from('accounts')
+      .select('id, user_account_name, system_account_name, account_type')
+      .eq('entity_id', entityId)
+      .eq('is_active', true);
+
+    if (accountsError || !dbAccounts || dbAccounts.length === 0) {
+      return;
+    }
+
+    // 4. Resolver helper
+    const findAccount = (names: string[], types?: string[]): string | null => {
+      const match = dbAccounts.find((acc: any) => {
+        const uName = acc.user_account_name?.toLowerCase() || '';
+        const sName = acc.system_account_name?.toLowerCase() || '';
+        const aType = acc.account_type?.toLowerCase() || '';
+
+        const nameMatch = names.some(n => {
+          const ln = n.toLowerCase();
+          return uName.includes(ln) || sName.includes(ln);
+        });
+
+        const typeMatch = types ? types.some(t => aType === t.toLowerCase()) : true;
+        return nameMatch && typeMatch;
+      });
+
+      if (match) return match.id;
+
+      if (types && types.length > 0) {
+        const typeMatch = dbAccounts.find((acc: any) =>
+          types.some(t => acc.account_type?.toLowerCase() === t.toLowerCase())
+        );
+        if (typeMatch) return typeMatch.id;
+      }
+
+      return dbAccounts[0]?.id || null;
+    };
+
+    // 5. Parse amounts
+    const discountAmount = parseFloat(dto.discountAmount?.toString() || dto.discountTotal?.toString() || '0');
+    const taxAmount = parseFloat(dto.taxAmount?.toString() || dto.taxTotal?.toString() || '0');
+    const tdsAmount = parseFloat(dto.tdsTotal?.toString() || '0');
+    const tcsAmount = parseFloat(dto.tcsTotal?.toString() || '0');
+    const adjustmentAmount = parseFloat(dto.adjustment?.toString() || dto.adjustmentAmount?.toString() || '0');
+    const grandTotal = parseFloat(dto.total?.toString() || dto.grandTotal?.toString() || '0');
+
+    // Resolve accounts
+    const accountsPayableId = findAccount(['Accounts Payable'], ['Accounts Payable']);
+    const accountsPayableDiscountId = findAccount(['Accounts Payable (discount)', 'Accounts Payable discount'], ['Accounts Payable']) || accountsPayableId;
+    const purchaseDiscountId = findAccount(['Purchase Discount', 'Purchase Discounts', 'Discount'], ['Income', 'Other Income', 'Expense', 'Other Expense']);
+    const otherExpensesId = findAccount(['Other Expenses', 'Other Expense', 'Adjustment'], ['Expense', 'Other Expense']);
+    const tdsPayableId = findAccount(['TDS Payable', 'TDS'], ['Other Current Liability', 'Other Liability']);
+    const tcsPayableId = findAccount(['TCS Payable', 'TCS'], ['Other Current Liability', 'Other Liability']);
+    const tdsReceivableId = findAccount(['TDS Receivable', 'TDS'], ['Other Current Asset', 'Other Asset']);
+    const tcsReceivableId = findAccount(['TCS Receivable', 'TCS'], ['Other Current Asset', 'Other Asset']);
+    const inputSgstId = findAccount(['Input SGST', 'SGST'], ['Other Current Asset', 'Other Asset', 'Other Current Liability', 'Other Liability']);
+    const inputCgstId = findAccount(['Input CGST', 'CGST'], ['Other Current Asset', 'Other Asset', 'Other Current Liability', 'Other Liability']);
+    const inputIgstId = findAccount(['Input IGST', 'IGST'], ['Other Current Asset', 'Other Asset', 'Other Current Liability', 'Other Liability']);
+
+    // 6. Group item gross amounts (qty * rate) by account_id and compute gross subtotal
+    let computedGrossSubtotal = 0;
+    const itemAccountsMap = new Map<string, number>();
+    const lineItemDiscountsMap = new Map<string, number>();
+
+    for (const item of dto.lineItems || []) {
+      const accId = item.account_id || item.accountId;
+      const qty = parseFloat(item.quantity?.toString() || '0');
+      const rate = parseFloat(item.rate?.toString() || '0');
+      const itemGross = qty * rate;
+
+      if (accId) {
+        itemAccountsMap.set(accId, (itemAccountsMap.get(accId) || 0) + itemGross);
+        computedGrossSubtotal += itemGross;
+      }
+
+      // Group line item discount amounts by discountAccountId
+      const discAccId = item.discountAccountId || item.discount_account_id;
+      const discVal = parseFloat(item.discount?.toString() || item.discountAmount?.toString() || item.discount_amount?.toString() || '0');
+      if (discVal > 0.0001) {
+        let discAmt = 0;
+        const discType = item.discountType || item.discount_type;
+        if (discType === '%') {
+          discAmt = itemGross * (discVal / 100);
+        } else {
+          discAmt = discVal;
+        }
+
+        if (discAmt > 0.0001) {
+          const finalDiscAccId = discAccId || purchaseDiscountId;
+          if (finalDiscAccId) {
+            lineItemDiscountsMap.set(finalDiscAccId, (lineItemDiscountsMap.get(finalDiscAccId) || 0) + discAmt);
+          }
+        }
+      }
+    }
+
+    // 7. Determine if GST is applied
+    const isGstBill = taxAmount > 0.0001;
+    let isIGST = false;
+
+    if (isGstBill && dto.lineItems?.length > 0) {
+      const taxIds = dto.lineItems.map((item: any) => item.tax_id || item.taxId).filter(Boolean);
+      if (taxIds.length > 0) {
+        const { data: rates } = await supabase
+          .from('tax_rates')
+          .select('tax_type')
+          .in('id', taxIds);
+        if (rates && rates.some((r: any) => r.tax_type === 'IGST')) {
+          isIGST = true;
+        }
+      }
+    }
+
+    // 8. Build transaction entries
+    const entries: any[] = [];
+    const addEntry = (accountId: string | null, type: string, debit: number, credit: number) => {
+      if (!accountId) return;
+      const dVal = Math.round(debit * 100) / 100;
+      const cVal = Math.round(credit * 100) / 100;
+      if (dVal > 0.0001 || cVal > 0.0001) {
+        entries.push({
+          entity_id: entityId,
+          org_id: orgId,
+          account_id: accountId,
+          transaction_date: dto.billDate || new Date().toISOString(),
+          transaction_type: type,
+          reference_number: dto.billNumber || dto.bill_number || 'BILL',
+          description: dto.notes || 'Purchase Bill transaction',
+          debit: dVal,
+          credit: cVal,
+          source_id: billId,
+          source_type: 'BILL',
+        });
+      }
+    };
+
+    if (!isGstBill) {
+      // Scenario 1: Non GST Bill
+      
+      // DEBITS:
+      // Accounts Payable (discount) (Dr)
+      if (discountAmount > 0.0001) {
+        addEntry(accountsPayableDiscountId, 'Accounts Payable (discount)', discountAmount, 0);
+      }
+
+      // Inventory Asset (selected Purchase a/c in item registration) (Dr)
+      for (const [accId, amt] of itemAccountsMap.entries()) {
+        addEntry(accId, 'Inventory Asset (selected Purchase a/c in item registration)', amt, 0);
+      }
+
+      // Other Expenses (Adjustment) (Dr)
+      if (adjustmentAmount > 0.0001) {
+        addEntry(otherExpensesId, 'Other Expenses (Adjustment) (+ve / --ve)', adjustmentAmount, 0);
+      }
+
+      // CREDITS:
+      // Purchase Discount (Cr)
+      if (discountAmount > 0.0001) {
+        if (lineItemDiscountsMap.size > 0) {
+          for (const [accId, amt] of lineItemDiscountsMap.entries()) {
+            addEntry(accId, 'Purchase Discount (selected discount a/c in Transaction)', 0, amt);
+          }
+        } else {
+          const transDiscountAccId = dto.discountAccountId || purchaseDiscountId;
+          addEntry(transDiscountAccId, 'Purchase Discount (selected discount a/c in Transaction)', 0, discountAmount);
+        }
+      }
+
+      // Other Expenses (Adjustment) (Cr)
+      if (adjustmentAmount < -0.0001) {
+        addEntry(otherExpensesId, 'Other Expenses (Adjustment) (+ve / --ve)', 0, Math.abs(adjustmentAmount));
+      }
+
+      // TDS Payable (Cr)
+      if (tdsAmount > 0.0001) {
+        addEntry(tdsPayableId, 'TDS Payable', 0, tdsAmount);
+      }
+
+      // TCS Payable (Cr)
+      if (tcsAmount > 0.0001) {
+        addEntry(tcsPayableId, 'TCS Payable', 0, tcsAmount);
+      }
+
+      // Accounts Payable (Cr) - Balancing Entry
+      const totalDebits = entries.reduce((sum, e) => sum + (e.debit || 0), 0);
+      const totalOtherCredits = entries.reduce((sum, e) => sum + (e.credit || 0), 0);
+      const apCredit = Math.max(0, totalDebits - totalOtherCredits);
+
+      addEntry(accountsPayableId, 'Accounts Payable', 0, apCredit);
+
+      // Sanity warning
+      const expectedAPCr = grandTotal + (discountAmount > 0 ? discountAmount : 0);
+      if (Math.abs(apCredit - expectedAPCr) > 0.05) {
+        console.warn(`[postBillTransactions] Non-GST AP Credit mismatch: computed=${apCredit}, expected=${expectedAPCr}`);
+      }
+
+    } else {
+      // Scenario 2: GST Bill
+      
+      // DEBITS:
+      // Inventory Asset (Dr)
+      for (const [accId, amt] of itemAccountsMap.entries()) {
+        addEntry(accId, 'Inventory Asset', amt, 0);
+      }
+
+      // GST Input Tax (Dr)
+      if (isIGST) {
+        addEntry(inputIgstId, 'Input IGST', taxAmount, 0);
+      } else {
+        addEntry(inputCgstId, 'Input CGST', taxAmount / 2, 0);
+        addEntry(inputSgstId, 'Input SGST', taxAmount / 2, 0);
+      }
+
+      // Accounts Payable (discount) (Dr)
+      if (discountAmount > 0.0001) {
+        addEntry(accountsPayableDiscountId, 'Accounts Payable (discount)', discountAmount, 0);
+      }
+
+      // Other Expenses (Adjustment) (Dr)
+      if (adjustmentAmount > 0.0001) {
+        addEntry(otherExpensesId, 'Other Expenses (Adjustment) (+ve / --ve)', adjustmentAmount, 0);
+      }
+
+      // TCS Receivable (Dr)
+      if (tcsAmount > 0.0001) {
+        addEntry(tcsReceivableId, 'TCS Receivable', tcsAmount, 0);
+      }
+
+      // CREDITS:
+      // TDS Payable (Cr) - Reduces Accounts Payable credit in GST scenario
+      if (tdsAmount > 0.0001) {
+        addEntry(tdsPayableId, 'TDS Payable', 0, tdsAmount);
+      }
+
+      // Purchase Discounts (Cr)
+      if (discountAmount > 0.0001) {
+        if (lineItemDiscountsMap.size > 0) {
+          for (const [accId, amt] of lineItemDiscountsMap.entries()) {
+            addEntry(accId, 'Purchase Discounts', 0, amt);
+          }
+        } else {
+          const transDiscountAccId = dto.discountAccountId || purchaseDiscountId;
+          addEntry(transDiscountAccId, 'Purchase Discounts', 0, discountAmount);
+        }
+      }
+
+      // Other Expenses (Adjustment) (Cr)
+      if (adjustmentAmount < -0.0001) {
+        addEntry(otherExpensesId, 'Other Expenses (Adjustment) (+ve / --ve)', 0, Math.abs(adjustmentAmount));
+      }
+
+      // Accounts Payable (Cr) - Balancing Entry
+      const totalDebits = entries.reduce((sum, e) => sum + (e.debit || 0), 0);
+      const totalOtherCredits = entries.reduce((sum, e) => sum + (e.credit || 0), 0);
+      const apCredit = Math.max(0, totalDebits - totalOtherCredits);
+
+      addEntry(accountsPayableId, 'Accounts Payable', 0, apCredit);
+
+      // Sanity warning
+      const expectedAPCr = grandTotal + (discountAmount > 0 ? discountAmount : 0);
+      if (Math.abs(apCredit - expectedAPCr) > 0.05) {
+        console.warn(`[postBillTransactions] GST AP Credit mismatch: computed=${apCredit}, expected=${expectedAPCr}`);
+      }
+    }
+
+    // 9. Bulk Insert
+    if (entries.length > 0) {
+      const { error: insertError } = await supabase
+        .from('account_transactions')
+        .insert(entries);
+      if (insertError) {
+        throw new HttpException(`Failed to save account transactions: ${insertError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    }
   }
 }

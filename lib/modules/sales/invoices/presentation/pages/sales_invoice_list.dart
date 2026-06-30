@@ -1624,35 +1624,49 @@ class _SalesInvoiceOverviewScreenState
     bool hasDropdownArrow = false,
   }) {
     final btnColor = color ?? const Color(0xFF4B5563);
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: btnColor,
-        side: const BorderSide(color: Color(0xFFD3D9E3)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: btnColor),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: btnColor,
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isHovered ? Colors.white : Colors.transparent,
+                border: Border.all(
+                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: btnColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: btnColor,
+                    ),
+                  ),
+                  if (hasDropdownArrow) ...[
+                    const SizedBox(width: 4),
+                    Icon(LucideIcons.chevronDown, size: 12, color: btnColor),
+                  ],
+                ],
+              ),
             ),
           ),
-          if (hasDropdownArrow) ...[
-            const SizedBox(width: 4),
-            Icon(LucideIcons.chevronDown, size: 12, color: btnColor),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 

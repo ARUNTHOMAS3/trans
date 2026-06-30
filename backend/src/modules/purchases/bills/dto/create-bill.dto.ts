@@ -101,6 +101,10 @@ export class CreateBillItemDto {
 
   @IsOptional()
   @IsString()
+  discountAccountId?: string;
+
+  @IsOptional()
+  @IsString()
   taxId?: string;
 
   @IsOptional()
@@ -191,6 +195,18 @@ export class CreateBillDto {
   @IsOptional()
   @IsNumber()
   tcsTotal?: number;
+
+  @IsOptional()
+  @IsString()
+  tdsTcsType?: string;
+
+  @IsOptional()
+  @IsString()
+  tdsTcsId?: string;
+
+  @IsOptional()
+  @IsString()
+  discountAccountId?: string;
 
   @IsOptional()
   @IsNumber()

@@ -717,6 +717,22 @@ class LookupsApiService {
     List<Map<String, dynamic>> items,
   ) => _syncLookup('tds-rates', items);
 
+  Future<List<Map<String, dynamic>>> getTdsGroups() async {
+    try {
+      final response = await _apiClient.get('/products/lookups/tds-groups');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> syncTdsGroups(
+    List<Map<String, dynamic>> items,
+  ) => _syncLookup('tds-groups', items);
+
   Future<List<Map<String, dynamic>>> getTdsSections() async {
     try {
       final response = await _apiClient.get('/products/lookups/tds-sections');

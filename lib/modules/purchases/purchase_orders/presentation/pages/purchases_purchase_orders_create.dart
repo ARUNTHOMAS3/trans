@@ -197,6 +197,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   bool _isLoadingTdsRates = false;
   Future<void>? _loadTdsFuture;
   List<Map<String, dynamic>> _tdsSectionsList = [];
+  List<Map<String, dynamic>> _tdsGroupsList = [];
   List<Map<String, dynamic>> _tcsRatesList = [];
   List<Map<String, dynamic>> _tcsNaturesList = [];
   OverlayEntry? _tdsOverlay;
@@ -486,12 +487,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
     if (!mounted) return;
     if (newVendor != null) {
-      ref.read(purchaseOrderFormNotifierProvider.notifier).updateField(
-        vendorId: newVendor.id,
-        destinationOfSupply: (newVendor.sourceOfSupply != null && newVendor.sourceOfSupply!.isNotEmpty)
-            ? newVendor.sourceOfSupply!
-            : '',
-      );
+      _selectVendor(newVendor, ref.read(purchaseOrderFormNotifierProvider.notifier));
     }
   }
 
@@ -560,12 +556,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       final sections = await lookupsService.getTdsSections();
       final tcsRates = await lookupsService.getTcsRates();
       final tcsNatures = await lookupsService.getTcsNatures();
+      final groups = await lookupsService.getTdsGroups();
       if (mounted) {
         setState(() {
           _tdsRatesList = rates;
           _tdsSectionsList = sections;
           _tcsRatesList = tcsRates;
           _tcsNaturesList = tcsNatures;
+          _tdsGroupsList = groups;
         });
       }
     } catch (e) {
@@ -927,11 +925,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             );
             if (usage['inUse'] == true) {
               return usage['message'] ??
-                  'This shipment preference is in use and cannot be deleted.';
+                  'This carrier is in use and cannot be deleted.';
             }
           } catch (e) {
             AppLogger.error(
-              'Error checking shipment preference usage',
+              'Error checking carrier usage',
               error: e,
               module: 'purchases',
             );
@@ -942,8 +940,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  void _showManageTdsRatesDialog() {
-    showDialog(
+  void _showManageTdsRatesDialog() async {
+    await showDialog(
       context: context,
       builder: (context) => ManageTdsTcsRatesDialog(
         title: 'Manage TDS Rates',
@@ -993,10 +991,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         },
       ),
     );
+    await _performLoadTdsRates();
   }
 
-  void _showManageTcsRatesDialog() {
-    showDialog(
+  void _showManageTcsRatesDialog() async {
+    await showDialog(
       context: context,
       builder: (context) => ManageTdsTcsRatesDialog(
         title: 'Manage TCS Rates',
@@ -1013,7 +1012,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         },
         onSave: (items) async {
           final lookupsService = LookupsApiService();
-          final updated = await lookupsService.syncTcsRates(items);
+          final updated = await lookupsService.syncTdsRates(items);
           if (mounted) {
             setState(() {
               _tcsRatesList = updated;
@@ -1046,6 +1045,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         },
       ),
     );
+    await _performLoadTdsRates();
   }
 
   Future<void> _showConfigurePaymentTermsDialog(
@@ -2248,113 +2248,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 ),
                               ),
 
-                              // 4. Discount Account (only if Level is 'item')
-                              if (poState.discountLevel == 'item') ...[
-                                const SizedBox(width: 8),
-                                Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 200,
-                                  child: FormDropdown<AccountNode>(
-                                    height: 36,
-                                    value: availableAccounts.firstWhere(
-                                      (a) => a.id == poState.discountAccountId,
-                                      orElse: () => const AccountNode(
-                                        id: '',
-                                        systemAccountName: '',
-                                        userAccountName: '',
-                                        name: '',
-                                        accountGroup: '',
-                                        accountType: '',
-                                        isSystem: false,
-                                        isDeletable: true,
-                                        isActive: true,
-                                      ),
-                                    ),
-                                    items: () {
-                                      final expenseAccounts = availableAccounts.where((
-                                        node,
-                                      ) {
-                                        final group = node.accountGroup.toLowerCase();
-                                        return group.contains('expense');
-                                      }).toList();
-
-                                      // Group by accountType
-                                      final Map<String, List<AccountNode>> grouped = {};
-                                      for (final acc in expenseAccounts) {
-                                        grouped
-                                            .putIfAbsent(acc.accountType, () => [])
-                                            .add(acc);
-                                      }
-
-                                      // Flatten with headers
-                                      final List<AccountNode> flattened = [];
-                                      grouped.forEach((type, list) {
-                                        flattened.add(
-                                          AccountNode(
-                                            id: 'header_$type',
-                                            systemAccountName: type,
-                                            userAccountName: type,
-                                            name: type,
-                                            accountGroup: 'Expenses',
-                                            accountType: type,
-                                            isSystem: false,
-                                            isDeletable: false,
-                                            isActive: false,
-                                          ),
-                                        );
-                                        flattened.addAll(list);
-                                      });
-                                      return flattened;
-                                    }(),
-                                    displayStringForValue: (a) => a.name.isEmpty
-                                        ? 'Discount Account'
-                                        : (a.id.startsWith('header_')
-                                            ? a.accountType
-                                            : a.name),
-                                    onChanged: (v) {
-                                      if (v != null && !v.id.startsWith('header_')) {
-                                        notifier.updateField(discountAccountId: v.id);
-                                      }
-                                    },
-                                    borderRadius: BorderRadius.circular(6),
-                                    hideBorderDefault: true,
-                                    prefixWidget: const Icon(
-                                      LucideIcons.shoppingBag,
-                                      size: 16,
-                                      color: Color(0xFF6B7280),
-                                    ),
-                                    itemBuilder: (account, isSelected, isHovered) {
-                                      if (account.id.startsWith('header_')) {
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          child: Text(
-                                            account.accountType,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF6B7280),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      final name = account.userAccountName.isNotEmpty
-                                          ? account.userAccountName
-                                          : account.systemAccountName;
-                                      return _buildStandardLookupRow(
-                                        name,
-                                        isSelected,
-                                        isHovered,
-                                        indentation: 16,
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-
                               // 5. Price List
                               const SizedBox(width: 8),
                               Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
@@ -3115,13 +3008,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     showSearch: true,
                     allowClear: hasVendor && !_isEditMode,
                     menuWidth: 550,
-                    onChanged: (v) =>
-                        notifier.updateField(
-                          vendorId: v?.id ?? '',
-                          destinationOfSupply: (v?.sourceOfSupply != null && v!.sourceOfSupply!.isNotEmpty)
-                              ? v.sourceOfSupply!
-                              : '',
-                        ),
+                    onChanged: (v) => _selectVendor(v, notifier),
                     showSettings: !_isEditMode,
                     settingsLabel: 'New Vendor',
                     settingsIcon: LucideIcons.plus,
@@ -3242,15 +3129,31 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       context: context,
       builder: (ctx) => AdvancedVendorSearchDialog(
         vendors: vendors,
-        onSelect: (v) {
-          notifier.updateField(
-            vendorId: v.id,
-            destinationOfSupply: (v.sourceOfSupply != null && v.sourceOfSupply!.isNotEmpty)
-                ? v.sourceOfSupply!
-                : '',
-          );
-        },
+        onSelect: (v) => _selectVendor(v, notifier),
       ),
+    );
+  }
+
+  void _selectVendor(Vendor? v, PurchaseOrderNotifier notifier) {
+    double rateVal = 0.0;
+    if (v?.tdsRateId != null && v!.tdsRateId!.isNotEmpty) {
+      final matchedRate = _tdsRatesList.firstWhere(
+        (r) => r['id']?.toString() == v.tdsRateId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (matchedRate.isNotEmpty) {
+        rateVal = double.tryParse(matchedRate['base_rate']?.toString() ?? '0') ?? 0.0;
+      }
+    }
+
+    notifier.updateField(
+      vendorId: v?.id ?? '',
+      destinationOfSupply: (v?.sourceOfSupply != null && v!.sourceOfSupply!.isNotEmpty)
+          ? v.sourceOfSupply!
+          : '',
+      tdsTcsType: (v?.tdsRateId != null && v!.tdsRateId!.isNotEmpty) ? 'tds' : 'none',
+      tdsTcsId: (v?.tdsRateId != null && v!.tdsRateId!.isNotEmpty) ? v.tdsRateId : '',
+      tdsTcsRate: rateVal,
     );
   }
 
@@ -3273,7 +3176,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           CompositedTransformFollower(
             link: _gstinLink,
             showWhenUnlinked: false,
-            offset: const Offset(-200, 20), // Align properly above/below the GSTIN pencil
+            offset: const Offset(-30, 20), // Align properly above/below the GSTIN pencil
             child: Material(
               color: Colors.transparent,
               child: _GstinPopover(
@@ -3321,17 +3224,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               child: _ConfigureTaxPreferencesDialog(
                 initialTreatment:
                     vendor.gstTreatment ?? 'Unregistered Business',
-                onUpdate: (val, isPermanent) async {
-                  final updatedVendor = vendor.copyWith(gstTreatment: val);
-                  if (isPermanent) {
-                    await ref
-                        .read(vendorProvider.notifier)
-                        .updateVendor(vendor.id, updatedVendor);
-                  } else {
-                    ref
-                        .read(vendorProvider.notifier)
-                        .updateVendorLocally(vendor.id, updatedVendor);
-                  }
+                initialGstin: vendor.gstin ?? '',
+                onUpdate: (val, gstinVal, isPermanent) async {
+                  final updatedVendor = vendor.copyWith(
+                    gstTreatment: val,
+                    gstin: gstinVal,
+                  );
+                  // Always save to database vendors table
+                  await ref
+                      .read(vendorProvider.notifier)
+                      .updateVendor(vendor.id, updatedVendor);
                   ref
                       .read(purchaseOrderFormNotifierProvider.notifier)
                       .updateField(forceRecalculateTaxes: true);
@@ -4285,24 +4187,24 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 'GSTIN: ',
                 style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
               ),
-              CompositedTransformTarget(
-                link: _gstinLink,
-                child: Text(
-                  vendor.gstin!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF111827),
-                  ),
+              Text(
+                vendor.gstin!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
                 ),
               ),
               const SizedBox(width: 6),
-              InkWell(
-                onTap: () => _toggleGstinOverlay(vendor, vendor.gstin!),
-                child: const Icon(
-                  LucideIcons.pencil,
-                  size: 11,
-                  color: Color(0xFF2563EB),
+              CompositedTransformTarget(
+                link: _gstinLink,
+                child: InkWell(
+                  onTap: () => _toggleGstinOverlay(vendor, vendor.gstin!),
+                  child: const Icon(
+                    LucideIcons.pencil,
+                    size: 11,
+                    color: Color(0xFF2563EB),
+                  ),
                 ),
               ),
             ],
@@ -7080,9 +6982,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   ),
                               ],
                             ],
+                            ),
                           ),
                         ),
-                      ),
 
                       if (poState.discountLevel == 'item') ...[
                         _vLine(),
@@ -7099,64 +7001,104 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               mainAxisAlignment: MainAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _gridField(
-                                        ctrl.discountCtrl,
-                                        focusNode: ctrl.discountFocus,
-                                        hint: '0',
-                                        textAlign: TextAlign.right,
-                                        onChanged: (v) {
-                                          final d = double.tryParse(v) ?? 0;
-                                          notifier.updateItem(
-                                            index,
-                                            item.copyWith(discount: d),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    _HoverBorderContainer(
-                                      isSelected: _activeDiscountRowIndex == index,
-                                      child: CompositedTransformTarget(
-                                        link: ctrl.discountTypeLink,
-                                        child: GestureDetector(
-                                          onTap: () => _showDiscountMenu(
-                                            context,
-                                            index,
-                                            item,
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
+                                _HoverableField(
+                                  builder: (isHovered) {
+                                    final fn = ctrl.discountFocus;
+                                    return ListenableBuilder(
+                                      listenable: fn,
+                                      builder: (context, _) {
+                                        final isActive = isHovered || fn.hasFocus || (_activeDiscountRowIndex == index);
+                                        return AnimatedContainer(
+                                          duration: const Duration(milliseconds: 120),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            border: Border.all(
+                                              color: isActive
+                                                  ? const Color(0xFF3B82F6)
+                                                  : Colors.transparent,
+                                              width: 1,
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  item.discountType ==
-                                                          'percentage'
-                                                      ? '%'
-                                                      : 'Γé╣',
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: TextField(
+                                                  controller: ctrl.discountCtrl,
+                                                  focusNode: fn,
+                                                  onChanged: (v) {
+                                                    final d = double.tryParse(v) ?? 0;
+                                                    notifier.updateItem(
+                                                      index,
+                                                      item.copyWith(discount: d),
+                                                    );
+                                                  },
+                                                  textAlign: TextAlign.right,
                                                   style: const TextStyle(
-                                                    fontSize: 12,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
                                                     color: _textPrimary,
-                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  decoration: const InputDecoration(
+                                                    isDense: true,
+                                                    contentPadding: EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 12,
+                                                    ),
+                                                    border: InputBorder.none,
+                                                    hintText: '0',
+                                                    hintStyle: TextStyle(
+                                                      color: _hintColor,
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.normal,
+                                                    ),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 2),
-                                                const Icon(
-                                                  Icons.arrow_drop_down,
-                                                  size: 14,
-                                                  color: _hintColor,
+                                              ),
+                                              CompositedTransformTarget(
+                                                link: ctrl.discountTypeLink,
+                                                child: GestureDetector(
+                                                  onTap: () => _showDiscountMenu(
+                                                    context,
+                                                    index,
+                                                    item,
+                                                  ),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 8,
+                                                    ),
+                                                    color: Colors.transparent,
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          item.discountType == 'percentage'
+                                                              ? '%'
+                                                              : '₹',
+                                                          style: const TextStyle(
+                                                            fontSize: 12,
+                                                            color: _textPrimary,
+                                                            fontWeight: FontWeight.normal,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 2),
+                                                        const Icon(
+                                                          Icons.arrow_drop_down,
+                                                          size: 14,
+                                                          color: _hintColor,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                        );
+                                      },
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -7809,15 +7751,314 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     Overlay.of(context).insert(_reportingTagsOverlay!);
   }
 
+  String? _getDefaultDiscountAccountId(List<AccountNode> availableAccounts) {
+    try {
+      final match = availableAccounts.firstWhere(
+        (a) {
+          final name = a.userAccountName.isNotEmpty ? a.userAccountName : a.systemAccountName;
+          return name.toLowerCase().contains('purchase discount') || name.toLowerCase().contains('purchase discounts');
+        },
+      );
+      return match.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<AccountNode> _getExpenseAccountsForDropdown(List<AccountNode> availableAccounts) {
+    final expenseAccounts = availableAccounts.where((node) {
+      final group = node.accountGroup.toLowerCase();
+      return group.contains('expense');
+    }).toList();
+
+    final Map<String, List<AccountNode>> grouped = {};
+    for (final acc in expenseAccounts) {
+      grouped.putIfAbsent(acc.accountType, () => []).add(acc);
+    }
+
+    final List<AccountNode> flattened = [];
+    grouped.forEach((type, list) {
+      flattened.add(
+        AccountNode(
+          id: 'header_$type',
+          systemAccountName: type,
+          userAccountName: type,
+          name: type,
+          accountGroup: 'Expenses',
+          accountType: type,
+          isSystem: false,
+          isDeletable: false,
+          isActive: false,
+        ),
+      );
+      flattened.addAll(list);
+    });
+    return flattened;
+  }
+
+  Widget _buildDiscountAccountDropdown(
+    List<AccountNode> availableAccounts,
+    PurchaseOrderState poState,
+    PurchaseOrderNotifier notifier,
+  ) {
+    final currentId = poState.discountAccountId;
+    String? targetId = currentId;
+    if (currentId == null || currentId.isEmpty) {
+      final defId = _getDefaultDiscountAccountId(availableAccounts);
+      if (defId != null) {
+        targetId = defId;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          notifier.updateField(discountAccountId: defId);
+        });
+      }
+    }
+
+    final selectedAcc = availableAccounts.firstWhere(
+      (a) => a.id == targetId,
+      orElse: () => const AccountNode(
+        id: '',
+        systemAccountName: '',
+        userAccountName: '',
+        name: '',
+        accountGroup: '',
+        accountType: '',
+        isSystem: false,
+        isDeletable: true,
+        isActive: true,
+      ),
+    );
+
+    final dropdownItems = _getExpenseAccountsForDropdown(availableAccounts);
+
+    return FormDropdown<AccountNode>(
+      height: 36,
+      value: selectedAcc,
+      items: dropdownItems,
+      displayStringForValue: (a) => a.name.isEmpty
+          ? 'Discount Account'
+          : (a.id.startsWith('header_')
+              ? a.accountType
+              : a.name),
+      onChanged: (v) {
+        if (v != null && !v.id.startsWith('header_')) {
+          notifier.updateField(discountAccountId: v.id);
+        }
+      },
+      borderRadius: BorderRadius.circular(6),
+      hideBorderDefault: true,
+      prefixWidget: const Icon(
+        LucideIcons.shoppingBag,
+        size: 16,
+        color: Color(0xFF6B7280),
+      ),
+      isItemEnabled: (account) => !account.id.startsWith('header_'),
+      itemBuilder: (account, isSelected, isHovered) {
+        if (account.id.startsWith('header_')) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 6,
+            ),
+            child: Text(
+              account.accountType,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6B7280),
+                fontSize: 12,
+              ),
+            ),
+          );
+        }
+        final name = account.userAccountName.isNotEmpty
+            ? account.userAccountName
+            : account.systemAccountName;
+        return _buildStandardLookupRow(
+          name,
+          isSelected,
+          isHovered,
+          indentation: 16,
+        );
+      },
+    );
+  }
+
+  Widget _buildRowDiscountAccountDropdown(
+    int index,
+    PurchaseOrderItem item,
+    List<AccountNode> availableAccounts,
+    PurchaseOrderNotifier notifier,
+  ) {
+    final currentId = item.discountAccountId;
+    String? targetId = currentId;
+    if (currentId == null || currentId.isEmpty) {
+      final defId = _getDefaultDiscountAccountId(availableAccounts);
+      if (defId != null) {
+        targetId = defId;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          notifier.updateItem(
+            index,
+            item.copyWith(discountAccountId: defId),
+          );
+        });
+      }
+    }
+
+    final selectedAcc = availableAccounts.firstWhere(
+      (a) => a.id == targetId,
+      orElse: () => const AccountNode(
+        id: '',
+        systemAccountName: '',
+        userAccountName: '',
+        name: '',
+        accountGroup: '',
+        accountType: '',
+        isSystem: false,
+        isDeletable: true,
+        isActive: true,
+      ),
+    );
+
+    final dropdownItems = _getExpenseAccountsForDropdown(availableAccounts);
+
+    return FormDropdown<AccountNode>(
+      height: 32,
+      value: selectedAcc,
+      textStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.normal,
+        color: selectedAcc.id.isNotEmpty ? _textPrimary : _hintColor,
+      ),
+      items: dropdownItems,
+      displayStringForValue: (a) => a.name.isEmpty
+          ? 'Discount Account'
+          : (a.id.startsWith('header_')
+              ? a.accountType
+              : a.name),
+      onChanged: (v) {
+        if (v != null && !v.id.startsWith('header_')) {
+          notifier.updateItem(
+            index,
+            item.copyWith(discountAccountId: v.id),
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(4),
+      hideBorderDefault: true,
+      fillColor: Colors.transparent,
+      border: Border.all(color: Colors.transparent),
+      prefixWidget: const Icon(
+        LucideIcons.shoppingBag,
+        size: 16,
+        color: Color(0xFF6B7280),
+      ),
+      isItemEnabled: (account) => !account.id.startsWith('header_'),
+      itemBuilder: (account, isSelected, isHovered) {
+        if (account.id.startsWith('header_')) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 6,
+            ),
+            child: Text(
+              account.accountType,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6B7280),
+                fontSize: 12,
+              ),
+            ),
+          );
+        }
+        final name = account.userAccountName.isNotEmpty
+            ? account.userAccountName
+            : account.systemAccountName;
+        return _buildStandardLookupRow(
+          name,
+          isSelected,
+          isHovered,
+          indentation: 16,
+        );
+      },
+    );
+  }
+
+  Widget _buildTransactionDiscountAccountField(
+    List<AccountNode> availableAccounts,
+    PurchaseOrderState poState,
+    PurchaseOrderNotifier notifier,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Discount Account*',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFFEF4444),
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ),
+            const Spacer(),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 200,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _fieldBorder),
+                    borderRadius: BorderRadius.circular(4),
+                    color: _bgWhite,
+                  ),
+                  child: _buildDiscountAccountDropdown(availableAccounts, poState, notifier),
+                ),
+                const SizedBox(height: 4),
+                const SizedBox(
+                  width: 200,
+                  child: Text(
+                    'You can create a new account with type as Expense or Other Expense.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF6B7280),
+                      fontStyle: FontStyle.italic,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _itemExpandedProperties(
     int index,
     PurchaseOrderItem item,
     List<AccountNode> accounts,
     PurchaseOrderState poState,
   ) {
+    final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (poState.discountLevel == 'item') ...[
+          SizedBox(
+            width: 200,
+            child: _buildRowDiscountAccountDropdown(index, item, accounts, notifier),
+          ),
+          const SizedBox(width: 16),
+        ],
         // Reporting Tags
         _propertyButton(
           link: _rowControllers[index].reportingTagsLink,
@@ -7981,6 +8222,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }
 
   Widget _buildTotalsPanel(PurchaseOrderState poState) {
+    final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+    final accountsState = ref.watch(chartOfAccountsProvider);
+    final List<AccountNode> availableAccounts = [];
+    void collect(List<AccountNode> nodes) {
+      for (final node in nodes) {
+        availableAccounts.add(node);
+        collect(node.children);
+      }
+    }
+    collect(accountsState.roots);
+
     final totalQty = poState.items
         .where((i) => !i.isHeader)
         .fold(0.0, (sum, i) => sum + i.quantity);
@@ -8043,6 +8295,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           if (poState.discountLevel == 'transaction') ...[
             const SizedBox(height: 12),
             _discountRow(poState),
+            if (poState.discount > 0)
+              _buildTransactionDiscountAccountField(availableAccounts, poState, notifier),
           ],
           const SizedBox(height: 12),
           // TDS / TCS dynamically swapped with Adjustment based on selected type
@@ -8565,80 +8819,107 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             ],
           ),
           const Spacer(),
-          SizedBox(
-            width: 180,
-            child: CompositedTransformTarget(
-              link: _tdsLink,
-              child: Builder(
-                builder: (btnContext) {
-                  return GestureDetector(
-                    onTap: () async {
-                      if (s.tdsTcsType == 'tcs' ? _tcsRatesList.isEmpty : _tdsRatesList.isEmpty) {
-                        await _loadTdsRates();
-                      }
-                      if (!context.mounted) return;
-                      final renderBox = btnContext.findRenderObject() as RenderBox?;
-                      final offset = renderBox?.localToGlobal(Offset.zero);
-                      _showTdsMenu(context, s, offset);
-                    },
-                    child: () {
-                      bool isHovered = false;
-                      return StatefulBuilder(
-                        builder: (context, setStateDropdown) {
-                          return MouseRegion(
-                            onEnter: (_) => setStateDropdown(() => isHovered = true),
-                            onExit: (_) => setStateDropdown(() => isHovered = false),
-                            child: Container(
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: (isHovered || _isTdsOpen)
-                                      ? const Color(0xFF0088FF)
-                                      : const Color(0xFFD1D5DB),
-                                  width: 1,
+          if (s.tdsTcsType != 'none' && s.tdsTcsType != null) ...[
+            SizedBox(
+              width: 160,
+              child: CompositedTransformTarget(
+                link: _tdsLink,
+                child: Builder(
+                  builder: (btnContext) {
+                    return GestureDetector(
+                      onTap: () async {
+                        if (s.tdsTcsType == 'tcs' ? _tcsRatesList.isEmpty : _tdsRatesList.isEmpty) {
+                          await _loadTdsRates();
+                        }
+                        if (!context.mounted) return;
+                        final renderBox = btnContext.findRenderObject() as RenderBox?;
+                        final offset = renderBox?.localToGlobal(Offset.zero);
+                        _showTdsMenu(context, s, offset);
+                      },
+                      child: () {
+                        bool isHovered = false;
+                        return StatefulBuilder(
+                          builder: (context, setStateDropdown) {
+                            return MouseRegion(
+                              onEnter: (_) => setStateDropdown(() => isHovered = true),
+                              onExit: (_) => setStateDropdown(() => isHovered = false),
+                              child: Container(
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: (isHovered || _isTdsOpen)
+                                        ? const Color(0xFF0088FF)
+                                        : const Color(0xFFD1D5DB),
+                                    width: 1,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        displayText,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: selectedRate.isNotEmpty
+                                              ? const Color(0xFF111827)
+                                              : _hintColor,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (selectedRate.isNotEmpty)
+                                      GestureDetector(
+                                        onTap: () {
+                                          ref
+                                              .read(purchaseOrderFormNotifierProvider.notifier)
+                                              .updateField(
+                                                tdsTcsId: '',
+                                                tdsTcsRate: 0.0,
+                                              );
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4),
+                                          child: Icon(
+                                            Icons.close,
+                                            size: 14,
+                                            color: _hintColor,
+                                          ),
+                                        ),
+                                      ),
+                                    const Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 16,
+                                      color: _hintColor,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      displayText,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: selectedRate.isNotEmpty
-                                            ? const Color(0xFF111827)
-                                            : _hintColor,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.arrow_drop_down,
-                                    size: 16,
-                                    color: _hintColor,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    }(),
-                  );
-                },
+                            );
+                          },
+                        );
+                      }(),
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            calculatedAmount > 0 ? '- $displayAmount' : displayAmount,
-            textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 13),
-          ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 80,
+              child: Text(
+                calculatedAmount > 0
+                    ? (s.tdsTcsType == 'tds' ? '-$displayAmount' : displayAmount)
+                    : displayAmount,
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ] else
+            const SizedBox(width: 252),
         ],
       ),
     );
@@ -8692,6 +8973,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   isTcs: s.tdsTcsType == 'tcs',
                   tdsRates: s.tdsTcsType == 'tcs' ? _tcsRatesList : _tdsRatesList,
                   tdsSections: s.tdsTcsType == 'tcs' ? _tcsNaturesList : _tdsSectionsList,
+                  tdsGroups: _tdsGroupsList,
                   selectedTdsId: s.tdsTcsId,
                   onSelected: (rate) {
                     final isTcs = s.tdsTcsType == 'tcs';
@@ -10342,11 +10624,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
 class _ConfigureTaxPreferencesDialog extends StatefulWidget {
   final String initialTreatment;
-  final Function(String, bool) onUpdate;
+  final String initialGstin;
+  final Function(String, String, bool) onUpdate;
   final VoidCallback onCancel;
 
   const _ConfigureTaxPreferencesDialog({
     required this.initialTreatment,
+    required this.initialGstin,
     required this.onUpdate,
     required this.onCancel,
   });
@@ -10359,6 +10643,7 @@ class _ConfigureTaxPreferencesDialog extends StatefulWidget {
 class _ConfigureTaxPreferencesDialogState
     extends State<_ConfigureTaxPreferencesDialog> {
   late String _selectedTreatment;
+  late TextEditingController _gstinCtrl;
   bool _makePermanent = false;
 
   final List<Map<String, String>> _treatments = [
@@ -10391,10 +10676,24 @@ class _ConfigureTaxPreferencesDialogState
     },
   ];
 
+  bool get _isRegistered {
+    return _selectedTreatment == 'Registered Business - Regular' ||
+        _selectedTreatment == 'Registered Business - Composition' ||
+        _selectedTreatment == 'Special Economic Zone (SEZ)' ||
+        _selectedTreatment == 'Deemed Export';
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedTreatment = widget.initialTreatment;
+    _gstinCtrl = TextEditingController(text: widget.initialGstin);
+  }
+
+  @override
+  void dispose() {
+    _gstinCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -10515,10 +10814,59 @@ class _ConfigureTaxPreferencesDialogState
                         );
                       },
                       onChanged: (val) {
-                        if (val != null)
-                          setState(() => _selectedTreatment = val['label']!);
+                        if (val != null) {
+                          setState(() {
+                            _selectedTreatment = val['label']!;
+                          });
+                        }
                       },
                     ),
+                    if (_isRegistered) ...[
+                      const SizedBox(height: 20),
+                      const Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'GSTIN',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.redAccent,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            TextSpan(
+                              text: '*',
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 32,
+                        child: CustomTextField(
+                          controller: _gstinCtrl,
+                          hintText: 'Enter GSTIN',
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {},
+                        child: const Text(
+                          'Get Taxpayer details',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     const Text(
                       'Make it permanent?',
@@ -10560,7 +10908,7 @@ class _ConfigureTaxPreferencesDialogState
                   children: [
                     ElevatedButton(
                       onPressed: () =>
-                          widget.onUpdate(_selectedTreatment, _makePermanent),
+                          widget.onUpdate(_selectedTreatment, _gstinCtrl.text.trim(), _makePermanent),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF19A05E),
                         foregroundColor: Colors.white,
@@ -11808,6 +12156,7 @@ class _TdsSelectionPopover extends StatefulWidget {
   final bool isTcs;
   final List<Map<String, dynamic>> tdsRates;
   final List<Map<String, dynamic>> tdsSections;
+  final List<Map<String, dynamic>> tdsGroups;
   final String? selectedTdsId;
   final ValueChanged<Map<String, dynamic>> onSelected;
   final VoidCallback onManageTds;
@@ -11816,6 +12165,7 @@ class _TdsSelectionPopover extends StatefulWidget {
     this.isTcs = false,
     required this.tdsRates,
     required this.tdsSections,
+    required this.tdsGroups,
     this.selectedTdsId,
     required this.onSelected,
     required this.onManageTds,
@@ -11833,32 +12183,48 @@ class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     
     if (widget.isTcs) {
-      final natureMap = {
-        for (var n in widget.tdsSections) n['id']?.toString() ?? '': n['nature_name']?.toString() ?? 'Others'
-      };
-      for (var rate in widget.tdsRates) {
-        final taxName = rate['tax_name']?.toString() ?? '';
-        if (_search.isNotEmpty &&
-            !taxName.toLowerCase().contains(_search.toLowerCase())) {
-          continue;
-        }
-        final natureId = rate['nature_id']?.toString() ?? '';
-        final natureName = natureMap[natureId] ?? 'Others';
-        grouped.putIfAbsent(natureName, () => []).add(rate);
-      }
+      return grouped;
     } else {
-      final sectionMap = {
-        for (var s in widget.tdsSections) s['id']?.toString() ?? '': s['section_name']?.toString() ?? 'Others'
-      };
-      for (var rate in widget.tdsRates) {
-        final taxName = rate['tax_name']?.toString() ?? '';
-        if (_search.isNotEmpty &&
-            !taxName.toLowerCase().contains(_search.toLowerCase())) {
-          continue;
+      final Set<String> groupedRateIds = {};
+      for (var group in widget.tdsGroups) {
+        final groupName = group['group_name']?.toString() ?? 'Others';
+        final itemsList = group['tds_group_items'] as List<dynamic>? ?? [];
+        final List<Map<String, dynamic>> ratesInGroup = [];
+
+        for (var item in itemsList) {
+          final rateId = item['tds_rate_id']?.toString();
+          if (rateId != null) {
+            final match = widget.tdsRates.firstWhere(
+              (r) => r['id']?.toString() == rateId,
+              orElse: () => <String, dynamic>{},
+            );
+            if (match.isNotEmpty) {
+              final taxName = match['tax_name']?.toString() ?? '';
+              if (_search.isEmpty || taxName.toLowerCase().contains(_search.toLowerCase())) {
+                ratesInGroup.add(match);
+              }
+              groupedRateIds.add(rateId);
+            }
+          }
         }
-        final secId = rate['section_id']?.toString() ?? '';
-        final sectionName = sectionMap[secId] ?? 'Others';
-        grouped.putIfAbsent(sectionName, () => []).add(rate);
+        if (ratesInGroup.isNotEmpty) {
+          grouped[groupName] = ratesInGroup;
+        }
+      }
+
+      // Add remaining individual rates that are not in any group
+      final List<Map<String, dynamic>> individualRates = [];
+      for (var rate in widget.tdsRates) {
+        final rateId = rate['id']?.toString();
+        if (rateId != null && !groupedRateIds.contains(rateId)) {
+          final taxName = rate['tax_name']?.toString() ?? '';
+          if (_search.isEmpty || taxName.toLowerCase().contains(_search.toLowerCase())) {
+            individualRates.add(rate);
+          }
+        }
+      }
+      if (individualRates.isNotEmpty) {
+        grouped['Individual Rates'] = individualRates;
       }
     }
     return grouped;
@@ -11932,40 +12298,53 @@ class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
               child: ListView(
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                children: groups.entries.expand((entry) {
-                  return [
-                    // Group Header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: _textPrimary,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                    // Items
-                    ...entry.value.map((rate) {
-                      final isSelected = rate['id'] == widget.selectedTdsId;
-                      final baseRateStr = widget.isTcs 
-                          ? _formatBaseRate(rate['rate']) 
-                          : _formatBaseRate(rate['base_rate']);
-                      final displayLabel = "${rate['tax_name']} [$baseRateStr]";
-                      return _PopoverListItem(
-                        label: displayLabel,
-                        indent: 1,
-                        isSelected: isSelected,
-                        onTap: () => widget.onSelected(rate),
-                      );
-                    }),
-                  ];
-                }).toList(),
+                children: widget.isTcs
+                    ? widget.tdsRates.where((rate) {
+                        final taxName = rate['tax_name']?.toString() ?? '';
+                        return _search.isEmpty || taxName.toLowerCase().contains(_search.toLowerCase());
+                      }).map((rate) {
+                        final isSelected = rate['id'] == widget.selectedTdsId;
+                        final baseRateStr = _formatBaseRate(rate['rate']);
+                        final displayLabel = "${rate['tax_name']} [$baseRateStr]";
+                        return _PopoverListItem(
+                          label: displayLabel,
+                          indent: 0,
+                          isSelected: isSelected,
+                          onTap: () => widget.onSelected(rate),
+                        );
+                      }).toList()
+                    : groups.entries.expand((entry) {
+                        return [
+                          // Group Header
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Text(
+                              entry.key,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _textPrimary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          // Items
+                          ...entry.value.map((rate) {
+                            final isSelected = rate['id'] == widget.selectedTdsId;
+                            final baseRateStr = _formatBaseRate(rate['base_rate']);
+                            final displayLabel = "${rate['tax_name']} [$baseRateStr]";
+                            return _PopoverListItem(
+                              label: displayLabel,
+                              indent: 1,
+                              isSelected: isSelected,
+                              onTap: () => widget.onSelected(rate),
+                            );
+                          }),
+                        ];
+                      }).toList(),
               ),
             ),
           ),

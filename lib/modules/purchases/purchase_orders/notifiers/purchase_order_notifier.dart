@@ -62,7 +62,7 @@ class PurchaseOrderState {
     this.deliveryAddressName,
     this.discount = 0.0,
     this.discountType = 'percentage',
-    this.tdsTcsType = 'tds',
+    this.tdsTcsType = 'none',
     this.tdsTcsId,
     this.adjustment = 0.0,
     this.notes,

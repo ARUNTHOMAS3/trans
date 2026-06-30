@@ -39,6 +39,7 @@ import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 
 class _ClearReceiveSelectionIntent extends Intent {
   const _ClearReceiveSelectionIntent();
@@ -636,7 +637,7 @@ class _PurchasesPurchaseReceivesListScreenState
                     _activeReceiveId == null
                         ? Column(
                             children: [
-                              _buildMainToolbar(),
+                              _buildMainToolbar(sorted),
                               const Divider(
                                 height: 1,
                                 color: AppTheme.borderColor,
@@ -723,7 +724,7 @@ class _PurchasesPurchaseReceivesListScreenState
           cmp = (a.vendorName ?? '').compareTo(b.vendorName ?? '');
           break;
         case 'qty':
-          cmp = a.quantity.compareTo(b.quantity);
+          cmp = _getTotalQuantityDouble(a).compareTo(_getTotalQuantityDouble(b));
           break;
         case 'bill_no':
           cmp = (a.billNo ?? '').compareTo(b.billNo ?? '');
@@ -835,7 +836,7 @@ class _PurchasesPurchaseReceivesListScreenState
     );
   }
 
-  Widget _buildMainToolbar() {
+  Widget _buildMainToolbar(List<PurchaseReceive> receives) {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -847,6 +848,34 @@ class _PurchasesPurchaseReceivesListScreenState
         children: [
           _buildViewSelector(),
           const Spacer(),
+          InkWell(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => _ExtraQuantityDialog(receives: receives),
+              );
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: AppTheme.borderColor),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'Extra Quantity',
+                style: AppTheme.bodyText.copyWith(
+                  color: AppTheme.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           _buildNewButton(),
           const SizedBox(width: 12),
           _buildMoreMenu(),
@@ -1075,9 +1104,9 @@ class _PurchasesPurchaseReceivesListScreenState
           const SizedBox(width: 12),
           ..._visibleColumns.map((colId) {
             final width = columnWidths[colId]!;
-            final align = colId == 'qty'
-                ? TextAlign.right
-                : (colId == 'billed' ? TextAlign.center : TextAlign.left);
+            final align = (colId == 'qty' || colId == 'billed')
+                ? TextAlign.center
+                : TextAlign.left;
 
             return _ResizableHeaderCell(
               width: width,
@@ -1189,7 +1218,7 @@ class _PurchasesPurchaseReceivesListScreenState
                   ),
                 ),
                 Text(
-                  receive.quantity.toStringAsFixed(2),
+                  _getTotalQuantity(receive),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1300,9 +1329,9 @@ class _PurchasesPurchaseReceivesListScreenState
 
   Widget _buildCell(PurchaseReceive receive, String colId, {double? width}) {
     Widget content;
-    TextAlign align = colId == 'billed'
+    TextAlign align = (colId == 'billed' || colId == 'qty')
         ? TextAlign.center
-        : (colId == 'qty' ? TextAlign.right : TextAlign.left);
+        : TextAlign.left;
 
     switch (colId) {
       case 'date':
@@ -1446,15 +1475,27 @@ class _PurchasesPurchaseReceivesListScreenState
     );
   }
 
-  String _getTotalQuantity(PurchaseReceive receive) {
-    if (receive.quantity > 0) return receive.quantity.toStringAsFixed(2);
+  String _formatQuantity(double value) {
+    final intVal = value.toInt();
+    return value == intVal ? intVal.toString() : value.toStringAsFixed(2);
+  }
+
+  double _getTotalQuantityDouble(PurchaseReceive receive) {
     double total = 0;
     for (var item in receive.items) {
-      for (var batch in item.batches) {
-        total += batch.quantity;
+      if (item.batches.isNotEmpty) {
+        total += item.batches.fold<double>(0, (sum, b) => sum + b.quantity + b.foc);
+      } else {
+        total += item.quantityToReceive;
       }
     }
-    return total > 0 ? total.toStringAsFixed(2) : '0.00';
+    if (total > 0) return total;
+    return receive.quantity;
+  }
+
+  String _getTotalQuantity(PurchaseReceive receive) {
+    final total = _getTotalQuantityDouble(receive);
+    return total > 0 ? _formatQuantity(total) : '0';
   }
 
   Widget _buildEmptyState() {
@@ -1494,7 +1535,7 @@ class _PurchaseReceiveDetailPanelState
   bool _showPdfView = false;
   int _activeTabIndex = 0;
   String? _localStatus;
-  bool _isTabsExpanded = true;
+  bool _isTabsExpanded = false;
   final Set<String> _expandedItems = {};
   bool _isBatchesExpanded = true;
 
@@ -1536,10 +1577,21 @@ class _PurchaseReceiveDetailPanelState
       final billsResp = await supabase
           .from('bills')
           .select(
-            'id, bill_number, bill_date, status, grand_total, due_date, bill_items(product_id, quantity)',
+            'id, bill_number, order_number, bill_date, status, grand_total, due_date, bill_items(product_id, quantity)',
           )
-          .eq('order_number', receive.purchaseOrderNumber ?? '')
+          .ilike('order_number', '%${receive.purchaseOrderNumber ?? ''}%')
           .order('created_at', ascending: true);
+
+      final normalizedPoNum = (receive.purchaseOrderNumber ?? '').trim().toLowerCase();
+      final rawBills = (billsResp as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [];
+      final filteredBills = rawBills.where((b) {
+        final orderNumStr = (b['order_number'] ?? '').toString().toLowerCase();
+        final parts = orderNumStr.split(',').map((p) => p.trim()).toList();
+        return parts.contains(normalizedPoNum);
+      }).toList();
 
       if (mounted) {
         setState(() {
@@ -1547,9 +1599,7 @@ class _PurchaseReceiveDetailPanelState
           _poReceives = (receivesResp as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
-          _poBills = (billsResp as List<dynamic>?)
-              ?.map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
+          _poBills = filteredBills;
         });
       }
     } catch (e) {
@@ -1749,9 +1799,8 @@ class _PurchaseReceiveDetailPanelState
   }
 
   String _fmtQty(double value) {
-    return value == value.roundToDouble()
-        ? value.toInt().toString()
-        : value.toStringAsFixed(2);
+    final intVal = value.toInt();
+    return value == intVal ? intVal.toString() : value.toStringAsFixed(2);
   }
 
   Color _getPoStatusColor(String status) {
@@ -1774,6 +1823,7 @@ class _PurchaseReceiveDetailPanelState
     receiveAsync.whenData((receive) {
       if (receive != null && _lastLoadedReceiveId != receive.id) {
         _lastLoadedReceiveId = receive.id;
+        _isTabsExpanded = false;
         Future.microtask(() {
           _loadAdditionalData(receive);
           _loadReceiveAttachments(receive.id);
@@ -1956,21 +2006,20 @@ class _PurchaseReceiveDetailPanelState
             data: (receive) {
               if (receive == null)
                 return const Center(child: Text('Purchase receive not found'));
-              return Column(
-                children: [
-                  const SizedBox(height: 16),
-                  _buildDetailTabs(receive),
-                  _buildToggleRow(),
-                  Expanded(
-                    child: _showPdfView
-                      ? _PurchaseReceivePdfView(
-                          receive: receive,
-                          billStatus: _getReceiveBillStatus(receive),
-                        )
-                      : _buildStandardView(receive),
-                  ),
-                ],
-              );
+              if (_showPdfView) {
+                return Column(
+                  children: [
+                    _buildToggleRow(),
+                    Expanded(
+                      child: _PurchaseReceivePdfView(
+                        receive: receive,
+                        billStatus: _getReceiveBillStatus(receive),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return _buildStandardView(receive);
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, _) => Center(child: Text('Error: $err')),
@@ -2027,17 +2076,52 @@ class _PurchaseReceiveDetailPanelState
     String label, {
     VoidCallback? onPressed,
     Color? color,
+    bool hasDropdownArrow = false,
   }) {
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 14, color: color ?? AppTheme.textSubtle),
-      label: Text(
-        label,
-        style: TextStyle(fontSize: 13, color: color ?? AppTheme.textSubtle),
-      ),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-      ),
+    final btnColor = color ?? AppTheme.textSubtle;
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isHovered ? Colors.white : Colors.transparent,
+                border: Border.all(
+                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: btnColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: btnColor,
+                    ),
+                  ),
+                  if (hasDropdownArrow) ...[
+                    const SizedBox(width: 4),
+                    Icon(LucideIcons.chevronDown, size: 12, color: btnColor),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -2446,11 +2530,13 @@ class _PurchaseReceiveDetailPanelState
     );
   }
 
-  Widget _buildDetailTabs(PurchaseReceive receive) {
+  Widget _buildDetailTabs(PurchaseReceive receive, {bool inScrollView = false}) {
     final hasPurchaseOrder = receive.purchaseOrderId != null;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(
+        horizontal: inScrollView ? 0 : 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: const Color(0xFFE5E7EB)),
@@ -2847,6 +2933,9 @@ class _PurchaseReceiveDetailPanelState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildDetailTabs(receive, inScrollView: true),
+          _buildToggleRow(inScrollView: true),
+          const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3213,14 +3302,38 @@ class _PurchaseReceiveDetailPanelState
                                                 color: Color(0xFF6B7280),
                                               ),
                                             ),
+                                          if (batch.binLabel != null && batch.binLabel!.isNotEmpty)
+                                            Text(
+                                              'Bin: ${batch.binLabel}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
                                         ],
                                       ),
-                                      Text(
-                                        batch.quantity.toStringAsFixed(2),
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _fmtQty(batch.quantity + batch.foc),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          if (batch.foc > 0) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${_fmtQty(batch.quantity)} + ${_fmtQty(batch.foc)} foc',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -3348,7 +3461,7 @@ class _PurchaseReceiveDetailPanelState
                 ),
               ),
               SizedBox(
-                width: 100,
+                width: 150,
                 child: Text(
                   'QUANTITY',
                   style: TextStyle(
@@ -3477,18 +3590,30 @@ class _PurchaseReceiveDetailPanelState
                   ),
                 ),
                 SizedBox(
-                  width: 100,
+                  width: 150,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        '${_fmtQty(displaySum)} pcs',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF374151),
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${_fmtQty(displaySum)} pcs',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF374151),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (totalQty > i.ordered)
+                            ExtraQtyPopoverButton(
+                              poNumber: i.purchaseOrderNumber ?? receive.purchaseOrderNumber ?? '',
+                              ordered: i.ordered,
+                              received: totalQty,
+                              extra: totalQty - i.ordered,
+                            ),
+                        ],
                       ),
                       if (totalFoc > 0) ...[
                         const SizedBox(height: 2),
@@ -3527,9 +3652,12 @@ class _PurchaseReceiveDetailPanelState
     );
   }
 
-  Widget _buildToggleRow() {
+  Widget _buildToggleRow({bool inScrollView = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: inScrollView ? 0 : 32,
+        vertical: 8,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -3777,9 +3905,8 @@ class _PurchaseReceivePdfViewState
   bool _isBatchesExpanded = true;
 
   String _fmtQty(double value) {
-    return value == value.roundToDouble()
-        ? value.toInt().toString()
-        : value.toStringAsFixed(2);
+    final intVal = value.toInt();
+    return value == intVal ? intVal.toString() : value.toStringAsFixed(2);
   }
 
   @override
@@ -4324,14 +4451,38 @@ class _PurchaseReceivePdfViewState
                                                 color: Color(0xFF6B7280),
                                               ),
                                             ),
+                                          if (batch.binLabel != null && batch.binLabel!.isNotEmpty)
+                                            Text(
+                                              'Bin: ${batch.binLabel}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
                                         ],
                                       ),
-                                      Text(
-                                        batch.quantity.toStringAsFixed(2),
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _fmtQty(batch.quantity + batch.foc),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          if (batch.foc > 0) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${_fmtQty(batch.quantity)} + ${_fmtQty(batch.foc)} foc',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -5298,4 +5449,513 @@ class _ReceiveAttachmentOverlayContentState extends State<_ReceiveAttachmentOver
       ),
     );
   }
+}
+
+class ExtraQtyPopoverButton extends StatefulWidget {
+  final String poNumber;
+  final double ordered;
+  final double received;
+  final double extra;
+
+  const ExtraQtyPopoverButton({
+    Key? key,
+    required this.poNumber,
+    required this.ordered,
+    required this.received,
+    required this.extra,
+  }) : super(key: key);
+
+  @override
+  State<ExtraQtyPopoverButton> createState() => _ExtraQtyPopoverButtonState();
+}
+
+class _ExtraQtyPopoverButtonState extends State<ExtraQtyPopoverButton> {
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
+  @override
+  void dispose() {
+    _closePopover();
+    super.dispose();
+  }
+
+  void _closePopover() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _togglePopover() {
+    if (_overlayEntry != null) {
+      _closePopover();
+    } else {
+      _showPopover();
+    }
+  }
+
+  void _showPopover() {
+    final overlay = Overlay.of(context);
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _closePopover,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomRight,
+            followerAnchor: Alignment.topRight,
+            offset: const Offset(0, 0),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: CustomPaint(
+                      size: const Size(12, 8),
+                      painter: ArrowPainter(
+                        color: Colors.white,
+                        borderColor: const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, -1),
+                    child: Container(
+                      width: 320,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Extra Quantity Details',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'Inter',
+                                  color: Color(0xFF1F2937),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(LucideIcons.x, size: 14, color: Colors.red),
+                                onPressed: _closePopover,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          const SizedBox(height: 8),
+                          Table(
+                            columnWidths: const {
+                              0: FlexColumnWidth(2.0),
+                              1: FlexColumnWidth(1.2),
+                              2: FlexColumnWidth(1.2),
+                              3: FlexColumnWidth(1.2),
+                            },
+                            children: [
+                              const TableRow(
+                                children: [
+                                  Padding(
+                                    padding: EdgeInsets.only(bottom: 6),
+                                    child: Text('po number', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, fontFamily: 'Inter', color: Color(0xFF6B7280))),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.only(bottom: 6),
+                                    child: Text('ordered', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, fontFamily: 'Inter', color: Color(0xFF6B7280))),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.only(bottom: 6),
+                                    child: Text('received', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, fontFamily: 'Inter', color: Color(0xFF6B7280))),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.only(bottom: 6),
+                                    child: Text('extra', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, fontFamily: 'Inter', color: Color(0xFF6B7280))),
+                                  ),
+                                ],
+                              ),
+                              TableRow(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      widget.poNumber,
+                                      style: const TextStyle(fontSize: 11, fontFamily: 'Inter', color: Color(0xFF2563EB)),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      widget.ordered == widget.ordered.roundToDouble() ? widget.ordered.toInt().toString() : widget.ordered.toStringAsFixed(2),
+                                      style: const TextStyle(fontSize: 11, fontFamily: 'Inter', color: Color(0xFF374151)),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      widget.received == widget.received.roundToDouble() ? widget.received.toInt().toString() : widget.received.toStringAsFixed(2),
+                                      style: const TextStyle(fontSize: 11, fontFamily: 'Inter', color: Color(0xFF374151)),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      widget.extra == widget.extra.roundToDouble() ? widget.extra.toInt().toString() : widget.extra.toStringAsFixed(2),
+                                      style: const TextStyle(fontSize: 11, fontFamily: 'Inter', color: Colors.red, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    overlay.insert(_overlayEntry!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: GestureDetector(
+        onTap: _togglePopover,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(
+            LucideIcons.info,
+            size: 15,
+            color: Color(0xFF2A95BF),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ArrowPainter extends CustomPainter {
+  final Color color;
+  final Color borderColor;
+
+  ArrowPainter({required this.color, required this.borderColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawPath(path, paint);
+
+    final borderPath = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height);
+    canvas.drawPath(borderPath, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ExtraQuantityDialog extends ConsumerStatefulWidget {
+  final List<PurchaseReceive> receives;
+
+  const _ExtraQuantityDialog({required this.receives});
+
+  @override
+  ConsumerState<_ExtraQuantityDialog> createState() => _ExtraQuantityDialogState();
+}
+
+class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
+  late final Future<List<_ExtraQuantityRecord>> _recordsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordsFuture = _loadExtraQuantities();
+  }
+
+  Future<List<_ExtraQuantityRecord>> _loadExtraQuantities() async {
+    final prRepository = ref.read(purchaseReceiveRepositoryProvider);
+    final warehousesAsync = ref.read(allWarehousesProvider);
+    final warehouses = warehousesAsync.asData?.value ?? [];
+
+    final List<_ExtraQuantityRecord> records = [];
+
+    for (final receiveSummary in widget.receives) {
+      if (receiveSummary.id == null) continue;
+      final receive = await prRepository.getPurchaseReceive(receiveSummary.id!);
+      if (receive == null) continue;
+
+      final whName = warehouses.firstWhere(
+        (w) => w['id']?.toString() == receive.warehouseId,
+        orElse: () => <String, dynamic>{},
+      )['name']?.toString() ?? '-';
+
+      for (final receiveItem in receive.items) {
+        if (receiveItem.itemId == null) continue;
+
+        final double totalQty = receiveItem.batches.isNotEmpty
+            ? receiveItem.batches.fold<double>(0, (sum, b) => sum + b.quantity)
+            : receiveItem.quantityToReceive;
+
+        if (totalQty > receiveItem.ordered) {
+          records.add(_ExtraQuantityRecord(
+            date: receive.receivedDate ?? receive.createdAt ?? DateTime.now(),
+            itemName: receiveItem.itemName,
+            purchaseOrderNumber: receive.purchaseOrderNumber ?? '-',
+            purchaseReceiveNumber: receive.purchaseReceiveNumber,
+            vendorName: receive.vendorName ?? '-',
+            warehouseName: whName,
+            quantity: totalQty - receiveItem.ordered,
+          ));
+        }
+      }
+    }
+    return records;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 850),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Extra Quantity',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(
+                      Icons.close,
+                      size: 20,
+                      color: AppTheme.errorRed,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppTheme.borderColor),
+            FutureBuilder<List<_ExtraQuantityRecord>>(
+              future: _recordsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 250),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: ZTableSkeleton(
+                        rows: 3,
+                        columns: 6,
+                      ),
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppTheme.errorRed)),
+                  );
+                }
+
+                final records = snapshot.data ?? [];
+
+                return ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 450),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        // Table Header
+                        Container(
+                          color: AppTheme.bgLight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          child: const Row(
+                            children: [
+                              Expanded(flex: 2, child: Text('DATE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(flex: 3, child: Text('ITEM NAME', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(flex: 2, child: Text('PURCHASE ORDER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(flex: 3, child: Text('VENDOR NAME', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(flex: 2, child: Text('WAREHOUSE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              SizedBox(width: 80, child: Text('QUANTITY', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1, color: AppTheme.borderColor),
+                        if (records.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(40),
+                            child: Center(
+                              child: Text(
+                                'No extra quantity records found.',
+                                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                              ),
+                            ),
+                          )
+                        else
+                          // Table Rows
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: records.length,
+                            separatorBuilder: (context, index) => const Divider(height: 1, color: AppTheme.borderColor),
+                            itemBuilder: (context, index) {
+                              final r = records[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Expanded(flex: 2, child: Text(DateFormat('dd-MM-yyyy').format(r.date), style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    Expanded(flex: 3, child: Text(r.itemName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            r.purchaseOrderNumber,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.primaryBlue,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          if (r.purchaseReceiveNumber != null) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              r.purchaseReceiveNumber!,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(flex: 3, child: Text(r.vendorName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    Expanded(flex: 2, child: Text(r.warehouseName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    SizedBox(
+                                      width: 80,
+                                      child: Text(
+                                        r.quantity == r.quantity.roundToDouble()
+                                            ? r.quantity.toInt().toString()
+                                            : r.quantity.toStringAsFixed(2),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 1, color: AppTheme.borderColor),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  ZButton.secondary(
+                    label: 'Close',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtraQuantityRecord {
+  final DateTime date;
+  final String itemName;
+  final String purchaseOrderNumber;
+  final String? purchaseReceiveNumber;
+  final String vendorName;
+  final String warehouseName;
+  final double quantity;
+
+  _ExtraQuantityRecord({
+    required this.date,
+    required this.itemName,
+    required this.purchaseOrderNumber,
+    this.purchaseReceiveNumber,
+    required this.vendorName,
+    required this.warehouseName,
+    required this.quantity,
+  });
 }
