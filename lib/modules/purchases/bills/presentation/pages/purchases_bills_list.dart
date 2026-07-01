@@ -1,3 +1,4 @@
+// ignore_for_file: unused_import, unused_field
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -862,24 +863,7 @@ class _PurchasesBillsListScreenState
                           },
                         ),
                         _buildDivider(),
-                        MenuAnchor(
-                          style: _menuStyle(),
-                          builder: (context, controller, child) {
-                            return IconButton(
-                              onPressed: () => controller.isOpen
-                                  ? controller.close()
-                                  : controller.open(),
-                              icon: Icon(
-                                LucideIcons.moreHorizontal,
-                                size: 18,
-                                color: AppTheme.textSecondary,
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            );
-                          },
-                          menuChildren: _menuChildrenForStatus(bill),
-                        ),
+                        _buildMoreButton(bill),
                       ] else if (bill.status.toLowerCase() == 'draft') ...[
                         _buildToolbarButton(
                           LucideIcons.pencil,
@@ -911,24 +895,7 @@ class _PurchasesBillsListScreenState
                           },
                         ),
                         _buildDivider(),
-                        MenuAnchor(
-                          style: _menuStyle(),
-                          builder: (context, controller, child) {
-                            return IconButton(
-                              onPressed: () => controller.isOpen
-                                  ? controller.close()
-                                  : controller.open(),
-                              icon: Icon(
-                                LucideIcons.moreHorizontal,
-                                size: 18,
-                                color: AppTheme.textSecondary,
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            );
-                          },
-                          menuChildren: _menuChildrenForStatus(bill),
-                        ),
+                        _buildMoreButton(bill),
                       ] else ...[
                         _buildToolbarButton(
                           LucideIcons.pencil,
@@ -955,24 +922,7 @@ class _PurchasesBillsListScreenState
                           ),
                         ],
                         _buildDivider(),
-                        MenuAnchor(
-                          style: _menuStyle(),
-                          builder: (context, controller, child) {
-                            return IconButton(
-                              onPressed: () => controller.isOpen
-                                  ? controller.close()
-                                  : controller.open(),
-                              icon: Icon(
-                                LucideIcons.moreHorizontal,
-                                size: 18,
-                                color: AppTheme.textSecondary,
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            );
-                          },
-                          menuChildren: _menuChildrenForStatus(bill),
-                        ),
+                        _buildMoreButton(bill),
                       ],
                     ],
                   ),
@@ -1720,6 +1670,45 @@ class _PurchasesBillsListScreenState
                 ],
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMoreButton(PurchasesBill bill) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: MenuAnchor(
+            style: _menuStyle(),
+            builder: (context, controller, child) {
+              return GestureDetector(
+                onTap: () => controller.isOpen ? controller.close() : controller.open(),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isHovered || controller.isOpen ? Colors.white : Colors.transparent,
+                    border: Border.all(
+                      color: isHovered || controller.isOpen ? const Color(0xFFD3D9E3) : Colors.transparent,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    LucideIcons.moreHorizontal,
+                    size: 18,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              );
+            },
+            menuChildren: _menuChildrenForStatus(bill),
           ),
         );
       },

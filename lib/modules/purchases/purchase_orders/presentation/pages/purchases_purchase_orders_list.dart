@@ -2630,20 +2630,8 @@ class _PurchaseOrderOverviewScreenState
                           ),
                           _buildDivider(),
                           _buildPdfPrintDropdown(order, orgSettings),
-                          _buildDivider(),
-                          if (order.status.toLowerCase() == 'closed' ||
-                              displayStatus.toLowerCase() == 'closed' ||
-                              summary.receives.isNotEmpty)
-                            _buildToolbarButton(
-                              LucideIcons.fileText,
-                              'Convert to Bill',
-                              onPressed: () {
-                                context.go(
-                                  '/purchases/bills/create?poId=${order.id}',
-                                );
-                              },
-                            )
-                          else
+                          if (order.status.toLowerCase() == 'draft') ...[
+                            _buildDivider(),
                             _buildToolbarButton(
                               LucideIcons.truck,
                               'Receive',
@@ -2653,25 +2641,33 @@ class _PurchaseOrderOverviewScreenState
                                 );
                               },
                             ),
+                          ] else if (order.status.toLowerCase() != 'cancelled' &&
+                              order.status.toLowerCase() != 'canceled') ...[
+                            if (summary.receiveStatus.toLowerCase() != 'received') ...[
+                              _buildDivider(),
+                              _buildToolbarButton(
+                                LucideIcons.truck,
+                                'Receive',
+                                onPressed: () {
+                                  context.go(
+                                    '/purchases/purchase-receives/create?poId=${order.id}',
+                                  );
+                                },
+                              ),
+                            ],
+                            if (summary.billStatus.toLowerCase() != 'billed') ...[
+                              _buildDivider(),
+                              _buildToolbarButton(
+                                LucideIcons.fileText,
+                                'Convert to Bill',
+                                onPressed: () {
+                                  _handleConvertToBill(order, summary);
+                                },
+                              ),
+                            ],
+                          ],
                           _buildDivider(),
-                          MenuAnchor(
-                            style: _menuStyle(),
-                            builder: (context, controller, child) {
-                              return IconButton(
-                                onPressed: () => controller.isOpen
-                                    ? controller.close()
-                                    : controller.open(),
-                                icon: Icon(
-                                  LucideIcons.moreHorizontal,
-                                  size: 18,
-                                  color: AppTheme.textSecondary,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              );
-                            },
-                            menuChildren: _menuChildrenForStatus(order, summary),
-                          ),
+                          _buildMoreButton(order, summary),
                         ],
                       ),
                     ),
@@ -2786,7 +2782,7 @@ class _PurchaseOrderOverviewScreenState
                             ],
                             if ((order.status.toLowerCase() == 'issued' ||
                                     displayStatus.toLowerCase() == 'issued') &&
-                                summary.receives.isEmpty) ...[
+                                !_isAllItemsReceived(order, summary)) ...[
                               Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 padding: const EdgeInsets.symmetric(
@@ -2854,41 +2850,40 @@ class _PurchaseOrderOverviewScreenState
                                         ),
                                       ),
                                     const SizedBox(width: 10),
-                                    SizedBox(
-                                      height: 34,
-                                      child:
-                                          (order.status.toLowerCase() ==
-                                                  'issued' &&
-                                              summary.receiveStatus
-                                                      .toLowerCase() ==
-                                                  'in transit' &&
-                                              summary.billStatus
-                                                      .toLowerCase() ==
-                                                  'yet to be billed')
-                                          ? ZButton.primary(
-                                              label: 'Convert to Bill',
-                                              onPressed: () {
-                                                context.go(
-                                                  '/purchases/bills/create?poId=${order.id}',
-                                                );
-                                              },
-                                            )
-                                          : ZButton.secondary(
-                                              label: 'Convert to Bill',
-                                              onPressed: () {
-                                                context.go(
-                                                  '/purchases/bills/create?poId=${order.id}',
-                                                );
-                                              },
-                                            ),
-                                    ),
+                                    if (summary.billStatus.toLowerCase() != 'billed')
+                                      SizedBox(
+                                        height: 34,
+                                        child:
+                                            (order.status.toLowerCase() ==
+                                                    'issued' &&
+                                                summary.receiveStatus
+                                                        .toLowerCase() ==
+                                                    'in transit' &&
+                                                summary.billStatus
+                                                        .toLowerCase() ==
+                                                    'yet to be billed')
+                                            ? ZButton.primary(
+                                                label: 'Convert to Bill',
+                                                onPressed: () {
+                                                  _handleConvertToBill(order, summary);
+                                                },
+                                              )
+                                            : ZButton.secondary(
+                                                 label: 'Convert to Bill',
+                                                 onPressed: () {
+                                                   _handleConvertToBill(order, summary);
+                                                 },
+                                               ),
+                                      ),
                                   ],
                                 ),
                               ),
                             ],
-                            if (order.status.toLowerCase() == 'closed' ||
-                                displayStatus.toLowerCase() == 'closed' ||
-                                summary.receives.isNotEmpty) ...[
+                            if (summary.billStatus.toLowerCase() != 'billed' &&
+                                _isAllItemsReceived(order, summary) &&
+                                (order.status.toLowerCase() == 'closed' ||
+                                    displayStatus.toLowerCase() == 'closed' ||
+                                    summary.receives.isNotEmpty)) ...[
                               Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 padding: const EdgeInsets.symmetric(
@@ -2934,9 +2929,7 @@ class _PurchaseOrderOverviewScreenState
                                       child: ZButton.primary(
                                         label: 'Convert to Bill',
                                         onPressed: () {
-                                          context.go(
-                                            '/purchases/bills/create?poId=${order.id}',
-                                          );
+                                          _handleConvertToBill(order, summary);
                                         },
                                       ),
                                     ),
@@ -3421,6 +3414,45 @@ class _PurchaseOrderOverviewScreenState
     );
   }
 
+  Widget _buildMoreButton(PurchaseOrder order, _PoTxnSummary summary) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: MenuAnchor(
+            style: _menuStyle(),
+            builder: (context, controller, child) {
+              return GestureDetector(
+                onTap: () => controller.isOpen ? controller.close() : controller.open(),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isHovered || controller.isOpen ? Colors.white : Colors.transparent,
+                    border: Border.all(
+                      color: isHovered || controller.isOpen ? const Color(0xFFD3D9E3) : Colors.transparent,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    LucideIcons.moreHorizontal,
+                    size: 18,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              );
+            },
+            menuChildren: _menuChildrenForStatus(order, summary),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildDivider() {
     return Container(
       height: 16,
@@ -3497,6 +3529,16 @@ class _PurchaseOrderOverviewScreenState
               summary.receiveStatus.toLowerCase() == 'partially received') &&
           summary.billStatus.toLowerCase() == 'yet to be billed';
       if (!isTransitYetBilled) {
+        if (order.status.toLowerCase() == 'issued') {
+          return [
+            _detailActionMenuItem('Expected Delivery Date', order, summary),
+            _detailActionMenuItem('Cancel Items', order, summary),
+            _detailActionMenuItem('Clone', order, summary),
+            _detailActionMenuItem('View Bills', order, summary),
+            _detailActionMenuItem('Delete', order, summary),
+            _detailActionMenuItem('Mark as Received', order, summary),
+          ];
+        }
         return [
           _detailActionMenuItem('Cancel Items', order, summary),
           _detailActionMenuItem('Clone', order, summary),
@@ -3766,7 +3808,7 @@ class _PurchaseOrderOverviewScreenState
                   await supabase
                       .from('purchase_orders')
                       .update({
-                        'delivery_date': pickedDate.toIso8601String(),
+                        'expected_delivery_date': pickedDate.toIso8601String(),
                         'notes': notes,
                       })
                       .eq('id', order.id!);
@@ -3776,11 +3818,13 @@ class _PurchaseOrderOverviewScreenState
                     purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)),
                   );
                   ref.invalidate(purchaseOrderProvider(order.id!));
-                  setState(() {
-                    _currentPoTxnSummaryOrderId = null;
-                    _currentPoTxnStatus = null;
-                    _currentPoTxnUpdatedAt = null;
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _currentPoTxnSummaryOrderId = null;
+                      _currentPoTxnStatus = null;
+                      _currentPoTxnUpdatedAt = null;
+                    });
+                  }
 
                   if (context.mounted) {
                     ZerpaiToast.success(context, 'Expected delivery date updated');
@@ -3824,7 +3868,10 @@ class _PurchaseOrderOverviewScreenState
             }
           }
         } else if (label == 'Convert to Bill') {
-          context.go('/purchases/bills/create?poId=${order.id}');
+          _handleConvertToBill(order, summary);
+        } else if (label == 'View Bills') {
+          final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+          context.go('/$orgId/purchases/bills?q=${order.orderNumber}');
         } else if (label == 'Create Receive') {
           context.go('/purchases/purchase-receives/create?poId=${order.id}');
         } else if (label == 'Reopen canceled items') {
@@ -4059,6 +4106,60 @@ class _PurchaseOrderOverviewScreenState
       style: ZTableMoreMenu.menuItemButtonStyle(),
       child: Text(label),
     );
+  }
+
+  void _handleConvertToBill(PurchaseOrder order, _PoTxnSummary summary) async {
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+    final isPartiallyReceived = summary.receiveStatus.toLowerCase().contains('partially');
+
+    final hasBillsForPoItself = summary.bills.any((b) {
+      final items = b['bill_items'] as List<dynamic>? ?? [];
+      if (items.isEmpty) return true;
+      return items.any((item) => item['purchase_receive_item_id'] == null);
+    });
+
+    final showChoiceDialog = summary.receives.isNotEmpty &&
+        (hasBillsForPoItself || isPartiallyReceived);
+
+    if (showChoiceDialog) {
+      final result = await showDialog<Map<String, dynamic>>(
+        context: context,
+        barrierColor: Colors.black54,
+        builder: (dialogCtx) => _ConvertToBillSelectionDialog(
+          order: order,
+          summary: summary,
+          showModeSelection: true,
+        ),
+      );
+      if (result != null) {
+        final mode = result['mode'] as String;
+        if (mode == 'po') {
+          context.go('/$orgId/purchases/bills/create?poId=${order.id}');
+        } else {
+          final ids = result['ids'] as List<String>;
+          context.go('/$orgId/purchases/bills/create?poId=${order.id}&receiveId=${ids.join(',')}');
+        }
+      }
+    } else if (summary.receives.isNotEmpty) {
+      final result = await showDialog<Map<String, dynamic>>(
+        context: context,
+        barrierColor: Colors.black54,
+        builder: (dialogCtx) => _ConvertToBillSelectionDialog(
+          order: order,
+          summary: summary,
+          showModeSelection: false,
+        ),
+      );
+      if (result != null) {
+        final mode = result['mode'] as String;
+        if (mode == 'receives') {
+          final ids = result['ids'] as List<String>;
+          context.go('/$orgId/purchases/bills/create?poId=${order.id}&receiveId=${ids.join(',')}');
+        }
+      }
+    } else {
+      context.go('/$orgId/purchases/bills/create?poId=${order.id}');
+    }
   }
 
   Widget _buildPdfPrintDropdown(PurchaseOrder order, OrgSettings? orgSettings) {
@@ -7051,6 +7152,471 @@ class _CancelItemsDialogState extends State<_CancelItemsDialog> {
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConvertToBillSelectionDialog extends StatefulWidget {
+  final PurchaseOrder order;
+  final _PoTxnSummary summary;
+  final bool showModeSelection;
+
+  const _ConvertToBillSelectionDialog({
+    required this.order,
+    required this.summary,
+    required this.showModeSelection,
+  });
+
+  @override
+  State<_ConvertToBillSelectionDialog> createState() =>
+      _ConvertToBillSelectionDialogState();
+}
+
+class _ConvertToBillSelectionDialogState
+    extends State<_ConvertToBillSelectionDialog> {
+  String _selectedMode = 'Yet To Receive';
+  final Set<String> _selectedReceiveIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.showModeSelection) {
+      _selectedMode = 'Receives';
+    }
+    for (final r in widget.summary.receives) {
+      final rId = r['id']?.toString();
+      if (rId != null) {
+        _selectedReceiveIds.add(rId);
+      }
+    }
+  }
+
+  String _formatDateString(dynamic raw) {
+    final s = raw?.toString();
+    if (s == null || s.isEmpty) return '-';
+    final dt = DateTime.tryParse(s);
+    if (dt == null) return s;
+    return DateFormat('dd-MM-yyyy').format(dt);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      alignment: Alignment.topCenter,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Container(
+        width: 650,
+        padding: EdgeInsets.zero,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Purchase Order (${widget.order.orderNumber})',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: Color(0xFF1F2937),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: Colors.red),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: AppTheme.borderLight),
+            const SizedBox(height: 16),
+
+            if (widget.showModeSelection) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F7FF),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFD0E7FF)),
+                  ),
+                  child: Text(
+                    'Note: You can create a bill for either Yet To Receive items or Received items.',
+                    style: AppTheme.bodyText.copyWith(
+                      fontSize: 13,
+                      color: const Color(0xFF1E3A8A),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedMode = 'Yet To Receive';
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            children: [
+                              Radio<String>(
+                                value: 'Yet To Receive',
+                                groupValue: _selectedMode,
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedMode = val;
+                                    });
+                                  }
+                                },
+                                activeColor: AppTheme.primaryBlue,
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Yet To Receive',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Yet to receive items in this purchase order',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedMode = 'Receives';
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            children: [
+                              Radio<String>(
+                                value: 'Receives',
+                                groupValue: _selectedMode,
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedMode = val;
+                                    });
+                                  }
+                                },
+                                activeColor: AppTheme.primaryBlue,
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Receives',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Received items in this purchase order',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            if (_selectedMode == 'Yet To Receive') ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Table(
+                  border: TableBorder(
+                    top: BorderSide(color: AppTheme.borderLight, width: 0.8),
+                    bottom: BorderSide(color: AppTheme.borderLight, width: 0.8),
+                    horizontalInside: BorderSide(color: AppTheme.borderLight, width: 0.8),
+                  ),
+                  columnWidths: const {
+                    0: FixedColumnWidth(40),
+                    1: FlexColumnWidth(1.5),
+                    2: FlexColumnWidth(1.2),
+                    3: FlexColumnWidth(1.0),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
+                      children: const [
+                        TableCell(child: SizedBox(height: 38)),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text('PURCHASE ORDER#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text('ORDER DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Center(
+                            child: Checkbox(
+                              value: true,
+                              onChanged: null,
+                              activeColor: AppTheme.primaryBlue,
+                            ),
+                          ),
+                        ),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text(widget.order.orderNumber, style: const TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text(_formatDateString(widget.order.orderDate), style: const TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text(
+                              widget.order.status,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: widget.order.status.toLowerCase() == 'issued'
+                                    ? AppTheme.primaryBlue
+                                    : AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Table(
+                  border: TableBorder(
+                    top: BorderSide(color: AppTheme.borderLight, width: 0.8),
+                    bottom: BorderSide(color: AppTheme.borderLight, width: 0.8),
+                    horizontalInside: BorderSide(color: AppTheme.borderLight, width: 0.8),
+                  ),
+                  columnWidths: const {
+                    0: FixedColumnWidth(40),
+                    1: FlexColumnWidth(1.5),
+                    2: FlexColumnWidth(1.2),
+                    3: FlexColumnWidth(1.0),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
+                      children: const [
+                        TableCell(child: SizedBox(height: 38)),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text('PURCHASE RECEIVE#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text('RECEIVED ON', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ...widget.summary.receives.map((r) {
+                      final rId = r['id']?.toString() ?? '';
+                      final isChecked = _selectedReceiveIds.contains(rId);
+                      final rStatus = (r['status']?.toString() ?? '-')
+                          .split(' ')
+                          .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+                          .join(' ');
+
+                      return TableRow(
+                        children: [
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Center(
+                              child: Checkbox(
+                                value: isChecked,
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val == true) {
+                                      _selectedReceiveIds.add(rId);
+                                    } else {
+                                      _selectedReceiveIds.remove(rId);
+                                    }
+                                  });
+                                },
+                                activeColor: AppTheme.primaryBlue,
+                              ),
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Text(r['purchase_receive_number']?.toString() ?? '-', style: const TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Text(_formatDateString(r['received_date']), style: const TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Text(
+                                rStatus,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: rStatus == 'Received'
+                                      ? AppTheme.successGreen
+                                      : AppTheme.warningOrange,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  SizedBox(
+                    height: 36,
+                    child: ZButton.primary(
+                    label: 'Convert to Bill',
+                    onPressed: () {
+                      if (_selectedMode == 'Yet To Receive') {
+                        Navigator.pop(context, {
+                          'mode': 'po',
+                        });
+                      } else {
+                        if (_selectedReceiveIds.isEmpty) {
+                          ZerpaiToast.error(context, 'Please select at least one receive to convert to bill');
+                          return;
+                        }
+                        Navigator.pop(context, {
+                          'mode': 'receives',
+                          'ids': _selectedReceiveIds.toList(),
+                        });
+                      }
+                    },
+                  ),
+                ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    height: 36,
+                    child: ZButton.secondary(
+                      label: 'Cancel',
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),

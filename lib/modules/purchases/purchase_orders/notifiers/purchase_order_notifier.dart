@@ -509,7 +509,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
             state.destinationOfSupply.isNotEmpty) {
           final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
           final destKL = state.destinationOfSupply.toLowerCase().contains('kerala');
-          isInterstate = srcKL != destKL;
+          isInterstate = !srcKL && !destKL;
         }
       } catch (_) {}
     }
@@ -768,7 +768,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
                 state.destinationOfSupply.isNotEmpty) {
               final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
               final destKL = state.destinationOfSupply.toLowerCase().contains('kerala');
-              isInterstate = srcKL != destKL;
+              isInterstate = !srcKL && !destKL;
             }
           } catch (_) {}
         }
@@ -825,16 +825,117 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
   }
 
   void addItemsInBulk(List<PurchaseOrderItem> newItems) {
-    final recalculatedNewItems = newItems
+    final List<PurchaseOrderItem> resolvedItems = [];
+    final itemsState = _ref.read(itemsControllerProvider);
+    final accountsState = _ref.read(chartOfAccountsProvider);
+
+    List<AccountNode> allAccounts = [];
+    void collect(List<AccountNode> nodes) {
+      for (final n in nodes) {
+        allAccounts.add(n);
+        collect(n.children);
+      }
+    }
+    collect(accountsState.roots);
+
+    for (var item in newItems) {
+      if (item.productId.isEmpty) {
+        resolvedItems.add(item);
+        continue;
+      }
+
+      Item? product;
+      try {
+        product = itemsState.items.firstWhere((p) => p.id == item.productId);
+      } catch (_) {}
+
+      String? accountId = item.accountId;
+      String? accountName = item.accountName;
+      if ((accountId == null || accountId.isEmpty) && product != null) {
+        accountId = product.purchaseAccountId;
+        if (accountId != null && accountId.isNotEmpty) {
+          try {
+            final acc = allAccounts.firstWhere((a) => a.id == accountId);
+            accountName = acc.name;
+          } catch (_) {
+            accountName = accountId;
+          }
+        }
+      }
+
+      String? taxId = item.taxId;
+      String? taxName = item.taxName;
+      double taxRate = item.taxRate;
+      if ((taxId == null || taxId.isEmpty) && product != null) {
+        bool isInterstate = false;
+        if (state.vendorId != null && state.vendorId!.isNotEmpty) {
+          try {
+            final vendorsState = _ref.read(vendorProvider);
+            final selectedVendor = vendorsState.vendors.firstWhere(
+              (v) => v.id == state.vendorId,
+              orElse: () => Vendor(id: '', displayName: ''),
+            );
+            if (selectedVendor.id.isNotEmpty &&
+                selectedVendor.sourceOfSupply != null &&
+                selectedVendor.sourceOfSupply!.isNotEmpty &&
+                state.destinationOfSupply.isNotEmpty) {
+              final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
+              final destKL = state.destinationOfSupply.toLowerCase().contains('kerala');
+              isInterstate = !srcKL && !destKL;
+            }
+          } catch (_) {}
+        }
+
+        final resolvedTax = _resolvePurchaseTax(product, isInterstate: isInterstate);
+        taxId = isInterstate ? product.interStateTaxId : product.intraStateTaxId;
+        taxName = resolvedTax?.taxName ?? (isInterstate ? product.interStateTaxName : product.intraStateTaxName);
+        taxRate = resolvedTax?.taxRate ?? 0.0;
+      }
+
+      resolvedItems.add(
+        item.copyWith(
+          accountId: accountId,
+          accountName: accountName,
+          taxId: taxId,
+          taxName: taxName,
+          taxRate: taxRate,
+        ),
+      );
+    }
+
+    final recalculatedNewItems = resolvedItems
         .map((i) => _recalculateItem(i, state.discountLevel))
         .toList();
 
-    state = state.copyWith(
-      items: [
-        ...state.items.where((i) => i.productId.isNotEmpty), // keep filled ones
-        ...recalculatedNewItems,
-      ],
-    );
+    final List<PurchaseOrderItem> currentItems = state.items
+        .where((i) => i.productId.isNotEmpty)
+        .toList();
+
+    for (final newItem in recalculatedNewItems) {
+      final existingIndex = currentItems.indexWhere((i) => i.productId == newItem.productId);
+      if (existingIndex != -1) {
+        final existingItem = currentItems[existingIndex];
+        currentItems[existingIndex] = _recalculateItem(
+          existingItem.copyWith(
+            quantity: newItem.quantity,
+            rate: newItem.rate,
+            amount: newItem.rate * newItem.quantity,
+            priceListId: newItem.priceListId,
+            taxId: newItem.taxId,
+            taxName: newItem.taxName,
+            taxRate: newItem.taxRate,
+            taxAmount: newItem.taxAmount,
+            accountId: newItem.accountId,
+            accountName: newItem.accountName,
+          ),
+          state.discountLevel,
+        );
+      } else {
+        currentItems.add(newItem);
+      }
+    }
+
+    state = state.copyWith(items: currentItems);
     if (state.items.isEmpty) addItemRow(); // ensure at least one
   }
 
@@ -854,7 +955,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
               state.destinationOfSupply.isNotEmpty) {
             final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
             final destKL = state.destinationOfSupply.toLowerCase().contains('kerala');
-            activeInterstate = srcKL != destKL;
+            activeInterstate = !srcKL && !destKL;
           }
         } catch (_) {}
       }

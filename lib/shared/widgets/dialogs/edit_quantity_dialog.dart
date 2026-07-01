@@ -8,6 +8,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 class ReceiveSplitAllocation {
   final Map<String, dynamic> receive;
@@ -296,7 +297,9 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
       if (mounted) {
         setState(() {
           _initialUnreceivedQty = initialUnreceivedQty;
-          _unreceivedCtrl.text = initialUnreceivedQty.toInt().toString();
+          _unreceivedCtrl.text = widget.currentUnreceivedAllocated % 1 == 0
+              ? widget.currentUnreceivedAllocated.toInt().toString()
+              : widget.currentUnreceivedAllocated.toString();
           _poReceives = poReceives;
           
           _splits.clear();
@@ -361,123 +364,6 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
             _splits.add(row);
             if (rxItemId.isNotEmpty) {
               _fetchDetailsForSelectedReceive(row, rx, widget.productId, isInitial: true);
-            }
-          } else if (_poReceives.isNotEmpty) {
-            // No receive ID/number available — scan ALL receives to find the
-            // correct one by matching productId + quantity.
-            Map<String, dynamic>? matchedRx;
-            dynamic matchedRxItem;
-
-            if (widget.isReceiveMode) {
-              // In receive mode, find first bill containing the product
-              for (final rx in _poReceives) {
-                final rxItems = rx['bill_items'] as List<dynamic>? ?? [];
-                final candidate = rxItems.firstWhere(
-                  (item) => item['product_id'] == widget.productId,
-                  orElse: () => null,
-                );
-                if (candidate != null) {
-                  matchedRx = rx;
-                  matchedRxItem = candidate;
-                  break;
-                }
-              }
-            } else {
-              // Pass 1: strict match — productId + ordered qty + description
-              if (widget.initialPurchaseReceiveQty > 0) {
-                for (final rx in _poReceives) {
-                  final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
-                  final candidate = rxItems.firstWhere(
-                    (item) => item['item_id'] == widget.productId &&
-                        ((double.tryParse(item['ordered']?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001 &&
-                        (item['description']?.toString() ?? '').trim() == (widget.description ?? '').trim(),
-                    orElse: () => null,
-                  );
-                  if (candidate != null) {
-                    matchedRx = rx;
-                    matchedRxItem = candidate;
-                    break;
-                  }
-                }
-              }
-
-              // Pass 2: productId + ordered qty (no description)
-              if (matchedRxItem == null && widget.initialPurchaseReceiveQty > 0) {
-                for (final rx in _poReceives) {
-                  final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
-                  final candidate = rxItems.firstWhere(
-                    (item) => item['item_id'] == widget.productId &&
-                        ((double.tryParse(item['ordered']?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001,
-                    orElse: () => null,
-                  );
-                  if (candidate != null) {
-                    matchedRx = rx;
-                    matchedRxItem = candidate;
-                    break;
-                  }
-                }
-              }
-
-              // Pass 3: productId + quantity_to_receive or batch sum
-              if (matchedRxItem == null && widget.initialPurchaseReceiveQty > 0) {
-                for (final rx in _poReceives) {
-                  final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
-                  final candidate = rxItems.firstWhere(
-                    (item) {
-                      if (item['item_id'] != widget.productId) return false;
-                      final qtr = double.tryParse(item['quantity_to_receive']?.toString() ?? '') ?? 0.0;
-                      if ((qtr - widget.initialPurchaseReceiveQty).abs() < 0.001) return true;
-                      // Check batch sum
-                      final batches = item['purchase_receive_item_batches'] as List<dynamic>? ?? [];
-                      if (batches.isNotEmpty) {
-                        double batchSum = 0;
-                        for (final b in batches) {
-                          batchSum += double.tryParse(b['quantity']?.toString() ?? '0') ?? 0;
-                        }
-                        if ((batchSum - widget.initialPurchaseReceiveQty).abs() < 0.001) return true;
-                      }
-                      return false;
-                    },
-                    orElse: () => null,
-                  );
-                  if (candidate != null) {
-                    matchedRx = rx;
-                    matchedRxItem = candidate;
-                    break;
-                  }
-                }
-              }
-
-              // Pass 4: fallback — first receive with matching productId
-              if (matchedRxItem == null) {
-                for (final rx in _poReceives) {
-                  final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
-                  final candidate = rxItems.firstWhere(
-                    (item) => item['item_id'] == widget.productId,
-                    orElse: () => null,
-                  );
-                  if (candidate != null) {
-                    matchedRx = rx;
-                    matchedRxItem = candidate;
-                    break;
-                  }
-                }
-              }
-            }
-
-            // Use matched receive or fall back to first
-            final targetRx = matchedRx ?? _poReceives.first;
-            final rxItemId = matchedRxItem?['id']?.toString() ?? '';
-
-            final row = _SplitRow(
-              selectedReceive: targetRx,
-              initialQty: widget.initialPurchaseReceiveQty > 0 ? widget.initialPurchaseReceiveQty : 0,
-              receiveItemId: rxItemId,
-            );
-            row.qtyCtrl.addListener(_updateTotal);
-            _splits.add(row);
-            if (rxItemId.isNotEmpty) {
-              _fetchDetailsForSelectedReceive(row, targetRx, widget.productId, isInitial: true);
             }
           }
           
@@ -1182,14 +1068,37 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                               elevation: 0,
                             ),
-                            onPressed: () {
+                             onPressed: () {
                               if (_isLoading) return;
+
+                              final unreceivedVal = double.tryParse(_unreceivedCtrl.text) ?? 0.0;
+                              if (unreceivedVal > _initialUnreceivedQty) {
+                                final limitLabel = widget.isReceiveMode ? 'unbilled' : 'unreceived';
+                                ZerpaiToast.error(
+                                  context,
+                                  'Value cannot exceed maximum available $limitLabel quantity (${_initialUnreceivedQty % 1 == 0 ? _initialUnreceivedQty.toInt().toString() : _initialUnreceivedQty.toString()})',
+                                );
+                                return;
+                              }
+
                               // Filter allocations
                               final list = <ReceiveSplitAllocation>[];
                               for (final row in _splits) {
                                 if (row.selectedReceive != null) {
                                   final qty = double.tryParse(row.qtyCtrl.text) ?? 0.0;
                                   if (qty > 0) {
+                                    final maxQty = row.rxTotalQty - row.billedOther;
+                                    if (qty > maxQty) {
+                                      final rxNum = widget.isReceiveMode
+                                          ? (row.selectedReceive!['bill_number']?.toString() ?? '')
+                                          : (row.selectedReceive!['purchase_receive_number']?.toString() ?? '');
+                                      final sourceLabel = widget.isReceiveMode ? 'bill' : 'receive';
+                                      ZerpaiToast.error(
+                                        context,
+                                        'Quantity for $sourceLabel $rxNum cannot exceed available quantity (${maxQty % 1 == 0 ? maxQty.toInt().toString() : maxQty.toString()})',
+                                      );
+                                      return;
+                                    }
                                     list.add(ReceiveSplitAllocation(
                                       receive: row.selectedReceive!,
                                       quantity: qty,
@@ -1201,7 +1110,7 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                               Navigator.pop(
                                 context,
                                 QuantitySplitResult(
-                                  unreceivedQuantity: double.tryParse(_unreceivedCtrl.text) ?? 0.0,
+                                  unreceivedQuantity: unreceivedVal,
                                   receiveSplits: list,
                                 ),
                               );

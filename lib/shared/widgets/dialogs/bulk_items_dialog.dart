@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
@@ -22,6 +23,16 @@ class BulkItemsDialog extends ConsumerStatefulWidget {
 }
 
 class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
+  final Map<String, TextEditingController> _quantityControllers = {};
+
+  @override
+  void dispose() {
+    for (final controller in _quantityControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
   String _searchQuery = '';
   Set<String> _selectedCategoryIds = {};
   bool _includeSubCategories = false;
@@ -757,16 +768,47 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                                       width: 36,
                                                       alignment:
                                                           Alignment.center,
-                                                      child: Text(
-                                                        '${_itemQuantities[item.id!] ?? 1}',
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Color(
-                                                            0xFF374151,
-                                                          ),
-                                                        ),
+                                                      child: Builder(
+                                                        builder: (context) {
+                                                          final currentQty = _itemQuantities[item.id!] ?? 1;
+                                                          final controller = _quantityControllers.putIfAbsent(
+                                                            item.id!,
+                                                            () => TextEditingController(text: '$currentQty'),
+                                                          );
+                                                          if (controller.text != '$currentQty') {
+                                                            controller.text = '$currentQty';
+                                                          }
+                                                          return TextFormField(
+                                                            key: ValueKey('qty_${item.id}'),
+                                                            controller: controller,
+                                                            keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                                                            textAlign: TextAlign.center,
+                                                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                                            style: const TextStyle(
+                                                              fontSize: 13,
+                                                              fontWeight:
+                                                                  FontWeight.w600,
+                                                              color: Color(
+                                                                0xFF374151,
+                                                              ),
+                                                            ),
+                                                            decoration: const InputDecoration(
+                                                              border: InputBorder.none,
+                                                              enabledBorder: InputBorder.none,
+                                                              focusedBorder: InputBorder.none,
+                                                              errorBorder: InputBorder.none,
+                                                              disabledBorder: InputBorder.none,
+                                                              isDense: true,
+                                                              contentPadding: EdgeInsets.zero,
+                                                            ),
+                                                            onChanged: (value) {
+                                                              final parsed = int.tryParse(value) ?? 0;
+                                                              setState(() {
+                                                                _itemQuantities[item.id!] = parsed;
+                                                              });
+                                                            },
+                                                          );
+                                                        }
                                                       ),
                                                     ),
                                                     InkWell(

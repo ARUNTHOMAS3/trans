@@ -1,3 +1,4 @@
+// ignore_for_file: unused_element_parameter
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/z_adaptive_menu.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -59,6 +60,8 @@ import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/purchase_requests_items_dialog.dart';
+import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
+import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
 
 // ── Zoho-style Colors ────────────────────────────────────────────────────────
 const _bgWhite = Color(0xFFFFFFFF);
@@ -210,6 +213,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   bool _bulkMode = false;
   final Set<int> _selectedRows = {};
   String _stockView = 'availableForSale'; // 'stockOnHand' | 'availableForSale'
+  String _stockType = 'Physical'; // 'Physical' | 'Accounting'
   bool _showStockInfo = true;
   bool _showRecentTransactions = true;
   bool _showPriceList = true;
@@ -584,6 +588,32 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     // Basic validation
     if (poState.vendorId == null || poState.vendorId!.isEmpty) {
       ZerpaiToast.error(context, 'Please select a vendor');
+      return;
+    }
+
+    final vendorsState = ref.read(vendorProvider);
+    final vendor = vendorsState.vendors.firstWhere(
+      (v) => v.id == poState.vendorId,
+      orElse: () => Vendor(id: '', displayName: ''),
+    );
+
+    String? billingAddressId;
+    final currentAddr = vendor.billingAddress;
+    if (currentAddr != null) {
+      if (currentAddr['id'] != null) {
+        billingAddressId = currentAddr['id'].toString();
+      } else if (vendor.vendorAddresses != null) {
+        for (final addr in vendor.vendorAddresses!) {
+          if (_areAddressesEqual(addr, currentAddr)) {
+            billingAddressId = addr['id']?.toString();
+            break;
+          }
+        }
+      }
+    }
+
+    if (billingAddressId == null || billingAddressId.isEmpty) {
+      ZerpaiToast.error(context, 'Billing address is mandatory');
       return;
     }
 
@@ -2567,6 +2597,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   targetKey: _orderDateFieldKey,
                   value: poState.orderDate,
                   onSelected: (date) => notifier.updateField(orderDate: date),
+                  firstDate: DateTime(2000),
                 ),
               ),
               const SizedBox(height: 16),
@@ -2580,6 +2611,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   hint: 'dd-MM-yyyy',
                   onSelected: (date) =>
                       notifier.updateField(expectedDeliveryDate: date),
+                  firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
                 ),
               ),
               const SizedBox(height: 16),
@@ -5631,7 +5663,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 poState.destinationOfSupply.isNotEmpty) {
                               final srcKL = selectedVendor.sourceOfSupply!.toLowerCase().contains('kerala');
                               final destKL = poState.destinationOfSupply.toLowerCase().contains('kerala');
-                              isInterstate = srcKL != destKL;
+                              isInterstate = !srcKL && !destKL;
                             }
                           } catch (_) {}
                         }
@@ -5871,15 +5903,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       );
     }
 
-    final bool isRowHovered = _hoveredRows.contains(index) || _activeMenuRowIndex == index;
+    return StatefulBuilder(
+      key: ValueKey('po_item_row_sb_$index'),
+      builder: (context, localState) {
+        final bool isRowHovered = _hoveredRows.contains(index) || _activeMenuRowIndex == index;
 
-    // ── Non-header row — outside-border pattern ──
-    return MouseRegion(
-      key: ValueKey('po_item_row_$index'),
-      onEnter: (_) => setState(() => _hoveredRows.add(index)),
-      onExit: (_) => setState(() => _hoveredRows.remove(index)),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+        // ── Non-header row — outside-border pattern ──
+        return MouseRegion(
+          key: ValueKey('po_item_row_$index'),
+          onEnter: (_) => localState(() => _hoveredRows.add(index)),
+          onExit: (_) => localState(() => _hoveredRows.remove(index)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -6689,6 +6724,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 onChanged: (v) {
                                   final q = double.tryParse(v) ?? 0;
                                   notifier.updateItem(
+
                                     index,
                                     item.copyWith(quantity: q),
                                   );
@@ -6715,16 +6751,33 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                             ),
                                     );
                                     final isSOH = _stockView == 'stockOnHand';
-                                    final stockValue = isSOH
-                                        ? item.stockOnHand
-                                        : item.availableStock;
+                                    final stocksAsync = ref.watch(itemWarehouseStocksProvider(item.productId));
+                                    final double stockValue = stocksAsync.maybeWhen(
+                                      data: (stocks) {
+                                         final wStock = stocks.firstWhere(
+                                           (s) => s.name.toLowerCase() == wh.name.toLowerCase() || s.id == itemWhId,
+                                          orElse: () => WarehouseStockRow(
+                                            id: itemWhId,
+                                             name: wh.name,
+                                            accounting: const StockNumbers(onHand: 0, committed: 0),
+                                            physical: const StockNumbers(onHand: 0, committed: 0),
+                                          ),
+                                        );
+                                        final numbers = _stockType == 'Accounting'
+                                            ? wStock.accounting
+                                            : wStock.physical;
+                                        return isSOH ? numbers.onHand : numbers.available;
+                                      },
+                                      orElse: () => 0.0,
+                                    );
+
                                     return Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.end,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          '${isSOH ? 'Stock on Hand:' : 'Available for Sale:'} ${stockValue?.toStringAsFixed(0) ?? '0'} pcs',
+                                          '${isSOH ? 'Stock on Hand:' : 'Available for Sale:'} ${stockValue.toStringAsFixed(0)} pcs',
                                           textAlign: TextAlign.right,
                                           style: const TextStyle(
                                             fontSize: 10,
@@ -6749,8 +6802,22 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                   productId: item.productId,
                                                   warehouseName: wh.name,
                                                   selectedView:
-                                                      'Available for Sale',
-                                                  onViewChanged: (v) {},
+                                                      _stockView == 'stockOnHand'
+                                                          ? 'Stock on Hand'
+                                                          : 'Available for Sale',
+                                                  selectedStockType: _stockType,
+                                                  onViewChanged: (v) {
+                                                    setState(() {
+                                                      _stockView = v == 'Stock on Hand'
+                                                          ? 'stockOnHand'
+                                                          : 'availableForSale';
+                                                    });
+                                                  },
+                                                  onStockTypeChanged: (t) {
+                                                    setState(() {
+                                                      _stockType = t;
+                                                    });
+                                                  },
                                                   onWarehouseChanged: (newName) {
                                                     final selectedWh =
                                                         warehouses.firstWhere(
@@ -7320,10 +7387,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               const SizedBox(width: 60),
             ],
           ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+      },
+    );
+  }
   void _closeTaxOverlay() {
     if (_taxOverlay != null) {
       _taxOverlay!.remove();
@@ -10353,6 +10422,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     required DateTime? value,
     required ValueChanged<DateTime> onSelected,
     String hint = 'dd-MM-yyyy',
+    DateTime? firstDate,
   }) {
     return KeyedSubtree(
       key: targetKey,
@@ -10363,12 +10433,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         onTap: () async {
           final today = DateTime.now();
           final startOfToday = DateTime(today.year, today.month, today.day);
+          final limitFirstDate = firstDate ?? startOfToday;
           final selected = await ZerpaiDatePicker.show(
             context,
-            initialDate: (value != null && !value.isBefore(startOfToday))
+            initialDate: (value != null && !value.isBefore(limitFirstDate))
                 ? value
-                : startOfToday,
-            firstDate: startOfToday,
+                : limitFirstDate,
+            firstDate: limitFirstDate,
             lastDate: DateTime(2100),
             targetKey: targetKey,
           );

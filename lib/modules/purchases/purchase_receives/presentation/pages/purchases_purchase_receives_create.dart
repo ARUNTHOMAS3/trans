@@ -2958,7 +2958,7 @@ class _PRCreateState
                             if (!hasBatches) ...[
                               const SizedBox(height: 4),
                               _buildBilledItemAddBatchesLinkButton(billIndex, itemIndex, itemMap),
-                              if (_hasBills) ...[
+                              if (_hasBills && _isEditMode) ...[
                                 const SizedBox(height: 4),
                                 MouseRegion(
                                   cursor: SystemMouseCursors.click,
@@ -2978,7 +2978,7 @@ class _PRCreateState
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  if (_hasBills) ...[
+                                  if (_hasBills && _isEditMode) ...[
                                     MouseRegion(
                                       cursor: SystemMouseCursors.click,
                                       child: GestureDetector(
@@ -4845,7 +4845,7 @@ class _PRCreateState
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    if (_hasBills) ...[
+                                    if (_hasBills && _isEditMode) ...[
                                       MouseRegion(
                                         cursor: SystemMouseCursors.click,
                                         child: GestureDetector(

@@ -1154,39 +1154,7 @@ class _SalesOrderOverviewScreenState
                         onSelected: _handleCreateAction,
                       ),
                       _buildDivider(),
-                      MenuAnchor(
-                        style: _menuStyle(),
-                        builder: (context, controller, child) {
-                          return IconButton(
-                            onPressed: () => controller.isOpen
-                                ? controller.close()
-                                : controller.open(),
-                            icon: const Icon(
-                              LucideIcons.moreHorizontal,
-                              size: 18,
-                              color: AppTheme.textSecondary,
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          );
-                        },
-                        menuChildren: [
-                          _detailActionMenuItem(
-                            'Convert to Purchase Order',
-                            order,
-                          ),
-                          _detailActionMenuItem(
-                            'Mark shipment as fulfilled',
-                            order,
-                          ),
-                          _detailActionMenuItem('Dropship', order),
-                          _detailActionMenuItem('Cancel Items', order),
-                          _detailActionMenuItem('Void', order),
-                          _detailActionMenuItem('Backorder', order),
-                          _detailActionMenuItem('Clone', order),
-                          _detailActionMenuItem('Delete', order),
-                        ],
-                      ),
+                      _buildMoreButton(order),
                     ],
                   ),
                 ),
@@ -1483,6 +1451,54 @@ class _SalesOrderOverviewScreenState
                 ],
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMoreButton(SalesOrder order) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: MenuAnchor(
+            style: _menuStyle(),
+            builder: (context, controller, child) {
+              return GestureDetector(
+                onTap: () => controller.isOpen ? controller.close() : controller.open(),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isHovered || controller.isOpen ? Colors.white : Colors.transparent,
+                    border: Border.all(
+                      color: isHovered || controller.isOpen ? const Color(0xFFD3D9E3) : Colors.transparent,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    LucideIcons.moreHorizontal,
+                    size: 18,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              );
+            },
+            menuChildren: [
+              _detailActionMenuItem('Convert to Purchase Order', order),
+              _detailActionMenuItem('Mark shipment as fulfilled', order),
+              _detailActionMenuItem('Dropship', order),
+              _detailActionMenuItem('Cancel Items', order),
+              _detailActionMenuItem('Void', order),
+              _detailActionMenuItem('Backorder', order),
+              _detailActionMenuItem('Clone', order),
+              _detailActionMenuItem('Delete', order),
+            ],
           ),
         );
       },

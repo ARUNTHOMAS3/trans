@@ -1325,12 +1325,12 @@ export class BillsService {
 
       // Inventory Asset (selected Purchase a/c in item registration) (Dr)
       for (const [accId, amt] of itemAccountsMap.entries()) {
-        addEntry(accId, 'Inventory Asset (selected Purchase a/c in item registration)', amt, 0);
+        addEntry(accId, 'Inventory Asset', amt, 0);
       }
 
       // Other Expenses (Adjustment) (Dr)
       if (adjustmentAmount > 0.0001) {
-        addEntry(otherExpensesId, 'Other Expenses (Adjustment) (+ve / --ve)', adjustmentAmount, 0);
+        addEntry(otherExpensesId, 'Other Expenses (Adjustment)', adjustmentAmount, 0);
       }
 
       // CREDITS:
@@ -1338,17 +1338,17 @@ export class BillsService {
       if (discountAmount > 0.0001) {
         if (lineItemDiscountsMap.size > 0) {
           for (const [accId, amt] of lineItemDiscountsMap.entries()) {
-            addEntry(accId, 'Purchase Discount (selected discount a/c in Transaction)', 0, amt);
+            addEntry(accId, 'Purchase Discount', 0, amt);
           }
         } else {
           const transDiscountAccId = dto.discountAccountId || purchaseDiscountId;
-          addEntry(transDiscountAccId, 'Purchase Discount (selected discount a/c in Transaction)', 0, discountAmount);
+          addEntry(transDiscountAccId, 'Purchase Discount', 0, discountAmount);
         }
       }
 
       // Other Expenses (Adjustment) (Cr)
       if (adjustmentAmount < -0.0001) {
-        addEntry(otherExpensesId, 'Other Expenses (Adjustment) (+ve / --ve)', 0, Math.abs(adjustmentAmount));
+        addEntry(otherExpensesId, 'Other Expenses (Adjustment)', 0, Math.abs(adjustmentAmount));
       }
 
       // TDS Payable (Cr)
@@ -1398,7 +1398,7 @@ export class BillsService {
 
       // Other Expenses (Adjustment) (Dr)
       if (adjustmentAmount > 0.0001) {
-        addEntry(otherExpensesId, 'Other Expenses (Adjustment) (+ve / --ve)', adjustmentAmount, 0);
+        addEntry(otherExpensesId, 'Other Expenses (Adjustment)', adjustmentAmount, 0);
       }
 
       // TCS Receivable (Dr)
@@ -1426,7 +1426,7 @@ export class BillsService {
 
       // Other Expenses (Adjustment) (Cr)
       if (adjustmentAmount < -0.0001) {
-        addEntry(otherExpensesId, 'Other Expenses (Adjustment) (+ve / --ve)', 0, Math.abs(adjustmentAmount));
+        addEntry(otherExpensesId, 'Other Expenses (Adjustment)', 0, Math.abs(adjustmentAmount));
       }
 
       // Accounts Payable (Cr) - Balancing Entry

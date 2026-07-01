@@ -1,3 +1,4 @@
+// ignore_for_file: unused_element, duplicate_ignore
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
 
@@ -7085,12 +7087,14 @@ class _SalesOrderCreateScreenState
             offset: const Offset(-333, 20),
             child: Material(
               color: Colors.transparent,
-              child: _TaxPreferenceDialog(
+              child: _ConfigureTaxPreferencesDialog(
                 initialGst: initialGst,
-                onUpdate: (newGst, isPermanent) async {
+                initialGstin: _selectedCustomer?.gstin ?? '',
+                onUpdate: (newGst, newGstin, isPermanent) async {
                   setState(() {
                     _selectedCustomer = _selectedCustomer?.copyWith(
                       gstTreatment: newGst,
+                      gstin: newGstin,
                     );
                   });
                   if (isPermanent && _selectedCustomer != null) {
@@ -7099,6 +7103,7 @@ class _SalesOrderCreateScreenState
                         _selectedCustomer!.id,
                         {
                           'gstTreatment': newGst,
+                          'gstin': newGstin,
                         },
                       );
                       if (context.mounted) {
@@ -7113,7 +7118,7 @@ class _SalesOrderCreateScreenState
                   _gstTaxOverlay?.remove();
                   _gstTaxOverlay = null;
                 },
-                onClose: () {
+                onCancel: () {
                   _gstTaxOverlay?.remove();
                   _gstTaxOverlay = null;
                   setState(() {});
@@ -7156,114 +7161,40 @@ class _SalesOrderCreateScreenState
             offset: const Offset(-277, 20),
             child: Material(
               color: Colors.transparent,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 30),
-                    child: CustomPaint(
-                      size: const Size(14, 8),
-                      painter: _ArrowPainter(),
-                    ),
-                  ),
-                  Container(
-                    width: 320,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // GSTIN List Item
-                        InkWell(
-                          onTap: () {
-                            _gstinOverlay?.remove();
-                            _gstinOverlay = null;
-                            setState(() {});
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: Color(0xFFE5E7EB)),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    currentGstin.isNotEmpty
-                                        ? "$currentGstin - Kerala[KL]"
-                                        : "32ABACS3075R1ZX - Kerala[KL]",
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF1F2937),
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ),
-                                const Icon(
-                                  LucideIcons.chevronDown,
-                                  size: 14,
-                                  color: Color(0xFF9CA3AF),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Bottom Actions
-                        InkWell(
-                          onTap: () {
-                            _gstinOverlay?.remove();
-                            _gstinOverlay = null;
-                            setState(() {});
-                            _showManageTaxInfoDialog();
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            color: const Color(0xFFF0F7FF),
-                            child: const Row(
-                              children: [
-                                Text(
-                                  'Manage Tax Informations',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF2563EB),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Spacer(),
-                                Icon(
-                                  LucideIcons.settings,
-                                  size: 16,
-                                  color: Color(0xFF2563EB),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: _GstinPopover(
+                gstin: currentGstin,
+                onUpdate: (newGstin) async {
+                  setState(() {
+                    _selectedCustomer = _selectedCustomer?.copyWith(
+                      gstin: newGstin,
+                    );
+                  });
+                  if (_selectedCustomer != null) {
+                    try {
+                      await ref.read(salesOrderControllerProvider.notifier).updateCustomer(
+                        _selectedCustomer!.id,
+                        {
+                          'gstin': newGstin,
+                        },
+                      );
+                      if (context.mounted) {
+                        ZerpaiToast.success(context, 'GSTIN updated in database');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ZerpaiToast.error(context, 'Failed to update database: $e');
+                      }
+                    }
+                  }
+                  _gstinOverlay?.remove();
+                  _gstinOverlay = null;
+                  setState(() {});
+                },
+                onCancel: () {
+                  _gstinOverlay?.remove();
+                  _gstinOverlay = null;
+                  setState(() {});
+                },
               ),
             ),
           ),
@@ -8422,19 +8353,39 @@ class _ManageTaxInfoDialogState extends ConsumerState<_ManageTaxInfoDialog> {
 
 class _TrianglePainter extends CustomPainter {
   final Color color;
-  _TrianglePainter({required this.color});
+  final bool isUp;
+  final bool hasBorder;
+  _TrianglePainter({
+    required this.color,
+    this.isUp = false,
+    this.hasBorder = false,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    var paint = Paint()
+    final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    var path = Path();
-    path.moveTo(size.width / 2, 0);
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
+    final path = Path();
+    if (isUp) {
+      path.moveTo(size.width / 2, 0);
+      path.lineTo(0, size.height);
+      path.lineTo(size.width, size.height);
+    } else {
+      path.moveTo(size.width / 2, size.height);
+      path.lineTo(0, 0);
+      path.lineTo(size.width, 0);
+    }
     path.close();
     canvas.drawPath(path, paint);
+
+    if (hasBorder) {
+      final borderPaint = Paint()
+        ..color = const Color(0xFFDDDDDD)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      canvas.drawPath(path, borderPaint);
+    }
   }
 
   @override
@@ -8578,349 +8529,7 @@ class _GstTreatmentOption {
   const _GstTreatmentOption(this.label, this.description);
 }
 
-class _TaxPreferenceDialog extends StatefulWidget {
-  final String initialGst;
-  final void Function(String, bool)? onUpdate;
-  final VoidCallback? onClose;
 
-  const _TaxPreferenceDialog({
-    required this.initialGst,
-    this.onUpdate,
-    this.onClose,
-  });
-
-  @override
-  State<_TaxPreferenceDialog> createState() => _TaxPreferenceDialogState();
-}
-
-class _TaxPreferenceDialogState extends State<_TaxPreferenceDialog> {
-  late _GstTreatmentOption _gst;
-  bool _makePermanent = false;
-
-  final _options = const [
-    _GstTreatmentOption(
-      'Registered Business - Regular',
-      'Business that is registered under GST',
-    ),
-    _GstTreatmentOption(
-      'Registered Business - Composition',
-      'Business that is registered under the Composition Scheme in GST',
-    ),
-    _GstTreatmentOption(
-      'Unregistered Business',
-      'Business that has not been registered under GST',
-    ),
-    _GstTreatmentOption('Consumer', 'A customer who is a regular consumer'),
-    _GstTreatmentOption(
-      'Overseas',
-      'Persons with whom you do import or export of supplies outside India',
-    ),
-    _GstTreatmentOption(
-      'Special Economic Zone',
-      'Business (Unit) that is located in a Special Economic Zone (SEZ) of India or a SEZ Developer',
-    ),
-    _GstTreatmentOption(
-      'Deemed Export',
-      'Supply of goods to an Export Oriented Unit or against Advanced Authorization/Export Promotion Capital Goods.',
-    ),
-    _GstTreatmentOption(
-      'Tax Deductor',
-      'Departments of the State/Central government, governmental agencies or local authorities',
-    ),
-    _GstTreatmentOption(
-      'SEZ Developer',
-      'A person/organisation who owns at least 26% of the equity in creating business units in a Special Economic Zone (SEZ)',
-    ),
-    _GstTreatmentOption(
-      'Input Service Distributor',
-      'Input Service Distributor (ISD) is an office that receives tax invoices for services used by the company in different states under the same PAN.',
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _gst = _options.firstWhere(
-      (o) => o.label == widget.initialGst,
-      orElse: () => _options.first,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(right: 34),
-          child: CustomPaint(size: const Size(14, 8), painter: _ArrowPainter()),
-        ),
-        Container(
-          width: 380,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Configure Tax Preferences',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _kBodyText,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () {
-                        if (widget.onClose != null) {
-                          widget.onClose!();
-                        } else {
-                          Navigator.pop(context);
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: Color(0xFFEF4444),
-                      ),
-                      splashRadius: 18,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'GST Treatment',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: _kBodyText,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 44,
-                      child: FormDropdown<_GstTreatmentOption>(
-                        value: _gst,
-                        items: _options,
-                        displayStringForValue: (v) => v.label,
-                        searchStringForValue: (v) =>
-                            '${v.label} ${v.description}',
-                        itemBuilder: (item, isSelected, isHovered) =>
-                            _buildGstTreatmentRow(item, isSelected, isHovered),
-                        onChanged: (v) => setState(() => _gst = v!),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Make it permanent?',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: _kBodyText,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: Checkbox(
-                            value: _makePermanent,
-                            onChanged: (val) =>
-                                setState(() => _makePermanent = val!),
-                            activeColor: const Color(0xFF10B981),
-                            side: const BorderSide(color: Color(0xFFD1D5DB)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Use these settings for all future transactions of this customer.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                      ),
-                      onPressed: () {
-                        if (widget.onUpdate != null) {
-                          widget.onUpdate!(_gst.label, _makePermanent);
-                        } else {
-                          Navigator.pop(context, _gst.label);
-                        }
-                      },
-                      child: const Text(
-                        'Update',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _kBodyText,
-                        side: const BorderSide(color: Color(0xFFD1D5DB)),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                      ),
-                      onPressed: () {
-                        if (widget.onClose != null) {
-                          widget.onClose!();
-                        } else {
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGstTreatmentRow(
-    _GstTreatmentOption option,
-    bool isSelected,
-    bool isHovered,
-  ) {
-    Color bg = Colors.transparent;
-    Color title = const Color(0xFF111827);
-    Color subtitle = const Color(0xFF6B7280);
-    Color check = const Color(0xFF2563EB);
-
-    if (isHovered) {
-      bg = const Color(0xFF3B82F6);
-      title = Colors.white;
-      subtitle = Colors.white.withValues(alpha: 0.8);
-      check = Colors.white;
-    } else if (isSelected) {
-      bg = const Color(0xFFF3F4F6);
-      title = const Color(0xFF1F2937);
-      subtitle = const Color(0xFF4B5563);
-      check = const Color(0xFF1F2937);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: bg,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  option.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: title,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  option.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: subtitle),
-                ),
-              ],
-            ),
-          ),
-          if (isSelected)
-            Padding(
-              padding: const EdgeInsets.only(left: 8, top: 2),
-              child: Icon(Icons.check, size: 16, color: check),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ArrowPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    final path = Path();
-    path.moveTo(size.width / 2, 0);
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-    canvas.drawShadow(path.shift(const Offset(0, 1)), Colors.black, 4, true);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
 
 class _ItemDetailsSidebar extends ConsumerStatefulWidget {
   final SalesOrderItemRow row;
@@ -10182,4 +9791,578 @@ class _TdsPopoverListItemState extends State<_TdsPopoverListItem> {
     );
   }
 }
+
+class _ConfigureTaxPreferencesDialog extends StatefulWidget {
+  final String initialGst;
+  final String initialGstin;
+  final Function(String, String, bool) onUpdate;
+  final VoidCallback onCancel;
+
+  const _ConfigureTaxPreferencesDialog({
+    required this.initialGst,
+    required this.initialGstin,
+    required this.onUpdate,
+    required this.onCancel,
+  });
+
+  @override
+  State<_ConfigureTaxPreferencesDialog> createState() =>
+      _ConfigureTaxPreferencesDialogState();
+}
+
+class _ConfigureTaxPreferencesDialogState
+    extends State<_ConfigureTaxPreferencesDialog> {
+  late String _selectedTreatment;
+  late TextEditingController _gstinCtrl;
+  bool _makePermanent = false;
+
+  final List<Map<String, String>> _treatments = [
+    {
+      'label': 'Registered Business - Regular',
+      'desc': 'Business that is registered under GST',
+    },
+    {
+      'label': 'Registered Business - Composition',
+      'desc': 'Business that is registered under the Composition Scheme in GST',
+    },
+    {
+      'label': 'Unregistered Business',
+      'desc': 'Business that has not been registered under GST',
+    },
+    {
+      'label': 'Consumer',
+      'desc':
+          'Individual or business that is not registered and consumes goods/services',
+    },
+    {'label': 'Overseas', 'desc': 'Business located outside India'},
+    {
+      'label': 'Special Economic Zone (SEZ)',
+      'desc': 'Business located in a SEZ unit or developer',
+    },
+    {
+      'label': 'Deemed Export',
+      'desc':
+          'Business involved in supply of goods to certain notified purposes',
+    },
+  ];
+
+  bool get _isRegistered {
+    return _selectedTreatment == 'Registered Business - Regular' ||
+        _selectedTreatment == 'Registered Business - Composition' ||
+        _selectedTreatment == 'Special Economic Zone (SEZ)' ||
+        _selectedTreatment == 'Deemed Export';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTreatment = widget.initialGst;
+    _gstinCtrl = TextEditingController(text: widget.initialGstin);
+  }
+
+  @override
+  void dispose() {
+    _gstinCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 34),
+          child: CustomPaint(
+            size: const Size(14, 8),
+            painter: _TrianglePainter(
+              color: Colors.white,
+              isUp: true,
+              hasBorder: true,
+            ),
+          ),
+        ),
+        Container(
+          width: 380,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFDDDDDD)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Configure Tax Preferences',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onCancel,
+                      child: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'GST Treatment',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF555555),
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FormDropdown<Map<String, String>>(
+                      height: 32,
+                      value: _treatments.firstWhere(
+                        (t) => t['label'] == _selectedTreatment,
+                        orElse: () => _treatments[2],
+                      ),
+                      items: _treatments,
+                      showSearch: false,
+                      fillColor: Colors.white,
+                      displayStringForValue: (v) => v['label']!,
+                      itemBuilder: (item, isSelected, isHovered) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          color: isHovered
+                              ? const Color(0xFF3B82F6)
+                              : (isSelected
+                                  ? const Color(0xFFF3F4F6)
+                                  : Colors.transparent),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['label']!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: isHovered
+                                      ? Colors.white
+                                      : const Color(0xFF111827),
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                item['desc']!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isHovered
+                                      ? Colors.white.withValues(alpha: 0.8)
+                                      : const Color(0xFF6B7280),
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedTreatment = val['label']!;
+                          });
+                        }
+                      },
+                    ),
+                    if (_isRegistered) ...[
+                      const SizedBox(height: 20),
+                      const Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'GSTIN',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.redAccent,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            TextSpan(
+                              text: '*',
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 32,
+                        child: CustomTextField(
+                          controller: _gstinCtrl,
+                          hintText: 'Enter GSTIN',
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {},
+                        child: const Text(
+                          'Get Taxpayer details',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Make it permanent?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF555555),
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: Checkbox(
+                            value: _makePermanent,
+                            onChanged: (val) =>
+                                setState(() => _makePermanent = val!),
+                            activeColor: AppTheme.primaryBlue,
+                            side: const BorderSide(color: Color(0xFFCCCCCC)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Use these settings for all future transactions of this customer.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () =>
+                          widget.onUpdate(_selectedTreatment, _gstinCtrl.text.trim(), _makePermanent),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF19A05E),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Update',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: widget.onCancel,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFDDDDDD)),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Color(0xFF333333),
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GstinPopover extends StatefulWidget {
+  final String gstin;
+  final Function(String) onUpdate;
+  final VoidCallback onCancel;
+
+  const _GstinPopover({
+    required this.gstin,
+    required this.onUpdate,
+    required this.onCancel,
+  });
+
+  @override
+  State<_GstinPopover> createState() => _GstinPopoverState();
+}
+
+class _GstinPopoverState extends State<_GstinPopover> {
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.gstin);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Derive state based on first 2 digits of GSTIN (Standard GSTIN state codes)
+    String stateName = "Unknown State";
+    if (widget.gstin.length >= 2) {
+      final code = widget.gstin.substring(0, 2);
+      if (code == "27")
+        stateName = "Maharashtra (27)";
+      else if (code == "29")
+        stateName = "Karnataka (29)";
+      else if (code == "33")
+        stateName = "Tamil Nadu (33)";
+      else if (code == "09")
+        stateName = "Uttar Pradesh (09)";
+      else if (code == "19")
+        stateName = "West Bengal (19)";
+      else if (code == "07")
+        stateName = "Delhi (07)";
+      else if (code == "24")
+        stateName = "Gujarat (24)";
+      else if (code == "36")
+        stateName = "Telangana (36)";
+      else if (code == "37")
+        stateName = "Andhra Pradesh (37)";
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 30),
+          child: CustomPaint(
+            size: const Size(14, 8),
+            painter: _TrianglePainter(
+              color: Colors.white,
+              isUp: true,
+              hasBorder: true,
+            ),
+          ),
+        ),
+        Container(
+          width: 320,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFDDDDDD)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'GSTIN Details',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onCancel,
+                      child: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: const Text(
+                            'Active',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF15803D),
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          stateName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'GSTIN / UIN',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 32,
+                      child: CustomTextField(
+                        controller: _ctrl,
+                        hintText: 'Enter GSTIN',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: widget.onCancel,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFDDDDDD)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Color(0xFF333333),
+                          fontSize: 12,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => widget.onUpdate(_ctrl.text.trim()),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF19A05E),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Save',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 

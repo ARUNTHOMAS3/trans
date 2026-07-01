@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
@@ -20,6 +21,16 @@ class BulkItemsDialog extends ConsumerStatefulWidget {
 }
 
 class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
+  final Map<String, TextEditingController> _quantityControllers = {};
+
+  @override
+  void dispose() {
+    for (final controller in _quantityControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
   String _searchQuery = '';
   Set<String> _selectedCategoryIds = {};
   bool _includeSubCategories = false;
@@ -434,9 +445,11 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                           (i) => i.id == item.id,
                                         );
                                         _itemQuantities.remove(item.id!);
+                                        _quantityControllers.remove(item.id!)?.dispose();
                                       } else {
                                         _selectedItems.add(item);
                                         _itemQuantities[item.id!] = 1;
+                                        _quantityControllers[item.id!] = TextEditingController(text: '1');
                                       }
                                     });
                                   },
@@ -575,12 +588,13 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                     ),
                                   ),
                                 )
-                              : ListView.separated(
+                                      : ListView.separated(
                                   itemCount: _selectedItems.length,
                                   separatorBuilder: (_, __) =>
                                       const Divider(height: 1),
                                   itemBuilder: (context, index) {
                                     final item = _selectedItems[index];
+                                    final currentQty = _itemQuantities[item.id!] ?? 1;
                                     final isHovered =
                                         _hoveredSelectedItemId == item.id;
                                     return MouseRegion(
@@ -655,10 +669,11 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                                                   .id!] ??
                                                               1;
                                                           if (current > 1) {
-                                                            _itemQuantities[item
-                                                                    .id!] =
-                                                                current - 1;
+                                                            final newQty = current - 1;
+                                                            _itemQuantities[item.id!] = newQty;
+                                                            _quantityControllers[item.id!]?.text = '$newQty';
                                                           } else {
+                                                            _quantityControllers.remove(item.id!)?.dispose();
                                                             _selectedItems
                                                                 .removeWhere(
                                                                   (i) =>
@@ -709,16 +724,46 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                                       width: 36,
                                                       alignment:
                                                           Alignment.center,
-                                                      child: Text(
-                                                        '${_itemQuantities[item.id!] ?? 1}',
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Color(
-                                                            0xFF374151,
-                                                          ),
-                                                        ),
+                                                      child: Builder(
+                                                        builder: (context) {
+                                                          final controller = _quantityControllers.putIfAbsent(
+                                                            item.id!,
+                                                            () => TextEditingController(text: '$currentQty'),
+                                                          );
+                                                          if (controller.text != '$currentQty') {
+                                                            controller.text = '$currentQty';
+                                                          }
+                                                          return TextFormField(
+                                                            key: ValueKey('qty_${item.id}'),
+                                                            controller: controller,
+                                                            keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                                                            textAlign: TextAlign.center,
+                                                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                                            style: const TextStyle(
+                                                              fontSize: 13,
+                                                              fontWeight:
+                                                                  FontWeight.w600,
+                                                              color: Color(
+                                                                0xFF374151,
+                                                              ),
+                                                            ),
+                                                            decoration: const InputDecoration(
+                                                              border: InputBorder.none,
+                                                              enabledBorder: InputBorder.none,
+                                                              focusedBorder: InputBorder.none,
+                                                              errorBorder: InputBorder.none,
+                                                              disabledBorder: InputBorder.none,
+                                                              isDense: true,
+                                                              contentPadding: EdgeInsets.zero,
+                                                            ),
+                                                            onChanged: (value) {
+                                                              final parsed = int.tryParse(value) ?? 0;
+                                                              setState(() {
+                                                                _itemQuantities[item.id!] = parsed;
+                                                              });
+                                                            },
+                                                          );
+                                                        }
                                                       ),
                                                     ),
                                                     InkWell(
@@ -775,6 +820,10 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                                               .remove(
                                                             item.id!,
                                                           );
+                                                          _quantityControllers
+                                                              .remove(
+                                                            item.id!,
+                                                          )?.dispose();
                                                         });
                                                       },
                                                       child: Container(
@@ -823,8 +872,8 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                     : () {
                                         Map<Item, int> selectedWithQty = {};
                                         for (var item in _selectedItems) {
-                                          selectedWithQty[item] =
-                                              _itemQuantities[item.id!] ?? 1;
+                                          final qty = _itemQuantities[item.id!] ?? 1;
+                                          selectedWithQty[item] = qty <= 0 ? 1 : qty;
                                         }
                                         widget.onItemsSelected(selectedWithQty);
                                         Navigator.of(context).pop();

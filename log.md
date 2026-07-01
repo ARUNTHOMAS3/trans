@@ -3166,4 +3166,416 @@ Timestamp of Log Update: June 29, 2026 - 1:40 PM (IST)
 
 **Verifications**: Verified compilation and code semantics.
 
-Timestamp of Log Update: June 29, 2026 - 3:00 PM (IST)
+
+## 58. Optional Shipping Address and Mandatory Billing Address Validation (June 30, 2026)
+
+### Summary
+1. Configured vendor `shipping_address` and `billing_address` columns on the `purchase_orders` database table to be nullable (`DROP NOT NULL`) to support cases where a vendor has no shipping address.
+2. Implemented dynamic startup DDL modification in backend `db.ts` to ensure columns are created and constraints dropped automatically.
+3. Added frontend validations in both Purchase Orders (`purchases_purchase_orders_create.dart`) and Bills (`purchases_bills_create.dart`) screens to enforce that a billing address is mandatory before saving, while keeping the shipping address optional.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- [db.ts](file:///c:/Users/User/Documents/work/zerpai-new/backend/src/db/db.ts):
+  - Appended DDL queries to create `shipping_address` and `billing_address` columns if not exists, and drop their `NOT NULL` constraints dynamically on start.
+
+#### Frontend Files
+- [purchases_purchase_orders_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart):
+  - Extracted vendor and billing address ID in `_handleSave` and added validation to throw an error if the billing address is null or empty.
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Refactored `billingAddressId` extraction to check both `_customBillingAddress` and the default vendor addresses.
+  - Added form validation to enforce billing address presence.
+
+**Verifications**: Verified compilation and code semantics.
+
+Timestamp of Log Update: June 30, 2026 - 10:15 AM (IST)
+
+
+## 59. Bill Edit Icon, Purchase Order Action Buttons Visibility, and Actions Button Hover Transition (June 30, 2026)
+
+### Summary
+1. Configured the edit icon next to the quantity input block on the Bill Creation page to only show during edit mode (`editId != null`) and hide it on the new bill page.
+2. Refactored Purchase Order buttons visibility:
+   - "Receive" button: Display if the PO is partially received, and hide once its status becomes "received" (or status is "billed" or "void").
+   - "Convert to Bill" button: Disappear only when the status becomes "billed" (or status is "void").
+3. Standardized three-dots action buttons hover transition: Implemented active hover container states (white background and light grey border `#D3D9E3` transition) around the three-dots (`...`) action trigger icon on hover across bills, purchase orders, sales invoices, and sales orders overview pages.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Wrapped edit icon widget inside a conditional check `if (widget.editId != null)` to hide it on the new bill creation page.
+- [purchases_purchase_orders_list.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart):
+  - Updated "Receive" button visibility check to hide when status is "received", "billed", or "void". Show it when status is "partially_received" or "partially received".
+  - Updated "Convert to Bill" button visibility check to disappear when status is "billed" or "void".
+  - Extracted actions MenuAnchor to custom hoverable wrapper `_buildMoreButton(po)`.
+- [purchases_bills_list.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_list.dart):
+  - Extracted actions MenuAnchor to custom hoverable wrapper `_buildMoreButton(bill)`.
+- [sales_invoice_list.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart):
+  - Wrapped `_buildMoreActionsDropdown(invoice)` with `StatefulBuilder` and `MouseRegion` to transition border and background color on hover.
+- [sales_order_list.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart):
+  - Extracted actions MenuAnchor to custom hoverable wrapper `_buildMoreButton(order)`.
+
+**Verifications**: Verified compilation, analyzer status, and NestJS build state.
+
+Timestamp of Log Update: June 30, 2026 - 10:35 AM (IST)
+
+
+## 60. Backend Transaction Type Column Size Fix and Bill Quantity Batch Mismatch Validation (June 30, 2026)
+
+### Summary
+1. Fixed a database exception (`value too long for type character varying(50)`) when saving purchase bills. Shortened the transaction types generated in `bills.service.ts` (e.g. "Inventory Asset", "Purchase Discount", "Other Expenses (Adjustment)") to stay strictly under the 50-character limit of the `account_transactions.transaction_type` column.
+2. Decoupled quantity textbox editing from mutating `savedBatchData` directly on the frontend. Modifying the quantity textbox now retains the actual batch quantity and blue prefill indicator text, which are only updated when selecting/creating a batch in the dialog.
+3. Added a new validation rule to prevent saving drafts or open bills if a row's quantity text field does not match the sum of its batch details (`qtyOut + foc`). Emits a clear toast error `in row <number> quantity and batch quantity mismatch`.
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- [bills.service.ts](file:///c:/Users/User/Documents/work/zerpai-new/backend/src/modules/purchases/bills/services/bills.service.ts):
+  - Shortened all raw string literal transaction types in `addEntry` calls to keep length under 50 characters.
+
+#### Frontend Files
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Removed `savedBatchData` mutations inside the quantity textbox `onChanged` handler.
+  - Implemented 1-indexed validation loop in `_saveBill` comparing manually input quantity with batch details, checking for mismatches and outputting descriptive row mismatch errors.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 11:00 AM (IST)
+
+
+## 61. Edit Quantity Dialog Refinements (June 30, 2026)
+
+### Summary
+1. Modified the Edit Quantity popup dialog used across the Bill and Purchase Receive modules so that the "Unreceived Quantity" (or "Unbilled Quantity") input field autoloads the current row's allocated value (`widget.currentUnreceivedAllocated`) instead of overriding it with the PO-level unreceived/unbilled calculation.
+2. Implemented validation inside the Edit Quantity dialog so that:
+   - The user cannot enter an unreceived/unbilled quantity exceeding the remaining available PO-level unreceived/unbilled quantity.
+   - The user cannot enter a split quantity for any selected receive/bill exceeding the available quantity (`total - already_billed/received`).
+3. These validation errors are shown cleanly to the user as `ZerpaiToast` error alerts, preventing dialog updates with invalid values.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [edit_quantity_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/edit_quantity_dialog.dart):
+  - Changed `_unreceivedCtrl.text` initialization inside `_loadData()` to use `widget.currentUnreceivedAllocated`.
+  - Added `ZerpaiToast` validation error checks inside the Update button `onPressed` handler, capping inputs to max PO limits and receive/bill row limits.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 12:05 PM (IST)
+
+
+## 62. Edit Quantity Dialog Autoloading Fallback Removal (June 30, 2026)
+
+### Summary
+Removed the fallback logic inside `edit_quantity_dialog.dart` that automatically loaded a default split row from `_poReceives` when editing unreceived or unbilled items (when no initial purchase receive or bill association is present). Now, unreceived/unbilled item rows open with only the unreceived quantity input field showing. The user can manually add split receive/bill rows using the `+ New Row` action as desired.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [edit_quantity_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/edit_quantity_dialog.dart):
+  - Removed the `else if (_poReceives.isNotEmpty)` block from `_loadData()` that matched and added target split rows to `_splits` automatically.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 12:20 PM (IST)
+
+
+## 63. Purchase Order Creation Refinements (June 30, 2026)
+
+### Summary
+1. Restricted the "Delivery Date" field inside the Purchase Order creation screen to prevent past date selection (past dates are disabled). The "Date" (Order Date) field continues to support backdating (past date selection) starting from Year 2000.
+2. Deduplicated items added via "Add Items in Bulk". Selecting a product that already exists in the items table now replaces/updates its quantity with the amount selected in the bulk popup and recalculates all net amounts/taxes instead of appending duplicate product rows.
+3. Stabilized item row hover state. Wrapped the action icons (`...` and `x`) and the hover region in a row-local `StatefulBuilder`. This eliminates full-screen rebuilds on hover, curing build lag and ensuring the delete and vertical menu buttons render smoothly and reliably.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_orders_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart):
+  - Updated `_zDateField` to accept an optional `DateTime? firstDate` constraint.
+  - Provided `firstDate: DateTime(2000)` for Date (Order Date) and `firstDate: startOfToday` for Delivery Date.
+  - Wrapped `MouseRegion` for row hover inside a local `StatefulBuilder` at `_buildItemRow`.
+- [purchase_order_notifier.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart):
+  - Rewrote `addItemsInBulk` to deduplicate selected products, matching by `productId` to replace quantity and recalculate row values.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 12:45 PM (IST)
+
+
+## 64. Date Picker Adjacent Month Days Interactivity Fix (June 30, 2026)
+
+### Summary
+Fixed a usability issue in the `ZerpaiCalendar` widget where days of the adjacent months (previous and next month) shown in the calendar grid were not clickable. This prevented users from selecting adjacent month dates (such as future dates like July 1-5 displayed at the bottom of the June calendar grid) directly. Added the `onTap` callback to the adjacent month day cell builder so they are fully interactive and selectable.
+
+### Detailed Engineering Changes
+
+#### Shared UI Files
+- [zerpai_calendar.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/inputs/zerpai_calendar.dart):
+  - Passed `onTap: () => widget.onDateSelected(date)` to `_buildDayCell` calls for both previous month and next month day numbers inside `_buildGrid()`.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 01:10 PM (IST)
+
+
+## 64. Bulk Items Manual Entry & Calendar Styling (June 30, 2026)
+
+### Summary
+1. Enabled manual numeric typing for quantity entry in the "Add Items in Bulk" dialog.
+2. Removed the disabled/light gray color treatment for adjacent (previous/next) month day cells in the DatePicker calendar. Active adjacent days now render using the standard dark text style (`AppTheme.textPrimary`).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [bulk_items_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/widgets/bulk_items_dialog.dart):
+  - Replaced the static `Text` quantity indicator inside the selected items list row with a borderless `TextFormField` allowing manual keyboard entry.
+  - Linked the `TextFormField` to a dynamically updating `ValueKey('qty_${item.id}_$currentQty')` which preserves focus and ensures numeric updates are synchronized seamlessly when using buttons or keyboard.
+  - Sanitized selected quantities during submit to default any empty or zero/negative manual inputs to `1`.
+- [zerpai_calendar.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/inputs/zerpai_calendar.dart):
+  - Modified `_buildDayCell` text color selection logic to use `AppTheme.textPrimary` for adjacent month days. Out-of-bounds days (disabled by dates constraints) continue to render as disabled.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 2:10 PM (IST)
+
+
+## 65. Transparent Outline for Manual Entry TextFormField (June 30, 2026)
+
+### Summary
+1. Configured the manual entry quantity `TextFormField` inside the "Add Items in Bulk" dialog to completely remove the default focused blue outline border, keeping the selection box visual outline transparent and clean when focused/active.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [bulk_items_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/widgets/bulk_items_dialog.dart):
+  - Set all custom decoration borders (`border`, `enabledBorder`, `focusedBorder`, `errorBorder`, `disabledBorder`) inside `InputDecoration` to `InputBorder.none` to prevent any focus outlines.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 2:12 PM (IST)
+
+
+## 66. Available for Sale & Stock on Hand Value Alignment (June 30, 2026)
+
+### Summary
+1. Resolved a discrepancy in the item table on the Purchase Order creation screen where the inline stock value shown under the Quantity column did not match the values listed in the WarehouseHoverPopover.
+2. Synchronized the stock value lookups in `purchases_purchase_orders_create.dart` to match by both warehouse name and warehouse ID, matching the robust lookups implemented in `WarehouseHoverPopover` and the Bill creation screen.
+3. Implemented reactive callbacks (`onViewChanged` and `onStockTypeChanged`) for the `WarehouseHoverPopover` in the Purchase Order creation page, ensuring that selecting "Stock on Hand" or "Available for Sale" in the popover dynamically updates the Quantity column labels and values on the parent page.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchases_purchase_orders_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart):
+  - Imported `items_stock_providers.dart` and `items_stock_models.dart`.
+  - Updated the inline stock label and value calculation to use state-driven `_stockView` and `_stockType` values.
+  - Aligned the `wStock` lookup query criteria to match by name (`s.name.toLowerCase() == wh.name.toLowerCase()`) with a fallback to `s.id == itemWhId`.
+  - Configured `WarehouseHoverPopover` to pass `_stockType` as `selectedStockType`, update parent `_stockView` on `onViewChanged`, and update parent `_stockType` on `onStockTypeChanged`.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 2:30 PM (IST)
+
+
+## 67. Bulk Items Quantity Entry and Account/Tax Loading Fixes (June 30, 2026)
+
+### Summary
+1. Fixed an issue in both module-specific and shared `BulkItemsDialog` implementations where entering quantities manually in the TextFormField was unstable, losing keyboard focus and failing to persist multi-digit inputs.
+2. Replaced the recreation key `ValueKey('qty_${item.id}_$currentQty')` with a stable `ValueKey('qty_${item.id}')` and managed row quantities using persistent `TextEditingController` instances.
+3. Configured the text fields to restrict input exclusively to digits (`FilteringTextInputFormatter.digitsOnly`).
+4. Enhanced the `addItemsInBulk` notifier method in `purchase_order_notifier.dart` to automatically resolve missing `accountId`, `accountName`, `taxId`, `taxName`, and `taxRate` fields by referencing the `chartOfAccountsProvider` and `itemsControllerProvider` respectively.
+5. Aligned interstate vs intrastate tax selection checks to correctly identify inter-state transactions (`!(srcKL && destKL)`) relative to Kerala's home state registration.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [bulk_items_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/sales/sales_orders/presentation/widgets/bulk_items_dialog.dart):
+  - Added import for services.
+  - Implemented per-item `TextEditingController` state management map `_quantityControllers` and handled their disposal.
+  - Bound `TextFormField` to the controller and formatted it to only accept digit characters.
+- [bulk_items_dialog.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/shared/widgets/dialogs/bulk_items_dialog.dart):
+  - Replaced the static `Text` quantity display with the same persistent `TextFormField` implementation using `TextEditingController`.
+- [purchase_order_notifier.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart):
+  - Enhanced `addItemsInBulk` to query `itemsControllerProvider` and `chartOfAccountsProvider` to auto-populate missing account and tax fields.
+  - Corrected `isInterstate` check in individual product selection to use the updated interstate formula.
+
+**Verifications**: Verified compilation, static analysis (analyzer returned clean), and NestJS backend build state.
+
+Timestamp of Log Update: June 30, 2026 - 3:10 PM (IST)
+
+
+## 68. Tax Loading Logic Realignment (June 30, 2026)
+
+### Summary
+1. Realigned the interstate vs intrastate GST tax selection logic on purchase transactions (Purchase Orders and Bills) to match the database schema and customer requirements.
+2. The logic has been inverted so that transactions where both source of supply (vendor state) and destination of supply (warehouse/branch state) are Kerala (`srcKL && destKL`) correctly load the `inter_state_tax_id` column.
+3. Transactions where either is outside of Kerala correctly load the `intra_state_tax_id` column.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [purchase_order_notifier.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart):
+  - Updated `isInterstate` / `activeInterstate` logic in `selectProductForItem`, `addItemsInBulk`, and `_resolvePurchaseTax` to evaluate to true (loading the interstate column) when both states contain 'kerala'.
+- [purchases_purchase_orders_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart):
+  - Inverted the interstate check inside the bulk insert dialog callback.
+- [purchases_bills_create.dart](file:///c:/Users/User/Documents/work/zerpai-new/lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart):
+  - Inverted the tax column check in `_updateRowTaxForProduct` and context-menu bulk insert callbacks.
+
+**Verifications**: Verified compilation and clean static analysis (`dart analyze`).
+
+Timestamp of Log Update: June 30, 2026 - 3:30 PM (IST)
+
+## 8. Purchase Order Tax Column Alignment for Kerala local transactions (June 30, 2026)
+
+### Summary
+Fixed a tax resolution issue on the Purchase Order creation page where local/intrastate transactions within Kerala (where both Source of Supply and Destination of Supply are Kerala) incorrectly loaded the intra-state tax rates instead of the expected inter-state tax rate values.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart:
+  - Updated the isInterstate logic across all resolution pathways (_resolvePurchaseTax, selectProductForItem, ddItemsInBulk, and ecalculateAllTaxes) so that local transactions with both source and destination in Kerala resolve isInterstate to 	rue, correctly applying the inter_state_tax_id column values.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - Aligned the inline bulk-add item logic to use the same Kerala-specific interstate logic.
+
+Timestamp of Log Update: June 30, 2026 - 4:40 PM (IST)
+
+## 9. Purchase Order Interstate Tax Logic Update (June 30, 2026)
+
+### Summary
+Updated tax resolution logic on the Purchase Order creation screen to align with changed user requirements:
+1. When both Source of Supply and Destination of Supply are NOT Kerala (!srcKL && !destKL), the screen shows inter_state_tax_id values (interstate).
+2. When either Source of Supply OR Destination of Supply is Kerala (srcKL || destKL), the screen shows intra_state_tax_id values (intrastate).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart:
+  - Updated the isInterstate / ctiveInterstate evaluation to use !srcKL && !destKL logic across selectProductForItem, ddItemsInBulk, ecalculateAllTaxes, and _resolvePurchaseTax.
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart:
+  - Updated the bulk insert isInterstate evaluation to match.
+
+Timestamp of Log Update: June 30, 2026 - 5:15 PM (IST)
+
+## 10. Purchase Order Details Receive Action Visibility (July 1, 2026)
+
+### Summary
+Fixed an action button visibility issue on the Purchase Order overview/details page where the "Receive" button in the "WHAT'S NEXT?" banner was missing when the status was "Partially Received" (so receives were not empty).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - Adjusted the first banner block condition from summary.receives.isEmpty to !_isAllItemsReceived(order, summary) so that it also displays when there are prior receives but items are not fully received yet.
+  - Adjusted the second banner block condition to include _isAllItemsReceived(order, summary) so that the "Convert to Bill" banner behaves as a mutually exclusive fallback once all items are fully received.
+
+Timestamp of Log Update: July 1, 2026 - 10:15 AM (IST)
+
+## 258. Purchase Orders and Bills Converting Enhancements (July 1, 2026)
+
+### Summary
+Enhanced the Convert to Bill logic for Purchase Orders, support multiple Receives mapping to a single Bill, corrected Interstate tax calculation rules for Kerala state, and added View Bills option to dropdown actions.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart`:
+  - Adjusted interstate tax checks so that if source or destination of supply equals "kerala", treat as intrastate (isInterstate = false) and apply `intra_state_tax_id`; use `inter_state_tax_id` only if neither is Kerala.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`:
+  - Synced interstate tax checks inside the bulk add action to match notifier rules.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Adjusted detail actions dropdown list to show "Expected Delivery Date", "Cancel Items", "Clone", "View Bills", "Delete", and "Mark as Received" options for issued POs with receives.
+  - Implemented `_handleConvertToBill` method showing a choice dialog (`_ConvertToBillSelectionDialog`) for converting to bills based on PO and receive states:
+    - Scenario 1: PO is partially received and no bills exist (or not under receives) -> display radio choice popup between PO/Yet-to-Receive items and Received checklist items.
+    - Scenario 2: Whole ordered quantity is in transit or multiple receives are present under PO -> display Checklist dialog of receives directly.
+  - Navigates to `/purchases/bills/create?poId=X&receiveId=id1,id2` on confirmation.
+  - Added "Receive" button visible under partially received status matching yet-to-receive behavior.
+  - Added "View Bills" menu item navigating to the bills list filtered by PO order number.
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - Updated `_loadReceiveForConvert` to accept comma-separated receive IDs, fetch and merge line items from multiple receives into the bills items list.
+
+Timestamp of Log Update: July 1, 2026 - 10:45 AM (IST)
+
+## 259. Expected Delivery Date Sync, Postgrest Error Resolving & Page Dispose Safety (July 1, 2026)
+
+### Summary
+Fixed the Expected Delivery Date update handler by removing the non-existent `delivery_date` database column from the Supabase query to resolve PostgrestException (PGRST204), writing strictly to `expected_delivery_date` and `notes`. Also prevented `setState() called after dispose()` crashes inside the bills create screen when pages are unmounted or context is disposed before async load finishes, and restricted the item quantity edit button to Edit Receive mode.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Removed the `delivery_date` parameter from the Supabase update payload in the date dialog onSave callback.
+  - Wrapped post-update `setState` in a `mounted` safety check.
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - Wrapped all async initialization/loading `setState` and `finally` callbacks within `_loadReceiveForConvert` and `_loadPoForConvert` with `mounted` and `context.mounted` verification.
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - Adjusted items table rows for both billed and unbilled items to conditionally show the `LucideIcons.fileEdit` icon only if `_isEditMode` is true (edit mode).
+
+Timestamp of Log Update: July 1, 2026 - 11:15 AM (IST)
+## 120. Sales Invoice Pages-Only Handoff (July 01, 2026)
+
+### Summary
+Prepared a pages-folder-only handoff for Sales Invoice create and list screens so another developer can copy only the `pages/` folder and run frontend-only UI without module providers, backend services, auth, Supabase, PDF, printing, or shared widget dependencies.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `handoff/outbound_sales_invoice_pages_only/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`:
+  - Added standalone `SalesInvoiceCreateScreen` UI with local controllers, item rows, totals, frontend-only actions, and Flutter Material/services imports only.
+- `handoff/outbound_sales_invoice_pages_only/lib/modules/sales/invoices/presentation/pages/sales_invoice_list.dart`:
+  - Added standalone `SalesInvoiceOverviewScreen` UI with local sample rows, search, selection ribbon, table shell, pagination controls, and no external Zerpai dependencies.
+  - Replaced raw dropdown usage with a white popup page-size selector to keep pages-only behavior while avoiding forbidden `DropdownButton` usage.
+- `handoff/outbound_sales_invoice_pages_only/README.bak`:
+  - Documented copy path, route class names, frontend-only dependency boundary, and backend-replacement intent.
+
+#### Backend Files
+- None.
+
+### Verification
+- Dependency scan passed: no `package:zerpai_erp`, GoRouter, Riverpod, Supabase, API, raw `DropdownButton`, raw `showDatePicker`, Flutter `Tooltip`, or `Navigator.push` references in handoff page files.
+- `dart analyze` targeted handoff pages timed out after 120s and 240s in this environment; no analyzer result was produced.
+- `dart format` also timed out after 120s; files were manually kept in formatted Dart style.
+
+Timestamp of Log Update: July 01, 2026 - 11:09 AM (IST)
+
+## 260. State-Based Popups for "Convert to Bill" in Purchase Order Detail page (July 1, 2026)
+
+### Summary
+Implemented state-based popup conditions for the "Convert to Bill" button on the Purchase Order detail page. Now, clicking "Convert to Bill" correctly triggers:
+- Choice Dialog (1st & 2nd popup) when receives exist AND either a bill was created directly for the PO itself (not against receives) or the PO's receive status is "partially received" (with only a single receive).
+- Checklist Dialog (3rd popup) directly listing receives with checkboxes (no radio buttons) when receives exist and choice conditions are not met (e.g. fully received, or multiple receives exist without bills on the PO itself).
+- Removed unused imports and deprecated RadioListTile in the selection dialog.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart`:
+  - Updated `_handleConvertToBill` to evaluate `hasBillsForPoItself`, `isPartiallyReceived`, and check if multiple receives or whole in transit status applies.
+  - Refactored `_ConvertToBillSelectionDialog` to replace deprecated `RadioListTile` widgets with custom standard `Radio` and row/column typography structures.
+  - Corrected GoRouter navigation paths to include the mandatory `/$orgId/` prefix.
+- `lib/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart`:
+  - Removed unused `package:lucide_icons/lucide_icons.dart` import.
+
+Timestamp of Log Update: July 1, 2026 - 11:35 AM (IST)
+
+
+## 261. Convert to Bill Dialog Table Styling & Close Button Navigation (July 1, 2026)
+
+### Summary
+Removed vertical column separating lines and set cell padding to 0 in the Convert to Bill selection dialog tables to clean up the user interface. Additionally, refactored the close button ('x') click handler on the New/Edit Bill creation screen to correctly perform a back operation (or fall back to the relevant purchase order detail page or bills list with organization scope prefix).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart:
+  - Adjusted both Yet To Receive and Receives tables in _ConvertToBillSelectionDialog to use TableBorder with horizontal borders only (removing vertical separating borders).
+  - Modified TableRow children to use EdgeInsets.zero padding instead of 8px padding.
+- lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart:
+  - Updated the header close button InkWell onTap callback to check context.canPop(). If false, dynamically extracts orgSystemId and query parameter poId to navigate back to the corresponding purchase order detail screen or the bills list screen.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 1, 2026 - 12:00 PM (IST)

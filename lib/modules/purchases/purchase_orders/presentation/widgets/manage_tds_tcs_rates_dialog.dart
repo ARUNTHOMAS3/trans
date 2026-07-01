@@ -8,7 +8,6 @@ import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 
 class ManageTdsTcsRatesDialog extends StatefulWidget {
   final String title;

@@ -1,4 +1,4 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_field, unused_local_variable
+// ignore_for_file: unused_element, unused_element_parameter, unused_field, unused_local_variable, unnecessary_null_comparison, unnecessary_type_check
 
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/z_adaptive_menu.dart';
@@ -45,6 +45,7 @@ import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/bulk_items_dialog.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
@@ -1121,19 +1122,61 @@ class _PurchasesBillCreateScreenState
   }
 
   Future<void> _loadReceiveForConvert() async {
-    final receiveId = widget.receiveId;
-    if (receiveId == null) return;
-    setState(() {
-      _isLoading = true;
-      _isLoadingData = true;
-    });
+    final receiveIdParam = widget.receiveId;
+    if (receiveIdParam == null) return;
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _isLoadingData = true;
+      });
+    }
     try {
       final rxRepository = ref.read(purchaseReceiveRepositoryProvider);
-      final rx = await rxRepository.getPurchaseReceive(receiveId);
+      final receiveIds = receiveIdParam.split(',').where((id) => id.isNotEmpty).toList();
+      if (receiveIds.isEmpty) return;
+
+      final rxList = <PurchaseReceive>[];
+      for (final rId in receiveIds) {
+        final rx = await rxRepository.getPurchaseReceive(rId);
+        if (rx != null) rxList.add(rx);
+      }
+      if (rxList.isEmpty) return;
+
+      final rx = rxList.first;
+
+      // Collect all receive item IDs across all receives being loaded
+      final allRxItemIds = rxList
+          .expand((rx) => rx.items.map((i) => i.id))
+          .whereType<String>()
+          .toList();
+
+      // Query bill_items that reference these receive items
+      final Map<String, double> billedQtyByRxItem = {};
+      if (allRxItemIds.isNotEmpty) {
+        try {
+          final supabase = Supabase.instance.client;
+          final existingBillItems = await supabase
+              .from('bill_items')
+              .select('purchase_receive_item_id, quantity, bills(status, is_delete)')
+              .filter('purchase_receive_item_id', 'in', allRxItemIds);
+
+          if (existingBillItems != null) {
+            for (final bi in (existingBillItems as List<dynamic>)) {
+              final bill = bi['bills'] as Map<dynamic, dynamic>?;
+              if (bill != null && (bill['is_delete'] == true || bill['status'] == 'void')) {
+                continue; // ignore void or deleted bills
+              }
+              final rxItemId = bi['purchase_receive_item_id']?.toString() ?? '';
+              final qty = double.tryParse(bi['quantity']?.toString() ?? '0') ?? 0;
+              billedQtyByRxItem[rxItemId] = (billedQtyByRxItem[rxItemId] ?? 0) + qty;
+            }
+          }
+        } catch (e) {
+          AppLogger.error('Failed to query existing bill items for receive quantity calculation', error: e, module: 'purchases');
+        }
+      }
 
       await _lookupsFuture;
-
-      if (rx == null) return;
 
       PurchaseOrder? po;
       if (rx.purchaseOrderId != null && rx.purchaseOrderId!.isNotEmpty) {
@@ -1167,6 +1210,7 @@ class _PurchasesBillCreateScreenState
 
       final Vendor matchingVendor = foundVendor ?? Vendor(id: rxVendorId ?? '', displayName: rxVendorName ?? '', companyName: '');
 
+      if (!mounted) return;
       setState(() {
         _selectedVendor = matchingVendor;
         if (matchingVendor.paymentTerms != null && matchingVendor.paymentTerms!.isNotEmpty) {
@@ -1265,128 +1309,166 @@ class _PurchasesBillCreateScreenState
         }
 
         _lineItems.clear();
-        final matchedRxItemIds = <String?>{};
-        if (po != null) {
-          for (final poItem in po.items) {
-            if (poItem.isHeader) continue;
+        for (final currentRx in rxList) {
+          final matchedRxItemIds = <String?>{};
+          if (po != null) {
+            for (final poItem in po.items) {
+              if (poItem.isHeader) continue;
 
-            var rxItems = rx.items.where((i) =>
-              i.itemId == poItem.productId &&
-              !matchedRxItemIds.contains(i.id) &&
-              (i.ordered - poItem.quantity).abs() < 0.001 &&
-              (i.description ?? '').trim() == (poItem.description ?? '').trim()
-            ).toList();
-            if (rxItems.isEmpty) {
-              rxItems = rx.items.where((i) => i.itemId == poItem.productId && !matchedRxItemIds.contains(i.id)).toList();
+              var rxItems = currentRx.items.where((i) =>
+                i.itemId == poItem.productId &&
+                !matchedRxItemIds.contains(i.id) &&
+                (i.ordered - poItem.quantity).abs() < 0.001 &&
+                (i.description ?? '').trim() == (poItem.description ?? '').trim()
+              ).toList();
+              if (rxItems.isEmpty) {
+                rxItems = currentRx.items.where((i) => i.itemId == poItem.productId && !matchedRxItemIds.contains(i.id)).toList();
+              }
+              if (rxItems.isEmpty) continue;
+              final rxItem = rxItems.first;
+              matchedRxItemIds.add(rxItem.id);
+
+              final row = _BillLineItemRow();
+              row.purchaseReceiveId = currentRx.id;
+              row.purchaseReceiveNumber = currentRx.purchaseReceiveNumber;
+              row.purchaseReceiveItemId = rxItem.id;
+              row.purchaseOrderId = po.id;
+              row.purchaseOrderNumber = po.orderNumber;
+              row.itemId = poItem.productId;
+              row.itemName = poItem.productName;
+              row.itemNameCtrl.text = poItem.productName ?? '';
+              row.hsnCode = poItem.hsnCode;
+              row.hsnCtrl.text = poItem.hsnCode ?? '';
+              row.descriptionCtrl.text = poItem.description ?? '';
+              row.accountId = poItem.accountId;
+              row.accountName = poItem.accountName;
+
+              final double totalRxQty = rxItem.quantityToReceive;
+              final double alreadyBilled = billedQtyByRxItem[rxItem.id] ?? 0.0;
+              double remaining = totalRxQty - alreadyBilled;
+              if (remaining < 0) remaining = 0;
+
+              row.quantityCtrl.text = remaining.toInt().toString();
+              row.rateCtrl.text = poItem.rate.toStringAsFixed(2);
+              row.taxId = poItem.taxId;
+              row.taxName = poItem.taxName;
+              row.taxRate = poItem.taxRate;
+              row.discountCtrl.text = poItem.discount.toString();
+              row.discountType = poItem.discountType == 'percentage' ? '%' : '₹';
+              row.priceListId = poItem.priceListId;
+              row.itemType = poItem.productType;
+              row.showAdditionalInfo = true;
+
+              if (rxItem.batches.isNotEmpty) {
+                double deductRemaining = alreadyBilled;
+                row.savedBatchData = rxItem.batches.map((b) {
+                  final double originalQty = b.quantity.toDouble();
+                  double adjustedQty = originalQty;
+                  if (deductRemaining > 0) {
+                    if (adjustedQty >= deductRemaining) {
+                      adjustedQty -= deductRemaining;
+                      deductRemaining = 0;
+                    } else {
+                      deductRemaining -= adjustedQty;
+                      adjustedQty = 0;
+                    }
+                  }
+                  return {
+                    'batchId': b.batchNo,
+                    'qtyOut': adjustedQty.toString(),
+                    'foc': b.foc.toString(),
+                    'mrp': b.mrp.toString(),
+                    'prate': b.ptr.toString(),
+                    'expDate': b.expiryDate != null ? DateFormat('dd-MM-yyyy').format(b.expiryDate!) : '',
+                    'mfgDate': b.manufactureDate != null ? DateFormat('dd-MM-yyyy').format(b.manufactureDate!) : '',
+                    'mfgBatch': b.manufactureBatch,
+                    'unitPack': b.unitPack,
+                    'binId': b.binId ?? '',
+                  };
+                }).toList();
+                row.hasBatchData = true;
+                row.batchCount = rxItem.batches.length;
+
+                final totalQty = row.savedBatchData!.fold<double>(
+                  0.0,
+                  (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+                );
+                final totalFoc = row.savedBatchData!.fold<double>(
+                  0.0,
+                  (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+                );
+                row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+              }
+
+              _lineItems.add(row);
             }
-            if (rxItems.isEmpty) continue;
-            final rxItem = rxItems.first;
-            matchedRxItemIds.add(rxItem.id);
+          } else {
+            for (final rxItem in currentRx.items) {
+              final row = _BillLineItemRow();
+              row.purchaseReceiveId = currentRx.id;
+              row.purchaseReceiveNumber = currentRx.purchaseReceiveNumber;
+              row.purchaseReceiveItemId = rxItem.id;
+              row.purchaseOrderId = currentRx.purchaseOrderId;
+              row.purchaseOrderNumber = currentRx.purchaseOrderNumber;
+              row.itemId = rxItem.itemId;
+              row.itemName = rxItem.itemName;
+              row.itemNameCtrl.text = rxItem.itemName;
+              row.descriptionCtrl.text = rxItem.description ?? '';
 
-            final row = _BillLineItemRow();
-            row.purchaseReceiveId = rx.id;
-            row.purchaseReceiveNumber = rx.purchaseReceiveNumber;
-            row.purchaseReceiveItemId = rxItem.id;
-            row.purchaseOrderId = po.id;
-            row.purchaseOrderNumber = po.orderNumber;
-            row.itemId = poItem.productId;
-            row.itemName = poItem.productName;
-            row.itemNameCtrl.text = poItem.productName ?? '';
-            row.hsnCode = poItem.hsnCode;
-            row.hsnCtrl.text = poItem.hsnCode ?? '';
-            row.descriptionCtrl.text = poItem.description ?? '';
-            row.accountId = poItem.accountId;
-            row.accountName = poItem.accountName;
-            row.quantityCtrl.text = rxItem.quantityToReceive.toInt().toString();
-            row.rateCtrl.text = poItem.rate.toStringAsFixed(2);
-            row.taxId = poItem.taxId;
-            row.taxName = poItem.taxName;
-            row.taxRate = poItem.taxRate;
-            row.discountCtrl.text = poItem.discount.toString();
-            row.discountType = poItem.discountType == 'percentage' ? '%' : '₹';
-            row.priceListId = poItem.priceListId;
-            row.itemType = poItem.productType;
-            row.showAdditionalInfo = true;
+              final double totalRxQty = rxItem.quantityToReceive;
+              final double alreadyBilled = billedQtyByRxItem[rxItem.id] ?? 0.0;
+              double remaining = totalRxQty - alreadyBilled;
+              if (remaining < 0) remaining = 0;
 
-            if (rxItem.batches.isNotEmpty) {
-              row.savedBatchData = rxItem.batches.map((b) {
-                return {
-                  'batchId': b.batchNo,
-                  'qtyOut': b.quantity.toString(),
-                  'foc': b.foc.toString(),
-                  'mrp': b.mrp.toString(),
-                  'prate': b.ptr.toString(),
-                  'expDate': b.expiryDate != null ? DateFormat('dd-MM-yyyy').format(b.expiryDate!) : '',
-                  'mfgDate': b.manufactureDate != null ? DateFormat('dd-MM-yyyy').format(b.manufactureDate!) : '',
-                  'mfgBatch': b.manufactureBatch,
-                  'unitPack': b.unitPack,
-                  'binId': b.binId ?? '',
-                };
-              }).toList();
-              row.hasBatchData = true;
-              row.batchCount = rxItem.batches.length;
+              row.quantityCtrl.text = remaining.toInt().toString();
+              row.rateCtrl.text = '0.00';
+              row.discountCtrl.text = '0';
+              row.discountType = '%';
+              row.showAdditionalInfo = true;
 
-              final totalQty = row.savedBatchData!.fold<double>(
-                0.0,
-                (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
-              );
-              final totalFoc = row.savedBatchData!.fold<double>(
-                0.0,
-                (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
-              );
-              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+              if (rxItem.batches.isNotEmpty) {
+                double deductRemaining = alreadyBilled;
+                row.savedBatchData = rxItem.batches.map((b) {
+                  final double originalQty = b.quantity.toDouble();
+                  double adjustedQty = originalQty;
+                  if (deductRemaining > 0) {
+                    if (adjustedQty >= deductRemaining) {
+                      adjustedQty -= deductRemaining;
+                      deductRemaining = 0;
+                    } else {
+                      deductRemaining -= adjustedQty;
+                      adjustedQty = 0;
+                    }
+                  }
+                  return {
+                    'batchId': b.batchNo,
+                    'qtyOut': adjustedQty.toString(),
+                    'foc': b.foc.toString(),
+                    'mrp': b.mrp.toString(),
+                    'prate': b.ptr.toString(),
+                    'expDate': b.expiryDate != null ? DateFormat('dd-MM-yyyy').format(b.expiryDate!) : '',
+                    'mfgDate': b.manufactureDate != null ? DateFormat('dd-MM-yyyy').format(b.manufactureDate!) : '',
+                    'mfgBatch': b.manufactureBatch,
+                    'unitPack': b.unitPack,
+                    'binId': b.binId ?? '',
+                  };
+                }).toList();
+                row.hasBatchData = true;
+                row.batchCount = rxItem.batches.length;
+
+                final totalQty = row.savedBatchData!.fold<double>(
+                  0.0,
+                  (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+                );
+                final totalFoc = row.savedBatchData!.fold<double>(
+                  0.0,
+                  (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+                );
+                row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+              }
+
+              _lineItems.add(row);
             }
-
-            _lineItems.add(row);
-          }
-        } else {
-          for (final rxItem in rx.items) {
-            final row = _BillLineItemRow();
-            row.purchaseReceiveId = rx.id;
-            row.purchaseReceiveNumber = rx.purchaseReceiveNumber;
-            row.purchaseReceiveItemId = rxItem.id;
-            row.purchaseOrderId = rx.purchaseOrderId;
-            row.purchaseOrderNumber = rx.purchaseOrderNumber;
-            row.itemId = rxItem.itemId;
-            row.itemName = rxItem.itemName;
-            row.itemNameCtrl.text = rxItem.itemName;
-            row.descriptionCtrl.text = rxItem.description ?? '';
-            row.quantityCtrl.text = rxItem.quantityToReceive.toInt().toString();
-            row.rateCtrl.text = '0.00';
-            row.discountCtrl.text = '0';
-            row.discountType = '%';
-            row.showAdditionalInfo = true;
-
-            if (rxItem.batches.isNotEmpty) {
-              row.savedBatchData = rxItem.batches.map((b) {
-                return {
-                  'batchId': b.batchNo,
-                  'qtyOut': b.quantity.toString(),
-                  'foc': b.foc.toString(),
-                  'mrp': b.mrp.toString(),
-                  'prate': b.ptr.toString(),
-                  'expDate': b.expiryDate != null ? DateFormat('dd-MM-yyyy').format(b.expiryDate!) : '',
-                  'mfgDate': b.manufactureDate != null ? DateFormat('dd-MM-yyyy').format(b.manufactureDate!) : '',
-                  'mfgBatch': b.manufactureBatch,
-                  'unitPack': b.unitPack,
-                  'binId': b.binId ?? '',
-                };
-              }).toList();
-              row.hasBatchData = true;
-              row.batchCount = rxItem.batches.length;
-
-              final totalQty = row.savedBatchData!.fold<double>(
-                0.0,
-                (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
-              );
-              final totalFoc = row.savedBatchData!.fold<double>(
-                0.0,
-                (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
-              );
-              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
-            }
-
-            _lineItems.add(row);
           }
         }
 
@@ -1398,19 +1480,25 @@ class _PurchasesBillCreateScreenState
       });
     } catch (e) {
       AppLogger.error('Failed to load purchase receive for billing', error: e, module: 'purchases');
-      ZerpaiToast.error(context, 'Failed to load Receive data: $e');
+      if (context.mounted) {
+        ZerpaiToast.error(context, 'Failed to load Receive data: $e');
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _loadPoForConvert() async {
     final poId = widget.poId;
     if (poId == null) return;
-    setState(() {
-      _isLoading = true;
-      _isLoadingData = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _isLoadingData = true;
+      });
+    }
     try {
       final repository = ref.read(purchaseOrderRepositoryProvider);
       final po = await repository.getPurchaseOrder(poId);
@@ -1418,6 +1506,31 @@ class _PurchasesBillCreateScreenState
       await _lookupsFuture;
 
       if (po == null) return;
+
+      // Query existing bills linked to this PO to compute remaining unbilled quantities
+      final Map<String, double> billedQtyByProduct = {};
+      try {
+        final supabase = Supabase.instance.client;
+        final existingBills = await supabase
+            .from('bills')
+            .select('id, status, is_delete, bill_items(product_id, quantity)')
+            .eq('order_number', po.orderNumber)
+            .eq('is_delete', false)
+            .neq('status', 'void');
+
+        if (existingBills != null) {
+          for (final bill in (existingBills as List<dynamic>)) {
+            final items = bill['bill_items'] as List<dynamic>? ?? [];
+            for (final item in items) {
+              final prodId = item['product_id']?.toString() ?? '';
+              final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+              billedQtyByProduct[prodId] = (billedQtyByProduct[prodId] ?? 0) + qty;
+            }
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Failed to query existing bills for PO quantity calculation', error: e, module: 'purchases');
+      }
 
       final vendors = ref.read(vendorProvider).vendors;
       final poVendorId = po.vendorId;
@@ -1442,6 +1555,7 @@ class _PurchasesBillCreateScreenState
 
       final Vendor matchingVendor = foundVendor ?? Vendor(id: poVendorId, displayName: poVendorName ?? '', companyName: '');
 
+      if (!mounted) return;
       setState(() {
         _selectedVendor = matchingVendor;
         _hasAddress = matchingVendor.billingAddress != null &&
@@ -1452,7 +1566,8 @@ class _PurchasesBillCreateScreenState
         _orderNumberCtrl.text = po.orderNumber;
         _billNumberCtrl.text = po.referenceNumber ?? '';
         _billDateCtrl.text = DateFormat('dd-MM-yyyy').format(po.orderDate);
-        _invoiceTotalCtrl.text = po.total.toStringAsFixed(2);
+        // Invoice total is intentionally NOT auto-loaded for PO-based bills;
+        // it auto-loads only for purchase-receive-based bills.
         _notesCtrl.text = po.notes ?? '';
         _subjectCtrl.text = po.referenceNumber ?? '';
 
@@ -1530,7 +1645,19 @@ class _PurchasesBillCreateScreenState
           row.descriptionCtrl.text = item.description ?? '';
           row.accountId = item.accountId;
           row.accountName = item.accountName;
-          row.quantityCtrl.text = item.quantity.toInt().toString();
+
+          final double orderedQty = item.quantity;
+          final double alreadyBilled = billedQtyByProduct[item.productId] ?? 0.0;
+          double remaining = orderedQty - alreadyBilled;
+          if (remaining < 0) remaining = 0;
+
+          // FIFO deduction for duplicate product entries
+          if (alreadyBilled > 0) {
+            final consumed = orderedQty - remaining;
+            billedQtyByProduct[item.productId] = alreadyBilled - consumed;
+          }
+
+          row.quantityCtrl.text = remaining.toInt().toString();
           row.rateCtrl.text = item.rate.toStringAsFixed(2);
           row.taxId = item.taxId;
           row.taxName = item.taxName;
@@ -1552,9 +1679,13 @@ class _PurchasesBillCreateScreenState
       });
     } catch (e) {
       AppLogger.error('Failed to load purchase order for billing', error: e, module: 'purchases');
-      ZerpaiToast.error(context, 'Failed to load PO data: $e');
+      if (context.mounted) {
+        ZerpaiToast.error(context, 'Failed to load PO data: $e');
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -2615,7 +2746,6 @@ class _PurchasesBillCreateScreenState
         if (po != null) {
           firstBillNo ??= po.referenceNumber;
           firstBillDate ??= po.orderDate;
-          firstInvoiceTotal ??= po.total;
         }
 
         if (rx.purchaseOrderNumber != null) {
@@ -2791,7 +2921,6 @@ class _PurchasesBillCreateScreenState
 
         firstBillNo ??= po.referenceNumber;
         firstBillDate ??= po.orderDate;
-        firstInvoiceTotal ??= po.total;
 
         poNumbers.add(po.orderNumber);
         if (po.referenceNumber != null && po.referenceNumber!.isNotEmpty) {
@@ -3715,7 +3844,10 @@ class _PurchasesBillCreateScreenState
       return;
     }
 
-    for (final row in validRows) {
+    for (int i = 0; i < _lineItems.length; i++) {
+      final row = _lineItems[i];
+      if (row.itemId == null || row.itemId!.isEmpty) continue;
+
       if (row.hsnCode == null || row.hsnCode!.trim().isEmpty) {
         _showValidationError(
           'Please select an HSN code for item: ${row.itemName ?? 'Selected Item'}.',
@@ -3734,6 +3866,23 @@ class _PurchasesBillCreateScreenState
         _showValidationError(
           'Please select a batch for item: ${row.itemName ?? 'Selected Item'}.',
         );
+        return;
+      }
+
+      final textQty = double.tryParse(row.quantityCtrl.text.trim()) ?? 0.0;
+      final batchQty = row.savedBatchData?.fold<double>(
+            0.0,
+            (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+          ) ??
+          0.0;
+      final batchFoc = row.savedBatchData?.fold<double>(
+            0.0,
+            (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+          ) ??
+          0.0;
+
+      if ((textQty - (batchQty + batchFoc)).abs() > 0.001) {
+        _showValidationError('in row ${i + 1} quantity and batch quantity mismatch');
         return;
       }
     }
@@ -3765,7 +3914,9 @@ class _PurchasesBillCreateScreenState
         .toList();
 
     String? billingAddressId;
-    if (_selectedVendor != null && _selectedVendor!.vendorAddresses != null) {
+    if (_customBillingAddress != null) {
+      billingAddressId = _customBillingAddress!['id']?.toString();
+    } else if (_selectedVendor != null && _selectedVendor!.vendorAddresses != null) {
       final billingAddr = _selectedVendor!.vendorAddresses!.firstWhere(
         (a) => (a['is_default_billing'] == true || a['isDefaultBilling'] == true || a['address_type'] == 'billing' || a['addressType'] == 'billing'),
         orElse: () => <String, dynamic>{},
@@ -3773,6 +3924,11 @@ class _PurchasesBillCreateScreenState
       if (billingAddr.isNotEmpty) {
         billingAddressId = billingAddr['id']?.toString();
       }
+    }
+
+    if (billingAddressId == null || billingAddressId.isEmpty) {
+      _showValidationError('Billing address is mandatory.');
+      return;
     }
 
     setState(() => _isLoading = true);
@@ -4253,8 +4409,8 @@ class _PurchasesBillCreateScreenState
           const Spacer(),
           InkWell(
             onTap: () {
-              if (context.canPop()) {
-                context.pop();
+              if (widget.poId != null && widget.poId!.isNotEmpty) {
+                context.go('/purchases/purchase-orders/${widget.poId}');
               } else {
                 context.go(AppRoutes.bills);
               }
@@ -9401,15 +9557,16 @@ class _PurchasesBillCreateScreenState
                       _numericInputFormatter,
                     ],
                     onChanged: (v) {
-                      final val = double.tryParse(v) ?? 0.0;
-                      if (row.savedBatchData != null && row.savedBatchData!.isNotEmpty) {
-                        row.savedBatchData![0]['qtyOut'] = val.toString();
-                      }
                       setState(() {});
                     },
                   ),
                 ),
-                if ((row.purchaseOrderId != null || _orderNumberCtrl.text.trim().isNotEmpty) && row.itemId != null && row.itemId!.isNotEmpty && !row.isLandedCost) ...[
+                if (widget.editBillId != null &&
+                    widget.editBillId!.isNotEmpty &&
+                    (row.purchaseOrderId != null || _orderNumberCtrl.text.trim().isNotEmpty) &&
+                    row.itemId != null &&
+                    row.itemId!.isNotEmpty &&
+                    !row.isLandedCost) ...[
                   const SizedBox(width: 4),
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
@@ -13159,8 +13316,8 @@ class _PurchasesBillCreateScreenState
           const SizedBox(width: 8),
           OutlinedButton(
             onPressed: () {
-              if (context.canPop()) {
-                context.pop();
+              if (widget.poId != null && widget.poId!.isNotEmpty) {
+                context.go('/purchases/purchase-orders/${widget.poId}');
               } else {
                 context.go(AppRoutes.bills);
               }
@@ -16618,7 +16775,7 @@ class _ConfigureTaxPreferencesDialogState
                             value: _makePermanent,
                             onChanged: (val) =>
                                 setState(() => _makePermanent = val!),
-                            activeColor: const Color(0xFF22C55E),
+                            activeColor: AppTheme.primaryBlue,
                             side: const BorderSide(color: Color(0xFFCCCCCC)),
                           ),
                         ),

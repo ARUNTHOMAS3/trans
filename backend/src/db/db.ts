@@ -23,12 +23,20 @@ export const client = postgres(connectionString, {
   ssl: "require",
 });
 
-// Safe startup DDL modification to persist canceled item quantities
+// Safe startup DDL modification to persist canceled item quantities and address nullability
 client.unsafe(`
   ALTER TABLE purchase_order_items 
-  ADD COLUMN IF NOT EXISTS cancelled_quantity numeric DEFAULT '0.00'
+  ADD COLUMN IF NOT EXISTS cancelled_quantity numeric DEFAULT '0.00';
+
+  ALTER TABLE purchase_orders 
+  ADD COLUMN IF NOT EXISTS shipping_address uuid,
+  ADD COLUMN IF NOT EXISTS billing_address uuid;
+
+  ALTER TABLE purchase_orders 
+  ALTER COLUMN shipping_address DROP NOT NULL,
+  ALTER COLUMN billing_address DROP NOT NULL;
 `).catch(err => {
-  console.error("Failed to alter table purchase_order_items:", err);
+  console.error("Failed to execute safe DDL updates:", err);
 });
 
 export const db = drizzle(client, { schema });

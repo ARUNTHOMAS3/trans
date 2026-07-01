@@ -353,9 +353,7 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
         widget.lastDate != null && date.isAfter(widget.lastDate!);
     final bool isDisabled = isBeforeFirst || isAfterLast;
 
-    Color textColor = isCurrentMonth
-        ? AppTheme.textPrimary
-        : ZerpaiDatePickerStyle.adjacentMonthTextColor;
+    Color textColor = AppTheme.textPrimary;
     if (isDisabled) textColor = ZerpaiDatePickerStyle.disabledTextColor;
 
     BoxDecoration? decoration;

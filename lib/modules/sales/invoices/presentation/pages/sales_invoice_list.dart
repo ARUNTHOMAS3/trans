@@ -1178,121 +1178,136 @@ class _SalesInvoiceOverviewScreenState
 
   Widget _buildMoreActionsDropdown(SalesOrder invoice) {
     final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
-    return MenuAnchor(
-      alignmentOffset: const Offset(0, 4),
-      style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        elevation: const WidgetStatePropertyAll(8),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(4)),
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: MenuAnchor(
+            alignmentOffset: const Offset(0, 4),
+            style: MenuStyle(
+              backgroundColor: const WidgetStatePropertyAll(Colors.white),
+              surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+              elevation: const WidgetStatePropertyAll(8),
+              padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+              shape: const WidgetStatePropertyAll(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                ),
+              ),
+            ),
+            builder: (context, controller, _) => AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              decoration: BoxDecoration(
+                color: isHovered || controller.isOpen ? Colors.white : Colors.transparent,
+                border: Border.all(
+                  color: isHovered || controller.isOpen ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: IconButton(
+                icon: const Icon(LucideIcons.moreHorizontal, size: 16, color: Color(0xFF4B5563)),
+                onPressed: () =>
+                    controller.isOpen ? controller.close() : controller.open(),
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(8),
+              ),
+            ),
+            menuChildren: [
+              _menuItem(
+                label: 'Create Credit Note',
+                icon: LucideIcons.fileMinus,
+                onTap: () => context.push('/$orgId/sales/credit-notes/create', extra: invoice),
+              ),
+              _menuItem(
+                label: 'Add e-Way Bill Details',
+                icon: LucideIcons.truck,
+                onTap: () => context.push('/$orgId/sales/e-way-bills/create', extra: invoice),
+              ),
+              _menuItem(
+                label: 'Clone',
+                icon: LucideIcons.copy,
+                onTap: () => context.push('/$orgId/sales/invoices/create?cloneId=${invoice.id}'),
+              ),
+              _menuItem(
+                label: 'Void',
+                icon: LucideIcons.ban,
+                onTap: () async {
+                  final confirmed = await showZerpaiConfirmationDialog(
+                    context,
+                    title: 'Void Invoice',
+                    message: 'Are you sure you want to mark invoice ${invoice.saleNumber} as Void?',
+                    confirmLabel: 'Void',
+                    cancelLabel: 'Cancel',
+                    variant: ZerpaiConfirmationVariant.danger,
+                  );
+                  if (!confirmed) return;
+                  final supabase = Supabase.instance.client;
+                  try {
+                    await supabase
+                        .from('invoice_master')
+                        .update({'status': 'void'})
+                        .eq('id', invoice.id);
+                    if (context.mounted) {
+                      ZerpaiToast.success(context, 'Invoice marked as Void');
+                      ref.invalidate(salesInvoicesProvider);
+                      ref.invalidate(_salesInvoiceDetailProvider(invoice.id));
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ZerpaiToast.error(context, 'Error voiding invoice: $e');
+                    }
+                  }
+                },
+              ),
+              _menuItem(
+                label: 'Delete',
+                icon: LucideIcons.trash2,
+                onTap: () async {
+                  final confirmed = await showZerpaiConfirmationDialog(
+                    context,
+                    title: 'Delete Invoice',
+                    message: 'Are you sure you want to delete invoice ${invoice.saleNumber}?',
+                    confirmLabel: 'Delete',
+                    cancelLabel: 'Cancel',
+                    variant: ZerpaiConfirmationVariant.danger,
+                  );
+                  if (!confirmed) return;
+                  final supabase = Supabase.instance.client;
+                  try {
+                    final originalNumber = invoice.saleNumber;
+                    final newNumber = originalNumber.startsWith('SD-') ? originalNumber : 'SD-$originalNumber';
+                    await supabase
+                        .from('invoice_master')
+                        .update({
+                          'is_delete': true,
+                          'sale_number': newNumber,
+                        })
+                        .eq('id', invoice.id);
+                    if (context.mounted) {
+                      ZerpaiToast.success(context, 'Invoice deleted successfully');
+                      ref.invalidate(salesInvoicesProvider);
+                      context.go('/sales/invoices');
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ZerpaiToast.error(context, 'Error deleting invoice: $e');
+                    }
+                  }
+                },
+              ),
+              _menuItem(
+                label: 'Invoice Preferences',
+                icon: LucideIcons.sliders,
+                onTap: () => ZerpaiToast.info(context, 'Invoice Preferences opened'),
+              ),
+            ],
           ),
-        ),
-      ),
-      builder: (context, controller, _) => Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD3D9E3)),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: IconButton(
-          icon: const Icon(LucideIcons.moreHorizontal, size: 16, color: Color(0xFF4B5563)),
-          onPressed: () =>
-              controller.isOpen ? controller.close() : controller.open(),
-          constraints: const BoxConstraints(),
-          padding: const EdgeInsets.all(8),
-        ),
-      ),
-      menuChildren: [
-        _menuItem(
-          label: 'Create Credit Note',
-          icon: LucideIcons.fileMinus,
-          onTap: () => context.push('/$orgId/sales/credit-notes/create', extra: invoice),
-        ),
-        _menuItem(
-          label: 'Add e-Way Bill Details',
-          icon: LucideIcons.truck,
-          onTap: () => context.push('/$orgId/sales/e-way-bills/create', extra: invoice),
-        ),
-        _menuItem(
-          label: 'Clone',
-          icon: LucideIcons.copy,
-          onTap: () => context.push('/$orgId/sales/invoices/create?cloneId=${invoice.id}'),
-        ),
-        _menuItem(
-          label: 'Void',
-          icon: LucideIcons.ban,
-          onTap: () async {
-            final confirmed = await showZerpaiConfirmationDialog(
-              context,
-              title: 'Void Invoice',
-              message: 'Are you sure you want to mark invoice ${invoice.saleNumber} as Void?',
-              confirmLabel: 'Void',
-              cancelLabel: 'Cancel',
-              variant: ZerpaiConfirmationVariant.danger,
-            );
-            if (!confirmed) return;
-            final supabase = Supabase.instance.client;
-            try {
-              await supabase
-                  .from('invoice_master')
-                  .update({'status': 'void'})
-                  .eq('id', invoice.id);
-              if (context.mounted) {
-                ZerpaiToast.success(context, 'Invoice marked as Void');
-                ref.invalidate(salesInvoicesProvider);
-                ref.invalidate(_salesInvoiceDetailProvider(invoice.id));
-              }
-            } catch (e) {
-              if (context.mounted) {
-                ZerpaiToast.error(context, 'Error voiding invoice: $e');
-              }
-            }
-          },
-        ),
-        _menuItem(
-          label: 'Delete',
-          icon: LucideIcons.trash2,
-          onTap: () async {
-            final confirmed = await showZerpaiConfirmationDialog(
-              context,
-              title: 'Delete Invoice',
-              message: 'Are you sure you want to delete invoice ${invoice.saleNumber}?',
-              confirmLabel: 'Delete',
-              cancelLabel: 'Cancel',
-              variant: ZerpaiConfirmationVariant.danger,
-            );
-            if (!confirmed) return;
-            final supabase = Supabase.instance.client;
-            try {
-              final originalNumber = invoice.saleNumber;
-              final newNumber = originalNumber.startsWith('SD-') ? originalNumber : 'SD-$originalNumber';
-              await supabase
-                  .from('invoice_master')
-                  .update({
-                    'is_delete': true,
-                    'sale_number': newNumber,
-                  })
-                  .eq('id', invoice.id);
-              if (context.mounted) {
-                ZerpaiToast.success(context, 'Invoice deleted successfully');
-                ref.invalidate(salesInvoicesProvider);
-                context.go('/sales/invoices');
-              }
-            } catch (e) {
-              if (context.mounted) {
-                ZerpaiToast.error(context, 'Error deleting invoice: $e');
-              }
-            }
-          },
-        ),
-        _menuItem(
-          label: 'Invoice Preferences',
-          icon: LucideIcons.sliders,
-          onTap: () => ZerpaiToast.info(context, 'Invoice Preferences opened'),
-        ),
-      ],
+        );
+      },
     );
   }
 
