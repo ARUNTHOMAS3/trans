@@ -24,15 +24,6 @@ class BulkItemsDialog extends ConsumerStatefulWidget {
 
 class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   final Map<String, TextEditingController> _quantityControllers = {};
-
-  @override
-  void dispose() {
-    for (final controller in _quantityControllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
   String _searchQuery = '';
   Set<String> _selectedCategoryIds = {};
   bool _includeSubCategories = false;
@@ -50,15 +41,60 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   String? _hoveredQuantityBoxItemId;
   bool _isCategoryHovered = false;
 
+  @override
+  void dispose() {
+    for (final controller in _quantityControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _ensureQuantityController(String itemId, int quantity) {
+    return _quantityControllers.putIfAbsent(
+      itemId,
+      () => TextEditingController(text: '$quantity'),
+    )..text = '${_itemQuantities[itemId] ?? quantity}';
+  }
+
+  void _removeSelectedItem(String itemId) {
+    _selectedItems.removeWhere((item) => item.id == itemId);
+    _itemQuantities.remove(itemId);
+    _itemRates.remove(itemId);
+    _itemDiscounts.remove(itemId);
+    _itemDiscountIsPercent.remove(itemId);
+    _quantityControllers.remove(itemId)?.dispose();
+  }
+
+  void _setItemQuantity(String itemId, int quantity) {
+    final normalized = quantity < 1 ? 1 : quantity;
+    _itemQuantities[itemId] = normalized;
+    final controller = _quantityControllers[itemId];
+    if (controller != null && controller.text != '$normalized') {
+      controller.value = TextEditingValue(
+        text: '$normalized',
+        selection: TextSelection.collapsed(offset: '$normalized'.length),
+      );
+    }
+  }
+
   List<Map<String, String>> get _categoryOptions {
     final allCategories = ref.read(itemsControllerProvider).categories;
-    final categories = allCategories.where((c) {
-      final parentId = c['parent_id'];
-      return parentId == null || parentId.toString().trim().isEmpty;
-    }).map((c) => {
-      'id': c['id']?.toString() ?? '',
-      'name': c['name']?.toString() ?? '',
-    }).toList();
+    final categories = allCategories
+        .where((c) {
+          final parentId = c['parent_id'];
+          if (_includeSubCategories) {
+            return true;
+          } else {
+            return parentId != null && parentId.toString().trim().isNotEmpty;
+          }
+        })
+        .map(
+          (c) => {
+            'id': c['id']?.toString() ?? '',
+            'name': c['name']?.toString() ?? '',
+          },
+        )
+        .toList();
 
     categories.sort(
       (a, b) => (a['name'] ?? '').toLowerCase().compareTo(
@@ -68,52 +104,55 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
     return categories;
   }
 
+  Map<String, String> get _categoryNameById {
+    final map = <String, String>{};
+    final allCategories = ref.read(itemsControllerProvider).categories;
+    for (final c in allCategories) {
+      final id = c['id']?.toString() ?? '';
+      final name = c['name']?.toString() ?? '';
+      if (id.isNotEmpty) {
+        map[id] = name;
+      }
+    }
+    return map;
+  }
+
+  bool _isSubCategoryOf(String categoryName, String selectedCategoryName) {
+    final child = categoryName.trim().toLowerCase();
+    final parent = selectedCategoryName.trim().toLowerCase();
+    if (child.isEmpty || parent.isEmpty || child == parent) return false;
+
+    const separators = <String>['>', '/', '\\', '-', '|', ':'];
+    for (final separator in separators) {
+      final marker = '$parent$separator';
+      if (child.startsWith(marker)) return true;
+      final markerSpaced = '$parent $separator';
+      if (child.startsWith(markerSpaced)) return true;
+    }
+    return child.startsWith('$parent ');
+  }
+
   List<Item> get _filteredProducts {
     var results = widget.products;
 
     if (_selectedCategoryIds.isNotEmpty) {
-      final allCategories = ref.read(itemsControllerProvider).categories;
-      final Set<String> targetCategoryKeys = {};
-
-      for (final id in _selectedCategoryIds) {
-        targetCategoryKeys.add(id.toLowerCase());
-        final cat = allCategories.firstWhere(
-          (c) => c['id']?.toString().trim() == id,
-          orElse: () => {},
-        );
-        final name = cat['name']?.toString().trim().toLowerCase();
-        if (name != null && name.isNotEmpty) {
-          targetCategoryKeys.add(name);
-        }
-      }
-
-      if (_includeSubCategories) {
-        for (final c in allCategories) {
-          final parentId = c['parent_id']?.toString().trim();
-          if (parentId != null && parentId.isNotEmpty && _selectedCategoryIds.contains(parentId)) {
-            final id = c['id']?.toString().trim();
-            if (id != null && id.isNotEmpty) {
-              targetCategoryKeys.add(id.toLowerCase());
-            }
-            final name = c['name']?.toString().trim().toLowerCase();
-            if (name != null && name.isNotEmpty) {
-              targetCategoryKeys.add(name);
-            }
-          }
-        }
-      }
+      final categoryNameById = _categoryNameById;
+      final selectedCategoryNames = _selectedCategoryIds
+          .map((id) => categoryNameById[id]?.trim() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toSet();
 
       results = results.where((product) {
-        final categoryId = product.categoryId?.trim().toLowerCase();
-        final categoryName = product.categoryName?.trim().toLowerCase();
-
-        if (categoryId != null && categoryId.isNotEmpty && targetCategoryKeys.contains(categoryId)) {
-          return true;
-        }
-        if (categoryName != null && categoryName.isNotEmpty && targetCategoryKeys.contains(categoryName)) {
-          return true;
-        }
-        return false;
+        final categoryName = product.categoryName?.trim();
+        if (categoryName == null || categoryName.isEmpty) return false;
+        final categoryId = product.categoryId?.trim().isNotEmpty == true
+            ? product.categoryId!.trim()
+            : categoryName.toLowerCase();
+        if (_selectedCategoryIds.contains(categoryId)) return true;
+        if (!_includeSubCategories) return false;
+        return selectedCategoryNames.any(
+          (selectedName) => _isSubCategoryOf(categoryName, selectedName),
+        );
       }).toList();
     }
 
@@ -202,7 +241,6 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   Widget build(BuildContext context) {
     final totalQty = _itemQuantities.values.fold(0, (sum, q) => sum + q);
     return Dialog(
-      clipBehavior: Clip.antiAlias,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.only(
         top: 0,
@@ -422,7 +460,8 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                     ),
                                   ),
                                 ),
-                                if (_searchQuery.isNotEmpty && _searchQuery.length < 3) ...[
+                                if (_searchQuery.isNotEmpty &&
+                                    _searchQuery.length < 3) ...[
                                   const SizedBox(height: 8),
                                   const Align(
                                     alignment: Alignment.centerLeft,
@@ -471,18 +510,10 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                         onTap: () {
                                           setState(() {
                                             if (isSelected) {
-                                              _selectedItems.removeWhere(
-                                                (i) => i.id == item.id,
-                                              );
-                                              _itemQuantities.remove(item.id!);
-                                              _itemRates.remove(item.id!);
-                                              _itemDiscounts.remove(item.id!);
-                                              _itemDiscountIsPercent.remove(
-                                                item.id!,
-                                              );
+                                              _removeSelectedItem(item.id!);
                                             } else {
                                               _selectedItems.add(item);
-                                              _itemQuantities[item.id!] = 1;
+                                              _setItemQuantity(item.id!, 1);
                                               _itemRates[item.id!] =
                                                   item.sellingPrice ?? 0.0;
                                               _itemDiscounts[item.id!] = 0.0;
@@ -714,20 +745,14 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                                                   .id!] ??
                                                               1;
                                                           if (current > 1) {
-                                                            _itemQuantities[item
-                                                                    .id!] =
-                                                                current - 1;
+                                                            _setItemQuantity(
+                                                              item.id!,
+                                                              current - 1,
+                                                            );
                                                           } else {
-                                                            _selectedItems
-                                                                .removeWhere(
-                                                                  (i) =>
-                                                                      i.id ==
-                                                                      item.id,
-                                                                );
-                                                            _itemQuantities
-                                                                .remove(
-                                                                  item.id!,
-                                                                );
+                                                            _removeSelectedItem(
+                                                              item.id!,
+                                                            );
                                                           }
                                                         });
                                                       },
@@ -764,62 +789,97 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                                         ),
                                                       ),
                                                     ),
-                                                    Container(
+                                                    SizedBox(
                                                       width: 36,
-                                                      alignment:
-                                                          Alignment.center,
-                                                      child: Builder(
-                                                        builder: (context) {
-                                                          final currentQty = _itemQuantities[item.id!] ?? 1;
-                                                          final controller = _quantityControllers.putIfAbsent(
-                                                            item.id!,
-                                                            () => TextEditingController(text: '$currentQty'),
-                                                          );
-                                                          if (controller.text != '$currentQty') {
-                                                            controller.text = '$currentQty';
-                                                          }
+                                                      child: StatefulBuilder(
+                                                        builder: (context, setInnerState) {
+                                                          final currentQty =
+                                                              _itemQuantities[item
+                                                                  .id!] ??
+                                                              1;
+                                                          final controller =
+                                                              _ensureQuantityController(
+                                                                item.id!,
+                                                                currentQty,
+                                                              );
                                                           return TextFormField(
-                                                            key: ValueKey('qty_${item.id}'),
-                                                            controller: controller,
-                                                            keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                                                            textAlign: TextAlign.center,
-                                                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                                            style: const TextStyle(
-                                                              fontSize: 13,
-                                                              fontWeight:
-                                                                  FontWeight.w600,
-                                                              color: Color(
-                                                                0xFF374151,
-                                                              ),
+                                                            key: ValueKey(
+                                                              'qty_${item.id}',
                                                             ),
-                                                            decoration: const InputDecoration(
-                                                              border: InputBorder.none,
-                                                              enabledBorder: InputBorder.none,
-                                                              focusedBorder: InputBorder.none,
-                                                              errorBorder: InputBorder.none,
-                                                              disabledBorder: InputBorder.none,
-                                                              isDense: true,
-                                                              contentPadding: EdgeInsets.zero,
-                                                            ),
+                                                            controller:
+                                                                controller,
+                                                            keyboardType:
+                                                                const TextInputType.numberWithOptions(
+                                                                  decimal:
+                                                                      false,
+                                                                ),
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                            inputFormatters: [
+                                                              FilteringTextInputFormatter
+                                                                  .digitsOnly,
+                                                            ],
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 13,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: Color(
+                                                                    0xFF374151,
+                                                                  ),
+                                                                ),
+                                                            decoration:
+                                                                const InputDecoration(
+                                                                  border:
+                                                                      InputBorder
+                                                                          .none,
+                                                                  enabledBorder:
+                                                                      InputBorder
+                                                                          .none,
+                                                                  focusedBorder:
+                                                                      InputBorder
+                                                                          .none,
+                                                                  errorBorder:
+                                                                      InputBorder
+                                                                          .none,
+                                                                  disabledBorder:
+                                                                      InputBorder
+                                                                          .none,
+                                                                  isDense: true,
+                                                                  contentPadding:
+                                                                      EdgeInsets
+                                                                          .zero,
+                                                                ),
                                                             onChanged: (value) {
-                                                              final parsed = int.tryParse(value) ?? 0;
+                                                              final parsed =
+                                                                  int.tryParse(
+                                                                    value,
+                                                                  ) ??
+                                                                  0;
                                                               setState(() {
-                                                                _itemQuantities[item.id!] = parsed;
+                                                                _itemQuantities[item
+                                                                        .id!] =
+                                                                    parsed;
                                                               });
+                                                              setInnerState(
+                                                                () {},
+                                                              );
                                                             },
                                                           );
-                                                        }
+                                                        },
                                                       ),
                                                     ),
                                                     InkWell(
                                                       onTap: () {
                                                         setState(() {
-                                                          _itemQuantities[item
-                                                                  .id!] =
-                                                              (_itemQuantities[item
-                                                                      .id!] ??
-                                                                  1) +
-                                                              1;
+                                                          _setItemQuantity(
+                                                            item.id!,
+                                                            (_itemQuantities[item
+                                                                        .id!] ??
+                                                                    1) +
+                                                                1,
+                                                          );
                                                         });
                                                       },
                                                       child: Container(
@@ -849,47 +909,37 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(width: 12),
-                                            SizedBox(
-                                              width: 17,
-                                              child: isHovered
-                                                  ? InkWell(
-                                                      onTap: () {
-                                                        setState(() {
-                                                          _selectedItems
-                                                              .removeWhere(
-                                                            (i) =>
-                                                                i.id == item.id,
-                                                          );
-                                                          _itemQuantities
-                                                              .remove(
-                                                            item.id!,
-                                                          );
-                                                        });
-                                                      },
-                                                      child: Container(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .all(0),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          shape:
-                                                              BoxShape.circle,
-                                                          border: Border.all(
-                                                            color: Colors.orange
-                                                                .shade400,
-                                                          ),
-                                                        ),
-                                                        child: Icon(
-                                                          LucideIcons.x,
-                                                          size: 15,
-                                                          color: Colors.orange
-                                                              .shade400,
-                                                        ),
-                                                      ),
-                                                    )
-                                                  : null,
-                                            ),
+                                            if (isHovered) ...[
+                                              const SizedBox(width: 12),
+                                              InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _removeSelectedItem(
+                                                      item.id!,
+                                                    );
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(
+                                                    0,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: Colors
+                                                          .orange
+                                                          .shade400,
+                                                    ),
+                                                  ),
+                                                  child: Icon(
+                                                    LucideIcons.x,
+                                                    size: 15,
+                                                    color:
+                                                        Colors.orange.shade400,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ),
@@ -913,8 +963,11 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                     : () {
                                         Map<Item, int> selectedWithQty = {};
                                         for (var item in _selectedItems) {
-                                          selectedWithQty[item] =
+                                          final quantity =
                                               _itemQuantities[item.id!] ?? 1;
+                                          selectedWithQty[item] = quantity <= 0
+                                              ? 1
+                                              : quantity;
                                         }
                                         widget.onItemsSelected(selectedWithQty);
                                         Navigator.of(context).pop();

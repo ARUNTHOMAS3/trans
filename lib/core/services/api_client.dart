@@ -65,6 +65,12 @@ class ApiClient {
   bool _forcedLogoutTriggered = false;
   static const int _expirySkewSeconds = 60;
 
+  void resetAuthFailureState() {
+    _forcedLogoutTriggered = false;
+    _lastRefreshRequiresLogout = false;
+    _refreshFuture = null;
+  }
+
   /// ------------------------------
   /// CACHE HELPERS
   /// ------------------------------
@@ -107,6 +113,7 @@ class ApiClient {
         final newRefreshToken = (data['refresh_token'] as String?) ?? refreshToken;
         final newExpiresAt = (data['expires_at'] as num?)?.toInt();
         if (newToken != null && newToken.isNotEmpty) {
+          _forcedLogoutTriggered = false;
           await box.put('auth_token', newToken);
           await box.put('refresh_token', newRefreshToken);
           if (newExpiresAt != null) {
@@ -192,6 +199,33 @@ class ApiClient {
     } catch (_) {}
   }
 
+  bool _isHardAuthFailure({
+    int? statusCode,
+    String? message,
+    String? code,
+  }) {
+    if (statusCode == 401) {
+      return true;
+    }
+
+    final combined = '${message ?? ''} ${code ?? ''}'.toLowerCase();
+    if (statusCode == 403) {
+      return combined.contains('invalid or expired token') ||
+          combined.contains('unauthorized') ||
+          combined.contains('please login again') ||
+          combined.contains('token expired') ||
+          combined.contains('jwt expired') ||
+          (combined.contains('refresh token') && combined.contains('invalid'));
+    }
+
+    return combined.contains('invalid or expired token') ||
+        combined.contains('unauthorized') ||
+        combined.contains('please login again') ||
+        combined.contains('token expired') ||
+        combined.contains('jwt expired') ||
+        (combined.contains('refresh token') && combined.contains('invalid'));
+  }
+
   String _generateCacheKey(
     String method,
     String url, [
@@ -210,13 +244,16 @@ class ApiClient {
   /// ------------------------------
   ApiClient._internal() {
     String rawBaseUrl;
+    final envDefinedBaseUrl = const String.fromEnvironment('API_BASE_URL');
 
     if (kReleaseMode) {
       rawBaseUrl = 'https://zerpai-production.up.railway.app';
     } else if (kDebugMode && kIsWeb) {
-      rawBaseUrl = 'http://localhost:3001';
+      rawBaseUrl = envDefinedBaseUrl.isNotEmpty
+          ? envDefinedBaseUrl
+          : 'http://localhost:3001';
     } else {
-      rawBaseUrl = const String.fromEnvironment('API_BASE_URL');
+      rawBaseUrl = envDefinedBaseUrl;
       if (rawBaseUrl.isEmpty) {
         rawBaseUrl =
             dotenv.maybeGet('API_BASE_URL') ??
@@ -537,6 +574,27 @@ class ApiClient {
           );
 
           final status = enhanced.response?.statusCode;
+          final normalizedPath = error.requestOptions.path.startsWith('/')
+              ? error.requestOptions.path.substring(1)
+              : error.requestOptions.path;
+          final isAuthRequest = normalizedPath.startsWith('auth/login') ||
+              normalizedPath.startsWith('auth/refresh') ||
+              normalizedPath.startsWith('auth/forgot-password') ||
+              normalizedPath.startsWith('auth/change-password');
+
+          if (!isAuthRequest &&
+              !_forcedLogoutTriggered &&
+              _isHardAuthFailure(
+                statusCode: status,
+                message: message,
+                code: code,
+              )) {
+            try {
+              final box = Hive.box('config');
+              await _clearAuthSession(box);
+            } catch (_) {}
+          }
+
           final isExpectedBusinessError =
               enhanced.type == DioExceptionType.badResponse &&
               (status == null || status < 500);

@@ -168,24 +168,23 @@ class _BranchPriceListCreateScreenState
 
     if (_priceListType == 'all_items') {
       if (p.percentageValue != null) {
-        final val = p.percentageValue!;
-        _percentageController.text = val == val.toInt() ? val.toInt().toString() : val.toString();
-      }
-      if (p.percentageType != null && p.percentageType!.isNotEmpty) {
-        _percentageType = p.percentageType!.toLowerCase() == 'markdown' ? 'Markdown' : 'Markup';
+        _percentageController.text = p.percentageValue!.toStringAsFixed(0);
+      } else {
+        // Fallback string parsing
+        final details = p.details ?? '';
+        final match = RegExp(r'(\d+\.?\d*)').firstMatch(details);
+        if (match != null) _percentageController.text = match.group(0)!;
       }
 
-      // Fallback details parser
-      if (_percentageController.text.isEmpty) {
+      if (p.percentageType != null && p.percentageType!.isNotEmpty) {
+        final type = p.percentageType!;
+        _percentageType = type[0].toUpperCase() + type.substring(1).toLowerCase();
+      } else {
         final details = p.details ?? '';
-        final parts = details.split('% ');
-        if (parts.length == 2) {
-          _percentageController.text = parts[0];
-          _percentageType = parts[1];
+        if (details.contains('Markdown') || details.contains('markdown')) {
+          _percentageType = 'Markdown';
         } else {
-          final match = RegExp(r'(\d+\.?\d*)').firstMatch(details);
-          if (match != null) _percentageController.text = match.group(0)!;
-          if (details.contains('Markdown')) _percentageType = 'Markdown';
+          _percentageType = 'Markup';
         }
       }
     } else if (p.itemRates != null) {
@@ -392,7 +391,7 @@ class _BranchPriceListCreateScreenState
       child: IgnorePointer(
         ignoring: isEdit,
         child: Opacity(
-          opacity: isEdit ? 0.7 : 1.0,
+          opacity: isEdit ? 0.75 : 1.0,
           child: ZerpaiRadioGroup<String>(
             options: const ['sales', 'purchase'],
             current: _transactionType,
@@ -703,7 +702,7 @@ class _BranchPriceListCreateScreenState
       child: IgnorePointer(
         ignoring: isEdit,
         child: Opacity(
-          opacity: isEdit ? 0.7 : 1.0,
+          opacity: isEdit ? 0.75 : 1.0,
           child: Wrap(
             spacing: 16,
             runSpacing: 12,

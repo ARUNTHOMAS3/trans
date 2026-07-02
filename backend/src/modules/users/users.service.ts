@@ -73,6 +73,7 @@ export class UsersService {
   ]);
 
   private readonly permissionAliases: Record<string, string[]> = {
+    users: ["users_roles"],
     shipments: ["sales_shipments"],
     sales_shipments: ["shipments"],
     ewaybill_perms: ["ewaybill_settings"],
@@ -87,7 +88,8 @@ export class UsersService {
 
   private getBranchAdminDefaultPermissions() {
     return {
-      branches: ["view", "create", "edit", "delete"],
+      branches: ["view", "edit"],
+      users: ["view"],
       warehouses: ["view", "create", "edit", "delete"],
       zones: ["view", "create", "edit", "delete"],
       item: ["full"],
@@ -131,8 +133,22 @@ export class UsersService {
       documents: ["view"],
       dashboard_charts: ["view"],
       general_prefs: ["view", "edit"],
-      transaction_series: ["view", "edit"],
+      transaction_series: ["view", "create", "edit", "delete"],
     } as Record<string, unknown>;
+  }
+
+  private mergePermissionActions(
+    existing: unknown,
+    requiredActions: string[],
+  ): string[] {
+    const values = Array.isArray(existing)
+      ? existing.map((entry) => String(entry))
+      : [];
+    const merged = new Set<string>(values);
+    for (const action of requiredActions) {
+      merged.add(action);
+    }
+    return Array.from(merged);
   }
 
   private normalizeRoleLabel(value: unknown): string {
@@ -345,7 +361,7 @@ export class UsersService {
 
       const { data: existing, error: findError } = await client
         .from("roles")
-        .select("id")
+        .select("id, permissions")
         .eq("entity_id", entityId)
         .ilike("label", label)
         .maybeSingle();
@@ -357,6 +373,51 @@ export class UsersService {
       }
 
       if (existing?.id) {
+        if (label.toLowerCase() == "branch admin") {
+          const currentPermissions =
+            existing.permissions &&
+            typeof existing.permissions === "object" &&
+            !Array.isArray(existing.permissions)
+              ? { ...(existing.permissions as Record<string, unknown>) }
+              : {};
+          const nextPermissions = {
+            ...currentPermissions,
+            branches: ["view", "edit"],
+            users: this.mergePermissionActions(
+              currentPermissions["users"],
+              ["view"],
+            ),
+            transaction_series: this.mergePermissionActions(
+              currentPermissions["transaction_series"],
+              ["view", "create", "edit", "delete"],
+            ),
+          };
+          delete nextPermissions["users_roles"];
+
+          const changed =
+            JSON.stringify(currentPermissions["branches"] ?? []) !==
+              JSON.stringify(nextPermissions.branches) ||
+            JSON.stringify(currentPermissions["users"] ?? []) !==
+              JSON.stringify(nextPermissions.users) ||
+            JSON.stringify(currentPermissions["transaction_series"] ?? []) !==
+              JSON.stringify(nextPermissions.transaction_series) ||
+            currentPermissions["users_roles"] != null;
+
+          if (changed) {
+            const { error: updateError } = await client
+              .from("roles")
+              .update({
+                permissions: nextPermissions,
+              })
+              .eq("id", existing.id);
+
+            if (updateError) {
+              throw new Error(
+                `Failed to update role '${label}' permissions: ${updateError.message}`,
+              );
+            }
+          }
+        }
         return existing.id.toString();
       }
 
@@ -866,13 +927,16 @@ export class UsersService {
     status = "all",
   ): Promise<any[]> {
     const client = this.supabaseService.getClient();
+    const branchScopedTenant =
+      typeof tenantOrOrgId !== "string" &&
+      tenantOrOrgId.accessibleBranchIds.length > 0;
     const [{ data, error }, publicUsers, accessRows, roleMap] =
       await Promise.all([
         client.auth.admin.listUsers({ perPage: 1000 }),
         this.fetchPublicUsers(tenantOrOrgId),
         client
           .from("user_branch_access")
-          .select("user_id")
+          .select("user_id, entity_id")
           .eq("org_id", this.resolveTenant(tenantOrOrgId).orgId),
         this.getRoleMap(
           typeof tenantOrOrgId === "string"
@@ -890,8 +954,30 @@ export class UsersService {
       );
     }
 
+    let allowedUserIds: Set<string> | null = null;
+    let allowedEntityIds: Set<string> | null = null;
+    if (branchScopedTenant) {
+      const accessibleLocations = await this.fetchAllLocations(tenantOrOrgId);
+      allowedEntityIds = new Set<string>(
+        accessibleLocations
+          .map((location) => location.entity_id?.toString().trim() ?? "")
+          .filter((id) => id.length > 0),
+      );
+      allowedUserIds = new Set<string>([tenantOrOrgId.userId]);
+      for (const row of accessRows.data ?? []) {
+        const entityId = row.entity_id?.toString().trim() ?? "";
+        const userId = row.user_id?.toString().trim() ?? "";
+        if (!entityId || !userId) continue;
+        if (allowedEntityIds.has(entityId)) {
+          allowedUserIds.add(userId);
+        }
+      }
+    }
+
     const accessCount = new Map<string, number>();
     for (const row of accessRows.data ?? []) {
+      const entityId = row.entity_id?.toString().trim() ?? "";
+      if (allowedEntityIds && !allowedEntityIds.has(entityId)) continue;
       const userId = row.user_id?.toString();
       if (!userId) continue;
       accessCount.set(userId, (accessCount.get(userId) ?? 0) + 1);
@@ -923,6 +1009,10 @@ export class UsersService {
     const normalizedStatus = status.toLowerCase().trim();
     return mergedUsers
       .filter((user) => {
+        if (!allowedUserIds) return true;
+        return allowedUserIds.has(user["id"]?.toString() ?? "");
+      })
+      .filter((user) => {
         if (normalizedStatus === "active") return user["is_active"] === true;
         if (normalizedStatus === "inactive") return user["is_active"] !== true;
         return true;
@@ -953,6 +1043,21 @@ export class UsersService {
 
     const publicRow = publicUsers.get(id);
     if (error && publicRow == null) return null;
+    if (
+      typeof tenantOrOrgId !== "string" &&
+      tenantOrOrgId.accessibleBranchIds.length > 0 &&
+      id !== tenantOrOrgId.userId
+    ) {
+      const accessibleBranchIds = new Set(
+        tenantOrOrgId.accessibleBranchIds.map((branchId) => branchId.trim()),
+      );
+      const visibleToBranchUser = (locationAccess.accessible_branch_ids ?? [])
+        .map((branchId: unknown) => branchId?.toString().trim() ?? "")
+        .some((branchId: string) => accessibleBranchIds.has(branchId));
+      if (!visibleToBranchUser) {
+        return null;
+      }
+    }
 
     const u = data?.user;
     const meta = u?.user_metadata ?? {};

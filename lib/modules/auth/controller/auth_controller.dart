@@ -181,6 +181,7 @@ class AuthController extends StateNotifier<AuthState> {
       final token = result['token'] as String;
 
       await _persistHydratedTenant(user);
+      ApiClient().resetAuthFailureState();
       state = Authenticated(user: user, token: token);
       PermissionResolver.invalidateCache();
       authSessionExpiryNotifier.clearSilently();
@@ -272,6 +273,7 @@ class AuthController extends StateNotifier<AuthState> {
       var user = await _authRepository.getCurrentUser();
       if (user != null) {
         user = _hydrateActiveTenant(user);
+        ApiClient().resetAuthFailureState();
         state = Authenticated(user: user, token: token);
         PermissionResolver.invalidateCache();
         authSessionExpiryNotifier.clearSilently();
@@ -285,6 +287,7 @@ class AuthController extends StateNotifier<AuthState> {
             await _authRepository.getCurrentUser() ?? _authRepository.getUser();
         if (user != null) {
           user = _hydrateActiveTenant(user);
+          ApiClient().resetAuthFailureState();
           state = Authenticated(user: user, token: newToken);
           PermissionResolver.invalidateCache();
           authSessionExpiryNotifier.clearSilently();
@@ -306,6 +309,7 @@ class AuthController extends StateNotifier<AuthState> {
       final newToken = await _authRepository.refreshToken();
       if (newToken != null && state is Authenticated) {
         final authenticatedState = state as Authenticated;
+        ApiClient().resetAuthFailureState();
         state = Authenticated(user: authenticatedState.user, token: newToken);
       }
     } catch (e) {

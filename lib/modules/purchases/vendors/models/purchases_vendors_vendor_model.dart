@@ -310,7 +310,6 @@ class Vendor {
     }
 
     return {
-      if (json['${prefix}id'] != null) 'id': json['${prefix}id'].toString(),
       'attention': json['${prefix}attention'],
       'street1': json['${prefix}address_street'] ?? json['${prefix}address_street_1'],
       'street2': json['${prefix}address_place'] ?? json['${prefix}address_street_2'],

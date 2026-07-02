@@ -4,6 +4,7 @@ import '../models/user_model.dart';
 
 class PermissionService {
   static const Map<String, List<String>> _moduleAliases = {
+    'users': ['users_roles'],
     'shipments': ['sales_shipments'],
     'sales_shipments': ['shipments'],
     'ewaybill_perms': ['ewaybill_settings'],

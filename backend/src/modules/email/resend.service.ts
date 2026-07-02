@@ -33,6 +33,23 @@ export class ResendService {
     return this.client;
   }
 
+  private maskEmail(value: string): string {
+    const trimmed = value.trim();
+    const [localPart, domainPart] = trimmed.split("@");
+    if (!localPart || !domainPart) return trimmed;
+    if (localPart.length <= 2) {
+      return `${localPart[0] ?? "*"}***@${domainPart}`;
+    }
+    return `${localPart.slice(0, 2)}***@${domainPart}`;
+  }
+
+  private maskRecipients(to: string | string[]): string {
+    if (Array.isArray(to)) {
+      return to.map((value) => this.maskEmail(value)).join(", ");
+    }
+    return this.maskEmail(to);
+  }
+
   async sendEmail(payload: ResendEmailPayload) {
     const from = payload.from ?? process.env.RESEND_FROM_EMAIL?.trim();
 
@@ -42,12 +59,45 @@ export class ResendService {
       );
     }
 
-    return this.getClient().emails.send({
-      from,
-      to: payload.to,
-      subject: payload.subject,
-      html: payload.html,
-    });
+    this.logger.log(
+      `Resend send start → to=${this.maskRecipients(payload.to)} subject="${payload.subject}" from=${this.maskEmail(from)}`,
+    );
+
+    try {
+      const result = await this.getClient().emails.send({
+        from,
+        to: payload.to,
+        subject: payload.subject,
+        html: payload.html,
+      });
+
+      const responseError = (result as any)?.error;
+      if (responseError) {
+        const message =
+          responseError.message?.toString().trim() ||
+          JSON.stringify(responseError);
+        this.logger.error(
+          `Resend send failed → to=${this.maskRecipients(payload.to)} subject="${payload.subject}" error=${message}`,
+        );
+        throw new Error(`Resend send failed: ${message}`);
+      }
+
+      const emailId =
+        (result as any)?.data?.id?.toString?.() ||
+        (result as any)?.id?.toString?.() ||
+        "unknown";
+      this.logger.log(
+        `Resend send success → to=${this.maskRecipients(payload.to)} subject="${payload.subject}" email_id=${emailId}`,
+      );
+      return result;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : JSON.stringify(error);
+      this.logger.error(
+        `Resend send exception → to=${this.maskRecipients(payload.to)} subject="${payload.subject}" error=${message}`,
+      );
+      throw error;
+    }
   }
 
   async sendHelloWorldEmail(

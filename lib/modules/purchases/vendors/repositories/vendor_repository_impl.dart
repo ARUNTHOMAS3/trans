@@ -70,6 +70,7 @@ class VendorRepositoryImpl implements VendorRepository {
       data.remove('id');
       data.remove('created_at');
       data.remove('updated_at');
+      data.remove('vendorAddresses');
 
       final response = await _apiClient.post(
         ApiEndpoints.vendors,
@@ -92,6 +93,7 @@ class VendorRepositoryImpl implements VendorRepository {
       final data = vendor.toJson();
       data.remove('id');
       data.remove('created_at');
+      data.remove('vendorAddresses');
       data.removeWhere((key, value) => value == null);
 
       final response = await _apiClient.put(

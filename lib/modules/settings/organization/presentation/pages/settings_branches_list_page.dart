@@ -166,6 +166,7 @@ class _BranchRow {
   final DateTime? subscriptionFrom;
   final DateTime? subscriptionTo;
   final bool isBinLocationsEnabled;
+  final bool hasLinkedWarehouse;
   final int associatedZoneCount;
   final int associatedBinCount;
 
@@ -182,6 +183,7 @@ class _BranchRow {
     required this.isPrimary,
     required this.branchType,
     this.isBinLocationsEnabled = false,
+    this.hasLinkedWarehouse = false,
     this.associatedZoneCount = 0,
     this.associatedBinCount = 0,
     this.subscriptionFrom,
@@ -289,6 +291,17 @@ class _SettingsBranchesListPageState
     return (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
   }
 
+  bool get _isBranchScopedUser {
+    final user = ref.read(authUserProvider);
+    if (user == null) return false;
+    final role = user.role.trim().toLowerCase();
+    final activeTenantType = (user.activeTenantType ?? '').trim().toUpperCase();
+    return role == 'branch_admin' ||
+        role == 'data_entry' ||
+        activeTenantType == 'BRANCH' ||
+        user.accessibleBranchIds.isNotEmpty;
+  }
+
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
@@ -319,14 +332,32 @@ class _SettingsBranchesListPageState
       final rawBranches = rows
           .whereType<Map<String, dynamic>>()
           .where(
-            (j) =>
-                (j['location_type'] ?? 'business').toString() == 'business',
+            (j) => (j['location_type'] ?? 'business').toString() == 'business',
           )
           .toList();
       final List<String> branchIds = rawBranches
           .map((branch) => (branch['id'] ?? '').toString().trim())
           .where((id) => id.isNotEmpty)
           .toList();
+      final warehousesRes = await _apiClient.get(
+        'warehouses-settings',
+        queryParameters: <String, dynamic>{'org_id': orgId},
+      );
+      if (!mounted) return;
+      final linkedWarehouseBranchIds =
+          warehousesRes.success && warehousesRes.data is List
+          ? (warehousesRes.data as List)
+                .whereType<Map<String, dynamic>>()
+                .map(
+                  (warehouse) => ((warehouse['source_branch_id'] ??
+                              warehouse['branch_id']) ??
+                          '')
+                      .toString()
+                      .trim(),
+                )
+                .where((branchId) => branchId.isNotEmpty)
+                .toSet()
+          : <String>{};
       final summaries = branchIds.isEmpty
           ? <String, BranchZoneBinsSummary>{}
           : await BinLocationsService.instance.getBranchZoneBinsSummaries(
@@ -334,30 +365,29 @@ class _SettingsBranchesListPageState
               branchIds: branchIds,
             );
       setState(() {
-        _branches = rawBranches
-            .map((branch) {
-              final parsed = _BranchRow.fromJson(branch);
-              final summary = summaries[parsed.id];
-              return _BranchRow(
-                id: parsed.id,
-                systemId: parsed.systemId,
-                name: parsed.name,
-                branchCode: parsed.branchCode,
-                gstin: parsed.gstin,
-                city: parsed.city,
-                state: parsed.state,
-                country: parsed.country,
-                isActive: parsed.isActive,
-                isPrimary: parsed.isPrimary,
-                branchType: parsed.branchType,
-                subscriptionFrom: parsed.subscriptionFrom,
-                subscriptionTo: parsed.subscriptionTo,
-                isBinLocationsEnabled: summary?.isEnabled ?? false,
-                associatedZoneCount: summary?.zoneCount ?? 0,
-                associatedBinCount: summary?.binCount ?? 0,
-              );
-            })
-            .toList();
+        _branches = rawBranches.map((branch) {
+          final parsed = _BranchRow.fromJson(branch);
+          final summary = summaries[parsed.id];
+          return _BranchRow(
+            id: parsed.id,
+            systemId: parsed.systemId,
+            name: parsed.name,
+            branchCode: parsed.branchCode,
+            gstin: parsed.gstin,
+            city: parsed.city,
+            state: parsed.state,
+            country: parsed.country,
+            isActive: parsed.isActive,
+            isPrimary: parsed.isPrimary,
+            branchType: parsed.branchType,
+            subscriptionFrom: parsed.subscriptionFrom,
+            subscriptionTo: parsed.subscriptionTo,
+            isBinLocationsEnabled: summary?.isEnabled ?? false,
+            hasLinkedWarehouse: linkedWarehouseBranchIds.contains(parsed.id),
+            associatedZoneCount: summary?.zoneCount ?? 0,
+            associatedBinCount: summary?.binCount ?? 0,
+          );
+        }).toList();
         _isLoading = false;
       });
     } catch (_) {
@@ -657,8 +687,7 @@ class _SettingsBranchesListPageState
   Widget _buildHeader() {
     final accentColor = ref.watch(appBrandingProvider).accentColor;
     final orgSystemId =
-        GoRouterState.of(context).pathParameters['orgSystemId'] ??
-        '';
+        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
     return Row(
       children: [
         const Expanded(
@@ -681,28 +710,29 @@ class _SettingsBranchesListPageState
             ],
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: () => context.goNamed(
-            AppRoutes.settingsBranchCreate,
-            pathParameters: {'orgSystemId': orgSystemId},
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: accentColor,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.space20,
-              vertical: AppTheme.space12,
+        if (!_isBranchScopedUser)
+          ElevatedButton.icon(
+            onPressed: () => context.goNamed(
+              AppRoutes.settingsBranchCreate,
+              pathParameters: {'orgSystemId': orgSystemId},
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.space20,
+                vertical: AppTheme.space12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            icon: const Icon(LucideIcons.plus, size: 16),
+            label: const Text(
+              'Add Branch',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
           ),
-          icon: const Icon(LucideIcons.plus, size: 16),
-          label: const Text(
-            'Add Branch',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          ),
-        ),
       ],
     );
   }
@@ -762,10 +792,19 @@ class _SettingsBranchesListPageState
           SizedBox(width: 120, child: Text('SYSTEM ID', style: style)),
           SizedBox(width: 130, child: Text('BRANCH CODE', style: style)),
           Expanded(flex: 3, child: Text('GSTIN', style: style)),
-          SizedBox(width: 110, child: Text('BRANCH TYPE', style: style)),
-          SizedBox(width: 180, child: Text('ASSOCIATED ZONES / BINS', style: style)),
+          SizedBox(
+            width: 110,
+            child: Text('ASSOCIATED BRANCH TYPE', style: style),
+          ),
+          SizedBox(
+            width: 180,
+            child: Text('ASSOCIATED ZONES / BINS', style: style),
+          ),
           Expanded(flex: 3, child: Text('ADDRESS DETAILS', style: style)),
-          SizedBox(width: 170, child: Text('SUBSCRIPTION PERIOD', style: style)),
+          SizedBox(
+            width: 170,
+            child: Text('SUBSCRIPTION PERIOD', style: style),
+          ),
           SizedBox(width: 48),
         ],
       ),
@@ -788,189 +827,197 @@ class _SettingsBranchesListPageState
           pathParameters: {'orgSystemId': orgSystemId, 'id': branch.id},
         ),
         child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space20,
-          vertical: AppTheme.space14,
-        ),
-        decoration: BoxDecoration(
-          color: isHovered ? AppTheme.bgLight : Colors.white,
-          border: const Border(bottom: BorderSide(color: AppTheme.borderLight)),
-        ),
-        child: Row(
-          children: [
-            // Status dot
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: branch.isActive
-                    ? const Color(0xFF22A95E)
-                    : Colors.transparent,
-                border: Border.all(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.space20,
+            vertical: AppTheme.space14,
+          ),
+          decoration: BoxDecoration(
+            color: isHovered ? AppTheme.bgLight : Colors.white,
+            border: const Border(
+              bottom: BorderSide(color: AppTheme.borderLight),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Status dot
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
                   color: branch.isActive
                       ? const Color(0xFF22A95E)
-                      : AppTheme.textSecondary,
-                  width: 1.5,
-                ),
-              ),
-            ),
-            const SizedBox(width: AppTheme.space12),
-            // Name
-            Expanded(
-              flex: 4,
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      branch.name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: branch.isActive
+                        ? const Color(0xFF22A95E)
+                        : AppTheme.textSecondary,
+                    width: 1.5,
                   ),
-                  if (branch.isPrimary) ...[
-                    const SizedBox(width: 6),
-                    const Icon(
-                      LucideIcons.star,
-                      size: 13,
-                      color: Color(0xFFFFC107),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            SizedBox(
-              width: 120,
-              child: Text(
-                branch.systemId.isNotEmpty ? branch.systemId : '—',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
                 ),
               ),
-            ),
-            // Branch code
-            SizedBox(
-              width: 130,
-              child: Text(
-                branch.branchCode.isNotEmpty ? branch.branchCode : '—',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ),
-            // GSTIN
-            Expanded(
-              flex: 3,
-              child: branch.gstin.isNotEmpty
-                  ? Text(
-                      branch.gstin,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textPrimary,
-                      ),
-                    )
-                  : const Text(
-                      '—',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-            ),
-            // Branch Type
-            SizedBox(
-              width: 110,
-              child: branch.branchTypeLabel.isNotEmpty
-                  ? Text(
-                      branch.branchTypeLabel,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    )
-                  : const Text(
-                      '—',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-            ),
-            SizedBox(
-              width: 180,
-              child: branch.associatedZoneCount > 0
-                  ? Align(
-                      alignment: Alignment.centerLeft,
-                      child: ZerpaiLinkText(
-                        text: branch.associatedZonesBinsLabel,
-                        style: const TextStyle(fontSize: 13),
-                        onTap: () => context.goNamed(
-                          AppRoutes.settingsZones,
-                          pathParameters: {
-                            'orgSystemId':
-                                GoRouterState.of(context)
-                                    .pathParameters['orgSystemId'] ??
-                                '',
-                          },
-                          queryParameters: {
-                            'branchId': branch.id,
-                            'branchName': branch.name,
-                          },
+              const SizedBox(width: AppTheme.space12),
+              // Name
+              Expanded(
+                flex: 4,
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        branch.name,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
-                    )
-                  : const Text(
-                      '—',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
                     ),
-            ),
-            // Address
-            Expanded(
-              flex: 3,
-              child: Text(
-                branch.addressSummary.isNotEmpty ? branch.addressSummary : '—',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
-              ),
-            ),
-            // Subscription Period
-            SizedBox(
-              width: 170,
-              child: branch.subscriptionPeriod.isNotEmpty
-                  ? Text(
-                      branch.subscriptionPeriod,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textBody,
+                    if (branch.isPrimary) ...[
+                      const SizedBox(width: 6),
+                      const Icon(
+                        LucideIcons.star,
+                        size: 13,
+                        color: Color(0xFFFFC107),
                       ),
-                    )
-                  : const Text(
-                      '—',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-            ),
-            // Actions
-            SizedBox(
-              width: 48,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: _buildActionMenu(branch, isHovered),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              SizedBox(
+                width: 120,
+                child: Text(
+                  branch.systemId.isNotEmpty ? branch.systemId : '—',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              // Branch code
+              SizedBox(
+                width: 130,
+                child: Text(
+                  branch.branchCode.isNotEmpty ? branch.branchCode : '—',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              // GSTIN
+              Expanded(
+                flex: 3,
+                child: branch.gstin.isNotEmpty
+                    ? Text(
+                        branch.gstin,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                        ),
+                      )
+                    : const Text(
+                        '—',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+              ),
+              // Branch Type
+              SizedBox(
+                width: 110,
+                child: branch.branchTypeLabel.isNotEmpty
+                    ? Text(
+                        branch.branchTypeLabel,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    : const Text(
+                        '—',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+              ),
+              SizedBox(
+                width: 180,
+                child: branch.associatedZoneCount > 0
+                    ? Align(
+                        alignment: Alignment.centerLeft,
+                        child: ZerpaiLinkText(
+                          text: branch.associatedZonesBinsLabel,
+                          style: const TextStyle(fontSize: 13),
+                          onTap: () => context.goNamed(
+                            AppRoutes.settingsZones,
+                            pathParameters: {
+                              'orgSystemId':
+                                  GoRouterState.of(
+                                    context,
+                                  ).pathParameters['orgSystemId'] ??
+                                  '',
+                            },
+                            queryParameters: {
+                              'branchId': branch.id,
+                              'branchName': branch.name,
+                            },
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        '—',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+              ),
+              // Address
+              Expanded(
+                flex: 3,
+                child: Text(
+                  branch.addressSummary.isNotEmpty
+                      ? branch.addressSummary
+                      : '—',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textBody,
+                  ),
+                ),
+              ),
+              // Subscription Period
+              SizedBox(
+                width: 170,
+                child: branch.subscriptionPeriod.isNotEmpty
+                    ? Text(
+                        branch.subscriptionPeriod,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textBody,
+                        ),
+                      )
+                    : const Text(
+                        '—',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+              ),
+              // Actions
+              SizedBox(
+                width: 48,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _buildActionMenu(branch, isHovered),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1037,19 +1084,17 @@ class _SettingsBranchesListPageState
       menuChildren: [
         buildItem('Edit', () {
           final orgSystemId =
-              GoRouterState.of(context).pathParameters['orgSystemId'] ??
-              '';
+              GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
           context.goNamed(
             AppRoutes.settingsBranchEdit,
-            pathParameters: {
-              'orgSystemId': orgSystemId,
-              'id': branch.id,
-            },
+            pathParameters: {'orgSystemId': orgSystemId, 'id': branch.id},
           );
         }),
         if (branch.gstin.trim().isEmpty)
           buildItem('Associate GSTIN', () => _showAssociateGstinDialog(branch)),
         buildItem('Delete', () => _confirmDelete(branch)),
+        if (!branch.hasLinkedWarehouse)
+          buildItem('Enable warehouse', () => _openCreateWarehouse(branch)),
         buildItem(
           branch.isBinLocationsEnabled
               ? 'Disable bin locations'
@@ -1540,9 +1585,9 @@ class _SettingsBranchesListPageState
                     padding: const EdgeInsets.fromLTRB(20, 16, 18, 16),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            'Enable Bin Locations',
+                          Expanded(
+                            child: Text(
+                              'Enable Bin Locations',
                             style: AppTheme.pageTitle.copyWith(fontSize: 16),
                           ),
                         ),
@@ -1585,6 +1630,18 @@ class _SettingsBranchesListPageState
                           ),
                         ),
                         const SizedBox(height: 14),
+                        if (!branch.hasLinkedWarehouse) ...[
+                          const Text(
+                            'This branch does not have a linked warehouse yet. Create and link a warehouse before enabling bin locations.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.55,
+                              color: AppTheme.errorRed,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         const Text(
                           'Bin locations are the smallest unit of space inside a warehouse where goods are stored. Bin location simplifies the process of finding where an item is stored in your warehouse.',
                           style: TextStyle(
@@ -1601,33 +1658,50 @@ class _SettingsBranchesListPageState
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
                     child: Row(
                       children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            Navigator.of(dialogContext).pop();
-                            if (!mounted) return;
-                            await BinLocationsService.instance
-                                .ensureDefaultZones(
-                                  orgId: _currentOrgId,
-                                  branchId: branch.id,
-                                  branchName: branch.name,
-                                );
-                            if (!mounted) return;
-                            final orgSystemId =
-                                GoRouterState.of(
+                          ElevatedButton(
+                            onPressed: () async {
+                              if (!branch.hasLinkedWarehouse) {
+                                Navigator.of(dialogContext).pop();
+                                if (!mounted) return;
+                                ZerpaiToast.error(
                                   context,
-                                ).pathParameters['orgSystemId'] ??
-                                '';
-                            context.goNamed(
-                              AppRoutes.settingsZones,
-                              pathParameters: {'orgSystemId': orgSystemId},
-                              queryParameters: {
-                                'branchId': branch.id,
-                                'branchName': branch.name,
-                              },
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: accentColor,
+                                  'No warehouse linked to branch "${branch.name}". Create/link a warehouse for this branch before managing zones.',
+                                );
+                                return;
+                              }
+                              Navigator.of(dialogContext).pop();
+                              if (!mounted) return;
+                              try {
+                                await BinLocationsService.instance
+                                    .ensureDefaultZones(
+                                      orgId: _currentOrgId,
+                                      branchId: branch.id,
+                                      branchName: branch.name,
+                                    );
+                                if (!mounted) return;
+                                final orgSystemId =
+                                    GoRouterState.of(
+                                      context,
+                                    ).pathParameters['orgSystemId'] ??
+                                    '';
+                                context.goNamed(
+                                  AppRoutes.settingsZones,
+                                  pathParameters: {'orgSystemId': orgSystemId},
+                                  queryParameters: {
+                                    'branchId': branch.id,
+                                    'branchName': branch.name,
+                                  },
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                ZerpaiToast.error(
+                                  context,
+                                  e.toString().replaceFirst('Exception: ', ''),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(
@@ -1742,10 +1816,11 @@ class _SettingsBranchesListPageState
                           onPressed: () async {
                             Navigator.of(dialogContext).pop();
                             try {
-                              await BinLocationsService.instance.disableBinLocations(
-                                orgId: _currentOrgId,
-                                branchId: branch.id,
-                              );
+                              await BinLocationsService.instance
+                                  .disableBinLocations(
+                                    orgId: _currentOrgId,
+                                    branchId: branch.id,
+                                  );
                               if (!mounted) return;
                               ZerpaiToast.success(
                                 context,
@@ -1850,6 +1925,16 @@ class _SettingsBranchesListPageState
           ],
         ),
       ),
+    );
+  }
+
+  void _openCreateWarehouse(_BranchRow branch) {
+    final orgSystemId =
+        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+    context.goNamed(
+      AppRoutes.settingsWarehouseCreate,
+      pathParameters: {'orgSystemId': orgSystemId},
+      queryParameters: {'branchId': branch.id, 'branchName': branch.name},
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/modules/auth/widgets/permission_wrapper.dart';
 import 'package:zerpai_erp/modules/settings/shared/settings_users_roles_support.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
@@ -37,6 +38,17 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
   String get _orgSystemId =>
       GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
 
+  bool get _isBranchScopedUser {
+    final user = ref.read(authUserProvider);
+    if (user == null) return false;
+    final role = user.role.trim().toLowerCase();
+    final activeTenantType = (user.activeTenantType ?? '').trim().toUpperCase();
+    return role == 'branch_admin' ||
+        role == 'data_entry' ||
+        activeTenantType == 'BRANCH' ||
+        user.accessibleBranchIds.isNotEmpty;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -55,21 +67,30 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
     setState(() => _loading = true);
     try {
       final responses = await Future.wait([
-        _apiClient.get('users', queryParameters: {'org_id': currentSettingsOrgId(ref)}),
         _apiClient.get(
-          'users/roles/catalog',
+          'users',
           queryParameters: {'org_id': currentSettingsOrgId(ref)},
         ),
+        if (!_isBranchScopedUser)
+          _apiClient.get(
+            'users/roles/catalog',
+            queryParameters: {'org_id': currentSettingsOrgId(ref)},
+          ),
       ]);
       final users =
           (responses[0].data as List)
               .map((e) => SettingsUserRecord.fromJson(e))
               .toList();
-      final roles =
-          (responses[1].data as List<dynamic>? ?? const [])
-              .whereType<Map>()
-              .map((e) => SettingsRoleRecord.fromJson(Map<String, dynamic>.from(e)))
-              .toList();
+      final roles = _isBranchScopedUser
+          ? const <SettingsRoleRecord>[]
+          : (responses[1].data as List<dynamic>? ?? const [])
+                .whereType<Map>()
+                .map(
+                  (e) => SettingsRoleRecord.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList();
       final pending = <String, String?>{
         for (final user in users) user.id: user.role,
       };
@@ -201,26 +222,29 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
           Row(
             children: [
               Text('Users', style: AppTheme.pageTitle),
-              const SizedBox(width: 16),
-              _buildViewToggle(),
+              if (!_isBranchScopedUser) ...[
+                const SizedBox(width: 16),
+                _buildViewToggle(),
+              ],
               const Spacer(),
-              ZButton.primary(
-                label: 'Invite User',
-                icon: LucideIcons.plus,
-                onPressed: () => context.goNamed(
-                  AppRoutes.settingsUserInvite,
-                  pathParameters: {'orgSystemId': _orgSystemId},
+              if (!_isBranchScopedUser)
+                ZButton.primary(
+                  label: 'Invite User',
+                  icon: LucideIcons.plus,
+                  onPressed: () => context.goNamed(
+                    AppRoutes.settingsUserInvite,
+                    pathParameters: {'orgSystemId': _orgSystemId},
+                  ),
+                ).withModulePermission(
+                  'settings.users.create',
+                  action: 'create',
+                  hideInsteadOfDisable: true,
                 ),
-              ).withModulePermission(
-                'settings.users.view',
-                action: 'view',
-                hideInsteadOfDisable: true,
-              ),
             ],
           ),
           const SizedBox(height: 24),
           Expanded(
-            child: _activeUserView == 'users'
+            child: _isBranchScopedUser || _activeUserView == 'users'
                 ? _buildUsersTable()
                 : _buildRbacTable(),
           ),
@@ -285,18 +309,20 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
             children: [
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: ZButton.primary(
-                  label: 'Invite User',
-                  icon: LucideIcons.plus,
-                  onPressed: () => context.goNamed(
-                    AppRoutes.settingsUserInvite,
-                    pathParameters: {'orgSystemId': _orgSystemId},
-                  ),
-                ).withModulePermission(
-                  'settings.users.view',
-                  action: 'view',
-                  hideInsteadOfDisable: true,
-                ),
+                child: _isBranchScopedUser
+                    ? const SizedBox.shrink()
+                    : ZButton.primary(
+                        label: 'Invite User',
+                        icon: LucideIcons.plus,
+                        onPressed: () => context.goNamed(
+                          AppRoutes.settingsUserInvite,
+                          pathParameters: {'orgSystemId': _orgSystemId},
+                        ),
+                      ).withModulePermission(
+                        'settings.users.create',
+                        action: 'create',
+                        hideInsteadOfDisable: true,
+                      ),
               ),
               Expanded(child: _buildDenseUserList()),
             ],
@@ -522,8 +548,8 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
                   pathParameters: {'orgSystemId': _orgSystemId, 'id': user.id},
                 ),
               ).withModulePermission(
-                'settings.users.view',
-                action: 'view',
+                'settings.users.edit',
+                action: 'edit',
                 hideInsteadOfDisable: true,
               ),
             ],

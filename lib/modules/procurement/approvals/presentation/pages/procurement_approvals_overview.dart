@@ -1288,25 +1288,7 @@ class _DetailHeader extends StatelessWidget {
               ),
               child: const Text('Mark As Processed'),
             )
-          else ...[
-            if (!isRejected) ...[
-              OutlinedButton(
-                onPressed: () => showDialog(
-                  context: context,
-                  barrierColor: Colors.black.withValues(alpha: 0.45),
-                  builder: (_) => _RejectDialog(onConfirm: onConfirmReject),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.errorRed,
-                  side: const BorderSide(color: AppTheme.errorRed),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                ),
-                child: const Text('Reject'),
-              ),
-              const SizedBox(width: 8),
-            ],
+          else
             ElevatedButton(
               onPressed: () => showDialog(
                 context: context,
@@ -1325,9 +1307,8 @@ class _DetailHeader extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6)),
               ),
-              child: const Text('Approve'),
+              child: Text(isRejected ? 'Approve' : 'Approval'),
             ),
-          ],
           const SizedBox(width: 8),
           _MoreMenuButton(
             isOnHold: isOnHold,

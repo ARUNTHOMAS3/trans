@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -428,7 +429,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final organizationName = user?.orgName.trim().isNotEmpty == true
         ? user!.orgName
         : 'Your Organization';
-    final filteredSections = _filteredSections();
+    final visibleSections = _visibleSections(user);
+    final filteredSections = _filteredSections(visibleSections);
 
     return ZerpaiLayout(
       pageTitle: '',
@@ -764,12 +766,55 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  List<_SettingsSection> _filteredSections() {
-    if (_query.isEmpty) {
+  List<_SettingsSection> _visibleSections(User? user) {
+    final isBranchScopedUser = _isBranchScopedSettingsUser(user);
+    if (!isBranchScopedUser) {
       return _sections;
     }
 
     return _sections
+        .map((section) {
+          final columns = section.columns
+              .map((column) {
+                final blocks = column.blocks
+                    .map((block) {
+                      final items = block.title == 'Organization'
+                          ? block.items
+                              .where((entry) => entry.label != 'Branches')
+                              .toList()
+                          : block.title == 'Users & Roles'
+                          ? block.items
+                              .where((entry) => entry.label != 'Roles')
+                              .toList()
+                          : block.items;
+                      if (items.isEmpty) return null;
+                      return _SettingsBlock(
+                        title: block.title,
+                        icon: block.icon,
+                        accent: block.accent,
+                        items: items,
+                      );
+                    })
+                    .whereType<_SettingsBlock>()
+                    .toList();
+                if (blocks.isEmpty) return null;
+                return _SettingsColumn(blocks: blocks);
+              })
+              .whereType<_SettingsColumn>()
+              .toList();
+          if (columns.isEmpty) return null;
+          return _SettingsSection(title: section.title, columns: columns);
+        })
+        .whereType<_SettingsSection>()
+        .toList();
+  }
+
+  List<_SettingsSection> _filteredSections(List<_SettingsSection> source) {
+    if (_query.isEmpty) {
+      return source;
+    }
+
+    return source
         .map((section) {
           final columns = section.columns
               .map((column) {
@@ -818,17 +863,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _openEntry(_SettingsEntry entry) {
-    if (entry.route == null) {
+    final user = ref.read(authUserProvider);
+    final resolvedRoute = entry.label == 'Profile'
+        ? (_resolveBranchProfileRoute(user) ?? entry.route)
+        : entry.route;
+    if (resolvedRoute == null) {
       ZerpaiToast.info(context, '${entry.label} is not available yet');
       return;
     }
-    context.go(entry.route!);
+    context.go(resolvedRoute);
   }
 
   List<SettingsSearchItem> _buildSearchItems() {
+    final sections = _visibleSections(ref.read(authUserProvider));
     final List<SettingsSearchItem> items = <SettingsSearchItem>[];
 
-    for (final section in _sections) {
+    for (final section in sections) {
       for (final column in section.columns) {
         for (final block in column.blocks) {
           for (final entry in block.items) {
@@ -860,6 +910,30 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         entry.route == AppRoutes.settingsOrgProfile ||
         entry.route!.startsWith('${AppRoutes.settings}/');
   }
+}
+
+bool _isBranchScopedSettingsUser(User? user) {
+  if (user == null) return false;
+  final role = user.role.trim().toLowerCase();
+  final activeTenantType = (user.activeTenantType ?? '').trim().toUpperCase();
+  return role == 'branch_admin' ||
+      role == 'data_entry' ||
+      activeTenantType == 'BRANCH' ||
+      user.accessibleBranchIds.isNotEmpty;
+}
+
+String? _resolveBranchProfileRoute(User? user) {
+  if (!_isBranchScopedSettingsUser(user)) return null;
+  final branchId = ((user?.activeTenantType ?? '').trim().toUpperCase() ==
+              'BRANCH'
+          ? user?.activeTenantId?.trim()
+          : null) ??
+      user?.defaultBusinessBranchId?.trim() ??
+      ((user?.accessibleBranchIds.isNotEmpty ?? false)
+          ? user!.accessibleBranchIds.first.trim()
+          : '');
+  if (branchId.isEmpty) return null;
+  return '/settings/branches/$branchId/profile';
 }
 
 class _SettingsSection {

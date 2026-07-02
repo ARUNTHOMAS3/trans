@@ -134,8 +134,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                   Expanded(
                     child: _KpiCard(
                       title: 'Sales Invoices',
-                      value:
-                          '${state.salesInvoicesCount} • ${currencyFormat.format(state.salesInvoicesAmount)}',
+                      value: currencyFormat.format(state.salesInvoicesAmount),
                       icon: LucideIcons.fileText,
                       color: AppTheme.primaryBlueDark,
                       isLoading: state.isLoading,

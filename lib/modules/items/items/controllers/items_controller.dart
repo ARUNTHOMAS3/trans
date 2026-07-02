@@ -838,9 +838,10 @@ class ItemsController extends StateNotifier<ItemsState> {
       errors['productName'] = 'Product name is required';
     }
 
-    // 3. Item Code (required in backend)
-    if (item.itemCode.trim().isEmpty) {
-      errors['itemCode'] = 'Item code/SKU is required';
+    // 3. SKU (required for goods only)
+    final sku = item.sku?.trim() ?? '';
+    if (item.type.trim().toLowerCase() != 'service' && sku.isEmpty) {
+      errors['sku'] = 'SKU is required';
     }
 
     // 4. Unit ID (required for goods only)
@@ -884,15 +885,18 @@ class ItemsController extends StateNotifier<ItemsState> {
         return false;
       }
 
-      // Check for duplicate item code locally first
-      final codeExists = state.items.any(
-        (i) => i.itemCode.toLowerCase() == item.itemCode.toLowerCase(),
-      );
-      if (codeExists) {
-        state = state.copyWith(
-          validationErrors: {'itemCode': 'This item code is already in use.'},
+      // Check for duplicate item code locally first when provided
+      final normalizedItemCode = item.itemCode.trim().toLowerCase();
+      if (normalizedItemCode.isNotEmpty) {
+        final codeExists = state.items.any(
+          (i) => i.itemCode.trim().toLowerCase() == normalizedItemCode,
         );
-        return false;
+        if (codeExists) {
+          state = state.copyWith(
+            validationErrors: {'itemCode': 'This item code is already in use.'},
+          );
+          return false;
+        }
       }
 
       // Check for duplicate SKU locally
@@ -1006,18 +1010,21 @@ class ItemsController extends StateNotifier<ItemsState> {
       }
 
       // Check for duplicate item code locally (excluding current item)
-      final codeExists = state.items.any(
-        (i) =>
-            i.id != item.id &&
-            i.itemCode.toLowerCase() == item.itemCode.toLowerCase(),
-      );
-      if (codeExists) {
-        state = state.copyWith(
-          validationErrors: {
-            'itemCode': 'This item code is already in use by another item.',
-          },
+      final normalizedItemCode = item.itemCode.trim().toLowerCase();
+      if (normalizedItemCode.isNotEmpty) {
+        final codeExists = state.items.any(
+          (i) =>
+              i.id != item.id &&
+              i.itemCode.trim().toLowerCase() == normalizedItemCode,
         );
-        return false;
+        if (codeExists) {
+          state = state.copyWith(
+            validationErrors: {
+              'itemCode': 'This item code is already in use by another item.',
+            },
+          );
+          return false;
+        }
       }
 
       // Check for duplicate SKU locally

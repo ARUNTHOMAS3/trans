@@ -9,6 +9,7 @@ import { createBullBoard } from "@bull-board/api";
 import { ExpressAdapter } from "@bull-board/express";
 import { AppModule } from "./app.module";
 import * as dotenv from "dotenv";
+import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { StandardResponseInterceptor } from "./common/interceptors/standard_response.interceptor";
 import { GlobalExceptionFilter } from "./common/filters/global_exception.filter";
 import { BullBoardService } from "./modules/redis/bull_board.service";
@@ -121,7 +122,10 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalInterceptors(new StandardResponseInterceptor());
+  app.useGlobalInterceptors(
+    app.get(AuditInterceptor),
+    new StandardResponseInterceptor(),
+  );
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   if (process.env.ENABLE_BULL_BOARD !== "false") {

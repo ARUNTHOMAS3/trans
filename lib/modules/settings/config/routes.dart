@@ -53,7 +53,9 @@ List<GoRoute> buildSettingsRoutes({
         }
         return null;
       },
-      builder: (context, state) => const SettingsOrganizationProfilePage(),
+      pageBuilder: (context, state) => const NoTransitionPage(
+        child: SettingsOrganizationProfilePage(),
+      ),
     ),
     GoRoute(
       path: 'settings/orgbranding',

@@ -45,7 +45,8 @@ graph LR
     - `lib/core/`: Infrastructure (routing, theme).
     - `lib/shared/`: Reusable components/services.
     - `lib/modules/`: Feature-specific code.
-    - **Naming:** `module_submodule_page.dart`.
+    - **UI ownership:** `presentation/` owns module UI; many route screens live under `presentation/pages/`.
+    - **Naming:** `snake_case`; `presentation/*.dart` export shims are valid where used.
 - **Backend (NestJS):** 
     - `src/modules/`: Feature modules.
     - `src/common/`: Decorators, interceptors, filters.

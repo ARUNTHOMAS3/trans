@@ -7,6 +7,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/auth/capability_service.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 class SettingsNavigationEntry {
@@ -168,6 +169,30 @@ String normalizeSettingsSidebarPath(String path) {
   return path.replaceFirst(RegExp(r'^/\d{10,20}'), '');
 }
 
+bool _isBranchScopedSettingsUser(User? user) {
+  if (user == null) return false;
+  final role = user.role.trim().toLowerCase();
+  final activeTenantType = (user.activeTenantType ?? '').trim().toUpperCase();
+  return role == 'branch_admin' ||
+      role == 'data_entry' ||
+      activeTenantType == 'BRANCH' ||
+      user.accessibleBranchIds.isNotEmpty;
+}
+
+String? _resolveBranchProfileRoute(User? user) {
+  if (!_isBranchScopedSettingsUser(user)) return null;
+  final branchId = ((user?.activeTenantType ?? '').trim().toUpperCase() ==
+              'BRANCH'
+          ? user?.activeTenantId?.trim()
+          : null) ??
+      user?.defaultBusinessBranchId?.trim() ??
+      ((user?.accessibleBranchIds.isNotEmpty ?? false)
+          ? user!.accessibleBranchIds.first.trim()
+          : '');
+  if (branchId.isEmpty) return null;
+  return '/settings/branches/$branchId/profile';
+}
+
 class SettingsNavigationSidebar extends ConsumerStatefulWidget {
   const SettingsNavigationSidebar({
     super.key,
@@ -199,9 +224,14 @@ class _SettingsNavigationSidebarState
   }
 
   bool _isEntryActive(SettingsNavigationEntry entry) {
+    final currentPath = normalizeSettingsSidebarPath(widget.currentPath);
+    if (entry.label == 'Profile' &&
+        currentPath.startsWith('/settings/branches/') &&
+        currentPath.endsWith('/profile')) {
+      return true;
+    }
     final route = entry.route;
     if (route == null) return false;
-    final currentPath = normalizeSettingsSidebarPath(widget.currentPath);
     return currentPath == route || currentPath.startsWith('$route/');
   }
 
@@ -321,14 +351,18 @@ class _SettingsNavigationSidebarState
 
   Widget _buildSidebarEntry(SettingsNavigationEntry entry, Color accentColor) {
     final bool isActive = _isEntryActive(entry);
+    final user = ref.read(authUserProvider);
 
     return InkWell(
       onTap: () {
-        if (entry.route == null) {
+        final resolvedRoute = entry.label == 'Profile'
+            ? (_resolveBranchProfileRoute(user) ?? entry.route)
+            : entry.route;
+        if (resolvedRoute == null) {
           ZerpaiToast.info(context, '${entry.label} is not available yet');
           return;
         }
-        context.go(entry.route!);
+        context.go(resolvedRoute);
       },
       borderRadius: BorderRadius.circular(10),
       child: Container(
@@ -357,11 +391,19 @@ class _SettingsNavigationSidebarState
   List<SettingsNavigationSection> _visibleSections({
     required bool canAccessRoles,
   }) {
+    final user = ref.read(authUserProvider);
+    final isBranchScopedUser = _isBranchScopedSettingsUser(user);
     final List<SettingsNavigationSection> sections = [];
     for (final section in kSettingsNavigationSections) {
       final List<SettingsNavigationBlock> blocks = [];
       for (final block in section.blocks) {
         var items = block.items;
+        if (block.title == 'Organization' && isBranchScopedUser) {
+          items = items.where((entry) => entry.label != 'Branches').toList();
+        }
+        if (block.title == 'Users & Roles' && isBranchScopedUser) {
+          items = items.where((entry) => entry.label != 'Roles').toList();
+        }
         if (block.title == 'Users & Roles' && !canAccessRoles) {
           items = items.where((entry) => entry.label != 'Roles').toList();
         }

@@ -59,7 +59,7 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
         ),
 
         _buildFormRow(
-          label: 'Display Name',
+          label: 'Display Name*',
           isRequired: true,
           showInfo: true,
           tooltip: 'Name that will appear on purchase orders and bills.',

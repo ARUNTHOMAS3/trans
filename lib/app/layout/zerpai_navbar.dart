@@ -44,6 +44,30 @@ class _LocationOption {
   });
 }
 
+bool _isBranchScopedSettingsUser(User? user) {
+  if (user == null) return false;
+  final role = user.role.trim().toLowerCase();
+  final activeTenantType = (user.activeTenantType ?? '').trim().toUpperCase();
+  return role == 'branch_admin' ||
+      role == 'data_entry' ||
+      activeTenantType == 'BRANCH' ||
+      user.accessibleBranchIds.isNotEmpty;
+}
+
+String? _resolveBranchProfileRoute(User? user) {
+  if (!_isBranchScopedSettingsUser(user)) return null;
+  final branchId = ((user?.activeTenantType ?? '').trim().toUpperCase() ==
+              'BRANCH'
+          ? user?.activeTenantId?.trim()
+          : null) ??
+      user?.defaultBusinessBranchId?.trim() ??
+      ((user?.accessibleBranchIds.isNotEmpty ?? false)
+          ? user!.accessibleBranchIds.first.trim()
+          : '');
+  if (branchId.isEmpty) return null;
+  return '/settings/branches/$branchId/profile';
+}
+
 class ZerpaiNavbar extends ConsumerStatefulWidget {
   static final FocusNode globalSearchFocusNode = FocusNode(
     debugLabel: 'zerpai-navbar-search',
@@ -623,8 +647,25 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: Row(
-        children: [
+      child: LayoutBuilder(
+        builder: (context, navbarConstraints) {
+          final navbarWidth = navbarConstraints.maxWidth;
+          final isCompactNavbar = navbarWidth < 900;
+          final isVeryCompactNavbar = navbarWidth < 640;
+          final isUltraCompactNavbar = navbarWidth < 520;
+          final searchMaxWidth = isUltraCompactNavbar
+              ? 140.0
+              : isVeryCompactNavbar
+              ? 180.0
+              : isCompactNavbar
+              ? 220.0
+              : 280.0;
+          final searchMinWidth = isUltraCompactNavbar ? 44.0 : 120.0;
+          final sectionGap = isUltraCompactNavbar ? 8.0 : 16.0;
+          final iconGap = isCompactNavbar ? 8.0 : 12.0;
+
+          return Row(
+            children: [
           if (!isSettingsRoute && !hideSearch) ...[
             MenuAnchor(
               builder: (context, controller, child) {
@@ -707,7 +748,10 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
             Expanded(
               child: Container(
                 height: 36,
-                constraints: const BoxConstraints(maxWidth: 280, minWidth: 120),
+                constraints: BoxConstraints(
+                  maxWidth: searchMaxWidth,
+                  minWidth: searchMinWidth,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.bgLight,
                   borderRadius: BorderRadius.circular(4),
@@ -942,14 +986,15 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
             ),
           ],
 
-          const Spacer(),
+          if (!isUltraCompactNavbar) const Spacer(),
+          if (isUltraCompactNavbar) const SizedBox(width: 8),
 
           // Right Actions Section - Fixed Layout
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               // PWA Install Button
-              if (_canInstall)
+              if (_canInstall && !isCompactNavbar)
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: TextButton.icon(
@@ -968,32 +1013,40 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
                 ),
 
               // Upgrade Button
-              TextButton(
-                onPressed: () {},
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+              if (!isCompactNavbar)
+                TextButton(
+                  onPressed: () {},
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  child: const Text(
+                    'Upgrade',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
                 ),
-                child: const Text(
-                  'Upgrade',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ),
 
-              Container(
-                width: 1,
-                height: 24,
-                color: Colors.grey.shade300,
-                margin: const EdgeInsets.symmetric(horizontal: 12),
-              ),
+              if (!isCompactNavbar)
+                Container(
+                  width: 1,
+                  height: 24,
+                  color: Colors.grey.shade300,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                ),
 
               // Org Switcher - Fixed width to prevent overflow
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 160),
+                constraints: BoxConstraints(
+                  maxWidth: isUltraCompactNavbar
+                      ? 112
+                      : isVeryCompactNavbar
+                      ? 128
+                      : 160,
+                ),
                 child: FormDropdown<String>(
                   height: 32,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1030,7 +1083,7 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
             ],
           ),
 
-          const SizedBox(width: 16),
+          SizedBox(width: sectionGap),
 
           // Quick Add Button (Green Plus)
           MenuAnchor(
@@ -1133,11 +1186,13 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
             ),
           ),
 
-          const SizedBox(width: 16),
+          SizedBox(width: sectionGap),
 
           // User/Team Icon
-          const Icon(Icons.people_outline, color: Colors.black54, size: 22),
-          const SizedBox(width: 12),
+          if (!isVeryCompactNavbar) ...[
+            const Icon(Icons.people_outline, color: Colors.black54, size: 22),
+            SizedBox(width: iconGap),
+          ],
 
           // Notification
           Stack(
@@ -1169,7 +1224,7 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
               ),
             ],
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: iconGap),
 
           // Settings
           InkWell(
@@ -1191,7 +1246,7 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: iconGap),
 
           // Account Menu
           Builder(
@@ -1378,7 +1433,10 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
                               TextButton(
                                 onPressed: () {
                                   MenuController.maybeOf(context)?.close();
-                                  context.go(AppRoutes.settingsOrgProfile);
+                                  context.go(
+                                    _resolveBranchProfileRoute(currentUser) ??
+                                        AppRoutes.settingsOrgProfile,
+                                  );
                                 },
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
@@ -1423,11 +1481,13 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
               );
             },
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: iconGap),
 
           // App Grid
           const Icon(Icons.apps, color: Colors.black54, size: 22),
         ],
+          );
+        },
       ),
     );
   }

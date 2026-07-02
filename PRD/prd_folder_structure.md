@@ -135,35 +135,49 @@ The current **feature code roots** under `lib/modules/` are:
 
 ```
 lib/modules/
+├── accountant/
+├── accounts/
+├── auditlogs/
+├── auth/
+├── documents/
 ├── home/
 ├── items/
 ├── inventory/
-├── sales/
+├── pricelists/
 ├── purchases/
-├── accountant/
 ├── reports/
+├── sales/
+└── settings/
 ```
 
 Notes:
 
-- `Accounts` is a separate sidebar destination, but it is currently implemented inside the `accountant` code root.
-- `Documents` and `Audit Logs` are sidebar destinations and routes, but they do not yet have dedicated top-level module roots under `lib/modules/`.
+- Sidebar destinations and code roots are not always 1:1 in naming:
+  - `Price Lists` → `lib/modules/pricelists/`
+  - `Audit Logs` → `lib/modules/auditlogs/`
+- `Accounts` has its own `lib/modules/accounts/` root.
+- `Auth`, `Documents`, and `Settings` also exist as dedicated code roots.
 
 #### Rule 2: Sub-Modules
 
-Sub-modules are created as **nested folders** under their parent module:
+Sub-modules are created as **nested folders** under their parent module root:
 
 **Example 1: Items Module**
 
 ```
+lib/modules/items/
+├── items/            # "Items" sub-module
+├── composite_items/  # "Composite Items" sub-module
+├── item_groups/      # "Item Groups" sub-module
+└── item_mapping/     # "Item Mapping" sub-module
+```
 
-lib/modules/
-├── items/ # "Items" sub-module
-├── composite_items/ # "Composite Items" sub-module
-├── item_groups/ # "Item Groups" sub-module
-├── pricelist/ # "Price Lists" sub-module
-└── mapping/ # "Item Mapping" sub-module when implemented under the Items module
+**Example 1b: Price Lists Module**
 
+```
+lib/modules/pricelists/
+├── pricelist/
+└── branch_pricelist/
 ```
 
 **Example 2: Sales Module**
@@ -206,9 +220,10 @@ lib/modules/purchases/
 lib/modules/accountant/
 ├── manual_journals/
 ├── recurring_journals/
-├── presentation/ # bulk update, transaction locking, opening balances, chart of accounts
-├── providers/
-└── repositories/
+└── ...
+
+lib/modules/accounts/
+└── chart_of_accounts/
 
 ```
 
@@ -231,25 +246,28 @@ All files MUST follow the exact pattern:
 
 **Detailed Examples:**
 
-- `pricelist_add.dart` (Price Lists → Create)
-- `pricelist_overview.dart` (Price Lists → Overview)
-- `pricelist_edit.dart` (Price Lists → Edit)
+- `items_pricelist_pricelist_create.dart` (Price Lists → Create)
+- `items_pricelist_pricelist_overview.dart` (Price Lists → Overview)
+- `branch_pricelist_create_page.dart` (Branch Price Lists → Create)
 - `sales_customers_customer_creation.dart` (Sales → Customers → Create)
 - `sales_customers_customer_overview.dart` (Sales → Customers → Overview)
 
 #### Rule 4: Standalone Modules
 
-Modules without dedicated nested sub-modules (Home, Reports) follow the standard module structure:
+Modules without dedicated nested sub-modules may keep screens directly under
+`presentation/` when small, while larger features may split into
+`presentation/pages/`, `presentation/widgets/`, `presentation/dialogs/`, and
+`presentation/sections/`.
 
 ```
 
 lib/modules/home/
-├── models/
-├── providers/
-├── controllers/
-├── repositories/
 └── presentation/
-└── home_dashboard_overview.dart
+    ├── home_dashboard_overview.dart
+    └── widgets/
+        ├── chart_placeholder.dart
+        ├── chart_widget.dart
+        └── metric_card.dart
 
 ```
 
@@ -541,27 +559,22 @@ zerpai_erp/
 
 ### 2.3 Module Internal Structure (Mandatory Pattern)
 
-**Every module MUST follow this standardized structure:**
+**Every module MUST follow this owner-based structure pattern:**
 
 ```
 lib/modules/<module_name>/
+├── config/              # module-owned route/config constants when needed
 ├── models/              # Data models (DTOs, entities)
-│   └── <module>_<submodule>_<entity>_model.dart
-│
-├── providers/           # Riverpod providers (state management)
-│   └── <module>_<submodule>_provider.dart
-│
-├── controllers/         # Business logic (if complex enough to separate)
-│   └── <module>_<submodule>_<entity>_controller.dart
-│
-├── repositories/        # Data access layer (API calls, Hive)
-│   ├── <module>_<submodule>_<entity>_repository.dart      # Abstract interface
-│   └── <module>_<submodule>_<entity>_repository_impl.dart # Implementation
-│
-└── presentation/        # UI layer
-    ├── <module>_<submodule>_<page>.dart
-    └── widgets/         # Module-specific widgets only
-        └── <module>_<submodule>_<widget>.dart
+├── providers/           # Riverpod providers when provider ownership fits
+├── controllers/         # Business/workflow state when controller ownership fits
+├── repositories/        # Data access layer (API/Hive/etc.)
+├── services/            # Module-owned service helpers
+└── presentation/        # UI owner folder
+    ├── <feature>.dart                 # optional export shim
+    ├── pages/                         # route-level pages/screens
+    ├── widgets/                       # module-specific widgets
+    ├── dialogs/                       # module-specific dialogs
+    └── sections/                      # large page sections/subsections
 ```
 
 **When to use `controllers/`:**
@@ -571,31 +584,29 @@ lib/modules/<module_name>/
 - ✅ State transformations beyond simple CRUD
 - ❌ Simple CRUD operations (keep in providers)
 
-**Example (Price Lists):**
+**Example (Items create flow):**
 
 ```
-lib/modules/
+lib/modules/items/items/
+├── config/
+├── controllers/
 ├── models/
-│   └── pricelist_model.dart
-├── providers/
-│   └── pricelist_provider.dart
-├── controllers/                         # Optional for simple modules
-│   └── pricelist_controller.dart
 ├── repositories/
-│   ├── pricelist_repository.dart         # Interface
-│   └── pricelist_repository_impl.dart    # Implementation
+├── services/
 └── presentation/
-    ├── pricelist_overview.dart
-    ├── pricelist_add.dart
+    ├── items_item_create.dart           # export shim
+    ├── pages/
+    │   └── items_item_create.dart
+    ├── dialogs/
+    ├── sections/
     └── widgets/
-        └── pricelist_card.dart
 ```
 
 ---
 
 ### 2.4 File Naming Rules (Strict)
 
-**Rule:** All files MUST use `snake_case` format: `module_submodule_page.dart`
+**Rule:** All files MUST use `snake_case`. Keep owner prefixes explicit.
 
 **Format:** `<module>_<submodule>_<page>.dart`
 
@@ -603,7 +614,7 @@ lib/modules/
 
 | ✅ Correct                                | ❌ Wrong                                              |
 | ----------------------------------------- | ----------------------------------------------------- |
-| `pricelist_add.dart` | `ItemsPriceListCreate.dart` (PascalCase)              |
+| `items_item_create.dart` | `ItemsPriceListCreate.dart` (PascalCase)              |
 | `sales_orders_order_creation.dart`        | `sales_order_create_screen.dart` (old suffix pattern) |
 | `items_items_item_card.dart`              | `ItemCard.dart` (PascalCase)                          |
 | `sales_orders_provider.dart`              | `sales-provider.dart` (kebab-case)                    |
@@ -633,7 +644,7 @@ lib/modules/
 START
 │
 ├─ Is it specific to ONE module? (e.g., SalesOrderCard)
-│  └─ YES → lib/modules/<module>/presentation/widgets/
+│  └─ YES → lib/modules/<module>/<submodule>/presentation/widgets/
 │  └─ NO → Continue
 │
 ├─ Is it app infrastructure or layout? (router, theme, sidebar, navbar, API client)
@@ -966,23 +977,27 @@ lib/modules/sales/presentation/
 lib/shared/widgets/inputs/
 └── dropdown_input.dart          # Generic, reusable
 
-lib/modules/sales/presentation/widgets/
+lib/modules/sales/sales_orders/presentation/widgets/
 └── sales_orders_order_card.dart        # Module-specific
 
 # Correct - organized structure
-lib/modules/sales/
+lib/modules/sales/sales_orders/
+├── controllers/
 ├── models/
 │   └── sales_orders_order_model.dart
-├── providers/
-│   └── sales_orders_provider.dart
+├── repositories/
+├── services/
 └── presentation/
-    └── sales_orders_order_creation.dart
+    ├── sales_order_create.dart
+    ├── pages/
+    │   └── sales_order_create.dart
+    └── widgets/
 
 # Correct - snake_case naming
-lib/modules/sales/presentation/
-├── sales_orders_order_creation.dart
-├── sales_orders_order_edit.dart
-└── sales_orders_order_detail.dart
+lib/modules/sales/sales_orders/presentation/pages/
+├── sales_order_create.dart
+├── sales_order_edit.dart
+└── sales_order_detail.dart
 ```
 
 ---
@@ -1007,7 +1022,7 @@ Get-ChildItem -Path lib -Recurse -Filter "*.dart" |
 - [ ] Move `app_router.dart` to `lib/core/routing/`
 - [ ] Move theme files to `lib/core/theme/`
 - [ ] Move API client to `lib/core/api/`
-- [ ] Organize module internals (models/, providers/, presentation/)
+- [ ] Organize module internals (owner folders + `presentation/pages` as needed)
 - [ ] Move reusable widgets to `lib/shared/widgets/`
 - [ ] Move cross-feature services to `lib/shared/services/`
 - [ ] Rename any PascalCase files to snake_case
@@ -1054,13 +1069,14 @@ Before approving any PR, verify:
 
 ```bash
 # 1. Create folder structure
-mkdir -p lib/modules/<module>/{models,providers,repositories,presentation/widgets}
+mkdir -p lib/modules/<module>/<submodule>/{models,repositories,presentation/pages,presentation/widgets}
 
 # 2. Create files with correct naming
 # models/<module>_<submodule>_<entity>_model.dart
-# providers/<module>_<submodule>_provider.dart
+# providers/<module>_<submodule>_provider.dart          # only if provider owner fits
+# controllers/<module>_<submodule>_controller.dart     # only if controller owner fits
 # repositories/<module>_<submodule>_<entity>_repository.dart
-# presentation/<module>_<submodule>_<page>.dart
+# presentation/pages/<module>_<submodule>_<page>.dart
 
 # 3. Create corresponding tests
 mkdir -p test/modules/<module>/{models,providers,presentation}

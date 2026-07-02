@@ -364,7 +364,7 @@ export class PurchaseReceivesService {
         *,
         items:purchase_receive_items(
           quantity_to_receive,
-          batches:purchase_receive_item_batches(quantity,foc_qty)
+          batches:purchase_receive_item_batches(quantity)
         )
       `,
         { count: "exact" },
@@ -423,26 +423,14 @@ export class PurchaseReceivesService {
 
     // 2. Fetch PO-based bills & receives for FIFO allocation
     if (poIds.length > 0 && poNumbers.length > 0) {
-      let query = this.supabaseService
+      const { data: billsData } = await this.supabaseService
         .getClient()
         .from("bills")
         .select("id, order_number, status, bill_items(product_id, quantity)")
         .eq("entity_id", tenant.entityId)
         .eq("is_delete", false)
-        .neq("status", "void");
-
-      const orConditions = poNumbers.map((poNum) => `order_number.ilike.%${poNum}%`).join(',');
-      if (orConditions) {
-        query = query.or(orConditions);
-      }
-      const { data: billsData } = await query;
-
-      const lowerPoNumbers = poNumbers.map((num) => num.trim().toLowerCase());
-      const filteredBills = (billsData || []).filter((bill) => {
-        if (!bill.order_number) return false;
-        const parts = bill.order_number.split(',').map((p: string) => p.trim().toLowerCase());
-        return parts.some((part) => lowerPoNumbers.includes(part));
-      });
+        .neq("status", "void")
+        .in("order_number", poNumbers);
 
       const { data: allReceivesData } = await this.supabaseService
         .getClient()
@@ -454,7 +442,7 @@ export class PurchaseReceivesService {
           items:purchase_receive_items(
             item_id,
             quantity_to_receive,
-            batches:purchase_receive_item_batches(quantity,foc_qty)
+            batches:purchase_receive_item_batches(quantity)
           )
         `)
         .eq("entity_id", tenant.entityId)
@@ -463,15 +451,12 @@ export class PurchaseReceivesService {
         .order("created_at", { ascending: true });
 
       const billsByPo = new Map<string, any[]>();
-      for (const bill of filteredBills) {
+      for (const bill of billsData || []) {
         const orderNum = bill.order_number;
         if (orderNum) {
-          const parts = orderNum.split(',').map((p: string) => p.trim()).filter(Boolean);
-          for (const part of parts) {
-            const list = billsByPo.get(part) ?? [];
-            list.push(bill);
-            billsByPo.set(part, list);
-          }
+          const list = billsByPo.get(orderNum) ?? [];
+          list.push(bill);
+          billsByPo.set(orderNum, list);
         }
       }
 
@@ -550,7 +535,7 @@ export class PurchaseReceivesService {
           let itemQty = 0;
           if (item.batches && item.batches.length > 0) {
             for (const batch of item.batches) {
-              itemQty += Number(batch.quantity || 0) + Number(batch.foc_qty || 0);
+              itemQty += Number(batch.quantity || 0);
             }
           } else {
             itemQty = Number(item.quantity_to_receive || 0);
@@ -633,7 +618,7 @@ export class PurchaseReceivesService {
           let itemQty = 0;
           if (item.batches && item.batches.length > 0) {
             for (const batch of item.batches) {
-              itemQty += Number(batch.quantity || 0) + Number(batch.foc_qty || 0);
+              itemQty += Number(batch.quantity || 0);
             }
           } else {
             itemQty = Number(item.quantity_to_receive || 0);
@@ -655,7 +640,7 @@ export class PurchaseReceivesService {
             items:purchase_receive_items(
               item_id,
               quantity_to_receive,
-              batches:purchase_receive_item_batches(quantity,foc_qty)
+              batches:purchase_receive_item_batches(quantity)
             )
           `)
           .eq("entity_id", tenant.entityId)
@@ -664,20 +649,14 @@ export class PurchaseReceivesService {
           .order("created_at", { ascending: true });
 
         // Fetch all bills for this PO
-        const { data: rawBillsData } = await this.supabaseService
+        const { data: billsData } = await this.supabaseService
           .getClient()
           .from("bills")
           .select("id, order_number, status, bill_items(product_id, quantity)")
           .eq("entity_id", tenant.entityId)
           .eq("is_delete", false)
           .neq("status", "void")
-          .ilike("order_number", `%${data.purchase_order_number}%`);
-
-        const billsData = (rawBillsData || []).filter((bill) => {
-          if (!bill.order_number) return false;
-          const parts = bill.order_number.split(',').map((p: string) => p.trim().toLowerCase());
-          return parts.includes(data.purchase_order_number.trim().toLowerCase());
-        });
+          .eq("order_number", data.purchase_order_number);
 
         // Sum billed quantities by product_id
         const billedQuantities: Record<string, number> = {};

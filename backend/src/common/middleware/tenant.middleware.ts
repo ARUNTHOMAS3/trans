@@ -46,6 +46,7 @@ export class TenantMiddleware implements NestMiddleware {
   ]);
 
   private static readonly moduleAliases: Record<string, string[]> = {
+    users: ["users_roles"],
     shipments: ["sales_shipments"],
     sales_shipments: ["shipments"],
     ewaybill_perms: ["ewaybill_settings"],
@@ -63,7 +64,7 @@ export class TenantMiddleware implements NestMiddleware {
     { prefix: "/api/v1/reports", moduleKey: "reports" },
 
     { prefix: "/api/v1/users/roles", moduleKey: "users_roles" },
-    { prefix: "/api/v1/users", moduleKey: "users_roles" },
+    { prefix: "/api/v1/users", moduleKey: "users" },
 
     { prefix: "/api/v1/branches", moduleKey: "branches" },
     { prefix: "/api/v1/outlets", moduleKey: "branches" },
@@ -171,8 +172,6 @@ export class TenantMiddleware implements NestMiddleware {
     const keys = [
       "branch_id",
       "branchId",
-      "warehouse_id",
-      "warehouseId",
       "location_id",
       "locationId",
     ];
@@ -188,6 +187,41 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     return Array.from(values);
+  }
+
+  private readRequestedWarehouseIds(req: Request): string[] {
+    const keys = ["warehouse_id", "warehouseId"];
+    const values = new Set<string>();
+
+    for (const key of keys) {
+      const candidates = [req.query[key], req.body?.[key], req.headers[key]];
+      for (const value of candidates) {
+        const normalized = value?.toString().trim();
+        if (normalized) values.add(normalized);
+      }
+    }
+
+    return Array.from(values);
+  }
+
+  private async resolveWarehouseBranchIds(warehouseIds: string[]) {
+    if (warehouseIds.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("warehouses")
+      .select("id, source_branch_id")
+      .in("id", warehouseIds);
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      return [];
+    }
+
+    return data
+      .map((row: any) => row?.source_branch_id?.toString().trim() ?? "")
+      .filter((value: string) => value.length > 0);
   }
 
   private readSelectedTenantId(req: Request): string | null {
@@ -214,6 +248,13 @@ export class TenantMiddleware implements NestMiddleware {
 
     const requestedOrgId = this.readRequestedOrgId(req);
     const requestedBranchIds = this.readRequestedBranchIds(req);
+    const requestedWarehouseIds = this.readRequestedWarehouseIds(req);
+    const warehouseBranchIds = await this.resolveWarehouseBranchIds(
+      requestedWarehouseIds,
+    );
+    const scopedBranchIds = Array.from(
+      new Set([...requestedBranchIds, ...warehouseBranchIds]),
+    );
     const requestedEntityId = this.readRequestedEntityId(req);
     const selectedTenantId = this.readSelectedTenantId(req);
     const selectedTenantType = this.readSelectedTenantType(req);
@@ -229,8 +270,8 @@ export class TenantMiddleware implements NestMiddleware {
     if (
       context.role !== "admin" &&
       context.accessibleBranchIds.length > 0 &&
-      requestedBranchIds.length > 0 &&
-      requestedBranchIds.some(
+      scopedBranchIds.length > 0 &&
+      scopedBranchIds.some(
         (branchId) => !context.accessibleBranchIds.includes(branchId),
       )
     ) {

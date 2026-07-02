@@ -14,6 +14,21 @@ import { AuthService } from "./auth.service";
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private toErrorResponse(
+    error: any,
+    fallbackStatus: HttpStatus = HttpStatus.BAD_REQUEST,
+  ) {
+    const statusCode =
+      typeof error?.getStatus === "function"
+        ? error.getStatus()
+        : fallbackStatus;
+
+    return {
+      statusCode,
+      message: error?.message ?? "Unexpected auth error",
+    };
+  }
+
   @Post("login")
   async login(@Body() body: any) {
     const email = body?.email?.toString().trim().toLowerCase();
@@ -29,10 +44,7 @@ export class AuthController {
     try {
       return await this.authService.login(email, password);
     } catch (error: any) {
-      return {
-        statusCode: HttpStatus.UNAUTHORIZED,
-        message: error.message,
-      };
+      return this.toErrorResponse(error, HttpStatus.UNAUTHORIZED);
     }
   }
 
@@ -50,10 +62,7 @@ export class AuthController {
     try {
       return await this.authService.refreshToken(refreshToken);
     } catch (error: any) {
-      return {
-        statusCode: HttpStatus.UNAUTHORIZED,
-        message: error.message,
-      };
+      return this.toErrorResponse(error, HttpStatus.UNAUTHORIZED);
     }
   }
 
@@ -70,10 +79,7 @@ export class AuthController {
     try {
       return await this.authService.logout(accessToken, refreshToken);
     } catch (error: any) {
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: error.message,
-      };
+      return this.toErrorResponse(error, HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -92,10 +98,7 @@ export class AuthController {
     try {
       return await this.authService.requestPasswordReset(email, redirectTo);
     } catch (error: any) {
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: error.message,
-      };
+      return this.toErrorResponse(error, HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -124,10 +127,7 @@ export class AuthController {
         newPassword,
       );
     } catch (error: any) {
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: error.message,
-      };
+      return this.toErrorResponse(error, HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -136,10 +136,7 @@ export class AuthController {
     try {
       return req.tenantContext?.user ?? null;
     } catch (error: any) {
-      return {
-        statusCode: HttpStatus.UNAUTHORIZED,
-        message: error.message,
-      };
+      return this.toErrorResponse(error, HttpStatus.UNAUTHORIZED);
     }
   }
 }

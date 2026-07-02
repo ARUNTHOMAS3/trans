@@ -159,14 +159,8 @@ class CompositeItem {
       pushToEcommerce: json['push_to_ecommerce'] ?? false,
       hsnCode: json['hsn_sac_code'] ?? json['hsn_code'],
       taxPreference: json['tax_preference'],
-      intraStateTaxId: json['intra_state_tax_id'] ??
-          json['intraStateTaxId'] ??
-          json['intraStateTax']?['id'] ??
-          json['intra_state_tax']?['id'],
-      interStateTaxId: json['inter_state_tax_id'] ??
-          json['interStateTaxId'] ??
-          json['interStateTax']?['id'] ??
-          json['inter_state_tax']?['id'],
+      intraStateTaxId: json['intra_state_tax_id'],
+      interStateTaxId: json['inter_state_tax_id'],
       primaryImageUrl: json['primary_image_url'],
       imageUrls: json['image_urls'] != null
           ? List<String>.from(json['image_urls'])

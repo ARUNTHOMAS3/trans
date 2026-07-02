@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
@@ -10134,20 +10135,63 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
   String? _country;
   String? _state;
 
-  static const List<String> _countries = [
-    'India',
-    'United States',
-    'United Kingdom',
-    'UAE',
-  ];
-  static const List<String> _states = [
-    'Kerala',
-    'Karnataka',
-    'Tamil Nadu',
-    'Maharashtra',
-    'Delhi',
-    'Goa',
-  ];
+  List<String> _countries = [];
+  List<String> _states = [];
+  List<Map<String, dynamic>> _dbCountries = [];
+
+  Future<void> _loadCountries() async {
+    try {
+      final lookupsService = LookupsApiService();
+      final countries = await lookupsService.getCountries();
+      if (mounted) {
+        setState(() {
+          _dbCountries = countries;
+          _countries = countries
+              .map((c) => c['name']?.toString() ?? '')
+              .where((name) => name.isNotEmpty)
+              .toList();
+          
+          if (_country != null && _country!.isNotEmpty && !_countries.contains(_country)) {
+            _countries.insert(0, _country!);
+          }
+        });
+        if (_country != null) {
+          _loadStatesForCountry(_country!);
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadStatesForCountry(String countryName) async {
+    final match = _dbCountries.firstWhere(
+      (c) => (c['name']?.toString() ?? '').toLowerCase() == countryName.toLowerCase(),
+      orElse: () => <String, dynamic>{},
+    );
+    final shortCode = match['short_code']?.toString() ?? '';
+    if (shortCode.isEmpty) {
+      setState(() {
+        _states = [];
+      });
+      return;
+    }
+
+    try {
+      final lookupsService = LookupsApiService();
+      final states = await lookupsService.getStates(shortCode);
+      if (mounted) {
+        setState(() {
+          _states = states
+              .map((s) => s['name']?.toString() ?? '')
+              .where((name) => name.isNotEmpty)
+              .toList();
+          
+          if (_state != null && _state!.isNotEmpty && !_states.contains(_state)) {
+            _states.insert(0, _state!);
+          }
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -10172,6 +10216,7 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
     _faxCtrl = TextEditingController();
     _country = widget.isNewAddress ? null : 'India';
     _state = widget.isNewAddress ? null : 'Kerala';
+    _loadCountries();
   }
 
   @override
@@ -10266,7 +10311,15 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
                       value: _country,
                       items: _countries,
                       hint: 'Select country',
-                      onChanged: (v) => setState(() => _country = v),
+                      onChanged: (v) {
+                        setState(() {
+                          _country = v;
+                          _state = null;
+                        });
+                        if (v != null) {
+                          _loadStatesForCountry(v);
+                        }
+                      },
                     ),
                     const SizedBox(height: 16),
                     _label('Address'),

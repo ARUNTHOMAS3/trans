@@ -43,13 +43,13 @@ class ZSplitActionMenuButton extends StatelessWidget {
         ? AppTheme.backgroundColor
         : (isDisabled ? AppTheme.textSecondary : AppTheme.textBody);
     final triggerBaseBackground = isPrimaryStyle
-        ? AppTheme.successGreen
+        ? AppTheme.primaryBlue
         : AppTheme.backgroundColor;
     final triggerHoverBackground = useFilledBlueHover
-        ? AppTheme.primaryBlue
+        ? AppTheme.primaryBlueDark
         : AppTheme.primaryBlue.withValues(alpha: 0.12);
     final triggerSide = isPrimaryStyle
-        ? const BorderSide(color: AppTheme.successGreen)
+        ? const BorderSide(color: AppTheme.primaryBlue)
         : const BorderSide(color: AppTheme.borderColor);
 
     final triggerBaseStyle = ButtonStyle(
@@ -78,9 +78,6 @@ class ZSplitActionMenuButton extends StatelessWidget {
         return MenuItemButton(
           onPressed: isDisabled ? null : item.onPressed,
           style: ButtonStyle(
-            animationDuration: Duration.zero,
-            splashFactory: NoSplash.splashFactory,
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
               if (states.contains(WidgetState.hovered)) {
                 return AppTheme.primaryBlue;

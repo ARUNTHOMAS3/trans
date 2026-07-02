@@ -132,7 +132,11 @@ These are extracted from the comprehensive PRD for focused operational use:
 ### **For Developers:**
 
 1. Read `PRD.md` sections 1-15
-2. Follow file naming: `module_submodule_page.dart`
+2. Follow live module naming/placement:
+   - `snake_case`
+   - `presentation/` owns UI
+   - many route screens live under `presentation/pages/`
+   - `presentation/*.dart` may be export shims
 3. Use Riverpod, Dio (no deprecated packages!)
 4. Reference Section 14 (UI System & Design Governance)
 5. Use `prd_ui.md` for UI-only rules and patterns
@@ -189,7 +193,7 @@ These **cannot** be changed without major discussion:
 2. **Riverpod** for state management - Section 7
 3. **Dio** for HTTP (no `http` package) - Section 7
 4. **Hive** for offline data - Section 7.1
-5. **File Naming:** `module_submodule_page.dart` - Section 15
+5. **File Naming/Placement:** `snake_case` owner-based module files with live `presentation/pages/` usage - Section 15
 6. **UI System Compliance:** Strictly via `app_theme.dart` - Section 14
 7. **Git Workflow:** `feat/*`, `fix/*` â†’ `dev` â†’ `main` - Section 14.4
 8. **Testing:** 70% coverage minimum - Section 17.2

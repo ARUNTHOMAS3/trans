@@ -432,33 +432,33 @@ export class GlobalLookupsController {
       if (countryData) {
         resolvedCountryId = countryData.id;
       }
-    } else if (countryValue && countryValue.length !== 36) {
-      // Handle country names (e.g., "India", "Andorra")
-      const { data: countryData } = await client
-        .from("countries")
-        .select("id")
-        .eq("name", countryValue)
-        .maybeSingle();
+    }
 
-      if (countryData) {
-        resolvedCountryId = countryData.id;
+    const runQuery = async (countryColumn: "country_id" | "state_id") => {
+      let query = client
+        .from("states")
+        .select("id,name,code")
+        .eq("is_active", true);
+
+      if (resolvedCountryId) {
+        query = query.eq(countryColumn, resolvedCountryId);
       }
+
+      if (search) {
+        query = query.ilike("name", `%${search}%`);
+      }
+
+      return query.order("name", { ascending: true });
+    };
+
+    let { data, error } = await runQuery("country_id");
+    if (
+      error &&
+      typeof error.message === "string" &&
+      error.message.toLowerCase().includes("country_id")
+    ) {
+      ({ data, error } = await runQuery("state_id"));
     }
-
-    let query = client
-      .from("states")
-      .select("id,name,code")
-      .eq("is_active", true);
-
-    if (resolvedCountryId) {
-      query = query.eq("state_id", resolvedCountryId);
-    }
-
-    if (search) {
-      query = query.ilike("name", `%${search}%`);
-    }
-
-    const { data, error } = await query.order("name", { ascending: true });
 
     if (error) throw error;
 
@@ -569,7 +569,7 @@ export class GlobalLookupsController {
       client
         .from("organization")
         .select(
-          "id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, attention, street, place, city, pincode, phone, email, district_id, local_body_id, assembly_id, ward_id, payment_stub_address, has_separate_payment_stub_address, payment_stub_assembly_id, additional_fields",
+          "id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, attention, street, place, city, pincode, phone, email, district_id, local_body_id, assembly_id, ward_id, payment_stub_address, has_separate_payment_stub_address, payment_stub_assembly_id, additional_fields, gstin, gst_treatment, source_of_supply, is_drug_registered, drug_licence_type, drug_license_20, drug_license_21, drug_license_20b, drug_license_21b, drug_license_20_url, drug_license_21_url, drug_license_20b_url, drug_license_21b_url, is_fssai_registered, fssai_number, fssai_url, is_msme_registered, msme_registration_type, msme_number, msme_url",
         )
         .eq("id", orgId)
         .single(),
@@ -639,7 +639,7 @@ export class GlobalLookupsController {
     const { data, error } = await client
       .from("branding")
       .select("accent_color, theme_mode, keep_branding")
-      .eq("org_id", orgId)
+      .eq("entity_id", tenant.entityId)
       .maybeSingle();
     if (error) throw error;
     return {
@@ -665,7 +665,7 @@ export class GlobalLookupsController {
     this.assertOrgAccess(tenant, orgId);
     const client = this.supabaseService.getClient();
 
-    const payload: Record<string, unknown> = { org_id: orgId };
+    const payload: Record<string, unknown> = { entity_id: tenant.entityId };
     if (body.accent_color !== undefined)
       payload.accent_color = body.accent_color;
     if (body.theme_mode !== undefined) payload.theme_mode = body.theme_mode;
@@ -674,7 +674,7 @@ export class GlobalLookupsController {
 
     const { error } = await client
       .from("branding")
-      .upsert(payload, { onConflict: "org_id" });
+      .upsert(payload, { onConflict: "entity_id" });
 
     if (error) throw error;
     return { success: true };
@@ -715,6 +715,26 @@ export class GlobalLookupsController {
       has_separate_payment_stub_address?: boolean;
       payment_stub_assembly_id?: string;
       additional_fields?: any;
+      gstin?: string;
+      gst_treatment?: string;
+      source_of_supply?: string;
+      is_drug_registered?: boolean;
+      drug_licence_type?: string;
+      drug_license_20?: string;
+      drug_license_21?: string;
+      drug_license_20b?: string;
+      drug_license_21b?: string;
+      drug_license_20_url?: string;
+      drug_license_21_url?: string;
+      drug_license_20b_url?: string;
+      drug_license_21b_url?: string;
+      is_fssai_registered?: boolean;
+      fssai_number?: string;
+      fssai_url?: string;
+      is_msme_registered?: boolean;
+      msme_registration_type?: string;
+      msme_number?: string;
+      msme_url?: string;
     },
     @Tenant() tenant: TenantContext,
   ) {
@@ -880,38 +900,6 @@ export class GlobalLookupsController {
       fileKey: key,
       fileUrl: key,
     };
-  }
-
-  @Get("uploads/signed-url")
-  async getSignedUrl(
-    @Query("fileKey") fileKey: string,
-    @Query("mimeType") mimeType?: string,
-  ) {
-    if (!fileKey) {
-      throw new BadRequestException("fileKey is required.");
-    }
-    let resolvedMime = mimeType;
-    if (!resolvedMime) {
-      const ext = fileKey.split(".").pop()?.toLowerCase();
-      if (ext === "pdf") resolvedMime = "application/pdf";
-      else if (ext === "jpg" || ext === "jpeg") resolvedMime = "image/jpeg";
-      else if (ext === "png") resolvedMime = "image/png";
-      else if (ext === "gif") resolvedMime = "image/gif";
-      else if (ext === "webp") resolvedMime = "image/webp";
-      else if (ext === "txt") resolvedMime = "text/plain";
-    }
-    const signedUrl = await this.r2StorageService.getPresignedUrl(
-      fileKey,
-      3600,
-      resolvedMime,
-    );
-    return { signedUrl };
-  }
-
-  @Post("log")
-  async logMessage(@Body() body: { message: string }) {
-    console.log("[FRONTEND LOG]", body.message);
-    return { success: true };
   }
 
   @Delete("uploads")

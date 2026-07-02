@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 import { Tenant } from "../../common/decorators/tenant.decorator";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
-import { randomUUID } from "crypto";
+import { listVisibleAccounts } from "../../common/account-visibility.util";
 
 @Controller("products/lookups")
 export class LookupsController {
@@ -46,14 +46,16 @@ export class LookupsController {
       "payment-terms": { table: "payment_terms", field: "term_name" },
       "shipment-preferences": { table: "shipment_preferences", field: "name" },
       "price-lists": { table: "price_lists", field: "name" },
-      "tds-groups": { table: "tds_groups", field: "group_name" },
     };
 
     const config = tableMap[type];
     if (!config) return [];
 
-    const selectFields = type === "tds-groups" ? "*, tds_group_items(*)" : "*";
-    let query = this.supabaseService.getClient().from(config.table).select(selectFields);
+    if (type === "accountant") {
+      return listVisibleAccounts(this.supabaseService.getClient(), tenant);
+    }
+
+    let query = this.supabaseService.getClient().from(config.table).select("*");
 
     // Only apply entity filter for tables that have entity_id column
     if (LookupsController.entityScopedTables.has(config.table)) {
@@ -119,6 +121,14 @@ export class LookupsController {
     const config = tableMap[type];
     if (!config) return [];
 
+    if (type === "accountant") {
+      return listVisibleAccounts(this.supabaseService.getClient(), tenant, {
+        accountType: "Stock",
+        search: query,
+        limit: 50,
+      });
+    }
+
     const escapedQuery = query.replace(/[%_]/g, "\\$&");
     const pattern = escapedQuery.trim().replace(/\s+/g, "%");
     const searchPattern = `%${pattern}%`;
@@ -135,8 +145,7 @@ export class LookupsController {
 
     if (type === "products") {
       queryBuilder = queryBuilder.or(
-        `product_name.ilike.${searchPattern},item_code.ilike.${searchPattern},sku.ilike.${searchPattern},hsn_sac_code.ilike.${searchPattern}`,
-      );
+        `product_name.ilike.${searchPattern},item_code.ilike.${searchPattern},sku.ilike.${searchPattern},hsn_sac_code.ilike.${searchPattern}`,      );
     } else if (type === "storage-locations") {
       queryBuilder = queryBuilder.or(
         `display_text.ilike.${searchPattern},storage_type.ilike.${searchPattern},location_name.ilike.${searchPattern}`,
@@ -190,47 +199,6 @@ export class LookupsController {
     @Body() items: any[],
     @Tenant() tenant: TenantContext,
   ) {
-    if (type === "tds-groups") {
-      const client = this.supabaseService.getClient();
-      const results = [];
-      for (const item of items) {
-        const groupId = item.id || randomUUID();
-        const { data: groupData, error: groupError } = await client
-          .from("tds_groups")
-          .upsert({
-            id: groupId,
-            group_name: item.group_name || item.groupName,
-            is_active: item.is_active !== undefined ? item.is_active : true,
-            applicable_from: item.applicable_from || item.applicableFrom || null,
-            applicable_to: item.applicable_to || item.applicableTo || null,
-          })
-          .select()
-          .single();
-        if (groupError) throw groupError;
-
-        const { error: deleteError } = await client
-          .from("tds_group_items")
-          .delete()
-          .eq("tds_group_id", groupId);
-        if (deleteError) throw deleteError;
-
-        const rateIds: string[] = item.rate_ids || item.rateIds || [];
-        if (rateIds.length > 0) {
-          const groupItems = rateIds.map((rateId) => ({
-            id: randomUUID(),
-            tds_group_id: groupId,
-            tds_rate_id: rateId,
-          }));
-          const { error: insertError } = await client
-            .from("tds_group_items")
-            .insert(groupItems);
-          if (insertError) throw insertError;
-        }
-        results.push(groupData);
-      }
-      return results;
-    }
-
     const tableMap = {
       units: "units",
       categories: "categories",
@@ -263,7 +231,6 @@ export class LookupsController {
     const isEntityScoped = LookupsController.entityScopedTables.has(tableName);
     const syncedItems = items.map((item) => ({
       ...item,
-      id: item.id || randomUUID(),
       ...(isEntityScoped ? { entity_id: tenant.entityId } : {}),
     }));
 

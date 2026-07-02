@@ -1748,6 +1748,12 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                 textAlign: TextAlign.right,
                 onChanged: (val) {
                   final newRate = double.tryParse(val) ?? 0;
+                  double? newDiscount;
+                  if (salesRate > 0) {
+                    newDiscount = ((salesRate - newRate) / salesRate) * 100;
+                    _getDiscountController(rate.itemId, newDiscount).text =
+                        _formatDouble(newDiscount);
+                  }
                   setState(() => _itemRateOverrides[rate.itemId] =
                       (_itemRateOverrides[rate.itemId] ??
                               PriceListItemRate(
@@ -1755,9 +1761,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                                 itemName: rate.itemName,
                                 sku: rate.sku,
                                 salesRate: salesRate,
-                                discountPercentage: rate.discountPercentage,
                               ))
-                          .copyWith(customRate: newRate));
+                          .copyWith(customRate: newRate, discountPercentage: newDiscount));
                 },
               ),
             ),
@@ -1774,6 +1779,12 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                   textAlign: TextAlign.right,
                   onChanged: (val) {
                     final discount = double.tryParse(val);
+                    double? newCustomRate;
+                    if (discount != null) {
+                      newCustomRate = salesRate * (1 - (discount / 100));
+                      _getRateController(rate.itemId, newCustomRate).text =
+                          _formatDouble(newCustomRate);
+                    }
                     setState(() => _itemRateOverrides[rate.itemId] =
                         (_itemRateOverrides[rate.itemId] ??
                                 PriceListItemRate(
@@ -1782,7 +1793,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                                   sku: rate.sku,
                                   salesRate: salesRate,
                                 ))
-                            .copyWith(discountPercentage: discount));
+                            .copyWith(discountPercentage: discount, customRate: newCustomRate));
                   },
                 ),
               ),
@@ -1969,6 +1980,13 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
           onChanged: (val) {
             if (isAllItems) return;
             final rate = double.tryParse(val) ?? 0;
+            double? newDiscount;
+            if (baseRate > 0) {
+              newDiscount = ((baseRate - rate) / baseRate) * 100;
+              _getDiscountController(itemId, newDiscount).text = _formatDouble(
+                newDiscount,
+              );
+            }
             setState(
               () => _itemRateOverrides[itemId] =
                   (_itemRateOverrides[itemId] ??
@@ -1980,6 +1998,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                           ))
                       .copyWith(
                         customRate: rate,
+                        discountPercentage: newDiscount,
                       ),
             );
           },
@@ -2019,6 +2038,13 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
           onChanged: (val) {
             if (isAllItems) return;
             final discount = double.tryParse(val);
+            double? newCustomRate;
+            if (discount != null) {
+              newCustomRate = baseRate * (1 - (discount / 100));
+              _getRateController(itemId, newCustomRate).text = _formatDouble(
+                newCustomRate,
+              );
+            }
             setState(
               () => _itemRateOverrides[itemId] =
                   (_itemRateOverrides[itemId] ??
@@ -2030,6 +2056,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                           ))
                       .copyWith(
                         discountPercentage: discount,
+                        customRate: newCustomRate,
                       ),
             );
           },

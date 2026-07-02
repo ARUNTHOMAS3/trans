@@ -2,11 +2,11 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseService } from "../../modules/supabase/supabase.service";
-import { UsersService } from "../../modules/users/users.service";
 import { ResendService } from "../../modules/email/resend.service";
 
 export interface JwtPayload {
@@ -29,7 +29,6 @@ export class AuthService {
 
   constructor(
     private readonly supabaseService: SupabaseService,
-    private readonly usersService: UsersService,
     private readonly resendService: ResendService,
   ) {}
 
@@ -48,6 +47,10 @@ export class AuthService {
     switch (value) {
       case "super_admin":
         return "admin";
+      case "ho admin":
+        return "ho_admin";
+      case "branch admin":
+        return "branch_admin";
       case "manager":
       case "staff":
       case "branch_manager":
@@ -93,6 +96,44 @@ export class AuthService {
     }
   }
 
+  private mergePermissionActions(
+    existing: unknown,
+    requiredActions: string[],
+  ): string[] {
+    const values = Array.isArray(existing)
+      ? existing.map((entry) => String(entry))
+      : [];
+    const merged = new Set<string>(values);
+    for (const action of requiredActions) {
+      merged.add(action);
+    }
+    return Array.from(merged);
+  }
+
+  private isTransientSupabaseReadError(error: unknown): boolean {
+    const message = `${(error as any)?.code ?? ""} ${(error as any)?.message ?? ""}`
+      .toLowerCase()
+      .trim();
+    if (!message) return false;
+
+    return (
+      message.includes("schema cache") ||
+      message.includes("timed out acquiring connection from connection pool") ||
+      message.includes("statement timeout") ||
+      message.includes("canceling statement due to statement timeout") ||
+      message.includes("pgrst003")
+    );
+  }
+
+  private throwSupabaseReadError(context: string, error: any): never {
+    if (this.isTransientSupabaseReadError(error)) {
+      throw new ServiceUnavailableException(
+        `${context} temporarily unavailable. Please retry.`,
+      );
+    }
+    throw new Error(`Failed to fetch ${context}: ${error.message}`);
+  }
+
   private async findPublicUser(userId: string) {
     const { data, error } = await this.supabaseService
       .getClient()
@@ -102,7 +143,7 @@ export class AuthService {
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Failed to fetch users row: ${error.message}`);
+      this.throwSupabaseReadError("users row", error);
     }
 
     return data ?? null;
@@ -117,7 +158,7 @@ export class AuthService {
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Failed to fetch organization: ${error.message}`);
+      this.throwSupabaseReadError("organization", error);
     }
 
     return data ?? null;
@@ -232,10 +273,90 @@ export class AuthService {
     return Array.from(ids);
   }
 
-  private async buildRolePermissions(entityId: string, roleId: string) {
+  private async findBranchAccessSummary(userId: string, orgId: string) {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("user_branch_access")
+      .select("entity_id, is_default_business, is_default_warehouse")
+      .eq("user_id", userId)
+      .eq("org_id", orgId);
+
+    if (error) {
+      this.throwSupabaseReadError("user branch access", error);
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return {
+        accessibleBranchIds: [] as string[],
+        defaultBusinessBranchId: null as string | null,
+        defaultWarehouseBranchId: null as string | null,
+      };
+    }
+
+    const entityIds = data
+      .map((row: any) => row?.entity_id?.toString().trim() ?? "")
+      .filter((value: string) => value.length > 0);
+    if (entityIds.length === 0) {
+      return {
+        accessibleBranchIds: [] as string[],
+        defaultBusinessBranchId: null as string | null,
+        defaultWarehouseBranchId: null as string | null,
+      };
+    }
+
+    const { data: branchRows, error: branchError } = await this.supabaseService
+      .getClient()
+      .from("organisation_branch_master")
+      .select("id, ref_id, type")
+      .in("id", entityIds)
+      .eq("type", "BRANCH");
+
+    if (branchError) {
+      this.throwSupabaseReadError("branch access entities", branchError);
+    }
+
+    const branchByEntityId = new Map<string, string>();
+    for (const row of branchRows ?? []) {
+      const entityId = row?.["id"]?.toString().trim() ?? "";
+      const branchId = row?.["ref_id"]?.toString().trim() ?? "";
+      if (entityId && branchId) {
+        branchByEntityId.set(entityId, branchId);
+      }
+    }
+
+    const accessibleBranchIds: string[] = [];
+    let defaultBusinessBranchId: string | null = null;
+    let defaultWarehouseBranchId: string | null = null;
+
+    for (const row of data) {
+      const entityId = row?.["entity_id"]?.toString().trim() ?? "";
+      const branchId = branchByEntityId.get(entityId);
+      if (!branchId) continue;
+
+      accessibleBranchIds.push(branchId);
+      if (row?.["is_default_business"] === true && !defaultBusinessBranchId) {
+        defaultBusinessBranchId = branchId;
+      }
+      if (row?.["is_default_warehouse"] === true && !defaultWarehouseBranchId) {
+        defaultWarehouseBranchId = branchId;
+      }
+    }
+
+    return {
+      accessibleBranchIds: Array.from(new Set(accessibleBranchIds)),
+      defaultBusinessBranchId,
+      defaultWarehouseBranchId,
+    };
+  }
+
+  private async buildRoleContext(entityId: string, roleId: string) {
     const normalizedRole = this.normalizeRole(roleId);
     if (normalizedRole === "admin") {
-      return { full_access: true };
+      return {
+        permissions: { full_access: true },
+        label: this.getBuiltinRoleLabel(normalizedRole),
+        isDefault: true,
+      };
     }
 
     // Built-in roles are handled above; only custom org roles should hit settings_roles.
@@ -259,13 +380,18 @@ export class AuthService {
     const { data, error } = response;
 
     if (error) {
-      throw new Error(
-        `Failed to fetch settings role permissions: ${error.message}`,
-      );
+      this.throwSupabaseReadError("settings role permissions", error);
+    }
+
+    let permissions: Record<string, unknown> = {};
+    let label = this.getBuiltinRoleLabel(normalizedRole);
+
+    if (data?.label) {
+      label = data.label.toString();
     }
 
     if (data?.permissions != null) {
-      return data.permissions as Record<string, unknown>;
+      permissions = data.permissions as Record<string, unknown>;
     }
 
     // If the DB role row exists but has no permissions JSON set yet, check if its
@@ -275,14 +401,28 @@ export class AuthService {
     if (data?.label) {
       const labelNormalized = this.normalizeRole(data.label as string);
       if (labelNormalized === "ho_admin") {
-        return { full_access: true };
+        permissions = { full_access: true };
       }
       if (labelNormalized === "branch_admin") {
-        return { full_access: true };
+        const nextPermissions = {
+          ...permissions,
+          branches: ["view", "edit"],
+          users: this.mergePermissionActions(permissions["users"], ["view"]),
+          transaction_series: this.mergePermissionActions(
+            permissions["transaction_series"],
+            ["view", "create", "edit", "delete"],
+          ),
+        } as Record<string, unknown>;
+        delete nextPermissions["users_roles"];
+        permissions = nextPermissions;
       }
     }
 
-    return {};
+    return {
+      permissions,
+      label,
+      isDefault: normalizedRole === "admin",
+    };
   }
 
   private async findOrgEntityId(orgId: string) {
@@ -354,41 +494,36 @@ export class AuthService {
     return this.findOrgIdByUserEntityId(publicUser?.["entity_id"]?.toString());
   }
 
-  private async buildAuthenticatedUser(userId: string, orgId: string) {
-    const [organization, orgEntityId] = await Promise.all([
-      this.findOrganization(orgId),
-      this.findOrgEntityId(orgId),
-    ]);
-
-    let userRecord: any;
-    if (orgEntityId) {
-      userRecord = await this.usersService.findOne(userId, {
-        orgId,
-        entityId: orgEntityId,
-      } as any);
-    } else {
-      // orgEntityId not yet in organisation_branch_master — fall back to direct users table lookup
-      userRecord = await this.findPublicUser(userId);
-    }
+  private async buildAuthenticatedUser(
+    userId: string,
+    orgId: string,
+    publicUserOverride?: any,
+  ) {
+    const [organization, orgEntityId, userRecord, branchAccess] =
+      await Promise.all([
+        this.findOrganization(orgId),
+        this.findOrgEntityId(orgId),
+        publicUserOverride
+          ? Promise.resolve(publicUserOverride)
+          : this.findPublicUser(userId),
+        this.findBranchAccessSummary(userId, orgId),
+      ]);
 
     if (!userRecord) {
       throw new UnauthorizedException("User profile not found");
     }
 
     const normalizedRole = this.normalizeRole(userRecord["role"]);
-    const permissions = await this.buildRolePermissions(
+    const roleContext = await this.buildRoleContext(
       orgEntityId ?? orgId,
       normalizedRole,
     );
-    let accessibleBranchIds = Array.isArray(
-      userRecord["accessible_branch_ids"],
-    )
-      ? userRecord["accessible_branch_ids"].map((value: unknown) =>
-          String(value),
-        )
-      : [];
-    let defaultBusinessBranchId =
-      userRecord["default_business_branch_id"]?.toString() ?? null;
+    let accessibleBranchIds = branchAccess.accessibleBranchIds;
+    let defaultBusinessBranchId = branchAccess.defaultBusinessBranchId;
+    let defaultWarehouseBranchId =
+      branchAccess.defaultWarehouseBranchId ??
+      userRecord["default_warehouse_branch_id"]?.toString() ??
+      null;
 
     // Fallback for branch-scoped users missing explicit access/default rows:
     // derive branch ref_id from users.entity_id (organisation_branch_master).
@@ -447,14 +582,13 @@ export class AuthService {
       isActive: userRecord["is_active"] == true,
       createdAt: userRecord["created_at"]?.toString(),
       updatedAt: userRecord["updated_at"]?.toString(),
-      roleLabel: userRecord["role_label"]?.toString() ?? normalizedRole,
-      roleIsDefault: userRecord["role_is_default"] == true,
+      roleLabel: roleContext.label,
+      roleIsDefault: roleContext.isDefault,
       accessibleBranchIds,
       defaultBusinessBranchId,
       defaultBusinessBranchEntityId,
-      defaultWarehouseBranchId:
-        userRecord["default_warehouse_branch_id"]?.toString(),
-      permissions,
+      defaultWarehouseBranchId,
+      permissions: roleContext.permissions,
     };
   }
 
@@ -475,7 +609,11 @@ export class AuthService {
       throw new UnauthorizedException("User is not mapped to an organization");
     }
 
-    const user = await this.buildAuthenticatedUser(data.user.id, orgId);
+    const user = await this.buildAuthenticatedUser(
+      data.user.id,
+      orgId,
+      publicUser,
+    );
 
     return {
       access_token: data.session.access_token,
@@ -503,7 +641,11 @@ export class AuthService {
       throw new UnauthorizedException("User is not mapped to an organization");
     }
 
-    const user = await this.buildAuthenticatedUser(data.user.id, orgId);
+    const user = await this.buildAuthenticatedUser(
+      data.user.id,
+      orgId,
+      publicUser,
+    );
 
     return {
       access_token: data.session.access_token,
@@ -624,7 +766,11 @@ export class AuthService {
       throw new UnauthorizedException("User organization not found");
     }
 
-    const user = await this.buildAuthenticatedUser(data.user.id, orgId);
+    const user = await this.buildAuthenticatedUser(
+      data.user.id,
+      orgId,
+      publicUser,
+    );
     if (user.isActive != true) {
       throw new ForbiddenException("User is inactive");
     }

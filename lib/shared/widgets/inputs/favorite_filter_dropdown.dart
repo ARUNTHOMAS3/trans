@@ -51,10 +51,12 @@ class FavoriteFilterDropdown extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<FavoriteFilterDropdown> createState() => _FavoriteFilterDropdownState();
+  ConsumerState<FavoriteFilterDropdown> createState() =>
+      _FavoriteFilterDropdownState();
 }
 
-class _FavoriteFilterDropdownState extends ConsumerState<FavoriteFilterDropdown> {
+class _FavoriteFilterDropdownState
+    extends ConsumerState<FavoriteFilterDropdown> {
   final MenuController _menuController = MenuController();
 
   String _getDisplayLabel() {
@@ -76,10 +78,12 @@ class _FavoriteFilterDropdownState extends ConsumerState<FavoriteFilterDropdown>
           return 'All Customers';
         default:
           final parts = widget.moduleName.split('_');
-          final formatted = parts.map((p) {
-            if (p.isEmpty) return '';
-            return p[0].toUpperCase() + p.substring(1);
-          }).join(' ');
+          final formatted = parts
+              .map((p) {
+                if (p.isEmpty) return '';
+                return p[0].toUpperCase() + p.substring(1);
+              })
+              .join(' ');
           return 'All $formatted';
       }
     }
@@ -160,10 +164,12 @@ class _FavoriteFilterMenuContent extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_FavoriteFilterMenuContent> createState() => _FavoriteFilterMenuContentState();
+  ConsumerState<_FavoriteFilterMenuContent> createState() =>
+      _FavoriteFilterMenuContentState();
 }
 
-class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuContent> {
+class _FavoriteFilterMenuContentState
+    extends ConsumerState<_FavoriteFilterMenuContent> {
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _starredValues = {};
   bool _isLoading = true;
@@ -211,7 +217,9 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
       return entityId;
     }
     final authUser = ref.read(authUserProvider);
-    if (authUser != null && authUser.orgEntityId != null && authUser.orgEntityId!.isNotEmpty) {
+    if (authUser != null &&
+        authUser.orgEntityId != null &&
+        authUser.orgEntityId!.isNotEmpty) {
       return authUser.orgEntityId;
     }
     try {
@@ -228,7 +236,9 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
       final entityId = _getEntityId() ?? '';
       final userId = _getUserId();
       if (userId == null || userId.isEmpty || entityId.isEmpty) {
-        debugPrint('userId ($userId) or entityId ($entityId) is null/empty, skipping loading favorites');
+        debugPrint(
+          'userId ($userId) or entityId ($entityId) is null/empty, skipping loading favorites',
+        );
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -327,7 +337,7 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
     }
 
     final query = _searchQuery.toLowerCase();
-    
+
     // Filter favorites
     final favList = widget.options
         .where((opt) => _starredValues.contains(opt.value))
@@ -354,7 +364,9 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFF3B82F6)), // blue border when focused/active
+                border: Border.all(
+                  color: const Color(0xFF3B82F6),
+                ), // blue border when focused/active
               ),
               child: Row(
                 children: [
@@ -374,10 +386,16 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
                           _searchQuery = val;
                         });
                       },
-                      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
                       decoration: const InputDecoration(
                         hintText: 'Search views...',
-                        hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -413,7 +431,9 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
                     title: 'FAVORITES',
                     count: favList.length,
                     isExpanded: _favoritesExpanded,
-                    onTap: () => setState(() => _favoritesExpanded = !_favoritesExpanded),
+                    onTap: () => setState(
+                      () => _favoritesExpanded = !_favoritesExpanded,
+                    ),
                   ),
                   if (_favoritesExpanded) ...[
                     if (favList.isEmpty)
@@ -421,7 +441,10 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text(
                           'No favorites found',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                       )
                     else
@@ -433,7 +456,9 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
                     title: 'DEFAULT FILTERS',
                     count: defaultList.length,
                     isExpanded: _defaultFiltersExpanded,
-                    onTap: () => setState(() => _defaultFiltersExpanded = !_defaultFiltersExpanded),
+                    onTap: () => setState(
+                      () => _defaultFiltersExpanded = !_defaultFiltersExpanded,
+                    ),
                   ),
                   if (_defaultFiltersExpanded) ...[
                     if (defaultList.isEmpty)
@@ -441,7 +466,10 @@ class _FavoriteFilterMenuContentState extends ConsumerState<_FavoriteFilterMenuC
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Text(
                           'No filters match search',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                       )
                     else
@@ -548,7 +576,9 @@ class _FilterOptionRowState extends State<_FilterOptionRow> {
     final textColor = _isHovered ? Colors.white : AppTheme.textPrimary;
     final starColor = _isHovered
         ? Colors.white
-        : (widget.isStarred ? const Color(0xFFF59E0B) : const Color(0xFFD1D5DB));
+        : (widget.isStarred
+              ? const Color(0xFFF59E0B)
+              : const Color(0xFFD1D5DB));
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

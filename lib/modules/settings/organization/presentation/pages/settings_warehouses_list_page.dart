@@ -128,6 +128,7 @@ class _WarehouseRow {
   final String id;
   final String name;
   final String warehouseCode;
+  final String sourceBranchId;
   final String parentBranchName;
   final String? customerId;
   final String? vendorId;
@@ -146,6 +147,7 @@ class _WarehouseRow {
     required this.id,
     required this.name,
     required this.warehouseCode,
+    required this.sourceBranchId,
     required this.parentBranchName,
     required this.customerId,
     required this.vendorId,
@@ -168,6 +170,7 @@ class _WarehouseRow {
     id: (j['id'] ?? '').toString(),
     name: (j['name'] ?? '').toString(),
     warehouseCode: (j['warehouse_code'] ?? '').toString(),
+    sourceBranchId: (j['source_branch_id'] ?? '').toString().trim(),
     parentBranchName: (j['parent_branch_name'] ?? '').toString().isNotEmpty
         ? (j['parent_branch_name'] ?? '').toString()
         : '—',
@@ -292,7 +295,11 @@ class _SettingsWarehousesListPageState
           .whereType<Map<String, dynamic>>()
           .toList();
       final List<String> branchIds = rawWarehouses
-          .map((warehouse) => (warehouse['id'] ?? '').toString().trim())
+          .map(
+            (warehouse) => (warehouse['source_branch_id'] ?? '')
+                .toString()
+                .trim(),
+          )
           .where((id) => id.isNotEmpty)
           .toList();
       final summaries = branchIds.isEmpty
@@ -305,11 +312,11 @@ class _SettingsWarehousesListPageState
       setState(() {
         _warehouses = rawWarehouses.map((j) {
           final parsed = _WarehouseRow.fromJson(j, const {});
-          final summary = summaries[parsed.id];
           return _WarehouseRow(
             id: parsed.id,
             name: parsed.name,
             warehouseCode: parsed.warehouseCode,
+            sourceBranchId: parsed.sourceBranchId,
             parentBranchName: parsed.parentBranchName,
             customerId: parsed.customerId,
             vendorId: parsed.vendorId,
@@ -320,9 +327,12 @@ class _SettingsWarehousesListPageState
             country: parsed.country,
             isActive: parsed.isActive,
             isDefault: parsed.isDefault,
-            isBinLocationsEnabled: summary?.isEnabled ?? false,
-            associatedZoneCount: summary?.zoneCount ?? 0,
-            associatedBinCount: summary?.binCount ?? 0,
+            isBinLocationsEnabled:
+                summaries[parsed.sourceBranchId]?.isEnabled ?? false,
+            associatedZoneCount:
+                summaries[parsed.sourceBranchId]?.zoneCount ?? 0,
+            associatedBinCount:
+                summaries[parsed.sourceBranchId]?.binCount ?? 0,
           );
         }).toList();
         _isLoading = false;
@@ -1075,7 +1085,7 @@ class _SettingsWarehousesListPageState
       onConfirm: () async {
         await BinLocationsService.instance.ensureDefaultZones(
           orgId: _currentOrgId,
-          branchId: warehouse.id,
+          branchId: warehouse.sourceBranchId,
           branchName: warehouse.name,
         );
         if (!mounted) return;
@@ -1110,7 +1120,7 @@ class _SettingsWarehousesListPageState
         try {
           await BinLocationsService.instance.disableBinLocations(
             orgId: _currentOrgId,
-            branchId: warehouse.id,
+            branchId: warehouse.sourceBranchId,
           );
           if (!mounted) return;
           ZerpaiToast.success(

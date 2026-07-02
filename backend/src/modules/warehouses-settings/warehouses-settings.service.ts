@@ -39,6 +39,27 @@ export class WarehousesSettingsService {
     );
   }
 
+  private async resolveBranchRegistryEntityId(branchId: string) {
+    const normalizedBranchId = this.normalizeUuid(branchId);
+    if (!normalizedBranchId) return null;
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("organisation_branch_master")
+      .select("id")
+      .eq("type", "BRANCH")
+      .eq("ref_id", normalizedBranchId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(
+        `Failed to resolve warehouse branch entity id: ${error.message}`,
+      );
+    }
+
+    return data?.id?.toString() ?? null;
+  }
+
   private mapWarehouse(
     row: any,
     branchNames: Map<string, string>,
@@ -59,12 +80,18 @@ export class WarehousesSettingsService {
   }
 
   async findAll(tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
+    let query = this.supabaseService
       .getClient()
       .from("warehouses")
       .select("*")
       .eq("org_id", tenant.orgId)
       .order("created_at", { ascending: true });
+
+    if (tenant.role !== "admin" && tenant.accessibleBranchIds.length > 0) {
+      query = query.in("source_branch_id", tenant.accessibleBranchIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw new Error(`Failed to fetch warehouses: ${error.message}`);
     const warehouses = data ?? [];
@@ -122,11 +149,19 @@ export class WarehousesSettingsService {
   }
 
   async create(dto: any, tenant: TenantContext) {
+    const branchId = this.normalizeUuid(
+      dto.source_branch_id ?? dto.branch_id ?? tenant.branchId,
+    );
+    const branchEntityId = branchId
+      ? await this.resolveBranchRegistryEntityId(branchId)
+      : null;
     const payload: any = {
-      entity_id: tenant.entityId,
+      entity_id: branchEntityId ?? tenant.entityId,
       org_id: tenant.orgId,
       name: dto.name,
       warehouse_code: dto.warehouse_code ?? null,
+      branch_id: branchId,
+      source_branch_id: branchId,
       customer_id: this.normalizeUuid(dto.customer_id),
       vendor_id: this.normalizeUuid(dto.vendor_id),
       attention: dto.attention ?? null,

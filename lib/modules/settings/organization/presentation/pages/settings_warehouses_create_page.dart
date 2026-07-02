@@ -229,10 +229,17 @@ class _SettingsWarehouseCreatePageState
   final Set<String> _expandedBlocks = <String>{'Organization'};
 
   bool _isDefaultWarehouse = false;
+  bool _didApplyPrefilledBranch = false;
 
   bool get _isEditing => widget.warehouseId != null;
   bool get _showMainAddressLsgdFields =>
       (_selectedState ?? '').trim().toLowerCase() == 'kerala';
+  String? get _prefilledBranchId {
+    final branchId = GoRouterState.of(context).uri.queryParameters['branchId'];
+    if (branchId == null) return null;
+    final trimmed = branchId.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
 
   List<String> get _availableLocalBodyTypeOptions {
     final seen = <String>{};
@@ -665,16 +672,24 @@ class _SettingsWarehouseCreatePageState
       );
       if (!mounted) return;
       if (res.success && res.data is List) {
+        final branches = (res.data as List)
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (o) => _BranchOption(
+                id: o['id'].toString(),
+                name: o['name'].toString(),
+              ),
+            )
+            .toList();
         setState(() {
-          _branches = (res.data as List)
-              .whereType<Map<String, dynamic>>()
-              .map(
-                (o) => _BranchOption(
-                  id: o['id'].toString(),
-                  name: o['name'].toString(),
-                ),
-              )
-              .toList();
+          _branches = branches;
+          if (!_isEditing &&
+              !_didApplyPrefilledBranch &&
+              _prefilledBranchId != null &&
+              branches.any((branch) => branch.id == _prefilledBranchId)) {
+            _parentBranchId = _prefilledBranchId;
+            _didApplyPrefilledBranch = true;
+          }
         });
       }
     } catch (_) {}

@@ -657,9 +657,6 @@ class _InventoryAdjustmentsListPanelState
 
   ButtonStyle _menuItemStyle() {
     return ButtonStyle(
-      animationDuration: Duration.zero,
-      splashFactory: NoSplash.splashFactory,
-      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       backgroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused) ||

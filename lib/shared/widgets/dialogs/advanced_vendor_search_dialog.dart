@@ -346,6 +346,7 @@ class _AdvancedVendorSearchDialogState
                                 itemBuilder: (ctx, index) {
                                   final v = _filteredVendors[index];
                                   return InkWell(
+                                    hoverColor: AppTheme.primaryBlue.withValues(alpha: 0.08),
                                     onTap: () {
                                       widget.onSelect(v);
                                       Navigator.pop(context);

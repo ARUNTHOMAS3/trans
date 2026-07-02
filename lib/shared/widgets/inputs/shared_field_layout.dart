@@ -41,8 +41,7 @@ class SharedFieldLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveLabelColor =
-        labelColor ??
-        (required ? AppTheme.errorRed : AppTheme.textSecondary);
+        labelColor ?? (required ? AppTheme.errorRed : AppTheme.textSecondary);
 
     Widget buildLabel() {
       if (customLabel != null) return customLabel!;

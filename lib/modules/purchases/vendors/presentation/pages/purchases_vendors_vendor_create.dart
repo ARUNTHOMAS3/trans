@@ -48,8 +48,9 @@ class PurchasesVendorsVendorCreateScreen extends ConsumerStatefulWidget {
 
 class _PurchasesVendorsVendorCreateScreenState
     extends ConsumerState<PurchasesVendorsVendorCreateScreen>
-    with TickerProviderStateMixin, LicenceValidationMixin<PurchasesVendorsVendorCreateScreen> {
-
+    with
+        TickerProviderStateMixin,
+        LicenceValidationMixin<PurchasesVendorsVendorCreateScreen> {
   // LicenceValidationMixin: map local names to mixin contract
   @override
   TextEditingController get msmeCtrl => _msmeRegistrationNumberCtrl;
@@ -182,7 +183,7 @@ class _PurchasesVendorsVendorCreateScreenState
   String _shippingPhoneCode = '+91';
   String _workPhoneCode = '+91';
   String _mobilePhoneCode = '+91';
-  List<String> _sourceOfSupplyList = _initialSourceOfSupplyOptions;
+  List<String> _sourceOfSupplyList = [];
 
   // Contact Persons
   final List<_ContactPersonRow> contactRows = [];
@@ -229,7 +230,11 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error('Error fetching next vendor number', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error fetching next vendor number',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -251,7 +256,11 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading payment terms', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading payment terms',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -279,7 +288,11 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading price lists', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading price lists',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -329,7 +342,11 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading countries/phone codes', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading countries/phone codes',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -347,7 +364,11 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading source of supply states', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading source of supply states',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -406,8 +427,56 @@ class _PurchasesVendorsVendorCreateScreenState
     super.dispose();
   }
 
+  String? _validateBeforeSave() {
+    final displayName = _displayNameCtrl.text.trim();
+    final vendorNumber = _vendorNumberCtrl.text.trim();
+    final firstName = _firstNameCtrl.text.trim();
+    final lastName = _lastNameCtrl.text.trim();
+    final companyName = _companyNameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+    final hideSourceOfSupply = _shouldHideSourceOfSupply();
+    final hideGstRegistrationFields = _shouldHideGstRegistrationFields();
+
+    if (displayName.isEmpty) {
+      return 'Display name is required.';
+    }
+
+    if (vendorNumber.isEmpty) {
+      return 'Vendor number is required.';
+    }
+
+    if (companyName.isEmpty && firstName.isEmpty && lastName.isEmpty) {
+      return 'Enter either a company name or a primary contact name.';
+    }
+
+    if (_gstTreatment == null) {
+      return 'GST treatment is required.';
+    }
+
+    if (!hideGstRegistrationFields && _gstinPrefillCtrl.text.trim().isEmpty) {
+      return 'GSTIN / UIN is required for the selected GST treatment.';
+    }
+
+    if (!hideSourceOfSupply &&
+        (_sourceOfSupply == null || _sourceOfSupply!.trim().isEmpty)) {
+      return 'Source of supply is required.';
+    }
+
+    if (_enablePortal && email.isEmpty) {
+      return 'Email address is required when portal access is enabled.';
+    }
+
+    return null;
+  }
+
   Future<void> _handleSave() async {
     if (_formKey.currentState!.validate()) {
+      final validationMessage = _validateBeforeSave();
+      if (validationMessage != null) {
+        ZerpaiToast.error(context, validationMessage);
+        return;
+      }
+
       setState(() => isLoading = true);
 
       final vendor = Vendor(
@@ -419,8 +488,12 @@ class _PurchasesVendorsVendorCreateScreenState
         lastName: _lastNameCtrl.text.trim(),
         companyName: _companyNameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
-        phone: _workPhoneCtrl.text.trim().isEmpty ? null : _workPhoneCtrl.text.trim(),
-        mobilePhone: _mobilePhoneCtrl.text.trim().isEmpty ? null : _mobilePhoneCtrl.text.trim(),
+        phone: _workPhoneCtrl.text.trim().isEmpty
+            ? null
+            : _workPhoneCtrl.text.trim(),
+        mobilePhone: _mobilePhoneCtrl.text.trim().isEmpty
+            ? null
+            : _mobilePhoneCtrl.text.trim(),
         gstTreatment: _gstTreatment?.label,
         gstin: _gstinPrefillCtrl.text.trim(),
         sourceOfSupply: _sourceOfSupply,
@@ -503,7 +576,9 @@ class _PurchasesVendorsVendorCreateScreenState
         remarks: _remarksCtrl.text.trim(),
         xHandle: _xHandleCtrl.text.trim(),
         facebookHandle: _facebookCtrl.text.trim(),
-        whatsappNumber: _whatsappCtrl.text.trim().isEmpty ? null : _whatsappCtrl.text.trim(),
+        whatsappNumber: _whatsappCtrl.text.trim().isEmpty
+            ? null
+            : _whatsappCtrl.text.trim(),
       );
 
       try {
@@ -529,7 +604,9 @@ class _PurchasesVendorsVendorCreateScreenState
         final updatedVendor = vendor.copyWith(vendorNumber: finalVendorNumber);
 
         // 2. Create the vendor
-        final created = await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
+        final created = await ref
+            .read(vendorProvider.notifier)
+            .createVendor(updatedVendor);
 
         if (mounted) {
           ZerpaiToast.success(context, 'Vendor created successfully');
@@ -541,7 +618,11 @@ class _PurchasesVendorsVendorCreateScreenState
               usedNumber: finalVendorNumber,
             );
           } catch (e) {
-            AppLogger.warning('Failed to increment vendor sequence', error: e, module: 'purchases');
+            AppLogger.warning(
+              'Failed to increment vendor sequence',
+              error: e,
+              module: 'purchases',
+            );
           }
 
           if (widget.isDialog) {
@@ -798,10 +879,7 @@ class _PurchasesVendorsVendorCreateScreenState
       default:
         content = const SizedBox.shrink();
     }
-    return Padding(
-      padding: const EdgeInsets.only(left: 32.0),
-      child: content,
-    );
+    return Padding(padding: const EdgeInsets.only(left: 32.0), child: content);
   }
 
   Widget _buildFooter() {
@@ -938,43 +1016,3 @@ const List<_GstTreatmentOption> _gstTreatmentOptions = [
         'business units in a Special Economic Zone (SEZ)',
   ),
 ];
-
-const List<String> _initialSourceOfSupplyOptions = [
-  '[AN] - Andaman and Nicobar Islands',
-  '[AD] - Andhra Pradesh',
-  '[AR] - Arunachal Pradesh',
-  '[AS] - Assam',
-  '[BR] - Bihar',
-  '[CH] - Chandigarh',
-  '[CG] - Chhattisgarh',
-  '[DN] - Dadra and Nagar Haveli and Daman and Diu',
-  '[DL] - Delhi',
-  '[GA] - Goa',
-  '[GJ] - Gujarat',
-  '[HR] - Haryana',
-  '[HP] - Himachal Pradesh',
-  '[JK] - Jammu and Kashmir',
-  '[JH] - Jharkhand',
-  '[KA] - Karnataka',
-  '[KL] - Kerala',
-  '[LA] - Ladakh',
-  '[LD] - Lakshadweep',
-  '[MP] - Madhya Pradesh',
-  '[MH] - Maharashtra',
-  '[MN] - Manipur',
-  '[ML] - Meghalaya',
-  '[MZ] - Mizoram',
-  '[NL] - Nagaland',
-  '[OD] - Odisha',
-  '[PY] - Puducherry',
-  '[PB] - Punjab',
-  '[RJ] - Rajasthan',
-  '[SK] - Sikkim',
-  '[TN] - Tamil Nadu',
-  '[TS] - Telangana',
-  '[TR] - Tripura',
-  '[UP] - Uttar Pradesh',
-  '[UK] - Uttarakhand',
-  '[WB] - West Bengal',
-];
-

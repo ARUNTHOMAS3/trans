@@ -14,6 +14,7 @@ import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/shared/widgets/settings_fixed_header_layout.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/utils/validation_utils.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/services/bin_locations_service.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -1654,10 +1655,10 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                             final gstin = gstinCtrl.text
                                                 .trim()
                                                 .toUpperCase();
-                                            if (gstin.length != 15) {
+                                            final validationError = validateGstin(gstin);
+                                            if (validationError != null) {
                                               setDS(
-                                                () => gstinError =
-                                                    'GSTIN must be exactly 15 characters',
+                                                () => gstinError = validationError,
                                               );
                                               return;
                                             }
@@ -1922,13 +1923,10 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                             String gstin;
                             if (addNew) {
                               gstin = gstinCtrl.text.trim().toUpperCase();
-                              final rx = RegExp(
-                                r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$',
-                              );
-                              if (gstin.isEmpty || !rx.hasMatch(gstin)) {
+                              final validationError = validateGstin(gstin);
+                              if (validationError != null) {
                                 setDS(
-                                  () => gstinError =
-                                      'Enter a valid 15-character GSTIN',
+                                  () => gstinError = validationError,
                                 );
                                 return;
                               }

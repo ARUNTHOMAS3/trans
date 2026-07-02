@@ -13,6 +13,7 @@ import { CreateProductDto } from "./dto/create-product.dto";
 import { Client } from "pg";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
+import { listVisibleAccounts } from "../../common/account-visibility.util";
 
 import { R2StorageService } from "../accountant/r2-storage.service";
 
@@ -48,9 +49,9 @@ export class ProductsService {
     brand:brands(id, name),
     rep:sales_reps(id, name, number),
     preferredVendor:vendors(id, display_name),
-    salesAccount:accounts!products_sales_account_id_accounts_id_fk(id, user_account_name),
-    purchaseAccount:accounts!products_purchase_account_id_accounts_id_fk(id, user_account_name),
-    inventoryAccount:accounts!products_inventory_account_id_accounts_id_fk(id, user_account_name),
+    salesAccount:accounts!products_sales_account_id_accounts_id_fk(id, user_account_name, system_account_name),
+    purchaseAccount:accounts!products_purchase_account_id_accounts_id_fk(id, user_account_name, system_account_name),
+    inventoryAccount:accounts!products_inventory_account_id_accounts_id_fk(id, user_account_name, system_account_name),
     rack:racks(id, rack_name),
     buyingRule:buying_rules(id, buying_rule, rule_description, system_behavior, associated_schedule_codes, requires_rx, requires_patient_info, is_saleable, log_to_special_register, requires_doctor_name, requires_prescription_date, requires_age_check, institutional_only, blocks_retail_sale, quantity_limit, allows_refill, sort_order),
     drugSchedule:drug_schedules(id, shedule_name, schedule_code, reference_description, requires_prescription, requires_h1_register, is_narcotic, requires_batch_tracking, sort_order, is_common),
@@ -2314,20 +2315,12 @@ export class ProductsService {
   }
 
   async getAccounts(tenant?: TenantContext) {
-    const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
-    const { data, error } = await supabase
-      .from("accounts")
-      .select(
-        "id, user_account_name, system_account_name, account_type, is_active",
-      )
-      .eq("entity_id", scope.entityId)
-      .eq("is_active", true)
-      .eq("account_type", "Stock")
-      .order("system_account_name", { ascending: true });
-
-    if (error) throw new Error(error.message);
-    return data;
+    if (!tenant) return [];
+    return listVisibleAccounts(this.supabaseService.getClient(), tenant, {
+      select:
+        "id, entity_id, user_account_name, system_account_name, account_type, is_active",
+      accountType: "Stock",
+    });
   }
 
   async syncAccounts(items: any[], tenant?: TenantContext) {

@@ -185,6 +185,24 @@ class NavigationRegistry {
       ],
     ),
     AppModule(
+      id: 'procurement',
+      label: 'Procurement',
+      icon: LucideIcons.clipboardList,
+      items: [
+        AppNavItem(
+          label: 'Purchase Requests',
+          listRoute: AppRoutes.procurementPurchaseRequests,
+          createRoute: AppRoutes.procurementPurchaseRequestsCreate,
+        ),
+        AppNavItem(
+          label: 'Approvals',
+          listRoute: AppRoutes.procurementApprovals,
+          createRoute: AppRoutes.procurementApprovals,
+          showAdd: false,
+        ),
+      ],
+    ),
+    AppModule(
       id: 'purchases',
       label: 'Purchases',
       icon: LucideIcons.truck,
@@ -248,25 +266,6 @@ class NavigationRegistry {
           listRoute: AppRoutes.vendorCredits,
           createRoute: AppRoutes.vendorCreditsCreate,
           permissionKey: 'vendor_credits',
-        ),
-      ],
-    ),
-    AppModule(
-      id: 'procurement',
-      label: 'Procurement',
-      icon: LucideIcons.clipboardList,
-      items: [
-        AppNavItem(
-          label: 'Purchase Requests',
-          listRoute: AppRoutes.procurementPurchaseRequests,
-          createRoute: AppRoutes.procurementPurchaseRequestsCreate,
-          permissionKey: 'purchase_requests',
-        ),
-        AppNavItem(
-          label: 'Approvals',
-          listRoute: AppRoutes.procurementApprovals,
-          createRoute: AppRoutes.procurementApprovals,
-          showAdd: false,
         ),
       ],
     ),

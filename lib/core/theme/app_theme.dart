@@ -142,23 +142,8 @@ class AppTheme {
   // Custom font registration name in pubspec.yaml
   static const String _fontFamily = 'Inter';
   static const List<String> _fontFamilyFallback = <String>[
-    'NotoSansFallback',
     'NotoSansSymbols',
-    'NotoSansDevanagari',
-    'NotoSansBengali',
-    'NotoSansGujarati',
-    'NotoSansGurmukhi',
-    'NotoSansKannada',
-    'NotoSansMalayalam',
-    'NotoSansOriya',
-    'NotoSansTamil',
-    'NotoSansTelugu',
-    'Segoe UI',
-    'Segoe UI Symbol',
-    'Arial Unicode MS',
-    'Noto Sans',
     'Noto Color Emoji',
-    'sans-serif',
   ];
 
   static TextStyle _baseTextStyle({

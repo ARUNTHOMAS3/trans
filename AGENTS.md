@@ -8,6 +8,11 @@
   - `lib/shared/widgets/` = reusable UI widgets, dialogs, inputs, page wrappers, report shells, and responsive UI primitives.
   - `lib/shared/services/` = cross-feature services consumed by modules, repositories, and shared UI.
   - `lib/modules/<module>/` = feature-specific code only.
+- UI owner pattern:
+  - `presentation/` = module UI owner folder
+  - many route-level screens/pages live under `presentation/pages/`
+  - `presentation/*.dart` files may act as export shims into `pages/`
+  - larger features may also use `presentation/widgets/`, `presentation/dialogs/`, and `presentation/sections/`
 - Do not place reusable widgets in `lib/core/widgets/`.
 - Do not create duplicate service implementations under both `core/services` and `shared/services`; prefer `shared/services` for cross-feature usage and reserve `core/` for app infrastructure concerns only.
 

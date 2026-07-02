@@ -139,10 +139,17 @@ export class HsnSacService {
 
       this.logger.log(`Found 0 results for ${type} query: ${query}`);
       return [];
-    } catch (error) {
-      this.logger.error(`Error searching ${type} via Drizzle: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : JSON.stringify(error);
+
+      this.logger.error(`Error searching ${type} via Drizzle: ${errorMessage}`);
       this.logger.error(
-        `[HSN_DEBUG] phase=master_error type=${type} query="${query}" error="${error.message}"`,
+        `[HSN_DEBUG] phase=master_error type=${type} query="${query}" error="${errorMessage}"`,
       );
 
       try {
@@ -153,9 +160,16 @@ export class HsnSacService {
         if (masterFallback.length > 0) {
           return masterFallback;
         }
-      } catch (supabaseError) {
+      } catch (supabaseError: unknown) {
+        const supabaseErrorMessage =
+          supabaseError instanceof Error
+            ? supabaseError.message
+            : typeof supabaseError === "string"
+            ? supabaseError
+            : JSON.stringify(supabaseError);
+
         this.logger.error(
-          `[HSN_DEBUG] phase=supabase_master_fallback_error type=${type} query="${query}" error="${supabaseError.message}"`,
+          `[HSN_DEBUG] phase=supabase_master_fallback_error type=${type} query="${query}" error="${supabaseErrorMessage}"`,
         );
       }
 
@@ -169,24 +183,38 @@ export class HsnSacService {
             `[HSN_DEBUG] phase=fallback_after_error type=${type} query="${query}" fallback_count=${deduped.length}`,
           );
           return deduped;
-        } catch (fallbackError) {
+        } catch (fallbackError: unknown) {
           try {
             const supabaseDeduped = await this.searchHsnFromProductsSupabase(query);
             this.logger.warn(
               `[HSN_DEBUG] phase=supabase_product_fallback type=${type} query="${query}" fallback_count=${supabaseDeduped.length}`,
             );
             return supabaseDeduped;
-          } catch (supabaseFallbackError) {
+          } catch (supabaseFallbackError: unknown) {
+            const supabaseFallbackErrorMessage =
+              supabaseFallbackError instanceof Error
+                ? supabaseFallbackError.message
+                : typeof supabaseFallbackError === "string"
+                ? supabaseFallbackError
+                : JSON.stringify(supabaseFallbackError);
+
             this.logger.error(
-              `[HSN_DEBUG] phase=supabase_product_fallback_error type=${type} query="${query}" error="${supabaseFallbackError.message}"`,
+              `[HSN_DEBUG] phase=supabase_product_fallback_error type=${type} query="${query}" error="${supabaseFallbackErrorMessage}"`,
             );
           }
 
+          const fallbackErrorMessage =
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : typeof fallbackError === "string"
+              ? fallbackError
+              : JSON.stringify(fallbackError);
+
           this.logger.error(
-            `HSN product fallback also failed: ${fallbackError.message}`,
+            `HSN product fallback also failed: ${fallbackErrorMessage}`,
           );
           this.logger.error(
-            `[HSN_DEBUG] phase=fallback_error type=${type} query="${query}" error="${fallbackError.message}"`,
+            `[HSN_DEBUG] phase=fallback_error type=${type} query="${query}" error="${fallbackErrorMessage}"`,
           );
         }
       }

@@ -109,7 +109,11 @@ class _SettingsBranchProfilePageState
     final user = ref.watch(authUserProvider);
     final canEdit =
         user != null &&
-        CapabilityService.canUserAction(user, 'settings.branch.edit', action: 'edit');
+        CapabilityService.canUserAction(
+          user,
+          'settings.branch.edit',
+          action: 'edit',
+        );
 
     return Container(
       padding: const EdgeInsets.fromLTRB(
@@ -175,13 +179,12 @@ class _SettingsBranchProfilePageState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'All Settings',
-                                  style: AppTheme.pageTitle,
-                                ),
+                                Text('All Settings', style: AppTheme.pageTitle),
                                 const SizedBox(height: AppTheme.space4),
                                 Text(
-                                  ref.watch(authUserProvider)?.orgName
+                                  ref
+                                              .watch(authUserProvider)
+                                              ?.orgName
                                               .isNotEmpty ==
                                           true
                                       ? ref.watch(authUserProvider)!.orgName
@@ -343,7 +346,10 @@ class _SettingsBranchProfilePageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(branchName, style: AppTheme.pageTitle.copyWith(fontSize: 20)),
+              Text(
+                branchName,
+                style: AppTheme.pageTitle.copyWith(fontSize: 20),
+              ),
               const SizedBox(height: 2),
               Text(
                 [
@@ -352,7 +358,9 @@ class _SettingsBranchProfilePageState
                   if ((d['system_id'] ?? '').toString().isNotEmpty)
                     'ID: ${d['system_id']}',
                 ].join(' · '),
-                style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
+                style: AppTheme.bodyText.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ],
           ),
@@ -393,8 +401,8 @@ class _SettingsBranchProfilePageState
         _buildInfoContent([
           _buildInfoRow('System ID', _tv(d['system_id'])),
           _buildInfoRow('Branch Code', _tv(d['branch_code'])),
-          _buildInfoRow('Branch Type', _tv(d['branch_type'])),
-          _buildInfoRow('Industry', _tv(d['industry'])),
+          _buildInfoRow('Associated Branch Type', _tv(d['branch_type'])),
+          _buildInfoRow('Industry/Sector', _tv(d['industry'])),
           _buildInfoRow('Registered On', _tv(_formatDate(d['created_at']))),
           _buildInfoRow('Email', _tv(d['email'])),
           _buildInfoRow('Phone', _tv(d['phone'])),
@@ -426,9 +434,7 @@ class _SettingsBranchProfilePageState
           ),
           _buildInfoRow(
             'Ward',
-            _tv(
-              d['ward_display_name'] ?? d['ward_name'] ?? d['ward_id'],
-            ),
+            _tv(d['ward_display_name'] ?? d['ward_name'] ?? d['ward_id']),
           ),
         ]),
         if (_isTrue(d['has_separate_payment_stub_address'])) ...[
@@ -449,10 +455,22 @@ class _SettingsBranchProfilePageState
           _buildInfoRow('GSTIN', _tv(d['gstin'])),
           _buildInfoRow('Legal Name', _tv(d['gstin_legal_name'])),
           _buildInfoRow('Trade Name', _tv(d['gstin_trade_name'])),
-          _buildInfoRow('GST Registered On', _tv(_formatDate(d['gstin_registered_on']))),
-          _buildInfoRow('Reverse Charge', _tv(_boolLabel(d['gstin_reverse_charge']))),
-          _buildInfoRow('Import / Export', _tv(_boolLabel(d['gstin_import_export']))),
-          _buildInfoRow('Digital Services', _tv(_boolLabel(d['gstin_digital_services']))),
+          _buildInfoRow(
+            'GST Registered On',
+            _tv(_formatDate(d['gstin_registered_on'])),
+          ),
+          _buildInfoRow(
+            'Reverse Charge',
+            _tv(_boolLabel(d['gstin_reverse_charge'])),
+          ),
+          _buildInfoRow(
+            'Import / Export',
+            _tv(_boolLabel(d['gstin_import_export'])),
+          ),
+          _buildInfoRow(
+            'Digital Services',
+            _tv(_boolLabel(d['gstin_digital_services'])),
+          ),
         ]),
         if (_isTrue(d['is_drug_registered'])) ...[
           const SizedBox(height: 32),
@@ -476,7 +494,10 @@ class _SettingsBranchProfilePageState
           const SizedBox(height: 32),
           _buildSectionTitle('MSME'),
           _buildInfoContent([
-            _buildInfoRow('Registration Type', _tv(d['msme_registration_type'])),
+            _buildInfoRow(
+              'Registration Type',
+              _tv(d['msme_registration_type']),
+            ),
             _buildInfoRow('MSME Number', _tv(d['msme_number'])),
             _buildInfoRow('MSME Type', _tv(d['msme_type'])),
           ]),

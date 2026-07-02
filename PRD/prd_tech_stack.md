@@ -19,7 +19,7 @@ These stack choices are locked unless the PRD is intentionally revised.
 | Layer | Canonical Technology | Implementation Notes |
 | --- | --- | --- |
 | Frontend app | Flutter (Dart) | Web-first ERP UI with offline-capable local storage and Android compatibility. |
-| Frontend state | Riverpod (`flutter_riverpod`) | App entry uses `ProviderScope`; module providers live under `lib/modules/<module>/providers/`. |
+| Frontend state | Riverpod (`flutter_riverpod`) | App entry uses `ProviderScope`; state owners live inside the owning module and may appear under `providers/`, `controllers/`, or adjacent module-owned state files depending on feature complexity. |
 | Frontend routing | GoRouter (`go_router`) | All app routes are centralized in `lib/core/routing/app_router.dart` and deep-link under `/:orgSystemId/*`. |
 | Frontend HTTP | Dio (`dio`) only | `http` package is not allowed. Dio setup is centralized through `lib/core/services/api_client.dart` and re-exported from `lib/shared/services/api_client.dart`. |
 | Frontend offline/local DB | Hive (`hive`, `hive_flutter`) | `lib/main.dart` initializes Hive, registers adapters, and opens business caches plus `config` and `local_drafts` boxes. |

@@ -23,6 +23,7 @@ import { SettingsZonesModule } from "./modules/settings-zones/settings-zones.mod
 import { RedisModule } from "./modules/redis/redis.module";
 import { ResendModule } from "./modules/email/resend.module";
 import { AuthModule } from "./common/auth/auth.module";
+import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { TenantMiddleware } from "./common/middleware/tenant.middleware";
 
 @Module({
@@ -53,7 +54,7 @@ import { TenantMiddleware } from "./common/middleware/tenant.middleware";
     ResendModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [AuditInterceptor],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

@@ -35,11 +35,26 @@ class ZerpaiShell extends ConsumerStatefulWidget {
 }
 
 class _ZerpaiShellState extends ConsumerState<ZerpaiShell> {
+  String _safeCurrentPath(BuildContext context) {
+    try {
+      final configuration = GoRouter.of(
+        context,
+      ).routerDelegate.currentConfiguration;
+      if (configuration.isNotEmpty) {
+        return configuration.last.matchedLocation;
+      }
+    } catch (_) {}
+
+    try {
+      return GoRouter.of(context).routeInformationProvider.value.uri.path;
+    } catch (_) {
+      return '';
+    }
+  }
+
   bool _isSettingsRoute(BuildContext context) {
     try {
-      final matchedLocation = GoRouter.of(
-        context,
-      ).routerDelegate.currentConfiguration.last.matchedLocation;
+      final matchedLocation = _safeCurrentPath(context);
       final normalized = matchedLocation.replaceFirst(
         RegExp(r'^/\d{10,20}'),
         '',

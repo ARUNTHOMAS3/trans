@@ -164,16 +164,12 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   void didUpdateWidget(covariant FormDropdown<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!listEquals(oldWidget.items, widget.items) ||
+    if (oldWidget.items != widget.items ||
         oldWidget.value != widget.value ||
         !listEquals(oldWidget.selectedValues, widget.selectedValues)) {
       final q = _searchCtrl.text;
       setState(() {
-        if (q.trim().isNotEmpty && widget.onSearch != null) {
-          // Preserve the existing _filteredItems which contains the async search results.
-        } else {
-          _filteredItems = _localFilter(q);
-        }
+        _filteredItems = _localFilter(q);
       });
 
       // Refresh overlay if open
@@ -573,13 +569,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     final double cappedHeight = (cappedVisibleCount * effectiveRowHeight)
         .clamp(effectiveRowHeight, availableListHeight)
         .toDouble();
-    double listHeight = (!isSearchActive && hasMaxVisibleItems)
+    final double listHeight = (!isSearchActive && hasMaxVisibleItems)
         ? cappedHeight
         : dynamicHeight;
-
-    if (_filteredItems.length == 1) {
-      listHeight += 20.0;
-    }
     final double emptyStateHeight = availableListHeight
         .clamp(64.0, 80.0)
         .toDouble();

@@ -76,10 +76,11 @@ const Map<String, List<String>> legacyPermissionPrefixesByKey = {
 
   // Settings + Compliance
   'general_prefs': ['settings.organization'],
+  'users': ['settings.users'],
   'branches': ['settings.branch'],
   'warehouses': ['settings.warehouse'],
   'zones': ['settings.zone'],
-  'users_roles': ['settings.users', 'settings.roles'],
+  'users_roles': ['settings.roles'],
   'transaction_series': ['settings.transaction_series'],
 
   // Reports + shell
@@ -1623,22 +1624,6 @@ const List<PermissionDefinition> permissionsRegistry = [
     action: PermissionActions.view,
     label: 'View Documents',
     description: 'Can view documents.',
-  ),
-  PermissionDefinition(
-    key: 'procurement.purchase_request.view',
-    module: 'procurement',
-    resource: 'purchase_request',
-    action: PermissionActions.view,
-    label: 'View Purchase Requests',
-    description: 'Can view purchase requests.',
-  ),
-  PermissionDefinition(
-    key: 'procurement.purchase_request.create',
-    module: 'procurement',
-    resource: 'purchase_request',
-    action: PermissionActions.create,
-    label: 'Create Purchase Requests',
-    description: 'Can create purchase requests.',
   ),
 ];
 

@@ -31,7 +31,7 @@ class SalesOrder {
   final bool isDelete;
   final String? entityId;
   final String? salesOrderId;
-  final String? tdsTcsType; // 'tds' | 'tcs' | 'none'
+  final String? tdsTcsType;
   final String? tdsTcsTaxId;
   final double tdsTcsAmount;
   final double tdsTotal;
@@ -67,7 +67,7 @@ class SalesOrder {
     this.isDelete = false,
     this.entityId,
     this.salesOrderId,
-    this.tdsTcsType = 'none',
+    this.tdsTcsType,
     this.tdsTcsTaxId,
     this.tdsTcsAmount = 0.0,
     this.tdsTotal = 0.0,
@@ -145,9 +145,11 @@ class SalesOrder {
       entityId: json['entity_id'] ?? json['entityId'],
       salesOrderId: (json['sales_order_id'] ?? json['salesOrderId'])
           ?.toString(),
-      tdsTcsType: json['tds_tcs_type']?.toString() ?? 'none',
-      tdsTcsTaxId: json['tds_tcs_tax_id']?.toString() ?? json['tds_id']?.toString(),
-      tdsTcsAmount: (json['tds_tcs_amount'] ?? 0.0).toDouble(),
+      tdsTcsType: json['tds_tcs_type']?.toString() ?? json['tdsTcsType']?.toString(),
+      tdsTcsTaxId:
+          json['tds_tcs_tax_id']?.toString() ?? json['tdsTcsTaxId']?.toString(),
+      tdsTcsAmount:
+          (json['tds_tcs_amount'] ?? json['tdsTcsAmount'] ?? 0.0).toDouble(),
       tdsTotal: (json['tds_total'] ?? json['tdsTotal'] ?? 0.0).toDouble(),
       tcsTotal: (json['tcs_total'] ?? json['tcsTotal'] ?? 0.0).toDouble(),
     );

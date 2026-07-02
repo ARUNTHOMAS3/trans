@@ -11,7 +11,7 @@ import {
 import { Type } from "class-transformer";
 
 class PurchaseOrderItemDto {
-  @IsString()
+  @IsUUID()
   @IsOptional()
   product_id?: string;
 
@@ -19,11 +19,11 @@ class PurchaseOrderItemDto {
   @IsOptional()
   description?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   account_id?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   accounts?: string;
 
@@ -35,7 +35,7 @@ class PurchaseOrderItemDto {
   @IsOptional()
   rate?: number;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   tax_id?: string;
 
@@ -82,7 +82,7 @@ class PurchaseOrderItemDto {
   @IsOptional()
   header_text?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   id?: string;
 
@@ -120,7 +120,7 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   warehouse_name?: string;
 
-  @IsString()
+  @IsUUID()
   vendor_id: string;
 
   @IsString()
@@ -138,11 +138,11 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   reference_number?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   payment_terms_id?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   shipment_preference_id?: string;
 
@@ -150,15 +150,15 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   delivery_type?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   delivery_warehouse_id?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   delivery_customer_id?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   warehouse_id?: string;
 
@@ -166,7 +166,7 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   discount_level?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   discount_account_id?: string;
 
@@ -202,13 +202,9 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   tds_tcs_type?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   tds_id?: string;
-
-  @IsString()
-  @IsOptional()
-  tds_tcs_id?: string;
 
   @IsNumber()
   @IsOptional()
@@ -232,22 +228,6 @@ export class CreatePurchaseOrderDto {
   @IsString()
   @IsOptional()
   terms_and_conditions?: string;
-
-  @IsString()
-  @IsOptional()
-  source_of_supply?: string;
-
-  @IsString()
-  @IsOptional()
-  destination_to_supply?: string;
-
-  @IsString()
-  @IsOptional()
-  shipping_address?: string;
-
-  @IsString()
-  @IsOptional()
-  billing_address?: string;
 
   @ValidateNested({ each: true })
   @Type(() => PurchaseOrderItemDto)

@@ -1,6 +1,9 @@
 part of '../pages/items_item_create.dart';
 
 extension _ItemCreateTabs on _ItemCreateScreenState {
+  String _packSizeId(Map<String, dynamic> pack) =>
+      (pack['id'] ?? '').toString().trim();
+
   String _packSizeDisplayLabel(Map<String, dynamic> pack) {
     final packName = (pack['pack_name'] ?? '').toString().trim();
     final unitPack = (pack['unit_pack'] ?? '').toString().trim();
@@ -9,12 +12,18 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
     return '$packName - $unitPack';
   }
 
-  String _packSizeDisplayLabelFromParts(String? packName, String? unitPack) {
-    final normalizedPackName = packName?.trim() ?? '';
-    final normalizedUnitPack = unitPack?.trim() ?? '';
-    if (normalizedPackName.isEmpty) return normalizedUnitPack;
-    if (normalizedUnitPack.isEmpty) return normalizedPackName;
-    return '$normalizedPackName - $normalizedUnitPack';
+  Map<String, dynamic>? _findPackSizeById(
+    ItemsState itemsState,
+    String? id,
+  ) {
+    final normalized = id?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    for (final pack in itemsState.packSizes) {
+      if (_packSizeId(pack) == normalized) {
+        return pack;
+      }
+    }
+    return null;
   }
 
   Map<String, dynamic>? _findPackSizeByDisplayValue(
@@ -60,31 +69,35 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
     return null;
   }
 
-  List<String> _packSizeOptions(ItemsState itemsState) {
-    final labels = itemsState.packSizes
-        .map(_packSizeDisplayLabel)
-        .where((label) => label.isNotEmpty)
+  List<Map<String, dynamic>> _packSizeOptions(ItemsState itemsState) {
+    final packs = itemsState.packSizes
+        .where((pack) => _packSizeId(pack).isNotEmpty)
         .toList();
     if (selectedPackSize != null && selectedPackSize!.trim().isNotEmpty) {
-      final existingPack =
+      final existingPack = _findPackSizeById(itemsState, selectedPackSize) ??
           _findPackSizeByDisplayValue(itemsState, selectedPackSize) ??
           _findPackSizeByName(itemsState, selectedPackSize);
       if (existingPack != null) {
-        labels.add(_packSizeDisplayLabel(existingPack));
-      } else {
-        labels.add(selectedPackSize!.trim());
+        packs.add(existingPack);
       }
     }
-    return labels.toSet().toList();
+    final deduped = <String, Map<String, dynamic>>{};
+    for (final pack in packs) {
+      final id = _packSizeId(pack);
+      if (id.isNotEmpty) {
+        deduped[id] = pack;
+      }
+    }
+    return deduped.values.toList();
   }
 
   String? _packSizeDisplayValue(ItemsState itemsState) {
     final raw = selectedPackSize?.trim() ?? '';
     if (raw.isEmpty) return null;
-    final pack =
+    final pack = _findPackSizeById(itemsState, raw) ??
         _findPackSizeByDisplayValue(itemsState, raw) ??
         _findPackSizeByName(itemsState, raw);
-    if (pack != null) return _packSizeDisplayLabel(pack);
+    if (pack != null) return _packSizeId(pack);
     return raw;
   }
 
@@ -95,14 +108,15 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         selectedPackSize = null;
         return;
       }
-      final pack = _findPackSizeByDisplayValue(itemsState, text);
+      final pack = _findPackSizeById(itemsState, text) ??
+          _findPackSizeByDisplayValue(itemsState, text);
       if (pack != null) {
-        selectedPackSize = _packSizeDisplayLabel(pack);
+        selectedPackSize = _packSizeId(pack);
         return;
       }
       final namePack = _findPackSizeByName(itemsState, text);
       if (namePack != null) {
-        selectedPackSize = _packSizeDisplayLabel(namePack);
+        selectedPackSize = _packSizeId(namePack);
         return;
       }
       selectedPackSize = text;
@@ -112,23 +126,31 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
   String? _lockUnitPackDisplayValue(ItemsState itemsState) {
     final raw = selectedLockUnitPack?.trim() ?? lockUnitPackCtrl.text.trim();
     if (raw.isEmpty) return null;
+    final selectedPack = _findPackSizeById(itemsState, raw);
+    if (selectedPack != null) return _packSizeId(selectedPack);
     final pack = _findPackSizeByUnitPack(itemsState, raw);
-    if (pack != null) return _packSizeDisplayLabel(pack);
+    if (pack != null) return _packSizeId(pack);
     return raw;
   }
 
   void _onLockUnitPackChanged(ItemsState itemsState, String? value) {
     updateState(() {
-      selectedLockUnitPack = value?.trim();
       final text = value?.trim() ?? '';
       if (text.isEmpty) {
+        selectedLockUnitPack = null;
         lockUnitPackCtrl.clear();
         return;
       }
-      final pack =
+      final pack = _findPackSizeById(itemsState, text) ??
           _findPackSizeByDisplayValue(itemsState, text) ??
           _findPackSizeByName(itemsState, text);
-      lockUnitPackCtrl.text = (pack?['unit_pack'] ?? text).toString().trim();
+      if (pack != null) {
+        selectedLockUnitPack = _packSizeId(pack);
+        lockUnitPackCtrl.text = (pack['unit_pack'] ?? '').toString().trim();
+        return;
+      }
+      selectedLockUnitPack = text;
+      lockUnitPackCtrl.text = text;
     });
   }
 
@@ -139,18 +161,23 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
       builder: (_) => ManagePackSizesDialog(
         packSizes: itemsState.packSizes,
         onCreatePackSize: controller.createProductPackSize,
-        initialPackSize: selectedPackSize,
+        initialPackSize: (() {
+          final pack = _findPackSizeById(itemsState, selectedPackSize) ??
+              _findPackSizeByDisplayValue(itemsState, selectedPackSize) ??
+              _findPackSizeByName(itemsState, selectedPackSize);
+          if (pack != null) return _packSizeDisplayLabel(pack);
+          return selectedPackSize;
+        })(),
       ),
     );
     if (selected == null) return;
     final packName = (selected['pack_name'] ?? '').toString().trim();
     final unitPack = (selected['unit_pack'] ?? '').toString().trim();
     if (packName.isEmpty) return;
-    final displayLabel = _packSizeDisplayLabelFromParts(packName, unitPack);
     updateState(() {
-      selectedPackSize = displayLabel;
+      selectedPackSize = _packSizeId(selected);
       if ((selectedLockUnitPack?.trim().isNotEmpty ?? false) &&
-          selectedLockUnitPack?.trim() == displayLabel) {
+          selectedLockUnitPack?.trim() == _packSizeId(selected)) {
         lockUnitPackCtrl.text = unitPack;
       }
     });
@@ -423,15 +450,20 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         onCreateOne: controller.createBrand,
         onSelect: (v) => updateState(() => brandId = v),
       ),
-        packSizeValue: _packSizeDisplayValue(itemsState),
-        onPackSizeChanged: (v) => _onPackSizeChanged(itemsState, v),
-        packSizeOptions: _packSizeOptions(itemsState),
-        onManagePackSizesTap: () => _openPackSizeDialog(itemsState),
-        lockUnitPackValue: _lockUnitPackDisplayValue(itemsState),
-        onLockUnitPackChanged: (v) => _onLockUnitPackChanged(itemsState, v),
-        lockUnitPackCtrl: lockUnitPackCtrl,
-        upcCtrl: upcCtrl,
-        eanCtrl: eanCtrl,
+      packSizeValue: _packSizeDisplayValue(itemsState),
+      onPackSizeChanged: (v) => _onPackSizeChanged(itemsState, v),
+      packSizeOptions: _packSizeOptions(itemsState),
+      packSizeDisplayLabelForId: (id) {
+        final pack = _findPackSizeById(itemsState, id);
+        if (pack != null) return _packSizeDisplayLabel(pack);
+        return id;
+      },
+      onManagePackSizesTap: () => _openPackSizeDialog(itemsState),
+      lockUnitPackValue: _lockUnitPackDisplayValue(itemsState),
+      onLockUnitPackChanged: (v) => _onLockUnitPackChanged(itemsState, v),
+      lockUnitPackCtrl: lockUnitPackCtrl,
+      upcCtrl: upcCtrl,
+      eanCtrl: eanCtrl,
       mpnCtrl: mpnCtrl,
       isbnCtrl: isbnCtrl,
       zerpaiField: _zerpaiField,
@@ -558,42 +590,18 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
   // ============================================================================
   Widget _buildMoreInfoSection(ItemsState itemsState) {
     return MoreInfoSection(
-      storageDescCtrl: storageDescCtrl,
       aboutCtrl: aboutCtrl,
       usesDescCtrl: usesDescCtrl,
-      howToUseCtrl: howToUseCtrl,
       dosageDescCtrl: dosageDescCtrl,
-      missedDoseDescCtrl: missedDoseDescCtrl,
-      safetyAdviceCtrl: safetyAdviceCtrl,
       howItWorksCtrl: howItWorksCtrl,
-      drugInteractionsCtrl: drugInteractionsCtrl,
-      contraindicationsCtrl: contraindicationsCtrl,
       sideEffectsManagementCtrl: sideEffectsManagementCtrl,
-      goodToKnowCtrl: goodToKnowCtrl,
-      quickTipsCtrl: quickTipsCtrl,
-      allergyInformationCtrl: allergyInformationCtrl,
+      safetyAdviceCtrl: safetyAdviceCtrl,
+      drugInteractionsCtrl: drugInteractionsCtrl,
+      additionalInformationCtrl: goodToKnowCtrl,
       productHighlightsCtrl: productHighlightsCtrl,
       ingredientsListCtrl: ingredientsListCtrl,
-      safetyPregnancyCtrl: safetyPregnancyCtrl,
-      safetyBreastfeedingCtrl: safetyBreastfeedingCtrl,
-      safetyAlcoholCtrl: safetyAlcoholCtrl,
-      safetyLiverCtrl: safetyLiverCtrl,
-      safetyKidneyCtrl: safetyKidneyCtrl,
-      safetyDrivingCtrl: safetyDrivingCtrl,
-      safetyAllergyCtrl: safetyAllergyCtrl,
-      safetyChildrenCtrl: safetyChildrenCtrl,
-      safetyOlderPatientsCtrl: safetyOlderPatientsCtrl,
-      interactionsDrugDrugCtrl: interactionsDrugDrugCtrl,
-      interactionsDrugDiseaseCtrl: interactionsDrugDiseaseCtrl,
-      dosageDailyDoseCtrl: dosageDailyDoseCtrl,
-      dosageOverDoseCtrl: dosageOverDoseCtrl,
-      dosageMissedDoseCtrl: dosageMissedDoseCtrl,
       referencesTextCtrl: referencesTextCtrl,
       productDescriptionCtrl: productDescriptionCtrl,
-      additionalInfoAllergyCtrl: additionalInfoAllergyCtrl,
-      additionalInfoConcernsCtrl: additionalInfoConcernsCtrl,
-      additionalInfoGoodToKnowCtrl: additionalInfoGoodToKnowCtrl,
-      additionalInfoQuickTipsCtrl: additionalInfoQuickTipsCtrl,
       directionsForUseCtrl: directionsForUseCtrl,
       sideEffectsCtrl: sideEffectsCtrl,
       faqTextCtrl: faqTextCtrl,

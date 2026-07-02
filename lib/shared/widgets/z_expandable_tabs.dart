@@ -7,8 +7,8 @@ class ZExpandableTabs extends StatefulWidget {
   final List<Widget> children;
   final int initialIndex;
   final bool initiallyExpanded;
-  final EdgeInsetsGeometry? contentPadding;
   final bool showBorder;
+  final EdgeInsets contentPadding;
 
   const ZExpandableTabs({
     Key? key,
@@ -16,8 +16,8 @@ class ZExpandableTabs extends StatefulWidget {
     required this.children,
     this.initialIndex = 0,
     this.initiallyExpanded = false,
-    this.contentPadding,
     this.showBorder = true,
+    this.contentPadding = const EdgeInsets.all(16),
   }) : super(key: key);
 
   @override
@@ -38,13 +38,12 @@ class _ZExpandableTabsState extends State<ZExpandableTabs> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: widget.showBorder
-          ? BoxDecoration(
-              border: Border.all(color: AppTheme.borderLight),
-              borderRadius: BorderRadius.circular(4),
-            )
-          : null,
-      clipBehavior: widget.showBorder ? Clip.antiAlias : Clip.none,
+      decoration: BoxDecoration(
+        border: widget.showBorder
+            ? Border.all(color: AppTheme.borderLight)
+            : null,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -107,7 +106,7 @@ class _ZExpandableTabsState extends State<ZExpandableTabs> {
           if (_isExpanded) ...[
             const Divider(height: 1, color: AppTheme.borderLight),
             Padding(
-              padding: widget.contentPadding ?? const EdgeInsets.all(16),
+              padding: widget.contentPadding,
               child: widget.children[_activeIndex],
             ),
           ],

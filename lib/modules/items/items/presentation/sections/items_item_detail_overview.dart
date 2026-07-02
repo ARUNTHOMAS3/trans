@@ -138,6 +138,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       if (qty == null) return rawName;
       return '$rawName (+$qty additional units)';
     })();
+    final hasEcommerceContent = _hasEcommerceContent(item);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 24, 24, 24),
       child: Column(
@@ -168,7 +169,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                     ),
                     _buildInfoRow(
                       'Salt Composition',
-                      _buildSaltCompositionValue(item),
+                      _buildSaltCompositionValue(state, item),
                     ),
                     _buildInfoRow(
                       'Buying Rule',
@@ -292,6 +293,69 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                     _buildInfoRow('ISBN', _buildTextValue(item.isbn)),
                     _buildInfoRow('EAN', _buildTextValue(item.ean)),
                   ]),
+                  if (hasEcommerceContent) ...[
+                    const SizedBox(height: 32),
+                    _buildSectionTitle('Ecommerce Information'),
+                    _buildInfoContent([
+                      _buildInfoRow('About', _buildRichTextValue(item.about)),
+                      _buildInfoRow(
+                        'Uses Of',
+                        _buildRichTextValue(item.usesDescription),
+                      ),
+                      _buildInfoRow(
+                        'Product Highlights',
+                        _buildRichTextValue(item.productHighlights),
+                      ),
+                      _buildInfoRow(
+                        'Product Description',
+                        _buildRichTextValue(item.productDescription),
+                      ),
+                      _buildInfoRow(
+                        'Ingredients',
+                        _buildRichTextValue(item.ingredientsList),
+                      ),
+                      _buildInfoRow(
+                        'Directions For Use',
+                        _buildRichTextValue(item.directionsForUse),
+                      ),
+                      _buildInfoRow(
+                        'Dosage',
+                        _buildRichTextValue(item.dosageDescription),
+                      ),
+                      _buildInfoRow(
+                        'How It Works',
+                        _buildRichTextValue(item.howItWorks),
+                      ),
+                      _buildInfoRow(
+                        'Side Effects',
+                        _buildRichTextValue(_joinStructuredValues(item.sideEffects)),
+                      ),
+                      _buildInfoRow(
+                        'Management Of Side Effects',
+                        _buildRichTextValue(item.sideEffectsManagement),
+                      ),
+                      _buildInfoRow(
+                        'Safety Measures & Warnings',
+                        _buildRichTextValue(item.safetyAdvice),
+                      ),
+                      _buildInfoRow(
+                        'Interactions',
+                        _buildRichTextValue(item.drugInteractions),
+                      ),
+                      _buildInfoRow(
+                        'Additional Information',
+                        _buildRichTextValue(item.goodToKnow),
+                      ),
+                      _buildInfoRow(
+                        'Frequently Asked Questions (FAQs)',
+                        _buildRichTextValue(_joinStructuredValues(item.faqText)),
+                      ),
+                      _buildInfoRow(
+                        'References',
+                        _buildRichTextValue(item.referencesText),
+                      ),
+                    ]),
+                  ],
                   const SizedBox(height: 24),
                   _buildAssociatedPriceLists(state),
                 ],
@@ -471,7 +535,64 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildSaltCompositionValue(Item item) {
+  Widget _buildRichTextValue(String? value) {
+    final resolvedValue =
+        (value == null || value.trim().isEmpty || value.trim().toLowerCase() == 'n/a')
+            ? 'n/a'
+            : value;
+    return SelectableText(
+      resolvedValue,
+      style: const TextStyle(
+        fontSize: 13,
+        color: AppTheme.textPrimary,
+        fontWeight: FontWeight.w500,
+        height: 1.5,
+      ),
+    );
+  }
+
+  String? _joinStructuredValues(List<String>? values) {
+    if (values == null || values.isEmpty) return null;
+    final cleaned = values
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+    if (cleaned.isEmpty) return null;
+    return cleaned.join('\n\n');
+  }
+
+  bool _hasEcommerceContent(Item item) {
+    bool hasText(String? value) =>
+        value != null &&
+        value.trim().isNotEmpty &&
+        value.trim().toLowerCase() != 'n/a';
+    bool hasList(List<String>? value) =>
+        value != null &&
+        value.any(
+          (entry) =>
+              entry.trim().isNotEmpty && entry.trim().toLowerCase() != 'n/a',
+        );
+
+    return [
+          hasText(item.about),
+          hasText(item.usesDescription),
+          hasText(item.productHighlights),
+          hasText(item.productDescription),
+          hasText(item.ingredientsList),
+          hasText(item.directionsForUse),
+          hasText(item.dosageDescription),
+          hasText(item.howItWorks),
+          hasList(item.sideEffects),
+          hasText(item.sideEffectsManagement),
+          hasText(item.safetyAdvice),
+          hasText(item.drugInteractions),
+          hasText(item.goodToKnow),
+          hasList(item.faqText),
+          hasText(item.referencesText),
+        ].any((value) => value);
+  }
+
+  Widget _buildSaltCompositionValue(ItemsState state, Item item) {
     final compositions =
         item.compositions
             ?.where(
@@ -488,15 +609,25 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
 
     final entries = compositions.map((comp) {
       final contentName = comp.contentName?.trim();
-      final strengthName = comp.strengthName?.trim();
+      final resolvedStrengthName =
+          comp.strengthName?.trim().isNotEmpty == true
+          ? comp.strengthName!.trim()
+          : _resolveLookupValue(
+              directValue: null,
+              id: comp.strengthId,
+              lookups: state.strengths,
+              candidateKeys: const ['strength_name', 'name', 'item_strength'],
+            )?.trim();
 
       if (contentName != null &&
           contentName.isNotEmpty &&
-          strengthName != null &&
-          strengthName.isNotEmpty) {
-        return '$contentName($strengthName)';
+          resolvedStrengthName != null &&
+          resolvedStrengthName.isNotEmpty) {
+        return '$contentName($resolvedStrengthName)';
       }
-      return contentName?.isNotEmpty == true ? contentName! : strengthName!;
+      return contentName?.isNotEmpty == true
+          ? contentName!
+          : (resolvedStrengthName ?? 'n/a');
     }).toList();
 
     return Text(

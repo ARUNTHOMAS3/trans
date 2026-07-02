@@ -31,6 +31,11 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
   String? _intraRateId;
   String? _interRateId;
 
+  bool _isValidTaxGroupId(String? id) {
+    if (id == null || id.isEmpty) return false;
+    return widget.taxGroups.any((taxGroup) => taxGroup.id == id);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -56,7 +61,16 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
   void _notifyParent() => widget.onChanged(_intraRateId, _interRateId);
 
   void _applyDefaultRateIfNeeded() {
-    if (_intraRateId != null && _interRateId != null) return;
+    bool updated = false;
+
+    if (!_isValidTaxGroupId(_intraRateId)) {
+      _intraRateId = null;
+      updated = true;
+    }
+    if (!_isValidTaxGroupId(_interRateId)) {
+      _interRateId = null;
+      updated = true;
+    }
 
     String? findDefaultIntraId() {
       if (widget.taxGroups.isEmpty) return null;
@@ -68,10 +82,10 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
     }
 
     String? findDefaultInterId() {
-      if (widget.taxRates.isEmpty) return null;
-      // Find IGST12 for interstate
-      for (final rate in widget.taxRates) {
-        if (rate.taxName == 'IGST12') return rate.id;
+      if (widget.taxGroups.isEmpty) return null;
+      // Products now persist both tax ids as tax_groups foreign keys.
+      for (final rate in widget.taxGroups) {
+        if (rate.taxName == 'GST12') return rate.id;
       }
       return null;
     }
@@ -79,7 +93,6 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
     final defaultIntraId = findDefaultIntraId();
     final defaultInterId = findDefaultInterId();
 
-    bool updated = false;
     if (_intraRateId == null && defaultIntraId != null) {
       _intraRateId = defaultIntraId;
       updated = true;
@@ -99,7 +112,7 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
 
   String _getTaxName(String? id, bool isInterstate) {
     if (id == null) return '-';
-    final list = isInterstate ? widget.taxRates : widget.taxGroups;
+    final list = widget.taxGroups;
     if (list.isEmpty) return '-';
     try {
       final rate = list.firstWhere((t) => t.id == id);
@@ -256,9 +269,7 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
       );
     }
 
-    final list = isInterstate
-        ? widget.taxRates.where((t) => t.taxType == 'IGST').toList()
-        : widget.taxGroups;
+    final list = widget.taxGroups;
 
     final headerText = isInterstate ? 'Tax' : 'Tax Group';
 

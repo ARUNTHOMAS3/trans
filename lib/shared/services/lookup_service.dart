@@ -134,27 +134,27 @@ final countriesProvider =
           .toList();
     });
 
-final statesProvider = FutureProvider.family<List<Map<String, String>>, String>((
+final statesProvider = FutureProvider.family<List<Map<String, String>>, String>(
+  (ref, countryCode) async {
+    if (countryCode.isEmpty || countryCode == 'Select') return [];
+    final service = ref.watch(lookupServiceProvider);
+    final data = await service.getStates(countryCode);
+
+    return data
+        .map(
+          (json) => <String, String>{
+            'id': (json['id'] ?? '') as String,
+            'name': (json['name'] ?? '') as String,
+            'code': (json['code'] ?? '') as String,
+          },
+        )
+        .toList();
+  },
+);
+
+final storageLocationsProvider = FutureProvider<List<Map<String, String>>>((
   ref,
-  countryCode,
 ) async {
-  if (countryCode.isEmpty || countryCode == 'Select') return [];
-  final service = ref.watch(lookupServiceProvider);
-  final data = await service.getStates(countryCode);
-
-  return data
-      .map(
-        (json) => <String, String>{
-          'id': (json['id'] ?? '') as String,
-          'name': (json['name'] ?? '') as String,
-          'code': (json['code'] ?? '') as String,
-        },
-      )
-      .toList();
-});
-
-final storageLocationsProvider =
-    FutureProvider<List<Map<String, String>>>((ref) async {
   final service = ref.watch(lookupServiceProvider);
   final data = await service.getStorageLocations();
 

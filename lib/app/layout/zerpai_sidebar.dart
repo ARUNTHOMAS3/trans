@@ -33,6 +33,23 @@ String _stripOrgPrefix(String path) {
 }
 
 class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
+  String _safeCurrentPath() {
+    try {
+      final configuration = GoRouter.of(
+        context,
+      ).routerDelegate.currentConfiguration;
+      if (configuration.isNotEmpty) {
+        return configuration.last.matchedLocation;
+      }
+    } catch (_) {}
+
+    try {
+      return GoRouter.of(context).routeInformationProvider.value.uri.path;
+    } catch (_) {
+      return '';
+    }
+  }
+
   // ---------------- MENU CONFIG ----------------
 
   final Map<String, List<_Child>> _menu = SidebarBuilder.menuByParent().map(
@@ -85,11 +102,7 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
   }
 
   void _autoCollapseForSettings() {
-    final String location = _stripOrgPrefix(
-      GoRouter.of(
-        context,
-      ).routerDelegate.currentConfiguration.last.matchedLocation,
-    );
+    final String location = _stripOrgPrefix(_safeCurrentPath());
     final bool isSettings =
         location == AppRoutes.settings ||
         location.startsWith('${AppRoutes.settings}/');
@@ -107,11 +120,7 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
   }
 
   void _updateActiveMenuFromRoute() {
-    final String location = _stripOrgPrefix(
-      GoRouter.of(
-        context,
-      ).routerDelegate.currentConfiguration.last.matchedLocation,
-    );
+    final String location = _stripOrgPrefix(_safeCurrentPath());
     final bool routeChanged = location != _lastSyncedLocation;
 
     String? currentMatchedMenu;
@@ -598,7 +607,9 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
     }
     final key = child.permissionKey;
     if (key == null) {
-      return false;
+      // Some modules are intentionally sidebar-visible without legacy
+      // permission keys wired yet; keep their inline create affordance active.
+      return true;
     }
     return CapabilityService.canUserAction(user, key, action: 'create');
   }

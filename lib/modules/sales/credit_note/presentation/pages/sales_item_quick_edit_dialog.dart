@@ -688,6 +688,7 @@ class _SalesItemQuickEditDialogState
                       onPackSizeChanged: (v) =>
                           setState(() => selectedPackSize = v),
                       packSizeOptions: _packSizeOptions(itemsState),
+                      packSizeDisplayLabelForId: (id) => id,
                       lockUnitPackValue: lockUnitPackCtrl.text.trim().isEmpty
                           ? null
                           : lockUnitPackCtrl.text.trim(),
@@ -1190,10 +1191,6 @@ class MoreInfoSection extends StatelessWidget {
             _buildTextArea("Uses description", usesDescCtrl),
             const SizedBox(height: 16),
             _buildTextArea("How-to-use", howToUseCtrl),
-            const SizedBox(height: 16),
-            _buildTextArea("Dosage description", dosageDescCtrl),
-            const SizedBox(height: 16),
-            _buildTextArea("Missed dose description", missedDoseDescCtrl),
             const SizedBox(height: 16),
             _buildTextArea("Safety advice", safetyAdviceCtrl),
             const SizedBox(height: 24),

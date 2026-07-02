@@ -26,6 +26,7 @@ class FormulationSection extends StatelessWidget {
     required this.packSizeValue,
     required this.onPackSizeChanged,
     required this.packSizeOptions,
+    required this.packSizeDisplayLabelForId,
     this.onManagePackSizesTap,
     required this.lockUnitPackValue,
     required this.onLockUnitPackChanged,
@@ -73,7 +74,8 @@ class FormulationSection extends StatelessWidget {
 
   final String? packSizeValue;
   final ValueChanged<String?> onPackSizeChanged;
-  final List<String> packSizeOptions;
+  final List<dynamic> packSizeOptions;
+  final String Function(String id) packSizeDisplayLabelForId;
   final VoidCallback? onManagePackSizesTap;
   final String? lockUnitPackValue;
   final ValueChanged<String?> onLockUnitPackChanged;
@@ -197,15 +199,20 @@ class FormulationSection extends StatelessWidget {
   }) {
     return FormDropdown<String>(
       value: value,
-      items: packSizeOptions,
+      items: packSizeOptions
+          .map((pack) => (pack['id'] ?? '').toString().trim())
+          .where((id) => id.isNotEmpty)
+          .toList(),
       hint: hint,
       onChanged: onChanged,
       showSettings: true,
       settingsLabel: 'Manage Pack Sizes',
       onSettingsTap: onManagePackSizesTap,
-      displayStringForValue: (value) => value,
-      searchStringForValue: (value) => value.toLowerCase(),
-      itemBuilder: (value, isSelected, isHovered) {
+      displayStringForValue: packSizeDisplayLabelForId,
+      searchStringForValue: (value) =>
+          packSizeDisplayLabelForId(value).toLowerCase(),
+      itemBuilder: (id, isSelected, isHovered) {
+        final label = packSizeDisplayLabelForId(id);
         return Container(
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -221,7 +228,7 @@ class FormulationSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  value,
+                  label,
                   style: TextStyle(
                     fontSize: 13,
                     color: isHovered
@@ -229,7 +236,8 @@ class FormulationSection extends StatelessWidget {
                         : isSelected
                         ? AppTheme.primaryBlueDark
                         : AppTheme.textPrimary,
-                    fontWeight: FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.w500 : FontWeight.normal,
                   ),
                 ),
               ),

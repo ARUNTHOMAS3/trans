@@ -197,3 +197,11 @@ These are intentionally still under construction and should be tracked as planne
 
 - [ ] **Shared responsive primitives rollout**: Migrate more existing screens, tables, forms, and dialogs onto the new shared responsive foundation primitives instead of keeping screen-local overflow fixes.
 - [ ] **Responsive widget tests**: Add widget tests around breakpoint behavior, responsive layout switching, and sidebar-aware shell metrics so the responsive foundation is regression-tested.
+
+## 🇮🇳 GSTIN (GST Number) Format Validation TODOs
+
+- [x] **Settings - Organization Profile**: Implement `validateGstin` validation on save and prefill lookups.
+- [x] **Settings - Branch Create/Edit**: Implement `validateGstin` validation inside branch details save dialog and taxpayer fetch lookup.
+- [x] **Settings - Location Association**: Implement `validateGstin` validation when adding new GSTIN or fetching taxpayer details.
+- [ ] **Sales - Customer/Sales Order creation**: Integrate `validateGstin` validation in `_ManageTaxInfoDialog` inside `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`.
+- [ ] **Purchases - Vendor Credits**: Integrate `validateGstin` validation in `_gstTreatmentOverlay` configuration inside `lib/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_create.dart`.

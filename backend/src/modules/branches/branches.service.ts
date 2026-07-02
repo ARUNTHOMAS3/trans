@@ -7,7 +7,9 @@ import { ResendService } from "../email/resend.service";
 
 @Injectable()
 export class BranchesService {
-  private static readonly DEFAULT_BRANCH_INVITE_PASSWORD = "Zabnix@2026";
+  private static readonly DEFAULT_BRANCH_INVITE_PASSWORD = "Zabnix@2025";
+  private static readonly UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   constructor(
     private readonly supabaseService: SupabaseService,
@@ -18,6 +20,16 @@ export class BranchesService {
 
   private generateTemporaryPassword() {
     return BranchesService.DEFAULT_BRANCH_INVITE_PASSWORD;
+  }
+
+  private maskEmail(value: string): string {
+    const trimmed = value.trim();
+    const [localPart, domainPart] = trimmed.split("@");
+    if (!localPart || !domainPart) return trimmed;
+    if (localPart.length <= 2) {
+      return `${localPart[0] ?? "*"}***@${domainPart}`;
+    }
+    return `${localPart.slice(0, 2)}***@${domainPart}`;
   }
 
   private escapeHtml(value: unknown): string {
@@ -32,6 +44,7 @@ export class BranchesService {
 
   private async ensureBranchAdminUser(
     orgId: string,
+    orgEntityId: string,
     email: string,
     fullName: string,
   ): Promise<string> {
@@ -62,11 +75,13 @@ export class BranchesService {
         user_metadata: {
           role: "branch_admin",
           org_id: orgId,
+          entity_id: orgEntityId,
           full_name: fullName,
         },
         app_metadata: {
           role: "branch_admin",
           org_id: orgId,
+          entity_id: orgEntityId,
         },
       });
       if (authUpdate.error) {
@@ -78,6 +93,7 @@ export class BranchesService {
       const { error: usersUpdateError } = await client
         .from("users")
         .update({
+          entity_id: orgEntityId,
           full_name: fullName,
           role: "branch_admin",
           is_active: true,
@@ -103,10 +119,12 @@ export class BranchesService {
         name: fullName,
         role: "branch_admin",
         org_id: orgId,
+        entity_id: orgEntityId,
       },
       app_metadata: {
         role: "branch_admin",
         org_id: orgId,
+        entity_id: orgEntityId,
       },
     });
 
@@ -120,6 +138,7 @@ export class BranchesService {
     const { error: usersInsertError } = await client.from("users").upsert(
       {
         id: userId,
+        entity_id: orgEntityId,
         email: normalizedEmail,
         full_name: fullName,
         role: "branch_admin",
@@ -143,40 +162,39 @@ export class BranchesService {
     branchId: string,
     userId: string,
     roleId: string,
+    options?: {
+      markDefaultWarehouse?: boolean;
+      defaultWarehouseId?: string | null;
+    },
   ) {
     const client = this.supabaseService.getClient();
-    const { data: registryRow, error: registryError } = await client
-      .from("organisation_branch_master")
-      .select("id")
-      .eq("type", "BRANCH")
-      .eq("ref_id", branchId)
-      .maybeSingle();
-
-    if (registryError) {
-      throw new Error(
-        `Failed to resolve branch registry entity id: ${registryError.message}`,
-      );
-    }
-    if (!registryRow?.id) {
-      throw new Error("Branch registry entity id not found");
-    }
+    const registryEntityId = await this.resolveBranchRegistryEntityId(branchId);
 
     const { error: branchAccessError } = await client
       .from("branch_user_access")
-      .upsert(
-        {
-          branch_id: branchId,
-          user_id: userId,
-          role_id: roleId,
-          is_default_branch: true,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "branch_id,user_id" },
-      );
+      .delete()
+      .eq("entity_id", registryEntityId)
+      .eq("user_id", userId);
 
     if (branchAccessError) {
       throw new Error(
-        `Failed to upsert branch_user_access for branch admin: ${branchAccessError.message}`,
+        `Failed to clear existing branch_user_access for branch admin: ${branchAccessError.message}`,
+      );
+    }
+
+    const { error: branchAccessInsertError } = await client
+      .from("branch_user_access")
+      .insert({
+        entity_id: registryEntityId,
+        user_id: userId,
+        role_id: roleId,
+        is_default_branch: true,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (branchAccessInsertError) {
+      throw new Error(
+        `Failed to insert branch_user_access for branch admin: ${branchAccessInsertError.message}`,
       );
     }
 
@@ -194,15 +212,17 @@ export class BranchesService {
     }
 
     const hasAnyLocation = (existingLocationAccess ?? []).length > 0;
+    const shouldSeedAsDefault = !hasAnyLocation;
     const { error: locationUpsertError } = await client
       .from("user_branch_access")
       .upsert(
         {
           org_id: orgId,
           user_id: userId,
-          entity_id: registryRow.id,
-          is_default_business: !hasAnyLocation,
-          is_default_warehouse: false,
+          entity_id: registryEntityId,
+          is_default_business: shouldSeedAsDefault,
+          is_default_warehouse:
+            shouldSeedAsDefault && options?.markDefaultWarehouse === true,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "org_id,user_id,entity_id" },
@@ -213,6 +233,146 @@ export class BranchesService {
         `Failed to upsert user_branch_access for branch admin: ${locationUpsertError.message}`,
       );
     }
+
+    if (
+      shouldSeedAsDefault &&
+      options?.defaultWarehouseId &&
+      options.defaultWarehouseId.trim().length > 0
+    ) {
+      const { error: userUpdateError } = await client
+        .from("users")
+        .update({
+          default_warehouse_id: options.defaultWarehouseId.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (userUpdateError) {
+        throw new Error(
+          `Failed to set users.default_warehouse_id for branch admin: ${userUpdateError.message}`,
+        );
+      }
+    }
+  }
+
+  private async resolveBranchRegistryEntityId(branchId: string): Promise<string> {
+    const client = this.supabaseService.getClient();
+    const { data: registryRow, error: registryError } = await client
+      .from("organisation_branch_master")
+      .select("id")
+      .eq("type", "BRANCH")
+      .eq("ref_id", branchId)
+      .maybeSingle();
+
+    if (registryError) {
+      throw new Error(
+        `Failed to resolve branch registry entity id: ${registryError.message}`,
+      );
+    }
+    if (!registryRow?.id) {
+      throw new Error("Branch registry entity id not found");
+    }
+
+    return registryRow.id.toString();
+  }
+
+  private buildAutoWarehouseName(branch: any): string {
+    const branchName = branch?.name?.toString().trim() ?? "";
+    if (branchName.length > 0) {
+      return branchName;
+    }
+    return "Primary Warehouse";
+  }
+
+  private buildAutoWarehouseCode(branch: any): string | null {
+    const branchCode = branch?.branch_code?.toString().trim() ?? "";
+    if (branchCode.isEmpty) {
+      return null;
+    }
+    return `${branchCode}-WH`;
+  }
+
+  private async ensureDefaultWarehouseForBranch(
+    orgId: string,
+    branch: any,
+  ): Promise<string | null> {
+    const client = this.supabaseService.getClient();
+    const branchId = branch?.id?.toString().trim() ?? "";
+    if (branchId.isEmpty) {
+      throw new Error("Cannot provision warehouse for branch without id");
+    }
+
+    const { data: existingRows, error: existingError } = await client
+      .from("warehouses")
+      .select("id, is_default_for_branch, created_at")
+      .eq("org_id", orgId)
+      .eq("source_branch_id", branchId)
+      .order("is_default_for_branch", { ascending: false })
+      .order("created_at", { ascending: true });
+
+    if (existingError) {
+      throw new Error(
+        `Failed to fetch branch warehouses during auto-provision: ${existingError.message}`,
+      );
+    }
+
+    const existingWarehouse = (existingRows ?? [])[0];
+    if (existingWarehouse?.id) {
+      if (existingWarehouse.is_default_for_branch !== true) {
+        const { error: defaultUpdateError } = await client
+          .from("warehouses")
+          .update({
+            is_default_for_branch: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingWarehouse.id);
+
+        if (defaultUpdateError) {
+          throw new Error(
+            `Failed to mark existing branch warehouse as default: ${defaultUpdateError.message}`,
+          );
+        }
+      }
+      return existingWarehouse.id.toString();
+    }
+
+    const registryEntityId = await this.resolveBranchRegistryEntityId(branchId);
+    const payload = {
+      entity_id: registryEntityId,
+      org_id: orgId,
+      source_branch_id: branchId,
+      is_default_for_branch: true,
+      name: this.buildAutoWarehouseName(branch),
+      warehouse_code: this.buildAutoWarehouseCode(branch),
+      attention: branch?.attention ?? null,
+      street: branch?.street ?? null,
+      place: branch?.place ?? null,
+      city: branch?.city ?? null,
+      state: branch?.state ?? null,
+      district_id: this.normalizeUuid(branch?.district_id),
+      local_body_id: this.normalizeUuid(branch?.local_body_id),
+      assembly_id: this.normalizeUuid(branch?.assembly_id),
+      ward_id: this.normalizeUuid(branch?.ward_id),
+      pincode: branch?.pincode ?? null,
+      country: branch?.country ?? "India",
+      phone: branch?.phone ?? null,
+      email: branch?.email ?? null,
+      is_active: branch?.is_active ?? true,
+    };
+
+    const { data, error } = await client
+      .from("warehouses")
+      .insert(payload)
+      .select("id")
+      .single();
+
+    if (error) {
+      throw new Error(
+        `Failed to auto-create default warehouse for branch: ${error.message}`,
+      );
+    }
+
+    return data?.id?.toString() ?? null;
   }
 
   private async ensureOrganisationMaster(orgId: string) {
@@ -325,7 +485,8 @@ export class BranchesService {
 
   private normalizeUuid(value: unknown) {
     const normalized = value?.toString().trim();
-    return normalized ? normalized : null;
+    if (!normalized) return null;
+    return BranchesService.UUID_REGEX.test(normalized) ? normalized : null;
   }
 
   private normalizeUuidList(values: unknown): string[] {
@@ -822,8 +983,12 @@ export class BranchesService {
   }
 
   async findAll(tenantOrOrgId: TenantContext | string) {
+    const tenant =
+      typeof tenantOrOrgId === "string"
+        ? null
+        : (tenantOrOrgId as TenantContext);
     const { orgId } = this.resolveTenant(tenantOrOrgId);
-    const { data, error } = await this.supabaseService
+    let query = this.supabaseService
       .getClient()
       .from("branches")
       .select(
@@ -834,6 +999,17 @@ export class BranchesService {
       )
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
+
+    const scopedBranchIds = tenant?.accessibleBranchIds ?? [];
+    if (
+      tenant &&
+      tenant.role !== "admin" &&
+      scopedBranchIds.length > 0
+    ) {
+      query = query.in("id", scopedBranchIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw new Error(`Failed to fetch branches: ${error.message}`);
 
@@ -1013,10 +1189,24 @@ export class BranchesService {
       throw new Error(`Failed to create branch: ${error.message}`);
     }
 
+    let defaultWarehouseId: string | null = null;
+    try {
+      defaultWarehouseId = await this.ensureDefaultWarehouseForBranch(
+        orgId,
+        data,
+      );
+    } catch (warehouseError) {
+      console.error(
+        "[Branches] default warehouse auto-provision failed after branch create:",
+        warehouseError,
+      );
+    }
+
     const branchEmail = dto.email?.toString().trim();
     const branchName = dto.name?.toString().trim() ?? "";
     const attentionName = dto.attention?.toString().trim() ?? "";
     const fullName = attentionName || branchName || "Branch Admin";
+    const orgEntityId = tenant.entityId ?? parentId;
 
     let branchAdminRoleId: string | null = null;
     try {
@@ -1029,10 +1219,11 @@ export class BranchesService {
       );
     }
 
-    if (branchEmail && branchAdminRoleId) {
+    if (branchEmail && branchAdminRoleId && orgEntityId) {
       try {
         const branchAdminUserId = await this.ensureBranchAdminUser(
           orgId,
+          orgEntityId,
           branchEmail,
           fullName,
         );
@@ -1041,6 +1232,10 @@ export class BranchesService {
           data.id,
           branchAdminUserId,
           branchAdminRoleId,
+          {
+            markDefaultWarehouse: defaultWarehouseId != null,
+            defaultWarehouseId,
+          },
         );
       } catch (accessError) {
         console.error(
@@ -1048,6 +1243,10 @@ export class BranchesService {
           accessError,
         );
       }
+    } else if (branchEmail && branchAdminRoleId && !orgEntityId) {
+      console.error(
+        "[Branches] branch admin auto-link skipped: org entity id not resolved",
+      );
     }
 
     if (branchEmail) {
@@ -1067,6 +1266,10 @@ export class BranchesService {
           .map((v) => v?.toString().trim())
           .filter((v) => !!v)
           .join(" to ");
+
+        console.log(
+          `[Branches] sending branch creation email -> branch_id=${data.id} email=${this.maskEmail(branchEmail)} from=${process.env.RESEND_FROM_EMAIL?.trim() ?? "missing"} login_url=${loginUrl}`,
+        );
 
         await this.resendService.sendEmail({
           to: branchEmail,
@@ -1101,8 +1304,15 @@ export class BranchesService {
             </div>
           `,
         });
+
+        console.log(
+          `[Branches] branch creation email sent -> branch_id=${data.id} email=${this.maskEmail(branchEmail)}`,
+        );
       } catch (emailError) {
-        console.error("Failed to send branch creation email:", emailError);
+        console.error(
+          `[Branches] failed to send branch creation email -> branch_id=${data.id} email=${this.maskEmail(branchEmail)}`,
+          emailError,
+        );
       }
     }
 

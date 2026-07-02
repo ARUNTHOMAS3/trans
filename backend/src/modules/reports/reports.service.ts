@@ -3,6 +3,7 @@ import { SupabaseService } from "../supabase/supabase.service";
 import { db } from "../../db/db";
 import { sql } from "drizzle-orm";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
+import { canTenantReadAccount } from "../../common/account-visibility.util";
 
 type AuditLogsParams = {
   page?: number;
@@ -208,16 +209,7 @@ export class ReportsService {
       };
     }
 
-    // 1. Get Accounts Summary (Receivables/Payables)
-    const accountsQuery = supabase
-      .from("accounts")
-      .select("id, account_type, user_account_name")
-      .in("entity_id", scope.entityIds);
-    const { data: accounts, error: accError } = await accountsQuery;
-
-    if (accError) throw accError;
-
-    // 2. Get Transaction Balances
+    // 1. Get Transaction Balances
     const txQuery = supabase
       .from("account_transactions")
       .select("account_id, debit, credit")
@@ -225,6 +217,22 @@ export class ReportsService {
 
     const { data: txs, error: txError } = await txQuery;
     if (txError) throw txError;
+
+    const accountIds = Array.from(
+      new Set((txs ?? []).map((tx) => tx.account_id).filter(Boolean)),
+    );
+    let accounts: any[] = [];
+    if (accountIds.length > 0) {
+      const { data: accountRows, error: accError } = await supabase
+        .from("accounts")
+        .select("id, entity_id, account_type, user_account_name, system_account_name")
+        .in("id", accountIds);
+
+      if (accError) throw accError;
+      accounts = (accountRows ?? []).filter((account) =>
+        canTenantReadAccount(account, tenant),
+      );
+    }
 
     const balances = new Map<string, number>();
     txs?.forEach((tx) => {
@@ -855,10 +863,16 @@ export class ReportsService {
     if (params.tables?.length) query = query.in("table_name", params.tables);
     if (params.actions?.length) query = query.in("action", params.actions);
     if (params.fromDate) {
-      query = query.gte("created_at", new Date(params.fromDate).toISOString());
+      const fromDate = params.fromDate.includes("T")
+        ? new Date(params.fromDate)
+        : new Date(`${params.fromDate}T00:00:00.000Z`);
+      query = query.gte("created_at", fromDate.toISOString());
     }
     if (params.toDate) {
-      query = query.lte("created_at", new Date(params.toDate).toISOString());
+      const toDate = params.toDate.includes("T")
+        ? new Date(params.toDate)
+        : new Date(`${params.toDate}T23:59:59.999Z`);
+      query = query.lte("created_at", toDate.toISOString());
     }
 
     if (params.scope == "archived") {

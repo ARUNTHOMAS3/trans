@@ -4,6 +4,7 @@ import { CreatePurchaseOrderDto } from "../dto/create-purchase-order.dto";
 import { UpdatePurchaseOrderDto } from "../dto/update-purchase-order.dto";
 import { TenantContext } from "../../../../common/middleware/tenant.middleware";
 import { SequencesService } from "../../../../sequences/sequences.service";
+import { listVisibleAccounts } from "../../../../common/account-visibility.util";
 
 @Injectable()
 export class PurchaseOrdersService {
@@ -20,28 +21,16 @@ export class PurchaseOrdersService {
       return dto.discount_account_id;
     }
 
-    const { data } = await this.supabaseService
-      .getClient()
-      .from("accounts")
-      .select("id,user_account_name,system_account_name")
-      .eq("entity_id", tenant.entityId)
-      .or(
-        "user_account_name.ilike.%Purchase Discount%,system_account_name.ilike.%Purchase Discount%,user_account_name.ilike.%Discount%",
-      )
-      .limit(1)
-      .maybeSingle();
+    const visibleAccounts = await listVisibleAccounts(
+      this.supabaseService.getClient(),
+      tenant,
+    );
+    const preferred = visibleAccounts.find((account: any) => {
+      const name = String(account.visible_name ?? "").toLowerCase();
+      return name.includes("purchase discount") || name.includes("discount");
+    });
 
-    if (!data) {
-      const fallback = await this.supabaseService
-        .getClient()
-        .from("accounts")
-        .select("id")
-        .eq("entity_id", tenant.entityId)
-        .limit(1)
-        .maybeSingle();
-      return fallback.data?.id ?? null;
-    }
-    return data?.id ?? null;
+    return preferred?.id ?? visibleAccounts[0]?.id ?? null;
   }
 
   private async getNextPurchaseOrderNumber(tenant: TenantContext) {
@@ -81,14 +70,12 @@ export class PurchaseOrdersService {
       formatted: `PO-${nextNumber.toString().padStart(padding, "0")}`,
     };
   }
-
   private cleanUuid(val: any): string | null {
     if (val === "" || val === null || val === undefined) {
       return null;
     }
     return val;
   }
-
   private mapDtoToDb(dto: any): any {
     const dbData: any = {};
     if (dto.vendor_id !== undefined) dbData.vendor_id = this.cleanUuid(dto.vendor_id);
@@ -103,14 +90,14 @@ export class PurchaseOrdersService {
     if (dto.delivery_customer_id !== undefined) dbData.delivery_customer_id = this.cleanUuid(dto.delivery_customer_id);
     if (dto.warehouse_id !== undefined) dbData.warehouse_id = this.cleanUuid(dto.warehouse_id);
     if (dto.warehouse_name !== undefined) dbData.warehouse_name = dto.warehouse_name;
+    if (dto.place_of_supply !== undefined) dbData.place_of_supply = dto.place_of_supply;
     if (dto.document_type !== undefined) dbData.document_type = dto.document_type;
     if (dto.status !== undefined) dbData.status = dto.status;
     if (dto.subtotal !== undefined) dbData.subtotal = dto.subtotal;
     if (dto.tax_amount !== undefined) dbData.tax_amount = dto.tax_amount;
     if (dto.discount !== undefined) dbData.discount = dto.discount;
     if (dto.tds_tcs_type !== undefined) dbData.tds_tcs_type = dto.tds_tcs_type;
-    if (dto.tds_tcs_id !== undefined) dbData.tds_tcs_id = this.cleanUuid(dto.tds_tcs_id);
-    else if (dto.tds_id !== undefined) dbData.tds_tcs_id = this.cleanUuid(dto.tds_id);
+    if (dto.tds_id !== undefined) dbData.tds_id = this.cleanUuid(dto.tds_id);
     if (dto.tds_tcs_amount !== undefined) dbData.tds_tcs_amount = dto.tds_tcs_amount;
     if (dto.adjustment !== undefined) dbData.adjustment = dto.adjustment;
     if (dto.total_quantity !== undefined) dbData.total_quantity = dto.total_quantity;
@@ -142,8 +129,7 @@ export class PurchaseOrdersService {
       subtotal: db.subtotal !== null && db.subtotal !== undefined ? parseFloat(db.subtotal) : 0,
       tax_amount: db.tax_amount !== null && db.tax_amount !== undefined ? parseFloat(db.tax_amount) : 0,
       discount: db.discount !== null && db.discount !== undefined ? parseFloat(db.discount) : 0,
-      tds_id: db.tds_tcs_id ?? db.tds_id,
-      tds_tcs_id: db.tds_tcs_id ?? db.tds_id,
+      tds_id: this.cleanUuid(db.tds_id),
       notes: db.notes,
       total_quantity: db.total_quantity !== null && db.total_quantity !== undefined ? parseFloat(db.total_quantity) : 0,
       total: db.total !== null && db.total !== undefined ? parseFloat(db.total) : 0,
@@ -180,7 +166,7 @@ export class PurchaseOrdersService {
       poExpectedQtyMap.set(item.purchase_order_id, current + (qty - cancelled));
     }
 
-    // 2. Get receives and receive items (including intransit receives)
+    // 2. Get receives and receive items
     const { data: allReceives } = await client
       .from("purchase_receives")
       .select("id, purchase_order_id")
@@ -237,55 +223,37 @@ export class PurchaseOrdersService {
     // 3. Get bills and bill items
     let allBills: any[] = [];
     if (orderNumbers.length > 0) {
-      let query = client
+      const { data } = await client
         .from("bills")
         .select("id, order_number")
+        .in("order_number", orderNumbers)
         .eq("entity_id", entityId)
         .eq("is_delete", false)
         .neq("status", "void");
-
-      const orConditions = orderNumbers.map((poNum) => `order_number.ilike.%${poNum}%`).join(',');
-      if (orConditions) {
-        query = query.or(orConditions);
-      }
-      const { data } = await query;
-
-      const lowerOrderNumbers = orderNumbers.map((num) => num.trim().toLowerCase());
-      allBills = (data || []).filter((bill) => {
-        if (!bill.order_number) return false;
-        const parts = bill.order_number.split(',').map((p: string) => p.trim().toLowerCase());
-        return parts.some((part) => lowerOrderNumbers.includes(part));
-      });
+      allBills = data ?? [];
     }
 
     const billIds = allBills.map((b) => b.id);
     const poToBillIdsMap = new Map<string, string[]>();
     for (const b of allBills) {
-      if (b.order_number) {
-        const parts = b.order_number.split(',').map((p: string) => p.trim()).filter(Boolean);
-        for (const part of parts) {
-          const list = poToBillIdsMap.get(part) ?? [];
-          list.push(b.id);
-          poToBillIdsMap.set(part, list);
-        }
-      }
-    }
-
-    const riIdToPoIdMap = new Map<string, string>();
-    for (const r of allReceives ?? []) {
-      const rItems = allReceiveItems.filter((ri) => ri.purchase_receive_id === r.id);
-      for (const ri of rItems) {
-        riIdToPoIdMap.set(ri.id, r.purchase_order_id);
-      }
+      const list = poToBillIdsMap.get(b.order_number) ?? [];
+      list.push(b.id);
+      poToBillIdsMap.set(b.order_number, list);
     }
 
     let allBillItems: any[] = [];
     if (billIds.length > 0) {
       const { data } = await client
         .from("bill_items")
-        .select("bill_id, quantity, purchase_receive_item_id")
+        .select("bill_id, quantity")
         .in("bill_id", billIds);
       allBillItems = data ?? [];
+    }
+
+    const billQtyMap = new Map<string, number>();
+    for (const bi of allBillItems) {
+      const current = billQtyMap.get(bi.bill_id) ?? 0;
+      billQtyMap.set(bi.bill_id, current + parseFloat(bi.quantity?.toString() ?? "0"));
     }
 
     return rows.map((row) => {
@@ -303,21 +271,7 @@ export class PurchaseOrdersService {
       if (row.order_number) {
         const bIds = poToBillIdsMap.get(row.order_number) ?? [];
         for (const bid of bIds) {
-          const bill = allBills.find((b) => b.id === bid);
-          const orderNumStr = (bill?.order_number ?? "").toString();
-          const isMultiPo = orderNumStr.includes(",");
-          
-          const bItems = allBillItems.filter((bi) => bi.bill_id === bid);
-          for (const bi of bItems) {
-            const prItemId = bi.purchase_receive_item_id;
-            if (prItemId) {
-              if (riIdToPoIdMap.get(prItemId) === row.id) {
-                billed += parseFloat(bi.quantity?.toString() ?? "0");
-              }
-            } else if (!isMultiPo) {
-              billed += parseFloat(bi.quantity?.toString() ?? "0");
-            }
-          }
+          billed += billQtyMap.get(bid) ?? 0;
         }
       }
 

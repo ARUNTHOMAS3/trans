@@ -63,9 +63,9 @@ class _LineItem {
   _LineItem()
       : itemNameCtrl = TextEditingController(),
         descCtrl = TextEditingController(),
-        qtyCtrl = TextEditingController(text: '1'),
-        planQtyCtrl = TextEditingController(),
-        pendingQtyCtrl = TextEditingController(text: '0'),
+        qtyCtrl = TextEditingController(text: '1.00'),
+        planQtyCtrl = TextEditingController(text: '0.00'),
+        pendingQtyCtrl = TextEditingController(text: '0.00'),
         rateCtrl = TextEditingController(text: '0.00'),
         discountCtrl = TextEditingController(text: '0.00');
 
@@ -78,7 +78,6 @@ class _LineItem {
   final TextEditingController discountCtrl;
 
   String? category;
-  String? categoryId; // raw UUID — resolved to category name after _loadCategories() runs
   String? preferredVendor; // display name shown in the vendor dropdown
   String? productId;
   String? entityId;
@@ -212,7 +211,6 @@ class _ProcurementPurchaseRequestsCreatePageState
 
   final List<_LineItem> _items = [];
   List<String> _categoryNames = [];
-  Map<String, String> _categoryIdToName = {};
   List<_VendorOption> _vendorOptions = [];
 
   final _addRowLink = LayerLink();
@@ -328,20 +326,15 @@ class _ProcurementPurchaseRequestsCreatePageState
     try {
       final res = await Supabase.instance.client
           .from('categories')
-          .select('id, name')
+          .select('name')
           .eq('is_active', true)
           .order('name');
       if (!mounted) return;
       setState(() {
-        final rows = (res as List<dynamic>)
-            .map((r) => r as Map<String, dynamic>)
-            .where((r) => (r['name'] as String? ?? '').isNotEmpty)
+        _categoryNames = (res as List<dynamic>)
+            .map((row) => (row as Map<String, dynamic>)['name'] as String? ?? '')
+            .where((n) => n.isNotEmpty)
             .toList();
-        _categoryNames = rows.map((r) => r['name'] as String).toList();
-        _categoryIdToName = {
-          for (final r in rows)
-            if (r['id'] != null) r['id'] as String: r['name'] as String,
-        };
       });
     } catch (e) {
       AppLogger.error('Failed to load categories', error: e, module: 'PRCreate');
@@ -443,13 +436,11 @@ class _ProcurementPurchaseRequestsCreatePageState
             ..itemNameCtrl.text =
                 product?['product_name'] as String? ?? ''
             ..qtyCtrl.text =
-                ((m['required_qty'] as num?)?.toInt().toString()) ?? '0'
-            ..planQtyCtrl.text = () {
-                  final v = (m['planned_qty'] as num?)?.toInt() ?? 0;
-                  return v > 0 ? v.toString() : '';
-                }()
+                ((m['required_qty'] as num?)?.toStringAsFixed(2)) ?? '0.00'
+            ..planQtyCtrl.text =
+                ((m['planned_qty'] as num?)?.toStringAsFixed(2)) ?? '0.00'
             ..pendingQtyCtrl.text =
-                ((m['pending_qty'] as num?)?.toInt().toString()) ?? '0'
+                ((m['pending_qty'] as num?)?.toStringAsFixed(2)) ?? '0.00'
             ..rateCtrl.text =
                 ((m['estimated_rate'] as num?)?.toStringAsFixed(2)) ?? '0.00'
             ..productId = m['product_id'] as String?
@@ -475,9 +466,9 @@ class _ProcurementPurchaseRequestsCreatePageState
       final dp = dpItems[idx];
       final item = _LineItem()
         ..itemNameCtrl.text = dp.productName
-        ..qtyCtrl.text = dp.reqQty.toInt().toString()
-        ..planQtyCtrl.text = dp.plannedQty > 0 ? dp.plannedQty.toInt().toString() : ''
-        ..pendingQtyCtrl.text = dp.pendingQty.toInt().toString()
+        ..qtyCtrl.text = dp.reqQty.toStringAsFixed(2)
+        ..planQtyCtrl.text = dp.plannedQty.toStringAsFixed(2)
+        ..pendingQtyCtrl.text = dp.pendingQty.toStringAsFixed(2)
         ..rateCtrl.text = _kDemoRates[idx % _kDemoRates.length].toStringAsFixed(2)
         ..productId = dp.productId
         ..entityId = dp.entityId
@@ -562,29 +553,10 @@ class _ProcurementPurchaseRequestsCreatePageState
   void _addRow() => setState(() => _items.add(_LineItem()));
 
   void _removeRow(int index) {
+    if (_items.length <= 1) return;
     setState(() {
-      if (_items.length <= 1) {
-        // Can't remove the last row — clear it instead
-        final item = _items[index];
-        item.itemNameCtrl.clear();
-        item.descCtrl.clear();
-        item.qtyCtrl.text = '1';
-        item.planQtyCtrl.clear();
-        item.pendingQtyCtrl.text = '0';
-        item.rateCtrl.clear();
-        item.discountCtrl.clear();
-        item.category = null;
-        item.preferredVendor = null;
-        item.productId = null;
-        item.vendorId = null;
-        item.vendorChanged = false;
-        item.substitutionChain = [];
-        item.demandPoolIds = [];
-        item.expanded = false;
-      } else {
-        _items[index].dispose();
-        _items.removeAt(index);
-      }
+      _items[index].dispose();
+      _items.removeAt(index);
     });
   }
 
@@ -1088,7 +1060,6 @@ class _ProcurementPurchaseRequestsCreatePageState
                         onShowDetails: () => _showItemDetailsSidebar(i),
                         categories: _categoryNames,
                         vendors: _vendorOptions,
-                        categoryIdToName: _categoryIdToName,
                       )),
                     ],
                   ),
@@ -1365,8 +1336,6 @@ class _ProcurementPurchaseRequestsCreatePageState
                     0,
                 'estimated_rate':
                     double.tryParse(i.rateCtrl.text.replaceAll(',', '')) ?? 0,
-                'discount_percentage':
-                    double.tryParse(i.discountCtrl.text.replaceAll(',', '')) ?? 0,
                 'estimated_amount': i.estimatedAmount,
                 'line_status': 'PENDING',
               })
@@ -1385,7 +1354,6 @@ class _ProcurementPurchaseRequestsCreatePageState
       Future<void> _syncRows(
         List<dynamic> dpRows, {
         required Map<String, double> pendingByProduct,
-        Map<String, double>? plannedByProduct,
         bool linkPrId = false,
       }) async {
         final byProduct = <String, List<Map<String, dynamic>>>{};
@@ -1398,7 +1366,6 @@ class _ProcurementPurchaseRequestsCreatePageState
         for (final entry in byProduct.entries) {
           final rows         = entry.value;
           final totalPending = pendingByProduct[entry.key] ?? 0;
-          final totalPlanned = plannedByProduct?[entry.key] ?? 0;
           final totalWeight  = rows.fold<double>(
             0, (s, r) => s + (((r['required_qty'] as num?)?.toDouble()) ?? 0),
           );
@@ -1408,13 +1375,13 @@ class _ProcurementPurchaseRequestsCreatePageState
             final rowWeight = ((r['required_qty'] as num?)?.toDouble()) ?? 0;
             final share     = totalWeight > 0 ? rowWeight / totalWeight : 1.0;
             final rowPending = (totalPending * share).clamp(0.0, double.infinity);
-            final rowPlanned = (totalPlanned * share).clamp(0.0, double.infinity);
 
             futures.add(
               supabase.from('demand_pool').update({
                 if (linkPrId) 'purchase_request_id': prId,
-                'planned_qty': rowPlanned,
-                'pending_qty': rowPending,
+                'required_qty': rowPending,
+                'planned_qty':  0,
+                'pending_qty':  rowPending,
                 'status': rowPending <= 0 ? 'FULFILLED' : 'PR_CREATED',
               }).eq('id', id),
             );
@@ -1423,18 +1390,12 @@ class _ProcurementPurchaseRequestsCreatePageState
         if (futures.isNotEmpty) await Future.wait(futures);
       }
 
-      // Use pendingQtyCtrl and planQtyCtrl (what's shown on screen) as source of truth.
+      // Use pendingQtyCtrl (what's shown on screen) as the source of truth.
       final pendingByProduct = <String, double>{
         for (final item in _items)
           if (item.productId != null)
             item.productId!:
                 double.tryParse(item.pendingQtyCtrl.text.replaceAll(',', '')) ?? 0,
-      };
-      final plannedByProduct = <String, double>{
-        for (final item in _items)
-          if (item.productId != null)
-            item.productId!:
-                double.tryParse(item.planQtyCtrl.text.replaceAll(',', '')) ?? 0,
       };
 
       if (allDpIds.isNotEmpty) {
@@ -1443,9 +1404,7 @@ class _ProcurementPurchaseRequestsCreatePageState
             .select('id, product_id, required_qty')
             .inFilter('id', allDpIds);
         await _syncRows(dpRows as List<dynamic>,
-            pendingByProduct: pendingByProduct,
-            plannedByProduct: plannedByProduct,
-            linkPrId: true);
+            pendingByProduct: pendingByProduct, linkPrId: true);
 
       } else if (_editPrUuid != null) {
         final dpRows = await supabase
@@ -1453,8 +1412,7 @@ class _ProcurementPurchaseRequestsCreatePageState
             .select('id, product_id, required_qty')
             .eq('purchase_request_id', _editPrUuid!);
         await _syncRows(dpRows as List<dynamic>,
-            pendingByProduct: pendingByProduct,
-            plannedByProduct: plannedByProduct);
+            pendingByProduct: pendingByProduct);
       }
 
       // Create approval record when sent for approval
@@ -1573,7 +1531,6 @@ class _PrGridRow extends ConsumerStatefulWidget {
     required this.onShowDetails,
     required this.categories,
     required this.vendors,
-    required this.categoryIdToName,
     this.showBottomBorder = false,
   });
 
@@ -1584,7 +1541,6 @@ class _PrGridRow extends ConsumerStatefulWidget {
   final VoidCallback onShowDetails;
   final List<String> categories;
   final List<_VendorOption> vendors;
-  final Map<String, String> categoryIdToName;
   final bool showBottomBorder;
 
   @override
@@ -1596,6 +1552,7 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
   // Only cleared when the physical pointer leaves the entire row — NOT when
   // a dropdown overlay captures the pointer, so dropdowns stay open.
   String? _hoveredCol;
+  bool _rateCurrencyHovered = false;
 
   static const _kItem       = 'item';
   static const _kCat        = 'cat';
@@ -1606,6 +1563,40 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
   static const _kPendingQty = 'pendingqty';
   static const _kRate       = 'rate';
   static const _kDiscount   = 'disc';
+
+  static const Map<String, String> _currencyNames = {
+    'AED': 'UAE Dirham',
+    'AUD': 'Australian Dollar',
+    'BDT': 'Bangladeshi Taka',
+    'BHD': 'Bahraini Dinar',
+    'BND': 'Brunei Dollar',
+    'CAD': 'Canadian Dollar',
+    'CHF': 'Swiss Franc',
+    'CNY': 'Yuan Renminbi',
+    'EUR': 'Euro',
+    'GBP': 'Pound Sterling',
+    'HKD': 'Hong Kong Dollar',
+    'IDR': 'Indonesian Rupiah',
+    'INR': 'Indian Rupee',
+    'JPY': 'Japanese Yen',
+    'KWD': 'Kuwaiti Dinar',
+    'LKR': 'Sri Lankan Rupee',
+    'MYR': 'Malaysian Ringgit',
+    'NPR': 'Nepalese Rupee',
+    'NZD': 'New Zealand Dollar',
+    'OMR': 'Omani Rial',
+    'PHP': 'Philippine Peso',
+    'PKR': 'Pakistani Rupee',
+    'QAR': 'Qatari Riyal',
+    'SAR': 'Saudi Riyal',
+    'SGD': 'Singapore Dollar',
+    'THB': 'Thai Baht',
+    'USD': 'US Dollar',
+    'VND': 'Vietnamese Dong',
+    'ZAR': 'South African Rand',
+  };
+  static List<String> get _currencies =>
+      _currencyNames.keys.toList()..sort();
 
   bool _is(String col) => _hoveredCol == col;
 
@@ -1782,11 +1773,6 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
                               if (product != null) {
                                 setState(() {
                                   item.itemNameCtrl.text = product.productName;
-                                  item.category =
-                                      (product.categoryId != null
-                                          ? widget.categoryIdToName[product.categoryId]
-                                          : null) ??
-                                      product.categoryName;
                                   if (product.salesDescription != null &&
                                       product.salesDescription!.isNotEmpty) {
                                     item.descCtrl.text =
@@ -1819,7 +1805,19 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
             _col(_kCat, _GCell(
               width: _ProcurementPurchaseRequestsCreatePageState._colCategory,
               isHeader: false,
-              child: _cellText(item.category ?? '—'),
+              child: _dropdownCell(
+                key: _kCat,
+                displayText: item.category ?? '',
+                input: FormDropdown<String>(
+                  value: item.category,
+                  items: widget.categories,
+                  hint: 'Select',
+                  height: 32,
+                  menuWidth: 280,
+                  displayStringForValue: (v) => v,
+                  onChanged: (v) { setState(() => item.category = v); widget.onChanged(); },
+                ),
+              ),
             )),
 
             // DESCRIPTION
@@ -1881,21 +1879,22 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
             _col(_kPlanQty, _GCell(
               width: _ProcurementPurchaseRequestsCreatePageState._colPlanQty,
               isHeader: false,
-              child: CustomTextField(
+              child: _is(_kPlanQty)
+                  ? CustomTextField(
                       controller: item.planQtyCtrl,
-                      hintText: '0',
+                      hintText: '0.00',
                       height: 32,
-                      hideBorderDefault: true,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
                       onChanged: (_) {
-                        final required = int.tryParse(item.qtyCtrl.text.replaceAll(',', '')) ?? 0;
-                        final planned  = int.tryParse(item.planQtyCtrl.text.replaceAll(',', '')) ?? 0;
-                        final pending  = (required - planned).clamp(0, required);
-                        item.pendingQtyCtrl.text = pending.toString();
+                        final required = double.tryParse(item.qtyCtrl.text.replaceAll(',', '')) ?? 0;
+                        final planned  = double.tryParse(item.planQtyCtrl.text.replaceAll(',', '')) ?? 0;
+                        final pending  = (required - planned).clamp(0.0, double.infinity);
+                        item.pendingQtyCtrl.text = pending.toStringAsFixed(2);
                         widget.onChanged();
                       },
-                    ),
+                    )
+                  : _cellText(item.planQtyCtrl.text),
             )),
 
             // PENDING QTY — auto-computed: required - planned
@@ -1905,23 +1904,83 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
               child: _cellText(item.pendingQtyCtrl.text),
             )),
 
-            // ESTIMATED RATE
+            // ESTIMATED RATE — always shows split currency + rate inputs.
             _col(_kRate, _GCell(
               width: _ProcurementPurchaseRequestsCreatePageState._colRate,
               isHeader: false,
-              child: _is(_kRate)
-                  ? CustomTextField(
-                      controller: item.rateCtrl,
-                      hintText: '0.00',
-                      height: 32,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
-                      onChanged: (_) {
-                        setState(() {});
-                        widget.onChanged();
-                      },
-                    )
-                  : _cellText(item.rateCtrl.text),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.borderColor),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Row(
+                  children: [
+                    MouseRegion(
+                      onEnter: (_) => setState(() => _rateCurrencyHovered = true),
+                      onExit: (_) => setState(() => _rateCurrencyHovered = false),
+                      child: SizedBox(
+                        width: 75,
+                        child: FormDropdown<String>(
+                          value: item.currency,
+                          items: _currencies,
+                          hint: 'INR',
+                          height: 32,
+                          showRightBorder: true,
+                          isHovered: _rateCurrencyHovered,
+                          menuWidth:
+                              _ProcurementPurchaseRequestsCreatePageState
+                                  ._colRate,
+                          borderRadius: BorderRadius.zero,
+                          displayStringForValue: (v) => v,
+                          searchStringForValue: (v) =>
+                              '$v ${_currencyNames[v] ?? ''}',
+                          itemBuilder: (code, isSelected, isHovered) {
+                            final active = isSelected || isHovered;
+                            return Container(
+                              color: active
+                                  ? AppTheme.primaryBlue
+                                  : Colors.transparent,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 9,
+                              ),
+                              child: Text(
+                                '$code- ${_currencyNames[code] ?? code}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: active
+                                      ? Colors.white
+                                      : AppTheme.textPrimary,
+                                ),
+                              ),
+                            );
+                          },
+                          onChanged: (v) {
+                            setState(() => item.currency = v ?? 'INR');
+                            widget.onChanged();
+                          },
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: CustomTextField(
+                        controller: item.rateCtrl,
+                        hintText: '0.00',
+                        height: 32,
+                        hideBorderDefault: true,
+                        borderRadius: BorderRadius.zero,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                        onChanged: (_) {
+                          setState(() {});
+                          widget.onChanged();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             )),
 
             // DISCOUNT
@@ -1934,7 +1993,7 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
                         Expanded(
                           child: CustomTextField(
                             controller: item.discountCtrl,
-                            hintText: 'Discount',
+                            hintText: '0.00',
                             height: 32,
                             hideBorderDefault: true,
                             borderRadius: const BorderRadius.only(
@@ -3269,15 +3328,16 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar>
         _row('Planned Qty', item.planQtyCtrl.text),
         _row('Pending Qty', item.pendingQtyCtrl.text),
         const Divider(height: 28, color: AppTheme.borderColor),
+        _row('Currency', item.currency),
         _row(
           'Estimated Rate',
-          item.rateCtrl.text.isEmpty ? '—' : '₹${item.rateCtrl.text}',
+          item.rateCtrl.text.isEmpty ? '—' : '${item.currency} ${item.rateCtrl.text}',
         ),
         _row(
           'Discount',
           (item.discountCtrl.text.isEmpty || item.discountCtrl.text == '0.00')
               ? '—'
-              : '${item.discountCtrl.text} ${item.discountIsPercent ? '%' : '₹'}',
+              : '${item.discountCtrl.text} ${item.discountIsPercent ? '%' : item.currency}',
         ),
         const Divider(height: 28, color: AppTheme.borderColor),
         _rowHighlighted('Estimated Amount', '₹${_fmt(item.estimatedAmount)}'),

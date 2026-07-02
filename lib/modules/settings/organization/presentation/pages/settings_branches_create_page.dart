@@ -18,6 +18,7 @@ import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/utils/validation_utils.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/transaction_series_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
@@ -29,7 +30,6 @@ import 'package:zerpai_erp/shared/widgets/settings_fixed_header_layout.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
-
 
 // ─── Sidebar nav ──────────────────────────────────────────────────────────────
 
@@ -267,7 +267,9 @@ class _SettingsBranchCreatePageState
     if (cleaned.length == 12 && cleaned.startsWith('91')) {
       return cleaned.substring(2);
     }
-    return cleaned.length > 10 ? cleaned.substring(cleaned.length - 10) : cleaned;
+    return cleaned.length > 10
+        ? cleaned.substring(cleaned.length - 10)
+        : cleaned;
   }
 
   // ─── LSGD Lookups for Payment Stub ──────────────────────────────────────────
@@ -490,7 +492,9 @@ class _SettingsBranchCreatePageState
 
   bool _isMasterBranch(Map<String, dynamic> branch) {
     final dynamic flag =
-        branch['is_master_branch'] ?? branch['is_master'] ?? branch['master_branch'];
+        branch['is_master_branch'] ??
+        branch['is_master'] ??
+        branch['master_branch'];
     if (flag is bool) return flag;
     final normalized = flag?.toString().trim().toLowerCase();
     return normalized == 'true' || normalized == '1' || normalized == 'yes';
@@ -516,11 +520,11 @@ class _SettingsBranchCreatePageState
       (branch['name'] ?? branch['branch_name'] ?? '').toString().trim();
 
   List<String> get _associatedBranchDropdownItems {
-    final masterBranches = _availableBranches
-        .where(_isMasterBranch)
-        .toList()
+    final masterBranches = _availableBranches.where(_isMasterBranch).toList()
       ..sort(
-        (a, b) => _branchName(a).toLowerCase().compareTo(_branchName(b).toLowerCase()),
+        (a, b) => _branchName(
+          a,
+        ).toLowerCase().compareTo(_branchName(b).toLowerCase()),
       );
 
     final nonMasterBranches = _availableBranches
@@ -533,9 +537,8 @@ class _SettingsBranchCreatePageState
       grouped.putIfAbsent(label, () => <Map<String, dynamic>>[]).add(branch);
     }
 
-    final sortedGroupLabels = grouped.keys.toList()..sort(
-      (a, b) => a.toLowerCase().compareTo(b.toLowerCase()),
-    );
+    final sortedGroupLabels = grouped.keys.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     final ordered = <String>[
       ...masterBranches.map((branch) => branch['id'].toString()),
@@ -544,8 +547,9 @@ class _SettingsBranchCreatePageState
     for (final groupLabel in sortedGroupLabels) {
       final branches = grouped[groupLabel]!
         ..sort(
-          (a, b) =>
-              _branchName(a).toLowerCase().compareTo(_branchName(b).toLowerCase()),
+          (a, b) => _branchName(
+            a,
+          ).toLowerCase().compareTo(_branchName(b).toLowerCase()),
         );
       ordered.addAll(branches.map((branch) => branch['id'].toString()));
     }
@@ -613,7 +617,7 @@ class _SettingsBranchCreatePageState
           .toList();
 
   bool get _isPharmacyIndustry =>
-      (_selectedIndustry ?? '').trim().toLowerCase() == 'pharmacy';
+      (_selectedIndustry ?? '').trim().toLowerCase() == 'pharma industry';
 
   bool get _showPaymentStubLsgdFields =>
       _selectedPaymentStubState?.toLowerCase() == 'kerala';
@@ -693,6 +697,107 @@ class _SettingsBranchCreatePageState
       }
     }
     return code;
+  }
+
+  String _displayTransactionModuleLabel(String? rawLabel) {
+    final label = (rawLabel ?? '').trim();
+    switch (label.toLowerCase()) {
+      case 'customer payment':
+        return 'Payment Received';
+      case 'vendor payment':
+        return 'Payment Made';
+      default:
+        return label;
+    }
+  }
+
+  String _buildTransactionModulePrefixSeed(String? rawLabel) {
+    final words = _displayTransactionModuleLabel(rawLabel)
+        .split(RegExp(r'[^A-Za-z0-9]+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return '';
+    return words.map((part) => part[0]).join().toUpperCase();
+  }
+
+  int _transactionFiscalYearStartMonth() {
+    final fiscalYearLabel = _displayLookupLabel(
+      _selectedFiscalYear,
+      _fiscalYearOptions,
+    ).trim();
+    final monthMatch = RegExp(
+      r'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec',
+      caseSensitive: false,
+    ).firstMatch(fiscalYearLabel);
+    final monthToken = monthMatch?.group(0)?.toLowerCase();
+    const monthMap = <String, int>{
+      'jan': 1,
+      'feb': 2,
+      'mar': 3,
+      'apr': 4,
+      'may': 5,
+      'jun': 6,
+      'jul': 7,
+      'aug': 8,
+      'sep': 9,
+      'oct': 10,
+      'nov': 11,
+      'dec': 12,
+    };
+    return monthMap[monthToken] ?? 4;
+  }
+
+  String _resolveTransactionPreviewPrefix(
+    String rawPrefix, {
+    required String branchCode,
+    required String seriesCode,
+  }) {
+    if (rawPrefix.isEmpty) return '';
+
+    final now = DateTime.now();
+    final startMonth = _transactionFiscalYearStartMonth();
+    final fiscalStartYear = now.month >= startMonth ? now.year : now.year - 1;
+    final fiscalEndYear = fiscalStartYear + 1;
+    final fiscalStartShort = (fiscalStartYear % 100).toString().padLeft(2, '0');
+    final fiscalEndShort = (fiscalEndYear % 100).toString().padLeft(2, '0');
+    final calendarYearShort = (now.year % 100).toString().padLeft(2, '0');
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+
+    return rawPrefix.replaceAllMapped(RegExp(r'\{[^}]+\}'), (match) {
+      final token = match.group(0) ?? '';
+      final normalized = token.toLowerCase();
+
+      if (normalized.contains('series_code')) return seriesCode;
+      if (normalized.contains('branch_code')) return branchCode;
+      if (normalized.contains('warehouse_code')) return branchCode;
+
+      if (normalized.contains('fiscal_year_start')) {
+        return normalized.contains('short')
+            ? fiscalStartShort
+            : '$fiscalStartYear';
+      }
+      if (normalized.contains('fiscal_year_end')) {
+        return normalized.contains('short')
+            ? fiscalEndShort
+            : '$fiscalEndYear';
+      }
+      if (normalized.contains('fiscal_year')) {
+        return normalized.contains('short')
+            ? '$fiscalStartShort-$fiscalEndShort'
+            : '$fiscalStartYear-$fiscalEndYear';
+      }
+
+      if (normalized.contains('month')) return month;
+      if (normalized.contains('day') || normalized.contains('date')) return day;
+      if (normalized.contains('year')) {
+        return normalized.contains('short')
+            ? calendarYearShort
+            : '${now.year}';
+      }
+
+      return token;
+    });
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -1122,20 +1227,19 @@ class _SettingsBranchCreatePageState
         final assignableUsers = (res.data as List)
             .whereType<Map<String, dynamic>>()
             .map((row) {
-              final publicUserId = (row['public_user_id'] ?? '').toString().trim();
+              final publicUserId = (row['public_user_id'] ?? '')
+                  .toString()
+                  .trim();
               final fallbackId = (row['id'] ?? '').toString().trim();
-              final resolvedUserId = publicUserId.isNotEmpty ? publicUserId : fallbackId;
+              final resolvedUserId = publicUserId.isNotEmpty
+                  ? publicUserId
+                  : fallbackId;
               if (resolvedUserId.isEmpty) return null;
-              return <String, dynamic>{
-                ...row,
-                'id': resolvedUserId,
-              };
+              return <String, dynamic>{...row, 'id': resolvedUserId};
             })
             .whereType<Map<String, dynamic>>()
             .toList();
-        setState(
-          () => _orgUsers = assignableUsers,
-        );
+        setState(() => _orgUsers = assignableUsers);
       }
     } catch (_) {}
   }
@@ -1329,11 +1433,16 @@ class _SettingsBranchCreatePageState
         _branchCodeCtrl.text = (d['branch_code'] ?? '').toString();
         _hydrateBranchCodePreferences(_branchCodeCtrl.text);
         _emailCtrl.text = (d['email'] ?? '').toString();
-        _phoneCtrl.text = (d['phone'] ?? '').toString().replaceAll(RegExp(r'^\+91\s*'), '');
+        _phoneCtrl.text = (d['phone'] ?? '').toString().replaceAll(
+          RegExp(r'^\+91\s*'),
+          '',
+        );
         _websiteCtrl.text = (d['website'] ?? '').toString();
         _attentionCtrl.text = (d['attention'] ?? '').toString();
-        _streetCtrl.text = (d['street'] ?? d['address_street_1'] ?? '').toString();
-        _street2Ctrl.text = (d['place'] ?? d['address_street_2'] ?? '').toString();
+        _streetCtrl.text = (d['street'] ?? d['address_street_1'] ?? '')
+            .toString();
+        _street2Ctrl.text = (d['place'] ?? d['address_street_2'] ?? '')
+            .toString();
         _cityCtrl.text = (d['city'] ?? '').toString();
         _pincodeCtrl.text = (d['pincode'] ?? '').toString();
         final districtId = d['district_id']?.toString();
@@ -1368,7 +1477,9 @@ class _SettingsBranchCreatePageState
                 (psa['state_name'] ?? psa['state'] ?? '').toString();
             _paymentStubPincodeController.text = (psa['pincode'] ?? '')
                 .toString();
-            _paymentStubPhoneController.text = (psa['phone'] ?? '').toString().replaceAll(RegExp(r'^\+91\s*'), '');
+            _paymentStubPhoneController.text = (psa['phone'] ?? '')
+                .toString()
+                .replaceAll(RegExp(r'^\+91\s*'), '');
             _selectedPaymentStubDistrictId = psa['district_id']?.toString();
             _selectedPaymentStubLocalBodyId = psa['local_body_id']?.toString();
             _selectedPaymentStubAssemblyCode =
@@ -1839,10 +1950,7 @@ class _SettingsBranchCreatePageState
           final reconciled = await _reconcileCreatedBranchAfterDuplicateError();
           if (reconciled) return;
         }
-        ZerpaiToast.error(
-          context,
-          message,
-        );
+        ZerpaiToast.error(context, message);
       }
     } catch (e, st) {
       debugPrint('[BranchSave] error: $e\n$st');
@@ -1881,7 +1989,10 @@ class _SettingsBranchCreatePageState
           ? (checkRes.data as List).whereType<Map<String, dynamic>>().toList()
           : const <Map<String, dynamic>>[];
       final createdExists = rows.any((row) {
-        final rowCode = (row['branch_code'] ?? '').toString().trim().toUpperCase();
+        final rowCode = (row['branch_code'] ?? '')
+            .toString()
+            .trim()
+            .toUpperCase();
         final rowName = (row['name'] ?? '').toString().trim();
         final rowEmail = (row['email'] ?? '').toString().trim().toLowerCase();
         final rowCreatedAt = DateTime.tryParse(
@@ -1993,9 +2104,7 @@ class _SettingsBranchCreatePageState
                             decoration: BoxDecoration(
                               color: AppTheme.warningBg,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: AppTheme.errorBgBorder,
-                              ),
+                              border: Border.all(color: AppTheme.errorBgBorder),
                             ),
                             child: const Icon(
                               LucideIcons.settings2,
@@ -2309,19 +2418,28 @@ class _SettingsBranchCreatePageState
                         hint: 'Select associated branch',
                         items: _associatedBranchDropdownItems,
                         displayStringForValue: (id) =>
-                            _findAvailableBranchById(id)?['name']?.toString() ?? id,
+                            _findAvailableBranchById(id)?['name']?.toString() ??
+                            id,
                         searchStringForValue: (id) {
                           final branch = _findAvailableBranchById(id);
                           if (branch == null) return id;
                           final name = _branchName(branch);
-                          final groupLabel = _associatedBranchGroupLabelForId(id);
+                          final groupLabel = _associatedBranchGroupLabelForId(
+                            id,
+                          );
                           return '$name $groupLabel';
                         },
                         itemBuilder: (id, isSelected, isHovered) {
                           final branch = _findAvailableBranchById(id);
-                          final branchName = branch == null ? id : _branchName(branch);
-                          final showHeader = _isFirstAssociatedBranchInGroup(id);
-                          final groupLabel = _associatedBranchGroupLabelForId(id);
+                          final branchName = branch == null
+                              ? id
+                              : _branchName(branch);
+                          final showHeader = _isFirstAssociatedBranchInGroup(
+                            id,
+                          );
+                          final groupLabel = _associatedBranchGroupLabelForId(
+                            id,
+                          );
 
                           final textColor = isSelected
                               ? AppTheme.primaryBlueDark
@@ -2332,7 +2450,12 @@ class _SettingsBranchCreatePageState
                             children: [
                               if (showHeader)
                                 Padding(
-                                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    10,
+                                    12,
+                                    6,
+                                  ),
                                   child: Text(
                                     groupLabel,
                                     style: const TextStyle(
@@ -2343,7 +2466,12 @@ class _SettingsBranchCreatePageState
                                   ),
                                 ),
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  8,
+                                  12,
+                                  8,
+                                ),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -2431,18 +2559,18 @@ class _SettingsBranchCreatePageState
                   ),
 
                   ZerpaiFormRow(
-                    label: 'Industry',
+                    label: 'Industry/Sector',
                     required: true,
                     highlightRequiredLabel: true,
                     child: FormDropdown<String>(
                       value: _selectedIndustry,
                       items: _industryOptions,
-                      hint: 'Select Industry',
+                      hint: 'Select Industry/Sector',
                       errorText:
                           _showValidationErrors &&
                               (_selectedIndustry == null ||
                                   _selectedIndustry!.trim().isEmpty)
-                          ? 'Industry is required'
+                          ? 'Industry/Sector is required'
                           : null,
                       onChanged: (v) => setState(() {
                         final wasPharmacy = _isPharmacyIndustry;
@@ -2478,21 +2606,21 @@ class _SettingsBranchCreatePageState
 
                   // Business type
                   ZerpaiFormRow(
-                    label: 'Business type',
+                    label: 'Associated Business type',
                     required: true,
                     highlightRequiredLabel: true,
                     child: FormDropdown<String>(
                       items: _businessTypes.map((t) => t['id']!).toList(),
                       value: _selectedBusinessType,
-                      hint: 'Select business type',
+                      hint: 'Select Associated Business type',
                       errorText:
                           _showValidationErrors &&
                               (_selectedBusinessType == null ||
                                   _selectedBusinessType!.trim().isEmpty)
-                          ? 'Business type is required'
+                          ? 'Associated Business type is required'
                           : null,
                       showSettings: true,
-                      settingsLabel: 'Manage Business Types',
+                      settingsLabel: 'Manage Associated Business Types',
                       onSettingsTap: _showManageBusinessTypesDialog,
                       displayStringForValue: (id) {
                         final match = _businessTypes.firstWhere(
@@ -2908,7 +3036,8 @@ class _SettingsBranchCreatePageState
                                   controller: _paymentStubPhoneController,
                                   selectedPrefix: _paymentStubPhonePrefix,
                                   onPrefixChanged: (v) => setState(
-                                      () => _paymentStubPhonePrefix = v ?? '+91'),
+                                    () => _paymentStubPhonePrefix = v ?? '+91',
+                                  ),
                                 ),
                               ),
                             ],
@@ -3417,6 +3546,7 @@ class _SettingsBranchCreatePageState
                       series: _transactionSeriesOptions,
                       selectedIds: _selectedTransactionSeriesIds,
                       multiSelect: true,
+                      includeDefaultOption: false,
                       accentColor: ref.watch(appBrandingProvider).accentColor,
                       errorText:
                           _showValidationErrors &&
@@ -3506,7 +3636,9 @@ class _SettingsBranchCreatePageState
     final seriesCodeCtrl = TextEditingController();
     final prefixCtrls = {
       for (final m in _transactionModuleOptions)
-        m['id']!: TextEditingController(),
+        m['id']!: TextEditingController(
+          text: _buildTransactionModulePrefixSeed(m['label']),
+        ),
     };
     final startingCtrls = {
       for (final m in _transactionModuleOptions)
@@ -3548,11 +3680,25 @@ class _SettingsBranchCreatePageState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) {
           String _preview(String moduleId) {
-            final prefix = prefixCtrls[moduleId]?.text.trim() ?? '';
-            final num = startingCtrls[moduleId]?.text.trim() ?? '1';
-            if (prefix.isEmpty && (num == '1' || num.isEmpty))
-              return num.isEmpty ? '1' : num;
-            return '$prefix$num';
+            final rawPrefix = prefixCtrls[moduleId]?.text.trim() ?? '';
+            final startingNumber =
+                (startingCtrls[moduleId]?.text.trim().isNotEmpty ?? false)
+                ? startingCtrls[moduleId]!.text.trim()
+                : '1';
+            final branchCode = _branchCodeCtrl.text.trim().isNotEmpty
+                ? _branchCodeCtrl.text.trim().toUpperCase()
+                : _formatGeneratedBranchCode();
+            final seriesCode = seriesCodeCtrl.text.trim().isNotEmpty
+                ? seriesCodeCtrl.text.trim().toUpperCase()
+                : 'SER';
+            final previewPrefix = _resolveTransactionPreviewPrefix(
+              rawPrefix,
+              branchCode: branchCode,
+              seriesCode: seriesCode,
+            );
+
+            if (previewPrefix.isEmpty) return startingNumber;
+            return '$previewPrefix$startingNumber';
           }
 
           // Column flex values
@@ -3818,7 +3964,9 @@ class _SettingsBranchCreatePageState
                                               Expanded(
                                                 flex: fxModule,
                                                 child: Text(
-                                                  _transactionModuleOptions[i]['label']!,
+                                                  _displayTransactionModuleLabel(
+                                                    _transactionModuleOptions[i]['label'],
+                                                  ),
                                                   style: const TextStyle(
                                                     fontSize: 13,
                                                     color: AppTheme.textBody,
@@ -4059,6 +4207,8 @@ class _SettingsBranchCreatePageState
                                                     color:
                                                         AppTheme.textSecondary,
                                                   ),
+                                                  maxLines: 2,
+                                                  softWrap: true,
                                                 ),
                                               ),
                                             ],
@@ -4619,9 +4769,10 @@ class _SettingsBranchCreatePageState
           final accentColor = ref.read(appBrandingProvider).accentColor;
 
           Future<void> fetchTaxpayer() async {
-            final gstin = gstinCtrl.text.trim();
-            if (gstin.length != 15) {
-              ZerpaiToast.info(ctx, 'Enter a valid 15-digit GSTIN first');
+            final gstin = gstinCtrl.text.trim().toUpperCase();
+            final validationError = validateGstin(gstin);
+            if (validationError != null) {
+              ZerpaiToast.error(ctx, validationError);
               return;
             }
             setS(() => isFetchingTaxpayer = true);
@@ -4922,22 +5073,19 @@ class _SettingsBranchCreatePageState
                                 children: [
                                   TextFormField(
                                     controller: gstinCtrl,
-                                    decoration: _dec('Enter 15-digit GSTIN'),
+                                    textCapitalization:
+                                        TextCapitalization.characters,
+                                    decoration: _dec(
+                                      'e.g. 29ABCDE1234F1Z5',
+                                    ).copyWith(errorMaxLines: 3),
                                     inputFormatters: [
+                                      const GstinTextInputFormatter(),
                                       LengthLimitingTextInputFormatter(15),
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(r'[A-Za-z0-9]'),
-                                      ),
                                     ],
-                                    onChanged: (v) {
-                                      gstinCtrl.value = gstinCtrl.value
-                                          .copyWith(
-                                            text: v.toUpperCase(),
-                                            selection: TextSelection.collapsed(
-                                              offset: v.length,
-                                            ),
-                                          );
-                                      if (v.length == 15) fetchTaxpayer();
+                                    onChanged: (_) {
+                                      if (gstinCtrl.text.length == 15) {
+                                        fetchTaxpayer();
+                                      }
                                     },
                                   ),
                                   const SizedBox(height: AppTheme.space4),
@@ -5173,6 +5321,11 @@ class _SettingsBranchCreatePageState
                               final gstin = gstinCtrl.text.trim().toUpperCase();
                               if (gstin.isEmpty) {
                                 Navigator.pop(ctx);
+                                return;
+                              }
+                              final validationError = validateGstin(gstin);
+                              if (validationError != null) {
+                                ZerpaiToast.error(ctx, validationError);
                                 return;
                               }
                               setState(() {
@@ -5556,8 +5709,9 @@ class _SettingsBranchCreatePageState
                                       (user['name'] ?? user['full_name'] ?? '')
                                           .toString(),
                                   'email': (user['email'] ?? '').toString(),
-                                  'role': (user['role_label'] ?? user['role'] ?? '')
-                                      .toString(),
+                                  'role':
+                                      (user['role_label'] ?? user['role'] ?? '')
+                                          .toString(),
                                 }),
                               );
                             },
@@ -5621,9 +5775,7 @@ class _SettingsBranchCreatePageState
       setS(() => isSaving = true);
       try {
         final user = ref.read(authUserProvider);
-        final orgId = (user?.orgId.isNotEmpty == true)
-            ? user!.orgId
-            : '';
+        final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
         final res = await _apiClient.post(
           'branches/business-types',
           data: {
@@ -5992,7 +6144,7 @@ class _SettingsBranchCreatePageState
                                     BoxShadow(
                                       color: Colors.black12,
                                       blurRadius: 4,
-                                    )
+                                    ),
                                   ],
                                 ),
                                 child: const Icon(
@@ -6006,70 +6158,70 @@ class _SettingsBranchCreatePageState
                         ],
                       )
                     : _logoUrl != null
-                        ? Stack(
-                            children: [
-                              Positioned.fill(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Image.network(
-                                    _logoUrl!,
-                                    fit: BoxFit.contain,
-                                    width: double.infinity,
-                                    errorBuilder: (_, __, ___) => const Center(
-                                      child: Icon(
-                                        LucideIcons.imageOff,
-                                        color: AppTheme.textSecondary,
-                                        size: 24,
-                                      ),
-                                    ),
+                    ? Stack(
+                        children: [
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.network(
+                                _logoUrl!,
+                                fit: BoxFit.contain,
+                                width: double.infinity,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(
+                                    LucideIcons.imageOff,
+                                    color: AppTheme.textSecondary,
+                                    size: 24,
                                   ),
                                 ),
                               ),
-                              Positioned(
-                                top: 4,
-                                right: 4,
-                                child: GestureDetector(
-                                  onTap: () => setState(() => _logoUrl = null),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black12,
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(
-                                      LucideIcons.trash2,
-                                      size: 14,
-                                      color: AppTheme.errorRed,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                LucideIcons.upload,
-                                size: 20,
-                                color: AppTheme.textSecondary,
-                              ),
-                              SizedBox(height: AppTheme.space8),
-                              Text(
-                                'Upload your branch logo',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _logoUrl = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  LucideIcons.trash2,
+                                  size: 14,
+                                  color: AppTheme.errorRed,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            LucideIcons.upload,
+                            size: 20,
+                            color: AppTheme.textSecondary,
+                          ),
+                          SizedBox(height: AppTheme.space8),
+                          Text(
+                            'Upload your branch logo',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),

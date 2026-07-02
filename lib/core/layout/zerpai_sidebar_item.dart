@@ -57,12 +57,12 @@ class _ZerpaiSidebarItemState extends State<ZerpaiSidebarItem> {
   Widget build(BuildContext context) {
     final bool collapsed = ZerpaiSidebarItem.isCollapsed;
     final Color hoverBg = ZerpaiSidebarItem.hoverBg;
-    final Color accentColor = ZerpaiSidebarItem.accentColor;
+    final Color activeBg = ZerpaiSidebarItem.activeParentBg;
 
     final Color bgColor = collapsed
         ? (_hover ? hoverBg.withValues(alpha: 0.35) : Colors.transparent)
         : widget.isActive
-        ? accentColor
+        ? activeBg
         : _hover
         ? hoverBg
         : Colors.transparent;
@@ -193,11 +193,15 @@ class _CollapsedView extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: showActiveIconHighlight || showActiveParentHighlight
-                  ? ZerpaiSidebarItem.accentColor
+                  ? ZerpaiSidebarItem.activeParentBg
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
-              border: showActiveParentHighlight
-                  ? Border.all(color: ZerpaiSidebarItem.itemFg.withValues(alpha: 0.08))
+              border: showActiveIconHighlight || showActiveParentHighlight
+                  ? Border.all(
+                      color: ZerpaiSidebarItem.accentColor.withValues(
+                        alpha: 0.45,
+                      ),
+                    )
                   : null,
             ),
             alignment: Alignment.center,

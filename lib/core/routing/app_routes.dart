@@ -8,6 +8,7 @@ class AppRoutes {
   static const String home = '/home';
   static const String settings = '/settings';
   static const String settingsOrgProfile = '/settings/orgprofile';
+  static const String settingsOrgProfileEdit = '/settings/orgprofile/edit';
   static const String settingsOrgBranding = '/settings/orgbranding';
   static const String settingsLocations = '/settings/locations';
   static const String settingsLocationsCreate = '/settings/locations/create';
@@ -236,6 +237,22 @@ class AppRoutes {
   static const String documents = '/documents';
   static const String auditLogs = '/audit-logs';
 
+  // Procurement - Purchase Requests
+  static const String procurement = '/purchases/procurement';
+  static const String procurementPurchaseRequests =
+      '/purchases/procurement/purchase-requests';
+  static const String procurementPurchaseRequestsCreate =
+      '/purchases/procurement/purchase-requests/create';
+  static const String procurementPurchaseRequestOverview =
+      '/purchases/procurement/purchase-requests/:id';
+  static const String procurementRequestedItems =
+      '/purchases/procurement/purchase-requests/requested-items';
+
+  // Procurement - Approvals
+  static const String procurementApprovals = '/purchases/procurement/approvals';
+  static const String procurementApprovalsOverview =
+      '/purchases/procurement/approvals/overview';
+
   // Purchases - Vendors
   static const String vendors = '/purchases/vendors';
   static const String vendorsCreate = '/purchases/vendors/create';
@@ -336,7 +353,6 @@ class AppRoutes {
   static const String accountantBulkUpdate = '/accountant/bulk-update';
   static const String accountantTransactionLocking =
       '/accountant/transaction-locking';
-
   static const String accountantOpeningBalances =
       '/accountant/opening-balances';
   static const String accountantOpeningBalancesUpdate =
@@ -344,18 +360,6 @@ class AppRoutes {
   static const String accountantSettings = '/accountant/settings';
   static const String accountantTransactionsReport =
       '/accountant/transactions-report';
-
-  // Procurement
-  static const String procurementPurchaseRequests =
-      '/procurement/purchase-requests';
-  static const String procurementPurchaseRequestsCreate =
-      '/procurement/purchase-requests/create';
-  static const String procurementPurchaseRequestOverview =
-      '/procurement/purchase-requests/:id';
-  static const String procurementRequestedItems =
-      '/procurement/requested-items';
-  static const String procurementApprovals =
-      '/procurement/approvals';
-  static const String procurementApprovalsOverview =
-      '/procurement/approvals/:id';
 }
+
+

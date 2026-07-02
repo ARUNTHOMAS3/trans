@@ -9,6 +9,10 @@ import { SupabaseService } from "../supabase/supabase.service";
 import { R2StorageService } from "./r2-storage.service";
 import { db } from "../../db/db";
 import {
+  getVisibleAccountById,
+  listVisibleAccounts,
+} from "../../common/account-visibility.util";
+import {
   accountsManualJournals,
   accountsManualJournalItems,
   accountTransaction,
@@ -49,14 +53,9 @@ export class AccountantService {
   async findAll(tenant: TenantContext) {
     const supabase = this.supabaseService.getClient();
 
-    const { data: accounts, error: accError } = await supabase
-      .from("accounts")
-      .select("*")
-      .eq("is_deleted", false)
-      .eq("entity_id", tenant.entityId)
-      .order("user_account_name", { ascending: true });
-
-    if (accError) throw accError;
+    const accounts = await listVisibleAccounts(supabase, tenant, {
+      includeInactive: true,
+    });
 
     const { data: txs, error: balError } = await supabase
       .from("account_transactions")
@@ -93,14 +92,10 @@ export class AccountantService {
 
   async findOne(id: string, tenant: TenantContext) {
     const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
-      .from("accounts")
-      .select("*")
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .single();
-
-    if (error) throw error;
+    const data = await getVisibleAccountById(supabase, id, tenant, {
+      includeInactive: true,
+    });
+    if (!data) throw new NotFoundException("Account not found");
 
     const { count, error: countError } = await supabase
       .from("account_transactions")
@@ -309,7 +304,6 @@ export class AccountantService {
       .from("accounts")
       .select("id")
       .eq("system_account_name", "Opening Balance Adjustments")
-      .eq("entity_id", tenant.entityId)
       .maybeSingle();
     if (data) return data.id;
     const created = await this.create(
@@ -914,13 +908,11 @@ export class AccountantService {
   }
 
   async search(q: string, tenant: TenantContext) {
-    const { data } = await this.supabaseService
-      .getClient()
-      .from("accounts")
-      .select("*")
-      .ilike("user_account_name", `%${q}%`)
-      .eq("entity_id", tenant.entityId);
-    return (data || []).map((x) => this.mapToDto(x));
+    const data = await listVisibleAccounts(this.supabaseService.getClient(), tenant, {
+      includeInactive: true,
+      search: q,
+    });
+    return data.map((x) => this.mapToDto(x));
   }
 
   async saveOpeningBalances(dto: any) {
@@ -936,13 +928,11 @@ export class AccountantService {
   }
 
   async findByGroup(group: string, tenant: TenantContext) {
-    const { data } = await this.supabaseService
-      .getClient()
-      .from("accounts")
-      .select("*")
-      .eq("account_group", group)
-      .eq("entity_id", tenant.entityId);
-    return (data || []).map((x) => this.mapToDto(x));
+    const data = await listVisibleAccounts(this.supabaseService.getClient(), tenant, {
+      includeInactive: true,
+      accountGroup: group,
+    });
+    return data.map((x) => this.mapToDto(x));
   }
 
   async findManualJournalAttachments(id: string, tenant: TenantContext) {

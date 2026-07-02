@@ -490,11 +490,9 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
   }
 
   bool get _isInterStateSupply {
-    final src = _selectedSourceOfSupply?.toLowerCase() ?? '';
-    final dest = _selectedDestinationOfSupply?.toLowerCase() ?? '';
-    final srcKL = src.contains('kerala');
-    final destKL = dest.contains('kerala');
-    return srcKL != destKL;
+    final place = _selectedDestinationOfSupply?.toLowerCase().trim();
+    if (place == null || place.isEmpty) return false;
+    return !place.contains('[kl]') && !place.contains('kerala');
   }
 
   List<_VCTaxSummaryLine> get _taxSummaryLines {
@@ -2381,6 +2379,7 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
                         ]),
                       ),
                       const SizedBox(height: 6),
+                      // TODO(GSTIN): Add GSTIN format validation using validateGstin(value) helper
                       TextField(
                         controller: gstinCtrl,
                         maxLines: 1,

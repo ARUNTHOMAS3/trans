@@ -118,10 +118,10 @@ class SidebarBuilder {
     if (route.startsWith('/items/')) return 'Items';
     if (route.startsWith('/inventory/')) return 'Inventory';
     if (route.startsWith('/sales/')) return 'Sales';
+    if (route.startsWith('/purchases/procurement/')) return 'Procurement';
     if (route.startsWith('/purchases/')) return 'Purchases';
     if (route.startsWith('/accountant/')) return 'Accountant';
     if (route.startsWith('/accounts/')) return 'Accounts';
-    if (route.startsWith('/procurement/')) return 'Procurement';
     return null;
   }
 

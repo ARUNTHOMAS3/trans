@@ -90,6 +90,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   // Edit mode - stores the item being edited
   Item? editingItem;
   bool isEditMode = false;
+  bool get _canAddMissingItemCodeOnEdit =>
+      isEditMode && (editingItem?.itemCode.trim().isEmpty ?? false);
   bool _isHydratingInitialItem = false;
   bool _isDirty = false;
   bool _suspendDirtyTracking = true;
@@ -248,42 +250,18 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     purchaseDescriptionCtrl.dispose();
     reorderPointCtrl.dispose();
     lockUnitPackCtrl.dispose();
-    storageDescCtrl.dispose();
     aboutCtrl.dispose();
     usesDescCtrl.dispose();
-    howToUseCtrl.dispose();
     dosageDescCtrl.dispose();
-    missedDoseDescCtrl.dispose();
-    safetyAdviceCtrl.dispose();
     howItWorksCtrl.dispose();
-    drugInteractionsCtrl.dispose();
-    contraindicationsCtrl.dispose();
     sideEffectsManagementCtrl.dispose();
+    safetyAdviceCtrl.dispose();
+    drugInteractionsCtrl.dispose();
     goodToKnowCtrl.dispose();
-    quickTipsCtrl.dispose();
-    allergyInformationCtrl.dispose();
     productHighlightsCtrl.dispose();
     ingredientsListCtrl.dispose();
-    safetyPregnancyCtrl.dispose();
-    safetyBreastfeedingCtrl.dispose();
-    safetyAlcoholCtrl.dispose();
-    safetyLiverCtrl.dispose();
-    safetyKidneyCtrl.dispose();
-    safetyDrivingCtrl.dispose();
-    safetyAllergyCtrl.dispose();
-    safetyChildrenCtrl.dispose();
-    safetyOlderPatientsCtrl.dispose();
-    interactionsDrugDrugCtrl.dispose();
-    interactionsDrugDiseaseCtrl.dispose();
-    dosageDailyDoseCtrl.dispose();
-    dosageOverDoseCtrl.dispose();
-    dosageMissedDoseCtrl.dispose();
     referencesTextCtrl.dispose();
     productDescriptionCtrl.dispose();
-    additionalInfoAllergyCtrl.dispose();
-    additionalInfoConcernsCtrl.dispose();
-    additionalInfoGoodToKnowCtrl.dispose();
-    additionalInfoQuickTipsCtrl.dispose();
     directionsForUseCtrl.dispose();
     sideEffectsCtrl.dispose();
     faqTextCtrl.dispose();
@@ -321,43 +299,18 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       'purchaseDescription': purchaseDescriptionCtrl.text,
       'manufacturerId': manufacturerId,
       'brandId': brandId,
-      'storageDescription': storageDescCtrl.text,
       'about': aboutCtrl.text,
       'usesDescription': usesDescCtrl.text,
-      'howToUse': howToUseCtrl.text,
       'dosageDescription': dosageDescCtrl.text,
-      'missedDoseDescription': missedDoseDescCtrl.text,
-      'safetyAdvice': safetyAdviceCtrl.text,
       'howItWorks': howItWorksCtrl.text,
-      'drugInteractions': drugInteractionsCtrl.text,
-      'contraindications': contraindicationsCtrl.text,
       'sideEffectsManagement': sideEffectsManagementCtrl.text,
+      'safetyAdvice': safetyAdviceCtrl.text,
+      'drugInteractions': drugInteractionsCtrl.text,
       'goodToKnow': goodToKnowCtrl.text,
-      'quickTips': quickTipsCtrl.text,
-      'allergyInformation': allergyInformationCtrl.text,
       'productHighlights': productHighlightsCtrl.text,
       'ingredientsList': ingredientsListCtrl.text,
-      'safetyMeasuresWarningsPregnancy': safetyPregnancyCtrl.text,
-      'safetyMeasuresWarningsBreastfeeding': safetyBreastfeedingCtrl.text,
-      'safetyMeasuresWarningsAlcohol': safetyAlcoholCtrl.text,
-      'safetyMeasuresWarningsLiver': safetyLiverCtrl.text,
-      'safetyMeasuresWarningsKidney': safetyKidneyCtrl.text,
-      'safetyMeasuresWarningsUseInDrivingAndOperatingMachinery':
-          safetyDrivingCtrl.text,
-      'safetyMeasuresWarningsAllergy': safetyAllergyCtrl.text,
-      'safetyMeasuresWarningsChildren': safetyChildrenCtrl.text,
-      'safetyMeasuresWarningsOlderPatients': safetyOlderPatientsCtrl.text,
-      'interactionsDrugDrugInteractions': interactionsDrugDrugCtrl.text,
-      'interactionsDrugDiseaseInteractions': interactionsDrugDiseaseCtrl.text,
-      'dosageDailyDose': dosageDailyDoseCtrl.text,
-      'dosageOverDose': dosageOverDoseCtrl.text,
-      'dosageMissedDose': dosageMissedDoseCtrl.text,
       'referencesText': referencesTextCtrl.text,
       'productDescription': productDescriptionCtrl.text,
-      'additionalInfoAllergy': additionalInfoAllergyCtrl.text,
-      'additionalInfoConcerns': additionalInfoConcernsCtrl.text,
-      'additionalInfoGoodToKnow': additionalInfoGoodToKnowCtrl.text,
-      'additionalInfoQuickTips': additionalInfoQuickTipsCtrl.text,
       'directionsForUse': directionsForUseCtrl.text,
       'sideEffectsText': sideEffectsCtrl.text,
       'faqText': faqTextCtrl.text,
@@ -394,62 +347,20 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
           data['purchaseDescription'] as String? ?? '';
       manufacturerId = data['manufacturerId'] as String?;
       brandId = data['brandId'] as String?;
-      storageDescCtrl.text = data['storageDescription'] as String? ?? '';
       aboutCtrl.text = data['about'] as String? ?? '';
       usesDescCtrl.text = data['usesDescription'] as String? ?? '';
-      howToUseCtrl.text = data['howToUse'] as String? ?? '';
       dosageDescCtrl.text = data['dosageDescription'] as String? ?? '';
-      missedDoseDescCtrl.text = data['missedDoseDescription'] as String? ?? '';
-      safetyAdviceCtrl.text = data['safetyAdvice'] as String? ?? '';
       howItWorksCtrl.text = data['howItWorks'] as String? ?? '';
-      drugInteractionsCtrl.text = data['drugInteractions'] as String? ?? '';
-      contraindicationsCtrl.text = data['contraindications'] as String? ?? '';
       sideEffectsManagementCtrl.text =
           data['sideEffectsManagement'] as String? ?? '';
+      safetyAdviceCtrl.text = data['safetyAdvice'] as String? ?? '';
+      drugInteractionsCtrl.text = data['drugInteractions'] as String? ?? '';
       goodToKnowCtrl.text = data['goodToKnow'] as String? ?? '';
-      quickTipsCtrl.text = data['quickTips'] as String? ?? '';
-      allergyInformationCtrl.text =
-          data['allergyInformation'] as String? ?? '';
       productHighlightsCtrl.text = data['productHighlights'] as String? ?? '';
       ingredientsListCtrl.text = data['ingredientsList'] as String? ?? '';
-      safetyPregnancyCtrl.text =
-          data['safetyMeasuresWarningsPregnancy'] as String? ?? '';
-      safetyBreastfeedingCtrl.text =
-          data['safetyMeasuresWarningsBreastfeeding'] as String? ?? '';
-      safetyAlcoholCtrl.text =
-          data['safetyMeasuresWarningsAlcohol'] as String? ?? '';
-      safetyLiverCtrl.text =
-          data['safetyMeasuresWarningsLiver'] as String? ?? '';
-      safetyKidneyCtrl.text =
-          data['safetyMeasuresWarningsKidney'] as String? ?? '';
-      safetyDrivingCtrl.text =
-          data['safetyMeasuresWarningsUseInDrivingAndOperatingMachinery']
-              as String? ??
-          '';
-      safetyAllergyCtrl.text =
-          data['safetyMeasuresWarningsAllergy'] as String? ?? '';
-      safetyChildrenCtrl.text =
-          data['safetyMeasuresWarningsChildren'] as String? ?? '';
-      safetyOlderPatientsCtrl.text =
-          data['safetyMeasuresWarningsOlderPatients'] as String? ?? '';
-      interactionsDrugDrugCtrl.text =
-          data['interactionsDrugDrugInteractions'] as String? ?? '';
-      interactionsDrugDiseaseCtrl.text =
-          data['interactionsDrugDiseaseInteractions'] as String? ?? '';
-      dosageDailyDoseCtrl.text = data['dosageDailyDose'] as String? ?? '';
-      dosageOverDoseCtrl.text = data['dosageOverDose'] as String? ?? '';
-      dosageMissedDoseCtrl.text = data['dosageMissedDose'] as String? ?? '';
       referencesTextCtrl.text = data['referencesText'] as String? ?? '';
       productDescriptionCtrl.text =
           data['productDescription'] as String? ?? '';
-      additionalInfoAllergyCtrl.text =
-          data['additionalInfoAllergy'] as String? ?? '';
-      additionalInfoConcernsCtrl.text =
-          data['additionalInfoConcerns'] as String? ?? '';
-      additionalInfoGoodToKnowCtrl.text =
-          data['additionalInfoGoodToKnow'] as String? ?? '';
-      additionalInfoQuickTipsCtrl.text =
-          data['additionalInfoQuickTips'] as String? ?? '';
       directionsForUseCtrl.text = data['directionsForUse'] as String? ?? '';
       sideEffectsCtrl.text = data['sideEffectsText'] as String? ?? '';
       faqTextCtrl.text = data['faqText'] as String? ?? '';
@@ -659,48 +570,18 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       scheduleOfDrugId = item.scheduleOfDrugId;
       productTypeId = item.productTypeId;
 
-      storageDescCtrl.text = item.storageDescription ?? '';
       aboutCtrl.text = item.about ?? '';
       usesDescCtrl.text = item.usesDescription ?? '';
-      howToUseCtrl.text = item.howToUse ?? '';
       dosageDescCtrl.text = item.dosageDescription ?? '';
-      missedDoseDescCtrl.text = item.missedDoseDescription ?? '';
-      safetyAdviceCtrl.text = item.safetyAdvice ?? '';
       howItWorksCtrl.text = item.howItWorks ?? '';
-      drugInteractionsCtrl.text = item.drugInteractions ?? '';
-      contraindicationsCtrl.text = item.contraindications ?? '';
       sideEffectsManagementCtrl.text = item.sideEffectsManagement ?? '';
+      safetyAdviceCtrl.text = item.safetyAdvice ?? '';
+      drugInteractionsCtrl.text = item.drugInteractions ?? '';
       goodToKnowCtrl.text = item.goodToKnow ?? '';
-      quickTipsCtrl.text = item.quickTips ?? '';
-      allergyInformationCtrl.text = item.allergyInformation ?? '';
       productHighlightsCtrl.text = item.productHighlights ?? '';
       ingredientsListCtrl.text = item.ingredientsList ?? '';
-      safetyPregnancyCtrl.text = item.safetyMeasuresWarningsPregnancy ?? '';
-      safetyBreastfeedingCtrl.text =
-          item.safetyMeasuresWarningsBreastfeeding ?? '';
-      safetyAlcoholCtrl.text = item.safetyMeasuresWarningsAlcohol ?? '';
-      safetyLiverCtrl.text = item.safetyMeasuresWarningsLiver ?? '';
-      safetyKidneyCtrl.text = item.safetyMeasuresWarningsKidney ?? '';
-      safetyDrivingCtrl.text =
-          item.safetyMeasuresWarningsUseInDrivingAndOperatingMachinery ?? '';
-      safetyAllergyCtrl.text = item.safetyMeasuresWarningsAllergy ?? '';
-      safetyChildrenCtrl.text = item.safetyMeasuresWarningsChildren ?? '';
-      safetyOlderPatientsCtrl.text =
-          item.safetyMeasuresWarningsOlderPatients ?? '';
-      interactionsDrugDrugCtrl.text =
-          item.interactionsDrugDrugInteractions ?? '';
-      interactionsDrugDiseaseCtrl.text =
-          item.interactionsDrugDiseaseInteractions ?? '';
-      dosageDailyDoseCtrl.text = item.dosageDailyDose ?? '';
-      dosageOverDoseCtrl.text = item.dosageOverDose ?? '';
-      dosageMissedDoseCtrl.text = item.dosageMissedDose ?? '';
       referencesTextCtrl.text = item.referencesText ?? '';
       productDescriptionCtrl.text = item.productDescription ?? '';
-      additionalInfoAllergyCtrl.text = item.additionalInfoAllergy ?? '';
-      additionalInfoConcernsCtrl.text = item.additionalInfoConcerns ?? '';
-      additionalInfoGoodToKnowCtrl.text =
-          item.additionalInfoGoodToKnow ?? '';
-      additionalInfoQuickTipsCtrl.text = item.additionalInfoQuickTips ?? '';
       directionsForUseCtrl.text = item.directionsForUse ?? '';
       sideEffectsCtrl.text = _joinStructuredItems(item.sideEffects);
       faqTextCtrl.text = _joinStructuredItems(item.faqText);
@@ -994,42 +875,18 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   String? reorderTermsId;
 
   // eCommerce Controllers
-  final storageDescCtrl = TextEditingController();
   final aboutCtrl = TextEditingController();
   final usesDescCtrl = TextEditingController();
-  final howToUseCtrl = TextEditingController();
   final dosageDescCtrl = TextEditingController();
-  final missedDoseDescCtrl = TextEditingController();
-  final safetyAdviceCtrl = TextEditingController();
   final howItWorksCtrl = TextEditingController();
-  final drugInteractionsCtrl = TextEditingController();
-  final contraindicationsCtrl = TextEditingController();
   final sideEffectsManagementCtrl = TextEditingController();
+  final safetyAdviceCtrl = TextEditingController();
+  final drugInteractionsCtrl = TextEditingController();
   final goodToKnowCtrl = TextEditingController();
-  final quickTipsCtrl = TextEditingController();
-  final allergyInformationCtrl = TextEditingController();
   final productHighlightsCtrl = TextEditingController();
   final ingredientsListCtrl = TextEditingController();
-  final safetyPregnancyCtrl = TextEditingController();
-  final safetyBreastfeedingCtrl = TextEditingController();
-  final safetyAlcoholCtrl = TextEditingController();
-  final safetyLiverCtrl = TextEditingController();
-  final safetyKidneyCtrl = TextEditingController();
-  final safetyDrivingCtrl = TextEditingController();
-  final safetyAllergyCtrl = TextEditingController();
-  final safetyChildrenCtrl = TextEditingController();
-  final safetyOlderPatientsCtrl = TextEditingController();
-  final interactionsDrugDrugCtrl = TextEditingController();
-  final interactionsDrugDiseaseCtrl = TextEditingController();
-  final dosageDailyDoseCtrl = TextEditingController();
-  final dosageOverDoseCtrl = TextEditingController();
-  final dosageMissedDoseCtrl = TextEditingController();
   final referencesTextCtrl = TextEditingController();
   final productDescriptionCtrl = TextEditingController();
-  final additionalInfoAllergyCtrl = TextEditingController();
-  final additionalInfoConcernsCtrl = TextEditingController();
-  final additionalInfoGoodToKnowCtrl = TextEditingController();
-  final additionalInfoQuickTipsCtrl = TextEditingController();
   final directionsForUseCtrl = TextEditingController();
   final sideEffectsCtrl = TextEditingController();
   final faqTextCtrl = TextEditingController();
@@ -1287,6 +1144,30 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         imageUrls = [];
                       }
 
+                      final normalizedSku = skuCtrl.text.trim();
+                      final normalizedItemCodeInput = itemCodeCtrl.text.trim();
+                      final normalizedExistingItemCode =
+                          editingItem?.itemCode.trim() ?? '';
+                      final resolvedItemCode = normalizedItemCodeInput.isNotEmpty
+                          ? normalizedItemCodeInput
+                          : normalizedExistingItemCode.isNotEmpty
+                          ? normalizedExistingItemCode
+                          : '';
+                      final validTaxGroupIds = itemsState.taxGroups
+                          .map((taxGroup) => taxGroup.id)
+                          .where((id) => id.isNotEmpty)
+                          .toSet();
+                      final resolvedIntraStateTaxId =
+                          intraStateTaxId != null &&
+                              validTaxGroupIds.contains(intraStateTaxId)
+                          ? intraStateTaxId
+                          : null;
+                      final resolvedInterStateTaxId =
+                          interStateTaxId != null &&
+                              validTaxGroupIds.contains(interStateTaxId)
+                          ? interStateTaxId
+                          : null;
+
                       final item = Item(
                         buyingRuleId:
                             buyingRuleId ??
@@ -1307,10 +1188,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         billingName: billingNameCtrl.text.trim().isEmpty
                             ? null
                             : billingNameCtrl.text.trim(),
-                        itemCode: itemCodeCtrl.text.trim(),
-                        sku: skuCtrl.text.trim().isEmpty
-                            ? null
-                            : skuCtrl.text.trim(),
+                        itemCode: resolvedItemCode,
+                        sku: normalizedSku.isEmpty ? null : normalizedSku,
                         unitId: selectedUnitId ?? '',
                         categoryId: isGoods ? selectedCategoryId : null,
                         isReturnable: isReturnable,
@@ -1324,8 +1203,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                                   : sacCtrl.text.trim()),
                         taxPreference: _toBackendTaxPreference(taxPreference),
                         exemptionReason: exemptionReason,
-                        intraStateTaxId: intraStateTaxId,
-                        interStateTaxId: interStateTaxId,
+                        intraStateTaxId: resolvedIntraStateTaxId,
+                        interStateTaxId: resolvedInterStateTaxId,
                         sellingPrice: sellingPriceCtrl.text.isEmpty
                             ? null
                             : double.tryParse(sellingPriceCtrl.text),
@@ -1418,113 +1297,36 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         imageUrls: imageUrls,
                         isActive: true,
                         isLock: false,
-                        storageDescription: storageDescCtrl.text.trim().isEmpty
-                            ? null
-                            : storageDescCtrl.text.trim(),
                         about: aboutCtrl.text.trim().isEmpty
                             ? null
                             : aboutCtrl.text.trim(),
                         usesDescription: usesDescCtrl.text.trim().isEmpty
                             ? null
                             : usesDescCtrl.text.trim(),
-                        howToUse: howToUseCtrl.text.trim().isEmpty
-                            ? null
-                            : howToUseCtrl.text.trim(),
                         dosageDescription: dosageDescCtrl.text.trim().isEmpty
                             ? null
                             : dosageDescCtrl.text.trim(),
-                        missedDoseDescription:
-                            missedDoseDescCtrl.text.trim().isEmpty
-                            ? null
-                            : missedDoseDescCtrl.text.trim(),
-                        safetyAdvice: safetyAdviceCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyAdviceCtrl.text.trim(),
                         howItWorks: howItWorksCtrl.text.trim().isEmpty
                             ? null
                             : howItWorksCtrl.text.trim(),
-                        drugInteractions:
-                            drugInteractionsCtrl.text.trim().isEmpty
-                            ? null
-                            : drugInteractionsCtrl.text.trim(),
-                        contraindications:
-                            contraindicationsCtrl.text.trim().isEmpty
-                            ? null
-                            : contraindicationsCtrl.text.trim(),
                         sideEffectsManagement:
                             sideEffectsManagementCtrl.text.trim().isEmpty
                             ? null
                             : sideEffectsManagementCtrl.text.trim(),
+                        safetyAdvice: safetyAdviceCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyAdviceCtrl.text.trim(),
+                        drugInteractions:
+                            drugInteractionsCtrl.text.trim().isEmpty
+                            ? null
+                            : drugInteractionsCtrl.text.trim(),
                         goodToKnow: goodToKnowCtrl.text.trim().isEmpty
                             ? null
                             : goodToKnowCtrl.text.trim(),
-                        quickTips: quickTipsCtrl.text.trim().isEmpty
-                            ? null
-                            : quickTipsCtrl.text.trim(),
-                        allergyInformation:
-                            allergyInformationCtrl.text.trim().isEmpty
-                            ? null
-                            : allergyInformationCtrl.text.trim(),
                         productHighlights:
                             productHighlightsCtrl.text.trim().isEmpty
                             ? null
                             : productHighlightsCtrl.text.trim(),
-                        safetyMeasuresWarningsPregnancy:
-                            safetyPregnancyCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyPregnancyCtrl.text.trim(),
-                        safetyMeasuresWarningsBreastfeeding:
-                            safetyBreastfeedingCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyBreastfeedingCtrl.text.trim(),
-                        safetyMeasuresWarningsAlcohol:
-                            safetyAlcoholCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyAlcoholCtrl.text.trim(),
-                        safetyMeasuresWarningsLiver:
-                            safetyLiverCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyLiverCtrl.text.trim(),
-                        safetyMeasuresWarningsKidney:
-                            safetyKidneyCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyKidneyCtrl.text.trim(),
-                        safetyMeasuresWarningsUseInDrivingAndOperatingMachinery:
-                            safetyDrivingCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyDrivingCtrl.text.trim(),
-                        safetyMeasuresWarningsAllergy:
-                            safetyAllergyCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyAllergyCtrl.text.trim(),
-                        safetyMeasuresWarningsChildren:
-                            safetyChildrenCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyChildrenCtrl.text.trim(),
-                        safetyMeasuresWarningsOlderPatients:
-                            safetyOlderPatientsCtrl.text.trim().isEmpty
-                            ? null
-                            : safetyOlderPatientsCtrl.text.trim(),
-                        interactionsDrugDrugInteractions:
-                            interactionsDrugDrugCtrl.text.trim().isEmpty
-                            ? null
-                            : interactionsDrugDrugCtrl.text.trim(),
-                        interactionsDrugDiseaseInteractions:
-                            interactionsDrugDiseaseCtrl.text.trim().isEmpty
-                            ? null
-                            : interactionsDrugDiseaseCtrl.text.trim(),
-                        dosageDailyDose:
-                            dosageDailyDoseCtrl.text.trim().isEmpty
-                            ? null
-                            : dosageDailyDoseCtrl.text.trim(),
-                        dosageOverDose:
-                            dosageOverDoseCtrl.text.trim().isEmpty
-                            ? null
-                            : dosageOverDoseCtrl.text.trim(),
-                        dosageMissedDose:
-                            dosageMissedDoseCtrl.text.trim().isEmpty
-                            ? null
-                            : dosageMissedDoseCtrl.text.trim(),
                         referencesText:
                             referencesTextCtrl.text.trim().isEmpty
                             ? null
@@ -1533,22 +1335,6 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                             productDescriptionCtrl.text.trim().isEmpty
                             ? null
                             : productDescriptionCtrl.text.trim(),
-                        additionalInfoAllergy:
-                            additionalInfoAllergyCtrl.text.trim().isEmpty
-                            ? null
-                            : additionalInfoAllergyCtrl.text.trim(),
-                        additionalInfoConcerns:
-                            additionalInfoConcernsCtrl.text.trim().isEmpty
-                            ? null
-                            : additionalInfoConcernsCtrl.text.trim(),
-                        additionalInfoGoodToKnow:
-                            additionalInfoGoodToKnowCtrl.text.trim().isEmpty
-                            ? null
-                            : additionalInfoGoodToKnowCtrl.text.trim(),
-                        additionalInfoQuickTips:
-                            additionalInfoQuickTipsCtrl.text.trim().isEmpty
-                            ? null
-                            : additionalInfoQuickTipsCtrl.text.trim(),
                         directionsForUse:
                             directionsForUseCtrl.text.trim().isEmpty
                             ? null
@@ -1707,7 +1493,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
 
         if (result.gstRate != null) {
           final itemsState = ref.read(itemsControllerProvider);
-          final matchingRate = itemsState.taxRates
+          final matchingRate = itemsState.taxGroups
               .where((r) => (r.taxRate - result.gstRate!).abs() < 0.01)
               .firstOrNull;
           if (matchingRate != null) {

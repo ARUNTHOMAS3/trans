@@ -348,13 +348,15 @@ class Item {
       categoryId: json['category_id'],
       isReturnable: json['is_returnable'] ?? false,
       pushToEcommerce: json['push_to_ecommerce'] ?? false,
-      hsnCode: (json['hsn_sac_code'] ?? json['hsn_code'])?.toString(),
+      hsnCode: json['hsn_sac_code']?.toString(),
       taxPreference: json['tax_preference'],
-      intraStateTaxId: json['intra_state_tax_id'] ??
+      intraStateTaxId:
+          json['intra_state_tax_id'] ??
           json['intraStateTaxId'] ??
           json['intraStateTax']?['id'] ??
           json['intra_state_tax']?['id'],
-      interStateTaxId: json['inter_state_tax_id'] ??
+      interStateTaxId:
+          json['inter_state_tax_id'] ??
           json['interStateTaxId'] ??
           json['interStateTax']?['id'] ??
           json['inter_state_tax']?['id'],
@@ -475,16 +477,13 @@ class Item {
           json['safety_measures_warnings_pregnancy'],
       safetyMeasuresWarningsBreastfeeding:
           json['safety_measures_warnings_breastfeeding'],
-      safetyMeasuresWarningsAlcohol:
-          json['safety_measures_warnings_alcohol'],
+      safetyMeasuresWarningsAlcohol: json['safety_measures_warnings_alcohol'],
       safetyMeasuresWarningsLiver: json['safety_measures_warnings_liver'],
       safetyMeasuresWarningsKidney: json['safety_measures_warnings_kidney'],
       safetyMeasuresWarningsUseInDrivingAndOperatingMachinery:
           json['safety_measures_warnings_use_in_driving_and_operating_machinery'],
-      safetyMeasuresWarningsAllergy:
-          json['safety_measures_warnings_allergy'],
-      safetyMeasuresWarningsChildren:
-          json['safety_measures_warnings_children'],
+      safetyMeasuresWarningsAllergy: json['safety_measures_warnings_allergy'],
+      safetyMeasuresWarningsChildren: json['safety_measures_warnings_children'],
       safetyMeasuresWarningsOlderPatients:
           json['safety_measures_warnings_older_patients'],
       interactionsDrugDrugInteractions:
@@ -528,8 +527,14 @@ class Item {
           json['purchase_account']?['account_name'],
       preferredVendorName: json['preferredVendor']?['display_name'],
       repName: json['rep']?['name'],
-      intraStateTaxName: json['intraStateTax']?['tax_name'] ?? json['intra_state_tax_name'] ?? json['intraStateTaxName'],
-      interStateTaxName: json['interStateTax']?['tax_name'] ?? json['inter_state_tax_name'] ?? json['interStateTaxName'],
+      intraStateTaxName:
+          json['intraStateTax']?['tax_name'] ??
+          json['intra_state_tax_name'] ??
+          json['intraStateTaxName'],
+      interStateTaxName:
+          json['interStateTax']?['tax_name'] ??
+          json['inter_state_tax_name'] ??
+          json['interStateTaxName'],
       buyingRuleName: json['buyingRule']?['buying_rule'],
       drugScheduleName: json['drugSchedule']?['shedule_name'],
       safetyAdvice: json['safety_advice'],
@@ -630,12 +635,10 @@ class Item {
         'side_effects_management': sideEffectsManagement,
       if (goodToKnow != null) 'good_to_know': goodToKnow,
       if (quickTips != null) 'quick_tips': quickTips,
-      if (allergyInformation != null)
-        'allergy_information': allergyInformation,
+      if (allergyInformation != null) 'allergy_information': allergyInformation,
       if (productHighlights != null) 'product_highlights': productHighlights,
       if (safetyMeasuresWarningsPregnancy != null)
-        'safety_measures_warnings_pregnancy':
-            safetyMeasuresWarningsPregnancy,
+        'safety_measures_warnings_pregnancy': safetyMeasuresWarningsPregnancy,
       if (safetyMeasuresWarningsBreastfeeding != null)
         'safety_measures_warnings_breastfeeding':
             safetyMeasuresWarningsBreastfeeding,
@@ -656,8 +659,7 @@ class Item {
         'safety_measures_warnings_older_patients':
             safetyMeasuresWarningsOlderPatients,
       if (interactionsDrugDrugInteractions != null)
-        'interactions_drug_drug_interactions':
-            interactionsDrugDrugInteractions,
+        'interactions_drug_drug_interactions': interactionsDrugDrugInteractions,
       if (interactionsDrugDiseaseInteractions != null)
         'interactions_drug_disease_interactions':
             interactionsDrugDiseaseInteractions,
@@ -665,8 +667,7 @@ class Item {
       if (dosageOverDose != null) 'dosage_over_dose': dosageOverDose,
       if (dosageMissedDose != null) 'dosage_missed_dose': dosageMissedDose,
       if (referencesText != null) 'references_text': referencesText,
-      if (productDescription != null)
-        'product_description': productDescription,
+      if (productDescription != null) 'product_description': productDescription,
       if (additionalInfoAllergy != null)
         'additional_info_allergy': additionalInfoAllergy,
       if (additionalInfoConcerns != null)

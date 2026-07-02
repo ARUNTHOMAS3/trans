@@ -180,7 +180,7 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                 controller: itemCodeCtrl,
                 hintText: "Enter item code",
                 errorText: itemsState.validationErrors['itemCode'],
-                enabled: !isEditMode, // Read-only when editing
+                enabled: !isEditMode || _canAddMissingItemCodeOnEdit,
               ),
             ),
 
@@ -397,7 +397,7 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                 controller: itemCodeCtrl,
                 hintText: "Enter service code",
                 errorText: itemsState.validationErrors['itemCode'],
-                enabled: !isEditMode,
+                enabled: !isEditMode || _canAddMissingItemCodeOnEdit,
               ),
             ),
 

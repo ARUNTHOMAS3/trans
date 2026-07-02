@@ -29,6 +29,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/phone_input_field.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+import 'package:zerpai_erp/shared/utils/validation_utils.dart';
 
 class _TimezoneOption {
   final String id;
@@ -96,6 +97,47 @@ class _StateOption {
   const _StateOption({required this.id, required this.name, this.code});
 }
 
+class _OrgGstTreatmentOption {
+  final String label;
+  final String description;
+  const _OrgGstTreatmentOption(this.label, this.description);
+}
+
+const List<_OrgGstTreatmentOption> _orgGstTreatmentOptions = [
+  _OrgGstTreatmentOption(
+    'Registered Business - Regular',
+    'Business that is registered under GST',
+  ),
+  _OrgGstTreatmentOption(
+    'Registered Business - Composition',
+    'Business that is registered under the Composition Scheme in GST',
+  ),
+  _OrgGstTreatmentOption(
+    'Unregistered Business',
+    'Business that has not been registered under GST',
+  ),
+  _OrgGstTreatmentOption(
+    'Overseas',
+    'Persons with whom you do import or export of supplies outside India',
+  ),
+  _OrgGstTreatmentOption(
+    'Special Economic Zone',
+    'Business (Unit) that is located in a Special Economic Zone (SEZ) of India or a SEZ Developer',
+  ),
+  _OrgGstTreatmentOption(
+    'Deemed Export',
+    'Supply of goods to an Export Oriented Unit or against Advanced Authorization/Export Promotion Capital Goods',
+  ),
+  _OrgGstTreatmentOption(
+    'Tax Deductor',
+    'Departments of the State/Central government, governmental agencies or local authorities',
+  ),
+  _OrgGstTreatmentOption(
+    'SEZ Developer',
+    'A person/organisation who owns at least 26% of the equity in creating business units in a Special Economic Zone (SEZ)',
+  ),
+];
+
 class SettingsOrganizationProfilePage extends ConsumerStatefulWidget {
   const SettingsOrganizationProfilePage({super.key});
 
@@ -107,6 +149,7 @@ class SettingsOrganizationProfilePage extends ConsumerStatefulWidget {
 class _SettingsOrganizationProfilePageState
     extends ConsumerState<SettingsOrganizationProfilePage> {
   bool _isEditMode = false;
+  Map<String, dynamic> _staticStateCache = <String, dynamic>{};
   // Populated from /lookups/industries
   List<String> _industryOptions = <String>[];
   // Populated from /lookups/timezones (re-fetched on country change)
@@ -121,7 +164,6 @@ class _SettingsOrganizationProfilePageState
   List<Map<String, String>> _dateFormatOptions = <Map<String, String>>[];
   List<Map<String, String>> _dateSeparatorOptions = <Map<String, String>>[];
   List<Map<String, String>> _drugLicenceTypeOptions = <Map<String, String>>[];
-
 
   static const List<_ProfileNavSection> _navSections = <_ProfileNavSection>[
     _ProfileNavSection(
@@ -237,6 +279,7 @@ class _SettingsOrganizationProfilePageState
 
   final ApiClient _apiClient = ApiClient();
   final _formKey = GlobalKey<FormState>();
+  bool _showValidationErrors = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _bodyScrollController = ScrollController();
@@ -282,6 +325,8 @@ class _SettingsOrganizationProfilePageState
   final GlobalKey _primaryContactKey = GlobalKey();
   final GlobalKey _baseCurrencyKey = GlobalKey();
   final GlobalKey _fiscalYearKey = GlobalKey();
+  final GlobalKey _gstTreatmentKey = GlobalKey();
+  final GlobalKey _gstinKey = GlobalKey();
 
   final GlobalKey _timeZoneKey = GlobalKey();
   final GlobalKey _dateFormatKey = GlobalKey();
@@ -293,8 +338,7 @@ class _SettingsOrganizationProfilePageState
   List<_LocalBodyOption> _paymentStubAllLocalBodyOptions = <_LocalBodyOption>[];
   List<_LocalBodyOption> _paymentStubLocalBodyOptions = <_LocalBodyOption>[];
   List<_WardOption> _paymentStubWardOptions = const [];
-  List<_AssemblyOption> _paymentStubAssemblyOptions =
-      <_AssemblyOption>[];
+  List<_AssemblyOption> _paymentStubAssemblyOptions = <_AssemblyOption>[];
   String? _selectedPaymentStubDistrictId;
   String? _selectedPaymentStubLocalBodyType;
   String? _selectedPaymentStubLocalBodyId;
@@ -316,10 +360,14 @@ class _SettingsOrganizationProfilePageState
   // Pharmacy-specific compliance fields
   bool _isDrugRegistered = false;
   String? _drugLicenceType;
-  final TextEditingController _drugLicense20Controller = TextEditingController();
-  final TextEditingController _drugLicense21Controller = TextEditingController();
-  final TextEditingController _drugLicense20BController = TextEditingController();
-  final TextEditingController _drugLicense21BController = TextEditingController();
+  final TextEditingController _drugLicense20Controller =
+      TextEditingController();
+  final TextEditingController _drugLicense21Controller =
+      TextEditingController();
+  final TextEditingController _drugLicense20BController =
+      TextEditingController();
+  final TextEditingController _drugLicense21BController =
+      TextEditingController();
 
   bool _isFssaiRegistered = false;
   final TextEditingController _fssaiNumberController = TextEditingController();
@@ -341,6 +389,43 @@ class _SettingsOrganizationProfilePageState
 
   bool get _showMainAddressKeralaFields =>
       (_selectedState ?? '').toLowerCase() == 'kerala';
+
+  bool get _isPharmaIndustry {
+    final normalized = (_selectedIndustry ?? '').trim().toLowerCase();
+    return normalized == 'pharma industry' ||
+        normalized == 'pharmacy' ||
+        normalized == 'pharmaceuticals';
+  }
+
+  String? _normalizeIndustrySelection(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return trimmed;
+
+    final normalized = trimmed.toLowerCase();
+    if (normalized == 'pharmacy' || normalized == 'pharmaceuticals') {
+      final pharmaMatch = _industryOptions.firstWhere(
+        (option) => option.trim().toLowerCase() == 'pharma industry',
+        orElse: () => 'Pharma Industry',
+      );
+      return pharmaMatch;
+    }
+
+    return _matchOption(trimmed, _industryOptions);
+  }
+
+  bool _shouldHideGstRegistrationFields() {
+    if (_gstTreatment == null) return true;
+    const allowedToShow = [
+      'Registered Business - Regular',
+      'Registered Business - Composition',
+      'Overseas',
+      'Special Economic Zone',
+      'Deemed Export',
+      'Tax Deductor',
+      'SEZ Developer',
+    ];
+    return !allowedToShow.contains(_gstTreatment!.label);
+  }
 
   String _localBodyTypeLabel(String value) {
     switch (value) {
@@ -411,8 +496,9 @@ class _SettingsOrganizationProfilePageState
   }
 
   Future<void> _loadDistrictsForSelectedState() async {
-    final String? stateId =
-        _selectedState != null ? _stateIdByName[_selectedState!] : null;
+    final String? stateId = _selectedState != null
+        ? _stateIdByName[_selectedState!]
+        : null;
     if (stateId == null || stateId.isEmpty) {
       if (!mounted) return;
       setState(() {
@@ -567,7 +653,9 @@ class _SettingsOrganizationProfilePageState
     try {
       final response = await _apiClient.get(
         '/lookups/wards',
-        queryParameters: <String, dynamic>{'localBodyId': normalizedLocalBodyId},
+        queryParameters: <String, dynamic>{
+          'localBodyId': normalizedLocalBodyId,
+        },
         useCache: false,
       );
       if (!mounted) return;
@@ -633,8 +721,7 @@ class _SettingsOrganizationProfilePageState
       setState(() {
         _paymentStubDistrictOptions = districts;
         if (preferredDistrictId != null &&
-            districts
-                .any((district) => district.id == preferredDistrictId)) {
+            districts.any((district) => district.id == preferredDistrictId)) {
           _selectedPaymentStubDistrictId = preferredDistrictId;
         } else if (_selectedPaymentStubDistrictId != null &&
             districts.any(
@@ -706,15 +793,16 @@ class _SettingsOrganizationProfilePageState
           _selectedPaymentStubLocalBodyType = null;
         }
 
-        final filteredLocalBodies = _selectedPaymentStubLocalBodyType == null ||
+        final filteredLocalBodies =
+            _selectedPaymentStubLocalBodyType == null ||
                 _selectedPaymentStubLocalBodyType!.isEmpty
             ? allLocalBodies
             : allLocalBodies
-                .where(
-                  (localBody) =>
-                      localBody.bodyType == _selectedPaymentStubLocalBodyType,
-                )
-                .toList();
+                  .where(
+                    (localBody) =>
+                        localBody.bodyType == _selectedPaymentStubLocalBodyType,
+                  )
+                  .toList();
 
         _paymentStubLocalBodyOptions = filteredLocalBodies;
         if (preferredLocalBodyId != null) {
@@ -900,6 +988,8 @@ class _SettingsOrganizationProfilePageState
   String? _selectedDateFormat;
   String? _selectedDateSeparator;
   String? _selectedCompanyIdLabel;
+  _OrgGstTreatmentOption? _gstTreatment;
+  final TextEditingController _gstinController = TextEditingController();
   bool _hasSeparatePaymentStubAddress = false;
   List<String> _currencyOptions = <String>[];
   Map<String, Map<String, dynamic>> _currencyDataByCode =
@@ -941,6 +1031,7 @@ class _SettingsOrganizationProfilePageState
     _drugLicense21Controller.dispose();
     _drugLicense20BController.dispose();
     _drugLicense21BController.dispose();
+    _gstinController.dispose();
     _fssaiNumberController.dispose();
     _msmeNumberController.dispose();
 
@@ -960,6 +1051,9 @@ class _SettingsOrganizationProfilePageState
       searchFocusNode: _searchFocusNode,
       child: Form(
         key: _formKey,
+        autovalidateMode: _showValidationErrors
+            ? AutovalidateMode.onUserInteraction
+            : AutovalidateMode.disabled,
         child: Container(
           color: Colors.white,
           child: Column(
@@ -1118,7 +1212,9 @@ class _SettingsOrganizationProfilePageState
               orgResponse.data is Map<String, dynamic>
           ? Map<String, dynamic>.from(orgResponse.data as Map<String, dynamic>)
           : <String, dynamic>{};
-      debugPrint('[OrgProfile] effectiveOrgId=$effectiveOrgId orgResponse.success=${orgResponse?.success} orgData.keys=${orgData.keys.toList()}');
+      debugPrint(
+        '[OrgProfile] effectiveOrgId=$effectiveOrgId orgResponse.success=${orgResponse?.success} orgData.keys=${orgData.keys.toList()}',
+      );
 
       final List<String> currencyOptions = <String>[];
       final Map<String, Map<String, dynamic>> currencyDataByCode =
@@ -1257,6 +1353,19 @@ class _SettingsOrganizationProfilePageState
         _dateFormatOptions = dateFormatOptions;
         _dateSeparatorOptions = dateSeparatorOptions;
         _drugLicenceTypeOptions = drugLicenceTypeOptions;
+        final String loadedGstLabel = (orgData['gst_treatment'] ?? '')
+            .toString()
+            .trim();
+        if (loadedGstLabel.isNotEmpty) {
+          _gstTreatment = _orgGstTreatmentOptions
+              .cast<_OrgGstTreatmentOption?>()
+              .firstWhere(
+                (o) => o!.label == loadedGstLabel,
+                orElse: () => null,
+              );
+        }
+        final String loadedGstin = (orgData['gstin'] ?? '').toString().trim();
+        if (loadedGstin.isNotEmpty) _gstinController.text = loadedGstin;
         _selectedBaseCurrency = _matchOption(
           (orgData['base_currency'] ?? '').toString(),
           _currencyOptions,
@@ -1276,16 +1385,15 @@ class _SettingsOrganizationProfilePageState
           (orgData['country'] ?? '').toString(),
           _countryOptions,
         );
-        _selectedIndustry = _matchOption(
+        _selectedIndustry = _normalizeIndustrySelection(
           (orgData['industry'] ?? '').toString(),
-          _industryOptions,
         );
         _selectedFiscalYear = _matchCodeLabelOption(
           (orgData['fiscal_year'] ?? '').toString(),
           _fiscalYearOptions,
         );
-        _selectedReportBasis =
-            (orgData['report_basis'] ?? 'accrual').toString();
+        _selectedReportBasis = (orgData['report_basis'] ?? 'accrual')
+            .toString();
 
         _selectedTimeZone = _matchTimezoneValue(
           (orgData['timezone_tzdb_name'] ??
@@ -1313,17 +1421,17 @@ class _SettingsOrganizationProfilePageState
         );
         _companyIdValueController.text = (orgData['company_id_value'] ?? '')
             .toString();
-        _addressAttentionController.text =
-            (orgData['attention'] ?? '').toString();
+        _addressAttentionController.text = (orgData['attention'] ?? '')
+            .toString();
         _addressStreet1Controller.text =
             (orgData['street'] ?? orgData['address_street_1'] ?? '').toString();
         _addressStreet2Controller.text =
             (orgData['place'] ?? orgData['address_street_2'] ?? '').toString();
         _addressCityController.text = (orgData['city'] ?? '').toString();
-        _addressPincodeController.text =
-            (orgData['pincode'] ?? '').toString();
-        _addressPhoneController.text =
-            _normalizeIndiaPhoneToTenDigits((orgData['phone'] ?? '').toString());
+        _addressPincodeController.text = (orgData['pincode'] ?? '').toString();
+        _addressPhoneController.text = _normalizeIndiaPhoneToTenDigits(
+          (orgData['phone'] ?? '').toString(),
+        );
         _selectedDistrictId = (orgData['district_id'] ?? '').toString();
         _selectedLocalBodyId = (orgData['local_body_id'] ?? '').toString();
         _selectedAssemblyId = (orgData['assembly_id'] ?? '').toString();
@@ -1334,25 +1442,28 @@ class _SettingsOrganizationProfilePageState
         _selectedState = null;
         _stateOptions = <String>[];
         _stateIdByName = <String, String>{};
-        final String rawAddress =
-            (orgData['payment_stub_address'] ?? '').toString();
+        final String rawAddress = (orgData['payment_stub_address'] ?? '')
+            .toString();
         try {
           if (rawAddress.startsWith('{')) {
             final addr = jsonDecode(rawAddress) as Map<String, dynamic>;
-            _paymentStubAttentionController.text =
-                (addr['attention'] ?? '').toString();
-            _paymentStubStreet1Controller.text =
-                (addr['street1'] ?? '').toString();
-            _paymentStubStreet2Controller.text =
-                (addr['street2'] ?? '').toString();
+            _paymentStubAttentionController.text = (addr['attention'] ?? '')
+                .toString();
+            _paymentStubStreet1Controller.text = (addr['street1'] ?? '')
+                .toString();
+            _paymentStubStreet2Controller.text = (addr['street2'] ?? '')
+                .toString();
             _paymentStubCityController.text = (addr['city'] ?? '').toString();
-            _paymentStubPincodeController.text =
-                (addr['pincode'] ?? '').toString();
-            _paymentStubPhoneController.text =
-                _normalizeIndiaPhoneToTenDigits((addr['phone'] ?? '').toString());
+            _paymentStubPincodeController.text = (addr['pincode'] ?? '')
+                .toString();
+            _paymentStubPhoneController.text = _normalizeIndiaPhoneToTenDigits(
+              (addr['phone'] ?? '').toString(),
+            );
             _selectedPaymentStubState = (addr['state_name'] ?? '').toString();
-            _selectedPaymentStubDistrictId = (addr['district_id'] ?? '').toString();
-            _selectedPaymentStubLocalBodyId = (addr['local_body_id'] ?? '').toString();
+            _selectedPaymentStubDistrictId = (addr['district_id'] ?? '')
+                .toString();
+            _selectedPaymentStubLocalBodyId = (addr['local_body_id'] ?? '')
+                .toString();
             _selectedPaymentStubAssemblyCode =
                 (addr['assembly_code'] ?? addr['assembly_name'] ?? '')
                     .toString();
@@ -1373,23 +1484,25 @@ class _SettingsOrganizationProfilePageState
           (orgData['drug_licence_type'] ?? '').toString(),
           _drugLicenceTypeOptions,
         );
-        _drugLicense20Controller.text =
-            (orgData['drug_license_20'] ?? '').toString();
-        _drugLicense21Controller.text =
-            (orgData['drug_license_21'] ?? '').toString();
-        _drugLicense20BController.text =
-            (orgData['drug_license_20b'] ?? '').toString();
-        _drugLicense21BController.text =
-            (orgData['drug_license_21b'] ?? '').toString();
+        _drugLicense20Controller.text = (orgData['drug_license_20'] ?? '')
+            .toString();
+        _drugLicense21Controller.text = (orgData['drug_license_21'] ?? '')
+            .toString();
+        _drugLicense20BController.text = (orgData['drug_license_20b'] ?? '')
+            .toString();
+        _drugLicense21BController.text = (orgData['drug_license_21b'] ?? '')
+            .toString();
 
         _isFssaiRegistered = orgData['is_fssai_registered'] == true;
-        _fssaiNumberController.text = (orgData['fssai_number'] ?? '').toString();
+        _fssaiNumberController.text = (orgData['fssai_number'] ?? '')
+            .toString();
 
         _isMsmeRegistered = orgData['is_msme_registered'] == true;
         _msmeRegistrationType = orgData['msme_registration_type']?.toString();
         _msmeNumberController.text = (orgData['msme_number'] ?? '').toString();
 
-        final additionalFieldsList = (orgData['additional_fields'] as List?) ?? [];
+        final additionalFieldsList =
+            (orgData['additional_fields'] as List?) ?? [];
         _additionalFields.clear();
         for (final item in additionalFieldsList) {
           if (item is Map) {
@@ -1441,12 +1554,110 @@ class _SettingsOrganizationProfilePageState
         }
         await _loadPaymentStubStates();
         // After loading states, ensure the selected state is valid/normalized
-        if (_selectedPaymentStubState != null && _selectedPaymentStubState!.isNotEmpty) {
-           _selectedPaymentStubState = _matchOption(
+        if (_selectedPaymentStubState != null &&
+            _selectedPaymentStubState!.isNotEmpty) {
+          _selectedPaymentStubState = _matchOption(
             _selectedPaymentStubState!,
             _paymentStubStateLookupRows.map((e) => e.name).toList(),
           );
         }
+
+        _staticStateCache = {
+          'orgId': effectiveOrgId,
+          'organizationName': _organizationName,
+          'organizationId': _organizationId,
+          'organizationSystemId': _organizationSystemId,
+          'primaryContactName': _primaryContactName,
+          'primaryContactEmail': _primaryContactEmail,
+          'selectedBaseCurrency': _selectedBaseCurrency,
+          'selectedBaseCurrencyDecimals': _selectedBaseCurrencyDecimals,
+          'selectedBaseCurrencyFormat': _selectedBaseCurrencyFormat,
+          'selectedLocation': _selectedLocation,
+          'selectedIndustry': _selectedIndustry,
+          'selectedFiscalYear': _selectedFiscalYear,
+          'selectedReportBasis': _selectedReportBasis,
+          'selectedTimeZone': _selectedTimeZone,
+          'selectedDateFormat': _selectedDateFormat,
+          'selectedDateSeparator': _selectedDateSeparator,
+          'selectedCompanyIdLabel': _selectedCompanyIdLabel,
+          'selectedState': _selectedState,
+          'selectedDistrictId': _selectedDistrictId,
+          'selectedLocalBodyId': _selectedLocalBodyId,
+          'selectedAssemblyId': _selectedAssemblyId,
+          'selectedWardId': _selectedWardId,
+          'hasSeparatePaymentStubAddress': _hasSeparatePaymentStubAddress,
+          'isDrugRegistered': _isDrugRegistered,
+          'drugLicenceType': _drugLicenceType,
+          'isFssaiRegistered': _isFssaiRegistered,
+          'isMsmeRegistered': _isMsmeRegistered,
+          'msmeRegistrationType': _msmeRegistrationType,
+          'selectedPaymentStubState': _selectedPaymentStubState,
+          'selectedPaymentStubDistrictId': _selectedPaymentStubDistrictId,
+          'selectedPaymentStubLocalBodyType': _selectedPaymentStubLocalBodyType,
+          'selectedPaymentStubLocalBodyId': _selectedPaymentStubLocalBodyId,
+          'selectedPaymentStubAssemblyCode': _selectedPaymentStubAssemblyCode,
+          'selectedPaymentStubWardId': _selectedPaymentStubWardId,
+          'existingLogoUrl': _existingLogoUrl,
+          'logoBytes': _logoBytes,
+          'logoFileName': _logoFileName,
+          // Lists
+          'currencyOptions': _currencyOptions,
+          'currencyDataByCode': _currencyDataByCode,
+          'countryOptions': _countryOptions,
+          'countryIdByName': _countryIdByName,
+          'industryOptions': _industryOptions,
+          'timeZoneOptions': _timeZoneOptions,
+          'companyIdOptions': _companyIdOptions,
+          'fiscalYearOptions': _fiscalYearOptions,
+          'dateFormatOptions': _dateFormatOptions,
+          'dateSeparatorOptions': _dateSeparatorOptions,
+          'drugLicenceTypeOptions': _drugLicenceTypeOptions,
+          'stateOptions': _stateOptions,
+          'stateIdByName': _stateIdByName,
+          'paymentStubStateLookupRows': _paymentStubStateLookupRows,
+          // Kerala Lists
+          'districtOptions': _districtOptions,
+          'allLocalBodyOptions': _allLocalBodyOptions,
+          'localBodyOptions': _localBodyOptions,
+          'wardOptions': _wardOptions,
+          'assemblyOptions': _assemblyOptions,
+          'paymentStubDistrictOptions': _paymentStubDistrictOptions,
+          'paymentStubAllLocalBodyOptions': _paymentStubAllLocalBodyOptions,
+          'paymentStubLocalBodyOptions': _paymentStubLocalBodyOptions,
+          'paymentStubWardOptions': _paymentStubWardOptions,
+          'paymentStubAssemblyOptions': _paymentStubAssemblyOptions,
+          // Docs
+          'drugLicense20Docs': _drugLicense20Docs,
+          'drugLicense21Docs': _drugLicense21Docs,
+          'drugLicense20BDocs': _drugLicense20BDocs,
+          'drugLicense21BDocs': _drugLicense21BDocs,
+          'fssaiDocs': _fssaiDocs,
+          'msmeDocs': _msmeDocs,
+          // Controller text values
+          'companyIdValueControllerText': _companyIdValueController.text,
+          'addressAttentionControllerText': _addressAttentionController.text,
+          'addressStreet1ControllerText': _addressStreet1Controller.text,
+          'addressStreet2ControllerText': _addressStreet2Controller.text,
+          'addressCityControllerText': _addressCityController.text,
+          'addressPincodeControllerText': _addressPincodeController.text,
+          'addressPhoneControllerText': _addressPhoneController.text,
+          'paymentStubAttentionControllerText':
+              _paymentStubAttentionController.text,
+          'paymentStubStreet1ControllerText':
+              _paymentStubStreet1Controller.text,
+          'paymentStubStreet2ControllerText':
+              _paymentStubStreet2Controller.text,
+          'paymentStubCityControllerText': _paymentStubCityController.text,
+          'paymentStubPincodeControllerText':
+              _paymentStubPincodeController.text,
+          'paymentStubPhoneControllerText': _paymentStubPhoneController.text,
+          'drugLicense20ControllerText': _drugLicense20Controller.text,
+          'drugLicense21ControllerText': _drugLicense21Controller.text,
+          'drugLicense20BControllerText': _drugLicense20BController.text,
+          'drugLicense21BControllerText': _drugLicense21BController.text,
+          'fssaiNumberControllerText': _fssaiNumberController.text,
+          'msmeNumberControllerText': _msmeNumberController.text,
+        };
       }
     } catch (error) {
       if (!mounted) return;
@@ -1638,6 +1849,7 @@ class _SettingsOrganizationProfilePageState
       ),
     );
   }
+
   Widget _buildBody() {
     if (_error != null) {
       return Center(
@@ -1682,14 +1894,16 @@ class _SettingsOrganizationProfilePageState
     }
 
     if (_isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(AppTheme.space24),
-        child: Column(
-          children: [
-            ZFormSkeleton(),
-            SizedBox(height: AppTheme.space16),
-            ZDetailContentSkeleton(),
-          ],
+      return const SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.all(AppTheme.space24),
+          child: Column(
+            children: [
+              ZFormSkeleton(),
+              SizedBox(height: AppTheme.space16),
+              ZDetailContentSkeleton(),
+            ],
+          ),
         ),
       );
     }
@@ -1698,7 +1912,6 @@ class _SettingsOrganizationProfilePageState
   }
 
   Widget _buildBodyContent() {
-
     return SettingsFixedHeaderLayout(
       maxWidth: 620,
       scrollController: _bodyScrollController,
@@ -1755,8 +1968,10 @@ class _SettingsOrganizationProfilePageState
               icon: const Icon(LucideIcons.x, size: 16),
               label: const Text('Cancel Edit'),
               onPressed: () {
-                setState(() => _isEditMode = false);
-                _loadProfile();
+                setState(() {
+                  _isEditMode = false;
+                  _showValidationErrors = false;
+                });
               },
               style: TextButton.styleFrom(
                 foregroundColor: AppTheme.textSecondary,
@@ -1771,344 +1986,133 @@ class _SettingsOrganizationProfilePageState
           children: [
             const SizedBox(height: AppTheme.space8),
 
+            // ── Section: Organization Logo ─────────────────────────
+            _buildLogoSection(),
+            const SizedBox(height: AppTheme.space24),
 
-          // ── Section: Organization Logo ─────────────────────────
-          _buildLogoSection(),
-          const SizedBox(height: AppTheme.space24),
-
-          // ── Section: Organization Details ─────────────────────
-          Container(
-            color: Colors.white,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ZerpaiFormRow(
-                  key: _organizationNameKey,
-                  label: 'Organization Name',
-                  required: true,
-                  child: TextFormField(
-                    controller: _organizationNameController,
-                    decoration: const InputDecoration(
-                      hintText: 'Your organization name',
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Organization name is required.'
-                        : null,
-                  ),
-                ),
-                ZerpaiFormRow(
-                  key: _industryKey,
-                  label: 'Industry',
-                  required: true,
-                  child: _buildDropdownField(
-                    value: _selectedIndustry,
-                    hintText: 'Select industry',
-                    items: _industryOptions,
-                    onChanged: (value) =>
-                        setState(() => _selectedIndustry = value),
-                  ),
-                ),
-                ZerpaiFormRow(
-                  key: _organizationAddressKey,
-                  label: 'Address',
-                  required: true,
-                  highlightRequiredLabel: true,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        controller: _addressAttentionController,
-                        decoration: _dec('Attention'),
-                      ),
-                      const SizedBox(height: AppTheme.space8),
-                      TextFormField(
-                        controller: _addressStreet1Controller,
-                        decoration: _dec('Street'),
-                        validator: (value) =>
-                            (value == null || value.trim().isEmpty)
-                            ? 'Street is required'
-                            : null,
-                      ),
-                      const SizedBox(height: AppTheme.space8),
-                      TextFormField(
-                        controller: _addressStreet2Controller,
-                        decoration: _dec('Place'),
-                      ),
-                      const SizedBox(height: AppTheme.space8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _addressCityController,
-                              decoration: _dec('City'),
-                              validator: (value) =>
-                                  (value == null || value.trim().isEmpty)
-                                  ? 'City is required'
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: AppTheme.space8),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _addressPincodeController,
-                              decoration: _dec('Pin code'),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(6),
-                              ],
-                              validator: (value) =>
-                                  (value == null || value.trim().isEmpty)
-                                  ? 'Pin code is required'
-                                  : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppTheme.space8),
-                      FormDropdown<String>(
-                        key: _organizationLocationKey,
-                        value: _selectedLocation,
-                        hint: _countryOptions.isEmpty
-                            ? 'No country data available'
-                            : 'Select country',
-                        items: _countryOptions,
-                        onChanged: (value) async {
-                          setState(() {
-                            _selectedLocation = value;
-                            _selectedState = null;
-                            _selectedDistrictId = null;
-                            _selectedLocalBodyType = null;
-                            _selectedLocalBodyId = null;
-                            _selectedAssemblyId = null;
-                            _selectedWardId = null;
-                            _districtOptions = <_DistrictOption>[];
-                            _allLocalBodyOptions = <_LocalBodyOption>[];
-                            _localBodyOptions = <_LocalBodyOption>[];
-                            _assemblyOptions = <_AssemblyOption>[];
-                            _wardOptions = const <_WardOption>[];
-                          });
-                          if (value != null) {
-                            final countryId = _countryIdByName[value];
-                            if (countryId != null) {
-                              await _fetchStates(countryId);
-                              await _fetchTimezones(countryId);
-
-                              if (value.toLowerCase() == 'india') {
-                                setState(() {
-                                  final kerala = _stateOptions
-                                      .where((s) => s.toLowerCase() == 'kerala')
-                                      .firstOrNull;
-                                  if (kerala != null) {
-                                    _selectedState = kerala;
-                                  }
-
-                                  final inr = _currencyOptions
-                                      .where((c) => c.toUpperCase() == 'INR')
-                                      .firstOrNull;
-                                  if (inr != null) {
-                                    _selectedBaseCurrency = inr;
-                                    final currencyData =
-                                        _currencyDataByCode[inr] ??
-                                        <String, dynamic>{};
-                                    _selectedBaseCurrencyDecimals =
-                                        currencyData['decimals']?.toString() ?? '2';
-                                    _selectedBaseCurrencyFormat =
-                                        currencyData['format']?.toString();
-                                  }
-
-                                  final ist = _timeZoneOptions
-                                      .where(
-                                        (t) =>
-                                            t.tzdbName == 'Asia/Kolkata' ||
-                                            t.display.contains('Kolkata') ||
-                                            t.display.contains('Mumbai') ||
-                                            t.display.contains('New Delhi') ||
-                                            t.display.contains('Chennai'),
-                                      )
-                                      .firstOrNull;
-                                  if (ist != null) {
-                                    _selectedTimeZone = ist.tzdbName;
-                                  }
-
-                                  final aprilMarch = _fiscalYearOptions
-                                      .where(
-                                        (option) =>
-                                            option['label'] == 'April - March' ||
-                                            option['code'] == 'april_march',
-                                      )
-                                      .firstOrNull;
-                                  if (aprilMarch != null) {
-                                    _selectedFiscalYear = aprilMarch['code'];
-                                  }
-                                });
-                              }
-                            }
-                          } else {
-                            setState(() {
-                              _stateOptions = <String>[];
-                              _stateIdByName = <String, String>{};
-                              _timeZoneOptions = <_TimezoneOption>[];
-                              _selectedTimeZone = null;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: AppTheme.space8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FormDropdown<String>(
-                              key: _stateKey,
-                              value: _selectedState,
-                              hint: _selectedLocation == null
-                                  ? 'Select country first'
-                                  : (_stateOptions.isEmpty
-                                        ? 'No state data available'
-                                        : 'State / Union territory'),
-                              items: _stateOptions,
-                              onChanged: (value) async {
-                                setState(() {
-                                  _selectedState = value;
-                                  _selectedDistrictId = null;
-                                  _selectedLocalBodyType = null;
-                                  _selectedLocalBodyId = null;
-                                  _selectedAssemblyId = null;
-                                  _selectedWardId = null;
-                                  _districtOptions = <_DistrictOption>[];
-                                  _allLocalBodyOptions = <_LocalBodyOption>[];
-                                  _localBodyOptions = <_LocalBodyOption>[];
-                                  _assemblyOptions = <_AssemblyOption>[];
-                                  _wardOptions = const <_WardOption>[];
-                                });
-                                if (_showMainAddressKeralaFields) {
-                                  await _loadDistrictsForSelectedState();
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: AppTheme.space8),
-                          Expanded(
-                            flex: 2,
-                            child: PhoneInputField(
-                              controller: _addressPhoneController,
-                              selectedPrefix: _addressPhonePrefix,
-                              onPrefixChanged: (v) => setState(
-                                  () => _addressPhonePrefix = v ?? '+91'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_showMainAddressKeralaFields) ...[
-                        const SizedBox(height: AppTheme.space8),
-                        FormDropdown<String>(
-                          value: _selectedDistrictId,
-                          hint: 'Select district',
-                          items: _districtOptions
-                              .map((item) => item.id)
-                              .toList(),
-                          displayStringForValue: (id) => _districtOptions
-                              .firstWhere(
-                                (item) => item.id == id,
-                                orElse: () =>
-                                    _DistrictOption(id: id, name: id),
-                              )
-                              .name,
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedDistrictId = value;
-                              _selectedLocalBodyType = null;
-                              _selectedLocalBodyId = null;
-                              _selectedAssemblyId = null;
-                              _selectedWardId = null;
-                              _allLocalBodyOptions = <_LocalBodyOption>[];
-                              _localBodyOptions = <_LocalBodyOption>[];
-                              _assemblyOptions = <_AssemblyOption>[];
-                              _wardOptions = const <_WardOption>[];
-                            });
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppTheme.space8),
-
-          // ── Payment stub toggle ───────────────────────────────
-          Container(
-            key: _paymentStubKey,
-            color: Colors.white,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ZerpaiFormRow(
-                  label: 'Payment Stub Address',
-                  labelWidth: 165,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Would you like to add a different address for payment stubs?',
-                          style: AppTheme.bodyText.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _hasSeparatePaymentStubAddress ? 'Yes' : 'No',
-                        style: AppTheme.bodyText.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: AppTheme.space8),
-                      Transform.scale(
-                        scale: 0.84,
-                        alignment: Alignment.centerRight,
-                        child: Switch.adaptive(
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          value: _hasSeparatePaymentStubAddress,
-                          activeThumbColor: ref
-                              .watch(appBrandingProvider)
-                              .accentColor,
-                          onChanged: (value) {
-                            setState(() {
-                              _hasSeparatePaymentStubAddress = value;
-                            });
-                            if (value) {
-                              _loadPaymentStubStates();
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (_hasSeparatePaymentStubAddress) ...[
+            // ── Section: Organization Details ─────────────────────
+            Container(
+              color: Colors.white,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   ZerpaiFormRow(
+                    key: _organizationNameKey,
+                    label: 'Organization Name',
+                    required: true,
+                    child: TextFormField(
+                      controller: _organizationNameController,
+                      decoration: const InputDecoration(
+                        hintText: 'Your organization name',
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Organization name is required.'
+                          : null,
+                    ),
+                  ),
+
+                  // ── GST Treatment ──────────────────────────────────
+                  ZerpaiFormRow(
+                    key: _gstTreatmentKey,
+                    label: 'GST Treatment',
+                    required: true,
+                    highlightRequiredLabel: true,
+                    child: FormDropdown<_OrgGstTreatmentOption>(
+                      value: _gstTreatment,
+                      items: _orgGstTreatmentOptions,
+                      hint: 'Select a GST treatment',
+                      displayStringForValue: (v) => v.label,
+                      searchStringForValue: (v) =>
+                          '${v.label} ${v.description}',
+                      itemBuilder: (item, isSelected, isHovered) {
+                        return Container(
+                          color: isHovered
+                              ? const Color(0xFF2563EB)
+                              : (isSelected
+                                    ? const Color(0xFFF3F4F6)
+                                    : Colors.white),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: isHovered
+                                      ? Colors.white
+                                      : const Color(0xFF111827),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                item.description,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isHovered
+                                      ? Colors.white70
+                                      : const Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      onChanged: (v) => setState(() => _gstTreatment = v),
+                    ),
+                  ),
+
+                  // ── GSTIN (conditional) ────────────────────────────
+                  if (!_shouldHideGstRegistrationFields())
+                    ZerpaiFormRow(
+                      key: _gstinKey,
+                      label: 'GSTIN',
+                      required: true,
+                      highlightRequiredLabel: true,
+                      child: TextFormField(
+                        controller: _gstinController,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(
+                          hintText: 'e.g. 29ABCDE1234F1Z5',
+                          errorMaxLines: 3,
+                        ),
+                        inputFormatters: [
+                          const GstinTextInputFormatter(),
+                          LengthLimitingTextInputFormatter(15),
+                        ],
+                        validator: validateGstin,
+                      ),
+                    ),
+                  ZerpaiFormRow(
+                    key: _organizationAddressKey,
                     label: 'Address',
+                    required: true,
+                    highlightRequiredLabel: true,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         TextFormField(
-                          controller: _paymentStubAttentionController,
+                          controller: _addressAttentionController,
                           decoration: _dec('Attention'),
                         ),
                         const SizedBox(height: AppTheme.space8),
                         TextFormField(
-                          controller: _paymentStubStreet1Controller,
+                          controller: _addressStreet1Controller,
                           decoration: _dec('Street'),
+                          validator: (value) =>
+                              (value == null || value.trim().isEmpty)
+                              ? 'Street is required'
+                              : null,
                         ),
                         const SizedBox(height: AppTheme.space8),
                         TextFormField(
-                          controller: _paymentStubStreet2Controller,
+                          controller: _addressStreet2Controller,
                           decoration: _dec('Place'),
                         ),
                         const SizedBox(height: AppTheme.space8),
@@ -2116,51 +2120,155 @@ class _SettingsOrganizationProfilePageState
                           children: [
                             Expanded(
                               child: TextFormField(
-                                controller: _paymentStubCityController,
+                                controller: _addressCityController,
                                 decoration: _dec('City'),
+                                validator: (value) =>
+                                    (value == null || value.trim().isEmpty)
+                                    ? 'City is required'
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: AppTheme.space8),
                             Expanded(
                               child: TextFormField(
-                                controller: _paymentStubPincodeController,
+                                controller: _addressPincodeController,
                                 decoration: _dec('Pin code'),
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(6),
                                 ],
+                                validator: (value) =>
+                                    (value == null || value.trim().isEmpty)
+                                    ? 'Pin code is required'
+                                    : null,
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: AppTheme.space8),
-                        _buildStaticField('India'),
+                        FormDropdown<String>(
+                          key: _organizationLocationKey,
+                          value: _selectedLocation,
+                          hint: _countryOptions.isEmpty
+                              ? 'No country data available'
+                              : 'Select country',
+                          items: _countryOptions,
+                          onChanged: (value) async {
+                            setState(() {
+                              _selectedLocation = value;
+                              _selectedState = null;
+                              _selectedDistrictId = null;
+                              _selectedLocalBodyType = null;
+                              _selectedLocalBodyId = null;
+                              _selectedAssemblyId = null;
+                              _selectedWardId = null;
+                              _districtOptions = <_DistrictOption>[];
+                              _allLocalBodyOptions = <_LocalBodyOption>[];
+                              _localBodyOptions = <_LocalBodyOption>[];
+                              _assemblyOptions = <_AssemblyOption>[];
+                              _wardOptions = const <_WardOption>[];
+                            });
+                            if (value != null) {
+                              final countryId = _countryIdByName[value];
+                              if (countryId != null) {
+                                await _fetchStates(countryId);
+                                await _fetchTimezones(countryId);
+
+                                if (value.toLowerCase() == 'india') {
+                                  setState(() {
+                                    final kerala = _stateOptions
+                                        .where(
+                                          (s) => s.toLowerCase() == 'kerala',
+                                        )
+                                        .firstOrNull;
+                                    if (kerala != null) {
+                                      _selectedState = kerala;
+                                    }
+
+                                    final inr = _currencyOptions
+                                        .where((c) => c.toUpperCase() == 'INR')
+                                        .firstOrNull;
+                                    if (inr != null) {
+                                      _selectedBaseCurrency = inr;
+                                      final currencyData =
+                                          _currencyDataByCode[inr] ??
+                                          <String, dynamic>{};
+                                      _selectedBaseCurrencyDecimals =
+                                          currencyData['decimals']
+                                              ?.toString() ??
+                                          '2';
+                                      _selectedBaseCurrencyFormat =
+                                          currencyData['format']?.toString();
+                                    }
+
+                                    final ist = _timeZoneOptions
+                                        .where(
+                                          (t) =>
+                                              t.tzdbName == 'Asia/Kolkata' ||
+                                              t.display.contains('Kolkata') ||
+                                              t.display.contains('Mumbai') ||
+                                              t.display.contains('New Delhi') ||
+                                              t.display.contains('Chennai'),
+                                        )
+                                        .firstOrNull;
+                                    if (ist != null) {
+                                      _selectedTimeZone = ist.tzdbName;
+                                    }
+
+                                    final aprilMarch = _fiscalYearOptions
+                                        .where(
+                                          (option) =>
+                                              option['label'] ==
+                                                  'April - March' ||
+                                              option['code'] == 'april_march',
+                                        )
+                                        .firstOrNull;
+                                    if (aprilMarch != null) {
+                                      _selectedFiscalYear = aprilMarch['code'];
+                                    }
+                                  });
+                                }
+                              }
+                            } else {
+                              setState(() {
+                                _stateOptions = <String>[];
+                                _stateIdByName = <String, String>{};
+                                _timeZoneOptions = <_TimezoneOption>[];
+                                _selectedTimeZone = null;
+                              });
+                            }
+                          },
+                        ),
                         const SizedBox(height: AppTheme.space8),
                         Row(
                           children: [
                             Expanded(
                               child: FormDropdown<String>(
-                                value: _selectedPaymentStubState,
-                                hint: 'State / Union territory',
-                                items: _paymentStubStateLookupRows.map((e) => e.name).toList(),
-                                onChanged: (v) {
+                                key: _stateKey,
+                                value: _selectedState,
+                                hint: _selectedLocation == null
+                                    ? 'Select country first'
+                                    : (_stateOptions.isEmpty
+                                          ? 'No state data available'
+                                          : 'State / Union territory'),
+                                items: _stateOptions,
+                                onChanged: (value) async {
                                   setState(() {
-                                    _selectedPaymentStubState = v;
-                                    _selectedPaymentStubDistrictId = null;
-                                    _selectedPaymentStubLocalBodyType = null;
-                                    _selectedPaymentStubLocalBodyId = null;
-                                    _selectedPaymentStubAssemblyCode = null;
-                                    _selectedPaymentStubWardId = null;
-                                    _paymentStubDistrictOptions = const [];
-                                    _paymentStubAllLocalBodyOptions = const [];
-                                    _paymentStubLocalBodyOptions = const [];
-                                    _paymentStubAssemblyOptions =
-                                        <_AssemblyOption>[];
-                                    _paymentStubWardOptions = const [];
+                                    _selectedState = value;
+                                    _selectedDistrictId = null;
+                                    _selectedLocalBodyType = null;
+                                    _selectedLocalBodyId = null;
+                                    _selectedAssemblyId = null;
+                                    _selectedWardId = null;
+                                    _districtOptions = <_DistrictOption>[];
+                                    _allLocalBodyOptions = <_LocalBodyOption>[];
+                                    _localBodyOptions = <_LocalBodyOption>[];
+                                    _assemblyOptions = <_AssemblyOption>[];
+                                    _wardOptions = const <_WardOption>[];
                                   });
-                                  if (_showKeralaLsgdFields) {
-                                    _loadDistrictsForSelectedPaymentStubState();
+                                  if (_showMainAddressKeralaFields) {
+                                    await _loadDistrictsForSelectedState();
                                   }
                                 },
                               ),
@@ -2169,273 +2277,471 @@ class _SettingsOrganizationProfilePageState
                             Expanded(
                               flex: 2,
                               child: PhoneInputField(
-                                controller: _paymentStubPhoneController,
-                                selectedPrefix: _paymentStubPhonePrefix,
+                                controller: _addressPhoneController,
+                                selectedPrefix: _addressPhonePrefix,
                                 onPrefixChanged: (v) => setState(
-                                    () => _paymentStubPhonePrefix = v ?? '+91'),
+                                  () => _addressPhonePrefix = v ?? '+91',
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        if (_showKeralaLsgdFields) ...[
+                        if (_showMainAddressKeralaFields) ...[
                           const SizedBox(height: AppTheme.space8),
-                          _buildPaymentStubLsgdFields(),
+                          FormDropdown<String>(
+                            value: _selectedDistrictId,
+                            hint: 'Select district',
+                            items: _districtOptions
+                                .map((item) => item.id)
+                                .toList(),
+                            displayStringForValue: (id) => _districtOptions
+                                .firstWhere(
+                                  (item) => item.id == id,
+                                  orElse: () =>
+                                      _DistrictOption(id: id, name: id),
+                                )
+                                .name,
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedDistrictId = value;
+                                _selectedLocalBodyType = null;
+                                _selectedLocalBodyId = null;
+                                _selectedAssemblyId = null;
+                                _selectedWardId = null;
+                                _allLocalBodyOptions = <_LocalBodyOption>[];
+                                _localBodyOptions = <_LocalBodyOption>[];
+                                _assemblyOptions = <_AssemblyOption>[];
+                                _wardOptions = const <_WardOption>[];
+                              });
+                            },
+                          ),
                         ],
                       ],
                     ),
                   ),
                 ],
-                const SizedBox(height: AppTheme.space32),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppTheme.space24),
+            const SizedBox(height: AppTheme.space8),
 
-          // ── Section: Primary Contact ───────────────────────────
-          Text(
-            'Primary Contact',
-            key: _primaryContactKey,
-            style: AppTheme.sectionHeader,
-          ),
-          const SizedBox(height: AppTheme.space12),
-          _buildPrimaryContactCard(),
-          const SizedBox(height: AppTheme.space12),
-
-
-          // ── Section: Configuration ────────────────────────────
-          Text('Configuration', style: AppTheme.sectionHeader),
-          const SizedBox(height: AppTheme.space12),
-          Container(
-            color: Colors.white,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ZerpaiFormRow(
-                  key: _baseCurrencyKey,
-                  label: 'Base Currency',
-                  required: true,
-                  child: _buildBaseCurrencyField(),
-                ),
-                ZerpaiFormRow(
-                  key: _fiscalYearKey,
-                  label: 'Fiscal Year',
-                  required: true,
-                  child: FormDropdown<String>(
-                    value: _selectedFiscalYear,
-                    hint: 'Select fiscal year',
-                    items: _fiscalYearOptions
-                        .map((option) => option['code'])
-                        .whereType<String>()
-                        .toList(),
-                    displayStringForValue: (value) =>
-                        _displayCodeLabelOption(value, _fiscalYearOptions),
-                    onChanged: (value) =>
-                        setState(() => _selectedFiscalYear = value),
-                  ),
-                ),
-                ZerpaiFormRow(
-                  label: 'Report Basis',
-                  child: RadioGroup<String>(
-                    groupValue: _selectedReportBasis,
-                    onChanged: (v) {
-                      if (v != null) setState(() => _selectedReportBasis = v);
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            // ── Payment stub toggle ───────────────────────────────
+            Container(
+              key: _paymentStubKey,
+              color: Colors.white,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ZerpaiFormRow(
+                    label: 'Payment Stub Address',
+                    labelWidth: 165,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        for (final option in [
-                          (
-                            value: 'accrual',
-                            label: 'Accrual',
-                            description: ' • You owe tax as of invoice date',
-                          ),
-                          (
-                            value: 'cash',
-                            label: 'Cash',
-                            description: ' • You owe tax upon payment receipt',
-                          ),
-                        ]) ...[
-                          InkWell(
-                            onTap: () => setState(
-                              () => _selectedReportBasis = option.value,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Radio<String>(
-                                  value: option.value,
-                                  activeColor: AppTheme.primaryBlueDark,
-                                  visualDensity: VisualDensity.compact,
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                const SizedBox(width: 4),
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                    children: [
-                                      TextSpan(
-                                        text: option.label,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      TextSpan(text: option.description),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                        Flexible(
+                          child: Text(
+                            'Would you like to add a different address for payment stubs?',
+                            style: AppTheme.bodyText.copyWith(
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                        ],
+                        ),
+                        Text(
+                          _hasSeparatePaymentStubAddress ? 'Yes' : 'No',
+                          style: AppTheme.bodyText.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.space8),
+                        Transform.scale(
+                          scale: 0.84,
+                          alignment: Alignment.centerRight,
+                          child: Switch.adaptive(
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            value: _hasSeparatePaymentStubAddress,
+                            activeThumbColor: ref
+                                .watch(appBrandingProvider)
+                                .accentColor,
+                            onChanged: (value) {
+                              setState(() {
+                                _hasSeparatePaymentStubAddress = value;
+                              });
+                              if (value) {
+                                _loadPaymentStubStates();
+                              }
+                            },
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
-                ZerpaiFormRow(
-                  key: _timeZoneKey,
-                  label: 'Time Zone',
-                  required: true,
-                  child: FormDropdown<_TimezoneOption>(
-                    value: _selectedTimeZoneOption,
-                    items: _timeZoneOptions,
-                    hint: 'Select time zone',
-                    displayStringForValue: (option) => option.display,
-                    searchStringForValue: (option) =>
-                        '${option.display} ${option.name} ${option.tzdbName}',
-                    onChanged: (value) =>
-                        setState(() => _selectedTimeZone = value?.tzdbName),
-                    menuWidth: 720,
-                  ),
-                ),
-                ZerpaiFormRow(
-                  key: _dateFormatKey,
-                  label: 'Date Format',
-                  required: true,
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildGroupedDateFormatDropdown()),
-                      const SizedBox(width: AppTheme.space12),
-                      SizedBox(
-                        width: 120,
-                        child: FormDropdown<String>(
-                          value: _selectedDateSeparator,
-                          hint: 'Separator',
-                          items: _dateSeparatorOptions
-                              .map((option) => option['separator'])
-                              .whereType<String>()
-                              .toList(),
-                          displayStringForValue: (value) =>
-                              _displayCodeLabelOption(
-                                value,
-                                _dateSeparatorOptions,
-                                codeKey: 'separator',
+                  if (_hasSeparatePaymentStubAddress) ...[
+                    ZerpaiFormRow(
+                      label: 'Address',
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _paymentStubAttentionController,
+                            decoration: _dec('Attention'),
+                          ),
+                          const SizedBox(height: AppTheme.space8),
+                          TextFormField(
+                            controller: _paymentStubStreet1Controller,
+                            decoration: _dec('Street'),
+                          ),
+                          const SizedBox(height: AppTheme.space8),
+                          TextFormField(
+                            controller: _paymentStubStreet2Controller,
+                            decoration: _dec('Place'),
+                          ),
+                          const SizedBox(height: AppTheme.space8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _paymentStubCityController,
+                                  decoration: _dec('City'),
+                                ),
                               ),
-                          onChanged: (value) =>
-                              setState(() => _selectedDateSeparator = value),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                ZerpaiFormRow(
-                  key: _companyIdKey,
-                  label: 'Company ID',
-                  required: true,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildDropdownField(
-                          value: _selectedCompanyIdLabel,
-                          hintText: 'Select identifier',
-                          items: _companyIdOptions,
-                          onChanged: (value) =>
-                              setState(() => _selectedCompanyIdLabel = value),
-                        ),
-                      ),
-                      const SizedBox(width: AppTheme.space12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _companyIdValueController,
-                          decoration: const InputDecoration(
-                            hintText: 'Enter identifier value',
+                              const SizedBox(width: AppTheme.space8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _paymentStubPincodeController,
+                                  decoration: _dec('Pin code'),
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                          const SizedBox(height: AppTheme.space8),
+                          _buildStaticField('India'),
+                          const SizedBox(height: AppTheme.space8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FormDropdown<String>(
+                                  value: _selectedPaymentStubState,
+                                  hint: 'State / Union territory',
+                                  items: _paymentStubStateLookupRows
+                                      .map((e) => e.name)
+                                      .toList(),
+                                  onChanged: (v) {
+                                    setState(() {
+                                      _selectedPaymentStubState = v;
+                                      _selectedPaymentStubDistrictId = null;
+                                      _selectedPaymentStubLocalBodyType = null;
+                                      _selectedPaymentStubLocalBodyId = null;
+                                      _selectedPaymentStubAssemblyCode = null;
+                                      _selectedPaymentStubWardId = null;
+                                      _paymentStubDistrictOptions = const [];
+                                      _paymentStubAllLocalBodyOptions =
+                                          const [];
+                                      _paymentStubLocalBodyOptions = const [];
+                                      _paymentStubAssemblyOptions =
+                                          <_AssemblyOption>[];
+                                      _paymentStubWardOptions = const [];
+                                    });
+                                    if (_showKeralaLsgdFields) {
+                                      _loadDistrictsForSelectedPaymentStubState();
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: AppTheme.space8),
+                              Expanded(
+                                flex: 2,
+                                child: PhoneInputField(
+                                  controller: _paymentStubPhoneController,
+                                  selectedPrefix: _paymentStubPhonePrefix,
+                                  onPrefixChanged: (v) => setState(
+                                    () => _paymentStubPhonePrefix = v ?? '+91',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_showKeralaLsgdFields) ...[
+                            const SizedBox(height: AppTheme.space8),
+                            _buildPaymentStubLsgdFields(),
+                          ],
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+                  ],
+                  const SizedBox(height: AppTheme.space32),
+                ],
+              ),
             ),
-          ),
-          _buildPharmacyComplianceFields(),
-          const SizedBox(height: AppTheme.space24),
+            const SizedBox(height: AppTheme.space24),
 
-          // ── Section: Additional Fields ─────────────────────────
-          Text(
-            'Additional Fields',
-            key: _additionalFieldsKey,
-            style: AppTheme.sectionHeader,
-          ),
-          const SizedBox(height: AppTheme.space12),
-          _buildAdditionalFieldsTable(),
-          const SizedBox(height: AppTheme.space12),
-          TextButton.icon(
-            onPressed: _addAdditionalField,
-            style: TextButton.styleFrom(padding: EdgeInsets.zero),
-            icon: const Icon(LucideIcons.plusCircle, size: 18),
-            label: const Text('New Field'),
-          ),
-          const SizedBox(height: AppTheme.space16),
+            // ── Section: Primary Contact ───────────────────────────
+            Text(
+              'Primary Contact',
+              key: _primaryContactKey,
+              style: AppTheme.sectionHeader,
+            ),
+            const SizedBox(height: AppTheme.space12),
+            _buildPrimaryContactCard(),
+            const SizedBox(height: AppTheme.space12),
 
-        ],
-      ),
-      ),
-      footer: _isEditMode 
-        ? Container(
-            decoration: const BoxDecoration(
+            // ── Section: Configuration ────────────────────────────
+            Text('Configuration', style: AppTheme.sectionHeader),
+            const SizedBox(height: AppTheme.space12),
+            Container(
               color: Colors.white,
-              border: Border(top: BorderSide(color: AppTheme.borderLight)),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.space32,
-              vertical: AppTheme.space16,
-            ),
-            child: Row(
-              children: [
-                ElevatedButton(
-                  onPressed: _isSaving ? null : _saveProfile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ref.watch(appBrandingProvider).accentColor,
-                    foregroundColor: Colors.white,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ZerpaiFormRow(
+                    key: _baseCurrencyKey,
+                    label: 'Base Currency',
+                    required: true,
+                    child: _buildBaseCurrencyField(),
                   ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                  ZerpaiFormRow(
+                    key: _fiscalYearKey,
+                    label: 'Fiscal Year',
+                    required: true,
+                    child: FormDropdown<String>(
+                      value: _selectedFiscalYear,
+                      hint: 'Select fiscal year',
+                      items: _fiscalYearOptions
+                          .map((option) => option['code'])
+                          .whereType<String>()
+                          .toList(),
+                      displayStringForValue: (value) =>
+                          _displayCodeLabelOption(value, _fiscalYearOptions),
+                      onChanged: (value) =>
+                          setState(() => _selectedFiscalYear = value),
+                    ),
+                  ),
+                  ZerpaiFormRow(
+                    label: 'Report Basis',
+                    child: RadioGroup<String>(
+                      groupValue: _selectedReportBasis,
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedReportBasis = v);
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final option in [
+                            (
+                              value: 'accrual',
+                              label: 'Accrual',
+                              description: ' • You owe tax as of invoice date',
+                            ),
+                            (
+                              value: 'cash',
+                              label: 'Cash',
+                              description:
+                                  ' • You owe tax upon payment receipt',
+                            ),
+                          ]) ...[
+                            InkWell(
+                              onTap: () => setState(
+                                () => _selectedReportBasis = option.value,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Radio<String>(
+                                    value: option.value,
+                                    activeColor: AppTheme.primaryBlueDark,
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  RichText(
+                                    text: TextSpan(
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: option.label,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        TextSpan(text: option.description),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  ZerpaiFormRow(
+                    key: _timeZoneKey,
+                    label: 'Time Zone',
+                    required: true,
+                    child: FormDropdown<_TimezoneOption>(
+                      value: _selectedTimeZoneOption,
+                      items: _timeZoneOptions,
+                      hint: 'Select time zone',
+                      displayStringForValue: (option) => option.display,
+                      searchStringForValue: (option) =>
+                          '${option.display} ${option.name} ${option.tzdbName}',
+                      onChanged: (value) =>
+                          setState(() => _selectedTimeZone = value?.tzdbName),
+                      menuWidth: 720,
+                    ),
+                  ),
+                  ZerpaiFormRow(
+                    key: _dateFormatKey,
+                    label: 'Date Format',
+                    required: true,
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildGroupedDateFormatDropdown()),
+                        const SizedBox(width: AppTheme.space12),
+                        SizedBox(
+                          width: 120,
+                          child: FormDropdown<String>(
+                            value: _selectedDateSeparator,
+                            hint: 'Separator',
+                            items: _dateSeparatorOptions
+                                .map((option) => option['separator'])
+                                .whereType<String>()
+                                .toList(),
+                            displayStringForValue: (value) =>
+                                _displayCodeLabelOption(
+                                  value,
+                                  _dateSeparatorOptions,
+                                  codeKey: 'separator',
+                                ),
+                            onChanged: (value) =>
+                                setState(() => _selectedDateSeparator = value),
                           ),
-                        )
-                      : const Text('Save'),
-                ),
-                const SizedBox(width: AppTheme.space12),
-                OutlinedButton(
-                  onPressed: () {
-                    setState(() => _isEditMode = false);
-                    _loadProfile();
-                  },
-                  child: const Text('Cancel'),
-                ),
-              ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  ZerpaiFormRow(
+                    key: _industryKey,
+                    label: 'Industry/Sector',
+                    required: true,
+                    child: _buildDropdownField(
+                      value: _selectedIndustry,
+                      hintText: 'Select industry',
+                      items: _industryOptions,
+                      onChanged: (value) =>
+                          setState(() => _selectedIndustry = value),
+                    ),
+                  ),
+                  ZerpaiFormRow(
+                    key: _companyIdKey,
+                    label: 'Company ID',
+                    required: true,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildDropdownField(
+                            value: _selectedCompanyIdLabel,
+                            hintText: 'Select identifier',
+                            items: _companyIdOptions,
+                            onChanged: (value) =>
+                                setState(() => _selectedCompanyIdLabel = value),
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.space12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _companyIdValueController,
+                            decoration: const InputDecoration(
+                              hintText: 'Enter identifier value',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          )
-        : const SizedBox.shrink(),
+            _buildPharmacyComplianceFields(),
+            const SizedBox(height: AppTheme.space24),
+
+            // ── Section: Additional Fields ─────────────────────────
+            Text(
+              'Additional Fields',
+              key: _additionalFieldsKey,
+              style: AppTheme.sectionHeader,
+            ),
+            const SizedBox(height: AppTheme.space12),
+            _buildAdditionalFieldsTable(),
+            const SizedBox(height: AppTheme.space12),
+            TextButton.icon(
+              onPressed: _addAdditionalField,
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              icon: const Icon(LucideIcons.plusCircle, size: 18),
+              label: const Text('New Field'),
+            ),
+            const SizedBox(height: AppTheme.space16),
+          ],
+        ),
+      ),
+      footer: _isEditMode
+          ? Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: AppTheme.borderLight)),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.space32,
+                vertical: AppTheme.space16,
+              ),
+              child: Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: _isSaving ? null : _saveProfile,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ref
+                          .watch(appBrandingProvider)
+                          .accentColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Save'),
+                  ),
+                  const SizedBox(width: AppTheme.space12),
+                  OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _isEditMode = false;
+                        _showValidationErrors = false;
+                      });
+                      _loadProfile();
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ),
+            )
+          : const SizedBox.shrink(),
     );
   }
 
@@ -2888,8 +3194,6 @@ class _SettingsOrganizationProfilePageState
     );
   }
 
-
-
   Widget _buildBaseCurrencyField() {
     final bool isIndia = _selectedLocation?.toLowerCase() == 'india';
     final gearIconButton = IconButton(
@@ -3086,7 +3390,9 @@ class _SettingsOrganizationProfilePageState
                             items: decimalOptions,
                             onChanged: (v) => setDlgState(() {
                               selectedDecimals = v;
-                              formatOptions = formatOptionsFor(selectedDecimals);
+                              formatOptions = formatOptionsFor(
+                                selectedDecimals,
+                              );
                               if (selectedFormat == null ||
                                   !formatOptions.contains(selectedFormat)) {
                                 selectedFormat = formatOptions.first;
@@ -3238,7 +3544,7 @@ class _SettingsOrganizationProfilePageState
   }
 
   Widget _buildPharmacyComplianceFields() {
-    if (_selectedIndustry != 'Pharmacy' && _selectedIndustry != 'Pharmaceuticals') {
+    if (!_isPharmaIndustry) {
       return const SizedBox.shrink();
     }
 
@@ -3281,7 +3587,8 @@ class _SettingsOrganizationProfilePageState
                           child: TextFormField(
                             controller: _drugLicense20Controller,
                             decoration: const InputDecoration(
-                                hintText: 'Enter License Number'),
+                              hintText: 'Enter License Number',
+                            ),
                             textCapitalization: TextCapitalization.characters,
                           ),
                         ),
@@ -3310,7 +3617,8 @@ class _SettingsOrganizationProfilePageState
                           child: TextFormField(
                             controller: _drugLicense21Controller,
                             decoration: const InputDecoration(
-                                hintText: 'Enter License Number'),
+                              hintText: 'Enter License Number',
+                            ),
                             textCapitalization: TextCapitalization.characters,
                           ),
                         ),
@@ -3342,7 +3650,8 @@ class _SettingsOrganizationProfilePageState
                           child: TextFormField(
                             controller: _drugLicense20BController,
                             decoration: const InputDecoration(
-                                hintText: 'Enter License Number'),
+                              hintText: 'Enter License Number',
+                            ),
                             textCapitalization: TextCapitalization.characters,
                           ),
                         ),
@@ -3371,7 +3680,8 @@ class _SettingsOrganizationProfilePageState
                           child: TextFormField(
                             controller: _drugLicense21BController,
                             decoration: const InputDecoration(
-                                hintText: 'Enter License Number'),
+                              hintText: 'Enter License Number',
+                            ),
                             textCapitalization: TextCapitalization.characters,
                           ),
                         ),
@@ -3423,7 +3733,8 @@ class _SettingsOrganizationProfilePageState
                           child: TextFormField(
                             controller: _fssaiNumberController,
                             decoration: const InputDecoration(
-                                hintText: 'Enter FSSAI Number'),
+                              hintText: 'Enter FSSAI Number',
+                            ),
                             keyboardType: TextInputType.number,
                           ),
                         ),
@@ -3484,8 +3795,8 @@ class _SettingsOrganizationProfilePageState
                           child: TextFormField(
                             controller: _msmeNumberController,
                             decoration: const InputDecoration(
-                                hintText:
-                                    'Enter MSME/Udyam Registration Number'),
+                              hintText: 'Enter MSME/Udyam Registration Number',
+                            ),
                             textCapitalization: TextCapitalization.characters,
                           ),
                         ),
@@ -3508,8 +3819,6 @@ class _SettingsOrganizationProfilePageState
       ],
     );
   }
-
-
 
   List<_TimezoneOption> _parseTimezoneOptions(Response<dynamic> response) {
     if (!response.success || response.data is! List) {
@@ -3603,19 +3912,15 @@ class _SettingsOrganizationProfilePageState
         matches('base_currency_decimals') &&
         matches('base_currency_format') &&
         matches('fiscal_year') &&
-
         matches('timezone') &&
         matches('date_format') &&
         matches('date_separator') &&
         matches('company_id_label') &&
         matches('company_id_value') &&
-
         matches('payment_stub_address') &&
         data['has_separate_payment_stub_address'] ==
             payload['has_separate_payment_stub_address'];
   }
-
-
 
   Widget _buildGroupedDateFormatDropdown() {
     // Build flat list: group headers interleaved with patterns
@@ -3879,13 +4184,23 @@ class _SettingsOrganizationProfilePageState
   }
 
   Future<void> _saveProfile() async {
+    setState(() => _showValidationErrors = true);
     // Validate form fields
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    if (!_shouldHideGstRegistrationFields()) {
+      _gstinController.text = _gstinController.text.trim().toUpperCase();
+    }
 
     // Validate required dropdowns not covered by TextFormField
     if (_selectedIndustry == null || _selectedIndustry!.trim().isEmpty) {
       ZerpaiToast.error(context, 'Please select an industry.');
       _scrollToKey(_industryKey);
+      return;
+    }
+    if (_gstTreatment == null) {
+      ZerpaiToast.error(context, 'Please select a GST treatment.');
+      _scrollToKey(_gstTreatmentKey);
       return;
     }
     if (_selectedLocation == null) {
@@ -3921,10 +4236,7 @@ class _SettingsOrganizationProfilePageState
     }
     if (_showMainAddressKeralaFields &&
         (_selectedDistrictId ?? '').trim().isEmpty) {
-      ZerpaiToast.error(
-        context,
-        'Please select the Kerala district.',
-      );
+      ZerpaiToast.error(context, 'Please select the Kerala district.');
       _scrollToKey(_organizationAddressKey);
       return;
     }
@@ -3989,12 +4301,15 @@ class _SettingsOrganizationProfilePageState
       'place': _addressStreet2Controller.text.trim(),
       'city': _addressCityController.text.trim(),
       'pincode': _addressPincodeController.text.trim(),
-      'phone': '$_addressPhonePrefix ${_addressPhoneController.text.trim()}',
+      'phone': _addressPhoneController.text.trim(),
       'district_id': _showMainAddressKeralaFields ? _selectedDistrictId : null,
       'local_body_id': null,
       'assembly_id': null,
       'ward_id': null,
       if (_selectedIndustry != null) 'industry': _selectedIndustry,
+      'gst_treatment': _gstTreatment?.label,
+      if (_gstinController.text.trim().isNotEmpty)
+        'gstin': _gstinController.text.trim().toUpperCase(),
       'base_currency': _selectedBaseCurrency,
       if (_selectedBaseCurrencyDecimals != null)
         'base_currency_decimals': int.tryParse(_selectedBaseCurrencyDecimals!),
@@ -4013,8 +4328,7 @@ class _SettingsOrganizationProfilePageState
       'company_id_value': _companyIdValueController.text.trim(),
 
       // Pharmacy compliance fields
-      'is_drug_registered': _isDrugRegistered ||
-          (_selectedIndustry?.toLowerCase() == 'pharmacy'),
+      'is_drug_registered': _isDrugRegistered || _isPharmaIndustry,
       'drug_licence_type': _drugLicenceType,
       'drug_license_20': _drugLicense20Controller.text.trim(),
       'drug_license_21': _drugLicense21Controller.text.trim(),
@@ -4035,7 +4349,7 @@ class _SettingsOrganizationProfilePageState
           'city': _paymentStubCityController.text.trim(),
           'state_name': _selectedPaymentStubState,
           'pincode': _paymentStubPincodeController.text.trim(),
-          'phone': '$_paymentStubPhonePrefix ${_paymentStubPhoneController.text.trim()}',
+          'phone': _paymentStubPhoneController.text.trim(),
           'district_id': _selectedPaymentStubDistrictId,
           'local_body_id': _selectedPaymentStubLocalBodyId,
           'assembly_code': _selectedPaymentStubAssemblyCode,
@@ -4056,15 +4370,19 @@ class _SettingsOrganizationProfilePageState
 
     final additionalFieldsList = _additionalFields
         .where((af) => af.labelController.text.trim().isNotEmpty)
-        .map((af) => {
-              'label': af.labelController.text.trim(),
-              'value': af.valueController.text.trim()
-            })
+        .map(
+          (af) => {
+            'label': af.labelController.text.trim(),
+            'value': af.valueController.text.trim(),
+          },
+        )
         .toList();
-    payload['additional_fields'] = additionalFieldsList.isEmpty ? null : additionalFieldsList;
+    payload['additional_fields'] = additionalFieldsList.isEmpty
+        ? null
+        : additionalFieldsList;
 
     // Pharmacy Compliance Document Uploads
-    if (_selectedIndustry?.toLowerCase() == 'pharmacy') {
+    if (_isPharmaIndustry) {
       final storage = StorageService();
 
       Future<String?> uploadDocs(List<PlatformFile> docs) async {
@@ -4108,7 +4426,10 @@ class _SettingsOrganizationProfilePageState
       if (!mounted) return;
       if (response.success) {
         ref.invalidate(orgSettingsProvider);
-        setState(() => _isEditMode = false);
+        setState(() {
+          _isEditMode = false;
+          _showValidationErrors = false;
+        });
         ZerpaiToast.success(context, 'Organization profile saved.');
       } else {
         ZerpaiToast.error(context, 'Failed to save organization profile.');
@@ -4118,7 +4439,10 @@ class _SettingsOrganizationProfilePageState
         final verified = await _verifySavedOrgProfile(orgId, payload);
         if (!mounted) return;
         if (verified) {
-          setState(() => _isEditMode = false);
+          setState(() {
+            _isEditMode = false;
+            _showValidationErrors = false;
+          });
           ZerpaiToast.success(context, 'Organization profile saved.');
           return;
         }
@@ -4357,39 +4681,39 @@ class _DashedBorderPainter extends CustomPainter {
       old.color != color || old.radius != radius;
 }
 
-extension _SettingsOrgProfilePageHelper on _SettingsOrganizationProfilePageState {
+extension _SettingsOrgProfilePageHelper
+    on _SettingsOrganizationProfilePageState {
   InputDecoration _dec(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space12,
-          vertical: AppTheme.space10,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.borderLight),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.borderLight),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide:
-              BorderSide(color: ref.read(appBrandingProvider).accentColor),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.errorRed),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.errorRed),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-      );
+    hintText: hint,
+    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: AppTheme.space12,
+      vertical: AppTheme.space10,
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.borderLight),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.borderLight),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: BorderSide(color: ref.read(appBrandingProvider).accentColor),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.errorRed),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.errorRed),
+    ),
+    filled: true,
+    fillColor: Colors.white,
+  );
 
   Widget _buildStaticField(String value) {
     return Container(
@@ -4416,8 +4740,12 @@ extension _SettingsOrgProfilePageHelper on _SettingsOrganizationProfilePageState
     if (raw.trim().isEmpty) return raw;
     final cleaned = raw.replaceAll(RegExp(r'\D'), '');
     if (cleaned.length == 10) return cleaned;
-    if (cleaned.length == 11 && cleaned.startsWith('0')) return cleaned.substring(1);
-    if (cleaned.length == 12 && cleaned.startsWith('91')) return cleaned.substring(2);
-    return cleaned.length > 10 ? cleaned.substring(cleaned.length - 10) : cleaned;
+    if (cleaned.length == 11 && cleaned.startsWith('0'))
+      return cleaned.substring(1);
+    if (cleaned.length == 12 && cleaned.startsWith('91'))
+      return cleaned.substring(2);
+    return cleaned.length > 10
+        ? cleaned.substring(cleaned.length - 10)
+        : cleaned;
   }
 }

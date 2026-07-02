@@ -219,7 +219,7 @@ This project leverages a CLI-based AI agent for development, maintenance, and an
 
 | Domain                           | Responsibility                                                                           | Key Activities                                                                                                                                                                                                                                                                                                                      |
 | :------------------------------- | :--------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend (Flutter)**           | Feature implementation, bug fixes, UI polishing, dependency management.                  | - Read/write `.dart` files. <br> - Run `flutter pub get`. <br> - **Adhere to the strict file naming convention for module files: `module_submodule_page.dart` (e.g., `sales_customers_customer_creation.dart`). This does not apply to root files like `main.dart` or `app.dart`.** <br> - Implement widgets based on design specs. |
+| **Frontend (Flutter)**           | Feature implementation, bug fixes, UI polishing, dependency management.                  | - Read/write `.dart` files. <br> - Run `flutter pub get`. <br> - **Use `snake_case` and follow owner-based module placement: `presentation/` owns UI, many route screens live under `presentation/pages/`, and `presentation/*.dart` files may act as export shims.** <br> - Implement widgets based on design specs. |
 | **Backend (NestJS)**             | API endpoint creation/modification, business logic implementation, database integration. | - Read/write `.ts` files for services, controllers, modules. <br> - Create and modify DTOs. <br> - Write and run tests.                                                                                                                                                                                                             |
 | **Database (Supabase/Postgres)** | Schema migrations, data seeding, query optimization analysis.                            | - Read/create Drizzle schema migration files (`.sql`). <br> - Write SQL queries to analyze data. <br> - Advise on indexing strategies.                                                                                                                                                                                              |
 | **Project Analysis**             | Codebase investigation, bug root-cause analysis, creating documentation.                 | - Use `glob` and `search_file_content` to map the codebase. <br> - Synthesize findings into reports (e.g., this PRD). <br> - Explain complex code sections.                                                                                                                                                                         |
@@ -338,7 +338,7 @@ To support seamless transitions between local development and production deploym
 - **Reusable widgets** (forms, dialogs, layout wrappers, responsive UI): `lib/shared/widgets/`
 - **Cross-feature services**: `lib/shared/services/`
 - **Feature-specific code**: `lib/modules/<module>/`
-- **File naming**: `module_submodule_page.dart` (e.g., `pricelist_add.dart`, `sales_orders_order_creation.dart`). Avoid `_screen` suffixes unless required for clarity.
+- **File naming/placement**: use `snake_case`; `presentation/` owns UI, many route screens live under `presentation/pages/`, and export shims under `presentation/*.dart` are valid. Avoid inconsistent casing and avoid ad-hoc file sinks.
 
 **âš ï¸ ALL new code MUST follow this structure. See the detailed guide for full compliance.**
 
@@ -1277,7 +1277,7 @@ All development must adhere to the architectural decisions locked in this PRD. K
 - **State Management:** `Riverpod` is the sole solution for new state management.
 - **HTTP Client:** `Dio` must be used for all new API calls.
 - **Workflows:** The strict `Sales` and `Purchase` status-driven workflows must be followed.
-- **File Naming:** The `module_submodule_page.dart` convention is mandatory for all new module files.
+- **File Naming/Placement:** `snake_case` is mandatory; module UI should follow the live `presentation/` → `pages/widgets/dialogs/sections` pattern where applicable.
 
 ### 14.6 Continuous Integration (CI)
 
@@ -1319,7 +1319,7 @@ This step addresses code quality warnings reported by the linters. It's best tac
 **Phase 3: File Naming Convention Refactoring (Careful & Surgical)**
 This is a manual and delicate process.
 
-1.  **Audit & List:** I can provide an initial audit of the `lib/modules` directory, listing all files that do not conform to the `module_submodule_page.dart` convention.
+1.  **Audit & List:** I can provide an initial audit of the `lib/modules` directory, listing files that do not conform to the live `snake_case` and owner-based module structure conventions.
 2.  **Module by Module:** Tackle file renaming one module or even one sub-module at a time.
 3.  **IDE Refactoring Tools:** ALWAYS use the IDE's refactoring tools (e.g., Flutter/Dart: "Rename" functionality) to ensure all imports are automatically updated. Avoid manual renaming.
 4.  **Verification:** After each module's file renames, ensure the project still compiles and all relevant tests pass before moving to the next.

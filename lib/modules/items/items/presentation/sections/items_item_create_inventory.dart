@@ -91,6 +91,13 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
 
   Widget _buildAdvancedInventory(ItemsState itemsState) {
     final controller = ref.read(itemsControllerProvider.notifier);
+    final inventoryAccounts = itemsState.accounts.where((account) {
+      final accountType = (account['account_type'] ?? account['accountType'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      return accountType == 'stock';
+    }).toList();
     final seenStorageLabels = <String>{};
     final uniqueStorageLocations = itemsState.storageLocations.where((storage) {
       final label =
@@ -170,7 +177,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                           "The account which tracks the inventory of this item",
                       child: FormDropdown<String>(
                         value: inventoryAccountId,
-                        items: itemsState.accounts
+                        items: inventoryAccounts
                             .map((a) => a['id'] as String)
                             .toList(),
                         hint: 'Select account',
@@ -183,7 +190,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                           return results.map((a) => a['id'] as String).toList();
                         },
                         displayStringForValue: (id) {
-                          final acc = itemsState.accounts
+                          final acc = inventoryAccounts
                               .where((a) => a['id'] == id)
                               .firstOrNull;
                           if (acc != null)
@@ -191,7 +198,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                           return itemsState.lookupCache[id] ?? id;
                         },
                         itemBuilder: (id, isSelected, isHovered) {
-                          final acc = itemsState.accounts
+                          final acc = inventoryAccounts
                               .where((a) => a['id'] == id)
                               .firstOrNull;
                           final label =
