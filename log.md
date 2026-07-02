@@ -3579,3 +3579,100 @@ Removed vertical column separating lines and set cell padding to 0 in the Conver
 - None.
 
 Timestamp of Log Update: July 1, 2026 - 12:00 PM (IST)
+
+
+## 262. Sales Order Items Table Styling & Quantity Defaults (July 1, 2026)
+
+### Summary
+Cleaned up the items table on the Sales Order creation page by removing the drag handle/grip column (and its vertical divider) when bulk actions are inactive. Defaulted item quantities to empty strings so they show the standard '0' hint text instead of '1', and expanded the rate column price list dropdown to fill the column width responsive layout.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - **Removed Reorder Column**: Omitted the reorder grab listener widget and its accompanying vertical line _vLine() when _showBulkUpdateToolbar is false (in both table header and item rows).
+  - **Quantity Defaults**: Updated settings overlay row insert default quantity parameters to empty string so that hintText '0' is displayed on new rows.
+  - **Price List Dropdown Expansion**: Replaced the translation stack and absolute width of 120px with a responsive Row and Expanded structure, cloning the purchases order rate column layout.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 1, 2026 - 4:25 PM (IST)
+
+
+## 263. Price List Dropdown Visibility Restoration (July 1, 2026)
+
+### Summary
+Restored the visibility of the price list dropdown box in the rate column of the items table in sales_order_create.dart by reverting the condition to check only _showPriceList, matching purchases_purchase_orders_create.dart.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - Changed the visibility condition of the price list dropdown in the rate column back to _showPriceList (removing the applicablePriceLists.isNotEmpty check).
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 1, 2026 - 4:32 PM (IST)
+
+
+## 264. Customer Addresses Database Alignment & Header Settings Icon Removal (July 1, 2026)
+
+### Summary
+Aligned NestJS backend mapping, creation, and update controllers with the new `customer_addresses` table schema, and resolved database column crashes when querying sales order/invoice customer records. Also removed the settings gear icon and its divider line from the New Sales Order screen header.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`:
+  - Removed the settings gear icon button and its adjacent vertical divider line from the top header row of the screen.
+
+#### Backend Files
+- `backend/src/modules/sales/services/customers.service.ts`:
+  - Removed all `billing_address_*` and `shipping_address_*` columns from `buildCustomerWriteModel` since they no longer exist in the `customers` database table.
+  - Implemented `saveAddress` helper to dynamically upsert address details into the `customer_addresses` table on customer creation (`create`) and update (`update`).
+  - Updated `mapCustomer` to asynchronously fetch active customer addresses from `customer_addresses` and map them back to the model fields for frontend compatibility.
+- `backend/src/modules/sales/services/sales.service.ts`:
+  - Updated customer detail query selections inside `getSalesOrderById` and `getInvoiceById` to query the `customers` table for basic info and retrieve address fields separately from the `customer_addresses` table, resolving database column errors.
+
+Timestamp of Log Update: July 1, 2026 - 4:45 PM (IST)
+
+
+## 265. Customer Address Selector Name Lookups & Card-Specific Edit (July 1, 2026)
+
+### Summary
+Resolved database UUID string displays in the customer address dropdown overlay by performing name lookups against countries and states providers, and refactored the address edit modal to accept initial address data to support card-specific editing and type-safe saves.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`:
+  - **Lookup Name Resolution**: Updated `_buildAddressDropdownItem` to resolve state and country UUID values to their respective display names via `countriesProvider` and `statesProvider` before generating text lines.
+  - **Card-Specific Editing**: Refactored `_showAddressDialog` signature to accept `initialAddress` and populated the `AddressDialog` form fields using the card's address details.
+  - **Active Selection Mapping**: Swapped the hardcoded visibility check inside `onSave` to dynamically extract whether the active card is billing or shipping (`saveAsBilling`), preventing cross-address type overrides.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 1, 2026 - 5:00 PM (IST)
+
+
+## 266. Address Dropdown Cross-Edit Restraints & Backend Empty Update Bypass (July 1, 2026)
+
+### Summary
+Prevented cross-type address modifications in the dropdown overlays by hiding the pencil icon on unmatched cards (Billing in Shipping dropdown and vice-versa). Fixed a database `Customer not found` crash on the backend by filtering `undefined` values and bypassing empty `UPDATE` queries when only sub-addresses are updated.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`:
+  - **Edit Authorization Check**: Added checks for card address types (`isAddrBilling` / `isAddrShipping`) and compared them to the parent dropdown type (`isBilling`) to establish `canEdit`.
+  - **UI Icon Lock**: Modified mouse-hover display condition of `pencil` icon to check `isHovered && canEdit`.
+
+#### Backend Files
+- `backend/src/modules/sales/services/customers.service.ts`:
+  - **Undefined Property Sanitization**: Stripped `undefined` properties from the Supabase update payload.
+  - **No-Op Update Detection**: Added conditional check to bypass `supabaseService.getClient().from("customers").update(...)` when no customer columns changed, fetching the customer directly to prevent SQL exceptions.
+
+Timestamp of Log Update: July 1, 2026 - 5:15 PM (IST)

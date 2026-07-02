@@ -35,6 +35,13 @@ client.unsafe(`
   ALTER TABLE purchase_orders 
   ALTER COLUMN shipping_address DROP NOT NULL,
   ALTER COLUMN billing_address DROP NOT NULL;
+
+  ALTER TABLE branch_price_list_assignments
+  DROP CONSTRAINT IF EXISTS branch_price_list_assignments_branch_id_fkey;
+
+  ALTER TABLE branch_price_list_assignments
+  ADD CONSTRAINT branch_price_list_assignments_branch_id_fkey
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL;
 `).catch(err => {
   console.error("Failed to execute safe DDL updates:", err);
 });
