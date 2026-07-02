@@ -42,6 +42,16 @@ class PriceListRepositoryImpl implements PriceListRepository {
   }
 
   Map<String, dynamic> _toCreatePayload(PriceList priceList) {
+    String? pctType;
+    double? pctValue;
+    if (priceList.priceListType == 'all_items' && priceList.details != null) {
+      final parts = priceList.details!.split('% ');
+      if (parts.length == 2) {
+        pctValue = double.tryParse(parts[0]);
+        pctType = parts[1].toLowerCase();
+      }
+    }
+
     return {
       'name': priceList.name,
       'description': priceList.description,
@@ -55,6 +65,8 @@ class PriceListRepositoryImpl implements PriceListRepository {
       'price_scope': 'SELF',
       'discount_enabled': priceList.isDiscountEnabled,
       'item_rates': priceList.itemRates?.map((e) => e.toJson()).toList() ?? const [],
+      'percentage_type': pctType,
+      'percentage_value': pctValue,
     };
   }
 

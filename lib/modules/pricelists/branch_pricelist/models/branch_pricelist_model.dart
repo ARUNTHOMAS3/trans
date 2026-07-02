@@ -64,6 +64,12 @@ class BranchPriceList extends Equatable {
   @JsonKey(name: 'associated_branches')
   final List<String>? associatedBranches;
 
+  @JsonKey(name: 'percentage_type')
+  final String? percentageType;
+
+  @JsonKey(name: 'percentage_value')
+  final double? percentageValue;
+
   /// Timestamp when the price list was created
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
@@ -89,6 +95,8 @@ class BranchPriceList extends Equatable {
     this.endDate,
     this.itemRates,
     this.associatedBranches,
+    this.percentageType,
+    this.percentageValue,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -115,6 +123,8 @@ class BranchPriceList extends Equatable {
     DateTime? endDate,
     List<BranchPriceListItemRate>? itemRates,
     List<String>? associatedBranches,
+    String? percentageType,
+    double? percentageValue,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -135,29 +145,41 @@ class BranchPriceList extends Equatable {
       endDate: endDate ?? this.endDate,
       itemRates: itemRates ?? this.itemRates,
       associatedBranches: associatedBranches ?? this.associatedBranches,
+      percentageType: percentageType ?? this.percentageType,
+      percentageValue: percentageValue ?? this.percentageValue,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   /// Calculates the price for an item based on this price list
-  double calculatePrice(String itemId, double baseRate, {double quantity = 1}) {
+  double calculatePrice(String itemId, double baseRate, {double quantity = 1, String? productName}) {
     double rate = baseRate;
 
     if (priceListType == 'all_items') {
-      final percentage =
+      final percentage = percentageValue ??
           double.tryParse(
             RegExp(r'(\d+\.?\d*)').firstMatch(details ?? '')?.group(0) ?? '0',
           ) ??
           0.0;
-      if (details?.toLowerCase().contains('markup') ?? false) {
+      final isMarkup = (percentageType?.toLowerCase().contains('markup') ?? false) ||
+          (details?.toLowerCase().contains('markup') ?? false) ||
+          pricingScheme == 'markup';
+      final isMarkdown = (percentageType?.toLowerCase().contains('markdown') ?? false) ||
+          (details?.toLowerCase().contains('markdown') ?? false) ||
+          pricingScheme == 'markdown';
+      if (isMarkup) {
         rate = baseRate * (1 + percentage / 100);
-      } else if (details?.toLowerCase().contains('markdown') ?? false) {
+      } else if (isMarkdown) {
         rate = baseRate * (1 - percentage / 100);
       }
     } else {
       final override = itemRates?.firstWhere(
-        (r) => r.itemId == itemId,
+        (r) =>
+            r.itemId == itemId ||
+            r.itemId == productName ||
+            (r.itemName != null && productName != null && r.itemName!.toLowerCase() == productName.toLowerCase()) ||
+            (r.itemName != null && r.itemName!.toLowerCase() == itemId.toLowerCase()),
         orElse: () => const BranchPriceListItemRate(itemId: ''),
       );
       if (override != null && override.itemId.isNotEmpty) {
@@ -228,6 +250,8 @@ class BranchPriceList extends Equatable {
     endDate,
     itemRates,
     associatedBranches,
+    percentageType,
+    percentageValue,
     createdAt,
     updatedAt,
   ];

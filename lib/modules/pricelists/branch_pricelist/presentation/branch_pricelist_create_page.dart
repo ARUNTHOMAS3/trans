@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
@@ -21,6 +23,23 @@ import 'package:intl/intl.dart';
 import '../models/branch_pricelist_model.dart';
 import '../providers/branch_pricelist_provider.dart';
 import 'widgets/volume_pricing_help_popover.dart';
+
+final _branchesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final user = ref.watch(authUserProvider);
+  final orgId = user?.orgId ?? '';
+  if (orgId.isEmpty) return [];
+  final api = ref.watch(apiClientProvider);
+  try {
+    final response = await api.get('/branches', queryParameters: {'org_id': orgId});
+    if (response.statusCode == 200 && response.data != null) {
+      final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
+      return data.map((json) => Map<String, dynamic>.from(json)).toList();
+    }
+  } catch (e) {
+    debugPrint('Error fetching branches: $e');
+  }
+  return [];
+});
 
 const double __branchPriceListFieldWidth = 320;
 const double _priceListTypeCardWidth = 240;
@@ -41,7 +60,15 @@ const double _bulkRatesSelectionWidth = 30;
 
 class BranchPriceListCreateScreen extends ConsumerStatefulWidget {
   final BranchPriceList? template;
-  const BranchPriceListCreateScreen({super.key, this.template});
+  final BranchPriceList? branchPriceList;
+  final String? branchPriceListId;
+
+  const BranchPriceListCreateScreen({
+    super.key,
+    this.template,
+    this.branchPriceList,
+    this.branchPriceListId,
+  });
 
   @override
   ConsumerState<BranchPriceListCreateScreen> createState() =>
@@ -51,18 +78,6 @@ class BranchPriceListCreateScreen extends ConsumerStatefulWidget {
 class _BranchPriceListCreateScreenState
     extends ConsumerState<BranchPriceListCreateScreen> {
   static const String _listRoute = '/pricelists/branch-price-lists';
-  static const String _cocoHeader = '__header_coco';
-  static const String _fofoHeader = '__header_fofo';
-  static const List<String> _associatedBranchOptions = [
-    _cocoHeader,
-    'Melattur',
-    'Tiru',
-    'Manjery',
-    _fofoHeader,
-    'Perinthalmanna',
-    'Malappuram',
-    'Pattambi',
-  ];
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -96,39 +111,85 @@ class _BranchPriceListCreateScreenState
   bool _isItemSearchVisible = false;
   bool _isBulkUpdateMode = false;
   bool _isSaving = false;
+  bool _isLoading = false;
   String? _hoveredBulkRateCellKey;
   String? _activeBulkRateCellKey;
 
   @override
   void initState() {
     super.initState();
-    if (widget.template != null) {
-      _initializeFromTemplate(widget.template!);
+    if (widget.branchPriceList != null) {
+      _initializeData(widget.branchPriceList!, isEdit: true);
+    } else if (widget.branchPriceListId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchBranchPriceList();
+      });
+    } else if (widget.template != null) {
+      _initializeData(widget.template!, isEdit: false);
     }
   }
 
-  void _initializeFromTemplate(BranchPriceList template) {
-    _nameController.text = 'Copy of ${template.name}';
-    _descriptionController.text = template.description ?? '';
-    _transactionType = template.transactionType;
-    _priceListType = template.priceListType;
-    _pricingScheme = template.pricingScheme;
-    _roundOffTo = template.roundOffPreference ?? 'Never mind';
-    _isDiscountEnabled = template.isDiscountEnabled;
-    _isSeasonalEnabled = template.isSeasonalEnabled;
-    _startDate = template.startDate;
-    _endDate = template.endDate;
+  Future<void> _fetchBranchPriceList() async {
+    setState(() => _isLoading = true);
+    try {
+      final p = await ref
+          .read(branchPriceListNotifierProvider.notifier)
+          .fetchBranchPriceListById(widget.branchPriceListId!);
+      if (mounted && p != null) {
+        setState(() {
+          _initializeData(p, isEdit: true);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching price list: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _initializeData(BranchPriceList p, {required bool isEdit}) {
+    _nameController.text = isEdit ? p.name : 'Copy of ${p.name}';
+    _descriptionController.text = p.description ?? '';
+    _transactionType = p.transactionType;
+    _priceListType = p.priceListType;
+    _pricingScheme = p.pricingScheme;
+    _roundOffTo = p.roundOffPreference ?? 'Never mind';
+    _isDiscountEnabled = p.isDiscountEnabled;
+    _isSeasonalEnabled = p.isSeasonalEnabled;
+    _startDate = p.startDate;
+    _endDate = p.endDate;
+
+    if (p.associatedBranches != null) {
+      _associatedBranches.clear();
+      _associatedBranches.addAll(p.associatedBranches!);
+    }
 
     if (_priceListType == 'all_items') {
-      final details = template.details ?? '';
-      // Parse "10% Markup"
-      final parts = details.split('% ');
-      if (parts.length == 2) {
-        _percentageController.text = parts[0];
-        _percentageType = parts[1];
+      if (p.percentageValue != null) {
+        final val = p.percentageValue!;
+        _percentageController.text = val == val.toInt() ? val.toInt().toString() : val.toString();
       }
-    } else if (template.itemRates != null) {
-      for (final rate in template.itemRates!) {
+      if (p.percentageType != null && p.percentageType!.isNotEmpty) {
+        _percentageType = p.percentageType!.toLowerCase() == 'markdown' ? 'Markdown' : 'Markup';
+      }
+
+      // Fallback details parser
+      if (_percentageController.text.isEmpty) {
+        final details = p.details ?? '';
+        final parts = details.split('% ');
+        if (parts.length == 2) {
+          _percentageController.text = parts[0];
+          _percentageType = parts[1];
+        } else {
+          final match = RegExp(r'(\d+\.?\d*)').firstMatch(details);
+          if (match != null) _percentageController.text = match.group(0)!;
+          if (details.contains('Markdown')) _percentageType = 'Markdown';
+        }
+      }
+    } else if (p.itemRates != null) {
+      for (final rate in p.itemRates!) {
         final itemId = rate.itemId;
         if (_pricingScheme == 'volume_pricing') {
           final ranges = rate.volumeRanges ?? [];
@@ -188,13 +249,16 @@ class _BranchPriceListCreateScreenState
     final isRestrictedBranchAdmin =
         user?.role.trim().toLowerCase() == 'branch_admin' &&
         user?.roleIsDefault == true;
+    
+    final isEdit = widget.branchPriceList != null || widget.branchPriceListId != null;
+    final pageTitle = isEdit ? 'Edit Branch Price List' : 'New Branch Price List';
+
     if (isRestrictedBranchAdmin) {
       return ColoredBox(
         color: Colors.white,
         child: ZerpaiLayout(
-          pageTitle: 'New Branch Price List',
+          pageTitle: pageTitle,
           enableBodyScroll: true,
-          useTopPadding: false,
           actions: [
             IconButton(
               onPressed: _cancel,
@@ -238,9 +302,8 @@ class _BranchPriceListCreateScreenState
     return ColoredBox(
       color: Colors.white,
       child: ZerpaiLayout(
-        pageTitle: 'New Branch Price List',
+        pageTitle: pageTitle,
         enableBodyScroll: true,
-        useTopPadding: false,
         actions: [
           IconButton(
             onPressed: _cancel,
@@ -254,42 +317,45 @@ class _BranchPriceListCreateScreenState
         footer: _buildFooter(),
         onSave: _save,
         onCancel: _cancel,
-        child: Form(
-          key: _formKey,
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1180),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildNameRow(),
-                  const SizedBox(height: __branchPriceListRowGap),
-                  _buildSeasonalRow(),
-                  const SizedBox(height: __branchPriceListRowGap),
-                  _buildAssociatedBranchesRow(),
-                  const SizedBox(height: __branchPriceListRowGap),
-                  _buildTransactionTypeRow(),
-                  const SizedBox(height: __branchPriceListRowGap),
-                  _buildpriceListTypeRow(),
-                  const SizedBox(height: __branchPriceListRowGap),
-                  _buildDescriptionRow(),
-                  if (_priceListType == 'all_items') ...[
+        child: Skeletonizer(
+          enabled: _isLoading,
+          child: Form(
+            key: _formKey,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1180),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildNameRow(),
                     const SizedBox(height: __branchPriceListRowGap),
-                    _buildPercentageRow(),
+                    _buildSeasonalRow(),
                     const SizedBox(height: __branchPriceListRowGap),
-                    _buildRoundOffRow(),
-                  ] else ...[
+                    _buildAssociatedBranchesRow(),
                     const SizedBox(height: __branchPriceListRowGap),
-                    _buildPricingSchemeRow(),
+                    _buildTransactionTypeRow(),
                     const SizedBox(height: __branchPriceListRowGap),
-                    _buildCurrencyRow(),
+                    _buildpriceListTypeRow(),
                     const SizedBox(height: __branchPriceListRowGap),
-                    _buildDiscountRow(),
-                    const SizedBox(height: 12),
-                    _buildBulkRatesSection(),
+                    _buildDescriptionRow(),
+                    if (_priceListType == 'all_items') ...[
+                      const SizedBox(height: __branchPriceListRowGap),
+                      _buildPercentageRow(),
+                      const SizedBox(height: __branchPriceListRowGap),
+                      _buildRoundOffRow(),
+                    ] else ...[
+                      const SizedBox(height: __branchPriceListRowGap),
+                      _buildPricingSchemeRow(),
+                      const SizedBox(height: __branchPriceListRowGap),
+                      _buildCurrencyRow(),
+                      const SizedBox(height: __branchPriceListRowGap),
+                      _buildDiscountRow(),
+                      const SizedBox(height: 12),
+                      _buildBulkRatesSection(),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -320,14 +386,21 @@ class _BranchPriceListCreateScreenState
   }
 
   Widget _buildTransactionTypeRow() {
+    final isEdit = widget.branchPriceList != null || widget.branchPriceListId != null;
     return _FormRow(
       label: 'Transaction Type',
-      child: ZerpaiRadioGroup<String>(
-        options: const ['sales', 'purchase'],
-        current: _transactionType,
-        labelBuilder: (value) => value == 'sales' ? 'Sales' : 'Purchase',
-        onChanged: (value) => setState(() => _transactionType = value),
-        activeColor: AppTheme.primaryBlueDark,
+      child: IgnorePointer(
+        ignoring: isEdit,
+        child: Opacity(
+          opacity: isEdit ? 0.7 : 1.0,
+          child: ZerpaiRadioGroup<String>(
+            options: const ['sales', 'purchase'],
+            current: _transactionType,
+            labelBuilder: (value) => value == 'sales' ? 'Sales' : 'Purchase',
+            onChanged: (value) => setState(() => _transactionType = value),
+            activeColor: AppTheme.primaryBlueDark,
+          ),
+        ),
       ),
     );
   }
@@ -454,23 +527,111 @@ class _BranchPriceListCreateScreenState
   }
 
   Widget _buildAssociatedBranchesRow() {
+    final branchesAsync = ref.watch(_branchesProvider);
+    final branches = branchesAsync.value ?? [];
+
+    if (branches.isNotEmpty) {
+      for (var i = 0; i < _associatedBranches.length; i++) {
+        final val = _associatedBranches[i];
+        if (val.contains('-')) {
+          final matched = branches.firstWhere(
+            (b) => b['entity_id']?.toString() == val,
+            orElse: () => <String, dynamic>{},
+          );
+          if (matched.isNotEmpty) {
+            final name = matched['name'] as String? ?? '';
+            if (name.isNotEmpty) {
+              _associatedBranches[i] = name;
+            }
+          }
+        }
+      }
+    }
+
+    // Group branches by branch_type
+    final Map<String, List<String>> grouped = {};
+    for (final b in branches) {
+      final typeVal = b['branch_type']?.toString().trim();
+      final type = (typeVal != null && typeVal.isNotEmpty) ? typeVal : 'Other';
+      final name = b['name'] as String? ?? '';
+      if (name.isNotEmpty) {
+        grouped.putIfAbsent(type, () => []).add(name);
+      }
+    }
+
+    // Build the dropdown options list
+    final List<String> dropdownItems = [];
+    final Map<String, List<String>> groupChildren = {};
+
+    for (final entry in grouped.entries) {
+      final type = entry.key;
+      final children = entry.value;
+      final headerKey = '__header_$type';
+      
+      dropdownItems.add(headerKey);
+      dropdownItems.addAll(children);
+      groupChildren[headerKey] = children;
+    }
+
+    bool isHeader(String item) => item.startsWith('__header_');
+    String getDisplayLabel(String item) {
+      if (isHeader(item)) {
+        return item.replaceFirst('__header_', '');
+      }
+      return item;
+    }
+
     return _FormRow(
       label: 'Associated Branches',
+      required: true,
       child: SizedBox(
         width: __branchPriceListFieldWidth,
         child: FormDropdown<String>(
           value: null,
-          items: _associatedBranchOptions,
+          items: dropdownItems,
           hint: 'Select branch',
           showSearch: false,
           showSearchIcon: false,
           multiSelect: true,
           selectedValues: _associatedBranches,
           onSelectedValuesChanged: (values) {
+            final nextBranches = List<String>.from(_associatedBranches);
+            
+            // Check if any header was clicked/selected
+            String? clickedHeader;
+            for (final header in groupChildren.keys) {
+              if (values.contains(header)) {
+                clickedHeader = header;
+                break;
+              }
+            }
+
+            if (clickedHeader != null) {
+              final children = groupChildren[clickedHeader] ?? [];
+              final allSelected = children.every((child) => nextBranches.contains(child));
+              
+              setState(() {
+                if (allSelected) {
+                  nextBranches.removeWhere((item) => children.contains(item));
+                } else {
+                  for (final child in children) {
+                    if (!nextBranches.contains(child)) {
+                      nextBranches.add(child);
+                    }
+                  }
+                }
+                _associatedBranches
+                  ..clear()
+                  ..addAll(nextBranches);
+              });
+              return;
+            }
+
+            // Normal non-header item selection change
             setState(() {
               _associatedBranches
                 ..clear()
-                ..addAll(values.where((item) => !_isAssociatedBranchHeader(item)));
+                ..addAll(values.where((item) => !isHeader(item)));
             });
           },
           allowClear: _associatedBranches.isNotEmpty,
@@ -480,25 +641,33 @@ class _BranchPriceListCreateScreenState
           itemHeight: 34,
           itemEstimatedHeight: 34,
           maxVisibleItems: 6,
-          isItemEnabled: (item) => !_isAssociatedBranchHeader(item),
-          displayStringForValue: _associatedBranchLabel,
-          searchStringForValue: _associatedBranchLabel,
+          isItemEnabled: (item) => true,
+          displayStringForValue: getDisplayLabel,
+          searchStringForValue: getDisplayLabel,
           onChanged: (_) {},
           itemBuilder: (item, isSelected, isHovered) {
-            final isHeader = _isAssociatedBranchHeader(item);
+            final itemIsHeader = isHeader(item);
+            
+            Color textColor = itemIsHeader ? AppTheme.textPrimary : AppTheme.textSecondary;
+            if (isHovered) {
+              textColor = Colors.white;
+            } else if (isSelected) {
+              textColor = AppTheme.textPrimary;
+            }
+
             return Container(
               height: 34,
               alignment: Alignment.centerLeft,
               padding: EdgeInsets.only(
-                left: isHeader ? 12 : 24,
+                left: itemIsHeader ? 12 : 24,
                 right: 12,
               ),
               child: Text(
-                _associatedBranchLabel(item),
+                getDisplayLabel(item),
                 style: TextStyle(
-                  fontSize: isHeader ? 13 : 12,
-                  color: isHeader ? AppTheme.textPrimary : AppTheme.textSecondary,
-                  fontWeight: isHeader
+                  fontSize: itemIsHeader ? 13 : 12,
+                  color: textColor,
+                  fontWeight: itemIsHeader
                       ? FontWeight.w700
                       : (isSelected ? FontWeight.w500 : FontWeight.w400),
                 ),
@@ -508,20 +677,6 @@ class _BranchPriceListCreateScreenState
         ),
       ),
     );
-  }
-
-  bool _isAssociatedBranchHeader(String item) =>
-      item == _cocoHeader || item == _fofoHeader;
-
-  String _associatedBranchLabel(String item) {
-    switch (item) {
-      case _cocoHeader:
-        return 'Coco';
-      case _fofoHeader:
-        return 'Fofo';
-      default:
-        return item;
-    }
   }
 
   Widget _dateFieldSuffix(String label) {
@@ -542,28 +697,35 @@ class _BranchPriceListCreateScreenState
   }
 
   Widget _buildpriceListTypeRow() {
+    final isEdit = widget.branchPriceList != null || widget.branchPriceListId != null;
     return _FormRow(
       label: 'Price List Type',
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 12,
-        children: [
-          _PriceListTypeCard(
-            selected: _priceListType == 'all_items',
-            title: 'All Items',
-            subtitle: 'Mark up or mark down the rates of all items',
-            onTap: () => setState(() {
-              _priceListType = 'all_items';
-              _isDiscountEnabled = false;
-            }),
+      child: IgnorePointer(
+        ignoring: isEdit,
+        child: Opacity(
+          opacity: isEdit ? 0.7 : 1.0,
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            children: [
+              _PriceListTypeCard(
+                selected: _priceListType == 'all_items',
+                title: 'All Items',
+                subtitle: 'Mark up or mark down the rates of all items',
+                onTap: () => setState(() {
+                  _priceListType = 'all_items';
+                  _isDiscountEnabled = false;
+                }),
+              ),
+              _PriceListTypeCard(
+                selected: _priceListType == 'individual_items',
+                title: 'Individual Items',
+                subtitle: 'Customize the rate of each item',
+                onTap: () => setState(() => _priceListType = 'individual_items'),
+              ),
+            ],
           ),
-          _PriceListTypeCard(
-            selected: _priceListType == 'individual_items',
-            title: 'Individual Items',
-            subtitle: 'Customize the rate of each item',
-            onTap: () => setState(() => _priceListType = 'individual_items'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -590,85 +752,97 @@ class _BranchPriceListCreateScreenState
       required: true,
       child: SizedBox(
         width: __branchPriceListFieldWidth,
-        child: Container(
-          height: __branchPriceListFieldHeight,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: AppTheme.borderColorDark),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 110,
-                child: FormDropdown<String>(
-                  value: _percentageType,
-                  items: const ['Markup', 'Markdown'],
-                  onChanged: (value) {
-                    setState(() => _percentageType = value ?? 'Markup');
-                  },
-                  height: __branchPriceListFieldHeight,
-                  showSearch: false,
-                  showSearchIcon: false,
-                  hideBorderDefault: true,
-                  menuWidth: 124,
+        child: FormField<String>(
+          validator: (_) {
+            final trimmed = _percentageController.text.trim();
+            final number = double.tryParse(trimmed);
+            if (trimmed.isEmpty || number == null || number < 0) {
+              return 'Required';
+            }
+            return null;
+          },
+          builder: (fieldState) {
+            final hasError = fieldState.hasError;
+            return Container(
+              height: __branchPriceListFieldHeight,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(
+                  color: hasError ? AppTheme.errorRedDark : AppTheme.borderColorDark,
                 ),
+                borderRadius: BorderRadius.circular(4),
               ),
-              Container(
-                width: 1,
-                height: __branchPriceListFieldHeight,
-                color: AppTheme.borderColorDark,
-              ),
-              Expanded(
-                child: TextFormField(
-                  controller: _percentageController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
-                  validator: (value) {
-                    final trimmed = value?.trim() ?? '';
-                    final number = double.tryParse(trimmed);
-                    if (trimmed.isEmpty || number == null || number < 0) {
-                      return 'Required';
-                    }
-                    return null;
-                  },
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textPrimary,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    errorStyle: TextStyle(height: 0, fontSize: 0),
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 110,
+                    child: FormDropdown<String>(
+                      value: _percentageType,
+                      items: const ['Markup', 'Markdown'],
+                      onChanged: (value) {
+                        setState(() => _percentageType = value ?? 'Markup');
+                      },
+                      height: __branchPriceListFieldHeight,
+                      showSearch: false,
+                      showSearchIcon: false,
+                      hideBorderDefault: true,
+                      menuWidth: 124,
                     ),
                   ),
-                ),
+                  Container(
+                    width: 1,
+                    height: __branchPriceListFieldHeight,
+                    color: AppTheme.borderColorDark,
+                  ),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _percentageController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                      onChanged: (val) {
+                        fieldState.didChange(val);
+                      },
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        errorStyle: TextStyle(height: 0, fontSize: 0),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: __branchPriceListFieldHeight,
+                    color: AppTheme.borderColorDark,
+                  ),
+                  Container(
+                    width: 42,
+                    alignment: Alignment.center,
+                    color: AppTheme.inputFill,
+                    child: const Text(
+                      '%',
+                      style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                    ),
+                  ),
+                ],
               ),
-              Container(
-                width: 1,
-                height: __branchPriceListFieldHeight,
-                color: AppTheme.borderColorDark,
-              ),
-              Container(
-                width: 42,
-                alignment: Alignment.center,
-                color: AppTheme.inputFill,
-                child: const Text(
-                  '%',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -2436,6 +2610,12 @@ class _BranchPriceListCreateScreenState
       return;
     }
 
+    final actualBranches = _associatedBranches;
+    if (actualBranches.isEmpty) {
+      ZerpaiToast.error(context, 'Associated branch is required');
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final now = DateTime.now();
@@ -2450,8 +2630,11 @@ class _BranchPriceListCreateScreenState
             )
           : null;
 
+      final isEdit = widget.branchPriceList != null || widget.branchPriceListId != null;
+      final existingId = isEdit ? (widget.branchPriceList?.id ?? widget.branchPriceListId ?? '') : '';
+
       final branchPriceList = BranchPriceList(
-        id: '',
+        id: existingId,
         name: _nameController.text.trim(),
         description: _emptyToNull(_descriptionController.text),
         currency: _priceListType == 'individual_items'
@@ -2470,14 +2653,20 @@ class _BranchPriceListCreateScreenState
         startDate: _isSeasonalEnabled ? _startDate : null,
         endDate: _isSeasonalEnabled ? _endDate : null,
         itemRates: itemRates,
-        associatedBranches: _associatedBranches.isEmpty ? null : List<String>.from(_associatedBranches),
-        createdAt: now,
+        associatedBranches: actualBranches.isEmpty ? null : List<String>.from(actualBranches),
+        createdAt: isEdit ? (widget.branchPriceList?.createdAt ?? now) : now,
         updatedAt: now,
       );
 
-      await ref
-          .read(branchPriceListNotifierProvider.notifier)
-          .createBranchPriceList(branchPriceList);
+      if (isEdit) {
+        await ref
+            .read(branchPriceListNotifierProvider.notifier)
+            .updateBranchPriceList(branchPriceList);
+      } else {
+        await ref
+            .read(branchPriceListNotifierProvider.notifier)
+            .createBranchPriceList(branchPriceList);
+      }
 
       if (!mounted) return;
       _finish(created: true);

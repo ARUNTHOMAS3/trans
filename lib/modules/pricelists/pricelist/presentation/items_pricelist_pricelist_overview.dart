@@ -400,10 +400,17 @@ class _PriceListOverviewScreenState
                           Divider(height: 1, color: AppTheme.borderColor),
                       itemBuilder: (context, index) {
                         final priceList = sortedLists[index];
-                        final detailsText =
-                            priceList.priceListType == 'individual_items'
-                            ? 'Per Item Rate'
-                            : (priceList.details ?? '-');
+                        String detailsText = '-';
+                        if (priceList.priceListType == 'individual_items') {
+                          detailsText = 'Per Item Rate';
+                        } else if (priceList.percentageValue != null && priceList.percentageType != null) {
+                          final pctType = priceList.percentageType!.isEmpty
+                              ? ''
+                              : (priceList.percentageType![0].toUpperCase() + priceList.percentageType!.substring(1).toLowerCase());
+                          detailsText = '${priceList.percentageValue!.toStringAsFixed(0)}% $pctType';
+                        } else {
+                          detailsText = priceList.details ?? '-';
+                        }
                         final roundOffText =
                             (priceList.roundOffPreference?.isNotEmpty ?? false)
                             ? priceList.roundOffPreference!

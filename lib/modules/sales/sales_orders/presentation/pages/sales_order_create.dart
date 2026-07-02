@@ -960,7 +960,13 @@ class _SalesOrderCreateScreenState
     final pl = matchingPls.first;
     final itemIncluded =
         pl.priceListType != 'individual_items' ||
-        (pl.itemRates?.any((r) => r.itemId == row.itemId) ?? false);
+        (pl.itemRates?.any((r) =>
+            r.itemId == row.itemId ||
+            r.itemId == row.item?.productName ||
+            (r.itemName != null &&
+                row.item != null &&
+                r.itemName!.toLowerCase() == row.item!.productName.toLowerCase())) ??
+            false);
     if (!itemIncluded) {
       final fallbackRate = (row.item!.sellingPrice ?? 0).toDouble();
       row.rateCtrl.text = fallbackRate == 0
@@ -974,6 +980,7 @@ class _SalesOrderCreateScreenState
       row.itemId,
       (row.item!.sellingPrice ?? 0).toDouble(),
       quantity: qty,
+      productName: row.item?.productName,
     );
 
     // Update rate if it changed
@@ -1273,19 +1280,6 @@ class _SalesOrderCreateScreenState
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(
-              LucideIcons.settings,
-              color: Color(0xFF3B82F6),
-              size: 18,
-            ),
-            onPressed: () {},
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 8),
-          Container(width: 1, height: 24, color: _kBorder),
-          const SizedBox(width: 16),
-          IconButton(
             icon: const Icon(LucideIcons.x, color: Color(0xFF6B7280), size: 20),
             onPressed: () {
               if (context.canPop()) {
@@ -1555,6 +1549,7 @@ class _SalesOrderCreateScreenState
                           labelWidth: 180,
                           maxWidth: 450,
                           child: FormDropdown<String>(
+                            key: const ValueKey('so_place_of_supply'),
                             enabled: !_isEditMode,
                             height: _kDropdownHeight,
                             value:
@@ -1731,6 +1726,7 @@ class _SalesOrderCreateScreenState
                 labelWidth: 180,
                 maxWidth: 600,
                 child: FormDropdown<String>(
+                  key: const ValueKey('so_payment_terms'),
                   value: paymentTerms,
                   height: _kDropdownHeight,
                   items: _paymentTermsList
@@ -1767,6 +1763,7 @@ class _SalesOrderCreateScreenState
                 labelWidth: 180,
                 maxWidth: 600,
                 child: FormDropdown<String>(
+                  key: const ValueKey('so_delivery_method'),
                   value: deliveryMethod,
                   height: _kDropdownHeight,
                   hint: 'Select a delivery method or type to add',
@@ -1783,6 +1780,7 @@ class _SalesOrderCreateScreenState
                 labelWidth: 180,
                 maxWidth: 600,
                 child: FormDropdown<String>(
+                  key: const ValueKey('so_salesperson'),
                   value: salesperson,
                   height: _kDropdownHeight,
                   allowClear: true,
@@ -1900,6 +1898,8 @@ class _SalesOrderCreateScreenState
                                       )
                                       .toList();
                                   return FormDropdown<String>(
+                                    key: const ValueKey('so_main_price_list'),
+                                    allowClear: true,
                                     value: priceListId,
                                     height: 36,
                                     textStyle: TextStyle(
@@ -2521,7 +2521,7 @@ class _SalesOrderCreateScreenState
                 child: IntrinsicHeight(
                   child: Row(
                     children: [
-                      if (_showBulkUpdateToolbar)
+                      if (_showBulkUpdateToolbar) ...[
                         SizedBox(
                           width: 40,
                           child: Center(
@@ -2552,10 +2552,9 @@ class _SalesOrderCreateScreenState
                               ),
                             ),
                           ),
-                        )
-                      else
-                        const SizedBox(width: 40), // Space for drag handle
-                      _vLine(),
+                        ),
+                        _vLine(),
+                      ],
                       Expanded(
                         flex: 14,
                         child: Padding(
@@ -2651,7 +2650,7 @@ class _SalesOrderCreateScreenState
                       ),
                       _vLine(),
                       Expanded(
-                        flex: 4,
+                        flex: 6,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -2781,7 +2780,13 @@ class _SalesOrderCreateScreenState
       if (pl.id == row.priceListId) return true;
       if (pl.priceListType == 'all_items') return true;
       if (pl.priceListType == 'individual_items') {
-        return pl.itemRates?.any((r) => r.itemId == row.itemId) ?? false;
+        return pl.itemRates?.any((r) =>
+            r.itemId == row.itemId ||
+            r.itemId == row.item?.productName ||
+            (r.itemName != null &&
+                row.item != null &&
+                r.itemName!.toLowerCase() == row.item!.productName.toLowerCase())) ??
+            false;
       }
       return false;
     }).toList();
@@ -2794,7 +2799,12 @@ class _SalesOrderCreateScreenState
     if (currentPriceList != null && row.itemId.isNotEmpty) {
       if (currentPriceList.priceListType == 'individual_items') {
         notIncluded =
-            !(currentPriceList.itemRates?.any((r) => r.itemId == row.itemId) ??
+            !(currentPriceList.itemRates?.any((r) =>
+                r.itemId == row.itemId ||
+                r.itemId == row.item?.productName ||
+                (r.itemName != null &&
+                    row.item != null &&
+                    r.itemName!.toLowerCase() == row.item!.productName.toLowerCase())) ??
                 false);
       }
     } else if (currentPriceListId != null && row.itemId.isNotEmpty) {
@@ -2839,7 +2849,7 @@ class _SalesOrderCreateScreenState
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (_showBulkUpdateToolbar)
+                      if (_showBulkUpdateToolbar) ...[
                         SizedBox(
                           width: 40,
                           child: Padding(
@@ -2867,29 +2877,9 @@ class _SalesOrderCreateScreenState
                               ),
                             ),
                           ),
-                        )
-                      else
-                        SizedBox(
-                          width: 40,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 14),
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: ReorderableDragStartListener(
-                                index: idx,
-                                child: const MouseRegion(
-                                  cursor: SystemMouseCursors.grab,
-                                  child: Icon(
-                                    LucideIcons.gripVertical,
-                                    size: 16,
-                                    color: Color(0xFFD1D5DB),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
                         ),
-                      _vLine(),
+                        _vLine(),
+                      ],
                       if (row.isHeader)
                         Expanded(
                           child: Padding(
@@ -3268,105 +3258,111 @@ class _SalesOrderCreateScreenState
                                 if (row.itemId.isNotEmpty) ...[
                                   if (_showPriceList) ...[
                                     const SizedBox(height: 4),
-                                    Transform.translate(
-                                      offset: Offset(notIncluded ? -4 : 0, 0),
-                                      child: Stack(
-                                        clipBehavior: Clip.none,
-                                        alignment: Alignment.centerLeft,
-                                        children: [
-                                          if (notIncluded)
-                                            Transform.translate(
-                                              offset: const Offset(-22, 0),
-                                              child: ZTooltip(
-                                                message:
-                                                    "This item has not been included in the selected price list. So, the item's default rate has been used.",
-                                                child: const Icon(
-                                                  LucideIcons.alertCircle,
-                                                  size: 14,
-                                                  color: Colors.orange,
-                                                ),
-                                              ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      mainAxisSize: MainAxisSize.max,
+                                      children: [
+                                        if (notIncluded) ...[
+                                          ZTooltip(
+                                            message:
+                                                "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                            child: const Icon(
+                                              LucideIcons.alertCircle,
+                                              size: 14,
+                                              color: Colors.orange,
                                             ),
-                                          CompositedTransformTarget(
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+                                        Expanded(
+                                          child: CompositedTransformTarget(
                                             link: row.priceListLink,
-                                            child: SizedBox(
-                                              width: 120,
-                                              height: 32,
-                                              child: MouseRegion(
-                                                onEnter: (_) {
-                                                  final pl =
-                                                      applicablePriceLists
-                                                          .where(
-                                                            (pl) =>
-                                                                pl.id ==
-                                                                row.priceListId,
-                                                          )
-                                                          .firstOrNull;
-                                                  if (pl != null) {
-                                                    _showValueTooltip(
-                                                      context,
-                                                      pl.name,
-                                                      row.priceListLink,
-                                                    );
+                                            child: MouseRegion(
+                                              onEnter: (_) {
+                                                final pl =
+                                                    applicablePriceLists
+                                                        .where(
+                                                          (pl) =>
+                                                              pl.id ==
+                                                              row.priceListId,
+                                                        )
+                                                        .firstOrNull;
+                                                if (pl != null) {
+                                                  _showValueTooltip(
+                                                    context,
+                                                    pl.name,
+                                                    row.priceListLink,
+                                                  );
+                                                }
+                                              },
+                                              onExit: (_) {
+                                                _hideValueTooltip();
+                                              },
+                                              child: FormDropdown<PriceList>(
+                                                key: ValueKey('row_${row.itemId}_price_list'),
+                                                allowClear: true,
+                                                value: applicablePriceLists
+                                                    .where(
+                                                      (pl) =>
+                                                          pl.id ==
+                                                          row.priceListId,
+                                                    )
+                                                    .firstOrNull,
+                                                height: 32,
+                                                hint: 'Apply Price List',
+                                                padding:
+                                                    const EdgeInsets.only(
+                                                      right: 10,
+                                                    ),
+                                                menuWidth: 250,
+                                                items: applicablePriceLists,
+                                                displayStringForValue: (v) =>
+                                                    v.name,
+                                                itemBuilder:
+                                                    (
+                                                      item,
+                                                      isSelected,
+                                                      isHovered,
+                                                    ) => _dropdownItemBuilder(
+                                                      item.name,
+                                                      isSelected,
+                                                      isHovered,
+                                                    ),
+                                                onChanged: (v) {
+                                                  if (v != null) {
+                                                    final baseRate =
+                                                        row
+                                                            .item
+                                                            ?.sellingPrice ??
+                                                        0;
+                                                    final rate = v
+                                                        .calculatePrice(
+                                                          row.itemId,
+                                                          baseRate,
+                                                          productName: row.item?.productName,
+                                                        );
+                                                    setState(() {
+                                                      row.priceListId = v.id;
+                                                      row.rateCtrl.text = rate
+                                                          .toStringAsFixed(2);
+                                                      _calculateTotals();
+                                                    });
+                                                  } else {
+                                                    setState(() {
+                                                      row.priceListId = null;
+                                                      final baseRate =
+                                                          row.item?.sellingPrice ?? 0;
+                                                      row.rateCtrl.text =
+                                                          baseRate.toStringAsFixed(2);
+                                                      _calculateTotals();
+                                                    });
                                                   }
                                                 },
-                                                onExit: (_) {
-                                                  _hideValueTooltip();
-                                                },
-                                                child: FormDropdown<PriceList>(
-                                                  value: applicablePriceLists
-                                                      .where(
-                                                        (pl) =>
-                                                            pl.id ==
-                                                            row.priceListId,
-                                                      )
-                                                      .firstOrNull,
-                                                  height: 32,
-                                                  hint: 'Apply Price List',
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        right: 10,
-                                                      ),
-                                                  menuWidth: 250,
-                                                  items: applicablePriceLists,
-                                                  displayStringForValue: (v) =>
-                                                      v.name,
-                                                  itemBuilder:
-                                                      (
-                                                        item,
-                                                        isSelected,
-                                                        isHovered,
-                                                      ) => _dropdownItemBuilder(
-                                                        item.name,
-                                                        isSelected,
-                                                        isHovered,
-                                                      ),
-                                                  onChanged: (v) {
-                                                    if (v != null) {
-                                                      final baseRate =
-                                                          row
-                                                              .item
-                                                              ?.sellingPrice ??
-                                                          0;
-                                                      final rate = v
-                                                          .calculatePrice(
-                                                            row.itemId,
-                                                            baseRate,
-                                                          );
-                                                      setState(() {
-                                                        row.priceListId = v.id;
-                                                        row.rateCtrl.text = rate
-                                                            .toStringAsFixed(2);
-                                                        _calculateTotals();
-                                                      });
-                                                    }
-                                                  },
-                                                ),
                                               ),
                                             ),
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                   if (_showRecentTransactions) ...[
@@ -3430,7 +3426,7 @@ class _SalesOrderCreateScreenState
                         _vLine(),
                         // TAX
                         Expanded(
-                          flex: 4,
+                          flex: 6,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -6440,7 +6436,10 @@ class _SalesOrderCreateScreenState
           Row(
             children: [
               GestureDetector(
-                onTap: () => _showAddressDialog(title: label),
+                onTap: () => _showAddressDialog(
+                  isBilling: label.contains('BILLING'),
+                  isAdditional: false,
+                ),
                 child: const Text(
                   'New Address',
                   style: TextStyle(
@@ -6534,8 +6533,14 @@ class _SalesOrderCreateScreenState
   List<Map<String, dynamic>> _getAllCustomerAddresses(SalesCustomer customer) {
     final list = <Map<String, dynamic>>[];
     
-    final hasBilling = (customer.billingAddressStreet1 != null && customer.billingAddressStreet1!.isNotEmpty) ||
-        (customer.billingAddressCity != null && customer.billingAddressCity!.isNotEmpty);
+    final hasBilling = [
+      customer.billingAddressStreet1,
+      customer.billingAddressStreet2,
+      customer.billingAddressCity,
+      customer.billingAddressZip,
+      customer.billingAddressCountryId,
+      customer.billingAddressStateId,
+    ].any((v) => v != null && v.toString().isNotEmpty);
     if (hasBilling) {
       list.add({
         'attention': customer.companyName ?? customer.displayName,
@@ -6551,8 +6556,14 @@ class _SalesOrderCreateScreenState
       });
     }
 
-    final hasShipping = (customer.shippingAddressStreet1 != null && customer.shippingAddressStreet1!.isNotEmpty) ||
-        (customer.shippingAddressCity != null && customer.shippingAddressCity!.isNotEmpty);
+    final hasShipping = [
+      customer.shippingAddressStreet1,
+      customer.shippingAddressStreet2,
+      customer.shippingAddressCity,
+      customer.shippingAddressZip,
+      customer.shippingAddressCountryId,
+      customer.shippingAddressStateId,
+    ].any((v) => v != null && v.toString().isNotEmpty);
     if (hasShipping) {
       list.add({
         'attention': customer.companyName ?? customer.displayName,
@@ -6739,7 +6750,10 @@ class _SalesOrderCreateScreenState
                           InkWell(
                             onTap: () {
                               _closeAddressDropdownOverlay();
-                              _showAddressDialog(title: isBilling ? 'BILLING ADDRESS' : 'SHIPPING ADDRESS');
+                              _showAddressDialog(
+                                isBilling: isBilling,
+                                isAdditional: true,
+                              );
                             },
                             child: Container(
                               height: 40,
@@ -6790,6 +6804,37 @@ class _SalesOrderCreateScreenState
     final country = address['country'] as String? ?? '';
     final phone = address['phone'] as String? ?? '';
 
+    final countries = ref.read(countriesProvider(null)).value ?? [];
+    final countryMap = countries.firstWhere(
+      (item) => item['id'] == country || item['shortCode'] == country,
+      orElse: () => <String, String>{},
+    );
+    final countryName = countryMap['name'] ?? country;
+
+    final states = (country.isNotEmpty)
+        ? (ref.read(statesProvider(country)).value ?? [])
+        : [];
+    final stateMap = states
+        .where((item) => item['id'] == state || item['code'] == state)
+        .firstOrNull;
+    final stateName = stateMap != null ? stateMap['name'] : state;
+
+    final bool isAddrBilling = address['is_default_billing'] == true ||
+        address['address_type'] == 'billing';
+    final bool isAddrShipping = address['is_default_shipping'] == true ||
+        address['address_type'] == 'shipping';
+
+    bool canEdit = true;
+    if (isBilling) {
+      if (isAddrShipping && !isAddrBilling) {
+        canEdit = false;
+      }
+    } else {
+      if (isAddrBilling && !isAddrShipping) {
+        canEdit = false;
+      }
+    }
+
     final activeAddress = {
       'attention': customer.companyName ?? customer.displayName,
       'street1': isBilling ? customer.billingAddressStreet1 ?? '' : customer.shippingAddressStreet1 ?? '',
@@ -6800,13 +6845,14 @@ class _SalesOrderCreateScreenState
       'country': isBilling ? customer.billingAddressCountryId ?? '' : customer.shippingAddressCountryId ?? '',
       'phone': isBilling ? customer.billingAddressPhone ?? '' : customer.shippingAddressPhone ?? '',
     };
-    final isSelected = _areAddressesEqual(activeAddress, address);
+    final isSelected = _areAddressesEqual(activeAddress, address) &&
+        (isBilling ? isAddrBilling : isAddrShipping);
 
     final lines = <String>[
       if (street1.isNotEmpty) street1,
       if (street2.isNotEmpty) street2,
-      [city, state, zip].where((s) => s.isNotEmpty).join(', '),
-      if (country.isNotEmpty) country,
+      [city, stateName, zip].where((s) => s.isNotEmpty).join(', '),
+      if (countryName.isNotEmpty) countryName,
       if (phone.isNotEmpty) 'Phone: $phone',
     ];
 
@@ -6870,11 +6916,14 @@ class _SalesOrderCreateScreenState
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (isHovered)
+                          if (isHovered && canEdit)
                             GestureDetector(
                               onTap: () {
                                 _closeAddressDropdownOverlay();
-                                _showAddressDialog(title: isBilling ? 'BILLING ADDRESS' : 'SHIPPING ADDRESS');
+                                _showAddressDialog(
+                                  isBilling: isBilling,
+                                  initialAddress: address,
+                                );
                               },
                               child: Icon(
                                 LucideIcons.pencil,
@@ -6906,7 +6955,11 @@ class _SalesOrderCreateScreenState
     );
   }
 
-  void _showAddressDialog({required String title}) {
+  void _showAddressDialog({
+    required bool isBilling,
+    Map<String, dynamic>? initialAddress,
+    bool isAdditional = false,
+  }) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -6914,27 +6967,54 @@ class _SalesOrderCreateScreenState
       barrierColor: Colors.black.withValues(alpha: 0.4),
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (ctx, _, __) {
-        final isBilling = title.contains('BILLING');
         final c = _selectedCustomer;
-        final initialAddress = {
+        
+        final hasBilling = [
+          c?.billingAddressStreet1,
+          c?.billingAddressStreet2,
+          c?.billingAddressCity,
+          c?.billingAddressZip,
+          c?.billingAddressCountryId,
+          c?.billingAddressStateId,
+        ].any((v) => v != null && v.toString().isNotEmpty);
+
+        final hasShipping = [
+          c?.shippingAddressStreet1,
+          c?.shippingAddressStreet2,
+          c?.shippingAddressCity,
+          c?.shippingAddressZip,
+          c?.shippingAddressCountryId,
+          c?.shippingAddressStateId,
+        ].any((v) => v != null && v.toString().isNotEmpty);
+
+        final hasAnyAddress = hasBilling || hasShipping;
+
+        final String dialogTitle;
+        if (initialAddress != null) {
+          dialogTitle = isBilling ? 'Billing Address' : 'Shipping Address';
+        } else {
+          if (isAdditional && hasAnyAddress) {
+            dialogTitle = 'New Additional Address';
+          } else {
+            dialogTitle = isBilling ? 'New Billing Address' : 'New Shipping Address';
+          }
+        }
+            
+        final Map<String, dynamic> existingAddress = initialAddress ?? {
           'companyName': c?.companyName,
           'attention': '',
-          'street1': isBilling
-              ? c?.billingAddressStreet1
-              : c?.shippingAddressStreet1,
-          'street2': isBilling
-              ? c?.billingAddressStreet2
-              : c?.shippingAddressStreet2,
-          'city': isBilling ? c?.billingAddressCity : c?.shippingAddressCity,
-          'zip': isBilling ? c?.billingAddressZip : c?.shippingAddressZip,
-          'phone': isBilling ? c?.billingAddressPhone : c?.shippingAddressPhone,
-          'country': isBilling ? c?.billingAddressCountryId : c?.shippingAddressCountryId,
-          'state': isBilling ? c?.billingAddressStateId : c?.shippingAddressStateId,
+          'street1': '',
+          'street2': '',
+          'city': '',
+          'zip': '',
+          'phone': '',
+          'country': '',
+          'state': '',
         };
 
         return AddressDialog(
-          title: title,
-          initialAddress: initialAddress,
+          title: dialogTitle,
+          initialAddress: existingAddress,
           onSave: (val) async {
             if (c == null) return;
             
@@ -6947,6 +7027,10 @@ class _SalesOrderCreateScreenState
             final country = val['country'] as String?; // UUID
             final countryName = val['countryName'] as String?; // Name
             final phone = val['phone'] as String?;
+
+            final saveAsBilling = initialAddress != null
+                ? (initialAddress['address_type'] == 'billing' || initialAddress['is_default_billing'] == true)
+                : isBilling;
 
             // Resolve billing & shipping country UUIDs
             final countriesList = ref.read(countriesProvider(null)).value ?? [];
@@ -6990,7 +7074,7 @@ class _SalesOrderCreateScreenState
             final shippingStateUuid = shippingStateObj['id'] ?? c.shippingAddressStateId;
 
             setState(() {
-              if (isBilling) {
+              if (saveAsBilling) {
                 _selectedCustomer = _selectedCustomer?.copyWith(
                   billingAddressStreet1: street1,
                   billingAddressStreet2: street2,
@@ -7015,23 +7099,23 @@ class _SalesOrderCreateScreenState
 
             try {
               final billingAddressPayload = {
-                'street1': isBilling ? street1 : c.billingAddressStreet1,
-                'place': isBilling ? street2 : c.billingAddressStreet2,
-                'city': isBilling ? city : c.billingAddressCity,
-                'stateId': isBilling ? state : billingStateUuid, // UUID
-                'zip': isBilling ? zip : c.billingAddressZip,
-                'countryId': isBilling ? country : billingCountryUuid, // UUID
-                'phone': isBilling ? phone : c.billingAddressPhone,
+                'street1': saveAsBilling ? street1 : c.billingAddressStreet1,
+                'place': saveAsBilling ? street2 : c.billingAddressStreet2,
+                'city': saveAsBilling ? city : c.billingAddressCity,
+                'stateId': saveAsBilling ? state : billingStateUuid, // UUID
+                'zip': saveAsBilling ? zip : c.billingAddressZip,
+                'countryId': saveAsBilling ? country : billingCountryUuid, // UUID
+                'phone': saveAsBilling ? phone : c.billingAddressPhone,
               };
 
               final shippingAddressPayload = {
-                'street1': !isBilling ? street1 : c.shippingAddressStreet1,
-                'place': !isBilling ? street2 : c.shippingAddressStreet2,
-                'city': !isBilling ? city : c.shippingAddressCity,
-                'stateId': !isBilling ? state : shippingStateUuid, // UUID
-                'zip': !isBilling ? zip : c.shippingAddressZip,
-                'countryId': !isBilling ? country : shippingCountryUuid, // UUID
-                'phone': !isBilling ? phone : c.shippingAddressPhone,
+                'street1': !saveAsBilling ? street1 : c.shippingAddressStreet1,
+                'place': !saveAsBilling ? street2 : c.shippingAddressStreet2,
+                'city': !saveAsBilling ? city : c.shippingAddressCity,
+                'stateId': !saveAsBilling ? state : shippingStateUuid, // UUID
+                'zip': !saveAsBilling ? zip : c.shippingAddressZip,
+                'countryId': !saveAsBilling ? country : shippingCountryUuid, // UUID
+                'phone': !saveAsBilling ? phone : c.shippingAddressPhone,
               };
 
               await ref.read(salesOrderControllerProvider.notifier).updateCustomer(
@@ -7428,7 +7512,7 @@ class _SalesOrderCreateScreenState
                       rows.insert(
                         idx + 1,
                         _createItemRow(
-                          quantity: '1',
+                          quantity: '',
                           rate: '0',
                           discount: '0',
                         ),

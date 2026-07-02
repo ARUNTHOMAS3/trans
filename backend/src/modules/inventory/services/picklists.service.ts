@@ -743,28 +743,66 @@ export class PicklistsService {
         });
       }
 
+      const lineIds = (items ?? []).map((item: any) => item.id).filter(Boolean);
+      const pickedMap = new Map<string, number>();
+
+      if (lineIds.length > 0) {
+        const { data: activePicklists } = await client
+          .from("picklist_master")
+          .select("id")
+          .eq("entity_id", tenant.entityId)
+          .eq("is_delete", false)
+          .neq("status", "CANCELLED")
+          .neq("status", "Cancelled");
+
+        const activeIds = (activePicklists ?? []).map((p: any) => p.id);
+        if (activeIds.length > 0) {
+          const { data: pickedData } = await client
+            .from("picklist_items")
+            .select("sales_order_line_id, qty_picked")
+            .in("sales_order_line_id", lineIds)
+            .in("picklist_id", activeIds);
+
+          if (pickedData) {
+            for (const row of pickedData) {
+              const lineId = row.sales_order_line_id;
+              const qty = Number(row.qty_picked) || 0;
+              pickedMap.set(lineId, (pickedMap.get(lineId) || 0) + qty);
+            }
+          }
+        }
+      }
+
       return {
-        data: items.map((item: any) => ({
-          id: item.id || "",
-          warehouseId: item.warehouse_id || warehouseId,
-          productId: item.product_id || "",
-          salesOrderId: item.sales_order_id || "",
-          salesOrderLineId: item.id || "",
-          customerId: item.sales_orders?.customer_id || "",
-          productCode: item.products?.sku || "",
-          productName: item.products?.product_name || "",
-          currentStock: 0,
-          quantityOnHand: 0,
-          availableQuantity: Number(item.quantity) || 0,
-          quantityToPick: Number(item.quantity) || 0,
-          quantityOrdered: Number(item.quantity) || 0,
-          orderNumber: item.sales_orders?.sale_number || "",
-          customerName:
-            item.sales_orders?.customers?.display_name || "Walk-in Customer",
-          preferredBin:
-            item.products?.storage_conditions?.location_name || "N/A",
-          unit: item.products?.units?.unit_name || item.products?.unit_id || "",
-        })),
+        data: items.map((item: any) => {
+          const ordered = Number(item.quantity) || 0;
+          const alreadyPicked = pickedMap.get(item.id) || 0;
+          const toPick = Math.max(0, ordered - alreadyPicked);
+
+          return {
+            id: item.id || "",
+            warehouseId: item.warehouse_id || warehouseId,
+            productId: item.product_id || "",
+            salesOrderId: item.sales_order_id || "",
+            salesOrderLineId: item.id || "",
+            customerId: item.sales_orders?.customer_id || "",
+            productCode: item.products?.sku || "",
+            productName: item.products?.product_name || "",
+            currentStock: 0,
+            quantityOnHand: 0,
+            availableQuantity: toPick,
+            quantityToPick: toPick,
+            quantityOrdered: ordered,
+            quantityPicked: alreadyPicked,
+            quantity_picked: alreadyPicked,
+            orderNumber: item.sales_orders?.sale_number || "",
+            customerName:
+              item.sales_orders?.customers?.display_name || "Walk-in Customer",
+            preferredBin:
+              item.products?.storage_conditions?.location_name || "N/A",
+            unit: item.products?.units?.unit_name || item.products?.unit_id || "",
+          };
+        }),
         meta: {
           page,
           limit,

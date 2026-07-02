@@ -50,7 +50,6 @@ import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_price
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_overview_page.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_create_page.dart';
-import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_edit_page.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/models/branch_pricelist_model.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_screen.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_update_screen.dart';
@@ -1115,7 +1114,7 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) {
                 final id = state.pathParameters['id'];
                 final extra = state.extra as BranchPriceList?;
-                return BranchPriceListEditScreen(
+                return BranchPriceListCreateScreen(
                   branchPriceList: extra,
                   branchPriceListId: id,
                 );

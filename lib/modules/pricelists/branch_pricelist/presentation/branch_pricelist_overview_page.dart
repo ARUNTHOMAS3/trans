@@ -371,10 +371,17 @@ class _BranchPriceListOverviewScreenState
                           Divider(height: 1, color: AppTheme.borderColor),
                       itemBuilder: (context, index) {
                         final pl = sortedLists[index];
-                        final detailsText =
-                            pl.priceListType == 'individual_items'
-                                ? 'Per Item Rate'
-                                : (pl.details ?? '-');
+                        String detailsText = '-';
+                        if (pl.priceListType == 'individual_items') {
+                          detailsText = 'Per Item Rate';
+                        } else if (pl.percentageValue != null && pl.percentageType != null) {
+                          final pctType = pl.percentageType!.isEmpty
+                              ? ''
+                              : (pl.percentageType![0].toUpperCase() + pl.percentageType!.substring(1).toLowerCase());
+                          detailsText = '${pl.percentageValue!.toStringAsFixed(0)}% $pctType';
+                        } else {
+                          detailsText = pl.details ?? '-';
+                        }
                         final roundOffText =
                             (pl.roundOffPreference?.isNotEmpty ?? false)
                                 ? pl.roundOffPreference!
@@ -386,13 +393,7 @@ class _BranchPriceListOverviewScreenState
                           roundOffText: roundOffText,
                           pricingSchemeDisplay:
                               _getPricingSchemeDisplay(pl.pricingScheme),
-                          onTap: () => context.go(
-                            AppRoutes.branchPriceListsEdit.replaceAll(
-                              ':id',
-                              pl.id,
-                            ),
-                            extra: pl,
-                          ),
+                          onTap: () {},
                           onAction: (action) =>
                               _handleAction(context, ref, action, pl),
                         );

@@ -46,6 +46,16 @@ class BranchPriceListRepositoryImpl implements BranchPriceListRepository {
   }
 
   Map<String, dynamic> _toCreatePayload(BranchPriceList priceList) {
+    String? pctType;
+    double? pctValue;
+    if (priceList.priceListType == 'all_items' && priceList.details != null) {
+      final parts = priceList.details!.split('% ');
+      if (parts.length == 2) {
+        pctValue = double.tryParse(parts[0]);
+        pctType = parts[1].toLowerCase();
+      }
+    }
+
     return {
       'name': priceList.name,
       'description': priceList.description,
@@ -63,6 +73,8 @@ class BranchPriceListRepositoryImpl implements BranchPriceListRepository {
       'price_scope': 'BRANCH',
       'branch_entity_ids': priceList.associatedBranches ?? const [],
       'item_rates': priceList.itemRates?.map((e) => e.toJson()).toList() ?? const [],
+      'percentage_type': pctType,
+      'percentage_value': pctValue,
     };
   }
 

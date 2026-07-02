@@ -21,6 +21,8 @@ PriceList _$PriceListFromJson(Map<String, dynamic> json) => PriceList(
       itemRates: (json['item_rates'] as List<dynamic>?)
           ?.map((e) => PriceListItemRate.fromJson(e as Map<String, dynamic>))
           .toList(),
+      percentageType: json['percentage_type'] as String?,
+      percentageValue: (json['percentage_value'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -38,6 +40,8 @@ Map<String, dynamic> _$PriceListToJson(PriceList instance) => <String, dynamic>{
       'transaction_type': instance.transactionType,
       'discount_enabled': instance.isDiscountEnabled,
       'item_rates': instance.itemRates?.map((e) => e.toJson()).toList(),
+      'percentage_type': instance.percentageType,
+      'percentage_value': instance.percentageValue,
       'created_at': instance.createdAt.toIso8601String(),
       'updated_at': instance.updatedAt.toIso8601String(),
     };

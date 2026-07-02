@@ -1862,7 +1862,13 @@ class _SalesInvoiceCreateScreenState
     final pl = matchingPls.first;
     final itemIncluded =
         pl.priceListType != 'individual_items' ||
-        (pl.itemRates?.any((r) => r.itemId == row.itemId) ?? false);
+        (pl.itemRates?.any((r) =>
+            r.itemId == row.itemId ||
+            r.itemId == row.item?.productName ||
+            (r.itemName != null &&
+                row.item != null &&
+                r.itemName!.toLowerCase() == row.item!.productName.toLowerCase())) ??
+            false);
     if (!itemIncluded) {
       final fallbackRate = (row.item!.sellingPrice ?? 0).toDouble();
       row.rateCtrl.text = fallbackRate == 0
@@ -1876,6 +1882,7 @@ class _SalesInvoiceCreateScreenState
       row.itemId,
       (row.item!.sellingPrice ?? 0).toDouble(),
       quantity: qty,
+      productName: row.item?.productName,
     );
 
     // Update rate if it changed
@@ -2805,6 +2812,8 @@ class _SalesInvoiceCreateScreenState
                                       )
                                       .toList();
                                   return FormDropdown<String>(
+                                    key: const ValueKey('si_main_price_list'),
+                                    allowClear: true,
                                     value: priceListId,
                                     height: 36,
                                     textStyle: TextStyle(
@@ -3454,7 +3463,13 @@ class _SalesInvoiceCreateScreenState
       if (pl.id == row.priceListId) return true;
       if (pl.priceListType == 'all_items') return true;
       if (pl.priceListType == 'individual_items') {
-        return pl.itemRates?.any((r) => r.itemId == row.itemId) ?? false;
+        return pl.itemRates?.any((r) =>
+            r.itemId == row.itemId ||
+            r.itemId == row.item?.productName ||
+            (r.itemName != null &&
+                row.item != null &&
+                r.itemName!.toLowerCase() == row.item!.productName.toLowerCase())) ??
+            false;
       }
       return false;
     }).toList();
@@ -3467,7 +3482,12 @@ class _SalesInvoiceCreateScreenState
     if (currentPriceList != null && row.itemId.isNotEmpty) {
       if (currentPriceList.priceListType == 'individual_items') {
         notIncluded =
-            !(currentPriceList.itemRates?.any((r) => r.itemId == row.itemId) ??
+            !(currentPriceList.itemRates?.any((r) =>
+                r.itemId == row.itemId ||
+                r.itemId == row.item?.productName ||
+                (r.itemName != null &&
+                    row.item != null &&
+                    r.itemName!.toLowerCase() == row.item!.productName.toLowerCase())) ??
                 false);
       }
     } else if (currentPriceListId != null && row.itemId.isNotEmpty) {
@@ -4029,6 +4049,8 @@ class _SalesInvoiceCreateScreenState
                                                   _hideValueTooltip();
                                                 },
                                                 child: FormDropdown<PriceList>(
+                                                  key: ValueKey('row_${row.itemId}_price_list'),
+                                                  allowClear: true,
                                                   value: applicablePriceLists
                                                       .where(
                                                         (pl) =>
@@ -4069,11 +4091,21 @@ class _SalesInvoiceCreateScreenState
                                                           .calculatePrice(
                                                             row.itemId,
                                                             baseRate,
+                                                            productName: row.item?.productName,
                                                           );
                                                       setState(() {
                                                         row.priceListId = v.id;
                                                         row.rateCtrl.text = rate
                                                             .toStringAsFixed(2);
+                                                        _calculateTotals();
+                                                      });
+                                                    } else {
+                                                      setState(() {
+                                                        row.priceListId = null;
+                                                        final baseRate =
+                                                            row.item?.sellingPrice ?? 0;
+                                                        row.rateCtrl.text =
+                                                            baseRate.toStringAsFixed(2);
                                                         _calculateTotals();
                                                       });
                                                     }

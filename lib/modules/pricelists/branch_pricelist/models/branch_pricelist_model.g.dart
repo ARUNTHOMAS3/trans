@@ -33,6 +33,8 @@ BranchPriceList _$BranchPriceListFromJson(Map<String, dynamic> json) =>
       associatedBranches: (json['associated_branches'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
+      percentageType: json['percentage_type'] as String?,
+      percentageValue: (json['percentage_value'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -55,6 +57,8 @@ Map<String, dynamic> _$BranchPriceListToJson(BranchPriceList instance) =>
       'end_date': instance.endDate?.toIso8601String(),
       'item_rates': instance.itemRates?.map((e) => e.toJson()).toList(),
       'associated_branches': instance.associatedBranches,
+      'percentage_type': instance.percentageType,
+      'percentage_value': instance.percentageValue,
       'created_at': instance.createdAt.toIso8601String(),
       'updated_at': instance.updatedAt.toIso8601String(),
     };

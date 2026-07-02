@@ -2808,27 +2808,34 @@ class _DispatchEntrypassDialogState
   }
 
   void _loadInitialData() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final picklistsAsync = ref.read(picklistsProvider);
-      picklistsAsync.whenData((all) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        final all = await ref.read(picklistsProvider.future);
+        if (!mounted) return;
         setState(() {
           if (widget.initialPicklist != null) {
             _allPicklists = [widget.initialPicklist!];
             _selectedIds.add(widget.initialPicklist!.id ?? '');
           } else {
             _allPicklists = all.where((p) {
-              final isApproved = p.status.toUpperCase() == 'APPROVED';
+              final statusUpper = p.status.toUpperCase();
+              final isEligible = statusUpper == 'APPROVED' || statusUpper == 'COMPLETED';
               if (_showEntrypassOnly) {
-                return isApproved && p.isEntrypass == true;
+                return isEligible && p.isEntrypass == true;
               } else {
-                return isApproved && p.isEntrypass == false;
+                return isEligible && p.isEntrypass == false;
               }
             }).toList();
           }
           _filterPicklists();
           _isLoading = false;
         });
-      });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -2903,6 +2910,8 @@ class _DispatchEntrypassDialogState
       insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 40), // Top padding 0
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(8),
+          topRight: Radius.circular(8),
           bottomLeft: Radius.circular(8),
           bottomRight: Radius.circular(8),
         ),
@@ -2982,7 +2991,9 @@ class _DispatchEntrypassDialogState
           ),
           const SizedBox(height: 24),
           Text(
-            'No approved records found',
+            _showEntrypassOnly
+                ? 'No approved records found'
+                : 'No pending records found',
             style: TextStyle(
               color: AppTheme.textSecondary.withValues(alpha: 0.5),
               fontSize: 13,
@@ -3019,15 +3030,14 @@ class _DispatchEntrypassDialogState
             ),
           ),
         ),
-        // Table Header
         Container(
           color: AppTheme.bgLight,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.only(left: 12, right: 24, top: 12, bottom: 12),
           child: Row(
             children: [
               if (!_showEntrypassOnly)
                 SizedBox(
-                  width: 40,
+                  width: 30,
                   child: Checkbox(
                     value: allSelected,
                     onChanged: _toggleAll,
@@ -3035,7 +3045,7 @@ class _DispatchEntrypassDialogState
                   ),
                 )
               else
-                const SizedBox(width: 40),
+                const SizedBox(width: 30),
               const Expanded(
                 flex: 1,
                 child: Text('DATE', style: _tableHeaderStyle),
@@ -3073,19 +3083,19 @@ class _DispatchEntrypassDialogState
               ),
               const Expanded(
                 flex: 1,
-                child: Text('STATUS', style: _tableHeaderStyle),
+                child: Text('STATUS', style: _tableHeaderStyle, textAlign: TextAlign.center),
               ),
               const Expanded(
                 flex: 2,
-                child: Text('ASSIGNEE', style: _tableHeaderStyle),
+                child: Text('ASSIGNEE', style: _tableHeaderStyle, textAlign: TextAlign.center),
               ),
               const Expanded(
                 flex: 2,
-                child: Text('LOCATION', style: _tableHeaderStyle),
+                child: Text('LOCATION', style: _tableHeaderStyle, textAlign: TextAlign.center),
               ),
               const Expanded(
                 flex: 2,
-                child: Text('NOTES', style: _tableHeaderStyle),
+                child: Text('NOTES', style: _tableHeaderStyle, textAlign: TextAlign.center),
               ),
             ],
           ),
@@ -3104,15 +3114,17 @@ class _DispatchEntrypassDialogState
               return InkWell(
                 onTap: () => _toggleSelection(p.id ?? ''),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
+                  padding: const EdgeInsets.only(
+                    left: 12,
+                    right: 24,
+                    top: 14,
+                    bottom: 14,
                   ),
                   child: Row(
                     children: [
                       if (!_showEntrypassOnly)
                         SizedBox(
-                          width: 40,
+                          width: 30,
                           child: Checkbox(
                             value: isSelected,
                             onChanged: (_) => _toggleSelection(p.id ?? ''),
@@ -3120,7 +3132,7 @@ class _DispatchEntrypassDialogState
                           ),
                         )
                       else
-                        const SizedBox(width: 40),
+                        const SizedBox(width: 30),
                       Expanded(
                         flex: 1,
                         child: Text(
@@ -3134,6 +3146,7 @@ class _DispatchEntrypassDialogState
                         flex: 2,
                         child: Text(
                           p.picklistNumber,
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -3144,6 +3157,7 @@ class _DispatchEntrypassDialogState
                         flex: 2,
                         child: Text(
                           p.salesOrderNumber ?? '-',
+                          textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
@@ -3151,18 +3165,22 @@ class _DispatchEntrypassDialogState
                         flex: 2,
                         child: Text(
                           p.customerName ?? '-',
+                          textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Expanded(
+                      Expanded(
                         flex: 1,
                         child: Text(
-                          'Approved',
+                          p.status.toUpperCase() == 'APPROVED' ? 'Approved' : 'Completed',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF009688),
+                            color: p.status.toUpperCase() == 'APPROVED'
+                                ? const Color(0xFF009688)
+                                : const Color(0xFF1E8E3E),
                           ),
                         ),
                       ),
@@ -3170,6 +3188,7 @@ class _DispatchEntrypassDialogState
                         flex: 2,
                         child: Text(
                           p.assignee ?? '-',
+                          textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
@@ -3177,6 +3196,7 @@ class _DispatchEntrypassDialogState
                         flex: 2,
                         child: Text(
                           p.location ?? '-',
+                          textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
@@ -3184,6 +3204,7 @@ class _DispatchEntrypassDialogState
                         flex: 2,
                         child: Text(
                           p.notes ?? '-',
+                          textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -3253,12 +3274,9 @@ class _DispatchEntrypassDialogState
                     }
 
                     // Optional: Show success toast or navigate
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Generated Entrypass for ${selectedPicklists.length} picklists',
-                        ),
-                      ),
+                    ZerpaiToast.success(
+                      context,
+                      'Generated Entrypass for ${selectedPicklists.length} picklists',
                     );
 
                     Navigator.pop(context);
@@ -3282,60 +3300,71 @@ class _DispatchEntrypassDialogState
     TextEditingController controller,
     VoidCallback onToggle,
   ) {
+    if (!isSearching) {
+      return Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: _tableHeaderStyle,
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              onPressed: onToggle,
+              icon: const Icon(LucideIcons.search, size: 14),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              splashRadius: 16,
+              color: AppTheme.textSecondary,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Row(
       children: [
-        if (!isSearching) ...[
-          Expanded(child: Text(label, style: _tableHeaderStyle)),
-          IconButton(
-            onPressed: onToggle,
-            icon: const Icon(LucideIcons.search, size: 14),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            splashRadius: 16,
-            color: AppTheme.textSecondary,
-          ),
-        ] else ...[
-          Expanded(
-            child: SizedBox(
-              height: 24,
-              child: TextField(
-                controller: controller,
-                autofocus: true,
-                onChanged: (_) => _filterPicklists(),
-                style: const TextStyle(fontSize: 12),
-                decoration: InputDecoration(
-                  hintText: 'Search...',
-                  hintStyle: const TextStyle(fontSize: 11),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 0,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: AppTheme.borderColor),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: AppTheme.primaryBlue),
-                  ),
-                  isDense: true,
-                  suffixIcon: InkWell(
-                    onTap: () {
-                      controller.clear();
-                      onToggle();
-                      _filterPicklists();
-                    },
-                    child: const Icon(
-                      LucideIcons.x,
-                      size: 12,
-                      color: AppTheme.textSecondary,
-                    ),
+        Expanded(
+          child: SizedBox(
+            height: 24,
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              onChanged: (_) => _filterPicklists(),
+              style: const TextStyle(fontSize: 12),
+              decoration: InputDecoration(
+                hintText: 'Search...',
+                hintStyle: const TextStyle(fontSize: 11),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 0,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                ),
+                isDense: true,
+                suffixIcon: InkWell(
+                  onTap: () {
+                    controller.clear();
+                    onToggle();
+                    _filterPicklists();
+                  },
+                  child: const Icon(
+                    LucideIcons.x,
+                    size: 12,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ],
     );
   }

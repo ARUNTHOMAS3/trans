@@ -21,7 +21,6 @@ const HEADER_FIELDS = [
   "description",
   "currency",
   "pricing_scheme",
-  "details",
   "round_off_preference",
   "status",
   "price_list_type",
@@ -378,25 +377,147 @@ export class PriceListController {
   private async saveBranchAssignments(
     sb: ReturnType<SupabaseService["getClient"]>,
     priceListId: string,
-    branchEntityIds: string[] = [],
+    branchNamesOrIds: string[] = [],
   ) {
+    const fs = require("fs");
+    const path = require("path");
+    const logDir = path.join(process.cwd(), "logs");
+    const logPath = path.join(logDir, "branch_assignments_debug.log");
+
+    try {
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+    } catch (e) {
+      console.error("Failed to create log dir", e);
+    }
+
+    const log = (msg: string) => {
+      try {
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`);
+      } catch (e) {
+        console.error("Failed to write to log", e);
+      }
+    };
+
+    log(`saveBranchAssignments called with priceListId: ${priceListId}, branchNamesOrIds: ${JSON.stringify(branchNamesOrIds)}`);
+
     const { error: deleteErr } = await sb
       .from("branch_price_list_assignments")
       .delete()
       .eq("price_list_id", priceListId);
-    if (deleteErr) throw deleteErr;
+    if (deleteErr) {
+      log(`Delete existing assignments error: ${deleteErr.message}`);
+      throw deleteErr;
+    }
 
-    if (branchEntityIds.length === 0) return;
+    if (branchNamesOrIds.length === 0) {
+      log("No branchNamesOrIds provided, returning.");
+      return;
+    }
 
-    const rows = Array.from(new Set(branchEntityIds)).map((branchEntityId) => ({
-      price_list_id: priceListId,
-      branch_entity_id: branchEntityId,
-    }));
+    const uniqueList = Array.from(new Set(branchNamesOrIds.map(x => x.trim()))).filter(x => x.length > 0);
+    if (uniqueList.length === 0) {
+      log("uniqueList is empty after trim, returning.");
+      return;
+    }
+
+    // Fetch all branch entities from organisation_branch_master robustly
+    const { data: masterBranches, error: fetchMasterErr } = await sb
+      .from("organisation_branch_master")
+      .select("id, name, type, ref_id");
+
+    if (fetchMasterErr) {
+      log(`Fetch organisation_branch_master error: ${fetchMasterErr.message}`);
+      throw fetchMasterErr;
+    }
+
+    // Fetch all branch details from branches table to resolve local names
+    const { data: realBranches, error: fetchRealErr } = await sb
+      .from("branches")
+      .select("id, name");
+
+    if (fetchRealErr) {
+      log(`Fetch branches error: ${fetchRealErr.message}`);
+      throw fetchRealErr;
+    }
+
+    log(`Fetched master branches: ${JSON.stringify(masterBranches)}`);
+    log(`Fetched real branches: ${JSON.stringify(realBranches)}`);
+
+    const rows = [];
+    for (const nameOrId of uniqueList) {
+      // 1. Try to find a match in the branches table (by name or by id)
+      const branchMatch = (realBranches ?? []).find(
+        (b) =>
+          b.id === nameOrId ||
+          (b.name && b.name.trim().toLowerCase() === nameOrId.toLowerCase()) ||
+          (b.name && b.name.trim().toLowerCase().includes(nameOrId.toLowerCase())) ||
+          (b.name && nameOrId.toLowerCase().includes(b.name.trim().toLowerCase()))
+      );
+
+      if (branchMatch) {
+        // Find corresponding master branch entity
+        const masterMatch = (masterBranches ?? []).find(
+          (m) => m.ref_id === branchMatch.id
+        );
+
+        log(`Matched "${nameOrId}" to branch: name="${branchMatch.name}", branches.id="${branchMatch.id}", master.id="${masterMatch?.id ?? 'none'}"`);
+
+        rows.push({
+          price_list_id: priceListId,
+          branch_entity_id: masterMatch ? masterMatch.id : branchMatch.id,
+          branch_id: branchMatch.id,
+        });
+      } else {
+        // 2. Try to find match in organisation_branch_master as fallback
+        const masterMatch = (masterBranches ?? []).find(
+          (b) =>
+            b.id === nameOrId ||
+            b.ref_id === nameOrId ||
+            (b.name && b.name.trim().toLowerCase() === nameOrId.toLowerCase())
+        );
+
+        if (masterMatch) {
+          log(`Matched "${nameOrId}" via master fallback: id="${masterMatch.id}", ref_id="${masterMatch.ref_id}"`);
+          rows.push({
+            price_list_id: priceListId,
+            branch_entity_id: masterMatch.id,
+            branch_id: masterMatch.ref_id || masterMatch.id,
+          });
+        } else {
+          // 3. Fallback for UUID
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(nameOrId);
+          if (isUuid) {
+            log(`"${nameOrId}" is valid UUID, using fallback.`);
+            rows.push({
+              price_list_id: priceListId,
+              branch_entity_id: nameOrId,
+              branch_id: nameOrId,
+            });
+          } else {
+            log(`"${nameOrId}" not resolved, skipped.`);
+          }
+        }
+      }
+    }
+
+    if (rows.length === 0) {
+      log("No resolved rows to insert, returning.");
+      return;
+    }
+
+    log(`Inserting rows into branch_price_list_assignments: ${JSON.stringify(rows)}`);
 
     const { error: insertErr } = await sb
       .from("branch_price_list_assignments")
       .insert(rows);
-    if (insertErr) throw insertErr;
+    if (insertErr) {
+      log(`Insert assignments error: ${insertErr.message}`);
+      throw insertErr;
+    }
+
+    log("Successfully saved branch assignments.");
   }
 
   private async loadBranchAssignments(

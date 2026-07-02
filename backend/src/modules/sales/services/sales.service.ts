@@ -174,44 +174,42 @@ export class SalesService {
     if (order?.customer_id) {
       const { data: customerData } = await client
         .from("customers")
-        .select(
-          `
-          id,
-          display_name,
-          first_name,
-          last_name,
-          company_name,
-          billing_address_street_1:billing_address_street,
-          billing_address_street_2:billing_address_place,
-          billing_address_city:billing_address_city,
-          billing_address_zip:billing_address_zip,
-          billing_address_state_id:billing_address_state_id,
-          billing_address_country_id:billing_address_country_id,
-          billing_address_phone:billing_address_phone,
-          shipping_address_street_1:shipping_address_street,
-          shipping_address_street_2:shipping_address_place,
-          shipping_address_city:shipping_address_city,
-          shipping_address_zip:shipping_address_zip,
-          shipping_address_state_id:shipping_address_state_id,
-          shipping_address_country_id:shipping_address_country_id,
-          shipping_address_phone:shipping_address_phone,
-          billing_state:states!customers_billing_address_state_id_states_id_fk(name),
-          billing_country:countries!customers_billing_address_country_id_fkey(name),
-          shipping_state:states!customers_shipping_address_state_id_states_id_fk(name),
-          shipping_country:countries!customers_shipping_address_country_id_fkey(name)
-        `,
-        )
+        .select("id, display_name, first_name, last_name, company_name")
         .eq("id", order.customer_id)
         .maybeSingle();
 
       if (customerData) {
-        customer = {
-          ...customerData,
-          billing_address_state_id: (customerData as any).billing_state?.name || customerData.billing_address_state_id,
-          billing_address_country_id: (customerData as any).billing_country?.name || customerData.billing_address_country_id,
-          shipping_address_state_id: (customerData as any).shipping_state?.name || customerData.shipping_address_state_id,
-          shipping_address_country_id: (customerData as any).shipping_country?.name || customerData.shipping_address_country_id,
-        };
+        customer = { ...customerData };
+        const { data: addresses } = await client
+          .from("customer_addresses")
+          .select("*")
+          .eq("customer_id", order.customer_id)
+          .eq("is_active", true);
+
+        if (addresses) {
+          const billing = addresses.find((a) => a.is_default_billing) ||
+                          addresses.find((a) => a.address_type === "billing");
+          if (billing) {
+            customer.billing_address_street_1 = billing.address_street;
+            customer.billing_address_street_2 = billing.address_place;
+            customer.billing_address_city = billing.city;
+            customer.billing_address_zip = billing.pincode;
+            customer.billing_address_state_id = billing.state;
+            customer.billing_address_country_id = billing.country_region;
+            customer.billing_address_phone = billing.phone;
+          }
+          const shipping = addresses.find((a) => a.is_default_shipping) ||
+                           addresses.find((a) => a.address_type === "shipping");
+          if (shipping) {
+            customer.shipping_address_street_1 = shipping.address_street;
+            customer.shipping_address_street_2 = shipping.address_place;
+            customer.shipping_address_city = shipping.city;
+            customer.shipping_address_zip = shipping.pincode;
+            customer.shipping_address_state_id = shipping.state;
+            customer.shipping_address_country_id = shipping.country_region;
+            customer.shipping_address_phone = shipping.phone;
+          }
+        }
       }
     }
 
@@ -932,44 +930,42 @@ export class SalesService {
     if (invoice?.customer_id) {
       const { data: customerData } = await client
         .from("customers")
-        .select(
-          `
-          id,
-          display_name,
-          first_name,
-          last_name,
-          company_name,
-          billing_address_street_1:billing_address_street,
-          billing_address_street_2:billing_address_place,
-          billing_address_city:billing_address_city,
-          billing_address_zip:billing_address_zip,
-          billing_address_state_id:billing_address_state_id,
-          billing_address_country_id:billing_address_country_id,
-          billing_address_phone:billing_address_phone,
-          shipping_address_street_1:shipping_address_street,
-          shipping_address_street_2:shipping_address_place,
-          shipping_address_city:shipping_address_city,
-          shipping_address_zip:shipping_address_zip,
-          shipping_address_state_id:shipping_address_state_id,
-          shipping_address_country_id:shipping_address_country_id,
-          shipping_address_phone:shipping_address_phone,
-          billing_state:states!customers_billing_address_state_id_states_id_fk(name),
-          billing_country:countries!customers_billing_address_country_id_fkey(name),
-          shipping_state:states!customers_shipping_address_state_id_states_id_fk(name),
-          shipping_country:countries!customers_shipping_address_country_id_fkey(name)
-        `,
-        )
+        .select("id, display_name, first_name, last_name, company_name")
         .eq("id", invoice.customer_id)
         .maybeSingle();
 
       if (customerData) {
-        customer = {
-          ...customerData,
-          billing_address_state_id: (customerData as any).billing_state?.name || customerData.billing_address_state_id,
-          billing_address_country_id: (customerData as any).billing_country?.name || customerData.billing_address_country_id,
-          shipping_address_state_id: (customerData as any).shipping_state?.name || customerData.shipping_address_state_id,
-          shipping_address_country_id: (customerData as any).shipping_country?.name || customerData.shipping_address_country_id,
-        };
+        customer = { ...customerData };
+        const { data: addresses } = await client
+          .from("customer_addresses")
+          .select("*")
+          .eq("customer_id", invoice.customer_id)
+          .eq("is_active", true);
+
+        if (addresses) {
+          const billing = addresses.find((a) => a.is_default_billing) ||
+                          addresses.find((a) => a.address_type === "billing");
+          if (billing) {
+            customer.billing_address_street_1 = billing.address_street;
+            customer.billing_address_street_2 = billing.address_place;
+            customer.billing_address_city = billing.city;
+            customer.billing_address_zip = billing.pincode;
+            customer.billing_address_state_id = billing.state;
+            customer.billing_address_country_id = billing.country_region;
+            customer.billing_address_phone = billing.phone;
+          }
+          const shipping = addresses.find((a) => a.is_default_shipping) ||
+                           addresses.find((a) => a.address_type === "shipping");
+          if (shipping) {
+            customer.shipping_address_street_1 = shipping.address_street;
+            customer.shipping_address_street_2 = shipping.address_place;
+            customer.shipping_address_city = shipping.city;
+            customer.shipping_address_zip = shipping.pincode;
+            customer.shipping_address_state_id = shipping.state;
+            customer.shipping_address_country_id = shipping.country_region;
+            customer.shipping_address_phone = shipping.phone;
+          }
+        }
       }
     }
 

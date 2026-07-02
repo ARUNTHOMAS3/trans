@@ -175,6 +175,13 @@ export class CustomersService {
       throw new Error(`Failed to create customer: ${customerError.message}`);
     }
 
+    if (createCustomerDto.billingAddress) {
+      await this.saveAddress(customer.id, tenant, 'billing', createCustomerDto.billingAddress);
+    }
+    if (createCustomerDto.shippingAddress) {
+      await this.saveAddress(customer.id, tenant, 'shipping', createCustomerDto.shippingAddress);
+    }
+
     await this.sequencesService.incrementSequence(
       "customer",
       tenant,
@@ -235,29 +242,65 @@ export class CustomersService {
       includeCreateDefaults: false,
     });
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("customers")
-      .update(payload)
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .select()
-      .single();
+    // Clean undefined values from payload
+    const cleanedPayload = Object.fromEntries(
+      Object.entries(payload).filter(([_, v]) => v !== undefined)
+    );
 
-    if (error) {
-      if (error.message.includes("customers_customer_number_key")) {
-        throw new Error("Customer number already exists");
+    let customerData: any = null;
+    if (Object.keys(cleanedPayload).length > 0) {
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from("customers")
+        .update(cleanedPayload)
+        .eq("id", id)
+        .eq("entity_id", tenant.entityId)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.message.includes("customers_customer_number_key")) {
+          throw new Error("Customer number already exists");
+        }
+        if (
+          error.code == "PGRST116" ||
+          error.message.toLowerCase().includes("no rows")
+        ) {
+          return null;
+        }
+        throw new Error(`Failed to update customer: ${error.message}`);
       }
-      if (
-        error.code == "PGRST116" ||
-        error.message.toLowerCase().includes("no rows")
-      ) {
-        return null;
+      customerData = data;
+    } else {
+      // Just fetch the existing customer
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from("customers")
+        .select()
+        .eq("id", id)
+        .eq("entity_id", tenant.entityId)
+        .single();
+
+      if (error) {
+        if (
+          error.code == "PGRST116" ||
+          error.message.toLowerCase().includes("no rows")
+        ) {
+          return null;
+        }
+        throw new Error(`Failed to fetch customer: ${error.message}`);
       }
-      throw new Error(`Failed to update customer: ${error.message}`);
+      customerData = data;
     }
 
-    return this.mapCustomer(data);
+    if (updateCustomerDto.billingAddress) {
+      await this.saveAddress(id, tenant, 'billing', updateCustomerDto.billingAddress);
+    }
+    if (updateCustomerDto.shippingAddress) {
+      await this.saveAddress(id, tenant, 'shipping', updateCustomerDto.shippingAddress);
+    }
+
+    return this.mapCustomer(customerData);
   }
 
   async bulkUpdate(
@@ -445,26 +488,6 @@ export class CustomersService {
       privilege_card_number: dto.privilegeCardNumber,
       parent_customer_id: dto.parentCustomerId,
 
-      // Billing Address
-      billing_address_street:
-        dto.billingAddress?.street1 ?? dto.billingAddress?.street,
-      billing_address_place: dto.billingAddress?.place,
-      billing_address_city: dto.billingAddress?.city,
-      billing_address_state_id: dto.billingAddress?.stateId,
-      billing_address_zip: dto.billingAddress?.zip,
-      billing_address_country_id: dto.billingAddress?.countryId,
-      billing_address_phone: dto.billingAddress?.phone,
-
-      // Shipping Address
-      shipping_address_street:
-        dto.shippingAddress?.street1 ?? dto.shippingAddress?.street,
-      shipping_address_place: dto.shippingAddress?.place,
-      shipping_address_city: dto.shippingAddress?.city,
-      shipping_address_state_id: dto.shippingAddress?.stateId,
-      shipping_address_zip: dto.shippingAddress?.zip,
-      shipping_address_country_id: dto.shippingAddress?.countryId,
-      shipping_address_phone: dto.shippingAddress?.phone,
-
       // Tax & Regulatory
       gst_treatment: dto.gstTreatment,
       gstin: dto.gstin,
@@ -631,7 +654,103 @@ export class CustomersService {
       }
     }
 
+    // Fetch addresses from customer_addresses
+    try {
+      const client = this.supabaseService.getClient();
+      const { data: addresses, error: addrError } = await client
+        .from("customer_addresses")
+        .select("*")
+        .eq("customer_id", customer.id)
+        .eq("is_active", true);
+
+      if (!addrError && addresses) {
+        const billing = addresses.find((a) => a.is_default_billing) ||
+                        addresses.find((a) => a.address_type === "billing");
+        if (billing) {
+          customer.billingAddressStreet1 = billing.address_street;
+          customer.billingAddressStreet2 = billing.address_place;
+          customer.billingAddressCity = billing.city;
+          customer.billingAddressStateId = billing.state;
+          customer.billingAddressZip = billing.pincode;
+          customer.billingAddressCountryId = billing.country_region;
+          customer.billingAddressPhone = billing.phone;
+        }
+
+        const shipping = addresses.find((a) => a.is_default_shipping) ||
+                         addresses.find((a) => a.address_type === "shipping");
+        if (shipping) {
+          customer.shippingAddressStreet1 = shipping.address_street;
+          customer.shippingAddressStreet2 = shipping.address_place;
+          customer.shippingAddressCity = shipping.city;
+          customer.shippingAddressStateId = shipping.state;
+          customer.shippingAddressZip = shipping.pincode;
+          customer.shippingAddressCountryId = shipping.country_region;
+          customer.shippingAddressPhone = shipping.phone;
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to map customer addresses for ${customer.id}:`, e);
+    }
+
     return customer;
+  }
+
+  private async saveAddress(
+    customerId: string,
+    tenant: TenantContext,
+    addressType: 'billing' | 'shipping',
+    addressDto: any,
+  ) {
+    if (!addressDto) return;
+
+    try {
+      const client = this.supabaseService.getClient();
+
+      // Check if address already exists
+      const { data: existing } = await client
+        .from("customer_addresses")
+        .select("id")
+        .eq("customer_id", customerId)
+        .eq("address_type", addressType)
+        .maybeSingle();
+
+      const addressData: any = {
+        entity_id: tenant.entityId,
+        customer_id: customerId,
+        address_type: addressType,
+        address_street: addressDto.street1 ?? addressDto.street,
+        address_place: addressDto.place,
+        city: addressDto.city,
+        state: addressDto.stateId,
+        pincode: addressDto.zip,
+        country_region: addressDto.countryId ?? 'India',
+        phone: addressDto.phone,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existing?.id) {
+        const { error: updateError } = await client
+          .from("customer_addresses")
+          .update(addressData)
+          .eq("id", existing.id);
+        if (updateError) {
+          console.error(`Failed to update customer ${addressType} address: ${updateError.message}`);
+        }
+      } else {
+        addressData.is_default_billing = addressType === 'billing';
+        addressData.is_default_shipping = addressType === 'shipping';
+        addressData.created_at = new Date().toISOString();
+        const { error: insertError } = await client
+          .from("customer_addresses")
+          .insert(addressData);
+        if (insertError) {
+          console.error(`Failed to insert customer ${addressType} address: ${insertError.message}`);
+        }
+      }
+    } catch (e) {
+      console.error(`Error in saveAddress:`, e);
+    }
   }
 
   private isUuid(value?: string | null): boolean {
