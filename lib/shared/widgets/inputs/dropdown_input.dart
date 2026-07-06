@@ -463,12 +463,12 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     return true;
   }
 
-  Offset _calculateOverlayOffset(Size fieldSize, double overlayHeight) {
-    if (!mounted) return Offset(0, fieldSize.height + 4);
+  Offset _calculateOverlayOffset(Size fieldSize, bool showBelow) {
+    if (!mounted) return const Offset(0, 4);
 
     final targetBox = context.findRenderObject() as RenderBox?;
     if (targetBox == null || !targetBox.hasSize) {
-      return Offset(0, fieldSize.height + 4);
+      return const Offset(0, 4);
     }
 
     final targetGlobal = targetBox.localToGlobal(Offset.zero);
@@ -477,10 +477,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     final rightOverflow = (targetGlobal.dx + fieldSize.width) - screenWidth;
     final double xOffset = rightOverflow > 0 ? -(rightOverflow + 8) : 0;
 
-    final bool showBelow = _shouldShowBelow(fieldSize, overlayHeight);
-    final double yOffset = showBelow ? (fieldSize.height + 4) : (-overlayHeight - 4);
-
-    return Offset(xOffset, yOffset);
+    return Offset(xOffset, showBelow ? 4 : -4);
   }
 
   Widget _buildDropdownOverlay() {
@@ -580,10 +577,6 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
         : listHeight;
     final bool shouldShowListScrollbar =
         (_filteredItems.length * effectiveRowHeight) > contentListHeight;
-    final double overlayHeight =
-        (reservedHeight + contentListHeight + _borderWidth)
-            .clamp(0, effectiveMaxHeight)
-            .toDouble();
 
     return Stack(
       children: [
@@ -596,7 +589,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
         ),
         CompositedTransformFollower(
           link: _layerLink,
-          offset: _calculateOverlayOffset(size, overlayHeight),
+          targetAnchor: showBelow ? Alignment.bottomLeft : Alignment.topLeft,
+          followerAnchor: showBelow ? Alignment.topLeft : Alignment.bottomLeft,
+          offset: _calculateOverlayOffset(size, showBelow),
           showWhenUnlinked: false,
           child: Material(
             elevation: 6,

@@ -15,6 +15,7 @@ final purchaseOrdersProvider =
       ref,
       filter,
     ) async {
+      ref.watch(entityProvider);
       final repository = ref.read(purchaseOrderRepositoryProvider);
       return repository.getPurchaseOrders(
         page: filter.page,

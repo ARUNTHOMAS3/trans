@@ -131,8 +131,10 @@ class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
     state = const AsyncValue.loading();
     try {
       final sales = await _apiService.getSalesOrders();
+      if (!mounted) return;
       state = AsyncValue.data(sales);
     } catch (e, stack) {
+      if (!mounted) return;
       state = AsyncValue.error(e, stack);
     }
   }

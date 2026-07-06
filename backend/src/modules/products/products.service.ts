@@ -2055,7 +2055,7 @@ export class ProductsService {
     const scope = this.resolveScope(tenant);
     const { data, error } = await supabase
       .from("warehouses")
-      .select("id, name, is_active")
+      .select("id, name, is_active, entity_id")
       .eq("entity_id", scope.entityId)
       .eq("is_active", true)
       .order("name", { ascending: true });

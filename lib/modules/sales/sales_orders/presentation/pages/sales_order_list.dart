@@ -269,9 +269,16 @@ class _SalesOrderOverviewScreenState
   List<_SalesOrderColumnConfig> get _visibleColumns =>
       _columnConfigs.where((column) => column.visible).toList();
 
+  final Map<String, _SoStatusSummary> _statusSummaries = {};
+  List<SalesOrder>? _lastLoadedOrders;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(salesOrderControllerProvider);
+      ref.invalidate(warehousesProvider);
+    });
     _columnConfigs = _defaultColumnConfigs();
 
     _searchController = TextEditingController(
@@ -484,6 +491,248 @@ class _SalesOrderOverviewScreenState
     ];
   }
 
+  Future<void> _fetchStatusSummaries(List<SalesOrder> sales) async {
+    if (sales.isEmpty) return;
+
+    final orderIds = sales.map((o) => o.id).toList();
+    if (_lastLoadedOrders != null && _lastLoadedOrders!.length == sales.length) {
+      final match = _lastLoadedOrders!.every((o) => orderIds.contains(o.id));
+      if (match) return;
+    }
+    _lastLoadedOrders = List.from(sales);
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      // 1. Invoices
+      final invLinks = await supabase
+          .from('invoice_sales_orders')
+          .select('sales_order_id, invoice_id')
+          .inFilter('sales_order_id', orderIds);
+      final invLinkList = List<Map<String, dynamic>>.from(invLinks as List);
+      final invoiceIds = invLinkList.map((l) => l['invoice_id'] as String).toList();
+
+      List<Map<String, dynamic>> invoiceItemsList = [];
+      if (invoiceIds.isNotEmpty) {
+        final invItems = await supabase
+            .from('invoice_items')
+            .select('invoice_id, product_id, quantity')
+            .inFilter('invoice_id', invoiceIds);
+        invoiceItemsList = List<Map<String, dynamic>>.from(invItems as List);
+      }
+
+      final Map<String, Map<String, double>> orderInvoicedQtys = {};
+      for (final link in invLinkList) {
+        final soId = link['sales_order_id'] as String;
+        final invId = link['invoice_id'] as String;
+        final items = invoiceItemsList.where((i) => i['invoice_id'] == invId);
+
+        orderInvoicedQtys.putIfAbsent(soId, () => {});
+        for (final item in items) {
+          final prodId = item['product_id'] as String;
+          final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
+          orderInvoicedQtys[soId]![prodId] = (orderInvoicedQtys[soId]![prodId] ?? 0.0) + qty;
+        }
+      }
+
+      // 2. Packages
+      final packItems = await supabase
+          .from('inventory_package_items')
+          .select('sales_order_id, product_id, quantity')
+          .inFilter('sales_order_id', orderIds);
+      final packItemsList = List<Map<String, dynamic>>.from(packItems as List);
+
+      final Map<String, Map<String, double>> orderPackQtys = {};
+      for (final item in packItemsList) {
+        final soId = item['sales_order_id'] as String?;
+        if (soId == null) continue;
+        final prodId = item['product_id'] as String;
+        final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
+
+        orderPackQtys.putIfAbsent(soId, () => {});
+        orderPackQtys[soId]![prodId] = (orderPackQtys[soId]![prodId] ?? 0.0) + qty;
+      }
+
+      // 3. Shipments
+      final shipLinks = await supabase
+          .from('inventory_shipment_sales_orders')
+          .select('sales_order_id, shipment_id')
+          .inFilter('sales_order_id', orderIds);
+      final shipLinkList = List<Map<String, dynamic>>.from(shipLinks as List);
+      final shipmentIds = shipLinkList.map((l) => l['shipment_id'] as String).toList();
+
+      List<Map<String, dynamic>> shipPackList = [];
+      if (shipmentIds.isNotEmpty) {
+        final shipPacks = await supabase
+            .from('inventory_shipment_packages')
+            .select('shipment_id, package_id')
+            .inFilter('shipment_id', shipmentIds);
+        shipPackList = List<Map<String, dynamic>>.from(shipPacks as List);
+      }
+      final shipPackageIds = shipPackList.map((l) => l['package_id'] as String).toList();
+
+      List<Map<String, dynamic>> shipPackItemsList = [];
+      if (shipPackageIds.isNotEmpty) {
+        final packItems = await supabase
+            .from('inventory_package_items')
+            .select('package_id, product_id, quantity')
+            .inFilter('package_id', shipPackageIds);
+        shipPackItemsList = List<Map<String, dynamic>>.from(packItems as List);
+      }
+
+      final Map<String, Map<String, double>> orderShippedQtys = {};
+      for (final link in shipLinkList) {
+        final soId = link['sales_order_id'] as String;
+        final shipId = link['shipment_id'] as String;
+        final packages = shipPackList.where((p) => p['shipment_id'] == shipId).map((p) => p['package_id'] as String).toSet();
+        final items = shipPackItemsList.where((i) => packages.contains(i['package_id']));
+
+        orderShippedQtys.putIfAbsent(soId, () => {});
+        for (final item in items) {
+          final prodId = item['product_id'] as String;
+          final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
+          orderShippedQtys[soId]![prodId] = (orderShippedQtys[soId]![prodId] ?? 0.0) + qty;
+        }
+      }
+
+      // 4. Picklists
+      final pickItems = await supabase
+          .from('picklist_items')
+          .select('sales_order_id, product_id, qty_ordered, qty_picked')
+          .inFilter('sales_order_id', orderIds);
+      final pickItemsList = List<Map<String, dynamic>>.from(pickItems as List);
+
+      final Map<String, Map<String, double>> orderPickedQtys = {};
+      for (final item in pickItemsList) {
+        final soId = item['sales_order_id'] as String?;
+        if (soId == null) continue;
+        final prodId = item['product_id'] as String;
+        final qty = double.tryParse(item['qty_picked']?.toString() ?? '0') ?? 0.0;
+
+        orderPickedQtys.putIfAbsent(soId, () => {});
+        orderPickedQtys[soId]![prodId] = (orderPickedQtys[soId]![prodId] ?? 0.0) + qty;
+      }
+
+      // 5. Enforce Status Calculation
+      for (final order in sales) {
+        final items = order.items ?? [];
+        if (items.isEmpty) {
+          _statusSummaries[order.id] = const _SoStatusSummary(
+            invoiceStatus: 'none',
+            packageStatus: 'none',
+            shipmentStatus: 'none',
+            picklistStatus: 'none',
+          );
+          continue;
+        }
+
+        double totalOrdered = 0.0;
+        double totalInvoiced = 0.0;
+        double totalPackaged = 0.0;
+        double totalShipped = 0.0;
+        double totalPicked = 0.0;
+
+        for (final item in items) {
+          final qty = item.quantity;
+          totalOrdered += qty;
+
+          final prodId = item.itemId;
+          if (prodId.isNotEmpty) {
+            totalInvoiced += orderInvoicedQtys[order.id]?[prodId] ?? 0.0;
+            totalPackaged += orderPackQtys[order.id]?[prodId] ?? 0.0;
+            totalShipped += orderShippedQtys[order.id]?[prodId] ?? 0.0;
+            totalPicked += orderPickedQtys[order.id]?[prodId] ?? 0.0;
+          }
+        }
+
+        final invStatus = totalInvoiced <= 0.0
+            ? 'none'
+            : totalInvoiced < totalOrdered - 0.001
+            ? 'partial'
+            : 'full';
+
+        final pkgStatus = totalPackaged <= 0.0
+            ? 'none'
+            : totalPackaged < totalOrdered - 0.001
+            ? 'partial'
+            : 'full';
+
+        final shpStatus = totalShipped <= 0.0
+            ? 'none'
+            : totalShipped < totalOrdered - 0.001
+            ? 'partial'
+            : 'full';
+
+        final pckStatus = totalPicked <= 0.0
+            ? 'none'
+            : totalPicked < totalOrdered - 0.001
+            ? 'partial'
+            : 'full';
+
+        _statusSummaries[order.id] = _SoStatusSummary(
+          invoiceStatus: invStatus,
+          packageStatus: pkgStatus,
+          shipmentStatus: shpStatus,
+          picklistStatus: pckStatus,
+        );
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error fetching status summaries: $e');
+    }
+  }
+
+  Widget _buildStatusCircle(String status, Color color, double width, String tooltip) {
+    Widget ball;
+    if (status == 'full') {
+      ball = Icon(
+        Icons.circle,
+        color: color,
+        size: 12,
+      );
+    } else if (status == 'partial') {
+      ball = Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            Icons.circle_outlined,
+            color: color,
+            size: 12,
+          ),
+          ClipRect(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              widthFactor: 0.5,
+              child: Icon(
+                Icons.circle,
+                color: color,
+                size: 12,
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      ball = const Icon(
+        Icons.circle,
+        color: Colors.grey,
+        size: 12,
+      );
+    }
+    return SizedBox(
+      width: width,
+      child: Center(
+        child: ZTooltip(
+          message: tooltip,
+          child: ball,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final salesAsync = ref.watch(salesOrderControllerProvider);
@@ -502,6 +751,9 @@ class _SalesOrderOverviewScreenState
           subtitle: '$error',
         ),
         data: (sales) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _fetchStatusSummaries(sales);
+          });
           _selectedSaleIds = _selectedSaleIds
               .where((id) => sales.any((sale) => sale.id == id))
               .toSet();
@@ -2398,12 +2650,13 @@ class _SalesOrderOverviewScreenState
           alignCenter: true,
         );
       case _SalesOrderColumnKey.invoiced:
-        return _StateDot(
-          width: w,
-          active: _isInvoiced(sale),
-          tooltip: _invoiceLabel(sale),
-          activeIcon: LucideIcons.fileText,
-        );
+        final status = _statusSummaries[sale.id]?.invoiceStatus ?? 'none';
+        final tooltip = status == 'full'
+            ? 'Invoiced'
+            : status == 'partial'
+                ? 'Partially Invoiced'
+                : 'Not Invoiced';
+        return _buildStatusCircle(status, Colors.blue, w, tooltip);
       case _SalesOrderColumnKey.payment:
         return _StateDot(
           width: w,
@@ -2413,19 +2666,21 @@ class _SalesOrderOverviewScreenState
         );
 
       case _SalesOrderColumnKey.packed:
-        return _StateDot(
-          width: w,
-          active: _isPacked(sale),
-          tooltip: _isPacked(sale) ? 'Packed' : 'Not Packed',
-          activeIcon: LucideIcons.package,
-        );
+        final status = _statusSummaries[sale.id]?.packageStatus ?? 'none';
+        final tooltip = status == 'full'
+            ? 'Packed'
+            : status == 'partial'
+                ? 'Partially Packed'
+                : 'Not Packed';
+        return _buildStatusCircle(status, Colors.orange, w, tooltip);
       case _SalesOrderColumnKey.shipped:
-        return _StateDot(
-          width: w,
-          active: _isShipped(sale),
-          tooltip: _shipmentLabel(sale),
-          activeIcon: LucideIcons.truck,
-        );
+        final status = _statusSummaries[sale.id]?.shipmentStatus ?? 'none';
+        final tooltip = status == 'full'
+            ? 'Shipped'
+            : status == 'partial'
+                ? 'Partially Shipped'
+                : 'Not Shipped';
+        return _buildStatusCircle(status, Colors.green, w, tooltip);
       case _SalesOrderColumnKey.amount:
         return _Cell(
           width: w,
@@ -2485,12 +2740,13 @@ class _SalesOrderOverviewScreenState
           child: _tableText(sale.customer?.billingAddressStateId ?? '—'),
         );
       case _SalesOrderColumnKey.picked:
-        return _StateDot(
-          width: w,
-          active: _isPacked(sale),
-          tooltip: _isPacked(sale) ? 'Picked' : 'Not Picked',
-          activeIcon: LucideIcons.checkSquare,
-        );
+        final status = _statusSummaries[sale.id]?.picklistStatus ?? 'none';
+        final tooltip = status == 'full'
+            ? 'Picked'
+            : status == 'partial'
+                ? 'Partially Picked'
+                : 'Not Picked';
+        return _buildStatusCircle(status, Colors.red, w, tooltip);
       case _SalesOrderColumnKey.salesPerson:
         return _Cell(width: w, child: _tableText(sale.salesperson ?? '—'));
     }
@@ -5092,4 +5348,18 @@ $orgName''';
       },
     );
   }
+}
+
+class _SoStatusSummary {
+  final String invoiceStatus; // 'full', 'partial', 'none'
+  final String packageStatus; // 'full', 'partial', 'none'
+  final String shipmentStatus; // 'full', 'partial', 'none'
+  final String picklistStatus; // 'full', 'partial', 'none'
+
+  const _SoStatusSummary({
+    required this.invoiceStatus,
+    required this.packageStatus,
+    required this.shipmentStatus,
+    required this.picklistStatus,
+  });
 }

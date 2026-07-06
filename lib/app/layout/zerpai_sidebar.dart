@@ -354,7 +354,9 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
     final state = GoRouterState.of(context);
     final routeId = (state.pathParameters['orgSystemId'] ?? '').trim();
     if (routeId.isNotEmpty) return routeId;
-    final currentPath = GoRouter.of(context).routeInformationProvider.value.uri.path;
+    final currentPath = GoRouter.of(
+      context,
+    ).routeInformationProvider.value.uri.path;
     final match = RegExp(r'^/(\d{10,20})(?:/|$)').firstMatch(currentPath);
     return (match?.group(1) ?? '').trim();
   }

@@ -14,8 +14,10 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
     state = const AsyncValue.loading();
     try {
       final priceLists = await _service.getAllPriceLists();
+      if (!mounted) return;
       state = AsyncValue.data(priceLists);
     } catch (e) {
+      if (!mounted) return;
       state = AsyncValue.error(e.toString(), StackTrace.current);
     }
   }
@@ -25,12 +27,14 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
       for (final id in ids) {
         await _service.deletePriceList(id);
       }
+      if (!mounted) return;
       state.whenData((priceLists) {
         state = AsyncValue.data(
           priceLists.where((pl) => !ids.contains(pl.id)).toList(),
         );
       });
     } catch (e) {
+      if (!mounted) return;
       state = AsyncValue.error(e.toString(), StackTrace.current);
     }
   }
@@ -46,18 +50,20 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
           await _service.updatePriceList(match.copyWith(status: 'active'));
         }
       }
+      if (!mounted) return;
 
       state.whenData((priceLists) {
         state = AsyncValue.data(
           priceLists
-              .map(
-                (pl) =>
-                    ids.contains(pl.id) ? pl.copyWith(status: 'active') : pl,
-              )
-              .toList(),
+               .map(
+                 (pl) =>
+                     ids.contains(pl.id) ? pl.copyWith(status: 'active') : pl,
+               )
+               .toList(),
         );
       });
     } catch (e) {
+      if (!mounted) return;
       state = AsyncValue.error(e.toString(), StackTrace.current);
     }
   }
@@ -67,17 +73,19 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
       for (final id in ids) {
         await _service.deactivatePriceList(id);
       }
+      if (!mounted) return;
       state.whenData((priceLists) {
         state = AsyncValue.data(
           priceLists
-              .map(
-                (pl) =>
-                    ids.contains(pl.id) ? pl.copyWith(status: 'inactive') : pl,
-              )
-              .toList(),
+               .map(
+                 (pl) =>
+                     ids.contains(pl.id) ? pl.copyWith(status: 'inactive') : pl,
+               )
+               .toList(),
         );
       });
     } catch (e) {
+      if (!mounted) return;
       state = AsyncValue.error(e.toString(), StackTrace.current);
     }
   }
@@ -85,10 +93,12 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
   Future<void> createPriceList(PriceList priceList) async {
     try {
       final createdPriceList = await _service.createPriceList(priceList);
+      if (!mounted) return;
       state.whenData((priceLists) {
         state = AsyncValue.data([...priceLists, createdPriceList]);
       });
     } catch (e) {
+      if (!mounted) return;
       state = AsyncValue.error(e.toString(), StackTrace.current);
     }
   }
@@ -96,6 +106,7 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
   Future<void> updatePriceList(PriceList priceList) async {
     try {
       final updatedPriceList = await _service.updatePriceList(priceList);
+      if (!mounted) return;
       state.whenData((priceLists) {
         final updatedLists = priceLists.map((pl) {
           if (pl.id == updatedPriceList.id) {
@@ -106,6 +117,7 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
         state = AsyncValue.data(updatedLists);
       });
     } catch (e) {
+      if (!mounted) return;
       state = AsyncValue.error(e.toString(), StackTrace.current);
     }
   }
@@ -113,11 +125,13 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
   Future<void> deletePriceList(String id) async {
     try {
       await _service.deletePriceList(id);
+      if (!mounted) return;
       state.whenData((priceLists) {
         final updatedLists = priceLists.where((pl) => pl.id != id).toList();
         state = AsyncValue.data(updatedLists);
       });
     } catch (e) {
+      if (!mounted) return;
       state = AsyncValue.error(e.toString(), StackTrace.current);
     }
   }
@@ -125,6 +139,7 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
   Future<void> deactivatePriceList(String id) async {
     try {
       await _service.deactivatePriceList(id);
+      if (!mounted) return;
       state.whenData((priceLists) {
         final updatedLists = priceLists.map((pl) {
           if (pl.id == id) {
@@ -135,6 +150,7 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
         state = AsyncValue.data(updatedLists);
       });
     } catch (e) {
+      if (!mounted) return;
       state = AsyncValue.error(e.toString(), StackTrace.current);
     }
   }

@@ -7,6 +7,7 @@ import '../controllers/pricelist_controller.dart';
 export '../controllers/pricelist_controller.dart';
 import '../models/pricelist_model.dart';
 import '../models/pricelist_pagination.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 /// Service Provider for Price Lists
 final priceListServiceProvider = Provider<PriceListService>((ref) {
@@ -17,10 +18,13 @@ final priceListServiceProvider = Provider<PriceListService>((ref) {
 /// Notifier Provider for Price List State
 final priceListNotifierProvider =
     StateNotifierProvider<PriceListNotifier, AsyncValue<List<PriceList>>>(
-      (ref) => PriceListNotifier(
-        ref.watch(priceListServiceProvider),
-        isAuthenticated: true,
-      ),
+      (ref) {
+        ref.watch(entityProvider);
+        return PriceListNotifier(
+          ref.watch(priceListServiceProvider),
+          isAuthenticated: true,
+        );
+      },
     );
 
 /// Provider for Active Price Lists only

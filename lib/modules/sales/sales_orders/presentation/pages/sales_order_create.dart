@@ -9,6 +9,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/z_adaptive_menu.dart';
 import 'dart:convert';
+import 'package:hive/hive.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
@@ -34,6 +35,8 @@ import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_it
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
+import 'package:zerpai_erp/modules/pricelists/branch_pricelist/providers/branch_pricelist_provider.dart';
+import 'package:zerpai_erp/modules/pricelists/branch_pricelist/models/branch_pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/sales_order_item_row.dart';
 import '../widgets/sales_item_quick_edit_dialog.dart';
@@ -48,7 +51,6 @@ import '../widgets/advanced_customer_search_dialog.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/manage_simple_list_dialog.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import '../widgets/sales_order_preferences_dialog.dart';
 import 'package:zerpai_erp/modules/sales/customers/presentation/sales_customer_create.dart';
@@ -130,6 +132,7 @@ class _SalesOrderCreateScreenState
 
   DateTime salesOrderDate = DateTime.now();
   DateTime? expectedShipmentDate;
+  bool _isExpectedShipmentHovered = false;
   String? paymentTerms;
   String? deliveryMethod;
   String? salesperson;
@@ -160,7 +163,9 @@ class _SalesOrderCreateScreenState
 
   bool _showBulkUpdateToolbar = false;
   List<Map<String, dynamic>> _paymentTermsList = [];
+  String? _defaultPaymentTermId;
   List<Map<String, dynamic>> _salespersonList = [];
+  List<Map<String, dynamic>> _carriersList = [];
 
   final Set<int> _selectedRows = {};
   final _scanCtrl = TextEditingController();
@@ -237,10 +242,16 @@ class _SalesOrderCreateScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(warehousesProvider);
+      ref.invalidate(salesCustomersProvider);
+      ref.invalidate(priceListNotifierProvider);
+      ref.invalidate(branchPriceListNotifierProvider);
+    });
     salesOrderNumberCtrl = TextEditingController(
       text: '$_soPrefix$_soNextNumber',
     );
-    salesperson = 'ALTHAF';
+    salesperson = null;
     // paymentTerms = 'Net 360'; // Loaded dynamically in _loadPaymentTerms
     warehouse = '';
 
@@ -267,6 +278,7 @@ class _SalesOrderCreateScreenState
       _loadNextSalesOrderNumber();
     }
     _loadPaymentTerms();
+    _loadCarriers();
     _loadSalespersons();
     _loadTdsRates();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -410,17 +422,6 @@ class _SalesOrderCreateScreenState
       if (mounted) {
         setState(() {
           _salespersonList = persons;
-          // If salesperson is not set, we don't necessarily want to force one
-          // but we can set a default if needed.
-          if (persons.isNotEmpty && salesperson == null) {
-            // Check for ALTHAF as requested in screenshot
-            final althaf = persons.firstWhere(
-              (p) => p['name']?.toString().toUpperCase() == 'ALTHAF',
-              orElse: () => persons.first,
-            );
-            salesperson =
-                althaf['id']?.toString() ?? althaf['name']?.toString();
-          }
         });
       }
     } catch (e) {
@@ -432,21 +433,41 @@ class _SalesOrderCreateScreenState
     try {
       final lookupsService = LookupsApiService();
       final terms = await lookupsService.getPaymentTerms();
+      final dbDefaultId = await lookupsService.getDefaultPaymentTermId();
       if (mounted) {
         setState(() {
           _paymentTermsList = terms;
-          if (terms.isNotEmpty && paymentTerms == null) {
-            // Set default to Net 30 if available
-            final net30 = terms.firstWhere(
-              (t) => t['term_name'] == 'Net 30',
-              orElse: () => terms.first,
-            );
-            paymentTerms = net30['id']?.toString();
+          _defaultPaymentTermId = dbDefaultId;
+          if (paymentTerms == null && terms.isNotEmpty) {
+            final hasDefault = terms.any((t) => t['id']?.toString() == dbDefaultId);
+            if (hasDefault) {
+              paymentTerms = dbDefaultId;
+            } else {
+              final net30 = terms.firstWhere(
+                (t) => t['term_name'] == 'Net 30',
+                orElse: () => terms.first,
+              );
+              paymentTerms = net30['id']?.toString();
+            }
           }
         });
       }
     } catch (e) {
       debugPrint('Error loading payment terms: $e');
+    }
+  }
+
+  Future<void> _loadCarriers() async {
+    try {
+      final lookupsService = LookupsApiService();
+      final carriers = await lookupsService.getShipmentPreferences();
+      if (mounted) {
+        setState(() {
+          _carriersList = carriers;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading carriers: $e');
     }
   }
 
@@ -483,7 +504,7 @@ class _SalesOrderCreateScreenState
   }
 
   void _showSalesOrderPreferencesDialog() async {
-    final warehouseList = ref.read(warehousesProvider).value ?? <Warehouse>[];
+    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
     final selectedWarehouse = warehouseList.isEmpty
         ? null
         : warehouseList.firstWhere(
@@ -522,6 +543,140 @@ class _SalesOrderCreateScreenState
     }
   }
 
+  List<PriceList> _getCombinedPriceListsForBranch(String selectedBranchId) {
+    final globalPriceLists = ref.read(activeSalesPriceListsAsyncProvider).valueOrNull ?? <PriceList>[];
+    final branchPriceLists = ref.read(branchPriceListNotifierProvider).valueOrNull ?? <BranchPriceList>[];
+
+    final filteredBranchLists = branchPriceLists
+        .where((pl) =>
+            pl.status == 'active' &&
+            pl.transactionType.toLowerCase() == 'sales' &&
+            (pl.associatedBranches?.contains(selectedBranchId) ?? false))
+        .map((b) => PriceList(
+              id: b.id,
+              name: b.name,
+              description: b.description,
+              currency: b.currency,
+              pricingScheme: b.pricingScheme,
+              priceListType: b.priceListType,
+              details: b.details,
+              roundOffPreference: b.roundOffPreference,
+              status: b.status,
+              transactionType: b.transactionType,
+              isDiscountEnabled: b.isDiscountEnabled,
+              percentageType: b.percentageType,
+              percentageValue: b.percentageValue,
+              itemRates: b.itemRates
+                  ?.map((r) => PriceListItemRate(
+                        itemId: r.itemId,
+                        itemName: r.itemName,
+                        sku: r.sku,
+                        salesRate: r.salesRate,
+                        customRate: r.customRate,
+                        discountPercentage: r.discountPercentage,
+                        volumeRanges: r.volumeRanges
+                            ?.map((vr) => PriceListVolumeRange(
+                                  startQuantity: vr.startQuantity,
+                                  endQuantity: vr.endQuantity,
+                                  customRate: vr.customRate,
+                                  discountPercentage: vr.discountPercentage,
+                                ))
+                            .toList(),
+                      ))
+                  .toList(),
+              createdAt: b.createdAt,
+              updatedAt: b.updatedAt,
+            ))
+        .toList();
+
+    return <PriceList>[
+      ...globalPriceLists,
+      ...filteredBranchLists,
+    ];
+  }
+
+  List<PriceList> _getCombinedPriceLists() {
+    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
+    final selectedWh = warehouseList.firstWhere(
+      (w) => w.name == warehouse,
+      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+    );
+    final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
+    final selectedBranchId = selectedWh.entityId ?? selectedWh.branchId ?? activeEntityId ?? '';
+    return _getCombinedPriceListsForBranch(selectedBranchId);
+  }
+
+  AsyncValue<List<PriceList>> get _combinedPriceListsAsync {
+    final globalPriceListsAsync = ref.watch(activeSalesPriceListsAsyncProvider);
+    final branchPriceListsAsync = ref.watch(branchPriceListNotifierProvider);
+
+    if (globalPriceListsAsync.isLoading || branchPriceListsAsync.isLoading) {
+      return const AsyncValue.loading();
+    }
+    if (globalPriceListsAsync.hasError) {
+      return AsyncValue.error(globalPriceListsAsync.error!, globalPriceListsAsync.stackTrace!);
+    }
+
+    final globalLists = globalPriceListsAsync.valueOrNull ?? [];
+    final branchLists = branchPriceListsAsync.valueOrNull ?? [];
+
+    final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
+    final selectedWh = warehouseList.firstWhere(
+      (w) => w.name == warehouse,
+      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+    );
+    final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
+    final selectedBranchId = selectedWh.entityId ?? selectedWh.branchId ?? activeEntityId ?? '';
+
+    final filteredBranchLists = branchLists
+        .where((pl) =>
+            pl.status == 'active' &&
+            pl.transactionType.toLowerCase() == 'sales' &&
+            (pl.associatedBranches?.contains(selectedBranchId) ?? false))
+        .map((b) => PriceList(
+              id: b.id,
+              name: b.name,
+              description: b.description,
+              currency: b.currency,
+              pricingScheme: b.pricingScheme,
+              priceListType: b.priceListType,
+              details: b.details,
+              roundOffPreference: b.roundOffPreference,
+              status: b.status,
+              transactionType: b.transactionType,
+              isDiscountEnabled: b.isDiscountEnabled,
+              percentageType: b.percentageType,
+              percentageValue: b.percentageValue,
+              itemRates: b.itemRates
+                  ?.map((r) => PriceListItemRate(
+                        itemId: r.itemId,
+                        itemName: r.itemName,
+                        sku: r.sku,
+                        salesRate: r.salesRate,
+                        customRate: r.customRate,
+                        discountPercentage: r.discountPercentage,
+                        volumeRanges: r.volumeRanges
+                            ?.map((vr) => PriceListVolumeRange(
+                                  startQuantity: vr.startQuantity,
+                                  endQuantity: vr.endQuantity,
+                                  customRate: vr.customRate,
+                                  discountPercentage: vr.discountPercentage,
+                                ))
+                            .toList(),
+                      ))
+                  .toList(),
+              createdAt: b.createdAt,
+              updatedAt: b.updatedAt,
+            ))
+        .toList();
+
+    return AsyncValue.data(<PriceList>[
+      ...globalLists,
+      ...filteredBranchLists,
+    ]);
+  }
+
+
   SalesOrderItemRow _createItemRow({
     String quantity = '',
     String rate = '0',
@@ -558,8 +713,7 @@ class _SalesOrderCreateScreenState
           (c) => c.id == _selectedCustomerId,
           orElse: () => customers.first,
         );
-        final priceLists =
-            ref.read(activeSalesPriceListsAsyncProvider).asData?.value ?? [];
+        final priceLists = _getCombinedPriceLists();
         _updateRowRate(row, customer.priceList, priceLists);
       }
       _calculateTotals();
@@ -596,45 +750,7 @@ class _SalesOrderCreateScreenState
     return row;
   }
 
-  void _showManageSalespersonsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => ManageSimpleListDialog(
-        title: 'Manage Salespersons',
-        singularLabel: 'Salesperson',
-        headerLabel: 'Salesperson Name',
-        items: _salespersonList,
-        selectedId: salesperson,
-        labelKey: 'name',
-        onSelect: (item) {
-          setState(() {
-            salesperson = item['id']?.toString() ?? item['name']?.toString();
-          });
-        },
-        onSave: (items) async {
-          final lookupsService = LookupsApiService();
-          final updated = await lookupsService.syncSalespersons(items);
-          setState(() {
-            _salespersonList = updated;
-          });
-          return updated;
-        },
-        onDeleteCheck: (item) async {
-          if (item['id'] == null) return null;
-          final lookupsService = LookupsApiService();
-          final result = await lookupsService.checkLookupUsage(
-            'salespersons',
-            item['id'],
-          );
-          if (result['inUse'] == true) {
-            return result['message'] ??
-                'This salesperson is in use and cannot be deleted.';
-          }
-          return null;
-        },
-      ),
-    );
-  }
+
 
   @override
   void dispose() {
@@ -940,6 +1056,7 @@ class _SalesOrderCreateScreenState
   ) {
     if (row.item == null) return;
 
+    row.priceListId = appliedPriceListId;
     final priceListId = appliedPriceListId;
     if (priceListId == null || priceListId == 'Select') {
       final fallbackRate = (row.item!.sellingPrice ?? 0).toDouble();
@@ -1162,7 +1279,7 @@ class _SalesOrderCreateScreenState
   Widget build(BuildContext context) {
     final customersAsync = ref.watch(salesCustomersProvider);
     final itemsState = ref.watch(itemsControllerProvider);
-    final priceListsAsync = ref.watch(activeSalesPriceListsAsyncProvider);
+    final priceListsAsync = _combinedPriceListsAsync;
     final currenciesAsync = ref.watch(currenciesProvider(null));
 
     ref.listen<AsyncValue<List<Warehouse>>>(warehousesProvider, (
@@ -1176,7 +1293,8 @@ class _SalesOrderCreateScreenState
                 (w) => w.isDefaultForBranch,
                 orElse: () => warehouses.first,
               );
-        if (defaultWh != null && warehouse == '') {
+        final hasCurrentWh = warehouses.any((w) => w.name == warehouse);
+        if (defaultWh != null && (warehouse == '' || !hasCurrentWh)) {
           setState(() {
             warehouse = defaultWh.name;
           });
@@ -1301,16 +1419,17 @@ class _SalesOrderCreateScreenState
     AsyncValue<List<PriceList>> priceListsAsync,
     AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
-    final warehouseList = ref.watch(warehousesProvider).value ?? <Warehouse>[];
+    final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
     final defaultWh = warehouseList.isEmpty
         ? null
         : warehouseList.firstWhere(
             (w) => w.isDefaultForBranch,
             orElse: () => warehouseList.first,
           );
-    if (defaultWh != null && warehouse == '') {
+    final hasCurrentWh = warehouseList.any((w) => w.name == warehouse);
+    if (defaultWh != null && (warehouse == '' || !hasCurrentWh)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && warehouse == '') {
+        if (mounted && (warehouse == '' || !hasCurrentWh)) {
           setState(() {
             warehouse = defaultWh.name;
           });
@@ -1342,6 +1461,7 @@ class _SalesOrderCreateScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SharedFieldLayout(
+                        key: const ValueKey('layout_customer_name'),
                         label: 'Customer Name',
                         required: true,
                         labelWidth: 180,
@@ -1353,6 +1473,7 @@ class _SalesOrderCreateScreenState
                             SizedBox(
                               width: 550,
                               child: FormDropdown<SalesCustomer>(
+                                key: const ValueKey('so_customer_name'),
                                 enabled: !_isEditMode,
                                 value: selectedCustomerFromList,
                                 height: _kDropdownHeight,
@@ -1362,6 +1483,7 @@ class _SalesOrderCreateScreenState
                                 ),
                                 showRightBorder: false,
                                 items: customers,
+                                allowClear: !_isEditMode,
                                 hint: 'Select or add a customer',
                                 displayStringForValue: (c) => c.displayName,
                                 itemHeight: 56,
@@ -1379,7 +1501,16 @@ class _SalesOrderCreateScreenState
                                           isHovered,
                                         ),
                                 onChanged: (val) {
-                                  if (val == null) return;
+                                  if (val == null) {
+                                    setState(() {
+                                      _customerDetailsSidebarOverlay?.remove();
+                                      _customerDetailsSidebarOverlay = null;
+                                      _selectedCustomer = null;
+                                      _selectedCustomerId = null;
+                                    });
+                                    _calculateTotals();
+                                    return;
+                                  }
                                   setState(() {
                                     _customerDetailsSidebarOverlay?.remove();
                                     _customerDetailsSidebarOverlay = null;
@@ -1387,6 +1518,27 @@ class _SalesOrderCreateScreenState
                                     _selectedCustomerId = val.id;
                                     final priceLists =
                                         priceListsAsync.asData?.value ?? [];
+
+                                    if (val.paymentTerms != null && val.paymentTerms!.isNotEmpty) {
+                                      final matchingTerm = _paymentTermsList.firstWhere(
+                                        (t) => t['term_name'] == val.paymentTerms || t['id'] == val.paymentTerms,
+                                        orElse: () => <String, dynamic>{},
+                                      );
+                                      if (matchingTerm.isNotEmpty) {
+                                        paymentTerms = matchingTerm['id']?.toString();
+                                      } else {
+                                        paymentTerms = _defaultPaymentTermId;
+                                      }
+                                    } else {
+                                      paymentTerms = _defaultPaymentTermId;
+                                    }
+                                    if (paymentTerms == null && _paymentTermsList.isNotEmpty) {
+                                      final net30 = _paymentTermsList.firstWhere(
+                                        (t) => t['term_name'] == 'Net 30',
+                                        orElse: () => _paymentTermsList.first,
+                                      );
+                                      paymentTerms = net30['id']?.toString();
+                                    }
 
                                     for (var row in rows) {
                                       if (row.itemId.isNotEmpty &&
@@ -1544,6 +1696,7 @@ class _SalesOrderCreateScreenState
                         const SizedBox(height: 16),
                         // Place of Supply
                         SharedFieldLayout(
+                          key: const ValueKey('layout_place_of_supply'),
                           label: 'Place of Supply',
                           required: true,
                           labelWidth: 180,
@@ -1602,6 +1755,7 @@ class _SalesOrderCreateScreenState
               const SizedBox(height: 16),
               // Sales Order#
               SharedFieldLayout(
+                key: const ValueKey('layout_sales_order_number'),
                 label: 'Sales Order#',
                 required: true,
                 labelWidth: 180,
@@ -1649,6 +1803,7 @@ class _SalesOrderCreateScreenState
 
               // Reference#
               SharedFieldLayout(
+                key: const ValueKey('layout_reference'),
                 label: 'Reference#',
                 labelWidth: 180,
                 maxWidth: 600,
@@ -1657,6 +1812,7 @@ class _SalesOrderCreateScreenState
 
               // Sales Order Date
               SharedFieldLayout(
+                key: const ValueKey('layout_sales_order_date'),
                 label: 'Sales Order Date',
                 required: true,
                 labelWidth: 180,
@@ -1688,40 +1844,67 @@ class _SalesOrderCreateScreenState
 
               // Expected Shipment Date
               SharedFieldLayout(
+                key: const ValueKey('layout_expected_shipment_date'),
                 label: 'Expected Shipment Date',
                 labelWidth: 180,
                 maxWidth: 600,
-                child: CustomTextField(
-                  key: _expectedShipmentDateKey,
-                  controller: TextEditingController(
-                    text: expectedShipmentDate == null
-                        ? ''
-                        : intl.DateFormat(
-                            'dd-MM-yyyy',
-                          ).format(expectedShipmentDate!),
-                  ),
-                  height: 32,
-                  readOnly: true,
-                  onTap: () async {
-                    final picked = await ZerpaiDatePicker.show(
-                      context,
-                      initialDate: expectedShipmentDate ?? DateTime.now(),
-                      targetKey: _expectedShipmentDateKey,
-                    );
-                    if (picked != null) {
-                      setState(() => expectedShipmentDate = picked);
-                    }
-                  },
-                  suffixWidget: const Icon(
-                    LucideIcons.calendar,
-                    size: 16,
-                    color: _kLabelGrey,
+                child: MouseRegion(
+                  onEnter: (_) => setState(() => _isExpectedShipmentHovered = true),
+                  onExit: (_) => setState(() => _isExpectedShipmentHovered = false),
+                  child: CustomTextField(
+                    key: _expectedShipmentDateKey,
+                    controller: TextEditingController(
+                      text: expectedShipmentDate == null
+                          ? ''
+                          : intl.DateFormat(
+                              'dd-MM-yyyy',
+                            ).format(expectedShipmentDate!),
+                    ),
+                    height: 32,
+                    readOnly: true,
+                    onTap: () async {
+                      final today = DateTime.now();
+                      final startOfToday = DateTime(today.year, today.month, today.day);
+                      final initial = expectedShipmentDate ?? startOfToday;
+                      final picked = await ZerpaiDatePicker.show(
+                        context,
+                        initialDate: initial.isBefore(startOfToday) ? startOfToday : initial,
+                        firstDate: startOfToday,
+                        targetKey: _expectedShipmentDateKey,
+                      );
+                      if (picked != null) {
+                        setState(() => expectedShipmentDate = picked);
+                      }
+                    },
+                    suffixWidget: expectedShipmentDate == null
+                        ? const Icon(
+                            LucideIcons.calendar,
+                            size: 16,
+                            color: _kLabelGrey,
+                          )
+                        : (_isExpectedShipmentHovered
+                            ? InkWell(
+                                onTap: () {
+                                  setState(() => expectedShipmentDate = null);
+                                },
+                                child: const Icon(
+                                  LucideIcons.x,
+                                  size: 16,
+                                  color: Colors.red,
+                                ),
+                              )
+                            : const Icon(
+                                LucideIcons.calendar,
+                                size: 16,
+                                color: _kLabelGrey,
+                              )),
                   ),
                 ),
               ),
 
               // Payment Terms
               SharedFieldLayout(
+                key: const ValueKey('layout_payment_terms'),
                 label: 'Payment Terms',
                 labelWidth: 180,
                 maxWidth: 600,
@@ -1729,6 +1912,7 @@ class _SalesOrderCreateScreenState
                   key: const ValueKey('so_payment_terms'),
                   value: paymentTerms,
                   height: _kDropdownHeight,
+                  allowClear: true,
                   items: _paymentTermsList
                       .map((t) => t['id'] as String)
                       .toList(),
@@ -1759,6 +1943,7 @@ class _SalesOrderCreateScreenState
 
               // Delivery Method
               SharedFieldLayout(
+                key: const ValueKey('layout_delivery_method'),
                 label: 'Delivery Method',
                 labelWidth: 180,
                 maxWidth: 600,
@@ -1766,8 +1951,13 @@ class _SalesOrderCreateScreenState
                   key: const ValueKey('so_delivery_method'),
                   value: deliveryMethod,
                   height: _kDropdownHeight,
+                  allowClear: true,
+                  allowCustomValue: true,
                   hint: 'Select a delivery method or type to add',
-                  items: const ['None', 'FedEx', 'UPS', 'DHL', 'Post'],
+                  items: _carriersList
+                      .map((c) => c['name']?.toString() ?? '')
+                      .where((n) => n.isNotEmpty)
+                      .toList(),
                   itemBuilder: (item, isSelected, isHovered) =>
                       _dropdownItemBuilder(item, isSelected, isHovered),
                   onChanged: (v) => setState(() => deliveryMethod = v),
@@ -1776,6 +1966,7 @@ class _SalesOrderCreateScreenState
 
               // Salesperson
               SharedFieldLayout(
+                key: const ValueKey('layout_salesperson'),
                 label: 'Salesperson',
                 labelWidth: 180,
                 maxWidth: 600,
@@ -1784,30 +1975,24 @@ class _SalesOrderCreateScreenState
                   value: salesperson,
                   height: _kDropdownHeight,
                   allowClear: true,
-                  showSettings: true,
-                  settingsLabel: 'Manage Salespersons',
-                  onSettingsTap: _showManageSalespersonsDialog,
                   items: _salespersonList
-                      .map(
-                        (p) =>
-                            p['id']?.toString() ?? p['name']?.toString() ?? '',
-                      )
+                      .map((p) => p['id']?.toString() ?? '')
+                      .where((id) => id.isNotEmpty)
                       .toList(),
                   displayStringForValue: (val) {
                     final person = _salespersonList.firstWhere(
-                      (p) =>
-                          (p['id']?.toString() ?? p['name']?.toString()) == val,
-                      orElse: () => {'name': val},
+                      (p) => p['id']?.toString() == val,
+                      orElse: () => <String, dynamic>{},
                     );
-                    return person['name']?.toString() ?? val;
+                    return person['full_name']?.toString() ?? val;
                   },
                   itemBuilder: (id, isSelected, isHovered) {
                     final sp = _salespersonList.firstWhere(
-                      (s) => s['id'] == id,
-                      orElse: () => {'salesperson_name': id},
+                      (s) => s['id']?.toString() == id,
+                      orElse: () => <String, dynamic>{},
                     );
                     return _dropdownItemBuilder(
-                      sp['salesperson_name'] ?? id,
+                      sp['full_name']?.toString() ?? id,
                       isSelected,
                       isHovered,
                     );
@@ -1878,7 +2063,33 @@ class _SalesOrderCreateScreenState
                                 borderRadius: BorderRadius.circular(6),
                                 itemBuilder: (w, isSelected, isHovered) =>
                                     _buildStandardLookupRow(w.name, isSelected, isHovered),
-                                onChanged: (w) => setState(() => warehouse = w?.name),
+                                onChanged: (w) {
+                                  setState(() {
+                                    warehouse = w?.name;
+                                    final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
+                                    final selectedBranchId = w?.entityId ?? w?.branchId ?? activeEntityId ?? '';
+                                    final newPriceLists = _getCombinedPriceListsForBranch(selectedBranchId);
+                                    if (priceListId != null) {
+                                      final hasPl = newPriceLists.any((pl) => pl.id == priceListId);
+                                      if (!hasPl) {
+                                        priceListId = null;
+                                        for (var row in rows) {
+                                          row.priceListId = null;
+                                          _updateRowRate(row, null, newPriceLists);
+                                        }
+                                      } else {
+                                        for (var row in rows) {
+                                          _updateRowRate(row, row.priceListId ?? priceListId, newPriceLists);
+                                        }
+                                      }
+                                    } else {
+                                      for (var row in rows) {
+                                        _updateRowRate(row, row.priceListId, newPriceLists);
+                                      }
+                                    }
+                                  });
+                                  _calculateTotals();
+                                },
                               ),
                             ),
 
@@ -2554,7 +2765,8 @@ class _SalesOrderCreateScreenState
                           ),
                         ),
                         _vLine(),
-                      ],
+                      ] else
+                        const SizedBox(width: 40),
                       Expanded(
                         flex: 14,
                         child: Padding(
@@ -2774,7 +2986,7 @@ class _SalesOrderCreateScreenState
     Key? key,
   }) {
     final row = rows[idx];
-    final priceLists = priceListsAsync.value ?? [];
+    final priceLists = priceListsAsync.valueOrNull ?? [];
     final applicablePriceLists = priceLists.where((pl) {
       if (pl.transactionType.toLowerCase() != 'sales') return false;
       if (pl.id == row.priceListId) return true;
@@ -2791,7 +3003,7 @@ class _SalesOrderCreateScreenState
       return false;
     }).toList();
 
-    final currentPriceListId = row.priceListId ?? priceListId;
+    final currentPriceListId = row.priceListId;
     final currentPriceList = priceLists
         .where((pl) => pl.id == currentPriceListId)
         .firstOrNull;
@@ -2879,7 +3091,27 @@ class _SalesOrderCreateScreenState
                           ),
                         ),
                         _vLine(),
-                      ],
+                      ] else
+                        SizedBox(
+                          width: 40,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: ReorderableDragStartListener(
+                                index: idx,
+                                child: const MouseRegion(
+                                  cursor: SystemMouseCursors.grab,
+                                  child: Icon(
+                                    LucideIcons.gripVertical,
+                                    size: 16,
+                                    color: Color(0xFFD1D5DB),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       if (row.isHeader)
                         Expanded(
                           child: Padding(
@@ -3032,7 +3264,7 @@ class _SalesOrderCreateScreenState
                                                     row.priceListId ??
                                                     priceListId;
                                                 final lists =
-                                                    priceListsAsync.value ??
+                                                    priceListsAsync.valueOrNull ??
                                                     const <PriceList>[];
                                                 _updateRowRate(
                                                   row,
@@ -3142,9 +3374,9 @@ class _SalesOrderCreateScreenState
                                   ),
                                   const SizedBox(height: 2),
                                   Align(
-                                    alignment: Alignment.centerRight,
+                                    alignment: Alignment.centerLeft,
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      mainAxisAlignment: MainAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -3179,7 +3411,7 @@ class _SalesOrderCreateScreenState
                                             child: Text(
                                               (warehouse ?? '')
                                                   .toUpperCase(),
-                                              textAlign: TextAlign.right,
+                                              textAlign: TextAlign.left,
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 color: Color(0xFF2563EB),
@@ -5773,48 +6005,6 @@ class _SalesOrderCreateScreenState
             ),
             child: const Text('Cancel'),
           ),
-          const Spacer(),
-          // Right: Status info
-          Row(
-            children: [
-              const Icon(
-                LucideIcons.settings,
-                size: 16,
-                color: Color(0xFF2563EB),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Inventory Tracking',
-                style: TextStyle(
-                  color: Color(0xFF2563EB),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 24),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Total Amount: ₹ ${total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1F2937),
-                    ),
-                  ),
-                  Text(
-                    'Total Quantity: ${rows.where((r) => r.itemId.isNotEmpty).fold<double>(0, (sum, row) => sum + (double.tryParse(row.quantityCtrl.text) ?? 0)).toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -5904,7 +6094,7 @@ class _SalesOrderCreateScreenState
         )
         .toList();
 
-    final warehouseList = ref.read(warehousesProvider).value ?? <Warehouse>[];
+    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
     String? selectedWarehouseId;
     if (warehouse != null) {
       final match = warehouseList.where((w) => w.name == warehouse);
@@ -5944,6 +6134,24 @@ class _SalesOrderCreateScreenState
     );
 
     try {
+      if (deliveryMethod != null && deliveryMethod!.isNotEmpty) {
+        final exists = _carriersList.any(
+          (c) => c['name']?.toString().toLowerCase() == deliveryMethod!.toLowerCase(),
+        );
+        if (!exists && deliveryMethod != 'None') {
+          try {
+            final lookupsService = LookupsApiService();
+            await lookupsService.syncShipmentPreferences([
+              {'name': deliveryMethod, 'is_active': true},
+            ]);
+            // Reload carriers list so it's fresh
+            _loadCarriers();
+          } catch (e) {
+            debugPrint('Error syncing delivery method: $e');
+          }
+        }
+      }
+
       final controller = ref.read(salesOrderControllerProvider.notifier);
       SalesOrder? savedOrder;
       if (_isEditMode && _editingOrderId != null) {
@@ -6187,7 +6395,7 @@ class _SalesOrderCreateScreenState
       c.shippingAddressCountryId,
     ].any((v) => v != null && v.isNotEmpty);
 
-    final countries = ref.watch(countriesProvider(null)).value ?? [];
+    final countries = ref.watch(countriesProvider(null)).valueOrNull ?? [];
 
     // Resolve billing country
     final billingCountryMap = countries.firstWhere(
@@ -6213,7 +6421,7 @@ class _SalesOrderCreateScreenState
     final billingStates =
         (c.billingAddressCountryId != null &&
             c.billingAddressCountryId!.isNotEmpty)
-        ? (ref.watch(statesProvider(c.billingAddressCountryId!)).value ?? [])
+        ? (ref.watch(statesProvider(c.billingAddressCountryId!)).valueOrNull ?? [])
         : [];
     final billingStateMap = billingStates
         .where(
@@ -6230,7 +6438,7 @@ class _SalesOrderCreateScreenState
     final shippingStates =
         (c.shippingAddressCountryId != null &&
             c.shippingAddressCountryId!.isNotEmpty)
-        ? (ref.watch(statesProvider(c.shippingAddressCountryId!)).value ?? [])
+        ? (ref.watch(statesProvider(c.shippingAddressCountryId!)).valueOrNull ?? [])
         : [];
     final shippingStateMap = shippingStates
         .where(
@@ -6589,7 +6797,7 @@ class _SalesOrderCreateScreenState
   }) async {
     final normalizedAddr = _normalizeAddress(address);
     
-    final countriesList = ref.read(countriesProvider(null)).value ?? [];
+    final countriesList = ref.read(countriesProvider(null)).valueOrNull ?? [];
     
     String? billingCountry = isBilling ? normalizedAddr['country'] : customer.billingAddressCountryId;
     String? shippingCountry = !isBilling ? normalizedAddr['country'] : customer.shippingAddressCountryId;
@@ -6611,7 +6819,7 @@ class _SalesOrderCreateScreenState
     final shippingCountryUuid = shippingCountryObj['id'] ?? shippingCountry;
 
     final billingStates = (billingCountryUuid != null && billingCountryUuid.isNotEmpty)
-        ? (ref.read(statesProvider(billingCountryUuid)).value ?? [])
+        ? (ref.read(statesProvider(billingCountryUuid)).valueOrNull ?? [])
         : [];
     String? billingState = isBilling ? normalizedAddr['state'] : customer.billingAddressStateId;
     final billingStateObj = billingStates.firstWhere(
@@ -6623,7 +6831,7 @@ class _SalesOrderCreateScreenState
     final billingStateUuid = billingStateObj['id'] ?? billingState;
 
     final shippingStates = (shippingCountryUuid != null && shippingCountryUuid.isNotEmpty)
-        ? (ref.read(statesProvider(shippingCountryUuid)).value ?? [])
+        ? (ref.read(statesProvider(shippingCountryUuid)).valueOrNull ?? [])
         : [];
     String? shippingState = !isBilling ? normalizedAddr['state'] : customer.shippingAddressStateId;
     final shippingStateObj = shippingStates.firstWhere(
@@ -6804,7 +7012,7 @@ class _SalesOrderCreateScreenState
     final country = address['country'] as String? ?? '';
     final phone = address['phone'] as String? ?? '';
 
-    final countries = ref.read(countriesProvider(null)).value ?? [];
+    final countries = ref.read(countriesProvider(null)).valueOrNull ?? [];
     final countryMap = countries.firstWhere(
       (item) => item['id'] == country || item['shortCode'] == country,
       orElse: () => <String, String>{},
@@ -6812,7 +7020,7 @@ class _SalesOrderCreateScreenState
     final countryName = countryMap['name'] ?? country;
 
     final states = (country.isNotEmpty)
-        ? (ref.read(statesProvider(country)).value ?? [])
+        ? (ref.read(statesProvider(country)).valueOrNull ?? [])
         : [];
     final stateMap = states
         .where((item) => item['id'] == state || item['code'] == state)
@@ -7033,7 +7241,7 @@ class _SalesOrderCreateScreenState
                 : isBilling;
 
             // Resolve billing & shipping country UUIDs
-            final countriesList = ref.read(countriesProvider(null)).value ?? [];
+            final countriesList = ref.read(countriesProvider(null)).valueOrNull ?? [];
             final billingCountryObj = countriesList.firstWhere(
               (item) => item['id'] == c.billingAddressCountryId ||
                         item['name']?.toLowerCase() == c.billingAddressCountryId?.toLowerCase() ||
@@ -7052,7 +7260,7 @@ class _SalesOrderCreateScreenState
 
             // Resolve billing & shipping state UUIDs
             final billingStates = (billingCountryUuid != null && billingCountryUuid.isNotEmpty)
-                ? (ref.read(statesProvider(billingCountryUuid)).value ?? [])
+                ? (ref.read(statesProvider(billingCountryUuid)).valueOrNull ?? [])
                 : [];
             final billingStateObj = billingStates.firstWhere(
               (item) => item['id'] == c.billingAddressStateId ||
@@ -7063,7 +7271,7 @@ class _SalesOrderCreateScreenState
             final billingStateUuid = billingStateObj['id'] ?? c.billingAddressStateId;
 
             final shippingStates = (shippingCountryUuid != null && shippingCountryUuid.isNotEmpty)
-                ? (ref.read(statesProvider(shippingCountryUuid)).value ?? [])
+                ? (ref.read(statesProvider(shippingCountryUuid)).valueOrNull ?? [])
                 : [];
             final shippingStateObj = shippingStates.firstWhere(
               (item) => item['id'] == c.shippingAddressStateId ||
@@ -7806,8 +8014,7 @@ class _SalesOrderCreateScreenState
             _selectedCustomer = c;
 
             // Trigger rate update for all rows when customer changes
-            final priceLists =
-                ref.read(activeSalesPriceListsAsyncProvider).asData?.value ?? [];
+            final priceLists = _getCombinedPriceLists();
             for (var row in rows) {
               if (row.itemId.isNotEmpty && row.item != null) {
                 _updateRowRate(row, c.priceList, priceLists);
@@ -8359,7 +8566,7 @@ class _ManageTaxInfoDialogState extends ConsumerState<_ManageTaxInfoDialog> {
           Builder(
             builder: (context) {
               final statesAsync = ref.watch(statesProvider('IN'));
-              final states = statesAsync.value ?? [];
+              final states = statesAsync.valueOrNull ?? [];
               return FormDropdown<String>(
                 height: 38,
                 value: _selectedPlaceOfSupply,

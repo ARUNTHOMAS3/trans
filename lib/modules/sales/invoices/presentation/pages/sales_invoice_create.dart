@@ -60,7 +60,6 @@ import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_pickl
 import 'package:zerpai_erp/modules/inventory/packages/models/inventory_package_model.dart';
 import 'package:zerpai_erp/modules/inventory/packages/providers/inventory_packages_provider.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
-import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 // ─── Colour constants ────────────────────────────────────────────────────────
@@ -188,6 +187,7 @@ class _SalesInvoiceCreateScreenState
   String? terms;
   String? deliveryMethod;
   String? salesperson;
+  bool _isDueDateHovered = false;
   final TextEditingController subjectCtrl = TextEditingController();
   String? warehouse;
   String _selectedStockView = 'Available for Sale';
@@ -441,7 +441,11 @@ class _SalesInvoiceCreateScreenState
     if (initialItems.isEmpty) {
       rows.add(_createItemRow());
     } else {
-      rows.addAll(initialItems.map(_createItemRowFromOrderItem));
+      rows.addAll(initialItems.map((item) => _createItemRowFromOrderItem(
+            item,
+            orderId: order.id,
+            orderNumber: order.saleNumber,
+          )));
     }
 
     taxTotal = order.taxTotal;
@@ -519,12 +523,25 @@ class _SalesInvoiceCreateScreenState
       final api = ref.read(salesOrderApiServiceProvider);
       final allOrders = await api.getSalesOrdersByCustomer(customerId);
       final confirmedOrders = allOrders
-          .where((o) => o.status.toLowerCase() == 'confirmed')
+          .where((o) =>
+              o.status.toLowerCase() == 'confirmed' ||
+              o.status.toLowerCase() == 'sent')
           .toList();
+
+      final detailedOrders = await Future.wait(
+        confirmedOrders.map((o) async {
+          try {
+            final detailed = await api.getSalesOrderById(o.id);
+            return detailed;
+          } catch (_) {
+            return o;
+          }
+        }),
+      );
 
       if (mounted) {
         setState(() {
-          _confirmedCustomerOrders = confirmedOrders;
+          _confirmedCustomerOrders = detailedOrders;
         });
       }
     } catch (e) {
@@ -618,6 +635,16 @@ class _SalesInvoiceCreateScreenState
 
   void _showPendingOrdersDialog() {
     final List<SalesOrder> selectedOrders = [];
+    final loadedOrderNumbers = rows
+        .map((r) => r.salesOrderNumber)
+        .whereType<String>()
+        .toSet();
+
+    for (final order in _confirmedCustomerOrders) {
+      if (loadedOrderNumbers.contains(order.saleNumber)) {
+        selectedOrders.add(order);
+      }
+    }
 
     showDialog(
       context: context,
@@ -1020,27 +1047,41 @@ class _SalesInvoiceCreateScreenState
   }
 
   void _addItemsFromMultipleSalesOrders(List<SalesOrder> orders) {
-    if (orders.isEmpty) return;
-
     setState(() {
+      // 1. Remove all existing rows that were loaded from any Sales Order
+      rows.removeWhere((row) => row.salesOrderNumber != null);
+
+      if (orders.isEmpty) {
+        orderNumberCtrl.clear();
+        _selectedSalesOrderId = null;
+        if (rows.isEmpty) {
+          rows.add(_createItemRow());
+        }
+        _calculateTotals();
+        return;
+      }
+
+      // If there is only one blank row, clear it
       if (rows.length == 1 && rows.first.itemId.isEmpty) {
         rows.clear();
       }
 
       _selectedSalesOrderId = orders.first.id;
 
+      // 2. Add all items from the selected sales orders
       for (final order in orders) {
         final initialItems = (order.items ?? const <SalesOrderItem>[])
             .where((item) => true)
             .toList();
-        rows.addAll(initialItems.map(_createItemRowFromOrderItem));
-
-        if (orderNumberCtrl.text.isEmpty) {
-          orderNumberCtrl.text = order.saleNumber;
-        } else if (!orderNumberCtrl.text.contains(order.saleNumber)) {
-          orderNumberCtrl.text += ', ${order.saleNumber}';
-        }
+        rows.addAll(initialItems.map((item) => _createItemRowFromOrderItem(
+              item,
+              orderId: order.id,
+              orderNumber: order.saleNumber,
+            )));
       }
+
+      // 3. Update the order number field
+      orderNumberCtrl.text = orders.map((o) => o.saleNumber).join(', ');
 
       _calculateTotals();
     });
@@ -1048,7 +1089,7 @@ class _SalesInvoiceCreateScreenState
     final orderNumbers = orders.map((o) => o.saleNumber).join(', ');
     ZerpaiToast.success(
       context,
-      'Added items from Sales Orders: $orderNumbers',
+      'Updated items from Sales Orders: $orderNumbers',
     );
   }
 
@@ -1138,27 +1179,11 @@ class _SalesInvoiceCreateScreenState
 
   Future<void> _loadSalespersons() async {
     try {
-      final users = await ref.read(allUsersProvider.future);
+      final lookupsService = LookupsApiService();
+      final persons = await lookupsService.getSalespersons();
       if (mounted) {
         setState(() {
-          _salespersonList = users
-              .map(
-                (u) => <String, dynamic>{
-                  'id': u.fullName,
-                  'name': u.fullName,
-                  'salesperson_name': u.fullName,
-                },
-              )
-              .toList();
-
-          if (salesperson != null && salesperson!.isNotEmpty) {
-            try {
-              final matchedUser = users.firstWhere(
-                (u) => u.id == salesperson || u.fullName.toLowerCase() == salesperson!.toLowerCase(),
-              );
-              salesperson = matchedUser.fullName;
-            } catch (_) {}
-          }
+          _salespersonList = persons;
         });
       }
     } catch (e) {
@@ -1175,7 +1200,7 @@ class _SalesInvoiceCreateScreenState
             final matchedUser = users.firstWhere(
               (u) => u.id == salesperson || u.fullName.toLowerCase() == salesperson!.toLowerCase(),
             );
-            salesperson = matchedUser.fullName;
+            salesperson = matchedUser.id;
           } catch (_) {}
         });
       }
@@ -1393,7 +1418,11 @@ class _SalesInvoiceCreateScreenState
     return row;
   }
 
-  SalesOrderItemRow _createItemRowFromOrderItem(SalesOrderItem item) {
+  SalesOrderItemRow _createItemRowFromOrderItem(
+    SalesOrderItem item, {
+    String? orderId,
+    String? orderNumber,
+  }) {
     final row = _createItemRow(
       quantity: item.quantity.toString(),
       rate: item.rate.toString(),
@@ -1408,6 +1437,8 @@ class _SalesInvoiceCreateScreenState
       accountId: item.accountId,
       warehouseId: item.warehouseId,
     );
+    row.salesOrderId = orderId;
+    row.salesOrderNumber = orderNumber;
 
     if (item.batches != null && item.batches!.isNotEmpty) {
       row.hasBatchData = true;
@@ -2121,19 +2152,6 @@ class _SalesInvoiceCreateScreenState
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(
-              LucideIcons.settings,
-              color: Color(0xFF3B82F6),
-              size: 18,
-            ),
-            onPressed: () {},
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 8),
-          Container(width: 1, height: 24, color: _kBorder),
-          const SizedBox(width: 16),
-          IconButton(
             icon: const Icon(LucideIcons.x, color: Color(0xFF6B7280), size: 20),
             onPressed: () {
               if (context.canPop()) {
@@ -2220,6 +2238,7 @@ class _SalesInvoiceCreateScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SharedFieldLayout(
+                        key: const ValueKey('layout_customer_name'),
                         label: 'Customer Name',
                         required: true,
                         labelWidth: 180,
@@ -2431,6 +2450,7 @@ class _SalesInvoiceCreateScreenState
                 const SizedBox(height: 16),
                 // Place of Supply
                 SharedFieldLayout(
+                  key: const ValueKey('layout_place_of_supply'),
                   label: 'Place of Supply',
                   required: true,
                   labelWidth: 180,
@@ -2468,6 +2488,7 @@ class _SalesInvoiceCreateScreenState
               const SizedBox(height: 16),
               // Reference#
               SharedFieldLayout(
+                key: const ValueKey('layout_reference_number'),
                 label: 'Reference#',
                 labelWidth: 180,
                 maxWidth: 523,
@@ -2477,6 +2498,7 @@ class _SalesInvoiceCreateScreenState
 
               // Invoice#
               SharedFieldLayout(
+                key: const ValueKey('layout_invoice_number'),
                 label: 'Invoice#',
                 required: true,
                 labelWidth: 180,
@@ -2524,6 +2546,7 @@ class _SalesInvoiceCreateScreenState
 
               // Order Number
               SharedFieldLayout(
+                key: const ValueKey('layout_order_number'),
                 label: 'Order Number',
                 labelWidth: 180,
                 maxWidth: 523,
@@ -2532,6 +2555,7 @@ class _SalesInvoiceCreateScreenState
 
               // Invoice Date, Terms, Due Date
               SharedFieldLayout(
+                key: const ValueKey('layout_invoice_date'),
                 label: 'Invoice Date',
                 required: true,
                 labelWidth: 180,
@@ -2620,29 +2644,50 @@ class _SalesInvoiceCreateScreenState
                     const SizedBox(width: 16),
                     Expanded(
                       flex: 2,
-                      child: CustomTextField(
-                        key: _dueDateKey,
-                        controller: TextEditingController(
-                          text: dueDate != null
-                              ? intl.DateFormat('dd MMM yyyy').format(dueDate!)
-                              : '',
-                        ),
-                        height: 32,
-                        readOnly: true,
-                        onTap: () async {
-                          final picked = await ZerpaiDatePicker.show(
-                            context,
-                            initialDate: dueDate ?? DateTime.now(),
-                            targetKey: _dueDateKey,
-                          );
-                          if (picked != null) {
-                            setState(() => dueDate = picked);
-                          }
-                        },
-                        suffixWidget: const Icon(
-                          LucideIcons.calendar,
-                          size: 16,
-                          color: _kLabelGrey,
+                      child: MouseRegion(
+                        onEnter: (_) => setState(() => _isDueDateHovered = true),
+                        onExit: (_) => setState(() => _isDueDateHovered = false),
+                        child: CustomTextField(
+                          key: _dueDateKey,
+                          controller: TextEditingController(
+                            text: dueDate != null
+                                ? intl.DateFormat('dd MMM yyyy').format(dueDate!)
+                                : '',
+                          ),
+                          height: 32,
+                          readOnly: true,
+                          onTap: () async {
+                            final picked = await ZerpaiDatePicker.show(
+                              context,
+                              initialDate: dueDate ?? DateTime.now(),
+                              targetKey: _dueDateKey,
+                            );
+                            if (picked != null) {
+                              setState(() => dueDate = picked);
+                            }
+                          },
+                          suffixWidget: (dueDate == null)
+                              ? const Icon(
+                                  LucideIcons.calendar,
+                                  size: 16,
+                                  color: _kLabelGrey,
+                                )
+                              : (_isDueDateHovered
+                                  ? InkWell(
+                                      onTap: () {
+                                        setState(() => dueDate = null);
+                                      },
+                                      child: const Icon(
+                                        LucideIcons.x,
+                                        size: 16,
+                                        color: Colors.red,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      LucideIcons.calendar,
+                                      size: 16,
+                                      color: _kLabelGrey,
+                                    )),
                         ),
                       ),
                     ),
@@ -2652,6 +2697,7 @@ class _SalesInvoiceCreateScreenState
 
               // Salesperson
               SharedFieldLayout(
+                key: const ValueKey('layout_salesperson'),
                 label: 'Salesperson',
                 required: true,
                 labelWidth: 180,
@@ -2660,33 +2706,24 @@ class _SalesInvoiceCreateScreenState
                   value: salesperson,
                   height: _kDropdownHeight,
                   allowClear: true,
-                  maxVisibleItems: _salespersonList.length > 4
-                      ? 4
-                      : (_salespersonList.isEmpty
-                            ? 1
-                            : _salespersonList.length),
                   items: _salespersonList
-                      .map(
-                        (p) =>
-                            p['id']?.toString() ?? p['name']?.toString() ?? '',
-                      )
+                      .map((p) => p['id']?.toString() ?? '')
+                      .where((id) => id.isNotEmpty)
                       .toList(),
                   displayStringForValue: (val) {
                     final person = _salespersonList.firstWhere(
-                      (p) =>
-                          (p['id']?.toString() ?? p['name']?.toString()) == val,
-                      orElse: () => {'name': val},
+                      (p) => p['id']?.toString() == val,
+                      orElse: () => <String, dynamic>{},
                     );
-                    return person['name']?.toString() ?? val;
+                    return person['full_name']?.toString() ?? val;
                   },
                   itemBuilder: (id, isSelected, isHovered) {
                     final sp = _salespersonList.firstWhere(
-                      (s) =>
-                          (s['id']?.toString() ?? s['name']?.toString()) == id,
-                      orElse: () => {'name': id},
+                      (s) => s['id']?.toString() == id,
+                      orElse: () => <String, dynamic>{},
                     );
                     return _dropdownItemBuilder(
-                      sp['name']?.toString() ?? id,
+                      sp['full_name']?.toString() ?? id,
                       isSelected,
                       isHovered,
                     );
@@ -2697,6 +2734,7 @@ class _SalesInvoiceCreateScreenState
 
               // Subject
               SharedFieldLayout(
+                key: const ValueKey('layout_subject'),
                 label: 'Subject',
                 labelWidth: 180,
                 maxWidth: 523,
@@ -3126,7 +3164,7 @@ class _SalesInvoiceCreateScreenState
                 child: IntrinsicHeight(
                   child: Row(
                     children: [
-                      if (_showBulkUpdateToolbar)
+                      if (_showBulkUpdateToolbar) ...[
                         SizedBox(
                           width: 40,
                           child: Center(
@@ -3157,10 +3195,10 @@ class _SalesInvoiceCreateScreenState
                               ),
                             ),
                           ),
-                        )
-                      else
+                        ),
+                        _vLine(),
+                      ] else
                         const SizedBox(width: 40), // Space for drag handle
-                      _vLine(),
                       Expanded(
                         flex: 14,
                         child: Padding(
@@ -3474,7 +3512,7 @@ class _SalesInvoiceCreateScreenState
       return false;
     }).toList();
 
-    final currentPriceListId = row.priceListId ?? priceListId;
+    final currentPriceListId = row.priceListId;
     final currentPriceList = priceLists
         .where((pl) => pl.id == currentPriceListId)
         .firstOrNull;
@@ -3543,7 +3581,7 @@ class _SalesInvoiceCreateScreenState
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (_showBulkUpdateToolbar)
+                      if (_showBulkUpdateToolbar) ...[
                         SizedBox(
                           width: 40,
                           child: Padding(
@@ -3571,8 +3609,9 @@ class _SalesInvoiceCreateScreenState
                               ),
                             ),
                           ),
-                        )
-                      else
+                        ),
+                        _vLine(),
+                      ] else
                         SizedBox(
                           width: 40,
                           child: Padding(
@@ -3593,7 +3632,6 @@ class _SalesInvoiceCreateScreenState
                             ),
                           ),
                         ),
-                      _vLine(),
                       if (row.isHeader)
                         Expanded(
                           child: Padding(
@@ -3731,6 +3769,12 @@ class _SalesInvoiceCreateScreenState
                                                   row.taxId ??=
                                                       p.intraStateTaxId ??
                                                       p.interStateTaxId;
+                                                  
+                                                  final activePriceListId =
+                                                      row.priceListId ?? priceListId;
+                                                  final lists = priceListsAsync.valueOrNull ?? const <PriceList>[];
+                                                  _updateRowRate(row, activePriceListId, lists);
+                                                  
                                                   if (idx == rows.length - 1) {
                                                     rows.add(_createItemRow());
                                                   }
@@ -3850,9 +3894,9 @@ class _SalesInvoiceCreateScreenState
                                   ),
                                   const SizedBox(height: 2),
                                   Align(
-                                    alignment: Alignment.centerRight,
+                                    alignment: Alignment.centerLeft,
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      mainAxisAlignment: MainAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -3887,7 +3931,7 @@ class _SalesInvoiceCreateScreenState
                                             child: Text(
                                               (warehouse ?? '')
                                                   .toUpperCase(),
-                                              textAlign: TextAlign.right,
+                                              textAlign: TextAlign.left,
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 color: Color(0xFF2563EB),
@@ -4003,119 +4047,98 @@ class _SalesInvoiceCreateScreenState
                                 if (row.itemId.isNotEmpty) ...[
                                   if (_showPriceList) ...[
                                     const SizedBox(height: 4),
-                                    Transform.translate(
-                                      offset: Offset(notIncluded ? -4 : 0, 0),
-                                      child: Stack(
-                                        clipBehavior: Clip.none,
-                                        alignment: Alignment.centerLeft,
-                                        children: [
-                                          if (notIncluded)
-                                            Transform.translate(
-                                              offset: const Offset(-22, 0),
-                                              child: ZTooltip(
-                                                message:
-                                                    "This item has not been included in the selected price list. So, the item's default rate has been used.",
-                                                child: const Icon(
-                                                  LucideIcons.alertCircle,
-                                                  size: 14,
-                                                  color: Colors.orange,
-                                                ),
-                                              ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      mainAxisSize: MainAxisSize.max,
+                                      children: [
+                                        if (notIncluded) ...[
+                                          ZTooltip(
+                                            message:
+                                                "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                            child: const Icon(
+                                              LucideIcons.alertCircle,
+                                              size: 14,
+                                              color: Colors.orange,
                                             ),
-                                          CompositedTransformTarget(
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+                                        Expanded(
+                                          child: CompositedTransformTarget(
                                             link: row.priceListLink,
-                                            child: SizedBox(
-                                              width: 120,
-                                              height: 32,
-                                              child: MouseRegion(
-                                                onEnter: (_) {
-                                                  final pl = applicablePriceLists
-                                                      .where(
-                                                        (pl) =>
-                                                            pl.id ==
-                                                            (row.priceListId ??
-                                                                priceListId),
-                                                      )
-                                                      .firstOrNull;
-                                                  if (pl != null) {
-                                                    _showValueTooltip(
-                                                      context,
-                                                      pl.name,
-                                                      row.priceListLink,
+                                            child: MouseRegion(
+                                              onEnter: (_) {
+                                                final pl = applicablePriceLists
+                                                    .where(
+                                                      (pl) =>
+                                                          pl.id ==
+                                                          (row.priceListId ??
+                                                              priceListId),
+                                                    )
+                                                    .firstOrNull;
+                                                if (pl != null) {
+                                                  _showValueTooltip(
+                                                    context,
+                                                    pl.name,
+                                                    row.priceListLink,
+                                                  );
+                                                }
+                                              },
+                                              onExit: (_) {
+                                                _hideValueTooltip();
+                                              },
+                                              child: FormDropdown<PriceList>(
+                                                key: ValueKey('row_${row.itemId}_price_list'),
+                                                allowClear: true,
+                                                value: applicablePriceLists
+                                                    .where(
+                                                      (pl) =>
+                                                          pl.id ==
+                                                          (row.priceListId ??
+                                                              priceListId),
+                                                    )
+                                                    .firstOrNull,
+                                                height: 32,
+                                                hint: 'Apply Price List',
+                                                padding: const EdgeInsets.only(
+                                                  right: 10,
+                                                ),
+                                                menuWidth: 250,
+                                                items: applicablePriceLists,
+                                                displayStringForValue: (v) => v.name,
+                                                itemBuilder: (item, isSelected, isHovered) =>
+                                                    _dropdownItemBuilder(
+                                                      item.name,
+                                                      isSelected,
+                                                      isHovered,
+                                                    ),
+                                                onChanged: (v) {
+                                                  if (v != null) {
+                                                    final baseRate = row.item?.sellingPrice ?? 0;
+                                                    final rate = v.calculatePrice(
+                                                      row.itemId,
+                                                      baseRate,
+                                                      productName: row.item?.productName,
                                                     );
+                                                    setState(() {
+                                                      row.priceListId = v.id;
+                                                      row.rateCtrl.text = rate.toStringAsFixed(2);
+                                                      _calculateTotals();
+                                                    });
+                                                  } else {
+                                                    setState(() {
+                                                      row.priceListId = null;
+                                                      final baseRate = row.item?.sellingPrice ?? 0;
+                                                      row.rateCtrl.text = baseRate.toStringAsFixed(2);
+                                                      _calculateTotals();
+                                                    });
                                                   }
                                                 },
-                                                onExit: (_) {
-                                                  _hideValueTooltip();
-                                                },
-                                                child: FormDropdown<PriceList>(
-                                                  key: ValueKey('row_${row.itemId}_price_list'),
-                                                  allowClear: true,
-                                                  value: applicablePriceLists
-                                                      .where(
-                                                        (pl) =>
-                                                            pl.id ==
-                                                            (row.priceListId ??
-                                                                priceListId),
-                                                      )
-                                                      .firstOrNull,
-                                                  height: 32,
-                                                  hint: 'Apply Price List',
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        right: 10,
-                                                      ),
-                                                  menuWidth: 250,
-                                                  items: applicablePriceLists,
-                                                  displayStringForValue: (v) =>
-                                                      v.name,
-
-                                                  itemBuilder:
-                                                      (
-                                                        item,
-                                                        isSelected,
-                                                        isHovered,
-                                                      ) => _dropdownItemBuilder(
-                                                        item.name,
-                                                        isSelected,
-                                                        isHovered,
-                                                      ),
-                                                  onChanged: (v) {
-                                                    if (v != null) {
-                                                      final baseRate =
-                                                          row
-                                                              .item
-                                                              ?.sellingPrice ??
-                                                          0;
-                                                      final rate = v
-                                                          .calculatePrice(
-                                                            row.itemId,
-                                                            baseRate,
-                                                            productName: row.item?.productName,
-                                                          );
-                                                      setState(() {
-                                                        row.priceListId = v.id;
-                                                        row.rateCtrl.text = rate
-                                                            .toStringAsFixed(2);
-                                                        _calculateTotals();
-                                                      });
-                                                    } else {
-                                                      setState(() {
-                                                        row.priceListId = null;
-                                                        final baseRate =
-                                                            row.item?.sellingPrice ?? 0;
-                                                        row.rateCtrl.text =
-                                                            baseRate.toStringAsFixed(2);
-                                                        _calculateTotals();
-                                                      });
-                                                    }
-                                                  },
-                                                ),
                                               ),
                                             ),
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                   if (_showRecentTransactions) ...[
@@ -6942,20 +6965,7 @@ class _SalesInvoiceCreateScreenState
       );
       final warehouseId = selectedWhObj.id;
 
-      final usersList = ref.read(allUsersProvider).value ?? <User>[];
-      User? selectedUserObj;
-      try {
-        selectedUserObj = usersList.firstWhere(
-          (u) =>
-              u.fullName.trim().toLowerCase() ==
-              (salesperson ?? '').trim().toLowerCase(),
-        );
-      } catch (_) {
-        if (usersList.isNotEmpty) {
-          selectedUserObj = usersList.first;
-        }
-      }
-      final salespersonId = selectedUserObj?.id;
+      final salespersonId = salesperson;
 
       final itemsState = ref.read(itemsControllerProvider);
 

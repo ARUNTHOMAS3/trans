@@ -406,6 +406,10 @@ class _PurchaseOrderOverviewScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(purchaseOrdersProvider);
+      ref.invalidate(warehousesProvider);
+    });
     _initializeColumns();
     _loadColumnSettings();
     _searchController = TextEditingController(

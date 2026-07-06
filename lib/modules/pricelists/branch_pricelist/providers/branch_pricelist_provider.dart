@@ -7,6 +7,7 @@ import '../controllers/branch_pricelist_controller.dart';
 export '../controllers/branch_pricelist_controller.dart';
 import '../models/branch_pricelist_model.dart';
 import '../models/branch_pricelist_pagination.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 /// Service Provider for Branch Price Lists
 final branchPriceListServiceProvider = Provider<BranchPriceListService>((ref) {
@@ -17,10 +18,13 @@ final branchPriceListServiceProvider = Provider<BranchPriceListService>((ref) {
 /// Notifier Provider for Branch Price List State
 final branchPriceListNotifierProvider =
     StateNotifierProvider<BranchPriceListNotifier, AsyncValue<List<BranchPriceList>>>(
-      (ref) => BranchPriceListNotifier(
-        ref.watch(branchPriceListServiceProvider),
-        isAuthenticated: true,
-      ),
+      (ref) {
+        ref.watch(entityProvider);
+        return BranchPriceListNotifier(
+          ref.watch(branchPriceListServiceProvider),
+          isAuthenticated: true,
+        );
+      },
     );
 
 /// Provider for Active Branch Price Lists only

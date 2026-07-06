@@ -40,6 +40,7 @@ import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
+import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 
 class _ClearReceiveSelectionIntent extends Intent {
   const _ClearReceiveSelectionIntent();
@@ -115,6 +116,10 @@ class _PurchasesPurchaseReceivesListScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(purchaseReceivesProvider);
+      ref.invalidate(warehousesProvider);
+    });
     _activeReceiveId = widget.initialSelectedId;
     _initializeColumns();
     _loadColumnSettings();

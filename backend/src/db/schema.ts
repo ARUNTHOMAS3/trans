@@ -448,6 +448,14 @@ export const paymentTerms = pgTable("payment_terms", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Default Payment Terms Table
+export const defaultPaymentTerms = pgTable("default_payment_terms", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  paymentTermsId: uuid("payment_terms_id").notNull().references(() => paymentTerms.id),
+  entityId: uuid("entity_id").notNull().unique().references(() => organisationBranchMaster.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Vendor Table
 export const vendor = pgTable("vendors", {
   id: uuid("id").primaryKey().defaultRandom(),

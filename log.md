@@ -3676,3 +3676,179 @@ Prevented cross-type address modifications in the dropdown overlays by hiding th
   - **No-Op Update Detection**: Added conditional check to bypass `supabaseService.getClient().from("customers").update(...)` when no customer columns changed, fetching the customer directly to prevent SQL exceptions.
 
 Timestamp of Log Update: July 1, 2026 - 5:15 PM (IST)
+
+
+## 267. Branch Price List Consolidation & Active Entity Synchronization (July 3, 2026)
+
+### Summary
+Consolidated the Price List Edit page functionality directly into the Price List Create screen to reduce code duplication and simplify routing. Implemented branch-specific price list filtering in all transaction creation screens (Sales Orders, Sales Invoices, Purchase Orders, Bills) so only matching branch price lists and global price lists are displayed. Added branch-aware warehouse filtering that automatically validates and resets selected warehouse IDs to default when the active branch/org changes.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_create.dart`:
+  - Consolidated edit mode logic, constructor parameters, initialization placeholders, skeleton loading, and conditional updates inside save calls.
+- `lib/modules/pricelists/branch_pricelist/presentation/branch_pricelist_create_page.dart`:
+  - Updated associated branches dropdown selections to index and group by unique UUIDs (`entity_id`) instead of display names.
+- `lib/app/routing/app_router.dart`:
+  - Redirected price list edit routes to resolve `PriceListCreateScreen` with edit parameters.
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`:
+  - Implemented branch-specific price list combination logic (`_getCombinedPriceListsForBranch`) and active warehouse selection checks.
+- `lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`:
+  - Implemented branch-specific price list combination logic and active warehouse selection checks.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`:
+  - Implemented branch-specific price list combination logic and active warehouse selection checks.
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - Implemented branch-specific price list combination logic and active warehouse selection checks.
+- `lib/modules/inventory/providers/warehouse_provider.dart`:
+  - Watched `entityProvider` inside `warehousesProvider` to automatically force cache invalidation on active entity switch.
+
+#### Backend Files
+- `backend/src/modules/products/products.service.ts`:
+  - Updated `getWarehouses` SQL queries to return the `entity_id` field.
+
+Timestamp of Log Update: July 3, 2026 - 1:00 PM (IST)
+
+
+## 268. Default Payment Terms Fallbacks & Form Clear Alignments (July 3, 2026)
+
+### Summary
+Implemented a database-backed default payment terms mechanism across sales and purchase transaction views, and added clear buttons along with layout constraint fixes to several dropdown fields.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`:
+  - Added customer preference checks on customer name dropdown selection to resolve matching UUIDs, falling back to database default payment terms or "Net 30".
+  - Added unique `ValueKey`s to all `SharedFieldLayout` wrappers (such as Customer Name, Place of Supply, Sales Order#, Reference#, Sales Order Date, Expected Shipment Date, Payment Terms, Delivery Method, and Salesperson) to ensure Flutter's element reconciliation correctly maintains state boundaries during dynamic tree updates. This fixes the Delivery Method dropdown list overlay rendering at the position of Place of Supply.
+  - Added `allowClear: !_isEditMode` to the Customer Name `FormDropdown`, and updated its `onChanged` callback to handle clearing properly.
+  - Added `allowClear: true` to both `payment_terms` and `delivery_method` `FormDropdown` fields.
+  - Updated the `suffixWidget` of the Expected Shipment Date `CustomTextField` to dynamically display a red clear icon when a date is selected, permitting the field to be cleared easily.
+- `lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`:
+  - Declared `_defaultPaymentTermId` state variable and updated `_loadPaymentTerms()` to query active default configurations from DB.
+  - Resolved payment terms using customer preferences or fallback default payment terms during selection.
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`:
+  - Declared `_defaultPaymentTermId` state variable and updated `_loadPaymentTerms()` to query active default configurations from DB.
+  - Resolved payment terms using vendor preferences or fallback default payment terms during selection.
+- `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`:
+  - Declared `_defaultPaymentTermId` state variable and updated `_loadPaymentTerms()` to query active default configurations from DB.
+  - Resolved payment terms using vendor preferences or fallback default payment terms during selection.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 3, 2026 - 1:15 PM (IST)
+
+
+## 269. Dynamic Carrier / Delivery Method Data Mapping (July 3, 2026)
+
+### Summary
+Removed hardcoded values from the Delivery Method dropdown in Sales Order creation. The dropdown now retrieves carrier names dynamically from the carrier table. Also implemented custom-typed carrier synchronization to the backend database upon Sales Order form submission.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart:
+  - Declared _carriersList state list and implemented _loadCarriers() to fetch active shipment preferences from the database.
+  - Initialized _loadCarriers() in initState to fetch data on view redirection.
+  - Set llowCustomValue: true on the Delivery Method FormDropdown and bound its options dynamically to _carriersList carrier names.
+  - Implemented automatic carrier synchronization logic inside the _save() routine to push new, custom-typed carrier names to the backend using LookupsApiService.syncShipmentPreferences before submitting.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 3, 2026 - 1:30 PM (IST)
+
+
+## 270. Dynamic Salesperson Mapping to Users Table (July 3, 2026)
+
+### Summary
+Mapped the Salesperson field in Sales Order creation to list active branch users from the `users` table instead of using custom sales rep records. Removed the hardcoded default value "ALTHAF" and the "Manage Salespersons" gear icon option and popup dialog entirely.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`:
+  - Removed salesperson fallback value "ALTHAF" from initialization.
+  - Removed "Manage Salespersons" configure settings from the Salesperson `FormDropdown` and deleted the `_showManageSalespersonsDialog()` helper.
+  - Bound dropdown items, value displays, and item templates to match user UUIDs and full names (`full_name` database column keys) dynamically.
+  - Configured active user default resolution so the salesperson selection defaults to the active login user (if present in the fetched list).
+
+#### Backend Files
+- `backend/src/modules/lookups/lookups.controller.ts`:
+  - Added "users" to `entityScopedTables` to automatically filter lookups by active `entity_id`.
+  - Added `salespersons` to table maps inside `getLookups`, `searchLookups`, and `syncLookups` methods, mapping to table name "users" and query field "full_name".
+
+Timestamp of Log Update: July 3, 2026 - 2:00 PM (IST)
+
+
+## 271. Salesperson Default Removal, Footer cleanup, and Row drag reordering (July 3, 2026)
+
+### Summary
+Removed the default auto-loading/auto-selection of salesperson in Sales Order creation to keep the field empty initially. Cleaned up the creation page footer by removing the bottom-right status section showing Inventory Tracking and totals. Implemented items table reordering handles using the 6-dots drag handles layout.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`:
+  - Removed login user default matching logic inside `_loadSalespersons()` to avoid auto-selecting/auto-loading the salesperson field.
+  - Removed the `Spacer` and the bottom-right `Row` containing settings/Inventory Tracking icon-text, Total Amount, and Total Quantity labels from `_buildFooter()`.
+  - Added a `SizedBox(width: 40)` placeholder to the table header when bulk mode is inactive to align header columns.
+  - Implemented the 6-dots vertical grip reorder handles (`LucideIcons.gripVertical` inside `ReorderableDragStartListener`) within the items table rows builder when bulk mode is inactive, matching Purchases PO items table layout.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 3, 2026 - 2:30 PM (IST)
+
+
+## 272. Sales Order List Status Circles Mapping (July 3, 2026)
+
+### Summary
+Implemented dynamic status circles in the Sales Order list page to display invoiced, packed (package created), shipped (shipment created), and picked (picklist created) states dynamically based on the exact same half-circle painting/visual principle as the Purchases module.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart`:
+  - Added variables `_statusSummaries` and `_lastLoadedOrders` to the widget state configuration.
+  - Implemented `_fetchStatusSummaries()` to query the backend database (Supabase) to get linked invoices, packages, shipments, and picklists for all visible sales orders, and dynamically compute their statuses (`'full'`, `'partial'`, or `'none'`) by mapping their totals against ordered quantity totals.
+  - Implemented `_buildStatusCircle()` to draw full color circles (for `'full'`), half color circles (for `'partial'`), or grey circles (for `'none'`) using custom painters and ClipRect widgets.
+  - Replaced cell rendering cases for invoiced, packed, shipped, and picked columns in `_buildCell` to use the new status calculation and circle drawings:
+    - Invoiced -> Blue circle (`Colors.blue`)
+    - Packed -> Orange circle (`Colors.orange`)
+    - Shipped -> Green circle (`Colors.green`)
+    - Picked -> Red circle (`Colors.red`)
+  - Updated the data loading callback `data: (sales)` to trigger summary fetches on state changes using post-frame callbacks.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 3, 2026 - 3:00 PM (IST)
+
+
+## 273. New Invoice Screen UI Cleanups, Salesperson UUID Alignment, and Hover Date Clear Buttons (July 3, 2026)
+
+### Summary
+Cleaned up the header and items row UI on the New Invoice screen, updated the salesperson dropdown logic to use standard UUIDs mapping to user records, improved pending order inclusion to fetch complete details asynchronously, and added hover-sensitive date clear controls to both Sales Invoices and Sales Orders.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`:
+  - Removed settings gear icon and vertical line divider from the top-right header section.
+  - Moved the vertical line divider next to the drag handle into the `_showBulkUpdateToolbar` check block so it only shows in bulk mode, removing it from default row displays.
+  - Updated the salesperson loading logic to retrieve users via `LookupsApiService().getSalespersons()` mapping UUID IDs as dropdown values and full names as displays.
+  - Updated `_resolveSalespersonUuid()` to resolve matching names or IDs to user UUIDs.
+  - Simplified save payload mapping by directly assigning `salespersonId = salesperson` since the dropdown value stores the UUID.
+  - Updated `_loadConfirmedCustomerOrders()` to asynchronously fetch complete details (including items) using `api.getSalesOrderById()` for each order, fixing empty/missing items inside the import selection list.
+  - Declared `_isDueDateHovered` state tracker and wrapped the Due Date field in a `MouseRegion` to show the clear (X) button only when the field is hovered.
+  - Removed unused import of `user_model.dart`.
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`:
+  - Declared `_isExpectedShipmentHovered` state tracker.
+  - Wrapped the Expected Shipment Date field in a `MouseRegion` to display the clear (X) button only when hovering above the input area.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 3, 2026 - 3:30 PM (IST)

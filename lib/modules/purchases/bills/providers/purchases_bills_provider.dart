@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
 import 'package:zerpai_erp/modules/purchases/bills/repositories/purchases_bills_repository.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ class BillsNotifier extends StateNotifier<BillsState> {
         search: search,
         status: status,
       );
+      if (!mounted) return;
       state = state.copyWith(
         bills: bills,
         isLoading: false,
@@ -68,6 +70,7 @@ class BillsNotifier extends StateNotifier<BillsState> {
         filterStatus: status,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -75,10 +78,14 @@ class BillsNotifier extends StateNotifier<BillsState> {
   Future<PurchasesBill> createBill(PurchasesBill bill) async {
     try {
       final created = await _repository.createBill(bill);
-      state = state.copyWith(bills: [...state.bills, created]);
+      if (mounted) {
+        state = state.copyWith(bills: [...state.bills, created]);
+      }
       return created;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (mounted) {
+        state = state.copyWith(error: e.toString());
+      }
       rethrow;
     }
   }
@@ -86,12 +93,16 @@ class BillsNotifier extends StateNotifier<BillsState> {
   Future<PurchasesBill> updateBill(String id, PurchasesBill bill) async {
     try {
       final updated = await _repository.updateBill(id, bill);
-      state = state.copyWith(
-        bills: state.bills.map((b) => b.id == id ? updated : b).toList(),
-      );
+      if (mounted) {
+        state = state.copyWith(
+          bills: state.bills.map((b) => b.id == id ? updated : b).toList(),
+        );
+      }
       return updated;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (mounted) {
+        state = state.copyWith(error: e.toString());
+      }
       rethrow;
     }
   }
@@ -99,12 +110,16 @@ class BillsNotifier extends StateNotifier<BillsState> {
   Future<PurchasesBill> updateBillStatus(String id, String status, String reason) async {
     try {
       final updated = await _repository.updateBillStatus(id, status, reason);
-      state = state.copyWith(
-        bills: state.bills.map((b) => b.id == id ? updated : b).toList(),
-      );
+      if (mounted) {
+        state = state.copyWith(
+          bills: state.bills.map((b) => b.id == id ? updated : b).toList(),
+        );
+      }
       return updated;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (mounted) {
+        state = state.copyWith(error: e.toString());
+      }
       rethrow;
     }
   }
@@ -112,11 +127,15 @@ class BillsNotifier extends StateNotifier<BillsState> {
   Future<void> deleteBill(String id) async {
     try {
       await _repository.deleteBill(id);
-      state = state.copyWith(
-        bills: state.bills.where((b) => b.id != id).toList(),
-      );
+      if (mounted) {
+        state = state.copyWith(
+          bills: state.bills.where((b) => b.id != id).toList(),
+        );
+      }
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (mounted) {
+        state = state.copyWith(error: e.toString());
+      }
       rethrow;
     }
   }
@@ -133,6 +152,7 @@ class BillsNotifier extends StateNotifier<BillsState> {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 final billsProvider = StateNotifierProvider<BillsNotifier, BillsState>((ref) {
+  ref.watch(entityProvider);
   final repository = ref.read(purchasesBillsRepositoryProvider);
   return BillsNotifier(repository);
 });

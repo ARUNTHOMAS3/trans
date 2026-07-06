@@ -30,6 +30,8 @@ class SalesOrderItemRow {
   final LayerLink accountsLink = LayerLink();
   final LayerLink priceListLink = LayerLink();
   final LayerLink taxLink = LayerLink();
+  String? salesOrderNumber;
+  String? salesOrderId;
   double profit = 0;
   bool isHeader;
 
@@ -37,6 +39,8 @@ class SalesOrderItemRow {
     required this.quantityCtrl,
     required this.rateCtrl,
     required this.discountCtrl,
+    this.salesOrderNumber,
+    this.salesOrderId,
     TextEditingController? fQtyCtrl,
     TextEditingController? mrpCtrl,
     TextEditingController? descriptionCtrl,

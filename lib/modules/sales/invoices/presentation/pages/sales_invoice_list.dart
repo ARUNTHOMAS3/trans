@@ -302,6 +302,10 @@ class _SalesInvoiceOverviewScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(salesInvoicesProvider);
+      ref.invalidate(warehousesProvider);
+    });
     _columnConfigs = _defaultColumnConfigs();
     _searchController = TextEditingController(
       text: widget.initialSearchQuery ?? '',

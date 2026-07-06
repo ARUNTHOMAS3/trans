@@ -309,6 +309,10 @@ class _PurchasesBillsListScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(billsProvider);
+      ref.invalidate(warehousesProvider);
+    });
     _initializeColumns();
     _loadColumnSettings();
     _searchController = TextEditingController(

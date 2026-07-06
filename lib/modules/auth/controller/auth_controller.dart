@@ -8,6 +8,7 @@ import 'package:zerpai_erp/shared/services/api_client.dart';
 import '../models/auth_state.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 const bool _kEnableAuth = bool.fromEnvironment(
   'ENABLE_AUTH',
@@ -16,9 +17,11 @@ const bool _kEnableAuth = bool.fromEnvironment(
 
 class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _authRepository;
+  final Ref _ref;
 
-  AuthController({required AuthRepository authRepository})
+  AuthController({required AuthRepository authRepository, required Ref ref})
     : _authRepository = authRepository,
+      _ref = ref,
       super(AuthInitial());
 
   int? _readJwtExp(String token) {
@@ -197,10 +200,14 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       await _authRepository.logout();
       PermissionResolver.invalidateCache();
+      _ref.read(apiClientProvider).clearCache();
+      await _ref.read(entityProvider.notifier).clear();
       state = Unauthenticated();
     } catch (e) {
       // Even if logout fails on server, clear local state
       PermissionResolver.invalidateCache();
+      _ref.read(apiClientProvider).clearCache();
+      await _ref.read(entityProvider.notifier).clear();
       state = Unauthenticated();
     }
   }
@@ -337,7 +344,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
   (ref) {
     final authRepository = ref.read(authRepositoryProvider);
-    return AuthController(authRepository: authRepository);
+    return AuthController(authRepository: authRepository, ref: ref);
   },
 );
 

@@ -24,6 +24,9 @@ import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/sales_item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
+import 'package:zerpai_erp/modules/pricelists/branch_pricelist/providers/branch_pricelist_provider.dart';
+import 'package:zerpai_erp/modules/pricelists/branch_pricelist/models/branch_pricelist_model.dart';
+import 'package:hive/hive.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
@@ -497,6 +500,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
   // Lookup lists
   List<Map<String, dynamic>> _paymentTermsList = [];
+  String? _defaultPaymentTermId;
   List<Map<String, dynamic>> _shipmentPreferencesList = [];
   List<String> _sourceOfSupplyList = [];
   // ignore: unused_field
@@ -510,9 +514,26 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     try {
       final lookupsService = LookupsApiService();
       final terms = await lookupsService.getPaymentTerms();
+      final dbDefaultId = await lookupsService.getDefaultPaymentTermId();
       if (mounted) {
         setState(() {
           _paymentTermsList = terms;
+          _defaultPaymentTermId = dbDefaultId;
+          
+          final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+          final poState = ref.read(purchaseOrderFormNotifierProvider);
+          if (poState.paymentTerms == null && terms.isNotEmpty) {
+            final hasDefault = terms.any((t) => t['id']?.toString() == dbDefaultId);
+            if (hasDefault) {
+              notifier.updateField(paymentTerms: dbDefaultId);
+            } else {
+              final net30 = terms.firstWhere(
+                (t) => t['term_name'] == 'Net 30',
+                orElse: () => terms.first,
+              );
+              notifier.updateField(paymentTerms: net30['id']?.toString());
+            }
+          }
         });
       }
     } catch (e) {
@@ -714,7 +735,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         }
       }
 
-      final activePriceLists = ref.read(activePriceListsProvider);
+      final activePriceLists = _getCombinedPriceLists();
 
       final updatedItems = poState.items
           .where((i) => i.productId.isNotEmpty && !i.isHeader)
@@ -1266,6 +1287,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     super.initState();
     _adjustmentLabelFocusNode.addListener(_onAdjustmentLabelFocusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(warehousesProvider);
+      ref.invalidate(vendorProvider);
+      ref.invalidate(priceListNotifierProvider);
+      ref.invalidate(branchPriceListNotifierProvider);
       // Load vendors on init
       ref.read(vendorProvider.notifier).loadVendors();
       ref.read(itemsControllerProvider.notifier).loadLookupData();
@@ -1615,7 +1640,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       PriceList? pl;
                                       if (_selectedPriceListId != null) {
                                         try {
-                                          final activePriceLists = ref.read(activePriceListsProvider);
+                                          final activePriceLists = _getCombinedPriceLists();
                                           pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
                                         } catch (_) {}
                                       }
@@ -1690,7 +1715,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       PriceList? pl;
                                       if (_selectedPriceListId != null) {
                                         try {
-                                          final activePriceLists = ref.read(activePriceListsProvider);
+                                          final activePriceLists = _getCombinedPriceLists();
                                           pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
                                         } catch (_) {}
                                       }
@@ -1923,6 +1948,138 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  List<PriceList> _getCombinedPriceListsForBranch(String selectedBranchId) {
+    final globalPriceLists = ref.read(activePriceListsProvider);
+    final branchPriceLists = ref.read(branchPriceListNotifierProvider).valueOrNull ?? <BranchPriceList>[];
+
+    final globalPurchaseLists = globalPriceLists
+        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
+        .toList();
+
+    final filteredBranchLists = branchPriceLists
+        .where((pl) =>
+            pl.status == 'active' &&
+            pl.transactionType.toLowerCase() == 'purchase' &&
+            (pl.associatedBranches?.contains(selectedBranchId) ?? false))
+        .map((b) => PriceList(
+              id: b.id,
+              name: b.name,
+              description: b.description,
+              currency: b.currency,
+              pricingScheme: b.pricingScheme,
+              priceListType: b.priceListType,
+              details: b.details,
+              roundOffPreference: b.roundOffPreference,
+              status: b.status,
+              transactionType: b.transactionType,
+              isDiscountEnabled: b.isDiscountEnabled,
+              percentageType: b.percentageType,
+              percentageValue: b.percentageValue,
+              itemRates: b.itemRates
+                  ?.map((r) => PriceListItemRate(
+                        itemId: r.itemId,
+                        itemName: r.itemName,
+                        sku: r.sku,
+                        salesRate: r.salesRate,
+                        customRate: r.customRate,
+                        discountPercentage: r.discountPercentage,
+                        volumeRanges: r.volumeRanges
+                            ?.map((vr) => PriceListVolumeRange(
+                                  startQuantity: vr.startQuantity,
+                                  endQuantity: vr.endQuantity,
+                                  customRate: vr.customRate,
+                                  discountPercentage: vr.discountPercentage,
+                                ))
+                            .toList(),
+                      ))
+                  .toList(),
+              createdAt: b.createdAt,
+              updatedAt: b.updatedAt,
+            ))
+        .toList();
+
+    return <PriceList>[
+      ...globalPurchaseLists,
+      ...filteredBranchLists,
+    ];
+  }
+
+  List<PriceList> _getCombinedPriceLists() {
+    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <WarehouseModel>[];
+    final poState = ref.read(purchaseOrderFormNotifierProvider);
+    final selectedWh = warehouseList.firstWhere(
+      (w) => w.id == poState.deliveryWarehouseId,
+      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : WarehouseModel(id: '', name: '', countryRegion: ''),
+    );
+    final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
+    final selectedBranchId = selectedWh.entityId ?? selectedWh.parentBranchId ?? activeEntityId ?? '';
+    return _getCombinedPriceListsForBranch(selectedBranchId);
+  }
+
+  List<PriceList> _watchCombinedPriceLists() {
+    final globalPriceLists = ref.watch(activePriceListsProvider)
+        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
+        .toList();
+    final branchPriceListsAsync = ref.watch(branchPriceListNotifierProvider);
+    final branchPriceLists = branchPriceListsAsync.valueOrNull ?? <BranchPriceList>[];
+
+    final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <WarehouseModel>[];
+    final poState = ref.watch(purchaseOrderFormNotifierProvider);
+    final selectedWh = warehouseList.firstWhere(
+      (w) => w.id == poState.deliveryWarehouseId,
+      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : WarehouseModel(id: '', name: '', countryRegion: ''),
+    );
+    final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
+    final selectedBranchId = selectedWh.entityId ?? selectedWh.parentBranchId ?? activeEntityId ?? '';
+
+    final filteredBranchLists = branchPriceLists
+        .where((pl) =>
+            pl.status == 'active' &&
+            pl.transactionType.toLowerCase() == 'purchase' &&
+            (pl.associatedBranches?.contains(selectedBranchId) ?? false))
+        .map((b) => PriceList(
+              id: b.id,
+              name: b.name,
+              description: b.description,
+              currency: b.currency,
+              pricingScheme: b.pricingScheme,
+              priceListType: b.priceListType,
+              details: b.details,
+              roundOffPreference: b.roundOffPreference,
+              status: b.status,
+              transactionType: b.transactionType,
+              isDiscountEnabled: b.isDiscountEnabled,
+              percentageType: b.percentageType,
+              percentageValue: b.percentageValue,
+              itemRates: b.itemRates
+                  ?.map((r) => PriceListItemRate(
+                        itemId: r.itemId,
+                        itemName: r.itemName,
+                        sku: r.sku,
+                        salesRate: r.salesRate,
+                        customRate: r.customRate,
+                        discountPercentage: r.discountPercentage,
+                        volumeRanges: r.volumeRanges
+                            ?.map((vr) => PriceListVolumeRange(
+                                  startQuantity: vr.startQuantity,
+                                  endQuantity: vr.endQuantity,
+                                  customRate: vr.customRate,
+                                  discountPercentage: vr.discountPercentage,
+                                ))
+                            .toList(),
+                      ))
+                  .toList(),
+              createdAt: b.createdAt,
+              updatedAt: b.updatedAt,
+            ))
+        .toList();
+
+    return <PriceList>[
+      ...globalPriceLists,
+      ...filteredBranchLists,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final poState = ref.watch(purchaseOrderFormNotifierProvider);
@@ -1938,14 +2095,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             selectedVendor.gstTreatment!.toLowerCase().contains('unregistered') ||
             selectedVendor.gstTreatment! == 'Unregistered Business');
     final customers = ref.watch(salesCustomersProvider).value ?? [];
-    final warehouses = ref.watch(warehousesProvider).value ?? [];
+    final warehouses = ref.watch(warehousesProvider).valueOrNull ?? [];
     final itemsState = ref.watch(itemsControllerProvider);
     final allItems = itemsState.items;
 
-    final activePriceLists = ref
-        .watch(activePriceListsProvider)
-        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
-        .toList();
+    final activePriceLists = _watchCombinedPriceLists();
 
     final accountsState = ref.watch(chartOfAccountsProvider);
     final List<AccountNode> availableAccounts = [];
@@ -1987,32 +2141,48 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       prev,
       next,
     ) {
-      if (next.hasValue && next.value!.isNotEmpty) {
+      if (next.hasValue && next.valueOrNull!.isNotEmpty) {
         final currentPoState = ref.read(purchaseOrderFormNotifierProvider);
-        final defaultWh = next.value!.firstWhere(
+        final defaultWh = next.valueOrNull!.firstWhere(
           (w) => w.isDefaultForBranch,
-          orElse: () => next.value!.first,
+          orElse: () => next.valueOrNull!.first,
         );
         
-        if (currentPoState.warehouseId == null || currentPoState.warehouseId!.isEmpty) {
-          ref.read(purchaseOrderFormNotifierProvider.notifier).updateField(
-            warehouseId: defaultWh.id,
-          );
+        final hasCurrentWh = next.valueOrNull!.any((w) => w.id == currentPoState.warehouseId);
+        final hasCurrentDeliveryWh = next.valueOrNull!.any((w) => w.id == currentPoState.deliveryWarehouseId);
+
+        String? updatedWhId;
+        String? updatedDelWhId;
+        String? updatedDelWhName;
+        bool shouldUpdate = false;
+
+        if (currentPoState.warehouseId == null ||
+            currentPoState.warehouseId!.isEmpty ||
+            !hasCurrentWh) {
+          updatedWhId = defaultWh.id;
+          shouldUpdate = true;
         }
-        
+
         if (currentPoState.deliveryType == 'warehouse' &&
             (currentPoState.deliveryWarehouseId == null ||
-                currentPoState.deliveryWarehouseId!.isEmpty)) {
-          ref
-              .read(purchaseOrderFormNotifierProvider.notifier)
-              .updateField(
-                deliveryWarehouseId: defaultWh.id,
-                deliveryAddressName: defaultWh.name,
-              );
-          // Small delay to ensure controller is available if needed
-          Future.microtask(() {
-            _deliveryNameCtrl.text = defaultWh.name;
-          });
+                currentPoState.deliveryWarehouseId!.isEmpty ||
+                !hasCurrentDeliveryWh)) {
+          updatedDelWhId = defaultWh.id;
+          updatedDelWhName = defaultWh.name;
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
+          ref.read(purchaseOrderFormNotifierProvider.notifier).updateField(
+            warehouseId: updatedWhId ?? currentPoState.warehouseId,
+            deliveryWarehouseId: updatedDelWhId ?? currentPoState.deliveryWarehouseId,
+            deliveryAddressName: updatedDelWhName ?? currentPoState.deliveryAddressName,
+          );
+          if (updatedDelWhName != null) {
+            Future.microtask(() {
+              _deliveryNameCtrl.text = updatedDelWhName ?? '';
+            });
+          }
         }
       }
     });
@@ -2021,27 +2191,33 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final warehouseState = ref.watch(warehousesProvider);
     if (!warehouseState.isLoading &&
         !warehouseState.hasError &&
-        warehouseState.value != null &&
-        warehouseState.value!.isNotEmpty) {
+        warehouseState.valueOrNull != null &&
+        warehouseState.valueOrNull!.isNotEmpty) {
       final currentPoState = ref.read(purchaseOrderFormNotifierProvider);
-      final defaultWh = warehouseState.value!.firstWhere(
+      final defaultWh = warehouseState.valueOrNull!.firstWhere(
         (w) => w.isDefaultForBranch,
-        orElse: () => warehouseState.value!.first,
+        orElse: () => warehouseState.valueOrNull!.first,
       );
       
+      final hasCurrentWh = warehouseState.valueOrNull!.any((w) => w.id == currentPoState.warehouseId);
+      final hasCurrentDeliveryWh = warehouseState.valueOrNull!.any((w) => w.id == currentPoState.deliveryWarehouseId);
+
       bool needsUpdate = false;
       String? newWarehouseId;
       String? newDeliveryWarehouseId;
       String? newDeliveryAddressName;
       
-      if (currentPoState.warehouseId == null || currentPoState.warehouseId!.isEmpty) {
+      if (currentPoState.warehouseId == null ||
+          currentPoState.warehouseId!.isEmpty ||
+          !hasCurrentWh) {
         needsUpdate = true;
         newWarehouseId = defaultWh.id;
       }
       
       if (currentPoState.deliveryType == 'warehouse' &&
           (currentPoState.deliveryWarehouseId == null ||
-              currentPoState.deliveryWarehouseId!.isEmpty)) {
+              currentPoState.deliveryWarehouseId!.isEmpty ||
+              !hasCurrentDeliveryWh)) {
         needsUpdate = true;
         newDeliveryWarehouseId = defaultWh.id;
         newDeliveryAddressName = defaultWh.name;
@@ -3178,6 +3354,24 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       }
     }
 
+    String? resolvedPaymentTerms = _defaultPaymentTermId;
+    if (v?.paymentTerms != null && v!.paymentTerms!.isNotEmpty) {
+      final matchingTerm = _paymentTermsList.firstWhere(
+        (t) => t['term_name'] == v.paymentTerms || t['id'] == v.paymentTerms,
+        orElse: () => <String, dynamic>{},
+      );
+      if (matchingTerm.isNotEmpty) {
+        resolvedPaymentTerms = matchingTerm['id']?.toString();
+      }
+    }
+    if (resolvedPaymentTerms == null && _paymentTermsList.isNotEmpty) {
+      final net30 = _paymentTermsList.firstWhere(
+        (t) => t['term_name'] == 'Net 30',
+        orElse: () => _paymentTermsList.first,
+      );
+      resolvedPaymentTerms = net30['id']?.toString();
+    }
+
     notifier.updateField(
       vendorId: v?.id ?? '',
       destinationOfSupply: (v?.sourceOfSupply != null && v!.sourceOfSupply!.isNotEmpty)
@@ -3186,6 +3380,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       tdsTcsType: (v?.tdsRateId != null && v!.tdsRateId!.isNotEmpty) ? 'tds' : 'none',
       tdsTcsId: (v?.tdsRateId != null && v!.tdsRateId!.isNotEmpty) ? v.tdsRateId : '',
       tdsTcsRate: rateVal,
+      paymentTerms: resolvedPaymentTerms,
     );
   }
 
@@ -4532,7 +4727,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     List<WarehouseModel> allWarehouses,
     PurchaseOrderState poState,
   ) {
-    final countries = ref.watch(countriesProvider(null)).value ?? [];
+    final countries = ref.watch(countriesProvider(null)).valueOrNull ?? [];
 
     // Resolve shipping country
     final shippingCountryMap = countries.firstWhere(
@@ -4548,7 +4743,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final shippingStates =
         (cust.shippingAddressCountryId != null &&
             cust.shippingAddressCountryId!.isNotEmpty)
-        ? (ref.watch(statesProvider(cust.shippingAddressCountryId!)).value ?? [])
+        ? (ref.watch(statesProvider(cust.shippingAddressCountryId!)).valueOrNull ?? [])
         : [];
     final shippingStateMap = shippingStates
         .where(
@@ -5620,7 +5815,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       PriceList? pl;
                       if (_selectedPriceListId != null) {
                         try {
-                          final activePriceLists = ref.read(activePriceListsProvider);
+                          final activePriceLists = _getCombinedPriceLists();
                           pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
                         } catch (_) {}
                       }
@@ -6097,7 +6292,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                            double? priceListRate;
                                            if (_selectedPriceListId != null) {
                                              try {
-                                               final activePriceLists = ref.read(activePriceListsProvider);
+                                               final activePriceLists = _getCombinedPriceLists();
                                                final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
                                                final override = pl.itemRates?.firstWhere(
                                                  (r) => r.itemId == i.id,
@@ -6131,7 +6326,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
                                            if (_selectedPriceListId != null) {
                                              try {
-                                               final activePriceLists = ref.read(activePriceListsProvider);
+                                               final activePriceLists = _getCombinedPriceLists();
                                                final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
                                                final currentItems = ref.read(purchaseOrderFormNotifierProvider).items;
                                                if (targetIndex >= 0 && targetIndex < currentItems.length) {
@@ -6308,7 +6503,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                                      double? priceListRate;
                                                                      if (_selectedPriceListId != null) {
                                                                        try {
-                                                                         final activePriceLists = ref.read(activePriceListsProvider);
+                                                                         final activePriceLists = _getCombinedPriceLists();
                                                                          final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
                                                                          final override = pl.itemRates?.firstWhere(
                                                                            (r) => r.itemId == newItem.id,
@@ -6336,7 +6531,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                                      });
                                                                      if (_selectedPriceListId != null) {
                                                                        try {
-                                                                         final activePriceLists = ref.read(activePriceListsProvider);
+                                                                         final activePriceLists = _getCombinedPriceLists();
                                                                          final pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
                                                                          final currentItems = ref.read(purchaseOrderFormNotifierProvider).items;
                                                                          if (index >= 0 && index < currentItems.length) {
@@ -6736,7 +6931,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 Builder(
                                   builder: (context) {
                                     final warehouses =
-                                        ref.watch(warehousesProvider).value ??
+                                        ref.watch(warehousesProvider).valueOrNull ??
                                         [];
                                     final itemWhId = item.warehouseId ?? poState.warehouseId ?? '';
                                     final wh = warehouses.firstWhere(

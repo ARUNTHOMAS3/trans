@@ -1,5 +1,4 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_field, unused_local_variable, unnecessary_null_comparison, unnecessary_type_check
-
+// ignore_for_file: unused_element, unnecessary_type_check, unnecessary_null_comparison, unused_local_variable
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/z_adaptive_menu.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
@@ -40,6 +39,9 @@ import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock
 import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
+import 'package:zerpai_erp/modules/pricelists/branch_pricelist/providers/branch_pricelist_provider.dart';
+import 'package:zerpai_erp/modules/pricelists/branch_pricelist/models/branch_pricelist_model.dart';
+import 'package:hive/hive.dart';
 import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
 import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/bulk_items_dialog.dart';
@@ -74,7 +76,6 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_pu
 
 // ── Zoho-style Colors ────────────────────────────────────────────────────────
 const Color _bgWhite = Color(0xFFFFFFFF);
-const Color _sectionBg = Color(0xFFF9FAFB);
 const Color _borderColor = Color(0xFFE5E7EB);
 const Color _textPrimary = Color(0xFF111827);
 const Color _textMuted = Color(0xFF6B7280);
@@ -395,7 +396,9 @@ class _PurchasesBillCreateScreenState
   Vendor? _selectedVendor;
   List<PurchaseOrder> _openPurchaseOrders = [];
   List<Map<String, dynamic>> _poReceivesList = [];
+  // ignore: unused_field
   List<Map<String, dynamic>> _poBillsList = [];
+  // ignore: unused_field
   bool _vendorDropdownOpen = false;
 
   final TextEditingController _vendorSearchCtrl = TextEditingController();
@@ -422,15 +425,19 @@ class _PurchasesBillCreateScreenState
   OverlayEntry? _itemDetailsSidebarOverlay;
   OverlayEntry? _addRowDropdownOverlay;
   final LayerLink _addRowDropdownLink = LayerLink();
+  // ignore: unused_field
   bool _isContactPersonsExpanded = true;
+  // ignore: unused_field
   bool _isAddressExpanded = false;
+  // ignore: unused_field
   String _activeSidebarTab = 'Details';
+  // ignore: unused_field
+  bool _hasAddress = false;
   int? _hoveredRowIndex;
   int? _activeMenuRowIndex;
   int _highlightedIndex = -1;
   final TextEditingController _subjectCtrl = TextEditingController();
   Map<String, dynamic>? _customBillingAddress;
-  bool _hasAddress = false;
 
   String? _warehouse;
   String _discountType = 'At Transaction Level';
@@ -449,6 +456,7 @@ class _PurchasesBillCreateScreenState
   String? _sourceOfSupply;
   String? _destinationOfSupply;
   String? _discountAccountId;
+  // ignore: unused_field
   String? _orgDefaultState;
 
   final List<String> _statesList = [];
@@ -578,12 +586,7 @@ class _PurchasesBillCreateScreenState
 
   // ─── Payment Terms options ─────────────────────────────────────────────────
   List<Map<String, dynamic>> _paymentTermsList = [];
-
-  final List<String> _standardTaxOptions = [
-    'Non-Taxable',
-    'Out of Scope',
-    'Non-GST Supply',
-  ];
+  String? _defaultPaymentTermId;
 
   OverlayEntry? _taxOverlayEntry;
   int _highlightedTaxIndex = -1;
@@ -597,6 +600,12 @@ class _PurchasesBillCreateScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(warehousesProvider);
+      ref.invalidate(vendorProvider);
+      ref.invalidate(priceListNotifierProvider);
+      ref.invalidate(branchPriceListNotifierProvider);
+    });
     _adjustmentLabelFocusNode.addListener(_onAdjustmentLabelFocusChanged);
     _lineItems.add(_BillLineItemRow());
     // Set today as due date default
@@ -1041,7 +1050,7 @@ class _PurchasesBillCreateScreenState
 
           final rxItemToReceiveId = <String, String>{};
           final receiveIds = <String>{};
-          if (rxItemsResp != null && rxItemsResp is List) {
+          if (rxItemsResp is List) {
             for (final ri in rxItemsResp) {
               final riId = ri['id']?.toString() ?? '';
               final prId = ri['purchase_receive_id']?.toString() ?? '';
@@ -1062,7 +1071,7 @@ class _PurchasesBillCreateScreenState
             final receiveToPoId = <String, String>{};
             final receiveToRxNum = <String, String>{};
             final receiveToPoNum = <String, String>{};
-            if (rxResp != null && rxResp is List) {
+            if (rxResp is List) {
               for (final rx in rxResp) {
                 final rxId = rx['id']?.toString() ?? '';
                 final poId = rx['purchase_order_id']?.toString() ?? '';
@@ -1160,7 +1169,7 @@ class _PurchasesBillCreateScreenState
               .select('purchase_receive_item_id, quantity, bills(status, is_delete)')
               .filter('purchase_receive_item_id', 'in', allRxItemIds);
 
-          if (existingBillItems != null) {
+          if (existingBillItems is List) {
             for (final bi in (existingBillItems as List<dynamic>)) {
               final bill = bi['bills'] as Map<dynamic, dynamic>?;
               if (bill != null && (bill['is_delete'] == true || bill['status'] == 'void')) {
@@ -1245,7 +1254,7 @@ class _PurchasesBillCreateScreenState
 
         final rxWarehouseId = rx.warehouseId;
         if (rxWarehouseId != null) {
-          final warehouses = ref.read(warehousesProvider).value ?? <Warehouse>[];
+          final warehouses = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
           final match = warehouses.firstWhere(
             (w) => w.id == rxWarehouseId,
             orElse: () => Warehouse(id: rxWarehouseId, name: ''),
@@ -1784,35 +1793,7 @@ class _PurchasesBillCreateScreenState
     return unreceived > 0 ? unreceived : 0.0;
   }
 
-  Future<PurchaseOrder?> _getOrFetchPurchaseOrder(String poId) async {
-    final existing = _openPurchaseOrders.where((o) => o.id == poId).firstOrNull;
-    if (existing != null) return existing;
-    try {
-      final repository = ref.read(purchaseOrderRepositoryProvider);
-      return await repository.getPurchaseOrder(poId);
-    } catch (e) {
-      debugPrint('Error fetching PO details: $e');
-      return null;
-    }
-  }
 
-  Future<List<Map<String, dynamic>>> _fetchReceivesForPo(String poId) async {
-    try {
-      final supabase = Supabase.instance.client;
-      final response = await supabase
-          .from('purchase_receives')
-          .select('id, purchase_receive_number, received_date, status, purchase_order_id, bill_no, purchase_receive_items(id, item_id, quantity_to_receive)')
-          .eq('purchase_order_id', poId)
-          .eq('is_delete', false)
-          .order('created_at', ascending: true);
-      if (response != null) {
-        return (response as List<dynamic>).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      }
-    } catch (e) {
-      debugPrint('Error fetching PO receives: $e');
-    }
-    return [];
-  }
 
   Future<List<Map<String, String>>> _fetchBatchesForReceive(String rxItemId) async {
     try {
@@ -1847,38 +1828,7 @@ class _PurchasesBillCreateScreenState
     return [];
   }
 
-  Future<PurchaseOrder?> _fetchPoByNumber(String poNum, String productId) async {
-    try {
-      final repository = ref.read(purchaseOrderRepositoryProvider);
-      final vendorId = _selectedVendor?.id;
-      if (vendorId != null) {
-        final allOrders = await repository.getPurchaseOrders(
-          vendorId: vendorId,
-        );
-        
-        final parts = poNum.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
-        for (final part in parts) {
-          final match = allOrders.where((o) =>
-            o.orderNumber == part ||
-            (o.referenceNumber != null && o.referenceNumber!.trim().toLowerCase() == part.toLowerCase())
-          ).firstOrNull;
-          
-          if (match != null) {
-            final detailed = await repository.getPurchaseOrder(match.id!);
-            if (detailed != null) {
-              final hasProduct = detailed.items.any((i) => !i.isHeader && i.productId == productId);
-              if (hasProduct) {
-                return detailed;
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching PO by number: $e');
-    }
-    return null;
-  }
+
 
   Future<void> _openEditQuantityDialog(_BillLineItemRow row) async {
 
@@ -3185,34 +3135,18 @@ class _PurchasesBillCreateScreenState
       }
 
       String? defaultState;
-      String? defaultGstTreatment;
 
       if (orgRes != null && orgRes.success && orgRes.data is Map) {
         final orgMap = orgRes.data as Map<String, dynamic>;
         final orgState = (orgMap['state_name'] ?? orgMap['state'] ?? '')
             .toString()
             .trim();
-        final orgGst = orgMap['gst_treatment']?.toString().trim() ?? '';
 
         if (orgState.isNotEmpty) {
           for (final s in loadedStates) {
             if (s.toLowerCase().contains(orgState.toLowerCase())) {
               defaultState = s;
               break;
-            }
-          }
-        }
-
-        if (orgGst.isNotEmpty && gstData is List) {
-          for (final g in gstData) {
-            if (g is Map) {
-              final code = g['code']?.toString() ?? '';
-              final label = g['label']?.toString() ?? '';
-              if (code.toLowerCase() == orgGst.toLowerCase() ||
-                  label.toLowerCase() == orgGst.toLowerCase()) {
-                defaultGstTreatment = label;
-                break;
-              }
             }
           }
         }
@@ -3364,16 +3298,23 @@ class _PurchasesBillCreateScreenState
     try {
       final lookupsService = LookupsApiService();
       final terms = await lookupsService.getPaymentTerms();
+      final dbDefaultId = await lookupsService.getDefaultPaymentTermId();
       if (mounted) {
         setState(() {
           _paymentTermsList = terms;
+          _defaultPaymentTermId = dbDefaultId;
           if (_paymentTerms == null && terms.isNotEmpty) {
-            // Default to Net 30 if available
-            final net30 = terms.firstWhere(
-              (t) => t['term_name'] == 'Net 30',
-              orElse: () => terms.first,
-            );
-            _paymentTerms = net30['id'];
+            final hasDefault = terms.any((t) => t['id']?.toString() == dbDefaultId);
+            if (hasDefault) {
+              _paymentTerms = dbDefaultId;
+            } else {
+              final net30 = terms.firstWhere(
+                (t) => t['term_name'] == 'Net 30',
+                orElse: () => terms.first,
+              );
+              _paymentTerms = net30['id'];
+            }
+            _updateDueDateFromPaymentTerms();
           }
         });
       }
@@ -3753,9 +3694,25 @@ class _PurchasesBillCreateScreenState
       _attachedFiles.clear();
 
       if (v != null) {
+        String? resolvedTerms = _defaultPaymentTermId;
         if (v.paymentTerms != null && v.paymentTerms!.isNotEmpty) {
-          _paymentTerms = v.paymentTerms;
+          final matchingTerm = _paymentTermsList.firstWhere(
+            (t) => t['term_name'] == v.paymentTerms || t['id'] == v.paymentTerms,
+            orElse: () => <String, dynamic>{},
+          );
+          if (matchingTerm.isNotEmpty) {
+            resolvedTerms = matchingTerm['id']?.toString();
+          }
         }
+        if (resolvedTerms == null && _paymentTermsList.isNotEmpty) {
+          final net30 = _paymentTermsList.firstWhere(
+            (t) => t['term_name'] == 'Net 30',
+            orElse: () => _paymentTermsList.first,
+          );
+          resolvedTerms = net30['id']?.toString();
+        }
+        _paymentTerms = resolvedTerms;
+        _updateDueDateFromPaymentTerms();
         final String? vendorSource = v.sourceOfSupply;
         final String? billingState = v.billingAddress?['state']?.toString();
         final String resolvedState =
@@ -3887,7 +3844,7 @@ class _PurchasesBillCreateScreenState
       }
     }
 
-    final warehouses = ref.read(warehousesProvider).value ?? [];
+    final warehouses = ref.read(warehousesProvider).valueOrNull ?? [];
     final matchingWarehouse = warehouses.firstWhere(
       (w) =>
           w.name.trim().toLowerCase() ==
@@ -4244,15 +4201,167 @@ class _PurchasesBillCreateScreenState
     return baseWidth.clamp(200.0, availableWidth).toDouble();
   }
 
+  void _updateRowRate(_BillLineItemRow row, String? appliedPriceListId, List<PriceList> priceLists) {
+    if (row.itemId == null || row.itemId!.isEmpty) return;
+    row.priceListId = appliedPriceListId;
+    final itemsState = ref.read(itemsControllerProvider);
+    final prod = itemsState.items
+        .where((item) => item.id == row.itemId)
+        .firstOrNull;
+    final baseCost = prod?.costPrice ?? 0.0;
+    final qty = double.tryParse(row.quantityCtrl.text) ?? 1.0;
+    
+    final pl = priceLists.where((p) => p.id == appliedPriceListId).firstOrNull;
+    if (pl != null) {
+      final newRate = pl.calculatePrice(
+        row.itemId!,
+        baseCost,
+        quantity: qty,
+      );
+      row.rateCtrl.text = newRate.toStringAsFixed(2);
+      row.priceListId = pl.id;
+    } else {
+      row.rateCtrl.text = baseCost.toStringAsFixed(2);
+      row.priceListId = null;
+    }
+  }
+
+  List<PriceList> _getCombinedPriceListsForBranch(String selectedBranchId) {
+    final globalPriceLists = ref.read(activePriceListsProvider);
+    final branchPriceLists = ref.read(branchPriceListNotifierProvider).valueOrNull ?? <BranchPriceList>[];
+
+    final globalPurchaseLists = globalPriceLists
+        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
+        .toList();
+
+    final filteredBranchLists = branchPriceLists
+        .where((pl) =>
+            pl.status == 'active' &&
+            pl.transactionType.toLowerCase() == 'purchase' &&
+            (pl.associatedBranches?.contains(selectedBranchId) ?? false))
+        .map((b) => PriceList(
+              id: b.id,
+              name: b.name,
+              description: b.description,
+              currency: b.currency,
+              pricingScheme: b.pricingScheme,
+              priceListType: b.priceListType,
+              details: b.details,
+              roundOffPreference: b.roundOffPreference,
+              status: b.status,
+              transactionType: b.transactionType,
+              isDiscountEnabled: b.isDiscountEnabled,
+              percentageType: b.percentageType,
+              percentageValue: b.percentageValue,
+              itemRates: b.itemRates
+                  ?.map((r) => PriceListItemRate(
+                        itemId: r.itemId,
+                        itemName: r.itemName,
+                        sku: r.sku,
+                        salesRate: r.salesRate,
+                        customRate: r.customRate,
+                        discountPercentage: r.discountPercentage,
+                        volumeRanges: r.volumeRanges
+                            ?.map((vr) => PriceListVolumeRange(
+                                  startQuantity: vr.startQuantity,
+                                  endQuantity: vr.endQuantity,
+                                  customRate: vr.customRate,
+                                  discountPercentage: vr.discountPercentage,
+                                ))
+                            .toList(),
+                      ))
+                  .toList(),
+              createdAt: b.createdAt,
+              updatedAt: b.updatedAt,
+            ))
+        .toList();
+
+    return <PriceList>[
+      ...globalPurchaseLists,
+      ...filteredBranchLists,
+    ];
+  }
+
+  List<PriceList> _getCombinedPriceLists() {
+    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
+    final selectedWh = warehouseList.firstWhere(
+      (w) => w.name == _warehouse,
+      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+    );
+    final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
+    final selectedBranchId = selectedWh.entityId ?? selectedWh.branchId ?? activeEntityId ?? '';
+    return _getCombinedPriceListsForBranch(selectedBranchId);
+  }
+
+  List<PriceList> _watchCombinedPriceLists() {
+    final globalPriceLists = ref.watch(activePriceListsProvider)
+        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
+        .toList();
+    final branchPriceListsAsync = ref.watch(branchPriceListNotifierProvider);
+    final branchPriceLists = branchPriceListsAsync.valueOrNull ?? <BranchPriceList>[];
+
+    final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
+    final selectedWh = warehouseList.firstWhere(
+      (w) => w.name == _warehouse,
+      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+    );
+    final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
+    final selectedBranchId = selectedWh.entityId ?? selectedWh.branchId ?? activeEntityId ?? '';
+
+    final filteredBranchLists = branchPriceLists
+        .where((pl) =>
+            pl.status == 'active' &&
+            pl.transactionType.toLowerCase() == 'purchase' &&
+            (pl.associatedBranches?.contains(selectedBranchId) ?? false))
+        .map((b) => PriceList(
+              id: b.id,
+              name: b.name,
+              description: b.description,
+              currency: b.currency,
+              pricingScheme: b.pricingScheme,
+              priceListType: b.priceListType,
+              details: b.details,
+              roundOffPreference: b.roundOffPreference,
+              status: b.status,
+              transactionType: b.transactionType,
+              isDiscountEnabled: b.isDiscountEnabled,
+              percentageType: b.percentageType,
+              percentageValue: b.percentageValue,
+              itemRates: b.itemRates
+                  ?.map((r) => PriceListItemRate(
+                        itemId: r.itemId,
+                        itemName: r.itemName,
+                        sku: r.sku,
+                        salesRate: r.salesRate,
+                        customRate: r.customRate,
+                        discountPercentage: r.discountPercentage,
+                        volumeRanges: r.volumeRanges
+                            ?.map((vr) => PriceListVolumeRange(
+                                  startQuantity: vr.startQuantity,
+                                  endQuantity: vr.endQuantity,
+                                  customRate: vr.customRate,
+                                  discountPercentage: vr.discountPercentage,
+                                ))
+                            .toList(),
+                      ))
+                  .toList(),
+              createdAt: b.createdAt,
+              updatedAt: b.updatedAt,
+            ))
+        .toList();
+
+    return <PriceList>[
+      ...globalPriceLists,
+      ...filteredBranchLists,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final vendorState = ref.watch(vendorProvider);
     final itemsState = ref.watch(itemsControllerProvider);
     final accountsRoots = ref.watch(chartOfAccountsProvider).roots;
-    final activePriceLists = ref
-        .watch(activePriceListsProvider)
-        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
-        .toList();
+    final activePriceLists = _watchCombinedPriceLists();
 
     return ZerpaiLayout(
       pageTitle: '',
@@ -5873,7 +5982,7 @@ class _PurchasesBillCreateScreenState
       // keep existing local options if remote lookup fails
     }
 
-    final warehouses = ref.read(warehousesProvider).value ?? [];
+    final warehouses = ref.read(warehousesProvider).valueOrNull ?? [];
     final matchingWarehouse = warehouses.firstWhere(
       (w) =>
           w.name.trim().toLowerCase() ==
@@ -6631,12 +6740,6 @@ class _PurchasesBillCreateScreenState
     collect(accountsRoots);
 
     final mappedNodes = availableAccounts;
-    final allItems = itemsState.items;
-
-    final activePriceLists = ref
-        .watch(activePriceListsProvider)
-        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
-        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -7732,15 +7835,15 @@ class _PurchasesBillCreateScreenState
   }
 
   Widget _buildWarehouseDropdown() {
-    final warehouseList = ref.watch(warehousesProvider).value ?? <Warehouse>[];
-    if (_warehouse == null && warehouseList.isNotEmpty) {
-      _warehouse = warehouseList.first.name;
-    }
+    final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
     final items = warehouseList.map((w) => w.name).toSet().toList();
-    if (_warehouse != null &&
-        _warehouse!.isNotEmpty &&
-        !items.contains(_warehouse)) {
-      items.insert(0, _warehouse!);
+    final hasCurrentWh = items.contains(_warehouse);
+    if ((_warehouse == null || !hasCurrentWh) && warehouseList.isNotEmpty) {
+      final defaultWh = warehouseList.firstWhere(
+        (w) => w.isDefaultForBranch,
+        orElse: () => warehouseList.first,
+      );
+      _warehouse = defaultWh.name;
     }
     final hasWh = _warehouse != null && _warehouse!.isNotEmpty;
     return FormDropdown<String>(
@@ -7757,6 +7860,31 @@ class _PurchasesBillCreateScreenState
         if (val != null) {
           setState(() {
             _warehouse = val;
+            final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
+            final selectedWh = warehouseList.firstWhere(
+              (w) => w.name == val,
+              orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+            );
+            final selectedBranchId = selectedWh.entityId ?? selectedWh.branchId ?? activeEntityId ?? '';
+            final newPriceLists = _getCombinedPriceListsForBranch(selectedBranchId);
+            if (_selectedPriceListId != null) {
+              final hasPl = newPriceLists.any((pl) => pl.id == _selectedPriceListId);
+              if (!hasPl) {
+                _selectedPriceListId = null;
+                for (var row in _lineItems) {
+                  row.priceListId = null;
+                  _updateRowRate(row, null, newPriceLists);
+                }
+              } else {
+                for (var row in _lineItems) {
+                  _updateRowRate(row, row.priceListId ?? _selectedPriceListId, newPriceLists);
+                }
+              }
+            } else {
+              for (var row in _lineItems) {
+                _updateRowRate(row, row.priceListId, newPriceLists);
+              }
+            }
             for (final r in _lineItems) {
               if (r.warehouseName == null && r.itemId != null) {
                 ref.read(itemWarehouseStocksProvider(r.itemId!).future).then((stocks) {
@@ -10141,7 +10269,7 @@ class _PurchasesBillCreateScreenState
 
   Widget _customerCell(_BillLineItemRow row) {
     final customersAsync = ref.watch(salesCustomersProvider);
-    final customers = customersAsync.value ?? const <SalesCustomer>[];
+    final customers = customersAsync.valueOrNull ?? const <SalesCustomer>[];
 
     return Expanded(
       flex: 6,
@@ -12206,13 +12334,11 @@ class _PurchasesBillCreateScreenState
             orElse: () => <String, dynamic>{},
           );
     String displayText = 'Select a Tax';
-    double ratePercent = 0.0;
     if (selectedRate.isNotEmpty) {
       final taxName = selectedRate['tax_name'] ?? '';
       final d = double.tryParse(
         (isTcs ? selectedRate['rate'] : selectedRate['base_rate'])?.toString() ?? '0',
       );
-      ratePercent = d ?? 0.0;
       final baseRateStr = (d == null) 
           ? '' 
           : (d == d.toInt() ? '${d.toInt()}%' : '$d%');
@@ -13432,89 +13558,7 @@ class _PurchasesBillCreateScreenState
     Overlay.of(context).insert(_addRowDropdownOverlay!);
   }
 
-  Widget _buildBulkActionButton(String label) {
-    return OutlinedButton(
-      onPressed: () {},
-      style: OutlinedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: _primaryBlue,
-        side: const BorderSide(color: _primaryBlue),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
 
-  Widget _buildGridCell({
-    required int flex,
-    required double cellHeight,
-    EdgeInsetsGeometry? padding,
-    AlignmentGeometry? alignment,
-    required Widget child,
-  }) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        height: cellHeight,
-        padding: padding ?? EdgeInsets.zero,
-        alignment: alignment,
-        decoration: const BoxDecoration(
-          border: Border(right: BorderSide(color: _borderColor)),
-        ),
-        child: child,
-      ),
-    );
-  }
-
-  Widget _buildCompactDateField(
-    BuildContext context,
-    TextEditingController controller, {
-    String? hint,
-    FocusNode? focusNode,
-    void Function(DateTime?)? onChanged,
-    Widget? prefixIcon,
-  }) {
-    final fieldKey = GlobalKey();
-    return InCellWrapper(
-      focusNode: focusNode,
-      child: TextField(
-        key: fieldKey,
-        controller: controller,
-        focusNode: focusNode,
-        readOnly: true,
-        style: const TextStyle(fontSize: 12),
-        onTap: () async {
-          final picked = await ZerpaiDatePicker.show(
-            context,
-            initialDate: DateTime.now(),
-            targetKey: fieldKey,
-          );
-          if (picked != null) {
-            controller.text = DateFormat('MM/yy').format(picked);
-            if (onChanged != null) onChanged(picked);
-          }
-        },
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 12,
-          ),
-          prefixIcon: prefixIcon,
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 28,
-            minHeight: 28,
-          ),
-          border: InputBorder.none,
-        ),
-      ),
-    );
-  }
 
   Widget _buildCompactTextField(
     TextEditingController controller, {
@@ -13850,7 +13894,6 @@ class _PurchasesBillCreateScreenState
 
   void _showItcOverlay(_BillLineItemRow row) {
     _removeItcOverlay();
-    final overlay = Overlay.of(context);
     String tempSelection = row.itcEligibility;
 
     _itcOverlayEntry = OverlayEntry(
@@ -17212,8 +17255,7 @@ class _TaxCellDropdownState extends State<_TaxCellDropdown> {
 
 class _HoverBorderContainer extends StatefulWidget {
   final Widget child;
-  final bool isSelected;
-  const _HoverBorderContainer({required this.child, this.isSelected = false});
+  const _HoverBorderContainer({required this.child});
 
   @override
   State<_HoverBorderContainer> createState() => _HoverBorderContainerState();
@@ -17233,7 +17275,7 @@ class _HoverBorderContainerState extends State<_HoverBorderContainer> {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: (_hovered || widget.isSelected) ? const Color(0xFF3B82F6) : Colors.transparent,
+            color: _hovered ? const Color(0xFF3B82F6) : Colors.transparent,
             width: 1,
           ),
         ),

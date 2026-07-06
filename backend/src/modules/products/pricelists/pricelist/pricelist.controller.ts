@@ -198,8 +198,24 @@ export class PriceListController {
     return Boolean(tenant?.branchId);
   }
 
-  private assertWriteAllowed(tenant: TenantContext) {
+  private async assertWriteAllowed(tenant: TenantContext, body?: any, priceListId?: string) {
     if (this.isBranchViewOnlyTenant(tenant)) {
+      let scope = body?.price_scope ?? body?.priceScope;
+      
+      if (!scope && priceListId) {
+        const { data } = await this.supabaseService
+          .getClient()
+          .from("price_lists")
+          .select("price_scope")
+          .eq("id", priceListId)
+          .maybeSingle();
+        scope = data?.price_scope;
+      }
+
+      if (scope === "BRANCH") {
+        return;
+      }
+
       throw new BadRequestException(
         "Branch users can only view assigned branch price lists.",
       );
@@ -627,7 +643,7 @@ export class PriceListController {
   @Post()
   async create(@Body() body: any, @Tenant() tenant: TenantContext) {
     try {
-      this.assertWriteAllowed(tenant);
+      await this.assertWriteAllowed(tenant, body);
       const entityId = this.getTenantEntityId(tenant);
       const headerPayload = this.buildHeaderPayload(body, entityId);
       const sb = this.supabaseService.getClient();
@@ -664,7 +680,7 @@ export class PriceListController {
     @Tenant() tenant: TenantContext,
   ) {
     try {
-      this.assertWriteAllowed(tenant);
+      await this.assertWriteAllowed(tenant, body, id);
       const entityId = this.getTenantEntityId(tenant);
       const sb = this.supabaseService.getClient();
       const { data: existing, error: existingErr } = await sb
@@ -708,7 +724,7 @@ export class PriceListController {
 
   @Delete(":id")
   async remove(@Param("id") id: string, @Tenant() tenant: TenantContext) {
-    this.assertWriteAllowed(tenant);
+    await this.assertWriteAllowed(tenant, null, id);
     const entityId = this.getTenantEntityId(tenant);
     const { error } = await this.supabaseService
       .getClient()
@@ -723,7 +739,7 @@ export class PriceListController {
 
   @Patch(":id/deactivate")
   async deactivate(@Param("id") id: string, @Tenant() tenant: TenantContext) {
-    this.assertWriteAllowed(tenant);
+    await this.assertWriteAllowed(tenant, null, id);
     const entityId = this.getTenantEntityId(tenant);
     const { data, error } = await this.supabaseService
       .getClient()

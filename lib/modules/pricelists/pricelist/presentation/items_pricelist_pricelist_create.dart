@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
@@ -38,7 +39,15 @@ const double _bulkRatesSelectionWidth = 30;
 
 class PriceListCreateScreen extends ConsumerStatefulWidget {
   final PriceList? template;
-  const PriceListCreateScreen({super.key, this.template});
+  final PriceList? priceList;
+  final String? priceListId;
+
+  const PriceListCreateScreen({
+    super.key,
+    this.template,
+    this.priceList,
+    this.priceListId,
+  });
 
   @override
   ConsumerState<PriceListCreateScreen> createState() =>
@@ -74,36 +83,76 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   bool _isItemSearchVisible = false;
   bool _isBulkUpdateMode = false;
   bool _isSaving = false;
+  bool _isLoading = false;
   String? _hoveredBulkRateCellKey;
   String? _activeBulkRateCellKey;
 
   @override
   void initState() {
     super.initState();
-    if (widget.template != null) {
-      _initializeFromTemplate(widget.template!);
+    if (widget.priceList != null) {
+      _initializeData(widget.priceList!, isEdit: true);
+    } else if (widget.priceListId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchPriceList();
+      });
+    } else if (widget.template != null) {
+      _initializeData(widget.template!, isEdit: false);
     }
   }
 
-  void _initializeFromTemplate(PriceList template) {
-    _nameController.text = 'Copy of ${template.name}';
-    _descriptionController.text = template.description ?? '';
-    _transactionType = template.transactionType;
-    _priceListType = template.priceListType;
-    _pricingScheme = template.pricingScheme;
-    _roundOffTo = template.roundOffPreference ?? 'Never mind';
-    _isDiscountEnabled = template.isDiscountEnabled;
+  Future<void> _fetchPriceList() async {
+    setState(() => _isLoading = true);
+    try {
+      final p = await ref
+          .read(priceListNotifierProvider.notifier)
+          .fetchPriceListById(widget.priceListId!);
+      if (mounted && p != null) {
+        setState(() {
+          _initializeData(p, isEdit: true);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching price list: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _initializeData(PriceList p, {required bool isEdit}) {
+    _nameController.text = isEdit ? p.name : 'Copy of ${p.name}';
+    _descriptionController.text = p.description ?? '';
+    _transactionType = p.transactionType;
+    _priceListType = p.priceListType;
+    _pricingScheme = p.pricingScheme;
+    _roundOffTo = p.roundOffPreference ?? 'Never mind';
+    _isDiscountEnabled = p.isDiscountEnabled;
 
     if (_priceListType == 'all_items') {
-      final details = template.details ?? '';
-      // Parse "10% Markup"
-      final parts = details.split('% ');
-      if (parts.length == 2) {
-        _percentageController.text = parts[0];
-        _percentageType = parts[1];
+      if (p.percentageValue != null) {
+        _percentageController.text = p.percentageValue!.toStringAsFixed(0);
+      } else {
+        // Fallback string parsing
+        final details = p.details ?? '';
+        final match = RegExp(r'(\d+\.?\d*)').firstMatch(details);
+        if (match != null) _percentageController.text = match.group(0)!;
       }
-    } else if (template.itemRates != null) {
-      for (final rate in template.itemRates!) {
+
+      if (p.percentageType != null && p.percentageType!.isNotEmpty) {
+        final type = p.percentageType!;
+        _percentageType = type[0].toUpperCase() + type.substring(1).toLowerCase();
+      } else {
+        final details = p.details ?? '';
+        if (details.contains('Markdown') || details.contains('markdown')) {
+          _percentageType = 'Markdown';
+        } else {
+          _percentageType = 'Markup';
+        }
+      }
+    } else if (p.itemRates != null) {
+      for (final rate in p.itemRates!) {
         final itemId = rate.itemId;
         if (_pricingScheme == 'volume_pricing') {
           final ranges = rate.volumeRanges ?? [];
@@ -114,8 +163,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                 v.startQuantity.toString();
             _volumeEndControllerFor(itemId, i).text =
                 v.endQuantity?.toString() ?? '';
-            _volumeRateControllerFor(itemId, i).text =
-                v.customRate.toString();
+            _volumeRateControllerFor(itemId, i).text = v.customRate.toString();
             if (_isDiscountEnabled && v.discountPercentage != null) {
               _discountControllerFor(_volumeDiscountKey(itemId, i)).text =
                   v.discountPercentage!.toString();
@@ -159,12 +207,15 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.priceList != null || widget.priceListId != null;
+    final pageTitle = isEdit ? 'Edit Price List' : 'New Price List';
+
     return ColoredBox(
       color: Colors.white,
       child: ZerpaiLayout(
-        pageTitle: 'New Price List',
+        pageTitle: pageTitle,
         enableBodyScroll: true,
-        useTopPadding: false,
+        useTopPadding: true,
         actions: [
           IconButton(
             onPressed: _cancel,
@@ -178,38 +229,41 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         footer: _buildFooter(),
         onSave: _save,
         onCancel: _cancel,
-        child: Form(
-          key: _formKey,
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1180),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildNameRow(),
-                  const SizedBox(height: _priceListRowGap),
-                  _buildTransactionTypeRow(),
-                  const SizedBox(height: _priceListRowGap),
-                  _buildPriceListTypeRow(),
-                  const SizedBox(height: _priceListRowGap),
-                  _buildDescriptionRow(),
-                  if (_priceListType == 'all_items') ...[
+        child: Skeletonizer(
+          enabled: _isLoading,
+          child: Form(
+            key: _formKey,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1180),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildNameRow(),
                     const SizedBox(height: _priceListRowGap),
-                    _buildPercentageRow(),
+                    _buildTransactionTypeRow(),
                     const SizedBox(height: _priceListRowGap),
-                    _buildRoundOffRow(),
-                  ] else ...[
+                    _buildPriceListTypeRow(),
                     const SizedBox(height: _priceListRowGap),
-                    _buildPricingSchemeRow(),
-                    const SizedBox(height: _priceListRowGap),
-                    _buildCurrencyRow(),
-                    const SizedBox(height: _priceListRowGap),
-                    _buildDiscountRow(),
-                    const SizedBox(height: 12),
-                    _buildBulkRatesSection(),
+                    _buildDescriptionRow(),
+                    if (_priceListType == 'all_items') ...[
+                      const SizedBox(height: _priceListRowGap),
+                      _buildPercentageRow(),
+                      const SizedBox(height: _priceListRowGap),
+                      _buildRoundOffRow(),
+                    ] else ...[
+                      const SizedBox(height: _priceListRowGap),
+                      _buildPricingSchemeRow(),
+                      const SizedBox(height: _priceListRowGap),
+                      _buildCurrencyRow(),
+                      const SizedBox(height: _priceListRowGap),
+                      _buildDiscountRow(),
+                      const SizedBox(height: 12),
+                      _buildBulkRatesSection(),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -240,41 +294,55 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   }
 
   Widget _buildTransactionTypeRow() {
+    final isEdit = widget.priceList != null || widget.priceListId != null;
     return _FormRow(
       label: 'Transaction Type',
-      child: ZerpaiRadioGroup<String>(
-        options: const ['sales', 'purchase'],
-        current: _transactionType,
-        labelBuilder: (value) => value == 'sales' ? 'Sales' : 'Purchase',
-        onChanged: (value) => setState(() => _transactionType = value),
-        activeColor: AppTheme.primaryBlueDark,
+      child: IgnorePointer(
+        ignoring: isEdit,
+        child: Opacity(
+          opacity: isEdit ? 0.75 : 1.0,
+          child: ZerpaiRadioGroup<String>(
+            options: const ['sales', 'purchase'],
+            current: _transactionType,
+            labelBuilder: (value) => value == 'sales' ? 'Sales' : 'Purchase',
+            onChanged: (value) => setState(() => _transactionType = value),
+            activeColor: AppTheme.primaryBlueDark,
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildPriceListTypeRow() {
+    final isEdit = widget.priceList != null || widget.priceListId != null;
     return _FormRow(
       label: 'Price List Type',
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 12,
-        children: [
-          _PriceListTypeCard(
-            selected: _priceListType == 'all_items',
-            title: 'All Items',
-            subtitle: 'Mark up or mark down the rates of all items',
-            onTap: () => setState(() {
-              _priceListType = 'all_items';
-              _isDiscountEnabled = false;
-            }),
+      child: IgnorePointer(
+        ignoring: isEdit,
+        child: Opacity(
+          opacity: isEdit ? 0.75 : 1.0,
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            children: [
+              _PriceListTypeCard(
+                selected: _priceListType == 'all_items',
+                title: 'All Items',
+                subtitle: 'Mark up or mark down the rates of all items',
+                onTap: () => setState(() {
+                  _priceListType = 'all_items';
+                  _isDiscountEnabled = false;
+                }),
+              ),
+              _PriceListTypeCard(
+                selected: _priceListType == 'individual_items',
+                title: 'Individual Items',
+                subtitle: 'Customize the rate of each item',
+                onTap: () => setState(() => _priceListType = 'individual_items'),
+              ),
+            ],
           ),
-          _PriceListTypeCard(
-            selected: _priceListType == 'individual_items',
-            title: 'Individual Items',
-            subtitle: 'Customize the rate of each item',
-            onTap: () => setState(() => _priceListType = 'individual_items'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -813,7 +881,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                 setDialogState(() => updateUnit = value);
                               },
                             ),
-                            if (_isDiscountEnabled && _pricingScheme == 'unit_pricing') ...[
+                            if (_isDiscountEnabled &&
+                                _pricingScheme == 'unit_pricing') ...[
                               const SizedBox(height: 16),
                               Row(
                                 children: [
@@ -833,17 +902,24 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                       children: [
                                         Expanded(
                                           child: CustomTextField(
-                                            controller: ranges.first.discountController,
+                                            controller:
+                                                ranges.first.discountController,
                                             height: 34,
-                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            keyboardType:
+                                                const TextInputType.numberWithOptions(
+                                                  decimal: true,
+                                                ),
                                             inputFormatters: [
-                                              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                              FilteringTextInputFormatter.allow(
+                                                RegExp(r'[0-9.]'),
+                                              ),
                                             ],
                                             contentCase: ContentCase.none,
                                             textAlign: TextAlign.right,
-                                            borderRadius: const BorderRadius.horizontal(
-                                              left: Radius.circular(4),
-                                            ),
+                                            borderRadius:
+                                                const BorderRadius.horizontal(
+                                                  left: Radius.circular(4),
+                                                ),
                                           ),
                                         ),
                                         Container(
@@ -852,10 +928,13 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                           alignment: Alignment.center,
                                           decoration: BoxDecoration(
                                             color: AppTheme.inputFill,
-                                            border: Border.all(color: AppTheme.borderColorDark),
-                                            borderRadius: const BorderRadius.horizontal(
-                                              right: Radius.circular(4),
+                                            border: Border.all(
+                                              color: AppTheme.borderColorDark,
                                             ),
+                                            borderRadius:
+                                                const BorderRadius.horizontal(
+                                                  right: Radius.circular(4),
+                                                ),
                                           ),
                                           child: const Text(
                                             '%',
@@ -873,7 +952,11 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                             ],
                             if (_pricingScheme == 'volume_pricing') ...[
                               const SizedBox(height: 16),
-                              for (var index = 0; index < ranges.length; index++)
+                              for (
+                                var index = 0;
+                                index < ranges.length;
+                                index++
+                              )
                                 Padding(
                                   padding: EdgeInsets.only(
                                     top: index == 0 ? 0 : 12,
@@ -888,8 +971,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                     },
                                     onRemove: ranges.length > 1
                                         ? () => setDialogState(
-                                              () => ranges.removeAt(index),
-                                            )
+                                            () => ranges.removeAt(index),
+                                          )
                                         : null,
                                   ),
                                 ),
@@ -1138,11 +1221,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               borderRadius: BorderRadius.circular(4),
               child: const Padding(
                 padding: EdgeInsets.all(4),
-                child: Icon(
-                  Icons.close,
-                  size: 16,
-                  color: AppTheme.errorRed,
-                ),
+                child: Icon(Icons.close, size: 16, color: AppTheme.errorRed),
               ),
             ),
           ),
@@ -2159,13 +2238,14 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                 ? 'Fixed Rates'
                 : 'Tiered Pricing');
       final itemRates = _priceListType == 'individual_items'
-          ? _buildItemRates(
-              ref.read(itemsControllerProvider).items,
-            )
+          ? _buildItemRates(ref.read(itemsControllerProvider).items)
           : null;
 
+      final isEdit = widget.priceList != null || widget.priceListId != null;
+      final existingId = isEdit ? (widget.priceList?.id ?? widget.priceListId ?? '') : '';
+
       final priceList = PriceList(
-        id: '',
+        id: existingId,
         name: _nameController.text.trim(),
         description: _emptyToNull(_descriptionController.text),
         currency: _priceListType == 'individual_items'
@@ -2182,13 +2262,23 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         isDiscountEnabled:
             _priceListType == 'individual_items' && _isDiscountEnabled,
         itemRates: itemRates,
-        createdAt: now,
+        percentageType: _priceListType == 'all_items' ? _percentageType : null,
+        percentageValue: _priceListType == 'all_items'
+            ? double.tryParse(_percentageController.text.trim())
+            : null,
+        createdAt: isEdit ? (widget.priceList?.createdAt ?? now) : now,
         updatedAt: now,
       );
 
-      await ref
-          .read(priceListNotifierProvider.notifier)
-          .createPriceList(priceList);
+      if (isEdit) {
+        await ref
+            .read(priceListNotifierProvider.notifier)
+            .updatePriceList(priceList);
+      } else {
+        await ref
+            .read(priceListNotifierProvider.notifier)
+            .createPriceList(priceList);
+      }
 
       if (!mounted) return;
       _finish(created: true);
@@ -2435,7 +2525,10 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
             '';
         final discountPercentage = _parseDecimalInput(discountText);
         final hasInput =
-            startText.isNotEmpty || endText.isNotEmpty || rateText.isNotEmpty || discountText.isNotEmpty;
+            startText.isNotEmpty ||
+            endText.isNotEmpty ||
+            rateText.isNotEmpty ||
+            discountText.isNotEmpty;
         if (!hasInput) continue;
 
         ranges.add(

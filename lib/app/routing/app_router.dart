@@ -46,7 +46,6 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/presentation/pages
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/presentation/pages/accountant_chart_of_accounts_creation.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_overview.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_create.dart';
-import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_edit.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_overview_page.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_create_page.dart';
@@ -1087,7 +1086,7 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) {
                 final id = state.pathParameters['id'];
                 final extra = state.extra as PriceList?;
-                return PriceListEditScreen(priceList: extra, priceListId: id);
+                return PriceListCreateScreen(priceList: extra, priceListId: id);
               },
             ),
             GoRoute(

@@ -5,6 +5,7 @@ import '../data/purchase_receive_repository.dart';
 import '../data/purchase_receive_repository_impl.dart';
 import '../models/purchases_purchase_receives_model.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 // Repository Provider
 final purchaseReceiveRepositoryProvider = Provider<PurchaseReceiveRepository>((
@@ -68,6 +69,7 @@ class PurchaseReceivesNotifier
         status: status,
       );
       final total = await _repository.getTotalCount();
+      if (!mounted) return;
       state = AsyncValue.data(
         PurchaseReceivesState(receives: receives, totalCount: total),
       );
@@ -78,6 +80,7 @@ class PurchaseReceivesNotifier
         stackTrace: st,
         module: 'purchases',
       );
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
@@ -203,6 +206,7 @@ final purchaseReceivesProvider =
       PurchaseReceivesNotifier,
       AsyncValue<PurchaseReceivesState>
     >((ref) {
+      ref.watch(entityProvider);
       final repository = ref.watch(purchaseReceiveRepositoryProvider);
       return PurchaseReceivesNotifier(repository);
     });

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 class VendorState {
   final List<Vendor> vendors;
@@ -124,6 +125,7 @@ class VendorNotifier extends StateNotifier<VendorState> {
 final vendorProvider = StateNotifierProvider<VendorNotifier, VendorState>((
   ref,
 ) {
+  ref.watch(entityProvider);
   final repository = ref.read(vendorRepositoryProvider);
   return VendorNotifier(repository);
 });

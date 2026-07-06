@@ -82,6 +82,7 @@ class PurchaseReceivesNotifier
         status: status,
       );
       final merged = _mergeReceives(remote, _localReceives);
+      if (!mounted) return;
       state = AsyncValue.data(
         PurchaseReceivesState(
           receives: merged,
@@ -99,6 +100,7 @@ class PurchaseReceivesNotifier
         module: 'purchases',
       );
       final localFiltered = _applyFilters(_localReceives, search, status);
+      if (!mounted) return;
       state = AsyncValue.data(
         PurchaseReceivesState(
           receives: localFiltered,

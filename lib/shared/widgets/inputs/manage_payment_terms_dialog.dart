@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:uuid/uuid.dart';
+import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 
 class ManagePaymentTermsDialog extends StatefulWidget {
   final List<dynamic> items;
@@ -524,8 +525,9 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                     )
                   else if (isHovered && rowId != null)
                     TextButton(
-                      onPressed: () {
+                      onPressed: () async {
                         setState(() => _currentDefaultId = rowId);
+                        await LookupsApiService().setDefaultPaymentTermId(rowId);
                         widget.onSelect(row);
                       },
                       style: TextButton.styleFrom(

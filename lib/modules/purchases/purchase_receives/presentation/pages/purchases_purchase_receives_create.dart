@@ -273,6 +273,10 @@ class _PRCreateState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(warehousesProvider);
+      ref.invalidate(vendorProvider);
+    });
     if (!_isEditMode) {
       _receiveNumberCtrl.text = _generateReceiveNumber();
       _receivedDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());

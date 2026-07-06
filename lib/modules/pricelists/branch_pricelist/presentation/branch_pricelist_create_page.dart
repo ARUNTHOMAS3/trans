@@ -529,36 +529,21 @@ class _BranchPriceListCreateScreenState
     final branchesAsync = ref.watch(_branchesProvider);
     final branches = branchesAsync.value ?? [];
 
-    if (branches.isNotEmpty) {
-      for (var i = 0; i < _associatedBranches.length; i++) {
-        final val = _associatedBranches[i];
-        if (val.contains('-')) {
-          final matched = branches.firstWhere(
-            (b) => b['entity_id']?.toString() == val,
-            orElse: () => <String, dynamic>{},
-          );
-          if (matched.isNotEmpty) {
-            final name = matched['name'] as String? ?? '';
-            if (name.isNotEmpty) {
-              _associatedBranches[i] = name;
-            }
-          }
-        }
-      }
-    }
-
-    // Group branches by branch_type
+    // Group branches by branch_type and map ID to name
+    final Map<String, String> branchIdToName = {};
     final Map<String, List<String>> grouped = {};
     for (final b in branches) {
       final typeVal = b['branch_type']?.toString().trim();
       final type = (typeVal != null && typeVal.isNotEmpty) ? typeVal : 'Other';
       final name = b['name'] as String? ?? '';
-      if (name.isNotEmpty) {
-        grouped.putIfAbsent(type, () => []).add(name);
+      final id = b['entity_id']?.toString() ?? b['id']?.toString() ?? '';
+      if (id.isNotEmpty && name.isNotEmpty) {
+        branchIdToName[id] = name;
+        grouped.putIfAbsent(type, () => []).add(id);
       }
     }
 
-    // Build the dropdown options list
+    // Build the dropdown options list using unique branch IDs
     final List<String> dropdownItems = [];
     final Map<String, List<String>> groupChildren = {};
 
@@ -577,7 +562,7 @@ class _BranchPriceListCreateScreenState
       if (isHeader(item)) {
         return item.replaceFirst('__header_', '');
       }
-      return item;
+      return branchIdToName[item] ?? item;
     }
 
     return _FormRow(

@@ -475,6 +475,33 @@ class LookupsApiService {
     List<Map<String, dynamic>> items,
   ) => _syncLookup('payment-terms', items);
 
+  Future<String?> getDefaultPaymentTermId() async {
+    try {
+      final response = await _apiClient.get(
+        '/products/lookups/payment-terms/default',
+        useCache: false,
+      );
+      if (response.statusCode == 200 && response.data is Map) {
+        return response.data['payment_terms_id']?.toString();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ Get Default Payment Term Error: $e');
+      return null;
+    }
+  }
+
+  Future<void> setDefaultPaymentTermId(String paymentTermsId) async {
+    try {
+      await _apiClient.post(
+        '/products/lookups/payment-terms/default',
+        data: {'payment_terms_id': paymentTermsId},
+      );
+    } catch (e) {
+      debugPrint('❌ Set Default Payment Term Error: $e');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getSalespersons() async {
     try {
       final response = await _apiClient.get('/products/lookups/salespersons');

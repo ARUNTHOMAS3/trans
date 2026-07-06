@@ -14,7 +14,46 @@ export class LookupsController {
     "price_lists",
     "vendors",
     "accounts",
+    "users",
   ]);
+
+  @Get("payment-terms/default")
+  async getDefaultPaymentTerm(@Tenant() tenant: TenantContext) {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("default_payment_terms")
+      .select("payment_terms_id")
+      .eq("entity_id", tenant.entityId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("❌ Error fetching default payment term:", error);
+      throw error;
+    }
+    return data;
+  }
+
+  @Post("payment-terms/default")
+  async setDefaultPaymentTerm(
+    @Body() body: { payment_terms_id: string },
+    @Tenant() tenant: TenantContext,
+  ) {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("default_payment_terms")
+      .upsert({
+        entity_id: tenant.entityId,
+        payment_terms_id: body.payment_terms_id,
+      }, { onConflict: "entity_id" })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("❌ Error setting default payment term:", error);
+      throw error;
+    }
+    return data;
+  }
 
   @Get(":type")
   async getLookups(
@@ -46,6 +85,7 @@ export class LookupsController {
       "payment-terms": { table: "payment_terms", field: "term_name" },
       "shipment-preferences": { table: "shipment_preferences", field: "name" },
       "price-lists": { table: "price_lists", field: "name" },
+      salespersons: { table: "users", field: "full_name" },
     };
 
     const config = tableMap[type];
@@ -117,6 +157,7 @@ export class LookupsController {
       "payment-terms": { table: "payment_terms", field: "term_name" },
       "shipment-preferences": { table: "shipment_preferences", field: "name" },
       "price-lists": { table: "price_lists", field: "name" },
+      salespersons: { table: "users", field: "full_name" },
     };
     const config = tableMap[type];
     if (!config) return [];
@@ -222,6 +263,7 @@ export class LookupsController {
       "buying-rules": "buying_rules",
       "drug-schedules": "drug_schedules",
       "content-units": "units",
+      salespersons: "users",
     };
 
     const tableName = tableMap[type];
