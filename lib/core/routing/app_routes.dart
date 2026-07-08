@@ -149,6 +149,8 @@ class AppRoutes {
   static const String salesPaymentsReceived = '/sales/payments-received';
   static const String salesPaymentsReceivedCreate =
       '/sales/payments-received/create';
+  static const String salesCustomerAdvanceCreate =
+      '/sales/payments-received/customer-advance';
   static const String salesPaymentsReceivedDetail =
       '/sales/payments-received/:id';
 
@@ -232,30 +234,23 @@ class AppRoutes {
   static const String itemMapping = '/items/mapping';
   static const String itemMappingCreate = '/items/mapping/create';
 
+  // Item Trade Setup
+  static const String itemTradeSetup = '/items/trade-setup';
+  static const String itemTradeSetupCreate = '/items/trade-setup/create';
+  static const String itemTradeSetupDetail = '/items/trade-setup/:id';
+
   // Other top-level modules
   static const String purchases = '/purchases';
   static const String documents = '/documents';
   static const String auditLogs = '/audit-logs';
 
-  // Procurement - Purchase Requests
-  static const String procurement = '/purchases/procurement';
-  static const String procurementPurchaseRequests =
-      '/purchases/procurement/purchase-requests';
-  static const String procurementPurchaseRequestsCreate =
-      '/purchases/procurement/purchase-requests/create';
-  static const String procurementPurchaseRequestOverview =
-      '/purchases/procurement/purchase-requests/:id';
-  static const String procurementRequestedItems =
-      '/purchases/procurement/purchase-requests/requested-items';
-
-  // Procurement - Approvals
-  static const String procurementApprovals = '/purchases/procurement/approvals';
-  static const String procurementApprovalsOverview =
-      '/purchases/procurement/approvals/overview';
 
   // Purchases - Vendors
   static const String vendors = '/purchases/vendors';
   static const String vendorsCreate = '/purchases/vendors/create';
+  static const String vendorsDetail = '/purchases/vendors/:id';
+  static const String vendorsEdit = '/purchases/vendors/:id/edit';
+  static const String vendorsEmail = '/purchases/vendors/:id/email';
   static const String purchasesVendors = '/purchases/vendors'; // Legacy
   static const String purchasesVendorsCreate =
       '/purchases/vendors/create'; // Legacy
@@ -360,6 +355,14 @@ class AppRoutes {
   static const String accountantSettings = '/accountant/settings';
   static const String accountantTransactionsReport =
       '/accountant/transactions-report';
+
+  // Procurement
+  static const String procurementPurchaseRequests = '/procurement/purchase-requests';
+  static const String procurementPurchaseRequestsCreate = '/procurement/purchase-requests/create';
+  static const String procurementPurchaseRequestOverview = '/procurement/purchase-requests/:id';
+  static const String procurementRequestedItems = '/procurement/purchase-requests/requested-items';
+  static const String procurementApprovals = '/procurement/approvals';
+  static const String procurementApprovalsOverview = '/procurement/approvals/overview';
 }
 
 

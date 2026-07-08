@@ -119,7 +119,7 @@ import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/uqc_model.dart';
-import 'package:zerpai_erp/modules/items/composite_items/models/composite_item_model.dart';
+import 'package:zerpai_erp/modules/items/composite_items/models/composite_item.dart';
 
 final itemsPerPageProvider = StateProvider<int>((ref) => 50);
 

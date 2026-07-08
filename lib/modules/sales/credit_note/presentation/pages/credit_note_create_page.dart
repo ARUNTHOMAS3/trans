@@ -7,7 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/sales_item_quick_edit_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/constants/phone_prefixes.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
@@ -261,7 +261,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (ctx) => SalesItemQuickEditDialog(
+      builder: (ctx) => ItemQuickEditDialog(
         item: fullItem,
         onUpdated: (updated) {
           setState(() {

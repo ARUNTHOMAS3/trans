@@ -383,7 +383,7 @@ class _ExportDialogState extends State<_ExportDialog> {
   static String _statusLabel(_PrStatus s) => switch (s) {
     _PrStatus.approved        => 'Approved',
     _PrStatus.onHold          => 'On Hold',
-    _PrStatus.awaitingApproval => 'Awaiting Approval',
+    _PrStatus.awaitingApproval => 'Draft',
     _PrStatus.rejected        => 'Rejected',
   };
 
@@ -806,7 +806,7 @@ class _TabBarState extends State<_TabBar> {
           onTap: () => widget.onChanged(_TabFilter.all),
         ),
         _Tab(
-          label: 'Awaiting Approval',
+          label: 'Draft',
           isActive: widget.active == _TabFilter.awaitingApproval,
           onTap: () => widget.onChanged(_TabFilter.awaitingApproval),
         ),
@@ -868,7 +868,7 @@ class _TabDropdownPanelState extends State<_TabDropdownPanel> {
 
   static const _kItems = [
     (_TabFilter.all, 'All'),
-    (_TabFilter.awaitingApproval, 'Awaiting Approval'),
+    (_TabFilter.awaitingApproval, 'Draft'),
     (_TabFilter.approved, 'Approved'),
     (_TabFilter.rejected, 'Rejected'),
     (_TabFilter.onHold, 'On Hold'),
@@ -1492,7 +1492,7 @@ class _StatusBadge extends StatelessWidget {
     final label = switch (status) {
       _PrStatus.approved => 'APPROVED',
       _PrStatus.onHold => 'ON HOLD',
-      _PrStatus.awaitingApproval => 'AWAITING',
+      _PrStatus.awaitingApproval => 'DRAFT',
       _PrStatus.rejected => 'REJECTED',
     };
 

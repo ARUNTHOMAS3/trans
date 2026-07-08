@@ -31,6 +31,8 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_item_model.dart';
@@ -613,9 +615,16 @@ class _SalesOrderOverviewScreenState
         orderPickedQtys[soId]![prodId] = (orderPickedQtys[soId]![prodId] ?? 0.0) + qty;
       }
 
+      // 4.5. Sales Order Items
+      final orderItemsList = await supabase
+          .from('sales_order_items')
+          .select('sales_order_id, product_id, quantity')
+          .inFilter('sales_order_id', orderIds);
+      final List<Map<String, dynamic>> orderItems = List<Map<String, dynamic>>.from(orderItemsList as List);
+
       // 5. Enforce Status Calculation
       for (final order in sales) {
-        final items = order.items ?? [];
+        final items = orderItems.where((i) => i['sales_order_id'] == order.id).toList();
         if (items.isEmpty) {
           _statusSummaries[order.id] = const _SoStatusSummary(
             invoiceStatus: 'none',
@@ -633,11 +642,11 @@ class _SalesOrderOverviewScreenState
         double totalPicked = 0.0;
 
         for (final item in items) {
-          final qty = item.quantity;
+          final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
           totalOrdered += qty;
 
-          final prodId = item.itemId;
-          if (prodId.isNotEmpty) {
+          final prodId = item['product_id'] as String?;
+          if (prodId != null && prodId.isNotEmpty) {
             totalInvoiced += orderInvoicedQtys[order.id]?[prodId] ?? 0.0;
             totalPackaged += orderPackQtys[order.id]?[prodId] ?? 0.0;
             totalShipped += orderShippedQtys[order.id]?[prodId] ?? 0.0;
@@ -2656,7 +2665,7 @@ class _SalesOrderOverviewScreenState
             : status == 'partial'
                 ? 'Partially Invoiced'
                 : 'Not Invoiced';
-        return _buildStatusCircle(status, Colors.blue, w, tooltip);
+        return _buildStatusCircle(status, Colors.green, w, tooltip);
       case _SalesOrderColumnKey.payment:
         return _StateDot(
           width: w,
@@ -2680,7 +2689,7 @@ class _SalesOrderOverviewScreenState
             : status == 'partial'
                 ? 'Partially Shipped'
                 : 'Not Shipped';
-        return _buildStatusCircle(status, Colors.green, w, tooltip);
+        return _buildStatusCircle(status, Colors.red, w, tooltip);
       case _SalesOrderColumnKey.amount:
         return _Cell(
           width: w,
@@ -2746,7 +2755,7 @@ class _SalesOrderOverviewScreenState
             : status == 'partial'
                 ? 'Partially Picked'
                 : 'Not Picked';
-        return _buildStatusCircle(status, Colors.red, w, tooltip);
+        return _buildStatusCircle(status, Colors.blue, w, tooltip);
       case _SalesOrderColumnKey.salesPerson:
         return _Cell(width: w, child: _tableText(sale.salesperson ?? '—'));
     }
@@ -3340,13 +3349,31 @@ class _SalesOrderOverviewScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  item.item?.productName ??
-                                      item.item?.billingName ??
-                                      item.description ??
-                                      item.item?.itemCode ??
-                                      'Unnamed item',
-                                  style: AppTheme.linkText,
+                                Builder(
+                                  builder: (innerContext) => InkWell(
+                                    onTap: () {
+                                      if (item.itemId.isNotEmpty) {
+                                        POItemDetailsSidebar.show(
+                                          innerContext,
+                                          PurchaseOrderItem(
+                                            productId: item.itemId,
+                                            productName: item.item?.productName ?? item.description,
+                                            quantity: item.quantity,
+                                            rate: item.rate,
+                                            amount: item.itemTotal,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: Text(
+                                      item.item?.productName ??
+                                          item.item?.billingName ??
+                                          item.description ??
+                                          item.item?.itemCode ??
+                                          'Unnamed item',
+                                      style: AppTheme.linkText,
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 Text(

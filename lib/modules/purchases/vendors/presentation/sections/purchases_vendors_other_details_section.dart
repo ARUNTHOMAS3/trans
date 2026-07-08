@@ -241,20 +241,15 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    MouseRegion(
-                      onEnter: (_) => _state(() => _isUploadHovered = true),
-                      onExit: (_) => _state(() => _isUploadHovered = false),
-                      child: DottedBorder(
-                        color: _isUploadHovered
-                            ? const Color(0xFF3B82F6)
-                            : const Color(0xFFD1D5DB),
-                        strokeWidth: 1,
-                        dashPattern: const [4, 2],
-                        borderType: BorderType.RRect,
-                        radius: const Radius.circular(4),
-                        child: Container(
-                          height: _inputHeight,
-                          constraints: const BoxConstraints(minWidth: 140),
+                    DottedBorder(
+                      color: const Color(0xFF3B82F6),
+                      strokeWidth: 1,
+                      dashPattern: const [4, 2],
+                      borderType: BorderType.RRect,
+                      radius: const Radius.circular(4),
+                      child: Container(
+                        height: _inputHeight,
+                        constraints: const BoxConstraints(minWidth: 140),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(4),
@@ -311,7 +306,6 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                           ],
                         ),
                       ),
-                    ),
                     ),
                     if (_attachedFiles.isNotEmpty) ...[
                       const SizedBox(width: 12),

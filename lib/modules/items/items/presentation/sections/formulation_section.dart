@@ -200,7 +200,16 @@ class FormulationSection extends StatelessWidget {
     return FormDropdown<String>(
       value: value,
       items: packSizeOptions
-          .map((pack) => (pack['id'] ?? '').toString().trim())
+          .map((pack) {
+            if (pack == null) return '';
+            if (pack is String) return pack.trim();
+            if (pack is Map) return (pack['id'] ?? '').toString().trim();
+            try {
+              return (pack.id ?? '').toString().trim();
+            } catch (_) {
+              return pack.toString().trim();
+            }
+          })
           .where((id) => id.isNotEmpty)
           .toList(),
       hint: hint,

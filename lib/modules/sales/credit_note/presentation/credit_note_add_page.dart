@@ -1,1 +1,1 @@
-export 'credit_note_create_page.dart';
+export 'pages/credit_note_add_page.dart';

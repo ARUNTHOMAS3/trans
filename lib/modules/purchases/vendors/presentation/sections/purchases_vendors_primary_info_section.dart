@@ -92,24 +92,21 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
           isRequired: true,
           showInfo: true,
           tooltip: 'Unique identifier for the vendor.',
-          child: CustomTextField(
-            height: _inputHeight,
-            controller: _vendorNumberCtrl,
-            suffixWidget: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _openVendorNumberPreferences,
-                borderRadius: BorderRadius.circular(4),
-                child: const Padding(
-                  padding: EdgeInsets.all(4.0),
-                  child: Icon(
-                    Icons.settings,
-                    size: 18,
-                    color: Color(0xFF2563EB),
-                  ),
+          child: Row(
+            children: [
+              Expanded(
+                child: CustomTextField(
+                  height: _inputHeight,
+                  controller: _vendorNumberCtrl,
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              _buildSquareIconButton(
+                Icons.settings,
+                onPressed: _openVendorNumberPreferences,
+                tooltip: 'Configure vendor number preferences',
+              ),
+            ],
           ),
         ),
 
@@ -157,5 +154,34 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
     );
   }
 
+  Widget _buildSquareIconButton(
+    IconData icon, {
+    VoidCallback? onPressed,
+    String? tooltip,
+  }) {
+    final button = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Ink(
+          height: _inputHeight,
+          width: _inputHeight,
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFD1D5DB)),
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.white,
+          ),
+          child: Icon(icon, size: 18, color: const Color(0xFF2563EB)),
+        ),
+      ),
+    );
+
+    if (tooltip == null || tooltip.isEmpty) {
+      return button;
+    }
+
+    return ZTooltip(message: tooltip, child: button);
+  }
 }
 

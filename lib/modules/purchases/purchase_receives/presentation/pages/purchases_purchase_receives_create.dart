@@ -24,6 +24,7 @@ import '../../../purchase_orders/providers/purchases_purchase_orders_provider.da
     hide warehousesProvider;
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 
+import 'package:zerpai_erp/shared/widgets/inputs/radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
@@ -33,7 +34,7 @@ import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/edit_quantity_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
-import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/vendor_sidebar.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
@@ -527,8 +528,6 @@ class _PRCreateState
           AppLogger.error('Failed to load bills for edit flow', error: billErr, module: 'purchases');
         }
       }
-
-      final hasBilledItems = receive.items.any((i) => i.billed) || receive.billed;
 
       setState(() {
         _receiveNumberCtrl.text = receive.purchaseReceiveNumber;
@@ -2616,64 +2615,56 @@ class _PRCreateState
     }
     return Padding(
       padding: const EdgeInsets.only(left: 32, right: 32, bottom: 20),
-      child: Row(
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Radio<bool>(
-                value: false,
-                groupValue: _receiveBilledItems,
-                activeColor: const Color(0xFF3B82F6),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _receiveBilledItems = val;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                'Receive Unbilled items',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
+      child: RadioScope<bool>(
+        value: _receiveBilledItems,
+        onChanged: (val) {
+          setState(() {
+            _receiveBilledItems = val;
+          });
+        },
+        child: Row(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioGroupItem<bool>(
+                  value: false,
+                  activeColor: const Color(0xFF3B82F6),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 24),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Radio<bool>(
-                value: true,
-                groupValue: _receiveBilledItems,
-                activeColor: const Color(0xFF3B82F6),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _receiveBilledItems = val;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                'Receive Billed items',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
+                const SizedBox(width: 4),
+                const Text(
+                  'Receive Unbilled items',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _textPrimary,
+                    fontFamily: 'Inter',
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(width: 24),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioGroupItem<bool>(
+                  value: true,
+                  activeColor: const Color(0xFF3B82F6),
+                ),
+                const SizedBox(width: 4),
+                const Text(
+                  'Receive Billed items',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _textPrimary,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -5223,17 +5214,12 @@ class _PRCreateState
         final item = validationItems[i];
         final itemId = _receiveBilledItems ? item['itemId'] : item.itemId;
         final qty = _receiveBilledItems ? item['quantityToReceive'] : item.quantityToReceive;
-        final ordered = _receiveBilledItems ? item['ordered'] : item.ordered;
-        final received = _receiveBilledItems ? item['received'] : item.received;
-        final cancelled = _receiveBilledItems ? item['cancelled'] : item.cancelled;
-
         if (itemId == null || itemId.isEmpty) {
           missingFields.add('Item in row ${i + 1}');
         }
         if (qty <= 0) {
           missingFields.add('Quantity in row ${i + 1}');
         }
-        final remaining = (ordered - received - cancelled).clamp(0.0, double.infinity);
       }
     }
 
@@ -6351,8 +6337,6 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
   bool _showDamage = false;
   bool _overwriteLineItem = false;
   String? _dialogErrorMessage;
-  static const String _qtyExceedsMessage =
-      'Total quantity across all batches cannot exceed the ordered quantity.';
   static const String _qtyOrFocMessage =
       'Either Quantity or FOC must be entered';
   final TextInputFormatter _numericInputFormatter =

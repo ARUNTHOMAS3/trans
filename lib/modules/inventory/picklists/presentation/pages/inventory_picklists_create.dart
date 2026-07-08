@@ -16,6 +16,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
+import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/items/items/repositories/items_repository_provider.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
@@ -36,7 +37,9 @@ const _dangerRed = Color(0xFFEF4444);
 const _greenBtn = Color(0xFF22A95E);
 
 class InventoryPicklistsCreateScreen extends ConsumerStatefulWidget {
-  const InventoryPicklistsCreateScreen({super.key});
+  final String? id;
+
+  const InventoryPicklistsCreateScreen({super.key, this.id});
 
   @override
   ConsumerState<InventoryPicklistsCreateScreen> createState() =>
@@ -45,6 +48,8 @@ class InventoryPicklistsCreateScreen extends ConsumerStatefulWidget {
 
 class _InventoryPicklistsCreateScreenState
     extends ConsumerState<InventoryPicklistsCreateScreen> {
+  bool get _isEditMode => widget.id != null;
+
   final _picklistNumberCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -158,9 +163,91 @@ class _InventoryPicklistsCreateScreenState
   void initState() {
     super.initState();
     _selectedGroup = 'No Grouping';
-    _picklistNumberCtrl.text = _generatePicklistNumber();
-    _loadNextPicklistNumber();
-    _dateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    if (_isEditMode) {
+      _loadPicklistData();
+    } else {
+      _picklistNumberCtrl.text = _generatePicklistNumber();
+      _loadNextPicklistNumber();
+      _dateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    }
+  }
+
+  Future<void> _loadPicklistData() async {
+    try {
+      final picklist = await ref.read(picklistByIdProvider(widget.id!).future);
+      if (picklist == null || !mounted) return;
+
+      final warehouses = await ref.read(warehousesProvider.future);
+      if (!mounted) return;
+
+      setState(() {
+        _picklistNumberCtrl.text = picklist.picklistNumber;
+        _dateCtrl.text = picklist.date != null
+            ? DateFormat('dd-MM-yyyy').format(picklist.date!)
+            : '';
+        _notesCtrl.text = picklist.notes ?? '';
+        _selectedAssignee = picklist.assignee;
+
+        _selectedWarehouse = warehouses
+            .where((w) => w.name == picklist.location)
+            .firstOrNull;
+
+        _selectedItems = picklist.items.map((pi) {
+          final stockData = WarehouseStockData(
+            id: pi.id,
+            warehouseId: _selectedWarehouse?.id ?? '',
+            productId: pi.productId ?? '',
+            productCode: '',
+            productName: pi.productName ?? '',
+            salesOrderId: pi.salesOrderId,
+            salesOrderLineId: pi.salesOrderLineId,
+            salesOrderNumber: pi.salesOrderNumber,
+            customerName: pi.customerName,
+            quantityToPick: pi.qtyToPick,
+            quantityPicked: pi.qtyPicked,
+            quantityOrdered: pi.qtyOrdered,
+            status: pi.status,
+            quantityPacked: pi.qtyPacked,
+            stock: 0,
+          );
+
+          final rowKey = _buildRowKey(stockData);
+          if (pi.batchAllocations.isNotEmpty) {
+            _savedBatchKeys.add(rowKey);
+            _savedBatchCounts[rowKey] = pi.batchAllocations.length;
+            _savedBatchData[rowKey] = pi.batchAllocations.map((ba) {
+              final batchNo = ba['batch_no']?.toString() ?? '';
+              final binCode = ba['bin_code']?.toString() ?? '';
+              final qtyOut =
+                  ba['qty']?.toString() ?? ba['qty_picked']?.toString() ?? '0';
+              final expiryDate = ba['expiry_date']?.toString() ?? '';
+              return {
+                'batchId': ba['batch_id']?.toString() ?? '',
+                'batchNo': batchNo,
+                'batchRef': batchNo,
+                'qtyOut': qtyOut,
+                'binId': ba['bin_id']?.toString() ?? '',
+                'binCode': binCode,
+                'binLocation': binCode,
+                'expiryDate': expiryDate,
+                'expDate': expiryDate,
+                'layerId': ba['layer_id']?.toString() ?? '',
+                'unitPack': ba['unit_pack']?.toString() ?? '',
+                'mrp': ba['mrp']?.toString() ?? '',
+                'ptr': ba['ptr']?.toString() ?? '',
+                'mfgDate': ba['mfg_date']?.toString() ?? '',
+                'mfgBatch': ba['mfg_batch']?.toString() ?? '',
+                'foc': ba['foc_qty']?.toString() ?? '0',
+              };
+            }).toList();
+          }
+
+          return stockData;
+        }).toList();
+      });
+    } catch (e) {
+      debugPrint('Error loading picklist data: $e');
+    }
   }
 
   Future<void> _loadNextPicklistNumber() async {
@@ -657,13 +744,21 @@ class _InventoryPicklistsCreateScreenState
   }
 
   Future<void> _savePicklist() async {
+    setState(() => _isSaving = true);
     try {
       final payload = await _buildPicklistPayload();
 
-      final result = await ref
-          .read(picklistsProvider.notifier)
-          .createPicklist(payload);
-      ref.invalidate(nextPicklistNumberProvider);
+      final result = _isEditMode
+          ? await ref
+              .read(picklistsProvider.notifier)
+              .updatePicklist(widget.id!, payload)
+          : await ref
+              .read(picklistsProvider.notifier)
+              .createPicklist(payload);
+
+      if (!_isEditMode) {
+        ref.invalidate(nextPicklistNumberProvider);
+      }
 
       if (!mounted) return;
       setState(() => _isSaving = false);
@@ -673,21 +768,34 @@ class _InventoryPicklistsCreateScreenState
       ZerpaiToast.success(
         context,
         displayNum.isNotEmpty
-            ? 'Picklist $displayNum generated successfully'
-            : 'Picklist generated successfully',
+            ? (_isEditMode
+                ? 'Picklist $displayNum updated successfully'
+                : 'Picklist $displayNum generated successfully')
+            : (_isEditMode
+                ? 'Picklist updated successfully'
+                : 'Picklist generated successfully'),
       );
 
       final orgId =
           GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
-      context.goNamed(
-        AppRoutes.picklists,
-        pathParameters: {'orgSystemId': orgId},
-      );
+      if (_isEditMode && context.canPop()) {
+        context.pop();
+      } else {
+        context.goNamed(
+          AppRoutes.picklists,
+          pathParameters: {'orgSystemId': orgId},
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
       final errorMessage = e.toString().replaceFirst('Exception: ', '');
-      ZerpaiToast.error(context, 'Failed to generate picklist: $errorMessage');
+      ZerpaiToast.error(
+        context,
+        _isEditMode
+            ? 'Failed to update picklist: $errorMessage'
+            : 'Failed to generate picklist: $errorMessage',
+      );
     }
   }
 
@@ -1058,7 +1166,7 @@ class _InventoryPicklistsCreateScreenState
           const Icon(LucideIcons.clipboardCheck, size: 24, color: _textPrimary),
           const SizedBox(width: 12),
           Text(
-            'New Picklist',
+            _isEditMode ? 'Edit Picklist' : 'New Picklist',
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
@@ -1073,10 +1181,20 @@ class _InventoryPicklistsCreateScreenState
               final orgId =
                   GoRouterState.of(context).pathParameters['orgSystemId'] ??
                   '0000000000';
-              context.goNamed(
-                AppRoutes.picklists,
-                pathParameters: {'orgSystemId': orgId},
-              );
+              if (_isEditMode) {
+                context.goNamed(
+                  AppRoutes.picklistsDetail,
+                  pathParameters: {
+                    'orgSystemId': orgId,
+                    'id': widget.id!,
+                  },
+                );
+              } else {
+                context.goNamed(
+                  AppRoutes.picklists,
+                  pathParameters: {'orgSystemId': orgId},
+                );
+              }
             },
             borderRadius: BorderRadius.circular(4),
             child: const Padding(
@@ -1403,7 +1521,7 @@ class _InventoryPicklistsCreateScreenState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    flex: 4,
+                    flex: 8,
                     child: Padding(
                       padding: const EdgeInsets.only(right: 12),
                       child: _buildHeaderSearchField(
@@ -1422,9 +1540,9 @@ class _InventoryPicklistsCreateScreenState
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  Container(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 2,
+                    flex: 4,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: _buildHeaderSearchField(
@@ -1453,9 +1571,9 @@ class _InventoryPicklistsCreateScreenState
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  Container(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 2,
+                    flex: 4,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Center(
@@ -1470,9 +1588,9 @@ class _InventoryPicklistsCreateScreenState
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  Container(width: 1, color: _borderCol),
                   const Expanded(
-                    flex: 1,
+                    flex: 3,
                     child: Text(
                       'QUANTITY ORDERED',
                       style: TextStyle(
@@ -1483,9 +1601,9 @@ class _InventoryPicklistsCreateScreenState
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  Container(width: 1, color: _borderCol),
                   const Expanded(
-                    flex: 1,
+                    flex: 3,
                     child: Text(
                       'QUANTITY PACKED',
                       style: TextStyle(
@@ -1496,9 +1614,9 @@ class _InventoryPicklistsCreateScreenState
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  Container(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: Center(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1525,9 +1643,9 @@ class _InventoryPicklistsCreateScreenState
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  Container(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 2,
+                    flex: 4,
                     child: Center(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1573,7 +1691,25 @@ class _InventoryPicklistsCreateScreenState
             itemBuilder: (context, index) {
               final item = paginatedItems[index];
               final rowKey = _buildRowKey(item);
-              final available = item.availableQuantity;
+              final stocks = ref.watch(itemWarehouseStocksProvider(item.productId)).valueOrNull;
+              final wStock = stocks?.where((w) => w.id == _selectedWarehouse?.id).firstOrNull;
+              final available = wStock?.physical.available ?? item.availableQuantity;
+
+              final currentQtyToPick = item.quantityToPick ?? 1.0;
+              if (stocks != null && currentQtyToPick > available) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  setState(() {
+                    final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
+                    if (idx != -1) {
+                      final currentPicked = _selectedItems[idx].quantityPicked ?? 0.0;
+                      _selectedItems[idx] = _selectedItems[idx].copyWith(
+                        quantityToPick: available,
+                        quantityPicked: currentPicked > available ? available : currentPicked,
+                      );
+                    }
+                  });
+                });
+              }
 
               return Container(
                 key: ValueKey(rowKey),
@@ -1586,7 +1722,7 @@ class _InventoryPicklistsCreateScreenState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
-                        flex: 4,
+                        flex: 8,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 2, right: 12),
                           child: Column(
@@ -1608,9 +1744,9 @@ class _InventoryPicklistsCreateScreenState
                           ),
                         ),
                       ),
-                      const VerticalDivider(width: 1, color: _borderCol),
+                      Container(width: 1, color: _borderCol),
                       Expanded(
-                        flex: 2,
+                        flex: 4,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Center(
@@ -1618,16 +1754,14 @@ class _InventoryPicklistsCreateScreenState
                               item.salesOrderNumber ?? '--',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
-                                fontSize: 13,
-                                color: _textPrimary,
-                              ),
+                                  fontSize: 13, color: _textPrimary),
                             ),
                           ),
                         ),
                       ),
-                      const VerticalDivider(width: 1, color: _borderCol),
+                      Container(width: 1, color: _borderCol),
                       Expanded(
-                        flex: 2,
+                        flex: 4,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Center(
@@ -1638,54 +1772,46 @@ class _InventoryPicklistsCreateScreenState
                                 return const Text(
                                   'Loading...',
                                   style: TextStyle(
-                                    fontSize: 13,
-                                    color: _textSecondary,
-                                  ),
+                                      fontSize: 13, color: _textSecondary),
                                 );
                               }
                               return Text(
                                 resolved,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                  fontSize: 13,
-                                  color: _textPrimary,
-                                ),
+                                    fontSize: 13, color: _textPrimary),
                               );
                             })(),
                           ),
                         ),
                       ),
-                      const VerticalDivider(width: 1, color: _borderCol),
+                      Container(width: 1, color: _borderCol),
                       Expanded(
-                        flex: 1,
+                        flex: 3,
                         child: Center(
                           child: Text(
                             '${item.quantityOrdered?.toInt() ?? 1}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: _textPrimary,
-                            ),
+                                fontSize: 13, color: _textPrimary),
                           ),
                         ),
                       ),
-                      const VerticalDivider(width: 1, color: _borderCol),
+                      Container(width: 1, color: _borderCol),
                       Expanded(
-                        flex: 1,
+                        flex: 3,
                         child: Center(
                           child: Text(
                             '${item.quantityPacked.toInt()}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: _textPrimary,
-                            ),
+                                fontSize: 13, color: _textPrimary),
                           ),
                         ),
                       ),
-                      const VerticalDivider(width: 1, color: _borderCol),
+                      Container(width: 1, color: _borderCol),
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -1698,10 +1824,11 @@ class _InventoryPicklistsCreateScreenState
                                     ? 0.0
                                     : double.tryParse(val);
                                 if (d != null) {
-                                  final max = item.quantityOrdered ?? 0.0;
-                                  // Restrict to quantityOrdered
-                                  final finalVal = d > max
-                                      ? max
+                                  final maxOrdered = item.quantityOrdered ?? 0.0;
+                                  final maxAvailable = available;
+                                  final allowedMax = maxOrdered < maxAvailable ? maxOrdered : maxAvailable;
+                                  final finalVal = d > allowedMax
+                                      ? allowedMax
                                       : (d < 0 ? 0.0 : d);
 
                                   setState(() {
@@ -1709,8 +1836,12 @@ class _InventoryPicklistsCreateScreenState
                                       (e) => _buildRowKey(e) == rowKey,
                                     );
                                     if (idx != -1) {
-                                      _selectedItems[idx] = _selectedItems[idx]
-                                          .copyWith(quantityToPick: finalVal);
+                                      final currentPicked = _selectedItems[idx].quantityPicked ?? 0.0;
+                                      final newPicked = currentPicked > finalVal ? finalVal : currentPicked;
+                                      _selectedItems[idx] = _selectedItems[idx].copyWith(
+                                        quantityToPick: finalVal,
+                                        quantityPicked: newPicked,
+                                      );
                                     }
                                   });
                                 }
@@ -1718,7 +1849,7 @@ class _InventoryPicklistsCreateScreenState
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Available To Pick:\n${available.toInt()} pcs',
+                              'Available For Sale:\n${available.toInt()} pcs',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 10,
@@ -1731,9 +1862,9 @@ class _InventoryPicklistsCreateScreenState
                           ],
                         ),
                       ),
-                      const VerticalDivider(width: 1, color: _borderCol),
+                      Container(width: 1, color: _borderCol),
                       Expanded(
-                        flex: 2,
+                        flex: 4,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -1752,6 +1883,8 @@ class _InventoryPicklistsCreateScreenState
                                     ? 0.0
                                     : double.tryParse(val);
                                 if (d != null) {
+                                  final maxToPick = item.quantityToPick ?? 0.0;
+                                  final finalVal = d > maxToPick ? maxToPick : (d < 0 ? 0.0 : d);
                                   setState(() {
                                     final idx = _selectedItems.indexWhere(
                                       (e) => _buildRowKey(e) == rowKey,
@@ -1759,7 +1892,7 @@ class _InventoryPicklistsCreateScreenState
                                     if (idx != -1) {
                                       _selectedItems[idx] = _selectedItems[idx]
                                           .copyWith(
-                                            quantityPicked: d < 0 ? 0.0 : d,
+                                            quantityPicked: finalVal,
                                           );
                                     }
                                   });
@@ -3797,11 +3930,22 @@ class _AddItemsDialogContentState
             message: 'Toggle filter view',
             child: OutlinedButton.icon(
               onPressed: () => setState(() => _showFilters = !_showFilters),
-              icon: const Icon(LucideIcons.filter, size: 14),
-              label: const Text('Filter'),
+              icon: Icon(
+                LucideIcons.filter,
+                size: 14,
+                color: !_showFilters ? Colors.blue.shade600 : const Color(0xFF333333),
+              ),
+              label: Text(
+                'Filter',
+                style: TextStyle(
+                  color: !_showFilters ? Colors.blue.shade600 : const Color(0xFF333333),
+                ),
+              ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF333333),
-                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                foregroundColor: !_showFilters ? Colors.blue.shade600 : const Color(0xFF333333),
+                side: BorderSide(
+                  color: !_showFilters ? Colors.blue.shade600 : const Color(0xFFD1D5DB),
+                ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 8,
@@ -3999,32 +4143,6 @@ class _AddItemsDialogContentState
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _onSearch,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF22A95E),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-              elevation: 0,
-            ),
-            child: isSearching
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text(
-                    'Search',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
           ),
         ],
       ),

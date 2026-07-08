@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
@@ -70,7 +71,6 @@ class VendorRepositoryImpl implements VendorRepository {
       data.remove('id');
       data.remove('created_at');
       data.remove('updated_at');
-      data.remove('vendorAddresses');
 
       final response = await _apiClient.post(
         ApiEndpoints.vendors,
@@ -93,7 +93,6 @@ class VendorRepositoryImpl implements VendorRepository {
       final data = vendor.toJson();
       data.remove('id');
       data.remove('created_at');
-      data.remove('vendorAddresses');
       data.removeWhere((key, value) => value == null);
 
       final response = await _apiClient.put(
@@ -115,12 +114,51 @@ class VendorRepositoryImpl implements VendorRepository {
   Future<void> deleteVendor(String id) async {
     try {
       final response = await _apiClient.delete('${ApiEndpoints.vendors}/$id');
-      
+
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception('Failed to delete vendor');
       }
+    } on DioException catch (e) {
+      // ApiClient.onError enhances the error with a clean backend message
+      // (e.g. the "linked transactions" conflict). Surface it to the caller.
+      final err = e.error;
+      final msg = err is Map ? err['message']?.toString() : null;
+      throw Exception(msg ?? 'Failed to delete vendor');
     } catch (e) {
-      throw Exception('Failed to delete vendor: $e');
+      throw Exception('Failed to delete vendor');
+    }
+  }
+
+  @override
+  Future<void> addBankAccount(
+    String vendorId, {
+    String? holderName,
+    String? bankName,
+    required String accountNumber,
+    required String ifsc,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiEndpoints.vendors}/$vendorId/bank-accounts',
+        data: {
+          if (holderName != null && holderName.trim().isNotEmpty)
+            'holderName': holderName.trim(),
+          if (bankName != null && bankName.trim().isNotEmpty)
+            'bankName': bankName.trim(),
+          'accountNumber': accountNumber.trim(),
+          'ifsc': ifsc.trim(),
+        },
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to add bank account');
+      }
+    } on DioException catch (e) {
+      final err = e.error;
+      final msg = err is Map ? err['message']?.toString() : null;
+      throw Exception(msg ?? 'Failed to add bank account');
+    } catch (e) {
+      throw Exception('Failed to add bank account');
     }
   }
 }

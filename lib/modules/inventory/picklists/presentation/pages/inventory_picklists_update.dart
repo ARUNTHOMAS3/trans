@@ -16,6 +16,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
+import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
@@ -872,9 +873,9 @@ class _InventoryPicklistsUpdateScreenState
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: _textSecondary,
+                    color: isRequired ? _dangerRed : _textSecondary,
                     fontFamily: 'Inter',
                   ),
                 ),
@@ -978,7 +979,7 @@ class _InventoryPicklistsUpdateScreenState
               child: Row(
                 children: [
                   Expanded(
-                    flex: 4,
+                    flex: 8,
                     child: Padding(
                       padding: EdgeInsets.only(right: 12),
                       child: Text(
@@ -993,7 +994,7 @@ class _InventoryPicklistsUpdateScreenState
                   ),
                   VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 2,
+                    flex: 4,
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8),
                       child: Center(
@@ -1010,7 +1011,7 @@ class _InventoryPicklistsUpdateScreenState
                   ),
                   VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 1,
+                    flex: 3,
                     child: Text(
                       'QUANTITY ORDERED',
                       style: TextStyle(
@@ -1023,7 +1024,7 @@ class _InventoryPicklistsUpdateScreenState
                   ),
                   VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 1,
+                    flex: 3,
                     child: Text(
                       'QUANTITY PACKED',
                       style: TextStyle(
@@ -1036,7 +1037,7 @@ class _InventoryPicklistsUpdateScreenState
                   ),
                   VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: Center(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1065,7 +1066,7 @@ class _InventoryPicklistsUpdateScreenState
                   ),
                   VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 2,
+                    flex: 4,
                     child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1104,11 +1105,14 @@ class _InventoryPicklistsUpdateScreenState
                                 ) {
                                   final item = _selectedItems[i];
                                   final rowKey = _buildRowKey(item);
-                                  final qty = item.quantityOrdered ?? 0;
-                                  _manualPickedQty[rowKey] = qty;
+                                  final toPick = item.quantityToPick ?? 0.0;
+                                  _manualPickedQty[rowKey] = toPick;
+                                  final String newStatus = toPick == (item.quantityOrdered ?? 0.0)
+                                      ? 'COMPLETED'
+                                      : (toPick > 0.0 ? 'IN_PROGRESS' : 'YET_TO_START');
                                   _selectedItems[i] = item.copyWith(
-                                    quantityPicked: qty,
-                                    status: 'COMPLETED',
+                                    quantityPicked: toPick,
+                                    status: newStatus,
                                   );
                                 }
                                 _hasChanges = true;
@@ -1128,7 +1132,7 @@ class _InventoryPicklistsUpdateScreenState
                     ),
                   ),
                   Expanded(
-                    flex: 2,
+                    flex: 4,
                     child: Text(
                       'STATUS',
                       style: TextStyle(
@@ -1146,6 +1150,26 @@ class _InventoryPicklistsUpdateScreenState
           // Rows
           ..._selectedItems.map((item) {
             final rowKey = _buildRowKey(item);
+            final stocks = ref.watch(itemWarehouseStocksProvider(item.productId)).valueOrNull;
+            final wStock = stocks?.where((w) => w.id == _selectedWarehouse?.id).firstOrNull;
+            final available = wStock?.physical.available ?? item.stock;
+
+            final currentQtyToPick = item.quantityToPick ?? 1.0;
+            if (stocks != null && currentQtyToPick > available) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                setState(() {
+                  final idx = _selectedItems.indexOf(item);
+                  if (idx != -1) {
+                    final currentPicked = _selectedItems[idx].quantityPicked ?? 0.0;
+                    _selectedItems[idx] = _selectedItems[idx].copyWith(
+                      quantityToPick: available,
+                      quantityPicked: currentPicked > available ? available : currentPicked,
+                    );
+                  }
+                });
+              });
+            }
+
             return IntrinsicHeight(
               child: Container(
                 padding: const EdgeInsets.only(left: 16, right: 0),
@@ -1156,7 +1180,7 @@ class _InventoryPicklistsUpdateScreenState
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
-                      flex: 4,
+                      flex: 8,
                       child: Padding(
                         padding: const EdgeInsets.only(
                           top: 12,
@@ -1190,7 +1214,7 @@ class _InventoryPicklistsUpdateScreenState
                     ),
                     const VerticalDivider(width: 1, color: _borderCol),
                     Expanded(
-                      flex: 2,
+                      flex: 4,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Center(
@@ -1203,7 +1227,7 @@ class _InventoryPicklistsUpdateScreenState
                     ),
                     const VerticalDivider(width: 1, color: _borderCol),
                     Expanded(
-                      flex: 1,
+                      flex: 3,
                       child: Center(
                         child: Text(
                           item.quantityOrdered?.toInt().toString() ?? '0',
@@ -1213,7 +1237,7 @@ class _InventoryPicklistsUpdateScreenState
                     ),
                     const VerticalDivider(width: 1, color: _borderCol),
                     Expanded(
-                      flex: 1,
+                      flex: 3,
                       child: Center(
                         child: Text(
                           item.quantityPacked.toInt().toString(),
@@ -1223,7 +1247,7 @@ class _InventoryPicklistsUpdateScreenState
                     ),
                     const VerticalDivider(width: 1, color: _borderCol),
                     Expanded(
-                      flex: 2,
+                      flex: 3,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1232,32 +1256,39 @@ class _InventoryPicklistsUpdateScreenState
                             fieldKey: '${rowKey}_to_pick',
                             initialValue: _currentQtyToPick(item),
                             onChanged: (val) {
-                              final d = double.tryParse(val) ?? 0.0;
-                              final ordered = item.quantityOrdered ?? 0;
-                              final picked = _getCurrentPickedQty(item);
+                              final d = val.trim().isEmpty
+                                  ? 0.0
+                                  : double.tryParse(val);
+                              if (d != null) {
+                                final maxOrdered = item.quantityOrdered ?? 0.0;
+                                final maxAvailable = available;
+                                final allowedMax = maxOrdered < maxAvailable ? maxOrdered : maxAvailable;
+                                final finalVal = d > allowedMax
+                                    ? allowedMax
+                                    : (d < 0 ? 0.0 : d);
 
-                              // Validation: To Pick <= Ordered and To Pick >= Picked
-                              if (d > ordered || d < picked) {
-                                return;
+                                setState(() {
+                                  final idx = _selectedItems.indexOf(item);
+                                  if (idx != -1) {
+                                    final currentPicked = _selectedItems[idx].quantityPicked ?? 0.0;
+                                    final newPicked = currentPicked > finalVal ? finalVal : currentPicked;
+                                    _selectedItems[idx] = _selectedItems[idx].copyWith(
+                                      quantityToPick: finalVal,
+                                      quantityPicked: newPicked,
+                                    );
+                                  }
+                                  _hasChanges = true;
+                                });
                               }
-
-                              setState(() {
-                                final idx = _selectedItems.indexOf(item);
-                                if (idx != -1) {
-                                  _selectedItems[idx] = item.copyWith(
-                                    quantityToPick: d,
-                                  );
-                                }
-                              });
                             },
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Available To Pick:\n${item.stock.toInt()} pcs',
+                            'Available For Sale:\n${available.toInt()} pcs',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 10,
-                              color: item.stock >= (item.quantityToPick ?? 0)
+                              color: available >= (item.quantityToPick ?? 0)
                                   ? _textSecondary
                                   : _dangerRed,
                               height: 1.2,
@@ -1268,7 +1299,7 @@ class _InventoryPicklistsUpdateScreenState
                     ),
                     const VerticalDivider(width: 1, color: _borderCol),
                     Expanded(
-                      flex: 2,
+                      flex: 4,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1293,25 +1324,26 @@ class _InventoryPicklistsUpdateScreenState
                               final d = val.trim().isEmpty
                                   ? 0.0
                                   : double.tryParse(val) ?? 0.0;
-                              final toPick = item.quantityToPick ?? 0;
+                              final toPick = item.quantityToPick ?? 0.0;
+                              final finalVal = d > toPick ? toPick : (d < 0 ? 0.0 : d);
 
                               setState(() {
-                                _manualPickedQty[rowKey] = d < 0 ? 0.0 : d;
+                                _manualPickedQty[rowKey] = finalVal;
 
                                 final idx = _selectedItems.indexOf(item);
                                 if (idx != -1) {
                                   // Update status automatically based on quantity
                                   String newStatus = item.status;
-                                  if (d <= 0) {
+                                  if (finalVal <= 0) {
                                     newStatus = 'YET_TO_START';
-                                  } else if (d < toPick) {
+                                  } else if (finalVal < toPick) {
                                     newStatus = 'IN_PROGRESS';
                                   } else {
                                     newStatus = 'COMPLETED';
                                   }
 
                                   _selectedItems[idx] = item.copyWith(
-                                    quantityPicked: d < 0 ? 0.0 : d,
+                                    quantityPicked: finalVal,
                                     status: newStatus,
                                   );
                                 }
@@ -1380,7 +1412,7 @@ class _InventoryPicklistsUpdateScreenState
                       ),
                     ),
                     Expanded(
-                      flex: 2,
+                      flex: 4,
                       child: Center(
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1407,6 +1439,8 @@ class _InventoryPicklistsUpdateScreenState
                                   'IN_PROGRESS',
                                   'COMPLETED',
                                   'ON_HOLD',
+                                  'FORCE_COMPLETE',
+                                  'APPROVED',
                                 ],
                                 onChanged: (val) {
                                   if (val != null) {
@@ -1420,10 +1454,9 @@ class _InventoryPicklistsUpdateScreenState
                                           final rowKey = _buildRowKey(item);
                                           _manualPickedQty[rowKey] = 0;
                                         } else if (val == 'COMPLETED') {
-                                          newQtyPicked = item.quantityOrdered;
+                                          newQtyPicked = item.quantityToPick ?? 0.0;
                                           final rowKey = _buildRowKey(item);
-                                          _manualPickedQty[rowKey] =
-                                              newQtyPicked ?? 0;
+                                          _manualPickedQty[rowKey] = newQtyPicked;
                                         }
 
                                         _selectedItems[idx] = item.copyWith(
@@ -1441,6 +1474,9 @@ class _InventoryPicklistsUpdateScreenState
                                   if (v == 'IN_PROGRESS') return 'In progress';
                                   if (v == 'COMPLETED') return 'Completed';
                                   if (v == 'ON_HOLD') return 'On hold';
+                                  if (v == 'FORCE_COMPLETE')
+                                    return 'Force complete';
+                                  if (v == 'APPROVED') return 'Approved';
                                   return v;
                                 },
                               ),
@@ -1466,7 +1502,10 @@ class _InventoryPicklistsUpdateScreenState
       case 'ON_HOLD':
         return const Color(0xFFEF4444); // Red
       case 'COMPLETED':
+      case 'APPROVED':
         return const Color(0xFF10B981); // Green
+      case 'FORCE_COMPLETE':
+        return const Color(0xFFF97316); // Orange
       case 'YET_TO_START':
       default:
         return const Color(0xFF9CA3AF); // Grey

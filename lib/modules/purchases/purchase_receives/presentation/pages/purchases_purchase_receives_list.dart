@@ -1548,7 +1548,6 @@ class _PurchaseReceiveDetailPanelState
   final LayerLink _attachmentBadgeLink = LayerLink();
   OverlayEntry? _attachmentListOverlay;
   List<Map<String, dynamic>> _receiveAttachments = [];
-  bool _isLoadingAttachments = false;
 
   String? _lastLoadedReceiveId;
   List<Map<String, dynamic>>? _poBills;
@@ -1615,9 +1614,6 @@ class _PurchaseReceiveDetailPanelState
   Future<void> _loadReceiveAttachments(String? receiveId) async {
     if (receiveId == null || receiveId.isEmpty) return;
     if (!mounted) return;
-    setState(() {
-      _isLoadingAttachments = true;
-    });
     try {
       final supabase = Supabase.instance.client;
       final res = await supabase
@@ -1630,16 +1626,10 @@ class _PurchaseReceiveDetailPanelState
           _receiveAttachments = (res as List<dynamic>)
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
-          _isLoadingAttachments = false;
         });
       }
     } catch (e) {
       debugPrint('Error loading receive attachments: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingAttachments = false;
-        });
-      }
     }
   }
 
@@ -5541,7 +5531,7 @@ class _ExtraQtyPopoverButtonState extends State<ExtraQtyPopoverButton> {
                         border: Border.all(color: const Color(0xFFE5E7EB)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: Colors.black.withValues(alpha: 0.08),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),

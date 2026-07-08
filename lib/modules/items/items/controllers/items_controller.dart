@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
-import 'package:zerpai_erp/modules/items/composite_items/models/composite_item_model.dart';
+import 'package:zerpai_erp/modules/items/composite_items/models/composite_item.dart';
 import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 import 'package:zerpai_erp/modules/items/items/repositories/items_repository.dart';
 
@@ -2511,7 +2511,7 @@ class ItemsController extends StateNotifier<ItemsState> {
       // Optimistic Update: Update local state immediately
       final currentItems = List<CompositeItem>.from(state.compositeItems);
       final updatedLocalItems = currentItems.map((item) {
-        if (item.id != null && ids.contains(item.id)) {
+        if (ids.contains(item.id)) {
           // Apply changes to the local item
           return item.copyWith(
             isActive: changes['is_active'] ?? item.isActive,

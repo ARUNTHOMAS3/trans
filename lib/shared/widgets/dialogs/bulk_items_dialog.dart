@@ -6,7 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
-// import 'sales_item_quick_edit_dialog.dart';
+// import 'item_quick_edit_dialog.dart';
 
 class BulkItemsDialog extends ConsumerStatefulWidget {
   final List<Item> products;

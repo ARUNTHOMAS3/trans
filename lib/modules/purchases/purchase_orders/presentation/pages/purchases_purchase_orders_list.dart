@@ -34,6 +34,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../../../../core/providers/entity_provider.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/radio_group.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
@@ -7270,116 +7271,108 @@ class _ConvertToBillSelectionDialogState
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedMode = 'Yet To Receive';
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(4),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              Radio<String>(
-                                value: 'Yet To Receive',
-                                groupValue: _selectedMode,
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      _selectedMode = val;
-                                    });
-                                  }
-                                },
-                                activeColor: AppTheme.primaryBlue,
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Yet To Receive',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: Color(0xFF1F2937),
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Yet to receive items in this purchase order',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                  ],
+                child: RadioScope<String>(
+                  value: _selectedMode,
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedMode = val;
+                    });
+                  },
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedMode = 'Yet To Receive';
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                RadioGroupItem<String>(
+                                  value: 'Yet To Receive',
+                                  activeColor: AppTheme.primaryBlue,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Yet To Receive',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: Color(0xFF1F2937),
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Yet to receive items in this purchase order',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedMode = 'Receives';
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(4),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              Radio<String>(
-                                value: 'Receives',
-                                groupValue: _selectedMode,
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      _selectedMode = val;
-                                    });
-                                  }
-                                },
-                                activeColor: AppTheme.primaryBlue,
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Receives',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: Color(0xFF1F2937),
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Received items in this purchase order',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedMode = 'Receives';
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                RadioGroupItem<String>(
+                                  value: 'Receives',
+                                  activeColor: AppTheme.primaryBlue,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Receives',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: Color(0xFF1F2937),
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Received items in this purchase order',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

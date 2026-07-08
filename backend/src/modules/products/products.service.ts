@@ -13,17 +13,13 @@ import { CreateProductDto } from "./dto/create-product.dto";
 import { Client } from "pg";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
-import { listVisibleAccounts } from "../../common/account-visibility.util";
 
 import { R2StorageService } from "../accountant/r2-storage.service";
 
 @Injectable()
 export class ProductsService {
+  private readonly defaultOrgId = "00000000-0000-0000-0000-000000000000";
   private hasLoggedMissingBranchesLookup = false;
-  private readonly entityScopedLookupTables = new Set<string>([
-    "vendors",
-    "accounts",
-  ]);
 
   constructor(
     private readonly supabaseService: SupabaseService,
@@ -41,17 +37,16 @@ export class ProductsService {
     return connectionString;
   }
 
-  private readonly PRODUCT_SELECT_STRING_BASE = `
+  private readonly PRODUCT_SELECT_STRING = `
     *,
     unit:units(id, unit_name),
     category:categories(id, name),
     manufacturer:manufacturers(id, name),
     brand:brands(id, name),
-    rep:sales_reps(id, name, number),
     preferredVendor:vendors(id, display_name),
-    salesAccount:accounts!products_sales_account_id_accounts_id_fk(id, user_account_name, system_account_name),
-    purchaseAccount:accounts!products_purchase_account_id_accounts_id_fk(id, user_account_name, system_account_name),
-    inventoryAccount:accounts!products_inventory_account_id_accounts_id_fk(id, user_account_name, system_account_name),
+    salesAccount:accounts!products_sales_account_id_accounts_id_fk(id, user_account_name),
+    purchaseAccount:accounts!products_purchase_account_id_accounts_id_fk(id, user_account_name),
+    inventoryAccount:accounts!products_inventory_account_id_accounts_id_fk(id, user_account_name),
     rack:racks(id, rack_name),
     buyingRule:buying_rules(id, buying_rule, rule_description, system_behavior, associated_schedule_codes, requires_rx, requires_patient_info, is_saleable, log_to_special_register, requires_doctor_name, requires_prescription_date, requires_age_check, institutional_only, blocks_retail_sale, quantity_limit, allows_refill, sort_order),
     drugSchedule:drug_schedules(id, shedule_name, schedule_code, reference_description, requires_prescription, requires_h1_register, is_narcotic, requires_batch_tracking, sort_order, is_common),
@@ -64,9 +59,6 @@ export class ProductsService {
       strength:drug_strengths(id, strength_name)
     )
   `;
-  private readonly PRODUCT_TYPE_RELATION_SELECT =
-    "productType:product_types(id, name),";
-  private productTypeFeatureMissingLogged = false;
 
   private cleanUuid(value: any): string | null {
     if (!value || typeof value !== "string") return null;
@@ -83,85 +75,14 @@ export class ProductsService {
     return uuidRegex.test(value.trim());
   }
 
-  private getProductSelectString(includeProductType: boolean = true) {
-    if (!includeProductType) return this.PRODUCT_SELECT_STRING_BASE;
-    return this.PRODUCT_SELECT_STRING_BASE.replace(
-      "    rep:sales_reps(id, name, number),",
-      `    ${this.PRODUCT_TYPE_RELATION_SELECT}
-    rep:sales_reps(id, name, number),`,
-    );
-  }
-
-  private isProductTypeSchemaError(error: any): boolean {
-    const haystack = [
-      error?.message,
-      error?.details,
-      error?.hint,
-      error?.code,
-    ]
-      .filter(Boolean)
-      .join(" | ")
-      .toLowerCase();
-
-    return (
-      haystack.includes("product_types") ||
-      haystack.includes("product_type_id")
-    );
-  }
-
-  private logProductTypeSchemaFallbackOnce(error: any) {
-    if (this.productTypeFeatureMissingLogged) return;
-    this.productTypeFeatureMissingLogged = true;
-    console.warn(
-      `[products] product type schema unavailable; using compatibility fallback: ${error?.message ?? error?.details ?? "Unknown schema error"}`,
-    );
-  }
-
-  private async executeProductSelectWithFallback(
-    buildQuery: (selectString: string) => any,
-  ): Promise<{ data: any[] | any; error: any }> {
-    let result = await buildQuery(this.getProductSelectString(true));
-    if (!this.isProductTypeSchemaError(result.error)) {
-      return result;
-    }
-
-    this.logProductTypeSchemaFallbackOnce(result.error);
-    result = await buildQuery(this.getProductSelectString(false));
-    return result;
-  }
-
   private resolveScope(
     tenant?: TenantContext,
     orgId?: string | null,
     _branchId?: string | null,
   ) {
-    const resolvedEntityId =
-      this.cleanUuid(tenant?.entityId) || this.cleanUuid(orgId);
-    const resolvedOrgId = this.cleanUuid(tenant?.orgId) || this.cleanUuid(orgId);
-    if (!resolvedEntityId || !resolvedOrgId) {
-      throw new BadRequestException("Missing tenant scope for product query.");
-    }
     return {
-      entityId: resolvedEntityId,
-      orgId: resolvedOrgId,
-    };
-  }
-
-  private tryResolveScope(
-    tenant?: TenantContext,
-    orgId?: string | null,
-    _branchId?: string | null,
-  ) {
-    const resolvedEntityId =
-      this.cleanUuid(tenant?.entityId) || this.cleanUuid(orgId);
-    const resolvedOrgId =
-      this.cleanUuid(tenant?.orgId) || this.cleanUuid(orgId);
-    if (!resolvedEntityId || !resolvedOrgId) {
-      return null;
-    }
-    return {
-      entityId: resolvedEntityId,
-      orgId: resolvedOrgId,
+      entityId: tenant?.entityId || this.cleanUuid(orgId) || this.defaultOrgId,
+      orgId: tenant?.orgId || this.cleanUuid(orgId) || this.defaultOrgId,
     };
   }
 
@@ -185,8 +106,7 @@ export class ProductsService {
     tenant?: TenantContext,
   ) {
     const supabase = this.supabaseService.getClient();
-    const scope = this.tryResolveScope(tenant);
-    if (!scope) return null;
+    const scope = this.resolveScope(tenant);
 
     const { data, error } = await supabase
       .from("product_branch_inventory_settings")
@@ -282,8 +202,7 @@ export class ProductsService {
     tenant?: TenantContext,
   ) {
     const supabase = this.supabaseService.getClient();
-    const scope = this.tryResolveScope(tenant);
-    if (!scope) return null;
+    const scope = this.resolveScope(tenant);
 
     const { data, error } = await supabase
       .from("composite_item_branch_inventory_settings")
@@ -497,25 +416,16 @@ export class ProductsService {
       inter_state_tax_id: this.cleanUuid(data.inter_state_tax_id),
       sales_account_id: this.cleanUuid(data.sales_account_id),
       purchase_account_id: this.cleanUuid(data.purchase_account_id),
-      rep_id: this.cleanUuid(data.rep_id),
       preferred_vendor_id: this.cleanUuid(data.preferred_vendor_id),
       manufacturer_id: this.cleanUuid(data.manufacturer_id),
       brand_id: this.cleanUuid(data.brand_id),
-      unit_pack_id:
-        data.unit_pack_id != null
-          ? String(data.unit_pack_id).trim() || null
-          : data.unit_pack != null
-            ? String(data.unit_pack).trim() || null
-            : null,
       inventory_account_id: this.cleanUuid(data.inventory_account_id),
       storage_id: this.cleanUuid(data.storage_id),
       rack_id: this.cleanUuid(data.rack_id),
       reorder_term_id: this.cleanUuid(data.reorder_term_id),
       buying_rule_id: this.cleanUuid(data.buying_rule_id ?? data.buying_rule),
-      schedule_of_drug_id: this.cleanUuid(
-        data.schedule_of_drug_id ?? data.schedule_of_drug,
-      ),
-      product_type_id: this.cleanUuid(data.product_type_id),
+      schedule_of_drug_id:
+        data.schedule_of_drug_id ?? data.schedule_of_drug ?? null,
       track_serial_number:
         data.track_serial_number ?? data.track_serial ?? null,
     };
@@ -550,21 +460,11 @@ export class ProductsService {
         delete insertPayload[key],
     );
 
-    let { data: product, error: productError } = await supabase
+    const { data: product, error: productError } = await supabase
       .from("products")
       .insert(insertPayload)
       .select()
       .single();
-
-    if (this.isProductTypeSchemaError(productError)) {
-      this.logProductTypeSchemaFallbackOnce(productError);
-      delete insertPayload.product_type_id;
-      ({ data: product, error: productError } = await supabase
-        .from("products")
-        .insert(insertPayload)
-        .select()
-        .single());
-    }
 
     if (productError) {
       console.error("createProduct supabase error:", productError);
@@ -640,8 +540,6 @@ export class ProductsService {
 
     // 1. Prepare main composite item data
     const { parts, ...mainData } = payload;
-    const reorderPoint = Number(mainData.reorder_point) || 0;
-    const reorderTermId = this.cleanUuid(mainData.reorder_term_id);
 
     // Clean and validate data before insert
     const insertPayload: Record<string, any> = {
@@ -659,13 +557,12 @@ export class ProductsService {
       preferred_vendor_id: this.cleanUuid(mainData.preferred_vendor_id),
       manufacturer_id: this.cleanUuid(mainData.manufacturer_id),
       brand_id: this.cleanUuid(mainData.brand_id),
+      // reorder_point / reorder_term_id persist directly on composite_items
+      reorder_term_id: this.cleanUuid(mainData.reorder_term_id),
       // Audit fields
       created_by_id: userId,
       updated_by_id: userId,
     };
-
-    delete insertPayload.reorder_point;
-    delete insertPayload.reorder_term_id;
 
     // Remove empty strings and undefined to let DB defaults work or avoid type errors
     Object.keys(insertPayload).forEach((key) => {
@@ -725,28 +622,17 @@ export class ProductsService {
       }
     }
 
-    await this.syncCompositeItemBranchInventorySetting(
-      composite.id,
-      reorderPoint,
-      reorderTermId,
-      userId,
-      tenant,
-    );
-
     return this.mapCompositeItem(composite, tenant);
   }
 
   async findOne(id: string, tenant?: TenantContext) {
     const supabase = this.supabaseService.getClient();
 
-    const { data, error } = await this.executeProductSelectWithFallback(
-      (selectString) =>
-        supabase
-          .from("products")
-          .select(selectString)
-          .eq("id", id)
-          .single(),
-    );
+    const { data, error } = await supabase
+      .from("products")
+      .select(this.PRODUCT_SELECT_STRING)
+      .eq("id", id)
+      .single();
 
     if (error) {
       console.error(`❌ Error fetching product ${id}:`, error);
@@ -775,27 +661,23 @@ export class ProductsService {
   async findAll(limit?: number, offset?: number) {
     const supabase = this.supabaseService.getClient();
 
-    const { data, error } = await this.executeProductSelectWithFallback(
-      (selectString) => {
-        let query = supabase
-          .from("products")
-          .select(selectString)
-          .order("created_at", { ascending: false });
+    let query = supabase
+      .from("products")
+      .select(this.PRODUCT_SELECT_STRING)
+      .order("created_at", { ascending: false });
 
-        if (limit !== undefined && !isNaN(limit)) {
-          query = query.limit(limit);
-        } else if (limit === undefined) {
-          query = query.limit(1000);
-        }
+    if (limit !== undefined && !isNaN(limit)) {
+      query = query.limit(limit);
+    } else if (limit === undefined) {
+      query = query.limit(1000);
+    }
 
-        if (offset !== undefined && !isNaN(offset)) {
-          const currentLimit = limit && !isNaN(limit) ? limit : 1000;
-          query = query.range(offset, offset + currentLimit - 1);
-        }
+    if (offset !== undefined && !isNaN(offset)) {
+      const currentLimit = limit && !isNaN(limit) ? limit : 1000;
+      query = query.range(offset, offset + currentLimit - 1);
+    }
 
-        return query;
-      },
-    );
+    const { data, error } = await query;
 
     if (error) {
       console.error("❌ Error fetching products:", error);
@@ -810,22 +692,19 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const finalLimit = limit !== undefined && !isNaN(limit) ? limit : 50;
 
-    const { data, error } = await this.executeProductSelectWithFallback(
-      (selectString) => {
-        let query = supabase
-          .from("products")
-          .select(selectString)
-          .eq("is_active", true)
-          .order("id", { ascending: false });
+    let query = supabase
+      .from("products")
+      .select(this.PRODUCT_SELECT_STRING)
+      .eq("is_active", true)
+      .order("id", { ascending: false });
 
-        if (cursor) {
-          query = query.lt("id", cursor);
-        }
+    if (cursor) {
+      query = query.lt("id", cursor);
+    }
 
-        query = query.limit(finalLimit);
-        return query;
-      },
-    );
+    query = query.limit(finalLimit);
+
+    const { data, error } = await query;
     if (error) {
       console.error("Cursor fetch error:", error);
       throw new Error(`Failed to fetch cursor items: ${error.message}`);
@@ -855,22 +734,19 @@ export class ProductsService {
     const lower = queryTerm.toLowerCase();
     const fetchLimit = Math.min(Math.max(limit * 5, 100), 500);
 
-    const { data, error } = await this.executeProductSelectWithFallback(
-      (selectString) =>
-        supabase
-          .from("products")
-          .select(selectString)
-          .eq("is_active", true)
-          .or(
-            [
-              `sku.ilike.%${queryTerm}%`,
-              `ean.ilike.%${queryTerm}%`,
-              `item_code.ilike.%${queryTerm}%`,
-              `product_name.ilike.%${queryTerm}%`,
-            ].join(","),
-          )
-          .limit(fetchLimit),
-    );
+    const { data, error } = await supabase
+      .from("products")
+      .select(this.PRODUCT_SELECT_STRING)
+      .eq("is_active", true)
+      .or(
+        [
+          `sku.ilike.%${queryTerm}%`,
+          `ean.ilike.%${queryTerm}%`,
+          `item_code.ilike.%${queryTerm}%`,
+          `product_name.ilike.%${queryTerm}%`,
+        ].join(","),
+      )
+      .limit(fetchLimit);
 
     if (error) throw new Error(`Search failed: ${error.message}`);
 
@@ -1189,23 +1065,12 @@ export class ProductsService {
         delete payload[key],
     );
 
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from("products")
       .update(payload)
       .eq("id", id)
       .select()
       .single();
-
-    if (this.isProductTypeSchemaError(error)) {
-      this.logProductTypeSchemaFallbackOnce(error);
-      delete payload.product_type_id;
-      ({ data, error } = await supabase
-        .from("products")
-        .update(payload)
-        .eq("id", id)
-        .select()
-        .single());
-    }
 
     if (error) {
       if ((error as any).code === "23505") {
@@ -1343,7 +1208,7 @@ export class ProductsService {
   }
 
   // LOOKUP METHODS
-  async getUnits(_tenant?: TenantContext) {
+  async getUnits() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("units")
@@ -1365,7 +1230,7 @@ export class ProductsService {
     return data;
   }
 
-  async syncUnits(units: any[], _tenant?: TenantContext) {
+  async syncUnits(units: any[]) {
     console.log(
       "🔄 [syncUnits] Received units:",
       JSON.stringify(units, null, 2),
@@ -1461,7 +1326,7 @@ export class ProductsService {
     }
   }
 
-  async getContentUnits(_tenant?: TenantContext) {
+  async getContentUnits() {
     try {
       const supabase = this.supabaseService.getClient();
       const { data, error } = await supabase
@@ -1480,7 +1345,7 @@ export class ProductsService {
     }
   }
 
-  async syncContentUnits(items: any[], tenant?: TenantContext) {
+  async syncContentUnits(items: any[]) {
     return this.syncTableMetadata(
       "content_unit",
       items,
@@ -1488,7 +1353,6 @@ export class ProductsService {
         name: item.name?.trim?.() || item.name,
       }),
       "name",
-      tenant,
     );
   }
 
@@ -1665,14 +1529,6 @@ export class ProductsService {
           filterActive: false,
         });
         break;
-      case "product-types":
-        checks.push({
-          table: "products",
-          column: "product_type_id",
-          description: "products",
-          filterActive: false,
-        });
-        break;
       case "categories":
         checks.push({
           table: "products",
@@ -1780,7 +1636,7 @@ export class ProductsService {
     return { inUse: false };
   }
 
-  async getCategories(_tenant?: TenantContext) {
+  async getCategories() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("categories")
@@ -1791,7 +1647,7 @@ export class ProductsService {
     return data;
   }
 
-  async syncCategories(items: any[], tenant?: TenantContext) {
+  async syncCategories(items: any[]) {
     return this.syncTableMetadata(
       "categories",
       items,
@@ -1801,11 +1657,10 @@ export class ProductsService {
         parent_id: this.cleanUuid(item.parent_id),
       }),
       "name",
-      tenant,
     );
   }
 
-  async getTaxRates(_tenant?: TenantContext) {
+  async getTaxRates() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("tax_rates")
@@ -1816,7 +1671,7 @@ export class ProductsService {
     return data;
   }
 
-  async syncTaxRates(items: any[], tenant?: TenantContext) {
+  async syncTaxRates(items: any[]) {
     return this.syncTableMetadata(
       "tax_rates",
       items,
@@ -1826,11 +1681,10 @@ export class ProductsService {
         tax_type: item.tax_type || item.taxType,
       }),
       "tax_name",
-      tenant,
     );
   }
 
-  async getTaxGroups(_tenant?: TenantContext) {
+  async getTaxGroups() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("tax_groups")
@@ -1841,7 +1695,7 @@ export class ProductsService {
     return data;
   }
 
-  async syncTaxGroups(items: any[], tenant?: TenantContext) {
+  async syncTaxGroups(items: any[]) {
     return this.syncTableMetadata(
       "tax_groups",
       items,
@@ -1851,11 +1705,10 @@ export class ProductsService {
         tax_rate: item.tax_rate || item.taxRate,
       }),
       "tax_group_name",
-      tenant,
     );
   }
 
-  async getManufacturers(_tenant?: TenantContext) {
+  async getManufacturers() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("manufacturers")
@@ -1867,7 +1720,7 @@ export class ProductsService {
     return data;
   }
 
-  async syncManufacturers(items: any[], tenant?: TenantContext) {
+  async syncManufacturers(items: any[]) {
     console.log(
       "🔵 [syncManufacturers] Received items:",
       JSON.stringify(items, null, 2),
@@ -1918,11 +1771,10 @@ export class ProductsService {
         return mapped;
       },
       "name",
-      tenant,
     );
   }
 
-  async getBrands(_tenant?: TenantContext) {
+  async getBrands() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("brands")
@@ -1934,7 +1786,7 @@ export class ProductsService {
     return data;
   }
 
-  async syncBrands(items: any[], tenant?: TenantContext) {
+  async syncBrands(items: any[]) {
     return this.syncTableMetadata(
       "brands",
       items,
@@ -1943,17 +1795,14 @@ export class ProductsService {
         manufacturer_id: this.cleanUuid(item.manufacturer_id),
       }),
       "name",
-      tenant,
     );
   }
 
-  async getVendors(tenant?: TenantContext) {
+  async getVendors() {
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
     const { data, error } = await supabase
       .from("vendors")
       .select("id, display_name, vendor_number, company_name, is_active")
-      .eq("entity_id", scope.entityId)
       .eq("is_active", true)
       .order("display_name", { ascending: true });
 
@@ -1961,81 +1810,16 @@ export class ProductsService {
     return data;
   }
 
-  async syncVendors(items: any[], tenant?: TenantContext) {
+  async syncVendors(items: any[]) {
     return this.syncTableMetadata(
       "vendors",
       items,
       (item) => ({ vendor_name: item.name }),
       "vendor_name",
-      tenant,
     );
   }
 
-  async getReps(tenant?: TenantContext) {
-    const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
-    const { data, error } = await supabase
-      .from("sales_reps")
-      .select("id, name, number, brand_id, division, area, is_active")
-      .eq("entity_id", scope.entityId)
-      .eq("is_active", true)
-      .order("name", { ascending: true });
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  }
-
-  async searchReps(query: string, tenant?: TenantContext) {
-    if (!query) return [];
-    const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
-    const { data, error } = await supabase
-      .from("sales_reps")
-      .select("id, name, number, brand_id, division, area, is_active")
-      .eq("entity_id", scope.entityId)
-      .eq("is_active", true)
-      .ilike("name", `%${query}%`)
-      .order("name", { ascending: true })
-      .limit(20);
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  }
-
-  async createRep(
-    repData: {
-      name: string;
-      number?: string;
-      brand_id?: string;
-      division?: string;
-      area?: string;
-    },
-    tenant?: TenantContext,
-  ) {
-    const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
-    const name = (repData.name ?? "").toString().trim();
-    if (!name) {
-      throw new BadRequestException("Rep name is required");
-    }
-    const payload = {
-      entity_id: scope.entityId,
-      org_id: scope.orgId,
-      name,
-      number: repData.number?.toString().trim() || null,
-      brand_id: this.cleanUuid(repData.brand_id),
-      division: repData.division?.toString().trim() || null,
-      area: repData.area?.toString().trim() || null,
-      is_active: true,
-    };
-    const { data, error } = await supabase
-      .from("sales_reps")
-      .insert(payload)
-      .select("id, name, number, brand_id, division, area, is_active")
-      .single();
-    if (error) throw new Error(error.message);
-    return data;
-  }
-
-  async getStorageLocations(_tenant?: TenantContext) {
+  async getStorageLocations() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("storage_conditions")
@@ -2052,29 +1836,36 @@ export class ProductsService {
 
   async getWarehouses(tenant?: TenantContext) {
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
-    const { data, error } = await supabase
+    let query = supabase
       .from("warehouses")
       .select("id, name, is_active, entity_id")
-      .eq("entity_id", scope.entityId)
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+      .eq("is_active", true);
+
+    if (tenant) {
+      if (tenant.entityId) {
+        query = query.eq("entity_id", tenant.entityId);
+      } else {
+        query = query.eq("org_id", tenant.orgId);
+      }
+    }
+
+    query = query.order("name", { ascending: true });
+    const { data, error } = await query;
 
     if (error) throw new Error(error.message);
     return data;
   }
 
-  async syncStorageLocations(items: any[], tenant?: TenantContext) {
+  async syncStorageLocations(items: any[]) {
     return this.syncTableMetadata(
       "storage_conditions",
       items,
       (item) => ({ location_name: item.name }),
       "location_name",
-      tenant,
     );
   }
 
-  async getRacks(_tenant?: TenantContext) {
+  async getRacks() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("racks")
@@ -2086,7 +1877,7 @@ export class ProductsService {
     return data;
   }
 
-  async syncRacks(items: any[], tenant?: TenantContext) {
+  async syncRacks(items: any[]) {
     return this.syncTableMetadata(
       "racks",
       items,
@@ -2095,7 +1886,6 @@ export class ProductsService {
         storage_id: this.cleanUuid(item.storage_id),
       }),
       "rack_code",
-      tenant,
     );
   }
 
@@ -2314,16 +2104,22 @@ export class ProductsService {
     return data ?? [];
   }
 
-  async getAccounts(tenant?: TenantContext) {
-    if (!tenant) return [];
-    return listVisibleAccounts(this.supabaseService.getClient(), tenant, {
-      select:
-        "id, entity_id, user_account_name, system_account_name, account_type, is_active",
-      accountType: "Stock",
-    });
+  async getAccounts() {
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from("accounts")
+      .select(
+        "id, user_account_name, system_account_name, account_type, is_active",
+      )
+      .eq("is_active", true)
+      .eq("account_type", "Stock")
+      .order("system_account_name", { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return data;
   }
 
-  async syncAccounts(items: any[], tenant?: TenantContext) {
+  async syncAccounts(items: any[]) {
     return this.syncTableMetadata(
       "accounts",
       items,
@@ -2332,11 +2128,10 @@ export class ProductsService {
         account_type: item.type || "expense",
       }),
       "account_name",
-      tenant,
     );
   }
 
-  async getContents(tenant?: TenantContext) {
+  async getContents() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("contents")
@@ -2348,17 +2143,16 @@ export class ProductsService {
     return data;
   }
 
-  async syncContents(items: any[], tenant?: TenantContext) {
+  async syncContents(items: any[]) {
     return this.syncTableMetadata(
       "contents",
       items,
       (item) => ({ content_name: item.name?.trim() || item.name }),
       "content_name",
-      tenant,
     );
   }
 
-  async getStrengths(tenant?: TenantContext) {
+  async getStrengths() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("drug_strengths")
@@ -2370,17 +2164,16 @@ export class ProductsService {
     return data;
   }
 
-  async syncStrengths(items: any[], tenant?: TenantContext) {
+  async syncStrengths(items: any[]) {
     return this.syncTableMetadata(
       "drug_strengths",
       items,
       (item) => ({ strength_name: item.name?.trim() || item.name }),
       "strength_name",
-      tenant,
     );
   }
 
-  async getBuyingRules(tenant?: TenantContext) {
+  async getBuyingRules() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("buying_rules")
@@ -2395,17 +2188,16 @@ export class ProductsService {
     return data;
   }
 
-  async syncBuyingRules(items: any[], tenant?: TenantContext) {
+  async syncBuyingRules(items: any[]) {
     return this.syncTableMetadata(
       "buying_rules",
       items,
       (item) => ({ buying_rule: item.name?.trim() || item.name }),
       "buying_rule",
-      tenant,
     );
   }
 
-  async getDrugSchedules(tenant?: TenantContext) {
+  async getDrugSchedules() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("drug_schedules")
@@ -2417,144 +2209,6 @@ export class ProductsService {
       .order("shedule_name", { ascending: true });
 
     if (error) return [];
-    return data;
-  }
-
-  async getProductTypes(_tenant?: TenantContext) {
-    const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
-      .from("product_types")
-      .select("id, name, description, is_active, created_at")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
-
-    if (this.isProductTypeSchemaError(error)) {
-      this.logProductTypeSchemaFallbackOnce(error);
-      return [];
-    }
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  }
-
-  async getProductPackSizes(_tenant?: TenantContext) {
-    const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
-      .from("product_pack_sizes")
-      .select("id, pack_name, unit_pack, is_active, created_at, updated_at")
-      .eq("is_active", true)
-      .order("pack_name", { ascending: true })
-      .order("unit_pack", { ascending: true });
-
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  }
-
-  async searchProductPackSizes(query: string, _tenant?: TenantContext) {
-    if (!query) return this.getProductPackSizes();
-
-    const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
-      .from("product_pack_sizes")
-      .select("id, pack_name, unit_pack, is_active, created_at, updated_at")
-      .eq("is_active", true)
-      .ilike("pack_name", `%${query}%`)
-      .order("pack_name", { ascending: true })
-      .order("unit_pack", { ascending: true })
-      .limit(20);
-
-    if (error) return [];
-    return data ?? [];
-  }
-
-  async createProductPackSize(
-    packSizeData: { pack_name?: string; unit_pack?: number | string },
-    _tenant?: TenantContext,
-  ) {
-    const supabase = this.supabaseService.getClient();
-    const packName = packSizeData?.pack_name?.toString().trim();
-    const parsedUnitPack = Number(packSizeData?.unit_pack);
-
-    if (!packName) {
-      throw new BadRequestException("Pack name is required");
-    }
-    if (!Number.isFinite(parsedUnitPack) || parsedUnitPack <= 0) {
-      throw new BadRequestException("Unit Pack must be a valid positive number");
-    }
-
-    const { data, error } = await supabase
-      .from("product_pack_sizes")
-      .insert({
-        pack_name: packName,
-        unit_pack: parsedUnitPack,
-        is_active: true,
-      })
-      .select("id, pack_name, unit_pack, is_active, created_at, updated_at")
-      .single();
-
-    if (error?.code === "23505") {
-      throw new ConflictException(
-        `Pack Size "${packName}" with unit pack ${parsedUnitPack} already exists`,
-      );
-    }
-    if (error) throw new Error(error.message);
-    return data;
-  }
-
-  async searchProductTypes(query: string, _tenant?: TenantContext) {
-    if (!query) return this.getProductTypes();
-
-    const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
-      .from("product_types")
-      .select("id, name, description, is_active, created_at")
-      .eq("is_active", true)
-      .ilike("name", `%${query}%`)
-      .order("name", { ascending: true })
-      .limit(20);
-
-    if (this.isProductTypeSchemaError(error)) {
-      this.logProductTypeSchemaFallbackOnce(error);
-      return [];
-    }
-    if (error) return [];
-    return data ?? [];
-  }
-
-  async createProductType(
-    typeData: { name?: string; description?: string },
-    _tenant?: TenantContext,
-  ) {
-    const supabase = this.supabaseService.getClient();
-    const name = typeData?.name?.toString().trim();
-    const description = typeData?.description?.toString().trim() || null;
-
-    if (!name) {
-      throw new BadRequestException("Product type name is required");
-    }
-
-    const { data, error } = await supabase
-      .from("product_types")
-      .insert({
-        name,
-        description,
-        is_active: true,
-      })
-      .select("id, name, description, is_active, created_at")
-      .single();
-
-    if (this.isProductTypeSchemaError(error)) {
-      this.logProductTypeSchemaFallbackOnce(error);
-      throw new BadRequestException(
-        "Product Type master not enabled in database yet. Run product type migration first.",
-      );
-    }
-    if (error) {
-      if ((error as any).code === "23505") {
-        throw new ConflictException(`Product type '${name}' already exists`);
-      }
-      throw new Error(error.message);
-    }
-
     return data;
   }
 
@@ -2578,10 +2232,8 @@ export class ProductsService {
       categories,
       taxRates,
       taxGroups,
-        manufacturers,
-        brands,
-        productPackSizes,
-        reps,
+      manufacturers,
+      brands,
       vendors,
       storageLocations,
       warehouses,
@@ -2592,28 +2244,24 @@ export class ProductsService {
       strengths,
       buyingRules,
       drugSchedules,
-      productTypes,
       uqc,
     ] = await Promise.all([
-      safeLookup("units", () => this.getUnits(tenant)),
-      safeLookup("categories", () => this.getCategories(tenant)),
-      safeLookup("taxRates", () => this.getTaxRates(tenant)),
-      safeLookup("taxGroups", () => this.getTaxGroups(tenant)),
-      safeLookup("manufacturers", () => this.getManufacturers(tenant)),
-      safeLookup("brands", () => this.getBrands(tenant)),
-      safeLookup("productPackSizes", () => this.getProductPackSizes(tenant)),
-      safeLookup("reps", () => this.getReps(tenant)),
-      safeLookup("vendors", () => this.getVendors(tenant)),
-      safeLookup("storageLocations", () => this.getStorageLocations(tenant)),
-      safeLookup("warehouses", () => this.getWarehouses(tenant)),
-      safeLookup("racks", () => this.getRacks(tenant)),
+      safeLookup("units", () => this.getUnits()),
+      safeLookup("categories", () => this.getCategories()),
+      safeLookup("taxRates", () => this.getTaxRates()),
+      safeLookup("taxGroups", () => this.getTaxGroups()),
+      safeLookup("manufacturers", () => this.getManufacturers()),
+      safeLookup("brands", () => this.getBrands()),
+      safeLookup("vendors", () => this.getVendors()),
+      safeLookup("storageLocations", () => this.getStorageLocations()),
+      safeLookup("warehouses", () => this.getWarehouses()),
+      safeLookup("racks", () => this.getRacks()),
       safeLookup("reorderTerms", () => this.getReorderTerms(tenant)),
-      safeLookup("accounts", () => this.getAccounts(tenant)),
-      safeLookup("contents", () => this.getContents(tenant)),
-      safeLookup("strengths", () => this.getStrengths(tenant)),
-      safeLookup("buyingRules", () => this.getBuyingRules(tenant)),
-      safeLookup("drugSchedules", () => this.getDrugSchedules(tenant)),
-      safeLookup("productTypes", () => this.getProductTypes(tenant)),
+      safeLookup("accounts", () => this.getAccounts()),
+      safeLookup("contents", () => this.getContents()),
+      safeLookup("strengths", () => this.getStrengths()),
+      safeLookup("buyingRules", () => this.getBuyingRules()),
+      safeLookup("drugSchedules", () => this.getDrugSchedules()),
       safeLookup("uqc", () => this.getUQCs()),
     ]);
 
@@ -2622,10 +2270,8 @@ export class ProductsService {
       categories,
       taxRates,
       taxGroups,
-        manufacturers,
-        brands,
-        productPackSizes,
-        reps,
+      manufacturers,
+      brands,
       vendors,
       storageLocations,
       warehouses,
@@ -2636,45 +2282,17 @@ export class ProductsService {
       strengths,
       buyingRules,
       drugSchedules,
-      productTypes,
       uqc,
     };
   }
 
-  async syncDrugSchedules(items: any[], tenant?: TenantContext) {
+  async syncDrugSchedules(items: any[]) {
     return this.syncTableMetadata(
       "drug_schedules",
       items,
       (item) => ({ shedule_name: item.name?.trim() || item.name }),
       "shedule_name",
-      tenant,
     );
-  }
-
-  async syncProductTypes(items: any[], tenant?: TenantContext) {
-    try {
-      return await this.syncTableMetadata(
-        "product_types",
-        items,
-        (item) => ({
-          name: item.name?.trim() || item.name,
-          description:
-            item.description?.toString().trim().length
-              ? item.description.toString().trim()
-              : null,
-        }),
-        "name",
-        tenant,
-      );
-    } catch (error: any) {
-      if (this.isProductTypeSchemaError(error)) {
-        this.logProductTypeSchemaFallbackOnce(error);
-        throw new BadRequestException(
-          "Product Type master not enabled in database yet. Run product type migration first.",
-        );
-      }
-      throw error;
-    }
   }
 
   async getProductWarehouseStocks(productId: string, tenant?: TenantContext) {
@@ -2682,63 +2300,50 @@ export class ProductsService {
       throw new BadRequestException("Invalid product ID");
     }
 
-    const scope = this.resolveScope(tenant);
     const supabase = this.supabaseService.getClient();
+    let query = supabase
+      .from("warehouses")
+      .select("id, name, is_active, entity_id")
+      .eq("is_active", true);
 
-    const [
-      { data: warehouses, error: warehouseError },
-      { data: accountingStock, error: accError },
-      { data: physicalStock, error: physError }
-    ] = await Promise.all([
-      supabase
-        .from("warehouses")
-        .select("id, name, is_active")
-        .eq("entity_id", scope.entityId)
-        .eq("is_active", true)
-        .order("name", { ascending: true }),
-      supabase
-        .from("v_accounting_stock")
-        .select("warehouse_id, stock_on_hand, committed_stock")
-        .eq("product_id", productId)
-        .eq("entity_id", scope.entityId),
-      supabase
-        .from("v_physical_stock")
-        .select("warehouse_id, stock_on_hand, committed_stock")
-        .eq("product_id", productId)
-        .eq("entity_id", scope.entityId)
-    ]);
+    if (tenant) {
+      if (tenant.entityId) {
+        query = query.eq("entity_id", tenant.entityId);
+      } else {
+        query = query.eq("org_id", tenant.orgId);
+      }
+    }
 
-    if (warehouseError) throw new Error(warehouseError.message);
-    if (accError) throw new Error(accError.message);
-    if (physError) throw new Error(physError.message);
+    query = query.order("name", { ascending: true });
+    const { data: warehouses, error: whError } = await query;
 
-    const accountingMap = new Map<string, { onHand: number; committed: number }>();
-    (accountingStock ?? []).forEach((row: any) => {
-      accountingMap.set(row.warehouse_id, {
-        onHand: Number(row.stock_on_hand ?? 0),
-        committed: Number(row.committed_stock ?? 0)
-      });
-    });
+    if (whError) throw new Error(whError.message);
 
-    const physicalMap = new Map<string, { onHand: number; committed: number }>();
-    (physicalStock ?? []).forEach((row: any) => {
-      physicalMap.set(row.warehouse_id, {
-        onHand: Number(row.stock_on_hand ?? 0),
-        committed: Number(row.committed_stock ?? 0)
-      });
-    });
+    const { data: stockData, error: stockError } = await supabase
+      .from("batch_stock_layers")
+      .select("warehouse_id, qty")
+      .eq("product_id", productId);
+
+    const stockMap = new Map<string, number>();
+    if (!stockError && stockData) {
+      for (const row of stockData) {
+        const whId = row.warehouse_id;
+        const qty = Number(row.qty ?? 0);
+        stockMap.set(whId, (stockMap.get(whId) ?? 0) + qty);
+      }
+    }
 
     return (warehouses ?? []).map((warehouse: any) => {
-      const acc = accountingMap.get(warehouse.id) || { onHand: 0, committed: 0 };
-      const phys = physicalMap.get(warehouse.id) || { onHand: 0, committed: 0 };
+      const whId = warehouse.id;
+      const qty = stockMap.get(whId) ?? 0;
       return {
-        id: warehouse.id,
-        warehouse_id: warehouse.id,
+        id: whId,
+        warehouse_id: whId,
         name: warehouse.name,
-        opening_stock: 0,
+        opening_stock: qty,
         opening_stock_value: 0,
-        accounting: acc,
-        physical: phys,
+        accounting: { onHand: qty, committed: 0 },
+        physical: { onHand: qty, committed: 0 },
       };
     });
   }
@@ -2890,13 +2495,12 @@ export class ProductsService {
   async updateProductWarehouseStocks(
     productId: string,
     _payload: { rows?: any[] } = {},
-    tenant?: TenantContext,
   ) {
     if (!this.isUUID(productId)) {
       throw new BadRequestException("Invalid product ID");
     }
     // Stock write logic pending new inventory implementation
-    return this.getProductWarehouseStocks(productId, tenant);
+    return this.getProductWarehouseStocks(productId);
   }
 
   async adjustProductWarehousePhysicalStock(
@@ -2907,13 +2511,12 @@ export class ProductsService {
       reason?: string;
       notes?: string;
     } = {},
-    tenant?: TenantContext,
   ) {
     if (!this.isUUID(productId)) {
       throw new BadRequestException("Invalid product ID");
     }
     // Physical stock adjustment logic pending new inventory implementation
-    return this.getProductWarehouseStocks(productId, tenant);
+    return this.getProductWarehouseStocks(productId);
   }
 
   private normalizeNonNegativeNumber(value: unknown, fallback: number) {
@@ -2928,10 +2531,8 @@ export class ProductsService {
     items: any[],
     fieldsMapper: (u: any) => any,
     nameColumn: string = "id",
-    tenant?: TenantContext,
   ) {
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
     console.log(
       `🔄 [Sync] Starting sync for ${tableName} with ${items.length} items using nameColumn: ${nameColumn}`,
     );
@@ -2940,11 +2541,9 @@ export class ProductsService {
       // 1. Fetch current records (including inactive) to match by name and handle deactivations
       const selectColumns =
         nameColumn === "id" ? "id, is_active" : `id, ${nameColumn}, is_active`;
-      let currentQuery = supabase.from(tableName).select(selectColumns);
-      if (this.entityScopedLookupTables.has(tableName)) {
-        currentQuery = currentQuery.eq("entity_id", scope.entityId);
-      }
-      const { data: currentRecords, error: fetchError } = await currentQuery;
+      const { data: currentRecords, error: fetchError } = await supabase
+        .from(tableName)
+        .select(selectColumns);
 
       if (fetchError) {
         console.error(
@@ -2967,9 +2566,6 @@ export class ProductsService {
         const entry: any = {
           is_active: u.is_active !== undefined ? u.is_active : true,
         };
-        if (this.entityScopedLookupTables.has(tableName)) {
-          entry.entity_id = scope.entityId;
-        }
 
         // Merge mapped fields
         Object.assign(entry, mapped);
@@ -3122,14 +2718,12 @@ export class ProductsService {
     }
   }
 
-  async searchManufacturers(query: string, tenant?: TenantContext) {
+  async searchManufacturers(query: string) {
     if (!query) return [];
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
     const { data, error } = await supabase
       .from("manufacturers")
       .select("id, name, is_active")
-      .eq("entity_id", scope.entityId)
       .ilike("name", `%${query}%`)
       .eq("is_active", true)
       .order("name", { ascending: true })
@@ -3142,14 +2736,12 @@ export class ProductsService {
     return data;
   }
 
-  async searchBrands(query: string, tenant?: TenantContext) {
+  async searchBrands(query: string) {
     if (!query) return [];
     const supabase = this.supabaseService.getClient();
-    const scope = this.resolveScope(tenant);
     const { data, error } = await supabase
       .from("brands")
       .select("id, name, is_active")
-      .eq("entity_id", scope.entityId)
       .ilike("name", `%${query}%`)
       .eq("is_active", true)
       .order("name", { ascending: true })
@@ -3218,26 +2810,10 @@ export class ProductsService {
     return product;
   }
 
-  private async mapCompositeItem(compositeItem: any, tenant?: TenantContext) {
-    if (!compositeItem) return null;
-
-    try {
-      const branchSetting = await this.getCompositeItemBranchInventorySetting(
-        compositeItem.id,
-        tenant,
-      );
-      if (branchSetting) {
-        compositeItem.reorder_point = Number(branchSetting.reorder_point ?? 0);
-        compositeItem.reorder_term_id = branchSetting.reorder_term_id ?? null;
-      }
-    } catch (e) {
-      console.error(
-        `Failed to overlay composite branch reorder settings for ${compositeItem.id}`,
-        e,
-      );
-    }
-
-    return compositeItem;
+  private async mapCompositeItem(compositeItem: any, _tenant?: TenantContext) {
+    // reorder_point / reorder_term_id are stored directly on composite_items;
+    // no separate per-branch settings table is used.
+    return compositeItem ?? null;
   }
 
   async getQuickStats(productId: string) {

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/sales_order_model.dart';
 import '../../customers/data/models/sales_customer_model.dart';
 import '../../customers/data/models/sales_customer_detail_context_model.dart';
-import '../../payments_received/data/models/sales_payment_model.dart';
+import 'package:zerpai_erp/modules/sales/payment_recieved/data/models/sales_payment_model.dart';
 import '../../eway_bills/data/models/sales_eway_bill_model.dart';
 import '../../payment_links/data/models/sales_payment_link_model.dart';
 import '../data/services/sales_order_api_service.dart';

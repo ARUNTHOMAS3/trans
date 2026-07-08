@@ -12,6 +12,8 @@ import 'package:dio/dio.dart';
 import '../../../../../shared/widgets/zerpai_layout.dart';
 import '../../../../../shared/widgets/z_button.dart';
 import '../../../../../core/theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../../core/logging/app_logger.dart';
 import '../../models/inventory_package_model.dart';
 import '../../providers/inventory_packages_provider.dart';
 import '../../../picklists/providers/inventory_picklists_provider.dart';
@@ -49,6 +51,10 @@ const _packageFilterOptions = <FavoriteFilterOption>[
   FavoriteFilterOption(label: 'Delivered', value: 'Delivered'),
 ];
 
+const Color _textPrimary = Color(0xFF1F2937);
+const Color _textSecondary = Color(0xFF6B7280);
+const Color _borderCol = Color(0xFFE5E7EB);
+
 class InventoryPackagesListScreen extends ConsumerStatefulWidget {
   final String? id;
   const InventoryPackagesListScreen({super.key, this.id});
@@ -60,9 +66,6 @@ class InventoryPackagesListScreen extends ConsumerStatefulWidget {
 
 class _InventoryPackagesListScreenState
     extends ConsumerState<InventoryPackagesListScreen> {
-  static const Color _textPrimary = Color(0xFF1F2937);
-  static const Color _textSecondary = Color(0xFF6B7280);
-  static const Color _borderCol = Color(0xFFE5E7EB);
   static const Color _greenBtn = Color(0xFF10B981);
 
   // Column Colors – exact Zoho match
@@ -1035,62 +1038,88 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
   Widget build(BuildContext context) {
     final packageAsync = ref.watch(packageByIdProvider(widget.id));
 
-    return Column(
-      children: [
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF9FAFB),
-            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-          ),
-          child: packageAsync.when(
-            data: (pkg) => pkg == null
-                ? const SizedBox.shrink()
-                : Row(
+    return packageAsync.when(
+      data: (pkg) {
+        if (pkg == null) return const Center(child: Text('Package not found'));
+        return Column(
+          children: [
+            // Package Number Header (marked part in the 2nd screenshot)
+            Container(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    pkg.packageNumber,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  Row(
                     children: [
-                      _buildToolbarButton(
-                        LucideIcons.edit,
-                        'Edit',
-                        onPressed: () {
-                          final orgId = GoRouterState.of(context)
-                              .pathParameters['orgSystemId']!;
-                          context.pushNamed(
-                            AppRoutes.packagesEdit,
-                            pathParameters: {
-                              'orgSystemId': orgId,
-                              'id': pkg.id!,
-                            },
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      _buildShipDropdown(pkg),
-                      _buildDivider(),
-                      _buildPdfPrintDropdown(pkg),
-                      _buildDivider(),
-                      _buildToolbarButton(
-                        LucideIcons.trash2,
-                        'Delete',
-                        color: AppTheme.errorRed,
-                        onPressed: () => _deletePackage(pkg.id!),
-                      ),
-                      const Spacer(),
                       IconButton(
+                        icon: const Icon(LucideIcons.messageSquare, size: 20, color: _textSecondary),
+                        onPressed: () {},
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(LucideIcons.x, size: 20, color: _textSecondary),
                         onPressed: widget.onClose,
-                        icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
                       ),
                     ],
                   ),
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-        ),
-        Expanded(
-          child: packageAsync.when(
-            data: (pkg) {
-              if (pkg == null) return const Center(child: Text('Package not found'));
-              return Column(
+                ],
+              ),
+            ),
+            // Toolbar Actions
+            Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
+              child: Row(
+                children: [
+                  _buildToolbarButton(
+                    LucideIcons.edit,
+                    'Edit',
+                    onPressed: () {
+                      final orgId = GoRouterState.of(context)
+                          .pathParameters['orgSystemId']!;
+                      context.pushNamed(
+                        AppRoutes.packagesEdit,
+                        pathParameters: {
+                          'orgSystemId': orgId,
+                          'id': pkg.id!,
+                        },
+                      );
+                    },
+                  ),
+                  _buildDivider(),
+                  _buildShipDropdown(pkg),
+                  _buildDivider(),
+                  _buildPdfPrintDropdown(pkg),
+                  _buildDivider(),
+                  _buildToolbarButton(
+                    LucideIcons.trash2,
+                    'Delete',
+                    color: AppTheme.errorRed,
+                    onPressed: () => _deletePackage(pkg.id!),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
                 children: [
                   const SizedBox(height: 16),
                   _buildDetailTabs(pkg),
@@ -1098,22 +1127,78 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                     child: _showPdfView ? _PackagePdfView(package: pkg) : _buildStandardView(pkg),
                   ),
                 ],
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Error: $err')),
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(child: Text('Error: $err')),
     );
   }
 
-  Widget _buildToolbarButton(IconData icon, String label, {VoidCallback? onPressed, Color? color}) {
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 14, color: color ?? const Color(0xFF4B5563)),
-      label: Text(label, style: TextStyle(fontSize: 13, color: color ?? const Color(0xFF4B5563))),
-      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
+  Widget _buildToolbarButton(
+    IconData icon,
+    String label, {
+    VoidCallback? onPressed,
+    bool hasDropdownArrow = false,
+    Color? color,
+  }) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isHovered ? Colors.white : Colors.transparent,
+                border: Border.all(
+                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: color ?? AppTheme.textPrimary),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: AppTheme.bodyText.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: color,
+                    ),
+                  ),
+                  if (hasDropdownArrow) ...[
+                    const SizedBox(width: 4),
+                    Icon(LucideIcons.chevronDown, size: 12, color: color ?? AppTheme.textPrimary),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  MenuStyle _menuStyle() {
+    return MenuStyle(
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      elevation: const WidgetStatePropertyAll(8),
+      backgroundColor: const WidgetStatePropertyAll(Colors.white),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
     );
   }
 
@@ -1149,7 +1234,7 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
   }
 
   Widget _buildDivider() {
-    return Container(width: 1, height: 16, color: const Color(0xFFE5E7EB), margin: const EdgeInsets.symmetric(horizontal: 8));
+    return Container(width: 1, height: 20, color: AppTheme.borderLight, margin: const EdgeInsets.symmetric(horizontal: 4));
   }
 
   Widget _buildShipDropdown(InventoryPackage pkg) {
@@ -1168,15 +1253,7 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        elevation: const WidgetStatePropertyAll(8),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-        ),
-      ),
+      style: _menuStyle(),
       menuChildren: [
         MenuItemButton(
           onPressed: () async {
@@ -1186,23 +1263,8 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
               filename: '${pkg.packageNumber}.pdf',
             );
           },
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.primaryBlue : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textPrimary),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.primaryBlue),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
-          ),
-          child: const Row(children: [
-            Icon(LucideIcons.fileText, size: 16),
-            SizedBox(width: 12),
-            Text('PDF', style: TextStyle(fontSize: 14)),
-          ]),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          child: const Text('Download PDF'),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -1212,29 +1274,15 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
               name: pkg.packageNumber,
             );
           },
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.primaryBlue : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textPrimary),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.primaryBlue),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
-          ),
-          child: const Row(children: [
-            Icon(LucideIcons.printer, size: 16),
-            SizedBox(width: 12),
-            Text('Print', style: TextStyle(fontSize: 14)),
-          ]),
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          child: const Text('Print'),
         ),
       ],
       builder: (context, controller, _) => _buildToolbarButton(
-        LucideIcons.fileText,
+        LucideIcons.printer,
         'PDF/Print',
         onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+        hasDropdownArrow: true,
       ),
     );
   }
@@ -1751,18 +1799,208 @@ class _PackagePdfView extends ConsumerStatefulWidget {
 class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
   final Set<String> _expandedItems = {};
   bool _isBatchesExpanded = true;
+  Map<String, dynamic>? _shipmentInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadShipmentInfo();
+  }
+
+  @override
+  void didUpdateWidget(_PackagePdfView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.package.id != widget.package.id) {
+      _loadShipmentInfo();
+    }
+  }
+
+  Future<void> _loadShipmentInfo() async {
+    final packageId = widget.package.id;
+    if (packageId == null) return;
+    setState(() {
+      _shipmentInfo = null;
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      final List<dynamic> response = await supabase
+          .from('inventory_shipment_packages')
+          .select('shipment_id, inventory_shipments!inner(id, shipment_number, date, carrier, tracking_number, is_delivered)')
+          .eq('package_id', packageId)
+          .limit(1);
+      if (mounted) {
+        setState(() {
+          _shipmentInfo = response.isNotEmpty ? response.first as Map<String, dynamic> : null;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error loading shipment info for package', error: e);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+    final shipment = _shipmentInfo?['inventory_shipments'] as Map<String, dynamic>?;
+    final hasShipment = shipment != null;
+
+    final statusLabel = hasShipment ? 'SHIPPED' : widget.package.status.replaceAll('_', ' ');
+    final statusColor = hasShipment ? const Color(0xFF1E8E3E) : _getPdfStatusColor(widget.package.status);
+
     return Container(
       color: Colors.white,
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: Column(
-            children: [
-              Container(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Shipment Order Details Container (marked part in the 3rd screenshot)
+            if (hasShipment)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 24),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF7ED),
+                              border: Border.all(color: const Color(0xFFFFEDD5)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              LucideIcons.package,
+                              color: Color(0xFFF97316),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Shipment Order#',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _textSecondary,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () {
+                                        final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+                                        context.go('/$orgId/inventory/shipments/${shipment['id']}');
+                                      },
+                                      child: Text(
+                                        shipment['shipment_number'] ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryBlue,
+                                          decoration: TextDecoration.underline,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0088FF),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: const Text(
+                                        'SHIPPED',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(color: _borderCol),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 140,
+                            child: Text(
+                              'Date of Shipment',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _textSecondary,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ),
+                          Text(
+                            shipment['date'] != null
+                                ? DateFormat('dd-MM-yyyy').format(DateTime.parse(shipment['date']))
+                                : '-',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: _textPrimary,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 140,
+                            child: Text(
+                              'Carrier',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _textSecondary,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ),
+                          Text(
+                            shipment['carrier'] ?? '-',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: _textPrimary,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Center(
+              child: Container(
                 width: 800,
                 decoration: const BoxDecoration(
                   color: Colors.white,
@@ -1775,8 +2013,8 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                         top: 0,
                         left: 0,
                         child: _PdfCornerRibbon(
-                          label: widget.package.status.replaceAll('_', ' '),
-                          color: _getPdfStatusColor(widget.package.status),
+                          label: statusLabel,
+                          color: statusColor,
                         ),
                       ),
                       Column(
@@ -1789,25 +2027,30 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 32),
+            if (widget.package.notes != null && widget.package.notes!.isNotEmpty) ...[
+              Center(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Package Notes', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                        const SizedBox(width: 4),
+                        const Icon(LucideIcons.paperclip, size: 12, color: Color(0xFF6B7280)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(widget.package.notes!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
+                  ],
+                ),
+              ),
               const SizedBox(height: 32),
-              if (widget.package.notes != null && widget.package.notes!.isNotEmpty) ...[
-                  Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('Package Notes', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
-                          const SizedBox(width: 4),
-                          const Icon(LucideIcons.paperclip, size: 12, color: Color(0xFF6B7280)),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(widget.package.notes!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
-                    ],
-                  ),
-                const SizedBox(height: 32),
-              ],
-              Container(
+            ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
                 decoration: BoxDecoration(
@@ -1817,9 +2060,9 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                 ),
                 child: _buildBottomDetails(),
               ),
-              const SizedBox(height: 40),
-            ],
-          ),
+            ),
+            const SizedBox(height: 40),
+          ],
         ),
       ),
     );

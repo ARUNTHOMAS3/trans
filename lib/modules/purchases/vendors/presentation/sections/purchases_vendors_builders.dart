@@ -79,11 +79,11 @@ extension _PurchasesVendorsBuilders
       subtext = Colors.white70;
       check = Colors.white;
     } else if (isSelected) {
-      // Selection gets grey with black text
-      bg = const Color(0xFFF3F4F6);
-      text = const Color(0xFF111827);
-      subtext = const Color(0xFF6B7280);
-      check = const Color(0xFF111827);
+      // Selection now gets the "Lite Blue" style
+      bg = const Color(0xFFEFF6FF);
+      text = const Color(0xFF1D4ED8);
+      subtext = const Color(0xFF1D4ED8);
+      check = const Color(0xFF2563EB);
     }
 
     return Container(

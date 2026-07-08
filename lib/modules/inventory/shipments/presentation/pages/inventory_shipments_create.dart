@@ -471,8 +471,18 @@ class _InventoryShipmentsCreateScreenState
 
       await supabase.from('inventory_shipment_packages').insert(packageInserts);
 
+      // Update package status to Shipped in the database
+      final packageIds = selectedPackageObjs.map((p) => p.id).whereType<String>().toList();
+      if (packageIds.isNotEmpty) {
+        await supabase
+            .from('inventory_packages')
+            .update({'status': 'Shipped'})
+            .inFilter('id', packageIds);
+      }
+
       ZerpaiToast.success(context, 'Shipment saved successfully!');
       ref.invalidate(shipmentsProvider);
+      ref.invalidate(inventoryPackagesProvider);
       if (context.canPop()) {
         context.pop();
       } else {

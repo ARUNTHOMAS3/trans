@@ -351,9 +351,11 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
   }
 
   String _resolveCurrentOrgSystemId() {
-    final state = GoRouterState.of(context);
-    final routeId = (state.pathParameters['orgSystemId'] ?? '').trim();
-    if (routeId.isNotEmpty) return routeId;
+    try {
+      final state = GoRouterState.of(context);
+      final routeId = (state.pathParameters['orgSystemId'] ?? '').trim();
+      if (routeId.isNotEmpty) return routeId;
+    } catch (_) {}
     final currentPath = GoRouter.of(
       context,
     ).routeInformationProvider.value.uri.path;

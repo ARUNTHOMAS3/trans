@@ -53,7 +53,7 @@ final shipmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async
     print('[shipmentsProvider] Querying Supabase with entityId: $entityId');
     final response = await supabase
         .from('inventory_shipments')
-        .select('*, customers(display_name, place_of_supply), inventory_shipment_sales_orders(sales_orders(sale_number, sale_date, status)), inventory_shipment_packages(inventory_packages(package_number, created_at))')
+        .select('*, customers(display_name, place_of_supply), inventory_shipment_sales_orders(sales_orders(sale_number, sale_date, status)), inventory_shipment_packages(inventory_packages(package_number, created_at, inventory_package_items(quantity, products(product_name))))')
         .eq('entity_id', entityId)
         .order('created_at', ascending: false);
         
@@ -1320,13 +1320,13 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                 _buildActionButton('Edit', LucideIcons.edit, () {
                   context.go('/inventory/shipments/edit/${s['id']}');
                 }),
-                const SizedBox(width: 8),
+                _buildDivider(),
                 _buildActionButton('Send Email', LucideIcons.mail, () {}),
-                const SizedBox(width: 8),
+                _buildDivider(),
                 _buildPdfPrintDropdown(s),
-                const SizedBox(width: 8),
+                _buildDivider(),
                 _buildMarkAsDeliveredDropdown(s),
-                const SizedBox(width: 8),
+                _buildDivider(),
                 _buildActionButton('Delete', LucideIcons.trash2, () {
                   _deleteShipment(s['id']);
                 }),
@@ -1582,17 +1582,75 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
     );
   }
 
-  Widget _buildActionButton(String label, IconData icon, VoidCallback onPressed) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 14, color: AppTheme.textSecondary),
-      label: Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
-      style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: AppTheme.borderColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        backgroundColor: Colors.white,
+  Widget _buildActionButton(
+    String label,
+    IconData icon,
+    VoidCallback onPressed, {
+    bool hasDropdown = false,
+  }) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isHovered ? Colors.white : Colors.transparent,
+                border: Border.all(
+                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: AppTheme.textPrimary),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: AppTheme.bodyText.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (hasDropdown) ...[
+                    const SizedBox(width: 4),
+                    const Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.textPrimary),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  MenuStyle _menuStyle() {
+    return MenuStyle(
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
+      elevation: const WidgetStatePropertyAll(8),
+      backgroundColor: const WidgetStatePropertyAll(Colors.white),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      width: 1,
+      height: 20,
+      color: AppTheme.borderLight,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 
@@ -1600,15 +1658,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        elevation: const WidgetStatePropertyAll(8),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-        ),
-      ),
+      style: _menuStyle(),
       menuChildren: [
         MenuItemButton(
           onPressed: () async {
@@ -1619,11 +1669,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
             );
           },
           style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Row(children: [
-            Icon(LucideIcons.fileText, size: 16),
-            SizedBox(width: 12),
-            Text('PDF', style: TextStyle(fontSize: 14)),
-          ]),
+          child: const Text('Download PDF'),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -1634,31 +1680,14 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
             );
           },
           style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Row(children: [
-            Icon(LucideIcons.printer, size: 16),
-            SizedBox(width: 12),
-            Text('Print', style: TextStyle(fontSize: 14)),
-          ]),
+          child: const Text('Print'),
         ),
       ],
-      builder: (context, controller, _) => OutlinedButton(
-        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppTheme.borderColor),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          backgroundColor: Colors.white,
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.fileText, size: 14, color: AppTheme.textSecondary),
-            SizedBox(width: 8),
-            Text('PDF/Print', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
-            SizedBox(width: 4),
-            Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.textSecondary),
-          ],
-        ),
+      builder: (context, controller, _) => _buildActionButton(
+        'PDF/Print',
+        LucideIcons.printer,
+        () => controller.isOpen ? controller.close() : controller.open(),
+        hasDropdown: true,
       ),
     );
   }
@@ -1666,44 +1695,19 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
   Widget _buildMarkAsDeliveredDropdown(Map<String, dynamic> shipment) {
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        elevation: const WidgetStatePropertyAll(8),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-        ),
-      ),
+      style: _menuStyle(),
       menuChildren: [
         MenuItemButton(
           onPressed: () => _showMarkAsDeliveredDialog(shipment),
           style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Row(children: [
-            Icon(LucideIcons.check, size: 16),
-            SizedBox(width: 12),
-            Text('Mark as Delivered', style: TextStyle(fontSize: 14)),
-          ]),
+          child: const Text('Mark as Delivered'),
         ),
       ],
-      builder: (context, controller, _) => OutlinedButton(
-        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppTheme.borderColor),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          backgroundColor: Colors.white,
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.check, size: 14, color: AppTheme.textSecondary),
-            SizedBox(width: 8),
-            Text('Mark as Delivered', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
-            SizedBox(width: 4),
-            Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.textSecondary),
-          ],
-        ),
+      builder: (context, controller, _) => _buildActionButton(
+        'Mark as Delivered',
+        LucideIcons.check,
+        () => controller.isOpen ? controller.close() : controller.open(),
+        hasDropdown: true,
       ),
     );
   }

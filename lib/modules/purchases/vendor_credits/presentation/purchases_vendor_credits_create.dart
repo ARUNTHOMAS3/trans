@@ -15,7 +15,7 @@ import 'package:zerpai_erp/shared/models/account_node.dart' as shared_acct;
 import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/sales_item_quick_edit_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_customer_search_modal.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
@@ -281,7 +281,7 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (ctx) => SalesItemQuickEditDialog(
+      builder: (ctx) => ItemQuickEditDialog(
         item: fullItem,
         onUpdated: (updated) {
           setState(() {
@@ -2379,7 +2379,6 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
                         ]),
                       ),
                       const SizedBox(height: 6),
-                      // TODO(GSTIN): Add GSTIN format validation using validateGstin(value) helper
                       TextField(
                         controller: gstinCtrl,
                         maxLines: 1,

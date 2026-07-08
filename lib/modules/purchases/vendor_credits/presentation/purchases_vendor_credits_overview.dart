@@ -390,41 +390,6 @@ class _VendorCreditDetailPageState
     );
   }
 
-  Widget _buildPdfLogo(OrgSettings? orgSettings) {
-    final logoUrl = orgSettings?.logoUrl;
-    if (logoUrl != null && logoUrl.trim().isNotEmpty) {
-      return Container(
-        width: 140,
-        height: 60,
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppTheme.borderLight),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Image.network(
-          logoUrl,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => _buildPdfLogoFallback(),
-        ),
-      );
-    }
-    return _buildPdfLogoFallback();
-  }
-
-  Widget _buildPdfLogoFallback() {
-    return Container(
-      width: 140,
-      height: 60,
-      color: const Color(0xFF101820),
-      child: const Center(
-        child: Text(
-          'LOGO',
-          style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 0.8),
-        ),
-      ),
-    );
-  }
 
   Widget _pdfMetaRow(String label, String value) {
     return Padding(

@@ -4,7 +4,7 @@
 import 'package:zerpai_erp/shared/services/hive_service.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import 'package:zerpai_erp/modules/sales/payments_received/data/models/sales_payment_model.dart';
+import 'package:zerpai_erp/modules/sales/payment_recieved/data/models/sales_payment_model.dart';
 
 class PaymentsRepository {
   final ApiClient _apiClient;

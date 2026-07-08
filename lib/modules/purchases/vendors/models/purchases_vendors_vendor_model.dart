@@ -58,6 +58,8 @@ class Vendor {
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? address;
+  final String? placeOfSupply;
 
   Vendor({
     required this.id,
@@ -107,6 +109,8 @@ class Vendor {
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
+    this.address,
+    this.placeOfSupply,
   });
 
   Vendor copyWith({
@@ -151,12 +155,15 @@ class Vendor {
     Map<String, dynamic>? billingAddress,
     Map<String, dynamic>? shippingAddress,
     List<Map<String, dynamic>>? contactPersons,
+    Map<String, dynamic>? addressMap, // changed name slightly if needed, but we keep simple
     List<Map<String, dynamic>>? bankDetails,
     bool? enablePortal,
     List<Map<String, dynamic>>? vendorAddresses,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? address,
+    String? placeOfSupply,
   }) {
     return Vendor(
       id: id ?? this.id,
@@ -207,6 +214,8 @@ class Vendor {
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      address: address ?? this.address,
+      placeOfSupply: placeOfSupply ?? this.placeOfSupply,
     );
   }
 
@@ -268,7 +277,6 @@ class Vendor {
               'mobilePhone': i['mobile_phone'] ?? i['mobilePhone'],
               'designation': i['designation'],
               'department': i['department'],
-              'isPrimary': i['is_primary'] ?? i['isPrimary'],
             },
           )
           .toList(),
@@ -300,25 +308,32 @@ class Vendor {
     Map<String, dynamic> json, {
     required bool isBilling,
   }) {
-    final prefix = isBilling ? 'billing_' : 'shipping_';
+    // Addresses live in the related `vendor_addresses` table, returned as a
+    // nested list by the detail endpoint (address_type = billing/shipping).
+    final addresses = json['vendor_addresses'];
+    if (addresses is! List) return null;
 
-    // Check if at least one field is non-null
-    if (json['${prefix}attention'] == null &&
-        json['${prefix}address_street_1'] == null &&
-        json['${prefix}address_street'] == null) {
-      return null;
+    final type = isBilling ? 'billing' : 'shipping';
+    Map<String, dynamic>? match;
+    for (final a in addresses) {
+      if (a is Map<String, dynamic> &&
+          (a['address_type']?.toString() ?? '') == type) {
+        match = a;
+        break;
+      }
     }
+    if (match == null) return null;
 
     return {
-      'attention': json['${prefix}attention'],
-      'street1': json['${prefix}address_street'] ?? json['${prefix}address_street_1'],
-      'street2': json['${prefix}address_place'] ?? json['${prefix}address_street_2'],
-      'city': json['${prefix}city'],
-      'state': json['${prefix}state'],
-      'zip': json['${prefix}pincode'],
-      'country': json['${prefix}country_region'],
-      'phone': json['${prefix}phone'],
-      'fax': json['${prefix}fax'],
+      'attention': match['attention'],
+      'street': match['address_street'],
+      'place': match['address_place'],
+      'city': match['city'],
+      'state': match['state'],
+      'zip': match['pincode'],
+      'country': match['country_region'],
+      'phone': match['phone'],
+      'fax': match['fax'],
     };
   }
 
@@ -417,4 +432,11 @@ class Vendor {
   static List<Vendor> dummyList([int count = 10]) {
     return List.generate(count, (index) => dummy().copyWith(id: 'dummy-$index'));
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is Vendor && other.id == id);
+
+  @override
+  int get hashCode => id.hashCode;
 }

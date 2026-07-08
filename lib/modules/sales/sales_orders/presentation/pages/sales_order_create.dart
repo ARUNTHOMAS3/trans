@@ -39,7 +39,7 @@ import 'package:zerpai_erp/modules/pricelists/branch_pricelist/providers/branch_
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/models/branch_pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/sales_order_item_row.dart';
-import '../widgets/sales_item_quick_edit_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -54,7 +54,9 @@ import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dar
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import '../widgets/sales_order_preferences_dialog.dart';
 import 'package:zerpai_erp/modules/sales/customers/presentation/sales_customer_create.dart';
-import 'package:zerpai_erp/modules/sales/customers/presentation/widgets/customer_sidebar.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/customer_sidebar.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
 import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
@@ -1010,43 +1012,22 @@ class _SalesOrderCreateScreenState
     SalesOrderItemRow row, {
     int initialTabIndex = 0,
   }) {
-    if (_itemDetailsSidebarOverlay != null) {
-      _itemDetailsSidebarOverlay!.remove();
-      _itemDetailsSidebarOverlay = null;
+    if (row.itemId.isNotEmpty) {
+      POItemDetailsSidebar.show(
+        context,
+        PurchaseOrderItem(
+          productId: row.itemId,
+          productName: row.item?.productName ?? '',
+          itemCode: row.item?.itemCode,
+          productType: row.item?.type ?? 'goods',
+          rate: double.tryParse(row.rateCtrl.text) ?? 0.0,
+          quantity: double.tryParse(row.quantityCtrl.text) ?? 0.0,
+          amount: (double.tryParse(row.rateCtrl.text) ?? 0.0) * (double.tryParse(row.quantityCtrl.text) ?? 0.0),
+          accountName: row.accountName,
+        ),
+        initialTabIndex: initialTabIndex,
+      );
     }
-
-    _itemDetailsSidebarOverlay = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          GestureDetector(
-            onTap: () {
-              _itemDetailsSidebarOverlay?.remove();
-              _itemDetailsSidebarOverlay = null;
-            },
-            child: Container(color: Colors.black.withValues(alpha: 0.01)),
-          ),
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: Material(
-              color: Colors.transparent,
-              child: _ItemDetailsSidebar(
-                row: row,
-                customerName: _selectedCustomer?.displayName ?? 'CUS-1',
-                initialTabIndex: initialTabIndex,
-                onClose: () {
-                  _itemDetailsSidebarOverlay?.remove();
-                  _itemDetailsSidebarOverlay = null;
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    Overlay.of(context).insert(_itemDetailsSidebarOverlay!);
   }
 
   void _updateRowRate(
@@ -3919,7 +3900,7 @@ class _SalesOrderCreateScreenState
                         if (v == 'edit') {
                           showDialog(
                             context: context,
-                            builder: (ctx) => SalesItemQuickEditDialog(
+                            builder: (ctx) => ItemQuickEditDialog(
                               item: item,
                               onUpdated: (newItem) {
                                 setState(() {
@@ -6162,6 +6143,71 @@ class _SalesOrderCreateScreenState
         await ref
             .read(sequencesApiServiceProvider)
             .incrementSequence('sale', usedNumber: salesOrderNumberCtrl.text);
+      }
+
+      if (savedOrder != null) {
+        final supabase = Supabase.instance.client;
+        try {
+          // Clean up old demand pool entries for this sales order to prevent duplicate rows on update
+          await supabase
+              .from('demand_pool')
+              .delete()
+              .eq('sales_order_id', savedOrder.id);
+
+          final entityId = ref.read(entityProvider).entityId;
+          final finalWarehouseId = selectedWarehouseId ?? warehouseList.firstOrNull?.id;
+
+          if (finalWarehouseId != null) {
+            final List<Map<String, dynamic>> demandPoolInserts = [];
+
+            for (var row in rows) {
+              if (row.itemId.isNotEmpty) {
+                final qty = double.tryParse(row.quantityCtrl.text) ?? 0;
+                if (qty <= 0) continue;
+
+                try {
+                  final stocks = await ref.read(itemWarehouseStocksProvider(row.itemId).future);
+                  final stockRow = stocks.where((s) => s.name == (warehouse ?? '')).firstOrNull ?? stocks.firstOrNull;
+                  double availableQty = 0.0;
+                  if (stockRow != null) {
+                    final numbers = _selectedStockType == 'Accounting'
+                        ? stockRow.accounting
+                        : stockRow.physical;
+                    availableQty = _selectedStockView == 'Stock on Hand'
+                        ? numbers.onHand
+                        : numbers.available;
+                  }
+
+                  if (qty > availableQty) {
+                    final remainingQty = qty - availableQty;
+                    demandPoolInserts.add({
+                      'entity_id': entityId,
+                      'product_id': row.itemId,
+                      'warehouse_id': finalWarehouseId,
+                      'required_qty': remainingQty,
+                      'pending_qty': remainingQty,
+                      'planned_qty': 0,
+                      'ordered_qty': 0,
+                      'received_qty': 0,
+                      'status': 'OPEN',
+                      'sales_order_id': savedOrder.id,
+                    });
+                  }
+                } catch (stockError) {
+                  debugPrint('Error fetching stocks for item ${row.itemId}: $stockError');
+                }
+              }
+            }
+
+            if (demandPoolInserts.isNotEmpty) {
+              await supabase.from('demand_pool').insert(demandPoolInserts);
+            }
+          } else {
+            debugPrint('Skipped demand pool sync: warehouse ID is null.');
+          }
+        } catch (dbError) {
+          debugPrint('Error syncing demand pool entries: $dbError');
+        }
       }
 
       if (savedOrder != null && _attachedFiles.isNotEmpty) {
@@ -8822,513 +8868,7 @@ class _GstTreatmentOption {
 
 
 
-class _ItemDetailsSidebar extends ConsumerStatefulWidget {
-  final SalesOrderItemRow row;
-  final VoidCallback onClose;
-  final String? customerName;
-  final int initialTabIndex;
 
-  const _ItemDetailsSidebar({
-    required this.row,
-    required this.onClose,
-    this.customerName,
-    this.initialTabIndex = 0,
-  });
-
-  @override
-  ConsumerState<_ItemDetailsSidebar> createState() =>
-      _ItemDetailsSidebarState();
-}
-
-class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
-  late int _activeTabIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _activeTabIndex = widget.initialTabIndex;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 400,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(left: BorderSide(color: Color(0xFFE5E7EB))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(-4, 0),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            child: Row(
-              children: [
-                const Text(
-                  'Item Details',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: widget.onClose,
-                  icon: const Icon(
-                    Icons.close,
-                    size: 20,
-                    color: Color(0xFFEF4444),
-                  ),
-                  splashRadius: 20,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-
-          // Item Info Card
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFF3F4F6)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: const Icon(
-                      Icons.image_outlined,
-                      color: Color(0xFF9CA3AF),
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Inventory Items',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                widget.row.item?.productName ?? "Select Item",
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF111827),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.open_in_new,
-                              size: 14,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${widget.row.item?.unitName ?? 'pcs'} • ${widget.row.item?.brandName ?? 'OTHER BRANDS'}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Tabs
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                _tabItem('ITEM DETAILS', 0),
-                const SizedBox(width: 24),
-                _tabItem('STOCK LOCATIONS', 1),
-                const SizedBox(width: 24),
-                _tabItem('TRANSACTIONS', 2),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-
-          // Tab Content
-          Expanded(child: _buildTabContent()),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabItem(String label, int index) {
-    final bool isActive = _activeTabIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _activeTabIndex = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: isActive
-              ? const Border(
-                  bottom: BorderSide(color: Color(0xFF2563EB), width: 2),
-                )
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-            color: isActive ? const Color(0xFF2563EB) : const Color(0xFF6B7280),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTabContent() {
-    if (_activeTabIndex == 0) {
-      return _buildItemDetailsTab();
-    } else if (_activeTabIndex == 1) {
-      return _buildStockLocationsTab();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Sales Orders',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              const Icon(Icons.arrow_drop_down, size: 20),
-              const Spacer(),
-              const Text(
-                'Status: ',
-                style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-              ),
-              const Text(
-                'All',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              const Icon(Icons.arrow_drop_down, size: 18),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: Checkbox(
-                  value: true,
-                  onChanged: (v) {},
-                  activeColor: const Color(0xFF2563EB),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Show only ${widget.customerName ?? 'customer'}\'s transactions',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
-              ),
-            ],
-          ),
-          const Expanded(
-            child: Center(
-              child: Text(
-                'No Sales Orders recorded yet.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF9CA3AF),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItemDetailsTab() {
-    final itemAsync = widget.row.itemId.isNotEmpty
-        ? ref.watch(itemDetailByIdProvider(widget.row.itemId))
-        : const AsyncValue<Item?>.data(null);
-    return itemAsync.when(
-      loading: () => const FormSkeleton(),
-      error: (e, _) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text('Error: $e'),
-      ),
-      data: (item) {
-        final toBeShippedVal = item?.toBeShipped?.toStringAsFixed(2) ?? '0.00';
-        final toBeReceivedVal = item?.toBeReceived?.toStringAsFixed(2) ?? '0.00';
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _infoBox('To Be Shipped', toBeShippedVal, Icons.local_shipping_outlined),
-                  _infoBox('To Be Received', toBeReceivedVal, Icons.arrow_downward),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Sales Information',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _detailRow(
-                'Price',
-                '₹${widget.row.item?.sellingPrice?.toStringAsFixed(2) ?? '0.00'}',
-              ),
-              _detailRow('Account', widget.row.accountName ?? item?.salesAccountName ?? '-'),
-              const SizedBox(height: 24),
-              const Text(
-                'Purchase Information',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _detailRow(
-                'Price',
-                '₹${widget.row.item?.costPrice?.toStringAsFixed(2) ?? '0.00'}',
-              ),
-              _detailRow(
-                'Account',
-                widget.row.accountName ?? item?.purchaseAccountName ?? '-',
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _infoBox(String title, String value, IconData icon) {
-    return Container(
-      width: 160,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: const Color(0xFF2563EB)),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-          ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF111827),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStockLocationsTab() {
-    final stockAsync = ref.watch(
-      itemWarehouseStocksProvider(widget.row.itemId),
-    );
-    return stockAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
-      data: (stocks) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Physical Stock',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(2),
-                  1: FlexColumnWidth(1),
-                  2: FlexColumnWidth(1),
-                  3: FlexColumnWidth(1),
-                },
-                children: [
-                  TableRow(
-                    decoration: const BoxDecoration(color: Color(0xFFF9FAFB)),
-                    children: [
-                      _tableHeaderCell('LOCATION NAME'),
-                      _tableHeaderCell('STOCK ON HAND'),
-                      _tableHeaderCell('COMMITTED STOCK'),
-                      _tableHeaderCell('AVAILABLE FOR SALE'),
-                    ],
-                  ),
-                  ...stocks.map((wh) {
-                    final isSelected = wh.id == widget.row.warehouseId;
-                    return TableRow(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  wh.name,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              if (isSelected) ...[
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.star,
-                                  size: 14,
-                                  color: Colors.amber,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        _tableCell(wh.physical.onHand.toStringAsFixed(2)),
-                        _tableCell(wh.physical.committed.toStringAsFixed(2)),
-                        _tableCell(wh.physical.available.toStringAsFixed(2)),
-                      ],
-                    );
-                  }).toList(),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _tableHeaderCell(String text) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF6B7280),
-        ),
-      ),
-    );
-  }
-
-  Widget _tableCell(String text) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
-      ),
-    );
-  }
-}
 
 class TooltipShapeBorder extends ShapeBorder {
   final double arrowWidth;
@@ -9580,7 +9120,7 @@ class _TaxSelectionPopover extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  ...taxes.map((tax) {
+                  ...([...taxes]..sort((a, b) => a.taxRate.compareTo(b.taxRate))).map((tax) {
                     final isSelected = tax.id == selectedTaxId;
                     final displayLabel = '${tax.taxName} [${tax.taxRate}%]';
 

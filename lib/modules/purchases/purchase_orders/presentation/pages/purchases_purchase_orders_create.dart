@@ -10,7 +10,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
-import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/vendor_sidebar.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
@@ -21,7 +21,7 @@ import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
 import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/sales_item_quick_edit_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/providers/branch_pricelist_provider.dart';
@@ -6488,7 +6488,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                               showDialog(
                                                                 context:
                                                                     context,
-                                                                builder: (ctx) => SalesItemQuickEditDialog(
+                                                                builder: (ctx) => ItemQuickEditDialog(
                                                                   item:
                                                                       selectedItem,
                                                                   onUpdated: (newItem) async {
@@ -12171,7 +12171,7 @@ class _TaxSelectionPopover extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  ...taxes.map((tax) {
+                  ...([...taxes]..sort((a, b) => a.taxRate.compareTo(b.taxRate))).map((tax) {
                     final isSelected = tax.id == selectedTaxId;
                     final displayLabel = '${tax.taxName} [${tax.taxRate}%]';
 

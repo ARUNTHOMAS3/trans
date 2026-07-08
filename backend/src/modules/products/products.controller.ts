@@ -23,8 +23,8 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get("lookups/units")
-  getUnits(@Tenant() tenant: TenantContext) {
-    return this.productsService.getUnits(tenant);
+  getUnits() {
+    return this.productsService.getUnits();
   }
 
   @Get("lookups/uqc")
@@ -40,8 +40,8 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncUnits(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncUnits(items, tenant);
+  syncUnits(@Body() items: any[]) {
+    return this.productsService.syncUnits(items);
   }
 
   @Post("lookups/units/check-usage")
@@ -57,8 +57,8 @@ export class ProductsController {
   }
 
   @Get("lookups/content-units")
-  getContentUnits(@Tenant() tenant: TenantContext) {
-    return this.productsService.getContentUnits(tenant);
+  getContentUnits() {
+    return this.productsService.getContentUnits();
   }
 
   @Post("lookups/content-units/sync")
@@ -69,13 +69,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncContentUnits(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncContentUnits(items, tenant);
+  syncContentUnits(@Body() items: any[]) {
+    return this.productsService.syncContentUnits(items);
   }
 
   @Get("lookups/categories")
-  getCategories(@Tenant() tenant: TenantContext) {
-    return this.productsService.getCategories(tenant);
+  getCategories() {
+    return this.productsService.getCategories();
   }
 
   @Post("lookups/categories/sync")
@@ -86,14 +86,14 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  async syncCategories(@Body() items: any[], @Tenant() tenant: TenantContext) {
+  async syncCategories(@Body() items: any[]) {
     try {
       console.log(
         "📥 Received categories sync request with",
         items.length,
         "items",
       );
-      const result = await this.productsService.syncCategories(items, tenant);
+      const result = await this.productsService.syncCategories(items);
       console.log("✅ Categories sync completed successfully");
       return result;
     } catch (error) {
@@ -106,8 +106,8 @@ export class ProductsController {
   }
 
   @Get("lookups/tax-rates")
-  getTaxRates(@Tenant() tenant: TenantContext) {
-    return this.productsService.getTaxRates(tenant);
+  getTaxRates() {
+    return this.productsService.getTaxRates();
   }
 
   @Post("lookups/tax-rates/sync")
@@ -118,13 +118,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncTaxRates(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncTaxRates(items, tenant);
+  syncTaxRates(@Body() items: any[]) {
+    return this.productsService.syncTaxRates(items);
   }
 
   @Get("lookups/tax-groups")
-  getTaxGroups(@Tenant() tenant: TenantContext) {
-    return this.productsService.getTaxGroups(tenant);
+  getTaxGroups() {
+    return this.productsService.getTaxGroups();
   }
 
   @Post("lookups/tax-groups/sync")
@@ -135,13 +135,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncTaxGroups(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncTaxGroups(items, tenant);
+  syncTaxGroups(@Body() items: any[]) {
+    return this.productsService.syncTaxGroups(items);
   }
 
   @Get("lookups/manufacturers")
-  getManufacturers(@Tenant() tenant: TenantContext) {
-    return this.productsService.getManufacturers(tenant);
+  getManufacturers() {
+    return this.productsService.getManufacturers();
   }
 
   @Post("lookups/manufacturers/sync")
@@ -152,17 +152,14 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  async syncManufacturers(
-    @Body() items: any[],
-    @Tenant() tenant: TenantContext,
-  ) {
+  async syncManufacturers(@Body() items: any[]) {
     try {
       console.log(
         "📥 Received manufacturers sync request with",
         items.length,
         "items",
       );
-      const result = await this.productsService.syncManufacturers(items, tenant);
+      const result = await this.productsService.syncManufacturers(items);
       console.log("✅ Manufacturers sync completed successfully");
       return result;
     } catch (error) {
@@ -175,8 +172,8 @@ export class ProductsController {
   }
 
   @Get("lookups/brands")
-  getBrands(@Tenant() tenant: TenantContext) {
-    return this.productsService.getBrands(tenant);
+  getBrands() {
+    return this.productsService.getBrands();
   }
 
   @Get("lookups/bootstrap")
@@ -185,13 +182,13 @@ export class ProductsController {
   }
 
   @Get("lookups/manufacturers/search")
-  searchManufacturers(@Query("q") query: string, @Tenant() tenant: TenantContext) {
-    return this.productsService.searchManufacturers(query, tenant);
+  searchManufacturers(@Query("q") query: string) {
+    return this.productsService.searchManufacturers(query);
   }
 
   @Get("lookups/brands/search")
-  searchBrands(@Query("q") query: string, @Tenant() tenant: TenantContext) {
-    return this.productsService.searchBrands(query, tenant);
+  searchBrands(@Query("q") query: string) {
+    return this.productsService.searchBrands(query);
   }
 
   @Post("lookups/brands/sync")
@@ -202,35 +199,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncBrands(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncBrands(items, tenant);
+  syncBrands(@Body() items: any[]) {
+    return this.productsService.syncBrands(items);
   }
 
   @Get("lookups/vendors")
-  getVendors(@Tenant() tenant: TenantContext) {
-    return this.productsService.getVendors(tenant);
-  }
-
-  @Get("lookups/reps")
-  getReps(@Tenant() tenant: TenantContext) {
-    return this.productsService.getReps(tenant);
-  }
-
-  @Get("lookups/reps/search")
-  searchReps(@Query("q") query: string, @Tenant() tenant: TenantContext) {
-    return this.productsService.searchReps(query, tenant);
-  }
-
-  @Post("lookups/reps")
-  @UsePipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: false,
-      forbidNonWhitelisted: false,
-    }),
-  )
-  createRep(@Body() repData: any, @Tenant() tenant: TenantContext) {
-    return this.productsService.createRep(repData, tenant);
+  getVendors() {
+    return this.productsService.getVendors();
   }
 
   @Post("lookups/vendors/sync")
@@ -241,13 +216,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncVendors(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncVendors(items, tenant);
+  syncVendors(@Body() items: any[]) {
+    return this.productsService.syncVendors(items);
   }
 
   @Get("lookups/storage-locations")
-  getStorageLocations(@Tenant() tenant: TenantContext) {
-    return this.productsService.getStorageLocations(tenant);
+  getStorageLocations() {
+    return this.productsService.getStorageLocations();
   }
 
   @Get("lookups/warehouses")
@@ -263,13 +238,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncStorageLocations(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncStorageLocations(items, tenant);
+  syncStorageLocations(@Body() items: any[]) {
+    return this.productsService.syncStorageLocations(items);
   }
 
   @Get("lookups/racks")
-  getRacks(@Tenant() tenant: TenantContext) {
-    return this.productsService.getRacks(tenant);
+  getRacks() {
+    return this.productsService.getRacks();
   }
 
   @Post("lookups/racks/sync")
@@ -280,8 +255,8 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncRacks(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncRacks(items, tenant);
+  syncRacks(@Body() items: any[]) {
+    return this.productsService.syncRacks(items);
   }
 
   @Get("lookups/reorder-terms")
@@ -357,8 +332,8 @@ export class ProductsController {
   }
 
   @Get("lookups/accountant")
-  getAccounts(@Tenant() tenant: TenantContext) {
-    return this.productsService.getAccounts(tenant);
+  getAccounts() {
+    return this.productsService.getAccounts();
   }
 
   @Post("lookups/accountant/sync")
@@ -369,13 +344,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncAccounts(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncAccounts(items, tenant);
+  syncAccounts(@Body() items: any[]) {
+    return this.productsService.syncAccounts(items);
   }
 
   @Get("lookups/contents")
-  getContents(@Tenant() tenant: TenantContext) {
-    return this.productsService.getContents(tenant);
+  getContents() {
+    return this.productsService.getContents();
   }
 
   @Post("lookups/contents/sync")
@@ -386,13 +361,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncContents(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncContents(items, tenant);
+  syncContents(@Body() items: any[]) {
+    return this.productsService.syncContents(items);
   }
 
   @Get("lookups/strengths")
-  getStrengths(@Tenant() tenant: TenantContext) {
-    return this.productsService.getStrengths(tenant);
+  getStrengths() {
+    return this.productsService.getStrengths();
   }
 
   @Post("lookups/strengths/sync")
@@ -403,13 +378,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncStrengths(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncStrengths(items, tenant);
+  syncStrengths(@Body() items: any[]) {
+    return this.productsService.syncStrengths(items);
   }
 
   @Get("lookups/buying-rules")
-  getBuyingRules(@Tenant() tenant: TenantContext) {
-    return this.productsService.getBuyingRules(tenant);
+  getBuyingRules() {
+    return this.productsService.getBuyingRules();
   }
 
   @Post("lookups/buying-rules/sync")
@@ -420,75 +395,13 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncBuyingRules(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncBuyingRules(items, tenant);
+  syncBuyingRules(@Body() items: any[]) {
+    return this.productsService.syncBuyingRules(items);
   }
 
   @Get("lookups/drug-schedules")
-  getDrugSchedules(@Tenant() tenant: TenantContext) {
-    return this.productsService.getDrugSchedules(tenant);
-  }
-
-  @Get("lookups/product-types")
-  getProductTypes(@Tenant() tenant: TenantContext) {
-    return this.productsService.getProductTypes(tenant);
-  }
-
-  @Get("lookups/product-pack-sizes")
-  getProductPackSizes(@Tenant() tenant: TenantContext) {
-    return this.productsService.getProductPackSizes(tenant);
-  }
-
-  @Get("lookups/product-pack-sizes/search")
-  searchProductPackSizes(
-    @Query("q") query: string,
-    @Tenant() tenant: TenantContext,
-  ) {
-    return this.productsService.searchProductPackSizes(query, tenant);
-  }
-
-  @Post("lookups/product-pack-sizes")
-  @UsePipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: false,
-      forbidNonWhitelisted: false,
-    }),
-  )
-  createProductPackSize(@Body() packSizeData: any, @Tenant() tenant: TenantContext) {
-    return this.productsService.createProductPackSize(packSizeData, tenant);
-  }
-
-  @Get("lookups/product-types/search")
-  searchProductTypes(
-    @Query("q") query: string,
-    @Tenant() tenant: TenantContext,
-  ) {
-    return this.productsService.searchProductTypes(query, tenant);
-  }
-
-  @Post("lookups/product-types")
-  @UsePipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: false,
-      forbidNonWhitelisted: false,
-    }),
-  )
-  createProductType(@Body() typeData: any, @Tenant() tenant: TenantContext) {
-    return this.productsService.createProductType(typeData, tenant);
-  }
-
-  @Post("lookups/product-types/sync")
-  @UsePipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: false,
-      forbidNonWhitelisted: false,
-    }),
-  )
-  syncProductTypes(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncProductTypes(items, tenant);
+  getDrugSchedules() {
+    return this.productsService.getDrugSchedules();
   }
 
   @Post("lookups/drug-schedules/sync")
@@ -499,8 +412,8 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  syncDrugSchedules(@Body() items: any[], @Tenant() tenant: TenantContext) {
-    return this.productsService.syncDrugSchedules(items, tenant);
+  syncDrugSchedules(@Body() items: any[]) {
+    return this.productsService.syncDrugSchedules(items);
   }
 
   @Get("search")
@@ -561,9 +474,8 @@ export class ProductsController {
   async updateWarehouseStocks(
     @Param("id") id: string,
     @Body() body: { rows?: any[] },
-    @Tenant() tenant: TenantContext,
   ) {
-    return this.productsService.updateProductWarehouseStocks(id, body, tenant);
+    return this.productsService.updateProductWarehouseStocks(id, body);
   }
 
   @Post(":id/warehouse-stocks/physical-adjustments")
@@ -576,9 +488,8 @@ export class ProductsController {
       reason?: string;
       notes?: string;
     },
-    @Tenant() tenant: TenantContext,
   ) {
-    return this.productsService.adjustProductWarehousePhysicalStock(id, body, tenant);
+    return this.productsService.adjustProductWarehousePhysicalStock(id, body);
   }
 
   @Get(":id/batches")

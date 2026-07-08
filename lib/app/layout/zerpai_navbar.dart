@@ -627,9 +627,13 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
               ? 'Admin'
               : 'User');
     final profileSystemId = _effectiveProfileSystemId(currentUser);
-    final currentPath = GoRouterState.of(
-      context,
-    ).uri.path.replaceFirst(RegExp(r'^/\d{10,20}'), '');
+    String pathStr = '';
+    try {
+      pathStr = GoRouterState.of(context).uri.path;
+    } catch (_) {
+      pathStr = GoRouter.of(context).routeInformationProvider.value.uri.path;
+    }
+    final currentPath = pathStr.replaceFirst(RegExp(r'^/\d{10,20}'), '');
     final hideSearch =
         currentPath.startsWith('/purchases/bills') ||
         currentPath.startsWith('/purchases/purchase-orders');

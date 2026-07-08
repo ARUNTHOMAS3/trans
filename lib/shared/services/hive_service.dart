@@ -7,7 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_model.dart';
-import 'package:zerpai_erp/modules/sales/payments_received/data/models/sales_payment_model.dart';
+import 'package:zerpai_erp/modules/sales/payment_recieved/data/models/sales_payment_model.dart';
 import 'package:zerpai_erp/modules/sales/eway_bills/data/models/sales_eway_bill_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';

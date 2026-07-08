@@ -6,4 +6,11 @@ abstract class VendorRepository {
   Future<Vendor> createVendor(Vendor vendor);
   Future<Vendor> updateVendor(String id, Vendor vendor);
   Future<void> deleteVendor(String id);
+  Future<void> addBankAccount(
+    String vendorId, {
+    String? holderName,
+    String? bankName,
+    required String accountNumber,
+    required String ifsc,
+  });
 }

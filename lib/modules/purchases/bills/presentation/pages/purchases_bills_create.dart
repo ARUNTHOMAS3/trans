@@ -15,7 +15,7 @@ import 'package:zerpai_erp/shared/widgets/dialogs/edit_quantity_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/bills/providers/purchases_bills_provider.dart';
 import 'package:zerpai_erp/modules/purchases/bills/repositories/purchases_bills_repository.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
-import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/vendor_sidebar.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -29,7 +29,7 @@ import 'package:zerpai_erp/shared/models/account_node.dart' as shared;
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/sales_item_quick_edit_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -9401,7 +9401,7 @@ class _PurchasesBillCreateScreenState
                             if (v == 'edit') {
                               showDialog(
                                 context: context,
-                                builder: (ctx) => SalesItemQuickEditDialog(
+                                builder: (ctx) => ItemQuickEditDialog(
                                   item: selectedItem,
                                   onUpdated: (newItem) {
                                     setState(() {
@@ -14479,7 +14479,7 @@ class _TaxSelectionPopover extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  ...taxes.map((tax) {
+                  ...([...taxes]..sort((a, b) => a.taxRate.compareTo(b.taxRate))).map((tax) {
                     final isSelected = tax.id == selectedTaxId;
                     final displayLabel = '${tax.taxName} [${tax.taxRate}%]';
 

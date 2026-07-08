@@ -21,12 +21,14 @@ import '../../../../../shared/widgets/inputs/warehouse_popover.dart';
 import '../../../../../shared/widgets/inputs/custom_text_field.dart';
 import '../../../../../shared/widgets/skeleton.dart';
 import '../../../../../shared/providers/lookup_providers.dart';
+import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import '../../../providers/warehouse_provider.dart';
 import '../../../../../core/routing/app_routes.dart';
 import '../../../../../core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/inventory/packages/providers/inventory_packages_provider.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/radio_group.dart';
+import 'package:zerpai_erp/modules/inventory/packages/models/inventory_package_model.dart';
 
 const Color _textPrimary = Color(0xFF1F2937);
 
@@ -37,7 +39,8 @@ const Color _greenBtn = Color(0xFF10B981);
 const Color _dangerRed = Color(0xFFDC2626);
 
 class InventoryPackagesCreateScreen extends ConsumerStatefulWidget {
-  const InventoryPackagesCreateScreen({super.key});
+  final String? id;
+  const InventoryPackagesCreateScreen({super.key, this.id});
 
   @override
   ConsumerState<InventoryPackagesCreateScreen> createState() =>
@@ -46,6 +49,10 @@ class InventoryPackagesCreateScreen extends ConsumerStatefulWidget {
 
 class _InventoryPackagesCreateScreenState
     extends ConsumerState<InventoryPackagesCreateScreen> {
+  bool get _isEditMode => widget.id != null;
+  bool _hasChanges = false;
+  InventoryPackage? _initialPackage;
+
   bool _isManualMode = false;
   bool _isPicklistMode = false;
   bool _isSaving = false;
@@ -292,10 +299,24 @@ class _InventoryPackagesCreateScreenState
   @override
   void initState() {
     super.initState();
-    _packageSlipCtrl.text = _generatePackageNumber();
-    _loadNextPackageNumber();
-    _dateCtrl.text =
-        "${DateTime.now().day.toString().padLeft(2, '0')}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().year}";
+    if (_isEditMode) {
+      _loadPackageData();
+    } else {
+      _packageSlipCtrl.text = _generatePackageNumber();
+      _loadNextPackageNumber();
+      _dateCtrl.text =
+          "${DateTime.now().day.toString().padLeft(2, '0')}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().year}";
+    }
+
+    if (_isEditMode) {
+      _packageSlipCtrl.addListener(_checkForChanges);
+      _notesCtrl.addListener(_checkForChanges);
+      _dimensionLengthCtrl.addListener(_checkForChanges);
+      _dimensionWidthCtrl.addListener(_checkForChanges);
+      _dimensionHeightCtrl.addListener(_checkForChanges);
+      _weightCtrl.addListener(_checkForChanges);
+    }
+
     _weightFocusNode.addListener(() => setState(() {}));
     void dimListener() {
       final focused =
@@ -443,6 +464,10 @@ class _InventoryPackagesCreateScreenState
       ctrl.dispose();
     }
     _rowControllers.clear();
+    for (final ctrl in _normalRowControllers) {
+      ctrl.dispose();
+    }
+    _normalRowControllers.clear();
   }
 
   void _insertManualRow() {
@@ -476,6 +501,297 @@ class _InventoryPackagesCreateScreenState
     return '$_packagePrefix${_nextNumber.toString().padLeft(5, '0')}';
   }
 
+  Future<void> _loadPackageData() async {
+    if (widget.id == null) return;
+    setState(() => _isLoadingItems = true);
+    try {
+      final pkg = await ref.read(packageByIdProvider(widget.id!).future);
+      if (pkg == null || !mounted) return;
+      _initialPackage = pkg;
+
+      final List<_PackageItem> loadedItems = [];
+      for (final pi in pkg.items) {
+        List<_PackageBatch> batches = [];
+        final effectiveBatchNo = pi.batchNo;
+
+        if (effectiveBatchNo != null && effectiveBatchNo.isNotEmpty) {
+          final productId = pi.productId ?? '';
+          Map<String, dynamic>? match;
+
+          if (productId.isNotEmpty) {
+            try {
+              final allBatches = await ref.read(
+                batchLookupProvider(productId).future,
+              );
+              match = allBatches.firstWhere(
+                (b) =>
+                    b['batch_no']?.toString().trim() == effectiveBatchNo.trim(),
+                orElse: () => <String, dynamic>{},
+              );
+            } catch (e) {
+              AppLogger.error(
+                'Failed to fetch batch details for product $productId',
+                error: e,
+              );
+            }
+          }
+
+          batches.add(
+            _PackageBatch(
+              batchNo: effectiveBatchNo,
+              batchRef: effectiveBatchNo,
+              binLocation: pi.binLocation,
+              quantity: pi.quantity,
+              unitPack: match != null && match.isNotEmpty
+                  ? match['unit_pack']?.toString()
+                  : null,
+              mrp: match != null && match.isNotEmpty
+                  ? match['mrp']?.toString()
+                  : null,
+              ptr: match != null && match.isNotEmpty
+                  ? match['prate']?.toString()
+                  : null,
+              expDate: match != null && match.isNotEmpty
+                  ? match['expiry_date']?.toString()
+                  : null,
+              mfgDate: match != null && match.isNotEmpty
+                  ? match['mfg_date']?.toString()
+                  : null,
+              mfgBatch: match != null && match.isNotEmpty
+                  ? match['mfg_batch']?.toString()
+                  : null,
+            ),
+          );
+        }
+
+        loadedItems.add(
+          _PackageItem(
+            itemId: pi.productId,
+            itemName: pi.itemName ?? '',
+            qtyToPack: pi.quantity,
+            ordered: pi.quantity,
+            salesOrderId: pi.salesOrderId,
+            salesOrderNumber: pi.salesOrderNumber,
+            picklistId: pi.picklistId,
+            picklistNumber: pi.picklistNumber,
+            batches: batches,
+            id: pi.id,
+            sourceItemId: pi.id,
+          ),
+        );
+      }
+
+      setState(() {
+        _isAutoGenerate = false;
+        _packageSlipCtrl.text = pkg.packageNumber;
+        _selectedDate = pkg.packageDate;
+        if (_selectedDate != null) {
+          _dateCtrl.text = DateFormat('dd-MM-yyyy').format(_selectedDate!);
+        }
+        _notesCtrl.text = pkg.notes ?? '';
+        _dimensionLengthCtrl.text = pkg.dimensionLength.toString();
+        _dimensionWidthCtrl.text = pkg.dimensionWidth.toString();
+        _dimensionHeightCtrl.text = pkg.dimensionHeight.toString();
+        _dimensionUnit = pkg.dimensionUnit;
+        _weightCtrl.text = pkg.weight.toString();
+        _weightUnit = pkg.weightUnit;
+
+        _items = loadedItems;
+        _isManualMode = pkg.isManualMode;
+
+        _salesOrderItems = loadedItems.map((item) {
+          return SalesOrderItem(
+            id: item.sourceItemId,
+            salesOrderId: item.salesOrderId,
+            itemId: item.itemId ?? '',
+            description: item.itemName,
+            quantity: item.ordered,
+            rate: 0.0,
+            item: Item(
+              id: item.itemId ?? '',
+              type: 'goods',
+              productName: item.itemName,
+              itemCode: '',
+              unitId: '',
+              isReturnable: false,
+              pushToEcommerce: false,
+              isTrackInventory: false,
+              trackBinLocation: false,
+              trackBatches: false,
+              trackSerialNumber: false,
+              reorderPoint: 0,
+              isActive: true,
+              isLock: false,
+              isSalesItem: true,
+              isPurchaseItem: false,
+              isTemperatureControlled: false,
+              trackAssocIngredients: false,
+              unitName: 'pcs',
+            ),
+          );
+        }).toList();
+
+        _savedBatchKeys.clear();
+        _savedBatchCounts.clear();
+        for (int i = 0; i < _items.length; i++) {
+          if (_items[i].batches.isNotEmpty) {
+            _savedBatchKeys.add(i);
+            _savedBatchCounts[i] = _items[i].batches.length;
+          }
+        }
+
+        _isPicklistMode = pkg.picklistIds.isNotEmpty;
+
+        _clearRowControllers();
+        _rowControllers.addAll(
+          List.generate(_items.length, (_) => _PackageItemRowController()),
+        );
+        _normalRowControllers.addAll(
+          List.generate(_items.length, (i) {
+            final ctrl = TextEditingController(
+              text: _items[i].qtyToPack.toInt().toString(),
+            );
+            if (_isEditMode) {
+              ctrl.addListener(_checkForChanges);
+            }
+            return ctrl;
+          }),
+        );
+        for (int i = 0; i < _items.length; i++) {
+          _rowControllers[i].qtyCtrl.text = _items[i].qtyToPack
+              .toInt()
+              .toString();
+          if (_isEditMode) {
+            _rowControllers[i].qtyCtrl.addListener(_checkForChanges);
+          }
+          _rowSelectedWarehouses[i] = "ZABNIX PVT/LTD";
+          _rowSelectedWarehouseIds[i] = "";
+        }
+
+        if (pkg.customerId != null) {
+          _selectedCustomer = SalesCustomer(
+            id: pkg.customerId!,
+            displayName: pkg.customerName ?? '',
+            firstName: '',
+            lastName: '',
+            email: '',
+            companyName: '',
+          );
+        }
+
+        _isPicklistMode = pkg.picklistIds.isNotEmpty;
+
+        if (_isPicklistMode) {
+          _selectedSalesOrderDataList = [];
+          _selectedPicklistValues = List.generate(
+            pkg.picklistIds.length,
+            (i) => Picklist(
+              id: pkg.picklistIds[i],
+              picklistNumber: pkg.picklistNumbers.length > i
+                  ? pkg.picklistNumbers[i]
+                  : '',
+              date: DateTime.now(),
+            ),
+          );
+        } else {
+          _selectedSalesOrderValues = pkg.salesOrderIds;
+          _selectedSalesOrderDataList = List.generate(
+            pkg.salesOrderIds.length,
+            (i) => SalesOrder(
+              id: pkg.salesOrderIds[i],
+              saleNumber: pkg.salesOrderNumbers.length > i
+                  ? pkg.salesOrderNumbers[i]
+                  : '',
+              customerId: pkg.customerId ?? '',
+              saleDate: DateTime.now(),
+              total: 0.0,
+            ),
+          );
+          _selectedPicklistValues = [];
+        }
+        _isLoadingItems = false;
+      });
+    } catch (e) {
+      AppLogger.error('Error loading package data', error: e);
+      if (mounted) setState(() => _isLoadingItems = false);
+    }
+  }
+
+  void _checkForChanges() {
+    if (_initialPackage == null) return;
+
+    bool changed = false;
+
+    if (_packageSlipCtrl.text != _initialPackage!.packageNumber) changed = true;
+    if (_notesCtrl.text != (_initialPackage!.notes ?? '')) changed = true;
+
+    final currentLen = double.tryParse(_dimensionLengthCtrl.text) ?? 0;
+    if ((currentLen - _initialPackage!.dimensionLength).abs() > 0.001)
+      changed = true;
+
+    final currentWidth = double.tryParse(_dimensionWidthCtrl.text) ?? 0;
+    if ((currentWidth - _initialPackage!.dimensionWidth).abs() > 0.001)
+      changed = true;
+
+    final currentHeight = double.tryParse(_dimensionHeightCtrl.text) ?? 0;
+    if ((currentHeight - _initialPackage!.dimensionHeight).abs() > 0.001)
+      changed = true;
+
+    final currentWeight = double.tryParse(_weightCtrl.text) ?? 0;
+    if ((currentWeight - _initialPackage!.weight).abs() > 0.001) changed = true;
+
+    if (_dimensionUnit != _initialPackage!.dimensionUnit) changed = true;
+    if (_weightUnit != _initialPackage!.weightUnit) changed = true;
+
+    if (_selectedDate != null && _initialPackage!.packageDate != null) {
+      if (_selectedDate!.year != _initialPackage!.packageDate!.year ||
+          _selectedDate!.month != _initialPackage!.packageDate!.month ||
+          _selectedDate!.day != _initialPackage!.packageDate!.day) {
+        changed = true;
+      }
+    } else if (_selectedDate != _initialPackage!.packageDate) {
+      changed = true;
+    }
+
+    if (_items.length != _initialPackage!.items.length) {
+      changed = true;
+    } else {
+      for (int i = 0; i < _items.length; i++) {
+        final item = _items[i];
+        final initialItem = _initialPackage!.items[i];
+
+        if ((item.qtyToPack - initialItem.quantity).abs() > 0.001) {
+          changed = true;
+          break;
+        }
+
+        final initialBatchNo = initialItem.batchNo ?? '';
+        if (initialBatchNo.isEmpty) {
+          if (item.batches.isNotEmpty) {
+            changed = true;
+            break;
+          }
+        } else {
+          if (item.batches.length != 1) {
+            changed = true;
+            break;
+          }
+          final b = item.batches[0];
+          if (b.batchNo != initialBatchNo ||
+              (b.quantity - initialItem.quantity).abs() > 0.001 ||
+              (b.binLocation ?? '') != (initialItem.binLocation ?? '')) {
+            changed = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (changed != _hasChanges) {
+      setState(() => _hasChanges = changed);
+    }
+  }
+
   Future<void> _savePackage() async {
     if (!_isFormValid || _isSaving) return;
 
@@ -499,7 +815,7 @@ class _InventoryPackagesCreateScreenState
                 if (b.quantity > 0) {
                   itemsPayload.add({
                     'product_id': item.itemId,
-                        'quantity': b.quantity,
+                    'quantity': b.quantity,
                     'sales_order_id': item.salesOrderId,
                     'picklist_id': item.picklistId,
                     'batch_no': b.batchNo,
@@ -526,7 +842,7 @@ class _InventoryPackagesCreateScreenState
                 if (b.quantity > 0) {
                   itemsPayload.add({
                     'product_id': item.itemId,
-                        'quantity': b.quantity,
+                    'quantity': b.quantity,
                     'sales_order_id': item.salesOrderId,
                     'picklist_id': item.picklistId,
                     'batch_no': b.batchNo,
@@ -539,56 +855,82 @@ class _InventoryPackagesCreateScreenState
         }
       }
 
-      final payload = {
-        'customer_id': _selectedCustomer?.id,
-        'package_number': _isAutoGenerate ? '' : _packageSlipCtrl.text.trim(),
-        'package_date':
-            _selectedDate?.toIso8601String() ??
-            DateTime.now().toIso8601String(),
-        'dimension_length':
-            double.tryParse(_dimensionLengthCtrl.text.trim()) ?? 0,
-        'dimension_width':
-            double.tryParse(_dimensionWidthCtrl.text.trim()) ?? 0,
-        'dimension_height':
-            double.tryParse(_dimensionHeightCtrl.text.trim()) ?? 0,
-        'dimension_unit': _dimensionUnit,
-        'weight': double.tryParse(_weightCtrl.text.trim()) ?? 0,
-        'weight_unit': _weightUnit,
-        'is_manual_mode': _isManualMode,
-        'notes': _notesCtrl.text.trim(),
-        'sales_order_ids': _selectedSalesOrderDataList.map((o) {
-          final itemWithBatch = _items.firstWhere(
-            (i) => i.salesOrderId == o.id && i.batches.isNotEmpty,
-            orElse: () => const _PackageItem(),
-          );
-          if (itemWithBatch.batches.isNotEmpty) {
-            return {
-              'sales_order_id': o.id,
-              'bin_location': itemWithBatch.batches[0].binLocation,
-              'batch_no': itemWithBatch.batches[0].batchNo,
-            };
-          }
-          return o.id;
-        }).toList(),
-        'picklist_ids': _selectedPicklistValues
-            .map((p) => p.id)
-            .where((id) => id != null)
-            .toList(),
-        'items': itemsPayload,
-      };
-
-      AppLogger.info('Creating Package', data: payload, module: 'inventory');
-
       final notifier = ref.read(inventoryPackagesProvider.notifier);
-      final success = await notifier.createPackage(payload);
+      final success = _isEditMode
+          ? await notifier.updatePackage(widget.id!, {
+              'package_number': _packageSlipCtrl.text.trim(),
+              'package_date': _selectedDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+              'notes': _notesCtrl.text.trim(),
+              'dimension_length': double.tryParse(_dimensionLengthCtrl.text.trim()) ?? 0,
+              'dimension_width': double.tryParse(_dimensionWidthCtrl.text.trim()) ?? 0,
+              'dimension_height': double.tryParse(_dimensionHeightCtrl.text.trim()) ?? 0,
+              'dimension_unit': _dimensionUnit,
+              'weight': double.tryParse(_weightCtrl.text.trim()) ?? 0,
+              'weight_unit': _weightUnit,
+              'items': itemsPayload,
+              'sales_order_ids': () {
+                final Set<String> uniqueSoIds = {};
+                for (var item in _items) {
+                  if (item.salesOrderId != null && item.salesOrderId!.isNotEmpty) {
+                    uniqueSoIds.add(item.salesOrderId!);
+                  }
+                }
+                for (var so in _selectedSalesOrderDataList) {
+                  uniqueSoIds.add(so.id);
+                }
+                return uniqueSoIds.toList();
+              }(),
+            })
+          : await notifier.createPackage({
+              'customer_id': _selectedCustomer?.id,
+              'package_number': _isAutoGenerate ? '' : _packageSlipCtrl.text.trim(),
+              'package_date':
+                  _selectedDate?.toIso8601String() ??
+                  DateTime.now().toIso8601String(),
+              'dimension_length':
+                  double.tryParse(_dimensionLengthCtrl.text.trim()) ?? 0,
+              'dimension_width':
+                  double.tryParse(_dimensionWidthCtrl.text.trim()) ?? 0,
+              'dimension_height':
+                  double.tryParse(_dimensionHeightCtrl.text.trim()) ?? 0,
+              'dimension_unit': _dimensionUnit,
+              'weight': double.tryParse(_weightCtrl.text.trim()) ?? 0,
+              'weight_unit': _weightUnit,
+              'is_manual_mode': _isManualMode,
+              'notes': _notesCtrl.text.trim(),
+              'sales_order_ids': _selectedSalesOrderDataList.map((o) {
+                final itemWithBatch = _items.firstWhere(
+                  (i) => i.salesOrderId == o.id && i.batches.isNotEmpty,
+                  orElse: () => const _PackageItem(),
+                );
+                if (itemWithBatch.batches.isNotEmpty) {
+                  return {
+                    'sales_order_id': o.id,
+                    'bin_location': itemWithBatch.batches[0].binLocation,
+                    'batch_no': itemWithBatch.batches[0].batchNo,
+                  };
+                }
+                return o.id;
+              }).toList(),
+              'picklist_ids': _selectedPicklistValues
+                  .map((p) => p.id)
+                  .where((id) => id != null)
+                  .toList(),
+              'items': itemsPayload,
+            });
 
       if (success && mounted) {
-        ZerpaiToast.success(context, 'Package generated successfully');
-        ref.invalidate(nextPackageNumberProvider);
+        ZerpaiToast.success(
+          context,
+          _isEditMode ? 'Package updated successfully' : 'Package generated successfully',
+        );
+        if (!_isEditMode) {
+          ref.invalidate(nextPackageNumberProvider);
+        }
         context.go(AppRoutes.packages);
       } else if (mounted) {
         final state = ref.read(inventoryPackagesProvider);
-        ZerpaiToast.error(context, state.error ?? 'Failed to create package');
+        ZerpaiToast.error(context, state.error ?? 'Failed to save package');
       }
     } catch (e) {
       AppLogger.error('Failed to save package', error: e);
@@ -604,6 +946,15 @@ class _InventoryPackagesCreateScreenState
 
   @override
   void dispose() {
+    if (_isEditMode) {
+      _packageSlipCtrl.removeListener(_checkForChanges);
+      _notesCtrl.removeListener(_checkForChanges);
+      _dimensionLengthCtrl.removeListener(_checkForChanges);
+      _dimensionWidthCtrl.removeListener(_checkForChanges);
+      _dimensionHeightCtrl.removeListener(_checkForChanges);
+      _weightCtrl.removeListener(_checkForChanges);
+    }
+
     _packageSlipCtrl.dispose();
     _notesCtrl.dispose();
     _dateCtrl.dispose();
@@ -831,9 +1182,9 @@ class _InventoryPackagesCreateScreenState
               children: [
                 const Icon(LucideIcons.box, size: 24, color: _textPrimary),
                 const SizedBox(width: 12),
-                const Text(
-                  'New Package',
-                  style: TextStyle(
+                Text(
+                  _isEditMode ? 'Edit Package' : 'New Package',
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: _textPrimary,
@@ -882,50 +1233,65 @@ class _InventoryPackagesCreateScreenState
                                 Expanded(
                                   child: _buildFormRow(
                                     label: 'Customer Name',
-                                    child: ref
-                                        .watch(salesCustomersProvider)
-                                        .when(
-                                          data: (customers) =>
-                                              FormDropdown<SalesCustomer>(
-                                                fillColor: Colors.white,
-                                                textStyle: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w400,
-                                                  color: _textPrimary,
-                                                ),
-                                                value: _selectedCustomer,
-                                                hint: 'Select Customer',
-                                                items: customers,
-                                                maxVisibleItems: 4,
-                                                itemBuilder:
-                                                    (
-                                                      item,
-                                                      isSelected,
-                                                      isHovered,
-                                                    ) =>
-                                                        _buildCustomerDropdownItem(
+                                    child: _isEditMode
+                                        ? CustomTextField(
+                                            height: 32,
+                                            readOnly: true,
+                                            fillColor: AppTheme.bgDisabled,
+                                            controller: TextEditingController(
+                                              text: _selectedCustomer?.displayName ?? '',
+                                            ),
+                                            hintText: 'No Customer Selected',
+                                            textStyle: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w400,
+                                              color: _textPrimary,
+                                            ),
+                                          )
+                                        : ref
+                                            .watch(salesCustomersProvider)
+                                            .when(
+                                              data: (customers) =>
+                                                  FormDropdown<SalesCustomer>(
+                                                    fillColor: Colors.white,
+                                                    textStyle: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w400,
+                                                      color: _textPrimary,
+                                                    ),
+                                                    value: _selectedCustomer,
+                                                    hint: 'Select Customer',
+                                                    items: customers,
+                                                    maxVisibleItems: 4,
+                                                    itemBuilder:
+                                                        (
                                                           item,
                                                           isSelected,
                                                           isHovered,
-                                                        ),
-                                                displayStringForValue: (val) =>
-                                                    val.displayName,
-                                                searchStringForValue: (val) =>
-                                                    val.displayName,
-                                                onChanged: (val) {
-                                                  setState(() {
-                                                    _selectedCustomer = val;
-                                                    _selectedSalesOrderValues =
-                                                        [];
-                                                    _selectedSalesOrderDataList =
-                                                        [];
-                                                    _selectedPicklistValues =
-                                                        [];
-                                                    _salesOrderItems = [];
-                                                    _clearRowControllers();
-                                                  });
-                                                  if (val != null) {
-                                                    ref.invalidate(
+                                                        ) =>
+                                                            _buildCustomerDropdownItem(
+                                                              item,
+                                                              isSelected,
+                                                              isHovered,
+                                                            ),
+                                                    displayStringForValue: (val) =>
+                                                        val.displayName,
+                                                    searchStringForValue: (val) =>
+                                                        val.displayName,
+                                                    onChanged: (val) {
+                                                      setState(() {
+                                                        _selectedCustomer = val;
+                                                        _selectedSalesOrderValues =
+                                                            [];
+                                                        _selectedSalesOrderDataList =
+                                                            [];
+                                                        _selectedPicklistValues =
+                                                            [];
+                                                        _salesOrderItems = [];
+                                                        _clearRowControllers();
+                                                      });
+                                                      if (val != null) {
+                                                        ref.invalidate(
                                                       salesOrdersByCustomerProvider(
                                                         val.id,
                                                       ),
@@ -947,110 +1313,127 @@ class _InventoryPackagesCreateScreenState
                                   child: _buildFormRow(
                                     label: 'Sales Order#',
                                     isRequired: true,
-                                    child: _selectedCustomer == null
-                                        ? FormDropdown<String>(
-                                            fillColor: AppTheme.bgDisabled,
-                                            value: null,
-                                            hint: 'Select Sales Order',
-                                            items: const [],
-                                            itemBuilder:
-                                                (item, isSelected, isHovered) =>
-                                                    _commonItemBuilder<String>(
-                                                      item,
-                                                      isSelected,
-                                                      isHovered,
-                                                      (s) => s,
-                                                    ),
-                                            displayStringForValue: (s) => s,
-                                            searchStringForValue: (s) => s,
-                                            onChanged: (val) {},
+                                    child: _isEditMode
+                                        ? CustomTextField(
                                             height: 32,
+                                            readOnly: true,
+                                            fillColor: AppTheme.bgDisabled,
+                                            controller: TextEditingController(
+                                              text: _selectedSalesOrderDataList
+                                                  .map((s) => s.saleNumber)
+                                                  .join(', '),
+                                            ),
+                                            hintText: 'No Sales Order Selected',
+                                            textStyle: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w400,
+                                              color: _textPrimary,
+                                            ),
                                           )
-                                        : ref
-                                              .watch(
-                                                salesOrdersByCustomerProvider(
-                                                  _selectedCustomer!.id,
-                                                ),
+                                        : _selectedCustomer == null
+                                            ? FormDropdown<String>(
+                                                fillColor: AppTheme.bgDisabled,
+                                                value: null,
+                                                hint: 'Select Sales Order',
+                                                items: const [],
+                                                itemBuilder:
+                                                    (item, isSelected, isHovered) =>
+                                                        _commonItemBuilder<String>(
+                                                          item,
+                                                          isSelected,
+                                                          isHovered,
+                                                          (s) => s,
+                                                        ),
+                                                displayStringForValue: (s) => s,
+                                                searchStringForValue: (s) => s,
+                                                onChanged: (val) {},
+                                                height: 32,
                                               )
-                                              .when(
-                                                data: (orders) => FormDropdown<SalesOrder>(
-                                                  value: null,
-                                                  onChanged: (val) {},
-                                                  fillColor: Colors.white,
-                                                  textStyle: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w400,
-                                                    color: _textPrimary,
-                                                  ),
-                                                  multiSelect: true,
-                                                  selectedValues:
-                                                      _selectedSalesOrderDataList,
-                                                  onSelectedValuesChanged: (vals) {
-                                                    setState(() {
-                                                      _isPicklistMode = false;
-                                                      _selectedSalesOrderDataList =
-                                                          vals;
-                                                      _selectedSalesOrderValues =
-                                                          vals
-                                                              .map((e) => e.id)
-                                                              .toList();
-                                                      if (vals.isNotEmpty) {
-                                                        _selectedPicklistValues =
-                                                            [];
-                                                      }
-                                                    });
-                                                    if (vals.isNotEmpty) {
-                                                      _fetchMultipleSalesOrderItems(
-                                                        _selectedSalesOrderValues,
-                                                      );
-                                                    } else {
-                                                      setState(() {
-                                                        _salesOrderItems = [];
-                                                        _items = [];
-                                                        _clearRowControllers();
-                                                      });
-                                                    }
-                                                    setState(() {
-                                                      _currentPage = 0;
-                                                    });
-                                                  },
-                                                  hint: 'Select Sales Order',
-                                                  items: orders
-                                                      .where(
-                                                        (o) =>
-                                                            !_selectedSalesOrderValues
-                                                                .contains(o.id),
-                                                      )
-                                                      .toList(),
-                                                  maxVisibleItems: 4,
-                                                  itemBuilder:
-                                                      (
-                                                        item,
-                                                        isSelected,
-                                                        isHovered,
-                                                      ) =>
-                                                          _commonItemBuilder<
-                                                            SalesOrder
-                                                          >(
+                                            : ref
+                                                  .watch(
+                                                    salesOrdersByCustomerProvider(
+                                                      _selectedCustomer!.id,
+                                                    ),
+                                                  )
+                                                  .when(
+                                                    data: (orders) => FormDropdown<SalesOrder>(
+                                                      value: null,
+                                                      onChanged: (val) {},
+                                                      fillColor: Colors.white,
+                                                      textStyle: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w400,
+                                                        color: _textPrimary,
+                                                      ),
+                                                      multiSelect: true,
+                                                      selectedValues:
+                                                          _selectedSalesOrderDataList,
+                                                      onSelectedValuesChanged: (vals) {
+                                                        setState(() {
+                                                          _isPicklistMode = false;
+                                                          _selectedSalesOrderDataList =
+                                                              vals;
+                                                          _selectedSalesOrderValues =
+                                                              vals
+                                                                  .map((e) => e.id)
+                                                                  .toList();
+                                                          if (vals.isNotEmpty) {
+                                                            _selectedPicklistValues =
+                                                                [];
+                                                          }
+                                                        });
+                                                        if (vals.isNotEmpty) {
+                                                          _fetchMultipleSalesOrderItems(
+                                                            _selectedSalesOrderValues,
+                                                          );
+                                                        } else {
+                                                          setState(() {
+                                                            _salesOrderItems = [];
+                                                            _items = [];
+                                                            _clearRowControllers();
+                                                          });
+                                                        }
+                                                        setState(() {
+                                                          _currentPage = 0;
+                                                        });
+                                                      },
+                                                      hint: 'Select Sales Order',
+                                                      items: orders
+                                                          .where(
+                                                            (o) =>
+                                                                !_selectedSalesOrderValues
+                                                                    .contains(o.id),
+                                                          )
+                                                          .toList(),
+                                                      maxVisibleItems: 4,
+                                                      itemBuilder:
+                                                          (
                                                             item,
                                                             isSelected,
                                                             isHovered,
-                                                            (val) =>
-                                                                val.saleNumber,
-                                                          ),
-                                                  displayStringForValue:
-                                                      (val) => val.saleNumber,
-                                                  searchStringForValue: (val) =>
-                                                      val.saleNumber,
-                                                  height: 32,
-                                                ),
-                                                loading: () => const Skeleton(
-                                                  height: 32,
-                                                  width: double.infinity,
-                                                ),
-                                                error: (e, _) =>
-                                                    Text('Error: $e'),
-                                              ),
+                                                          ) =>
+                                                              _commonItemBuilder<
+                                                                SalesOrder
+                                                              >(
+                                                                item,
+                                                                isSelected,
+                                                                isHovered,
+                                                                (val) =>
+                                                                    val.saleNumber,
+                                                              ),
+                                                      displayStringForValue:
+                                                          (val) => val.saleNumber,
+                                                      searchStringForValue: (val) =>
+                                                          val.saleNumber,
+                                                      height: 32,
+                                                    ),
+                                                    loading: () => const Skeleton(
+                                                      height: 32,
+                                                      width: double.infinity,
+                                                    ),
+                                                    error: (e, _) =>
+                                                        Text('Error: $e'),
+                                                  ),
                                   ),
                                 ),
                               ],
@@ -1061,103 +1444,120 @@ class _InventoryPackagesCreateScreenState
                                 Expanded(
                                   child: _buildFormRow(
                                     label: 'Picklist',
-                                    child: ref
-                                        .watch(picklistsProvider)
-                                        .when(
-                                          data: (picklists) {
-                                            final filteredPicklists = picklists
-                                                .where((p) {
-                                                  final matchesCustomer =
-                                                      _selectedCustomer ==
-                                                          null ||
-                                                      p.customerName ==
-                                                          _selectedCustomer
-                                                              ?.displayName;
-                                                  final isNotSelected =
-                                                      !_selectedPicklistValues
-                                                          .any(
-                                                            (s) => s.id == p.id,
-                                                          );
-                                                  return matchesCustomer &&
-                                                      p.isEntrypass == true &&
-                                                      isNotSelected;
-                                                })
-                                                .toList();
-                                            return FormDropdown<Picklist>(
-                                              value: null,
-                                              onChanged: (val) {},
-                                              fillColor:
-                                                  _selectedCustomer == null
-                                                  ? AppTheme.bgDisabled
-                                                  : Colors.white,
-                                              enabled:
-                                                  _selectedCustomer != null,
-                                              multiSelect: true,
-                                              selectedValues:
-                                                  _selectedPicklistValues,
-                                              onSelectedValuesChanged: (vals) {
-                                                setState(() {
-                                                  _selectedPicklistValues =
-                                                      vals;
-                                                  if (vals.isNotEmpty) {
-                                                    _selectedSalesOrderValues =
-                                                        [];
-                                                    _selectedSalesOrderDataList =
-                                                        [];
-                                                  }
-                                                });
-                                                if (vals.isNotEmpty) {
-                                                  _generateItemsFromPicklists(
-                                                    vals,
-                                                  );
-                                                } else {
-                                                  setState(() {
-                                                    _isPicklistMode = false;
-                                                    _salesOrderItems = [];
-                                                    _items = [];
-                                                    _clearRowControllers();
-                                                    for (var c
-                                                        in _normalRowControllers) {
-                                                      c.dispose();
+                                    child: _isEditMode
+                                        ? CustomTextField(
+                                            height: 32,
+                                            readOnly: true,
+                                            fillColor: AppTheme.bgDisabled,
+                                            controller: TextEditingController(
+                                              text: _selectedPicklistValues
+                                                  .map((p) => p.picklistNumber)
+                                                  .join(', '),
+                                            ),
+                                            hintText: 'No Picklist Selected',
+                                            textStyle: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w400,
+                                              color: _textPrimary,
+                                            ),
+                                          )
+                                        : ref
+                                            .watch(picklistsProvider)
+                                            .when(
+                                              data: (picklists) {
+                                                final filteredPicklists = picklists
+                                                    .where((p) {
+                                                      final matchesCustomer =
+                                                          _selectedCustomer ==
+                                                              null ||
+                                                          p.customerName ==
+                                                              _selectedCustomer
+                                                                  ?.displayName;
+                                                      final isNotSelected =
+                                                          !_selectedPicklistValues
+                                                              .any(
+                                                                (s) => s.id == p.id,
+                                                              );
+                                                      return matchesCustomer &&
+                                                          p.isEntrypass == true &&
+                                                          isNotSelected;
+                                                    })
+                                                    .toList();
+                                                return FormDropdown<Picklist>(
+                                                  value: null,
+                                                  onChanged: (val) {},
+                                                  fillColor:
+                                                      _selectedCustomer == null
+                                                      ? AppTheme.bgDisabled
+                                                      : Colors.white,
+                                                  enabled:
+                                                      _selectedCustomer != null,
+                                                  multiSelect: true,
+                                                  selectedValues:
+                                                      _selectedPicklistValues,
+                                                  onSelectedValuesChanged: (vals) {
+                                                    setState(() {
+                                                      _selectedPicklistValues =
+                                                          vals;
+                                                      if (vals.isNotEmpty) {
+                                                        _selectedSalesOrderValues =
+                                                            [];
+                                                        _selectedSalesOrderDataList =
+                                                            [];
+                                                      }
+                                                    });
+                                                    if (vals.isNotEmpty) {
+                                                      _generateItemsFromPicklists(
+                                                        vals,
+                                                      );
+                                                    } else {
+                                                      setState(() {
+                                                        _isPicklistMode = false;
+                                                        _salesOrderItems = [];
+                                                        _items = [];
+                                                        _clearRowControllers();
+                                                        for (var c
+                                                            in _normalRowControllers) {
+                                                          c.dispose();
+                                                        }
+                                                        _normalRowControllers
+                                                            .clear();
+                                                      });
                                                     }
-                                                    _normalRowControllers
-                                                        .clear();
-                                                  });
-                                                }
-                                                setState(() {
-                                                  _currentPage = 0;
-                                                });
-                                              },
-                                              hint: 'Select Picklist',
-                                              items: filteredPicklists,
-                                              maxVisibleItems: 4,
-                                              itemBuilder:
-                                                  (
-                                                    item,
-                                                    isSelected,
-                                                    isHovered,
-                                                  ) =>
-                                                      _commonItemBuilder<
-                                                        Picklist
-                                                      >(
+                                                    setState(() {
+                                                      _currentPage = 0;
+                                                    });
+                                                  },
+                                                  hint: 'Select Picklist',
+                                                  items: filteredPicklists,
+                                                  maxVisibleItems: 4,
+                                                  itemBuilder:
+                                                      (
                                                         item,
                                                         isSelected,
                                                         isHovered,
-                                                        (p) => p.picklistNumber,
-                                                      ),
-                                              displayStringForValue: (p) =>
-                                                  p.picklistNumber,
-                                              searchStringForValue: (p) =>
-                                                  p.picklistNumber,
-                                              height: 32,
-                                            );
-                                          },
-                                          loading: () => const Skeleton(
-                                            height: 32,
-                                            width: double.infinity,
-                                          ),
-                                          error: (e, _) => Text('Error: $e'),
-                                        ),
+                                                      ) =>
+                                                          _commonItemBuilder<
+                                                            Picklist
+                                                          >(
+                                                            item,
+                                                            isSelected,
+                                                            isHovered,
+                                                            (p) => p.picklistNumber,
+                                                          ),
+                                                  displayStringForValue: (p) =>
+                                                      p.picklistNumber,
+                                                  searchStringForValue: (p) =>
+                                                      p.picklistNumber,
+                                                  height: 32,
+                                                );
+                                              },
+                                              loading: () => const Skeleton(
+                                                height: 32,
+                                                width: double.infinity,
+                                              ),
+                                              error: (e, _) => Text('Error: $e'),
+                                            ),
                                   ),
                                 ),
                                 const SizedBox(width: 32),
@@ -1651,71 +2051,73 @@ class _InventoryPackagesCreateScreenState
 
                                 const SizedBox(height: 32),
 
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFFBEB),
-                                    border: Border.all(
-                                      color: const Color(0xFFFDE68A),
+                                if (!_isEditMode) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
                                     ),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        LucideIcons.info,
-                                        size: 16,
-                                        color: Color(0xFFD97706),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFFBEB),
+                                      border: Border.all(
+                                        color: const Color(0xFFFDE68A),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: RichText(
-                                          text: TextSpan(
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              color: Color(0xFF92400E),
-                                              fontFamily: 'Inter',
-                                            ),
-                                            children: [
-                                              TextSpan(
-                                                text: _isManualMode
-                                                    ? 'You can also add all items from the sales order and manually adjust their quantities. '
-                                                    : 'You can also select or scan the items to be included from the sales order. ',
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          LucideIcons.info,
+                                          size: 16,
+                                          color: Color(0xFFD97706),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: RichText(
+                                            text: TextSpan(
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                color: Color(0xFF92400E),
+                                                fontFamily: 'Inter',
                                               ),
-                                              WidgetSpan(
-                                                alignment: PlaceholderAlignment
-                                                    .baseline,
-                                                baseline:
-                                                    TextBaseline.alphabetic,
-                                                child: InkWell(
-                                                  onTap: _isManualMode
-                                                      ? _switchToSelectionMode
-                                                      : _switchToManualMode,
-                                                  child: Text(
-                                                    _isManualMode
-                                                        ? 'Add Manually'
-                                                        : 'Select or Scan items',
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: _focusBorder,
-                                                      fontFamily: 'Inter',
+                                              children: [
+                                                TextSpan(
+                                                  text: _isManualMode
+                                                      ? 'You can also add all items from the sales order and manually adjust their quantities. '
+                                                      : 'You can also select or scan the items to be included from the sales order. ',
+                                                ),
+                                                WidgetSpan(
+                                                  alignment: PlaceholderAlignment
+                                                      .baseline,
+                                                  baseline:
+                                                      TextBaseline.alphabetic,
+                                                  child: InkWell(
+                                                    onTap: _isManualMode
+                                                        ? _switchToSelectionMode
+                                                        : _switchToManualMode,
+                                                    child: Text(
+                                                      _isManualMode
+                                                          ? 'Add Manually'
+                                                          : 'Select or Scan items',
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: _focusBorder,
+                                                        fontFamily: 'Inter',
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 32),
+                                  const SizedBox(height: 32),
+                                ],
 
                                 Align(
                                   alignment: Alignment.centerLeft,
@@ -1798,12 +2200,12 @@ class _InventoryPackagesCreateScreenState
             child: Row(
               children: [
                 ElevatedButton(
-                  onPressed: (_isFormValid && !_isSaving) ? _savePackage : null,
+                  onPressed: (_isFormValid && !_isSaving && (!_isEditMode || _hasChanges)) ? _savePackage : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _isFormValid
+                    backgroundColor: (_isFormValid && (!_isEditMode || _hasChanges))
                         ? _greenBtn
                         : const Color(0xFFE5E7EB),
-                    foregroundColor: _isFormValid
+                    foregroundColor: (_isFormValid && (!_isEditMode || _hasChanges))
                         ? Colors.white
                         : const Color(0xFF9CA3AF),
                     padding: const EdgeInsets.symmetric(
@@ -2474,7 +2876,7 @@ class _InventoryPackagesCreateScreenState
 
   Widget _buildTableHeader() {
     return Container(
-      padding: const EdgeInsets.only(left: 24, right: 0, top: 10, bottom: 10),
+      padding: const EdgeInsets.only(left: 24, right: 0),
       decoration: const BoxDecoration(
         color: Color(0xFFF9FAFB),
         border: Border(bottom: BorderSide(color: _borderCol)),
@@ -2486,7 +2888,7 @@ class _InventoryPackagesCreateScreenState
             Expanded(
               flex: 1,
               child: Padding(
-                padding: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
                 child: _buildHeaderSearchField(
                   label: 'SALES ORDER', // Always show SALES ORDER as per user request
                   controller: _salesOrderSearchCtrl,
@@ -2505,7 +2907,7 @@ class _InventoryPackagesCreateScreenState
             Expanded(
               flex: 2,
               child: Padding(
-                padding: const EdgeInsets.only(right: 12, left: 12),
+                padding: const EdgeInsets.only(right: 12, left: 12, top: 10, bottom: 10),
                 child: _buildHeaderSearchField(
                   label: 'ITEMS & DESCRIPTION',
                   controller: _itemNameSearchCtrl,
@@ -2525,7 +2927,7 @@ class _InventoryPackagesCreateScreenState
             Expanded(
               flex: 1,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                 child: Text(
                   'ORDERED',
                   textAlign: TextAlign.center,
@@ -2542,7 +2944,7 @@ class _InventoryPackagesCreateScreenState
             Expanded(
               flex: 1,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                 child: Text(
                   'PACKED',
                   textAlign: TextAlign.center,
@@ -2559,13 +2961,16 @@ class _InventoryPackagesCreateScreenState
             Expanded(
               flex: 1,
               child: Center(
-                child: Text(
-                  'QTY TO PACK',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _textSecondary,
-                    fontFamily: 'Inter',
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Text(
+                    'QTY TO PACK',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _textSecondary,
+                      fontFamily: 'Inter',
+                    ),
                   ),
                 ),
               ),
@@ -3112,6 +3517,7 @@ class _PackageItem {
   final String? salesOrderId;
   final String? salesOrderNumber;
   final String? picklistId;
+  final String? picklistNumber;
   final String? sourceItemId;
   final String? id;
 
@@ -3125,6 +3531,7 @@ class _PackageItem {
     this.salesOrderId,
     this.salesOrderNumber,
     this.picklistId,
+    this.picklistNumber,
     this.sourceItemId,
     this.id,
   });
@@ -3139,6 +3546,7 @@ class _PackageItem {
     String? salesOrderId,
     String? salesOrderNumber,
     String? picklistId,
+    String? picklistNumber,
     String? sourceItemId,
     String? id,
   }) {
@@ -3152,6 +3560,7 @@ class _PackageItem {
       salesOrderId: salesOrderId ?? this.salesOrderId,
       salesOrderNumber: salesOrderNumber ?? this.salesOrderNumber,
       picklistId: picklistId ?? this.picklistId,
+      picklistNumber: picklistNumber ?? this.picklistNumber,
       sourceItemId: sourceItemId ?? this.sourceItemId,
       id: id ?? this.id,
     );

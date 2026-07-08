@@ -3,7 +3,7 @@ part of '../pages/purchases_vendors_vendor_create.dart';
 extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
   Widget _buildContactPersons() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 24.0),
+      padding: const EdgeInsets.all(32.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -49,10 +49,9 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
       child: const Row(
         children: [
           Expanded(
-            flex: 1,
+            flex: 2,
             child: Text(
               'SALUTATION',
-              textAlign: TextAlign.center,
               style: headerStyle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -62,7 +61,6 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             flex: 2,
             child: Text(
               'FIRST NAME',
-              textAlign: TextAlign.center,
               style: headerStyle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -72,7 +70,6 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             flex: 2,
             child: Text(
               'LAST NAME',
-              textAlign: TextAlign.center,
               style: headerStyle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -82,7 +79,6 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             flex: 3,
             child: Text(
               'EMAIL ADDRESS',
-              textAlign: TextAlign.center,
               style: headerStyle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -92,7 +88,6 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             flex: 3,
             child: Text(
               'WORK PHONE',
-              textAlign: TextAlign.center,
               style: headerStyle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -102,7 +97,6 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             flex: 3,
             child: Text(
               'MOBILE',
-              textAlign: TextAlign.center,
               style: headerStyle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -131,7 +125,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
               child: Row(
                 children: [
                   Expanded(
-                    flex: 1,
+                    flex: 2,
                     child: FormDropdown<String>(
                       height: _inputHeight,
                       value: row.salutation,

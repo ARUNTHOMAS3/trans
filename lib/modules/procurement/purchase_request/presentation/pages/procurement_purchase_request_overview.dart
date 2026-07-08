@@ -7,6 +7,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/shared/widgets/document/zerpai_document_view.dart';
 
 class _PrItem {
   const _PrItem({
@@ -15,6 +16,7 @@ class _PrItem {
     this.plannedQty = 0,
     this.pendingQty = 0,
     this.estimatedRate = 0,
+    this.discountPercentage = 0,
     this.estimatedAmount = 0,
     this.lineStatus = 'PENDING',
   });
@@ -23,8 +25,22 @@ class _PrItem {
   final int plannedQty;
   final int pendingQty;
   final double estimatedRate;
+  final double discountPercentage;
   final double estimatedAmount;
   final String lineStatus;
+}
+
+class _PrListItem {
+  const _PrListItem({
+    required this.requestNumber,
+    required this.status,
+    this.expectedDate,
+    this.totalAmount = 0,
+  });
+  final String requestNumber;
+  final String status;
+  final String? expectedDate;
+  final double totalAmount;
 }
 
 class ProcurementPurchaseRequestOverviewPage extends ConsumerStatefulWidget {
@@ -66,18 +82,67 @@ class _OverviewPageState
   OverlayEntry? _markOnHoldOverlay;
   OverlayEntry? _undoOnHoldOverlay;
 
+  // Left panel list
+  List<_PrListItem> _allPrs = [];
+  bool _listLoading = true;
+  String _selectedPrId = '';
+
+  // PDF view toggle
+  bool _showPdfView = false;
+
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
+    _selectedPrId = widget.id.startsWith('PR-') ? widget.id : 'PR-${widget.id}';
     _loadItems();
+    _loadPrList();
+  }
+
+  Future<void> _loadPrList() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('purchase_requests')
+          .select('request_number, status, expected_date, purchase_request_items(estimated_amount)')
+          .order('created_at', ascending: false);
+
+      if (!mounted) return;
+      final prs = (res as List<dynamic>).map((row) {
+        final map = row as Map<String, dynamic>;
+        final rawDate = map['expected_date'] as String?;
+        String? displayDate;
+        if (rawDate != null) {
+          final parts = rawDate.split('-');
+          if (parts.length == 3) displayDate = '${parts[2]}-${parts[1]}-${parts[0]}';
+        }
+        final itemsList = map['purchase_request_items'] as List<dynamic>? ?? [];
+        final total = itemsList.fold<double>(
+          0,
+          (s, i) => s + ((i as Map)['estimated_amount'] as num? ?? 0).toDouble(),
+        );
+        return _PrListItem(
+          requestNumber: map['request_number'] as String? ?? '',
+          status: (map['status'] as String? ?? '').toUpperCase(),
+          expectedDate: displayDate,
+          totalAmount: total,
+        );
+      }).where((p) => p.requestNumber.isNotEmpty).toList();
+
+      setState(() {
+        _allPrs = prs;
+        _listLoading = false;
+      });
+    } catch (e) {
+      AppLogger.error('Failed to load PR list', error: e, module: 'PurchaseRequestOverview');
+      if (mounted) setState(() => _listLoading = false);
+    }
   }
 
   Future<void> _loadItems() async {
     try {
       final supabase = Supabase.instance.client;
-      final fullRequestNumber =
-          widget.id.startsWith('PR-') ? widget.id : 'PR-${widget.id}';
+      final fullRequestNumber = _selectedPrId;
 
       final prRes = await supabase
           .from('purchase_requests')
@@ -110,7 +175,7 @@ class _OverviewPageState
           .from('purchase_request_items')
           .select(
               'required_qty, planned_qty, pending_qty, estimated_rate, '
-              'estimated_amount, line_status, products(product_name)')
+              'discount_percentage, estimated_amount, line_status, products(product_name)')
           .eq('purchase_request_id', prId);
 
       if (!mounted) return;
@@ -124,6 +189,7 @@ class _OverviewPageState
           plannedQty: (map['planned_qty'] as num?)?.toInt() ?? 0,
           pendingQty: (map['pending_qty'] as num?)?.toInt() ?? 0,
           estimatedRate: (map['estimated_rate'] as num?)?.toDouble() ?? 0,
+          discountPercentage: (map['discount_percentage'] as num?)?.toDouble() ?? 0,
           estimatedAmount: (map['estimated_amount'] as num?)?.toDouble() ?? 0,
           lineStatus: map['line_status'] as String? ?? 'PENDING',
         );
@@ -349,16 +415,128 @@ class _OverviewPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Row(
         children: [
-          _buildHeader(),
+          // ── Left panel: PR list (360px) ───────────────────────────────────
+          SizedBox(width: 360, child: _buildLeftPanel()),
+          const VerticalDivider(width: 1, thickness: 1, color: AppTheme.borderLight),
+          // ── Right panel: PR detail ─────────────────────────────────────────
+          Expanded(child: _buildDetailPanel()),
+        ],
+      ),
+    );
+  }
+
+  // ── Left panel ─────────────────────────────────────────────────────────────
+
+  Widget _buildLeftPanel() {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Header
+          Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Purchase Requests',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    final orgId = GoRouterState.of(context)
+                            .pathParameters['orgSystemId'] ?? '';
+                    context.goNamed(
+                      AppRoutes.procurementPurchaseRequestsCreate,
+                      pathParameters: {'orgSystemId': orgId},
+                    );
+                  },
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: AppTheme.successGreen,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(LucideIcons.plus, size: 16, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.borderLight),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(LucideIcons.moreHorizontal, size: 15, color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          // List
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+            child: _listLoading
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : _allPrs.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No purchase requests',
+                          style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: _allPrs.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, color: AppTheme.borderLight),
+                        itemBuilder: (context, i) => _PrCompactItem(
+                          pr: _allPrs[i],
+                          selected: _allPrs[i].requestNumber == _selectedPrId,
+                          onTap: () {
+                            if (_allPrs[i].requestNumber == _selectedPrId) return;
+                            setState(() {
+                              _selectedPrId = _allPrs[i].requestNumber;
+                              _itemsLoading = true;
+                              _showPdfView = false;
+                            });
+                            _loadItems();
+                          },
+                        ),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Right detail panel ─────────────────────────────────────────────────────
+
+  Widget _buildDetailPanel() {
+    return Column(
+      children: [
+        _buildDetailHeader(),
+        _buildDetailStatusBar(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_showPdfView)
+                  _buildPdfPreview()
+                else ...[
                   _buildStatusBanner(),
                   const SizedBox(height: 16),
                   _buildTopCard(),
@@ -367,7 +545,59 @@ class _OverviewPageState
                   const SizedBox(height: 16),
                   _buildTabsCard(),
                 ],
-              ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Status bar with PDF view toggle
+  Widget _buildDetailStatusBar() {
+    final statusLabel = _prStatus.isEmpty
+        ? '—'
+        : _prStatus.replaceAll('_', ' ');
+    final statusColor = _isOnHold
+        ? const Color(0xFFD97706)
+        : (_isProcessed || _prStatus == 'APPROVED')
+            ? AppTheme.successGreen
+            : AppTheme.textSecondary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
+      child: Row(
+        children: [
+          const Text(
+            'Status: ',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          Text(
+            statusLabel,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: statusColor,
+            ),
+          ),
+          const Spacer(),
+          const Text(
+            'Show PDF View',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(width: 8),
+          Transform.scale(
+            scale: 0.8,
+            child: Switch(
+              value: _showPdfView,
+              onChanged: (v) => setState(() => _showPdfView = v),
+              activeTrackColor: AppTheme.primaryBlue,
+              activeThumbColor: Colors.white,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
         ],
@@ -375,90 +605,154 @@ class _OverviewPageState
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────────────────────
+  // PDF preview card — uses shared ZerpaiDocumentView (logo + letterhead)
+  Widget _buildPdfPreview() {
+    final ribbonColor = _isOnHold
+        ? const Color(0xFFD97706)
+        : (_isProcessed || _prStatus == 'APPROVED')
+            ? AppTheme.successGreen
+            : AppTheme.textSecondary;
+    final ribbonLabel = _prStatus.isEmpty ? '—' : _prStatus.replaceAll('_', ' ');
 
-  Widget _buildHeader() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
+    return ZerpaiDocumentView(
+      documentType: 'PURCHASE REQUEST',
+      documentNumber: _selectedPrId,
+      status: ribbonLabel,
+      statusColor: ribbonColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFFEDE9FE),
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              'Z',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF7C3AED),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          ZerpaiDocumentMetaRow(
             children: [
-              Text(
-                widget.id.startsWith('PR-') ? widget.id : 'PR-${widget.id}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                ),
+              ZerpaiDocumentInfoBlock(
+                label: 'Purchase Request#',
+                value: _selectedPrId,
               ),
-              const SizedBox(height: 3),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _isOnHold
-                      ? const Color(0xFFFEF3C7)
-                      : _isProcessed
-                          ? const Color(0xFFDCFCE7)
-                          : _prStatus == 'APPROVED'
-                              ? const Color(0xFFDCFCE7)
-                              : const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(4),
+              ZerpaiDocumentInfoBlock(
+                label: 'Expected Date',
+                value: _expectedDate ?? '—',
+              ),
+              if (_assigneeName != null)
+                ZerpaiDocumentInfoBlock(
+                  label: 'Assigned To',
+                  value: _assigneeName!,
                 ),
-                child: Text(
-                  _prStatus.isEmpty ? '—' : _prStatus.replaceAll('_', ' '),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: _isOnHold
-                        ? const Color(0xFFD97706)
-                        : _isProcessed || _prStatus == 'APPROVED'
-                            ? AppTheme.successGreen
-                            : AppTheme.textSecondary,
-                    letterSpacing: 0.4,
+            ],
+          ),
+          const SizedBox(height: 16),
+          ZerpaiDocumentTableHeader(
+            children: [
+              const ZerpaiDocumentHeaderCell('ITEM', flex: 4),
+              const ZerpaiDocumentHeaderCell('QTY', width: 80, align: TextAlign.right),
+              const ZerpaiDocumentHeaderCell('RATE', width: 100, align: TextAlign.right),
+              const ZerpaiDocumentHeaderCell('AMOUNT', width: 100, align: TextAlign.right),
+            ],
+          ),
+          if (_itemsLoading)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            ..._prItems.map(
+              (item) => ZerpaiDocumentTableRow(
+                children: [
+                  ZerpaiDocumentDataCell(
+                    item.discountPercentage > 0
+                        ? '${item.productName}\nDiscount: ${item.discountPercentage.toStringAsFixed(2)}%'
+                        : item.productName,
+                    flex: 4,
                   ),
-                ),
+                  ZerpaiDocumentDataCell(
+                    '${item.requiredQty}',
+                    width: 80,
+                    align: TextAlign.right,
+                  ),
+                  ZerpaiDocumentDataCell(
+                    item.estimatedRate > 0
+                        ? '₹${item.estimatedRate.toStringAsFixed(2)}'
+                        : '—',
+                    width: 100,
+                    align: TextAlign.right,
+                  ),
+                  ZerpaiDocumentDataCell(
+                    '₹${item.estimatedAmount.toStringAsFixed(2)}',
+                    width: 100,
+                    align: TextAlign.right,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Spacer(),
+              const Text(
+                'Total Estimated Amount',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(width: 24),
+              Text(
+                '₹${_totalAmount.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
               ),
             ],
           ),
-          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  // ── Detail panel header (CN-style) ────────────────────────────────────────
+
+  Widget _buildDetailHeader() {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.only(left: 20, right: 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
+      child: Row(
+        children: [
+          // PR number + status sub-label
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Status: ${_prStatus.isEmpty ? "—" : _prStatus.replaceAll("_", " ")}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _selectedPrId,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Action buttons
           if (_isProcessed) ...[
-            // Undo Processed button
             OutlinedButton(
               onPressed: _showUndoProcessedDialog,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textBody,
                 side: const BorderSide(color: AppTheme.borderColor),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               ),
               child: const Text('Undo Processed'),
             ),
+            const SizedBox(width: 8),
           ] else ...[
-            // Edit icon button — always shown (not processed)
             _HeaderIconBtn(
               icon: LucideIcons.pencil,
               onTap: () {
@@ -467,13 +761,12 @@ class _OverviewPageState
                 context.goNamed(
                   AppRoutes.procurementPurchaseRequestsCreate,
                   pathParameters: {'orgSystemId': orgId},
-                  queryParameters: {'id': widget.id},
+                  queryParameters: {'id': _selectedPrId},
                 );
               },
             ),
-            // Create ▼ button — only when APPROVED
             if (_prStatus == 'APPROVED') ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               CompositedTransformTarget(
                 link: _createLink,
                 child: ElevatedButton(
@@ -483,8 +776,8 @@ class _OverviewPageState
                     backgroundColor: AppTheme.successGreen,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                   ),
                   child: Row(
@@ -492,15 +785,20 @@ class _OverviewPageState
                     children: const [
                       Text('Create'),
                       SizedBox(width: 4),
-                      Icon(LucideIcons.chevronDown, size: 14),
+                      Icon(LucideIcons.chevronDown, size: 13),
                     ],
                   ),
                 ),
               ),
             ],
+            const SizedBox(width: 6),
           ],
-          const SizedBox(width: 8),
-          // ... menu button
+          // Vertical divider
+          Container(
+            width: 1, height: 28,
+            margin: const EdgeInsets.symmetric(horizontal: 6),
+            color: AppTheme.borderLight,
+          ),
           CompositedTransformTarget(
             link: _moreLink,
             child: _HeaderIconBtn(
@@ -509,8 +807,7 @@ class _OverviewPageState
               onTap: () => _toggleMoreOverlay(context),
             ),
           ),
-          const SizedBox(width: 8),
-          // X close
+          const SizedBox(width: 4),
           _HeaderIconBtn(
             icon: LucideIcons.x,
             color: AppTheme.errorRed,
@@ -862,7 +1159,9 @@ class _OverviewPageState
               ? '₹${item.estimatedRate.toStringAsFixed(2)} / unit'
               : '-',
           remainingLabel: 'Pending: ${item.pendingQty}',
-          discount: '₹0.00',
+          discount: item.discountPercentage > 0
+              ? '${item.discountPercentage.toStringAsFixed(2)}%'
+              : '—',
           estimatedAmount: '₹${item.estimatedAmount.toStringAsFixed(2)}',
         );
       },
@@ -1865,6 +2164,102 @@ class _UndoOnHoldDialog extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── PR compact list item (left panel) ────────────────────────────────────
+
+class _PrCompactItem extends StatefulWidget {
+  const _PrCompactItem({
+    required this.pr,
+    required this.selected,
+    required this.onTap,
+  });
+  final _PrListItem pr;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_PrCompactItem> createState() => _PrCompactItemState();
+}
+
+class _PrCompactItemState extends State<_PrCompactItem> {
+  bool _hovered = false;
+
+  Color _statusColor(String status) {
+    return switch (status.toUpperCase()) {
+      'APPROVED'  => AppTheme.successGreen,
+      'ON_HOLD'   => const Color(0xFFD97706),
+      'PROCESSED' => AppTheme.successGreen,
+      'REJECTED'  => AppTheme.errorRed,
+      _           => AppTheme.primaryBlue,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = widget.selected
+        ? AppTheme.primaryBlue.withValues(alpha: 0.06)
+        : _hovered
+            ? AppTheme.primaryBlue.withValues(alpha: 0.03)
+            : Colors.white;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          color: bg,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.pr.requestNumber,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (widget.pr.expectedDate != null)
+                      Text(
+                        widget.pr.expectedDate!,
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                    const SizedBox(height: 5),
+                    Text(
+                      widget.pr.status.replaceAll('_', ' '),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: _statusColor(widget.pr.status),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.pr.totalAmount > 0)
+                Text(
+                  '₹${widget.pr.totalAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

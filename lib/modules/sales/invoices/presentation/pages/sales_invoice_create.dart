@@ -29,13 +29,13 @@ import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_co
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_item_model.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
-import 'package:zerpai_erp/modules/sales/customers/presentation/widgets/customer_sidebar.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/customer_sidebar.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/sales_order_item_row.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/sales_item_quick_edit_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
@@ -163,7 +163,7 @@ class _SalesInvoiceCreateScreenState
             activeCustomer.gstTreatment! == 'Unregistered Business');
   }
   List<SalesOrder> _confirmedCustomerOrders = [];
-  InventoryPackage? _selectedPackage;
+  List<InventoryPackage> _selectedPackages = [];
   // ignore: unused_field
   List<String> _warehouseBins = [];
   String? _loadedWarehouseId;
@@ -232,6 +232,9 @@ class _SalesInvoiceCreateScreenState
   final _bulkActionsLink = LayerLink();
   final _settingsLink = LayerLink();
   OverlayEntry? _settingsOverlay;
+
+  final _packageDropdownLink = LayerLink();
+  OverlayEntry? _packageDropdownOverlay;
 
   bool _isAutoGenerateInvoice = true;
   String _invoicePrefix = 'INV-';
@@ -1291,6 +1294,8 @@ class _SalesInvoiceCreateScreenState
         _invoiceNextNumber = result['nextNumber'] ?? '';
         if (_isAutoGenerateInvoice) {
           invoiceNumberCtrl.text = '$_invoicePrefix$_invoiceNextNumber';
+        } else {
+          invoiceNumberCtrl.text = '';
         }
       });
     }
@@ -1501,7 +1506,7 @@ class _SalesInvoiceCreateScreenState
         branchId: selectedWhObj.branchId,
         totalQuantity: double.tryParse(row.quantityCtrl.text) ?? 1.0,
         savedBatchData: row.batchDataList,
-        isFromPackage: _selectedPackage != null,
+        isFromPackage: _selectedPackages.isNotEmpty,
       ),
     );
     if (!mounted || result == null) return;
@@ -1525,6 +1530,80 @@ class _SalesInvoiceCreateScreenState
   void _closeTaxOverlay() {
     _taxOverlay?.remove();
     _taxOverlay = null;
+  }
+
+  void _closePackageDropdown() {
+    if (_packageDropdownOverlay != null) {
+      _packageDropdownOverlay?.remove();
+      _packageDropdownOverlay = null;
+      setState(() {});
+    }
+  }
+
+  void _showPackageDropdown(
+    BuildContext context,
+    List<InventoryPackage> availablePackages,
+  ) {
+    _closePackageDropdown();
+
+    _packageDropdownOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            onTap: _closePackageDropdown,
+            child: Container(color: Colors.transparent),
+          ),
+          CompositedTransformFollower(
+            link: _packageDropdownLink,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 36),
+            child: Material(
+              color: Colors.transparent,
+              child: TapRegion(
+                onTapOutside: (_) => _closePackageDropdown(),
+                child: Container(
+                  width: 340,
+                  constraints: const BoxConstraints(maxHeight: 250),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: availablePackages.length,
+                    itemBuilder: (_, i) {
+                      final pkg = availablePackages[i];
+                      return _PopoverListItem(
+                        label: pkg.packageNumber,
+                        isSelected: false,
+                        onTap: () {
+                          setState(() {
+                            _selectedPackages.add(pkg);
+                          });
+                          _addItemsFromPackage(pkg);
+                          _closePackageDropdown();
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_packageDropdownOverlay!);
+    setState(() {});
   }
 
   void _showTaxPopover(BuildContext context, int index, SalesOrderItemRow row) {
@@ -1584,6 +1663,7 @@ class _SalesInvoiceCreateScreenState
     _customerDetailsSidebarOverlay?.remove();
     _uploadOverlay?.remove();
     _taxOverlay?.remove();
+    _packageDropdownOverlay?.remove();
     super.dispose();
   }
 
@@ -2755,6 +2835,153 @@ class _SalesInvoiceCreateScreenState
                 ),
               ),
 
+              // Package (multi-select, below Subject)
+              if (_selectedCustomerId != null && warehouse != null)
+                SharedFieldLayout(
+                  key: const ValueKey('layout_package'),
+                  label: 'Package',
+                  labelWidth: 180,
+                  maxWidth: 523,
+                  child: packagesState.isLoading
+                      ? const Skeleton(height: 32, width: 340)
+                      : (() {
+                          final packagesList = packagesState.packages;
+                          final filteredPackages = packagesList
+                              .where((pkg) => pkg.customerId == _selectedCustomerId)
+                              .toList();
+                          final availablePackages = filteredPackages
+                              .where((pkg) => !_selectedPackages.any((s) => s.id == pkg.id))
+                              .toList();
+
+                          bool isContainerHovered = false;
+                          final isOpen = _packageDropdownOverlay != null;
+
+                          return CompositedTransformTarget(
+                            link: _packageDropdownLink,
+                            child: StatefulBuilder(
+                              builder: (context, setStateField) {
+                                final isFieldHighlighted = isContainerHovered || isOpen;
+                                final borderSideColor = isFieldHighlighted
+                                    ? const Color(0xFF3B82F6)
+                                    : const Color(0xFFD1D5DB);
+
+                                return MouseRegion(
+                                  onEnter: (_) => setStateField(() => isContainerHovered = true),
+                                  onExit: (_) => setStateField(() => isContainerHovered = false),
+                                  child: GestureDetector(
+                                    onTap: availablePackages.isEmpty
+                                        ? null
+                                        : () {
+                                            _showPackageDropdown(
+                                              context,
+                                              availablePackages,
+                                            );
+                                            setStateField(() {});
+                                          },
+                                    child: Container(
+                                      width: double.infinity,
+                                      constraints: const BoxConstraints(minHeight: 32),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: borderSideColor,
+                                          width: isFieldHighlighted ? 1.5 : 1.0,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: _selectedPackages.isEmpty
+                                                ? Text(
+                                                    'Select Package',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: _kLabelGrey,
+                                                    ),
+                                                  )
+                                                : Wrap(
+                                                    spacing: 6,
+                                                    runSpacing: 4,
+                                                    children: _selectedPackages.map((pkg) {
+                                                      bool isChipHovered = false;
+                                                      return StatefulBuilder(
+                                                        builder: (context, setStateChip) {
+                                                          return MouseRegion(
+                                                            onEnter: (_) => setStateChip(() => isChipHovered = true),
+                                                            onExit: (_) => setStateChip(() => isChipHovered = false),
+                                                            child: Container(
+                                                              padding: const EdgeInsets.symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 2,
+                                                              ),
+                                                              decoration: BoxDecoration(
+                                                                color: isChipHovered
+                                                                    ? Colors.white
+                                                                    : const Color(0xFFF3F4F6),
+                                                                borderRadius: BorderRadius.circular(4),
+                                                                border: Border.all(
+                                                                  color: isChipHovered
+                                                                      ? const Color(0xFF3B82F6)
+                                                                      : const Color(0xFFD1D5DB),
+                                                                ),
+                                                              ),
+                                                              child: Row(
+                                                                mainAxisSize: MainAxisSize.min,
+                                                                children: [
+                                                                  Text(
+                                                                    pkg.packageNumber,
+                                                                    style: const TextStyle(
+                                                                      fontSize: 12,
+                                                                      color: Color(0xFF374151),
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(width: 4),
+                                                                  GestureDetector(
+                                                                    onTap: () {
+                                                                      setState(() {
+                                                                        _selectedPackages.remove(pkg);
+                                                                      });
+                                                                      setStateField(() {});
+                                                                    },
+                                                                    child: Icon(
+                                                                      Icons.close,
+                                                                      size: 13,
+                                                                      color: isChipHovered
+                                                                          ? const Color(0xFFEF4444)
+                                                                          : const Color(0xFF6B7280),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
+                                                      );
+                                                    }).toList(),
+                                                  ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Icon(
+                                            Icons.arrow_drop_down,
+                                            size: 20,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        })(),
+                ),
+
               // Warehouse and Price List Row
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -2820,7 +3047,7 @@ class _SalesInvoiceCreateScreenState
                                 onChanged: (w) {
                                   setState(() {
                                     warehouse = w?.name;
-                                    _selectedPackage = null;
+                                    _selectedPackages = [];
                                   });
                                   if (w != null) {
                                     _loadWarehouseBins(w.id);
@@ -2907,6 +3134,7 @@ class _SalesInvoiceCreateScreenState
                                     const Text('Error loading price lists'),
                               ),
                             ),
+
                           ],
                         ),
                       ),
@@ -2914,59 +3142,6 @@ class _SalesInvoiceCreateScreenState
                   ],
                 ),
               ),
-
-              // Packages Dropdown Row
-              if (_selectedCustomerId != null && warehouse != null) ...[
-                const SizedBox(height: 16),
-                SharedFieldLayout(
-                  label: 'Packages',
-                  labelWidth: 180,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 320,
-                        child: packagesState.isLoading
-                            ? const Skeleton(height: 32, width: 320)
-                            : (() {
-                                final packagesList = packagesState.packages;
-                                final filteredPackages = packagesList.where((
-                                  pkg,
-                                ) {
-                                  return pkg.customerId == _selectedCustomerId;
-                                }).toList();
-
-                                return FormDropdown<InventoryPackage>(
-                                  value: _selectedPackage,
-                                  height: _kDropdownHeight,
-                                  items: filteredPackages,
-                                  hint: 'Select Package',
-                                  displayStringForValue: (pkg) =>
-                                      pkg.packageNumber,
-                                  searchStringForValue: (pkg) =>
-                                      pkg.packageNumber,
-                                  showSearch: filteredPackages.length > 5,
-                                  itemBuilder: (pkg, isSelected, isHovered) =>
-                                      _dropdownItemBuilder(
-                                        pkg.packageNumber,
-                                        isSelected,
-                                        isHovered,
-                                      ),
-                                  onChanged: (pkg) {
-                                    setState(() {
-                                      _selectedPackage = pkg;
-                                      if (pkg != null) {
-                                        _addItemsFromPackage(pkg);
-                                      }
-                                    });
-                                  },
-                                );
-                              })(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
               const SizedBox(height: 24),
               const Divider(),
             ],
@@ -3294,7 +3469,7 @@ class _SalesInvoiceCreateScreenState
                       ),
                       _vLine(),
                       const Expanded(
-                        flex: 4,
+                        flex: 6,
                         child: Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: 12,
@@ -4202,7 +4377,7 @@ class _SalesInvoiceCreateScreenState
                         _vLine(),
                         // TAX
                         Expanded(
-                          flex: 4,
+                          flex: 6,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -4450,7 +4625,7 @@ class _SalesInvoiceCreateScreenState
                         if (v == 'edit') {
                           showDialog(
                             context: context,
-                            builder: (ctx) => SalesItemQuickEditDialog(
+                            builder: (ctx) => ItemQuickEditDialog(
                               item: item,
                               onUpdated: (newItem) {
                                 setState(() {
@@ -7167,10 +7342,13 @@ class _SalesInvoiceCreateScreenState
         'customerNotes': notesCtrl.text,
         'termsConditions': termsCtrl.text,
         'status': status,
-        'inventoryFlowType': _selectedPackage != null
+        'inventoryFlowType': _selectedPackages.isNotEmpty
             ? 'PACKAGE_BEFORE_INVOICE'
             : 'DIRECT_INVOICE',
-        if (_selectedPackage != null) 'packageId': _selectedPackage!.id,
+        if (_selectedPackages.isNotEmpty)
+          'packageIds': _selectedPackages.map((p) => p.id).toList(),
+        if (_selectedPackages.length == 1)
+          'packageId': _selectedPackages.first.id,
         if (widget.initialOrderId != null || widget.fromOrderId != null || _selectedSalesOrderId != null)
           'salesOrderId': widget.initialOrderId ?? widget.fromOrderId ?? _selectedSalesOrderId,
         'items': itemsPayloadList,
@@ -13622,7 +13800,7 @@ class _TaxSelectionPopover extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  ...taxes.map((tax) {
+                  ...([...taxes]..sort((a, b) => a.taxRate.compareTo(b.taxRate))).map((tax) {
                     final isSelected = tax.id == selectedTaxId;
                     final displayLabel = '${tax.taxName} [${tax.taxRate}%]';
 

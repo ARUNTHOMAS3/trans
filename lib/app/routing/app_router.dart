@@ -1,16 +1,24 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/purchase_request_report.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/purchase_requests_create.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/procurement_requested_items_page.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/procurement_purchase_request_overview.dart';
+import 'package:zerpai_erp/modules/procurement/approvals/presentation/pages/procurement_approvals_overview.dart';
+import 'package:zerpai_erp/modules/procurement/approvals/presentation/pages/procurement_approvals_report.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:zerpai_erp/core/auth/auth_session_expiry_notifier.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/items_item_create.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/items_item_detail.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_report_overview.dart';
-import 'package:zerpai_erp/modules/items/composite_items/presentation/items_composite_items_composite_creation.dart';
-import 'package:zerpai_erp/modules/items/composite_items/presentation/items_composite_items_composite_listview.dart';
-import 'package:zerpai_erp/modules/items/item_mapping/presentation/inventory_mapping_mapping_create.dart';
-import 'package:zerpai_erp/modules/items/item_mapping/presentation/inventory_mapping_mapping_list.dart';
+import 'package:zerpai_erp/modules/items/composite_items/presentation/composite_items_create.dart';
+import 'package:zerpai_erp/modules/items/composite_items/presentation/composite_items_overview.dart';
+import 'package:zerpai_erp/modules/items/composite_items/presentation/composite_items_list.dart';
+
+
+
 import 'package:zerpai_erp/modules/sales/customers/presentation/sales_customer_create.dart';
 import 'package:zerpai_erp/modules/sales/customers/presentation/pages/sales_customer_list.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/sales_order_list.dart';
@@ -21,19 +29,25 @@ import 'package:zerpai_erp/modules/sales/invoices/presentation/sales_invoice_cre
 import 'package:zerpai_erp/modules/sales/invoices/presentation/pages/sales_invoice_list.dart';
 import 'package:zerpai_erp/modules/sales/retainer_invoices/presentation/sales_retainer_invoice_create.dart';
 import 'package:zerpai_erp/modules/sales/delivery_challans/presentation/sales_delivery_challan_create.dart';
-import 'package:zerpai_erp/modules/sales/payments_received/presentation/sales_payment_create.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_create_page.dart';
+import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/report_page.dart';
+import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/sales_payment_create.dart';
+
+import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/payment_recieves_overview.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_add_page.dart';
 import 'package:zerpai_erp/modules/sales/eway_bills/presentation/sales_eway_bill_create.dart';
 import 'package:zerpai_erp/modules/sales/quotations/presentation/sales_quotation_create.dart';
 import 'package:zerpai_erp/modules/sales/documents/presentation/sales_document_detail.dart';
 import 'package:zerpai_erp/modules/sales/customers/presentation/sales_customer_overview.dart';
 import 'package:zerpai_erp/modules/sales/payment_links/presentation/sales_payment_link_create.dart';
+
 import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/sales_recurring_invoice_create.dart';
-import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_overview_page.dart';
-import 'package:zerpai_erp/modules/sales/sales_return/presentation/sales_return_create_page.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_overview_page.dart';
+
+import 'package:zerpai_erp/modules/sales/sales_return/presentation/sales_return_overview_page.dart';
+import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_create_page.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_overview_page.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_overview.dart';
+
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journals_overview_screen.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journal_create_screen.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journal_template_create_screen.dart';
@@ -46,10 +60,12 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/presentation/pages
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/presentation/pages/accountant_chart_of_accounts_creation.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_overview.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_create.dart';
-import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
+
+
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_overview_page.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_create_page.dart';
-import 'package:zerpai_erp/modules/pricelists/branch_pricelist/models/branch_pricelist_model.dart';
+
+
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_screen.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_update_screen.dart';
 import 'package:zerpai_erp/modules/accountant/config/routes.dart';
@@ -64,17 +80,21 @@ import 'package:zerpai_erp/modules/auth/presentation/auth_auth_forgot_password.d
 import 'package:zerpai_erp/modules/auth/presentation/auth_auth_reset_password.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/services/permission_service.dart';
-import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/vendors_report_page.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/vendors_overview_page.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/vendors_email_page.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_list.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart';
+
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart';
+
+
+import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create_page.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_create.dart';
-import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create_page.dart';
-import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_create.dart';
 import 'package:zerpai_erp/shared/widgets/placeholder_screen.dart';
 import 'package:zerpai_erp/app/layout/zerpai_shell.dart';
 import 'package:zerpai_erp/app/pages/error_page.dart';
@@ -83,11 +103,10 @@ import 'package:zerpai_erp/app/pages/not_found_page.dart';
 import 'package:zerpai_erp/app/pages/unauthorized_page.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_list.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_create.dart';
-import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_edit.dart';
+
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_update.dart';
 import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_list.dart';
 import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_create.dart';
-import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_edit.dart';
 import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_list.dart';
 import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_create.dart';
 import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_edit.dart';
@@ -97,19 +116,15 @@ import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/invent
 import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/inventory_transfer_orders_create.dart';
 import 'package:zerpai_erp/modules/inventory/move_orders/presentation/inventory_move_orders_list.dart';
 import 'package:zerpai_erp/modules/inventory/move_orders/presentation/inventory_move_orders_create.dart';
-import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/purchase_request_report.dart';
-import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/purchase_requests_create.dart';
-import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/procurement_purchase_request_overview.dart';
-import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/procurement_requested_items_page.dart';
-import 'package:zerpai_erp/modules/procurement/approvals/presentation/pages/procurement_approvals_report.dart';
-import 'package:zerpai_erp/modules/procurement/approvals/presentation/pages/procurement_approvals_overview.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 export 'package:zerpai_erp/core/routing/app_routes.dart';
 
+const String _kFallbackRouteSystemId = '0000000000';
 const bool _kEnableAuth = bool.fromEnvironment(
   'ENABLE_AUTH',
   defaultValue: true,
 );
+
 
 bool _hasStoredAuthToken() {
   try {
@@ -207,14 +222,6 @@ bool _isStoredAdmin() {
 }
 
 String _storedRouteSystemId() {
-  try {
-    final box = Hive.box('config');
-    final selected = (box.get('selected_tenant_route_system_id') ?? '')
-        .toString()
-        .trim();
-    if (selected.isNotEmpty) return selected;
-  } catch (_) {}
-
   final user = _readStoredUser();
   final routeSystemId = (user?['routeSystemId'] ?? '').toString().trim();
   if (routeSystemId.isNotEmpty) return routeSystemId;
@@ -222,20 +229,7 @@ String _storedRouteSystemId() {
   final orgSystemId = (user?['orgSystemId'] ?? '').toString().trim();
   if (orgSystemId.isNotEmpty) return orgSystemId;
 
-  return '';
-}
-
-String _homeOrLoginPath() {
-  final id = _storedRouteSystemId().trim();
-  if (id.isEmpty) return AppRoutes.authLogin;
-  return '/$id/home';
-}
-
-String _prefixWithStoredRouteSystemId(String path, String query) {
-  final id = _storedRouteSystemId().trim();
-  if (id.isEmpty) return AppRoutes.authLogin;
-  final safePath = path == '/' ? '/home' : path;
-  return '/$id$safePath$query';
+  return _kFallbackRouteSystemId;
 }
 
 String? _storedActiveTenantType() {
@@ -398,7 +392,7 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(
 final GoRouter appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   refreshListenable: authSessionExpiryNotifier,
-  initialLocation: AppRoutes.authLogin,
+  initialLocation: '/$_kFallbackRouteSystemId/home',
   debugLogDiagnostics: false,
   redirect: (context, state) {
     final path = state.uri.path;
@@ -406,7 +400,7 @@ final GoRouter appRouter = GoRouter(
       if (path == '/login' ||
           path == '/forgot-password' ||
           path == '/reset-password') {
-        return _homeOrLoginPath();
+        return '/${_storedRouteSystemId()}/home';
       }
 
       if (RegExp(r'^/\d{10,20}(/|$)').hasMatch(path)) {
@@ -414,7 +408,7 @@ final GoRouter appRouter = GoRouter(
       }
 
       final query = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
-      return _prefixWithStoredRouteSystemId(path, query);
+      return '/${_storedRouteSystemId()}${path == '/' ? '/home' : path}$query';
     }
 
     final isAuthenticated = _hasStoredAuthSession();
@@ -433,7 +427,7 @@ final GoRouter appRouter = GoRouter(
 
     if (isPublicRoute) {
       if (isAuthenticated && (path == '/login' || path == '/forgot-password')) {
-        return _homeOrLoginPath();
+        return '/${_storedRouteSystemId()}/home';
       }
       return null;
     }
@@ -448,7 +442,6 @@ final GoRouter appRouter = GoRouter(
           _isAdminOnlyModule(requirement.moduleKey) &&
           !_isStoredAdmin()) {
         final orgSystemId = _extractOrgSystemId(path) ?? _storedRouteSystemId();
-        if (orgSystemId.trim().isEmpty) return AppRoutes.authLogin;
         return '/$orgSystemId/home';
       }
       if (requirement != null &&
@@ -457,13 +450,12 @@ final GoRouter appRouter = GoRouter(
             action: requirement.action,
           )) {
         final orgSystemId = _extractOrgSystemId(path) ?? _storedRouteSystemId();
-        if (orgSystemId.trim().isEmpty) return AppRoutes.authLogin;
         return '/$orgSystemId/home';
       }
       return null;
     }
     final query = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
-    return _prefixWithStoredRouteSystemId(path, query);
+    return '/${_storedRouteSystemId()}${path == '/' ? '/home' : path}$query';
   },
   errorBuilder: (context, state) =>
       ZerpaiShell(child: ErrorPage(errorMessage: state.error?.toString())),
@@ -536,6 +528,26 @@ final GoRouter appRouter = GoRouter(
         return null;
       },
       routes: [
+        // Full-screen routes (no sidebar) — must be BEFORE ShellRoute so they
+        // are matched before the shell's :id wildcard children can grab them.
+        GoRoute(
+          path: 'procurement/purchase-requests/create',
+          name: AppRoutes.procurementPurchaseRequestsCreate,
+          pageBuilder: (context, state) {
+            final extra = state.extra as DemandPoolPayload?;
+            final editId = state.uri.queryParameters['id'];
+            return CustomTransitionPage(
+              key: state.pageKey,
+              fullscreenDialog: true,
+              child: ProcurementPurchaseRequestsCreatePage(
+                fromDemandPool: extra,
+                editId: editId,
+              ),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            );
+          },
+        ),
         ShellRoute(
           builder: (context, state, child) => ZerpaiShell(child: child),
           routes: [
@@ -626,21 +638,42 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'items/composite-items/create',
               name: AppRoutes.compositeItemsCreate,
-              builder: (context, state) => const CompositeCreateScreen(),
+              builder: (context, state) => CompositeItemsCreatePage(
+                itemId: state.uri.queryParameters['editId'],
+                isClone: state.uri.queryParameters['clone'] == 'true',
+              ),
             ),
             GoRoute(
               path: 'items/composite-items',
               name: AppRoutes.compositeItems,
-              builder: (context, state) => CompositeItemsListScreen(
-                initialSearchQuery: state.uri.queryParameters['q'],
-              ),
+              builder: (context, state) => const CompositeItemsReportPage(),
               routes: [
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.compositeItemsDetail,
-                  builder: (context, state) => CompositeItemsListScreen(
-                    initialItemId: state.pathParameters['id'],
-                    initialSearchQuery: state.uri.queryParameters['q'],
+                  builder: (context, state) => CompositeItemsOverview(
+                    itemId: state.pathParameters['id']!,
+                    initialTab: state.uri.queryParameters['tab'] ?? 'Overview',
+                  ),
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  builder: (context, state) => CompositeItemsCreatePage(
+                    itemId: state.pathParameters['id'],
+                  ),
+                ),
+                GoRoute(
+                  path: ':id/clone',
+                  builder: (context, state) => CompositeItemsCreatePage(
+                    itemId: state.pathParameters['id'],
+                    isClone: true,
+                  ),
+                ),
+                GoRoute(
+                  path: ':id/adjust-stock',
+                  builder: (context, state) => CompositeItemsOverview(
+                    itemId: state.pathParameters['id']!,
+                    isAdjustingStock: true,
                   ),
                 ),
               ],
@@ -820,12 +853,7 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/invoices',
               name: AppRoutes.salesInvoices,
-              builder: (context, state) => SalesInvoiceOverviewScreen(
-                initialSearchQuery: state.uri.queryParameters['q'],
-                initialFilter:
-                    state.uri.queryParameters['filter'] ??
-                    state.uri.queryParameters['status'],
-              ),
+              builder: (context, state) => const SalesInvoiceOverviewScreen(),
               routes: [
                 GoRoute(
                   path: 'create',
@@ -837,24 +865,10 @@ final GoRouter appRouter = GoRouter(
                   ),
                 ),
                 GoRoute(
-                  path: ':id/edit',
-                  name: AppRoutes.salesInvoicesEdit,
-                  builder: (context, state) {
-                    return SalesInvoiceCreateScreen(
-                      initialOrder: null,
-                      initialOrderId: state.pathParameters['id'],
-                    );
-                  },
-                ),
-                GoRoute(
                   path: ':id',
                   name: AppRoutes.salesInvoicesDetail,
                   builder: (context, state) => SalesInvoiceOverviewScreen(
-                    initialSearchQuery: state.uri.queryParameters['q'],
-                    initialSelectedId: state.pathParameters['id']!,
-                    initialFilter:
-                        state.uri.queryParameters['filter'] ??
-                        state.uri.queryParameters['status'],
+                    initialSelectedId: state.pathParameters['id'],
                   ),
                 ),
               ],
@@ -890,25 +904,45 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/payments-received',
               name: AppRoutes.salesPaymentsReceived,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Payments Received'),
+              builder: (context, state) => const PaymentRecievesReportPage(),
               routes: [
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesPaymentsReceivedCreate,
-                  builder: (context, state) => SalesPaymentCreateScreen(
-                    initialCustomerId: state.uri.queryParameters['customerId'],
-                    fromInvoiceId: state.uri.queryParameters['fromInvoiceId'],
-                    cloneId: state.uri.queryParameters['cloneId'],
-                  ),
+                  builder: (context, state) {
+                    final editId = state.uri.queryParameters['editId'] ?? state.uri.queryParameters['id'];
+                    return SalesPaymentCreateScreen(
+                      initialCustomerId: state.uri.queryParameters['customerId'],
+                      fromInvoiceId: state.uri.queryParameters['fromInvoiceId'],
+                      cloneId: state.uri.queryParameters['cloneId'],
+                      editPaymentId: editId,
+                      initialTab: 0,
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'customer-advance',
+                  name: AppRoutes.salesCustomerAdvanceCreate,
+                  builder: (context, state) {
+                    final editId = state.uri.queryParameters['editId'] ?? state.uri.queryParameters['id'];
+                    return SalesPaymentCreateScreen(
+                      editPaymentId: editId,
+                      initialTab: 1,
+                    );
+                  },
                 ),
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.salesPaymentsReceivedDetail,
-                  builder: (context, state) => SalesDocumentDetailScreen(
-                    id: state.pathParameters['id']!,
-                    documentType: 'payment_received',
-                    initialTab: state.uri.queryParameters['tab'],
+                  builder: (context, state) => PaymentRecievesOverview(
+                    paymentId: state.pathParameters['id']!,
+                  ),
+                ),
+                GoRoute(
+                  path: ':id/refund',
+                  builder: (context, state) => PaymentRecievesOverview(
+                    paymentId: state.pathParameters['id']!,
+                    isRefund: true,
                   ),
                 ),
               ],
@@ -945,7 +979,7 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesCreditNotesCreate,
-                  builder: (context, state) => CreditNoteCreatePage(
+                  builder: (context, state) => CreditNoteAddPage(
                     initialCustomer: state.uri.queryParameters['customerId'],
                     creditNoteId:
                         state.uri.queryParameters['cloneId'] ??
@@ -1022,102 +1056,74 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/recurring-invoices',
               name: AppRoutes.salesRecurringInvoices,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Recurring Invoices'),
+              builder: (context, state) => const PlaceholderScreen(title: 'Recurring Invoices'),
               routes: [
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesRecurringInvoicesCreate,
-                  builder: (context, state) =>
-                      SalesRecurringInvoiceCreateScreen(
-                        initialCustomerId:
-                            state.uri.queryParameters['customerId'],
-                        fromInvoiceId:
-                            state.uri.queryParameters['fromInvoiceId'],
-                        cloneId: state.uri.queryParameters['cloneId'],
-                      ),
+                  builder: (context, state) => const SalesRecurringInvoiceCreateScreen(),
                 ),
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.salesRecurringInvoicesDetail,
-                  builder: (context, state) => SalesDocumentDetailScreen(
-                    id: state.pathParameters['id']!,
-                    documentType: 'recurring_invoice',
-                    initialTab: state.uri.queryParameters['tab'],
+                  builder: (context, state) => PlaceholderScreen(
+                    title: 'Recurring Invoice detail: ${state.pathParameters['id']}',
                   ),
                 ),
               ],
             ),
 
-            // Assemblies
+            // Assemblies — create declared before the list/:id route so the
+            // literal 'create' segment isn't captured by ':id'.
             GoRoute(
               path: 'inventory/assemblies',
               name: AppRoutes.assemblies,
               builder: (context, state) => const AssemblyListScreen(),
-            ),
-            GoRoute(
-              path: 'inventory/assemblies/create',
-              name: AppRoutes.assembliesCreate,
-              builder: (context, state) => const AssemblyCreateScreen(),
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  name: AppRoutes.assembliesCreate,
+                  builder: (context, state) =>
+                      const AssemblyCreateScreen(),
+                ),
+              ],
             ),
 
             // Price Lists
             GoRoute(
               path: 'pricelists/price-lists',
               name: AppRoutes.priceLists,
-              builder: (context, state) => PriceListOverviewScreen(
-                initialSearchQuery: state.uri.queryParameters['q'],
-              ),
+              builder: (context, state) => const PriceListOverviewScreen(),
             ),
             GoRoute(
               path: 'pricelists/price-lists/create',
               name: AppRoutes.priceListsCreate,
-              builder: (context, state) {
-                final extra = state.extra;
-                if (extra is PriceList) {
-                  return PriceListCreateScreen(template: extra);
-                }
-                return const PriceListCreateScreen();
-              },
+              builder: (context, state) => const PriceListCreateScreen(),
             ),
             GoRoute(
               path: 'pricelists/price-lists/edit/:id',
               name: AppRoutes.priceListsEdit,
-              builder: (context, state) {
-                final id = state.pathParameters['id'];
-                final extra = state.extra as PriceList?;
-                return PriceListCreateScreen(priceList: extra, priceListId: id);
-              },
+              builder: (context, state) => PriceListCreateScreen(
+                priceListId: state.pathParameters['id'],
+              ),
             ),
             GoRoute(
               path: 'pricelists/branch-price-lists',
               name: AppRoutes.branchPriceLists,
-              builder: (context, state) => BranchPriceListOverviewScreen(
-                initialSearchQuery: state.uri.queryParameters['q'],
-              ),
+              builder: (context, state) =>
+                  const BranchPriceListOverviewScreen(),
             ),
             GoRoute(
               path: 'pricelists/branch-price-lists/create',
               name: AppRoutes.branchPriceListsCreate,
-              builder: (context, state) {
-                final extra = state.extra;
-                if (extra is BranchPriceList) {
-                  return BranchPriceListCreateScreen(template: extra);
-                }
-                return const BranchPriceListCreateScreen();
-              },
+              builder: (context, state) => const BranchPriceListCreateScreen(),
             ),
             GoRoute(
               path: 'pricelists/branch-price-lists/edit/:id',
               name: AppRoutes.branchPriceListsEdit,
-              builder: (context, state) {
-                final id = state.pathParameters['id'];
-                final extra = state.extra as BranchPriceList?;
-                return BranchPriceListCreateScreen(
-                  branchPriceList: extra,
-                  branchPriceListId: id,
-                );
-              },
+              builder: (context, state) => BranchPriceListCreateScreen(
+                branchPriceListId: state.pathParameters['id'],
+              ),
             ),
 
             // Inventory
@@ -1161,7 +1167,7 @@ final GoRouter appRouter = GoRouter(
                 if (mode == 'update') {
                   return InventoryPicklistsUpdateScreen(id: id);
                 }
-                return InventoryPicklistsEditScreen(id: id);
+                return InventoryPicklistsCreateScreen(id: id);
               },
             ),
             GoRoute(
@@ -1185,7 +1191,7 @@ final GoRouter appRouter = GoRouter(
               path: 'inventory/packages/edit/:id',
               name: AppRoutes.packagesEdit,
               builder: (context, state) =>
-                  InventoryPackagesEditScreen(id: state.pathParameters['id']),
+                  InventoryPackagesCreateScreen(id: state.pathParameters['id']),
             ),
             GoRoute(
               path: 'inventory/packages/:id',
@@ -1285,13 +1291,32 @@ final GoRouter appRouter = GoRouter(
               path: 'items/mapping',
               name: AppRoutes.itemMapping,
               builder: (context, state) =>
-                  const InventoryMappingMappingListScreen(),
+                  const PlaceholderScreen(title: 'Item Mapping'),
             ),
             GoRoute(
               path: 'items/mapping/create',
               name: AppRoutes.itemMappingCreate,
               builder: (context, state) =>
-                  const InventoryMappingMappingCreateScreen(),
+                  const PlaceholderScreen(title: 'New Item Mapping'),
+            ),
+            GoRoute(
+              path: 'items/trade-setup',
+              name: AppRoutes.itemTradeSetup,
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'Item Trade Setup'),
+            ),
+            GoRoute(
+              path: 'items/trade-setup/create',
+              name: AppRoutes.itemTradeSetupCreate,
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'Create Item Trade Setup'),
+            ),
+            GoRoute(
+              path: 'items/trade-setup/:id',
+              name: AppRoutes.itemTradeSetupDetail,
+              builder: (context, state) => PlaceholderScreen(
+                title: 'Item Trade Setup details: ${state.pathParameters['id']}',
+              ),
             ),
 
             // Purchases Module
@@ -1302,15 +1327,34 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/vendors',
               name: AppRoutes.vendors,
-              builder: (context, state) => PurchasesVendorsVendorListScreen(
-                initialSearchQuery: state.uri.queryParameters['q'],
-              ),
+              builder: (context, state) => const VendorsReportPage(),
             ),
             GoRoute(
               path: 'purchases/vendors/create',
               name: AppRoutes.vendorsCreate,
               builder: (context, state) =>
                   const PurchasesVendorsVendorCreateScreen(),
+            ),
+            GoRoute(
+              path: 'purchases/vendors/:id/edit',
+              name: AppRoutes.vendorsEdit,
+              builder: (context, state) => PurchasesVendorsVendorCreateScreen(
+                editVendorId: state.pathParameters['id'],
+              ),
+            ),
+            GoRoute(
+              path: 'purchases/vendors/:id/email',
+              name: AppRoutes.vendorsEmail,
+              builder: (context, state) => VendorsEmailPage(
+                vendorId: state.pathParameters['id']!,
+              ),
+            ),
+            GoRoute(
+              path: 'purchases/vendors/:id',
+              name: AppRoutes.vendorsDetail,
+              builder: (context, state) => VendorsOverviewPage(
+                vendorId: state.pathParameters['id'],
+              ),
             ),
             GoRoute(
               path: 'purchases/purchase-orders',
@@ -1327,14 +1371,10 @@ final GoRouter appRouter = GoRouter(
                   name: AppRoutes.purchaseOrdersCreate,
                   builder: (context, state) {
                     final initialOrder = state.extra;
-                    final isClone = state.uri.queryParameters['clone'] == 'true';
-                    final cloneFromId = state.uri.queryParameters['clone_from_id'];
                     return PurchaseOrderCreateScreen(
                       initialOrder: initialOrder is PurchaseOrder
                           ? initialOrder
                           : null,
-                      initialOrderId: cloneFromId,
-                      isClone: isClone,
                     );
                   },
                 ),
@@ -1374,11 +1414,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/purchase-receives',
               name: AppRoutes.purchaseReceives,
-              builder: (context, state) => PurchasesPurchaseReceivesListScreen(
-                initialFilter: state.uri.queryParameters['filter'] ??
-                    state.uri.queryParameters['status'],
-                initialSelectedId: state.uri.queryParameters['id'],
-              ),
+              builder: (context, state) =>
+                  const PurchasesPurchaseReceivesListScreen(),
             ),
             GoRoute(
               path: 'purchases/purchase-receives/create',
@@ -1391,11 +1428,9 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/purchase-receives/edit/:id',
               name: AppRoutes.purchaseReceivesEdit,
-              builder: (context, state) =>
-                  PurchasesPurchaseReceivesCreateScreen(
-                    initialReceiveId: state.pathParameters['id'],
-                    initialPoId: state.uri.queryParameters['poId'],
-                  ),
+              builder: (context, state) => PurchasesPurchaseReceivesCreateScreen(
+                initialReceiveId: state.pathParameters['id'],
+              ),
             ),
             GoRoute(
               path: 'purchases/expenses',
@@ -1412,53 +1447,24 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/bills',
               name: AppRoutes.bills,
-              builder: (context, state) => PurchasesBillsListScreen(
-                initialSearchQuery: state.uri.queryParameters['q'],
-                initialFilter:
-                    state.uri.queryParameters['filter'] ??
-                    state.uri.queryParameters['status'],
-              ),
-              routes: [
-                GoRoute(
-                  path: 'create',
-                  name: AppRoutes.billsCreate,
-                  builder: (context, state) => PurchasesBillCreateScreen(
-                    editBillId: state.uri.queryParameters['editId'],
-                    cloneBillId: state.uri.queryParameters['cloneId'],
-                    poId: state.uri.queryParameters['poId'],
-                    receiveId: state.uri.queryParameters['receiveId'],
-                  ),
-                ),
-                GoRoute(
-                  path: ':id',
-                  name: AppRoutes.billsDetail,
-                  builder: (context, state) => PurchasesBillsListScreen(
-                    initialSelectedId: state.pathParameters['id'],
-                    initialSearchQuery: state.uri.queryParameters['q'],
-                    initialFilter:
-                        state.uri.queryParameters['filter'] ??
-                        state.uri.queryParameters['status'],
-                  ),
-                ),
-              ],
+              builder: (context, state) => const PurchasesBillsListScreen(),
+            ),
+            GoRoute(
+              path: 'purchases/bills/create',
+              name: AppRoutes.billsCreate,
+              builder: (context, state) => const PurchasesBillCreateScreen(),
             ),
             GoRoute(
               path: 'purchases/payments-made',
               name: AppRoutes.paymentsMade,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Payments Made'),
-            ),
-            GoRoute(
-              path: 'purchases/payments-made/create',
-              name: AppRoutes.paymentsMadeCreate,
-              builder: (context, state) {
-                final billIds = state.uri.queryParameters['billIds'];
-                return PurchasesPaymentsMadeCreatePage(
-                  billIds: billIds != null && billIds.isNotEmpty
-                      ? billIds.split(',')
-                      : const [],
-                );
-              },
+              builder: (context, state) => const PlaceholderScreen(title: 'Payments Made'),
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  name: AppRoutes.paymentsMadeCreate,
+                  builder: (context, state) => const PurchasesPaymentsMadeCreatePage(billIds: []),
+                ),
+              ],
             ),
             GoRoute(
               path: 'purchases/vendor-credits',
@@ -1469,11 +1475,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/vendor-credits/create',
               name: AppRoutes.vendorCreditsCreate,
-              builder: (context, state) {
-                final vendorCreditId =
-                    state.uri.queryParameters['vendorCreditId'];
-                return VendorCreditsCreatePage(vendorCreditId: vendorCreditId);
-              },
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'New Vendor Credit'),
             ),
             GoRoute(
               path: 'documents',
@@ -1568,8 +1571,8 @@ final GoRouter appRouter = GoRouter(
                   action: 'view',
                 )) {
                   final orgSystemId =
-                      (state.pathParameters['orgSystemId'] ?? '').trim();
-                  if (orgSystemId.isEmpty) return AppRoutes.authLogin;
+                      state.pathParameters['orgSystemId'] ??
+                      _kFallbackRouteSystemId;
                   return '/$orgSystemId/home';
                 }
                 return null;
@@ -1587,8 +1590,8 @@ final GoRouter appRouter = GoRouter(
                       action: 'create',
                     )) {
                       final orgSystemId =
-                          (state.pathParameters['orgSystemId'] ?? '').trim();
-                      if (orgSystemId.isEmpty) return AppRoutes.authLogin;
+                          state.pathParameters['orgSystemId'] ??
+                          _kFallbackRouteSystemId;
                       return '/$orgSystemId/accounts/chart-of-accounts';
                     }
                     return null;
@@ -1613,8 +1616,8 @@ final GoRouter appRouter = GoRouter(
                       action: 'edit',
                     )) {
                       final orgSystemId =
-                          (state.pathParameters['orgSystemId'] ?? '').trim();
-                      if (orgSystemId.isEmpty) return AppRoutes.authLogin;
+                          state.pathParameters['orgSystemId'] ??
+                          _kFallbackRouteSystemId;
                       return '/$orgSystemId/accounts/chart-of-accounts';
                     }
                     return null;
@@ -1691,29 +1694,30 @@ final GoRouter appRouter = GoRouter(
                 ),
               ],
             ),
+            ...buildAccountantStandaloneRoutes(
+              hasStoredModuleAction: _hasStoredModuleAction,
+            ),
+            ...buildStandaloneReportRoutes(),
+
+            // Procurement Module
             GoRoute(
               path: 'procurement/purchase-requests',
               name: AppRoutes.procurementPurchaseRequests,
               builder: (context, state) => const ProcurementPurchaseRequestsListPage(),
               routes: [
                 GoRoute(
-                  path: 'create',
-                  name: AppRoutes.procurementPurchaseRequestsCreate,
-                  builder: (context, state) => const ProcurementPurchaseRequestsCreatePage(),
+                  path: 'requested-items',
+                  name: AppRoutes.procurementRequestedItems,
+                  builder: (context, state) => const ProcurementRequestedItemsPage(),
                 ),
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.procurementPurchaseRequestOverview,
                   builder: (context, state) => ProcurementPurchaseRequestOverviewPage(
-                    id: state.pathParameters['id']!,
+                    id: state.pathParameters['id'] ?? '',
                   ),
                 ),
               ],
-            ),
-            GoRoute(
-              path: 'procurement/requested-items',
-              name: AppRoutes.procurementRequestedItems,
-              builder: (context, state) => const ProcurementRequestedItemsPage(),
             ),
             GoRoute(
               path: 'procurement/approvals',
@@ -1721,18 +1725,14 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) => const ProcurementApprovalsReportPage(),
               routes: [
                 GoRoute(
-                  path: ':id',
+                  path: 'overview',
                   name: AppRoutes.procurementApprovalsOverview,
                   builder: (context, state) => ProcurementApprovalsOverviewPage(
-                    initialRef: state.pathParameters['id'],
+                    initialRef: state.uri.queryParameters['ref'],
                   ),
                 ),
               ],
             ),
-            ...buildAccountantStandaloneRoutes(
-              hasStoredModuleAction: _hasStoredModuleAction,
-            ),
-            ...buildStandaloneReportRoutes(),
           ],
         ),
       ],

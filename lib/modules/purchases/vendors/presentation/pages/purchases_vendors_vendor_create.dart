@@ -9,6 +9,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/modules/sales/services/gstin_lookup_service.dart';
 import 'package:zerpai_erp/modules/sales/models/gstin_lookup_model.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
@@ -25,6 +26,7 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
 import 'package:zerpai_erp/shared/mixins/licence_validation_mixin.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/phone_input_field.dart';
+import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 
 part '../sections/purchases_vendors_builders.dart';
 part '../sections/purchases_vendors_primary_info_section.dart';
@@ -38,8 +40,16 @@ part '../sections/purchases_vendors_helpers.dart';
 part '../sections/purchases_vendors_dialogs.dart';
 
 class PurchasesVendorsVendorCreateScreen extends ConsumerStatefulWidget {
+  /// When provided the screen runs in edit mode, pre-filling fields from the
+  /// existing vendor with this ID.
+  final String? editVendorId;
   final bool isDialog;
-  const PurchasesVendorsVendorCreateScreen({super.key, this.isDialog = false});
+
+  const PurchasesVendorsVendorCreateScreen({
+    super.key,
+    this.editVendorId,
+    this.isDialog = false,
+  });
 
   @override
   ConsumerState<PurchasesVendorsVendorCreateScreen> createState() =>
@@ -48,9 +58,8 @@ class PurchasesVendorsVendorCreateScreen extends ConsumerStatefulWidget {
 
 class _PurchasesVendorsVendorCreateScreenState
     extends ConsumerState<PurchasesVendorsVendorCreateScreen>
-    with
-        TickerProviderStateMixin,
-        LicenceValidationMixin<PurchasesVendorsVendorCreateScreen> {
+    with TickerProviderStateMixin, LicenceValidationMixin<PurchasesVendorsVendorCreateScreen> {
+
   // LicenceValidationMixin: map local names to mixin contract
   @override
   TextEditingController get msmeCtrl => _msmeRegistrationNumberCtrl;
@@ -58,6 +67,8 @@ class _PurchasesVendorsVendorCreateScreenState
   bool get isMsmeRegistered => _isMsmeRegistered;
   late TabController _tabController;
   bool isLoading = false;
+  bool _isInitializing = true;
+  bool get _isEditMode => widget.editVendorId != null;
   final _formKey = GlobalKey<FormState>();
   // ignore: unused_field
   List<String> _phoneCodesList = [];
@@ -130,7 +141,6 @@ class _PurchasesVendorsVendorCreateScreenState
   final List<PlatformFile> _attachedFiles = [];
   final LayerLink _attachedFilesLink = LayerLink();
   OverlayEntry? _attachedFilesOverlayEntry;
-  bool _isUploadHovered = false;
 
   // License Details
   bool isDrugRegistered = false;
@@ -183,7 +193,7 @@ class _PurchasesVendorsVendorCreateScreenState
   String _shippingPhoneCode = '+91';
   String _workPhoneCode = '+91';
   String _mobilePhoneCode = '+91';
-  List<String> _sourceOfSupplyList = [];
+  List<String> _sourceOfSupplyList = _initialSourceOfSupplyOptions;
 
   // Contact Persons
   final List<_ContactPersonRow> contactRows = [];
@@ -203,12 +213,10 @@ class _PurchasesVendorsVendorCreateScreenState
   @override
   void initState() {
     super.initState();
-    _fetchNextVendorNumber();
     _tabController = TabController(length: 8, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) setState(() {});
     });
-    contactRows.add(_ContactPersonRow());
     _refreshDisplayNameOptions();
     _loadPaymentTerms();
     _loadTdsRates();
@@ -216,8 +224,15 @@ class _PurchasesVendorsVendorCreateScreenState
     _loadCountries(); // Load phone codes from DB
     _loadSourceOfSupply(); // Load Indian states for Source of Supply
     _localCurrencyOptions = List.from(defaultCurrencyOptions);
-
     initLicenceValidation();
+
+    if (_isEditMode) {
+      // Load existing vendor data for edit — do NOT fetch a new vendor number
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadVendorForEdit());
+    } else {
+      contactRows.add(_ContactPersonRow());
+      _fetchNextVendorNumber();
+    }
   }
 
   Future<void> _fetchNextVendorNumber() async {
@@ -230,11 +245,7 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error(
-        'Error fetching next vendor number',
-        error: e,
-        module: 'purchases',
-      );
+      AppLogger.error('Error fetching next vendor number', error: e, module: 'purchases');
     }
   }
 
@@ -245,7 +256,9 @@ class _PurchasesVendorsVendorCreateScreenState
       if (mounted) {
         setState(() {
           _paymentTermsList = terms;
-          if (terms.isNotEmpty) {
+          // In edit mode the vendor's saved payment term is authoritative —
+          // don't override it with the Net 30 default.
+          if (terms.isNotEmpty && !_isEditMode) {
             // Set default to Net 30 if available
             final net30 = terms.firstWhere(
               (t) => t['term_name'] == 'Net 30',
@@ -253,14 +266,14 @@ class _PurchasesVendorsVendorCreateScreenState
             );
             _paymentTerms = net30['id'];
           }
+          // In edit mode _loadVendorForEdit owns _isInitializing so the skeleton
+          // stays until the vendor data is populated (no empty-form flash).
+          if (!_isEditMode) _isInitializing = false;
         });
       }
     } catch (e) {
-      AppLogger.error(
-        'Error loading payment terms',
-        error: e,
-        module: 'purchases',
-      );
+      AppLogger.error('Error loading payment terms', error: e, module: 'purchases');
+      if (mounted && !_isEditMode) setState(() => _isInitializing = false);
     }
   }
 
@@ -288,11 +301,7 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error(
-        'Error loading price lists',
-        error: e,
-        module: 'purchases',
-      );
+      AppLogger.error('Error loading price lists', error: e, module: 'purchases');
     }
   }
 
@@ -342,11 +351,7 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error(
-        'Error loading countries/phone codes',
-        error: e,
-        module: 'purchases',
-      );
+      AppLogger.error('Error loading countries/phone codes', error: e, module: 'purchases');
     }
   }
 
@@ -364,11 +369,7 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error(
-        'Error loading source of supply states',
-        error: e,
-        module: 'purchases',
-      );
+      AppLogger.error('Error loading source of supply states', error: e, module: 'purchases');
     }
   }
 
@@ -427,60 +428,202 @@ class _PurchasesVendorsVendorCreateScreenState
     super.dispose();
   }
 
-  String? _validateBeforeSave() {
-    final displayName = _displayNameCtrl.text.trim();
-    final vendorNumber = _vendorNumberCtrl.text.trim();
-    final firstName = _firstNameCtrl.text.trim();
-    final lastName = _lastNameCtrl.text.trim();
-    final companyName = _companyNameCtrl.text.trim();
-    final email = _emailCtrl.text.trim();
-    final hideSourceOfSupply = _shouldHideSourceOfSupply();
-    final hideGstRegistrationFields = _shouldHideGstRegistrationFields();
+  /// Pre-fill all form controllers from the existing vendor when in edit mode.
+  Future<void> _loadVendorForEdit() async {
+    final vendorId = widget.editVendorId;
+    if (vendorId == null) return;
 
-    if (displayName.isEmpty) {
-      return 'Display name is required.';
+    Vendor? vendor;
+    try {
+      // Fetch the FULL vendor from the detail endpoint so addresses, contact
+      // persons and bank accounts are included. The list/cache only carries
+      // top-level fields and would drop those nested sections when editing.
+      vendor = await ref.read(vendorRepositoryProvider).getVendorById(vendorId);
+    } catch (e) {
+      AppLogger.error('Error loading vendor for edit', error: e, module: 'purchases');
     }
 
-    if (vendorNumber.isEmpty) {
-      return 'Vendor number is required.';
+    if (vendor == null || !mounted) {
+      if (mounted) setState(() => _isInitializing = false);
+      return;
     }
 
-    if (companyName.isEmpty && firstName.isEmpty && lastName.isEmpty) {
-      return 'Enter either a company name or a primary contact name.';
-    }
+    _populateFormFromVendor(vendor);
+  }
 
-    if (_gstTreatment == null) {
-      return 'GST treatment is required.';
-    }
+  /// Populate all form fields from a [Vendor] object (used when editing).
+  void _populateFormFromVendor(Vendor vendor) {
+    if (!mounted) return;
+    setState(() {
+      // ── Primary Info ──
+      _vendorNumberCtrl.text = vendor.vendorNumber ?? '';
+      _salutation = vendor.salutation ?? 'Mr.';
+      _firstNameCtrl.text = vendor.firstName ?? '';
+      _lastNameCtrl.text = vendor.lastName ?? '';
+      _companyNameCtrl.text = vendor.companyName ?? '';
+      _emailCtrl.text = vendor.email ?? '';
+      _vendorLanguage = vendor.vendorLanguage ?? 'English';
 
-    if (!hideGstRegistrationFields && _gstinPrefillCtrl.text.trim().isEmpty) {
-      return 'GSTIN / UIN is required for the selected GST treatment.';
-    }
+      // Phone: stored as '<code> <number>'
+      final phoneParts = (vendor.phone ?? '').split(' ');
+      if (phoneParts.length >= 2) {
+        _workPhoneCode = phoneParts.first;
+        _workPhoneCtrl.text = phoneParts.sublist(1).join(' ');
+      } else if (phoneParts.isNotEmpty) {
+        _workPhoneCtrl.text = phoneParts.first;
+      }
+      final mobileParts = (vendor.mobilePhone ?? '').split(' ');
+      if (mobileParts.length >= 2) {
+        _mobilePhoneCode = mobileParts.first;
+        _mobilePhoneCtrl.text = mobileParts.sublist(1).join(' ');
+      } else if (mobileParts.isNotEmpty) {
+        _mobilePhoneCtrl.text = mobileParts.first;
+      }
 
-    if (!hideSourceOfSupply &&
-        (_sourceOfSupply == null || _sourceOfSupply!.trim().isEmpty)) {
-      return 'Source of supply is required.';
-    }
+      // Display name — keep as-is, refresh options around it
+      _displayNameCtrl.text = vendor.displayName;
+      final opts = _generateDisplayNameOptions(
+        _salutation,
+        _firstNameCtrl.text,
+        _lastNameCtrl.text,
+        _companyNameCtrl.text,
+      );
+      _displayNameOptions = opts.contains(vendor.displayName) ? opts : [vendor.displayName, ...opts];
 
-    if (_enablePortal && email.isEmpty) {
-      return 'Email address is required when portal access is enabled.';
-    }
+      // ── Other Details ──
+      _gstTreatment = _gstTreatmentOptions
+          .cast<_GstTreatmentOption?>()
+          .firstWhere(
+            (o) => o!.label == vendor.gstTreatment,
+            orElse: () => null,
+          );
+      _gstinPrefillCtrl.text = vendor.gstin ?? '';
+      _sourceOfSupply = vendor.sourceOfSupply;
+      _panCtrl.text = vendor.pan ?? '';
 
-    return null;
+      // Currency
+      if (vendor.currency != null) {
+        final matched = _localCurrencyOptions
+            .cast<CurrencyOption?>()
+            .firstWhere(
+              (c) => c!.code == vendor.currency,
+              orElse: () => null,
+            );
+        if (matched != null) _currency = matched;
+      }
+
+      _paymentTerms = vendor.paymentTerms;
+      _tdsRateId = vendor.tdsRateId;
+      _priceListId = vendor.priceListId;
+      _enablePortal = vendor.enablePortal ?? false;
+
+      // Additional details
+      _websiteUrlCtrl.text = vendor.website ?? '';
+      _departmentCtrl.text = vendor.department ?? '';
+      _designationCtrl.text = vendor.designation ?? '';
+      _whatsappCtrl.text = vendor.whatsappNumber ?? '';
+      _facebookCtrl.text = vendor.facebookHandle ?? '';
+      _xHandleCtrl.text = vendor.xHandle ?? '';
+      _remarksCtrl.text = vendor.remarks ?? '';
+
+      // ── MSME ──
+      _isMsmeRegistered = vendor.isMsmeRegistered ?? false;
+      _msmeRegistrationType = vendor.msmeRegistrationType;
+      _msmeRegistrationNumberCtrl.text = vendor.msmeRegistrationNumber ?? '';
+
+      // ── License ──
+      isDrugRegistered = vendor.isDrugRegistered ?? false;
+      drugLicenceType = vendor.drugLicenceType;
+      drugLicense20Ctrl.text = vendor.drugLicense20 ?? '';
+      drugLicense21Ctrl.text = vendor.drugLicense21 ?? '';
+      drugLicense20BCtrl.text = vendor.drugLicense20b ?? '';
+      drugLicense21BCtrl.text = vendor.drugLicense21b ?? '';
+      isFssaiRegistered = vendor.isFssaiRegistered ?? false;
+      fssaiCtrl.text = vendor.fssaiNumber ?? '';
+
+      // ── Billing Address ──
+      final billing = vendor.billingAddress;
+      if (billing != null) {
+        _billingAttentionCtrl.text = billing['attention']?.toString() ?? '';
+        _billingStreet1Ctrl.text = billing['street']?.toString() ?? '';
+        _billingStreet2Ctrl.text = billing['place']?.toString() ?? '';
+        _billingCityCtrl.text = billing['city']?.toString() ?? '';
+        _billingState = billing['state']?.toString();
+        _billingPinCtrl.text = billing['zip']?.toString() ?? '';
+        _billingCountry = billing['country']?.toString().isNotEmpty == true
+            ? billing['country']!.toString()
+            : 'India';
+        _billingPhoneCtrl.text = billing['phone']?.toString() ?? '';
+        _billingFaxCtrl.text = billing['fax']?.toString() ?? '';
+      }
+
+      // ── Shipping Address ──
+      final shipping = vendor.shippingAddress;
+      if (shipping != null) {
+        _shippingAttentionCtrl.text = shipping['attention']?.toString() ?? '';
+        _shippingStreet1Ctrl.text = shipping['street']?.toString() ?? '';
+        _shippingStreet2Ctrl.text = shipping['place']?.toString() ?? '';
+        _shippingCityCtrl.text = shipping['city']?.toString() ?? '';
+        _shippingState = shipping['state']?.toString();
+        _shippingPinCtrl.text = shipping['zip']?.toString() ?? '';
+        _shippingCountry = shipping['country']?.toString().isNotEmpty == true
+            ? shipping['country']!.toString()
+            : 'India';
+        _shippingPhoneCtrl.text = shipping['phone']?.toString() ?? '';
+        _shippingFaxCtrl.text = shipping['fax']?.toString() ?? '';
+      }
+
+      // ── Contact Persons ──
+      contactRows.clear();
+      final contacts = vendor.contactPersons ?? [];
+      if (contacts.isEmpty) {
+        contactRows.add(_ContactPersonRow());
+      } else {
+        for (final cp in contacts) {
+          final row = _ContactPersonRow();
+          row.salutation = cp['salutation']?.toString() ?? 'Mr.';
+          row.firstNameCtrl.text = cp['firstName']?.toString() ?? '';
+          row.lastNameCtrl.text = cp['lastName']?.toString() ?? '';
+          row.emailCtrl.text = cp['email']?.toString() ?? '';
+          final wpParts = (cp['workPhone']?.toString() ?? '').split(' ');
+          if (wpParts.length >= 2) {
+            row.workCode = wpParts.first;
+            row.workPhoneCtrl.text = wpParts.sublist(1).join(' ');
+          } else {
+            row.workPhoneCtrl.text = cp['workPhone']?.toString() ?? '';
+          }
+          final mpParts = (cp['mobilePhone']?.toString() ?? '').split(' ');
+          if (mpParts.length >= 2) {
+            row.mobileCode = mpParts.first;
+            row.mobilePhoneCtrl.text = mpParts.sublist(1).join(' ');
+          } else {
+            row.mobilePhoneCtrl.text = cp['mobilePhone']?.toString() ?? '';
+          }
+          contactRows.add(row);
+        }
+      }
+
+      // ── Bank Details ──
+      bankRows.clear();
+      for (final bd in vendor.bankDetails ?? <Map<String, dynamic>>[]) {
+        final row = _BankDetailRow();
+        row.holderNameCtrl.text = bd['holderName']?.toString() ?? '';
+        row.bankNameCtrl.text = bd['bankName']?.toString() ?? '';
+        row.accountNumberCtrl.text = bd['accountNumber']?.toString() ?? '';
+        row.ifscCtrl.text = bd['ifsc']?.toString() ?? '';
+        bankRows.add(row);
+      }
+
+      _isInitializing = false;
+    });
   }
 
   Future<void> _handleSave() async {
     if (_formKey.currentState!.validate()) {
-      final validationMessage = _validateBeforeSave();
-      if (validationMessage != null) {
-        ZerpaiToast.error(context, validationMessage);
-        return;
-      }
-
       setState(() => isLoading = true);
 
       final vendor = Vendor(
-        id: '',
+        id: widget.editVendorId ?? '',
         displayName: _displayNameCtrl.text.trim(),
         vendorNumber: _vendorNumberCtrl.text.trim(),
         salutation: _salutation,
@@ -490,10 +633,10 @@ class _PurchasesVendorsVendorCreateScreenState
         email: _emailCtrl.text.trim(),
         phone: _workPhoneCtrl.text.trim().isEmpty
             ? null
-            : _workPhoneCtrl.text.trim(),
+            : '${_workPhoneCode} ${_workPhoneCtrl.text.trim()}',
         mobilePhone: _mobilePhoneCtrl.text.trim().isEmpty
             ? null
-            : _mobilePhoneCtrl.text.trim(),
+            : '${_mobilePhoneCode} ${_mobilePhoneCtrl.text.trim()}',
         gstTreatment: _gstTreatment?.label,
         gstin: _gstinPrefillCtrl.text.trim(),
         sourceOfSupply: _sourceOfSupply,
@@ -521,8 +664,8 @@ class _PurchasesVendorsVendorCreateScreenState
         enablePortal: _enablePortal,
         billingAddress: {
           'attention': _billingAttentionCtrl.text.trim(),
-          'street1': _billingStreet1Ctrl.text.trim(),
-          'street2': _billingStreet2Ctrl.text.trim(),
+          'street': _billingStreet1Ctrl.text.trim(),
+          'place': _billingStreet2Ctrl.text.trim(),
           'city': _billingCityCtrl.text.trim(),
           'state': _billingState ?? '',
           'zip': _billingPinCtrl.text.trim(),
@@ -530,12 +673,11 @@ class _PurchasesVendorsVendorCreateScreenState
           'phone': _billingPhoneCtrl.text.trim().isEmpty
               ? null
               : '${_billingPhoneCode} ${_billingPhoneCtrl.text.trim()}',
-          'phoneCode': _billingPhoneCode,
         },
         shippingAddress: {
           'attention': _shippingAttentionCtrl.text.trim(),
-          'street1': _shippingStreet1Ctrl.text.trim(),
-          'street2': _shippingStreet2Ctrl.text.trim(),
+          'street': _shippingStreet1Ctrl.text.trim(),
+          'place': _shippingStreet2Ctrl.text.trim(),
           'city': _shippingCityCtrl.text.trim(),
           'state': _shippingState ?? '',
           'zip': _shippingPinCtrl.text.trim(),
@@ -543,7 +685,6 @@ class _PurchasesVendorsVendorCreateScreenState
           'phone': _shippingPhoneCtrl.text.trim().isEmpty
               ? null
               : '${_shippingPhoneCode} ${_shippingPhoneCtrl.text.trim()}',
-          'phoneCode': _shippingPhoneCode,
         },
         contactPersons: contactRows
             .map(
@@ -552,11 +693,9 @@ class _PurchasesVendorsVendorCreateScreenState
                 'firstName': r.firstNameCtrl.text.trim(),
                 'lastName': r.lastNameCtrl.text.trim(),
                 'email': r.emailCtrl.text.trim(),
-                'workCode': r.workCode,
                 'workPhone': r.workPhoneCtrl.text.trim().isEmpty
                     ? null
                     : '${r.workCode} ${r.workPhoneCtrl.text.trim()}',
-                'mobileCode': r.mobileCode,
                 'mobilePhone': r.mobilePhoneCtrl.text.trim().isEmpty
                     ? null
                     : '${r.mobileCode} ${r.mobilePhoneCtrl.text.trim()}',
@@ -576,58 +715,60 @@ class _PurchasesVendorsVendorCreateScreenState
         remarks: _remarksCtrl.text.trim(),
         xHandle: _xHandleCtrl.text.trim(),
         facebookHandle: _facebookCtrl.text.trim(),
-        whatsappNumber: _whatsappCtrl.text.trim().isEmpty
-            ? null
-            : _whatsappCtrl.text.trim(),
+        whatsappNumber: _whatsappCtrl.text.trim(),
       );
 
       try {
-        // 1. Double check for duplicate vendor number before creating
-        final String currentNumber = _vendorNumberCtrl.text.trim();
-        final bool isDuplicate = await LookupsApiService().checkDuplicateNumber(
-          'vendor',
-          currentNumber,
-        );
-
-        if (isDuplicate) {
-          // AUTOMATIC CONCURRENCY HANDLING: Retrieve the next available number silently.
-          final nextFormatted = await LookupsApiService().getNextSequence(
-            'vendor',
+        if (_isEditMode) {
+          // ── UPDATE ──
+          await ref.read(vendorProvider.notifier).updateVendor(
+            widget.editVendorId!,
+            vendor,
           );
-          if (nextFormatted != null) {
-            _vendorNumberCtrl.text = nextFormatted;
-          }
-        }
-
-        // Use the potentially updated number
-        final finalVendorNumber = _vendorNumberCtrl.text.trim();
-        final updatedVendor = vendor.copyWith(vendorNumber: finalVendorNumber);
-
-        // 2. Create the vendor
-        final created = await ref
-            .read(vendorProvider.notifier)
-            .createVendor(updatedVendor);
-
-        if (mounted) {
-          ZerpaiToast.success(context, 'Vendor created successfully');
-
-          // 3. Inform backend to increment sequence
-          try {
-            await LookupsApiService().incrementSequence(
-              'vendor',
-              usedNumber: finalVendorNumber,
-            );
-          } catch (e) {
-            AppLogger.warning(
-              'Failed to increment vendor sequence',
-              error: e,
-              module: 'purchases',
+          if (mounted) {
+            ZerpaiToast.success(context, 'Vendor updated successfully');
+            // Navigate back to the vendor detail / overview page
+            context.go(
+              '${GoRouterState.of(context).pathParameters.containsKey('orgSystemId') ? '/${GoRouterState.of(context).pathParameters['orgSystemId']}' : ''}/purchases/vendors/${widget.editVendorId}',
             );
           }
+        } else {
+          // ── CREATE ──
+          // 1. Double-check for duplicate vendor number before creating
+          final String currentNumber = _vendorNumberCtrl.text.trim();
+          final bool isDuplicate = await LookupsApiService().checkDuplicateNumber(
+            'vendor',
+            currentNumber,
+          );
 
-          if (widget.isDialog) {
-            context.pop(created);
-          } else {
+          if (isDuplicate) {
+            // AUTOMATIC CONCURRENCY HANDLING: Retrieve the next available number silently.
+            final nextFormatted = await LookupsApiService().getNextSequence('vendor');
+            if (nextFormatted != null) {
+              _vendorNumberCtrl.text = nextFormatted;
+            }
+          }
+
+          // Use the potentially updated number
+          final finalVendorNumber = _vendorNumberCtrl.text.trim();
+          final updatedVendor = vendor.copyWith(vendorNumber: finalVendorNumber);
+
+          // 2. Create the vendor
+          await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
+
+          if (mounted) {
+            ZerpaiToast.success(context, 'Vendor created successfully');
+
+            // 3. Inform backend to increment sequence
+            try {
+              await LookupsApiService().incrementSequence(
+                'vendor',
+                usedNumber: finalVendorNumber,
+              );
+            } catch (e) {
+              AppLogger.warning('Failed to increment vendor sequence', error: e, module: 'purchases');
+            }
+
             // 4. RESET FORM & FETCH NEXT NUMBER (Stay on page)
             _resetForm();
             _fetchNextVendorNumber();
@@ -719,90 +860,29 @@ class _PurchasesVendorsVendorCreateScreenState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isDialog) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: Column(
-          children: [
-            // Dialog Header with grey shade + X button
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF9FAFB),
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    'New Vendor',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.x,
-                      size: 20,
-                      color: Color(0xFFEF4444),
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => context.pop(),
-                  ),
-                ],
-              ),
-            ),
-            // Dialog Content (scrollable)
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 24.0,
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 32.0),
-                        child: _buildPrimaryInfo(),
-                      ),
-                      const SizedBox(height: 32),
-                      _buildTabSection(),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Footer
-            _buildFooter(),
-          ],
+    final pageTitle = _isEditMode ? 'Edit Vendor' : 'New Vendor';
+    if (_isInitializing) {
+      return ZerpaiLayout(
+        pageTitle: pageTitle,
+        enableBodyScroll: true,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+          child: FormSkeleton(),
         ),
       );
     }
-
     return ZerpaiLayout(
-      pageTitle: 'New Vendor',
+      pageTitle: pageTitle,
       enableBodyScroll: true,
       footer: _buildFooter(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 32.0),
-                child: _buildPrimaryInfo(),
-              ),
+              _buildPrimaryInfo(),
               const SizedBox(height: 32),
               _buildTabSection(),
             ],
@@ -828,7 +908,7 @@ class _PurchasesVendorsVendorCreateScreenState
             indicatorColor: const Color(0xFF2563EB),
             indicatorWeight: 2,
             indicatorSize: TabBarIndicatorSize.label,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 28),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 16),
             labelStyle: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -851,35 +931,26 @@ class _PurchasesVendorsVendorCreateScreenState
   }
 
   Widget _buildTabContent(int index) {
-    Widget content;
     switch (index) {
       case 0:
-        content = _buildOtherDetails();
-        break;
+        return _buildOtherDetails();
       case 1:
-        content = _buildLicenseSection();
-        break;
+        return _buildLicenseSection();
       case 2:
-        content = _buildAddressSection();
-        break;
+        return _buildAddressSection();
       case 3:
         return _buildContactPersons();
       case 4:
-        content = _buildBankDetails();
-        break;
+        return _buildBankDetails();
       case 5:
-        content = _buildCustomFields();
-        break;
+        return _buildCustomFields();
       case 6:
-        content = _buildReportingTags();
-        break;
+        return _buildReportingTags();
       case 7:
-        content = _buildRemarks();
-        break;
+        return _buildRemarks();
       default:
-        content = const SizedBox.shrink();
+        return const SizedBox.shrink();
     }
-    return Padding(padding: const EdgeInsets.only(left: 32.0), child: content);
   }
 
   Widget _buildFooter() {
@@ -909,12 +980,20 @@ class _PurchasesVendorsVendorCreateScreenState
                       color: Colors.white,
                     ),
                   )
-                : const Text('Save', style: TextStyle(color: Colors.white)),
+                : Text(
+                    _isEditMode ? 'Update' : 'Save',
+                    style: const TextStyle(color: Colors.white),
+                  ),
           ),
           const SizedBox(width: 12),
           OutlinedButton(
             onPressed: () {
-              if (context.canPop()) {
+              if (_isEditMode && widget.editVendorId != null) {
+                // Go back to the vendor detail page
+                final orgId = GoRouterState.of(context).pathParameters['orgSystemId'];
+                final prefix = orgId != null ? '/$orgId' : '';
+                context.go('$prefix/purchases/vendors/${widget.editVendorId}');
+              } else if (context.canPop()) {
                 context.pop();
               } else {
                 context.go(AppRoutes.purchasesVendors);
@@ -1016,3 +1095,43 @@ const List<_GstTreatmentOption> _gstTreatmentOptions = [
         'business units in a Special Economic Zone (SEZ)',
   ),
 ];
+
+const List<String> _initialSourceOfSupplyOptions = [
+  '[AN] - Andaman and Nicobar Islands',
+  '[AD] - Andhra Pradesh',
+  '[AR] - Arunachal Pradesh',
+  '[AS] - Assam',
+  '[BR] - Bihar',
+  '[CH] - Chandigarh',
+  '[CG] - Chhattisgarh',
+  '[DN] - Dadra and Nagar Haveli and Daman and Diu',
+  '[DL] - Delhi',
+  '[GA] - Goa',
+  '[GJ] - Gujarat',
+  '[HR] - Haryana',
+  '[HP] - Himachal Pradesh',
+  '[JK] - Jammu and Kashmir',
+  '[JH] - Jharkhand',
+  '[KA] - Karnataka',
+  '[KL] - Kerala',
+  '[LA] - Ladakh',
+  '[LD] - Lakshadweep',
+  '[MP] - Madhya Pradesh',
+  '[MH] - Maharashtra',
+  '[MN] - Manipur',
+  '[ML] - Meghalaya',
+  '[MZ] - Mizoram',
+  '[NL] - Nagaland',
+  '[OD] - Odisha',
+  '[PY] - Puducherry',
+  '[PB] - Punjab',
+  '[RJ] - Rajasthan',
+  '[SK] - Sikkim',
+  '[TN] - Tamil Nadu',
+  '[TS] - Telangana',
+  '[TR] - Tripura',
+  '[UP] - Uttar Pradesh',
+  '[UK] - Uttarakhand',
+  '[WB] - West Bengal',
+];
+

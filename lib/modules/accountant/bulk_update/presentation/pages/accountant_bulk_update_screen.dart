@@ -796,7 +796,3 @@ class _FilterTransactionsDialogState
   }
 }
 
-// TODO: Opening Balances (P0) - Priority Implementation
-// TODO: Advanced Reporting - Relocate to Reports module
-
-

@@ -39,7 +39,7 @@ import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_it
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
-import 'package:zerpai_erp/modules/sales/payments_received/presentation/pages/sales_payment_create.dart';
+import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/sales_payment_create.dart';
 
 // ─────────────────────────────────────────────────
 //  Payment Terms Provider
@@ -6036,10 +6036,3 @@ class _InvoiceBulkUpdateDialogState extends State<_InvoiceBulkUpdateDialog> {
     );
   }
 }
-
-
-
-
-
-
-

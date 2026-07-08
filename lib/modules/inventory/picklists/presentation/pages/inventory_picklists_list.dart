@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as import_web;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +6,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import 'dart:convert';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:dio/dio.dart';
+import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
@@ -16,15 +20,15 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
 //
 import '../../models/inventory_picklist_model.dart';
 import '../../providers/inventory_picklists_provider.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import '../../../packages/presentation/inventory_packages_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../shared/widgets/tables/column_customizer.dart';
-import '../../../../../shared/widgets/tables/table_more_menu.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import '../../../../../shared/models/column_config.dart';
 import '../../../../../shared/widgets/tables/table_header_menu.dart';
@@ -2082,102 +2086,366 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
     String label, {
     VoidCallback? onPressed,
     bool hasDropdown = false,
+    Color? color,
   }) {
-    return InkWell(
-      onTap: onPressed,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: AppTheme.textSecondary),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w500,
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isHovered ? Colors.white : Colors.transparent,
+                border: Border.all(
+                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: color ?? AppTheme.textPrimary),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: AppTheme.bodyText.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: color,
+                    ),
+                  ),
+                  if (hasDropdown) ...[
+                    const SizedBox(width: 4),
+                    Icon(LucideIcons.chevronDown, size: 12, color: color ?? AppTheme.textPrimary),
+                  ],
+                ],
               ),
             ),
-            if (hasDropdown) ...[
-              const SizedBox(width: 6),
-              const Icon(
-                LucideIcons.chevronDown,
-                size: 14,
-                color: AppTheme.textSecondary,
-              ),
-            ],
-          ],
-        ),
+          ),
+        );
+      },
+    );
+  }
+
+  MenuStyle _menuStyle() {
+    return MenuStyle(
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
+      elevation: const WidgetStatePropertyAll(8),
+      backgroundColor: const WidgetStatePropertyAll(Colors.white),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
     );
   }
 
   Widget _buildPdfPrintDropdown(BuildContext context) {
     final p = ref.watch(picklistByIdProvider(widget.id)).asData?.value;
+    final orgSettings = ref.read(orgSettingsProvider).asData?.value;
+    if (p == null) return const SizedBox.shrink();
 
-    return PopupMenuButton<String>(
-      offset: const Offset(0, 32),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      elevation: 4,
-      onSelected: (value) {
-        if (value == 'pdf') {
-          // Trigger PDF download logic
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Downloading PDF for ${p?.picklistNumber ?? 'Picklist'}...',
-              ),
-              backgroundColor: AppTheme.successGreen,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-
-          try {
-            // Direct download trigger
-            final baseUrl = ref.read(apiClientProvider).dio.options.baseUrl;
-            final downloadUrl = '${baseUrl}picklists/${p?.id}/export/pdf';
-
-            final anchor =
-                import_web.document.createElement('a')
-                    as import_web.HTMLAnchorElement;
-            anchor.href = downloadUrl;
-            anchor.download = 'Picklist_${p?.picklistNumber ?? "doc"}.pdf';
-            anchor.target = '_blank';
-            anchor.click();
-          } catch (e) {
-            debugPrint('Download error: $e');
-            // Fallback to print if download fails
-            import_web.window.print();
-          }
-        } else if (value == 'print') {
-          // Trigger Print logic
-          try {
-            import_web.window.print();
-          } catch (e) {
-            debugPrint('Print error: $e');
-          }
-        }
-      },
-      itemBuilder: (context) => [
-        _buildPopupItem(
-          value: 'pdf',
-          icon: LucideIcons.fileText,
-          label: 'Export as PDF',
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      style: _menuStyle(),
+      menuChildren: [
+        MenuItemButton(
+          onPressed: () async {
+            final bytes = await _generatePicklistPdf(p, orgSettings);
+            await Printing.sharePdf(
+              bytes: bytes,
+              filename: 'Picklist_${p.picklistNumber}.pdf',
+            );
+          },
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          child: const Text('Download PDF'),
         ),
-        _buildPopupItem(
-          value: 'print',
-          icon: LucideIcons.printer,
-          label: 'Print',
+        MenuItemButton(
+          onPressed: () async {
+            final bytes = await _generatePicklistPdf(p, orgSettings);
+            await Printing.layoutPdf(
+              onLayout: (_) async => bytes,
+              name: p.picklistNumber,
+            );
+          },
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          child: const Text('Print'),
         ),
       ],
-      child: _buildToolbarButton(
-        LucideIcons.fileText,
+      builder: (context, controller, _) => _buildToolbarButton(
+        LucideIcons.printer,
         'PDF/Print',
+        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
         hasDropdown: true,
       ),
     );
+  }
+
+  Future<Uint8List> _generatePicklistPdf(Picklist picklist, OrgSettings? org) async {
+    final doc = pw.Document();
+    
+    // Attempt to load company logo
+    pw.MemoryImage? logoImage;
+    if (org?.logoUrl != null && org!.logoUrl!.trim().isNotEmpty) {
+      try {
+        final res = await Dio().get<List<int>>(
+          org.logoUrl!,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (res.data != null) {
+          logoImage = pw.MemoryImage(Uint8List.fromList(res.data!));
+        }
+      } catch (_) {}
+    }
+
+    final dateStr = picklist.date != null
+        ? DateFormat('dd-MM-yyyy').format(picklist.date!)
+        : '-';
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        build: (pw.Context ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      if (logoImage != null)
+                        pw.Container(
+                          width: 130,
+                          height: 56,
+                          padding: const pw.EdgeInsets.all(6),
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(color: PdfColors.grey300),
+                          ),
+                          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                        )
+                      else
+                        pw.Container(
+                          width: 130,
+                          height: 56,
+                          color: const PdfColor.fromInt(0xFF101820),
+                          child: pw.Center(
+                            child: pw.Text('LOGO',
+                                style: pw.TextStyle(color: PdfColors.white, fontSize: 12)),
+                          ),
+                        ),
+                      pw.SizedBox(height: 10),
+                      pw.Text(
+                        org?.name.trim().toUpperCase() ?? 'YOUR COMPANY',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      if (org?.paymentStubAddress?.trim().isNotEmpty == true)
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(top: 3),
+                          child: pw.Text(
+                            _formatAddress(org!.paymentStubAddress!.trim()),
+                            style: const pw.TextStyle(fontSize: 9, lineSpacing: 2),
+                          ),
+                        ),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'PICKLIST',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 28,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        'Picklist# ${picklist.picklistNumber}',
+                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 32),
+              // Info Row
+              pw.Row(
+                children: [
+                  _pwInfoCell('Picklist Date', dateStr),
+                  _pwInfoCell('Status', picklist.status.replaceAll('_', ' ')),
+                  _pwInfoCell('Location', picklist.location ?? '-'),
+                  _pwInfoCell('Assignee', picklist.assignee ?? 'Unassigned'),
+                  _pwInfoCell(
+                    'TOTAL QTY',
+                    picklist.items
+                        .fold(0.0, (sum, item) => sum + item.qtyToPick)
+                        .toStringAsFixed(2),
+                  ),
+                ],
+              ),
+              pw.Divider(color: PdfColors.grey300, height: 24),
+              pw.SizedBox(height: 12),
+              // Items Table
+              pw.Table(
+                columnWidths: {
+                  0: pw.FixedColumnWidth(30),
+                  1: pw.FlexColumnWidth(4),
+                  2: pw.FlexColumnWidth(2),
+                  3: pw.FlexColumnWidth(2),
+                  4: pw.FlexColumnWidth(2),
+                  5: pw.FlexColumnWidth(2),
+                  6: pw.FlexColumnWidth(2),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                        color: PdfColor.fromInt(0xFF1F2937)),
+                    children: [
+                      _pwHeaderCell('#'),
+                      _pwHeaderCell('ITEM & DESCRIPTION'),
+                      _pwHeaderCell('ORDER #'),
+                      _pwHeaderCell('STATUS'),
+                      _pwHeaderCell('QTY TO PICK', align: pw.Alignment.centerRight),
+                      _pwHeaderCell('QTY PICKED', align: pw.Alignment.centerRight),
+                      _pwHeaderCell('QTY REMAINING', align: pw.Alignment.centerRight),
+                    ],
+                  ),
+                  ...picklist.items.asMap().entries.map((e) {
+                    final item = e.value;
+                    return pw.TableRow(
+                      decoration: pw.BoxDecoration(
+                        color: e.key.isEven ? PdfColors.white : const PdfColor.fromInt(0xFFF9FAFB),
+                        border: const pw.Border(
+                          bottom: pw.BorderSide(color: PdfColors.grey200),
+                        ),
+                      ),
+                      children: [
+                        _pwDataCell('${e.key + 1}'),
+                        _pwDataCell(item.productName ?? '-'),
+                        _pwDataCell(item.salesOrderNumber ?? '-'),
+                        _pwDataCell(item.itemStatus),
+                        _pwDataCell(item.qtyToPick.toStringAsFixed(2), align: pw.Alignment.centerRight),
+                        _pwDataCell(item.qtyPicked.toStringAsFixed(2), align: pw.Alignment.centerRight),
+                        _pwDataCell((item.qtyToPick - item.qtyPicked).toStringAsFixed(2), align: pw.Alignment.centerRight),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return doc.save();
+  }
+
+  pw.Widget _pwInfoCell(String label, String value) {
+    return pw.Expanded(
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(label,
+              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+          pw.SizedBox(height: 3),
+          pw.Text(value,
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _pwHeaderCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: pw.Align(
+        alignment: align,
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 8,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _pwDataCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: pw.Align(
+        alignment: align,
+        child: pw.Text(
+          text,
+          style: const pw.TextStyle(fontSize: 8),
+        ),
+      ),
+    );
+  }
+
+  String _formatAddress(String address) {
+    if (address.isEmpty) return address;
+
+    if (address.trim().startsWith('{')) {
+      try {
+        final data = json.decode(address);
+        if (data is Map) {
+          final List<String> parts = [];
+
+          if (data['attention'] != null &&
+              data['attention'].toString().isNotEmpty) {
+            parts.add(data['attention'].toString());
+          }
+          if (data['street1'] != null &&
+              data['street1'].toString().isNotEmpty) {
+            parts.add(data['street1'].toString());
+          }
+          if (data['street2'] != null &&
+              data['street2'].toString().isNotEmpty) {
+            parts.add(data['street2'].toString());
+          }
+
+          final cityStateZip =
+              [
+                    data['city'],
+                    data['state_name'] ?? data['state'],
+                    data['pincode'] ?? data['zip_code'],
+                  ]
+                  .where((e) => e != null && e.toString().trim().isNotEmpty)
+                  .join(', ');
+
+          if (cityStateZip.isNotEmpty) {
+            parts.add(cityStateZip);
+          }
+          if (data['country'] != null &&
+              data['country'].toString().isNotEmpty) {
+            parts.add(data['country'].toString());
+          }
+          if (data['phone'] != null &&
+              data['phone'].toString().isNotEmpty) {
+            parts.add('Phone: ${data['phone']}');
+          }
+
+          return parts.join('\n');
+        }
+      } catch (_) {}
+    }
+    return address;
   }
 
   Widget _buildToggleRow() {
@@ -2525,35 +2793,39 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
     final soCount = uniqueSOs.length;
 
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
         children: [
           InkWell(
             onTap: () =>
                 setState(() => _isAssociatedExpanded = !_isAssociatedExpanded),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Container(
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
               child: Row(
                 children: [
-                  Text(
-                    'Associated sales orders  $soCount',
-                    style: TextStyle(
-                      color: AppTheme.primaryBlue,
-                      fontSize: 13,
-                      fontWeight: _isAssociatedExpanded
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
+                  _buildAssociatedTabOption(
+                    'Associated sales orders',
+                    soCount,
+                    true,
+                    () {},
                   ),
                   const Spacer(),
-                  Icon(
-                    _isAssociatedExpanded
-                        ? LucideIcons.chevronDown
-                        : LucideIcons.chevronRight,
-                    size: 16,
-                    color: AppTheme.textSecondary,
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Icon(
+                      _isAssociatedExpanded
+                          ? LucideIcons.chevronDown
+                          : LucideIcons.chevronRight,
+                      size: 16,
+                      color: const Color(0xFF6B7280),
+                    ),
                   ),
                 ],
               ),
@@ -2561,134 +2833,204 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
           ),
           if (_isAssociatedExpanded)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               color: Colors.white,
               child: soCount == 0
-                  ? const Text(
-                      'No associated sales orders',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        // Header
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: AppTheme.borderColor),
-                            ),
-                          ),
-                          child: const Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Date',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: Text(
-                                  'Sales Order#',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Status',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: Text(
-                                  'Shipment Date',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Rows
-                        ...uniqueSOs.entries.map((e) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: AppTheme.borderColor),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    p.date != null
-                                        ? DateFormat(
-                                            'dd-MM-yyyy',
-                                          ).format(p.date!)
-                                        : '23-04-2026',
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    e.value,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.primaryBlue,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    'CONFIRMED',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.primaryBlue,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                const Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    '',
-                                    style: TextStyle(fontSize: 13),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
+                  ? _buildEmptyState('No associated sales orders')
+                  : _buildAssociatedTable(p, uniqueSOs),
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAssociatedTabOption(
+    String label,
+    int count,
+    bool isActive,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.only(
+          top: 12,
+          bottom: 10,
+          left: 16,
+          right: 16,
+        ),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isActive ? const Color(0xFF0088FF) : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive
+                    ? const Color(0xFF111827)
+                    : const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF0088FF),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      alignment: Alignment.center,
+      child: Text(
+        message,
+        style: const TextStyle(
+          fontSize: 13,
+          color: Color(0xFF6B7280),
+          fontStyle: FontStyle.italic,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssociatedTable(Picklist p, Map<String, String> uniqueSOs) {
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+    return Column(
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: const Color(0xFFF9FAFB),
+          child: Row(
+            children: const [
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Sales Order#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Shipment Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Rows
+        ...uniqueSOs.entries.map((e) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Color(0xFFF3F4F6)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    p.date != null
+                        ? DateFormat('dd-MM-yyyy').format(p.date!)
+                        : '23-04-2026',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: InkWell(
+                    onTap: () => context.go(
+                      '/$orgId/sales/orders/${e.key}',
+                    ),
+                    child: Text(
+                      e.value,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'CONFIRMED',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.primaryBlue,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  flex: 3,
+                  child: Text(
+                    '',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 
@@ -2733,7 +3075,7 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
             child: Row(
               children: [
                 _buildTableHeaderCell('Items', flex: 4),
-                _buildTableHeaderCell('Order#', flex: 2),
+                _buildTableHeaderCell('Sales Order#', flex: 2),
                 _buildTableHeaderCell('Quantity to pick', flex: 2),
                 _buildTableHeaderCell('Quantity Picked', flex: 2),
                 _buildTableHeaderCell('Yet To Pick', flex: 2),
@@ -2787,14 +3129,32 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    item.productName ?? 'Unknown Item',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.primaryBlue,
-                                      fontWeight: FontWeight.w500,
+                                  Builder(
+                                    builder: (innerContext) => InkWell(
+                                      onTap: () {
+                                        if (item.productId != null && item.productId!.isNotEmpty) {
+                                          POItemDetailsSidebar.show(
+                                            innerContext,
+                                            PurchaseOrderItem(
+                                              productId: item.productId!,
+                                              productName: item.productName,
+                                              quantity: item.qtyToPick,
+                                              rate: 0.0,
+                                              amount: 0.0,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: Text(
+                                        item.productName ?? 'Unknown Item',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.primaryBlue,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
@@ -2803,10 +3163,31 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                         ),
                       ),
                     ),
-                    _buildTableCell(
-                      item.salesOrderNumber ?? '-',
+                    Expanded(
                       flex: 2,
-                      isBlue: item.salesOrderNumber != null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: InkWell(
+                          onTap: () {
+                            if (item.salesOrderId != null) {
+                              final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+                              context.go('/$orgId/sales/orders/${item.salesOrderId}');
+                            }
+                          },
+                          child: Text(
+                            item.salesOrderNumber ?? '-',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: item.salesOrderId != null
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.textPrimary,
+                              fontWeight: item.salesOrderId != null
+                                  ? FontWeight.w500
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                     _buildTableCell('${item.qtyToPick.toInt()}\npcs', flex: 2),
                     _buildTableCell(

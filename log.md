@@ -3852,3 +3852,184 @@ Cleaned up the header and items row UI on the New Invoice screen, updated the sa
 - None.
 
 Timestamp of Log Update: July 3, 2026 - 3:30 PM (IST)
+
+
+## 274. Unified Sales Payment Create Screen and Compilation Error Resolution (July 7, 2026)
+
+### Summary
+Successfully unified the two separate customer payment creation forms (`createcustomeradvance.dart` and `createinvoicepayment.dart`) into a single high-performance screen (`sales_payment_create.dart`), resolved routing compilation errors in `app_router.dart`, and corrected imports for newly renamed composite items presentation modules.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/payment_recieved/presentation/sales_payment_create.dart`:
+  - Merged and unified the invoice payment allocation flow and customer advance payment flow under a single tabbed controller.
+  - Implemented conditional `showLayout`, `onCancel`, and `onSaveSuccess` parameter overrides in parent layout scaffolding to support inline embedding inside transaction sheets and drawers.
+  - Repaired child widget scaffold return layout structures (e.g., `_AmountField`, `_DatePickerField`, `_AddPanPopoverContent`) that were corrupted by global regex match replacements.
+  - Converted deprecated `AppTheme.primaryGreen` colors to the approved `AppTheme.successGreen` palette keys.
+- `lib/app/routing/app_router.dart`:
+  - Fixed composite items route definitions by importing the newly-renamed `composite_items_create.dart` and `composite_items_overview.dart` files.
+  - Mapped route configurations to point to `CompositeItemsCreatePage` and `CompositeItemsOverview` classes instead of outdated non-existent screen names.
+
+Timestamp of Log Update: July 7, 2026 - 12:45 PM (IST)
+
+
+## 275. Customer/Vendor Sidebar Redirects, Sales Order Status Columns, Invoices Routing & PDF/Print Action Styles (July 7, 2026)
+
+### Summary
+Corrected customer and vendor drawer detail redirects, corrected Sales Order status column indicator colors and items calculation query, mapped sales invoices router paths to the overview workspace, implemented client-side PDF document generation for picklists, and formatted PDF/Print dropdown actions to match purchase orders dropdown layout style.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart`:
+  - Corrected status circle color mappings passed to `_buildStatusCircle` under `_buildCell` to match specifications: Invoiced -> Green, Shipped -> Red, Picked -> Blue, Packed -> Orange.
+  - Added query fetch to the `sales_order_items` table under `_fetchStatusSummaries` to dynamically compute correct total ordered quantities per order since `order.items` is null in list view response payloads.
+- `lib/app/routing/app_router.dart`:
+  - Replaced the temporary placeholder screen for `sales/invoices` and `sales/invoices/:id` paths with `SalesInvoiceOverviewScreen` to wired the invoices master-detail split screen.
+- `lib/shared/widgets/inputs/customer_sidebar.dart`:
+  - Mapped external link detail icons to resolve organisation ID and navigate directly to customer overview page using absolute path routing.
+- `lib/shared/widgets/inputs/vendor_sidebar.dart`:
+  - Configured external link detail icons to resolve organisation ID and navigate directly to vendor overview page.
+- `lib/modules/inventory/packages/presentation/pages/inventory_packages_list.dart`:
+  - Updated detail panel actions to use the custom MouseRegion Zoho-style buttons.
+  - Formatted the PDF/Print dropdown action trigger and children options ("Download PDF" and "Print") to match purchase orders dropdown layout.
+- `lib/modules/inventory/picklists/presentation/pages/inventory_picklists_list.dart`:
+  - Added client-side PDF document generation `_generatePicklistPdf` to generate A4 documents with company info, assignee, items table, and statuses.
+  - Replaced detail panel actions toolbar buttons with custom MouseRegion Zoho-style buttons separated by vertical dividers.
+  - Updated PDF/Print dropdown to call PDF generation and layout/download PDF options.
+- `lib/modules/inventory/shipments/presentation/pages/inventory_shipments_list.dart`:
+  - Replaced action buttons and detail panel layout spacing with custom MouseRegion Zoho-style buttons and vertical dividers.
+  - Updated PDF/Print and Mark as Delivered dropdowns to align trigger styling and options.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 7, 2026 - 3:00 PM (IST)
+
+
+## 276. Shipment Items Loading Query Fix (July 7, 2026)
+
+### Summary
+Resolved the empty shipment items table issue by adding nested select configuration parameters to retrieve package items and product records associated with shipment packages.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/inventory/shipments/presentation/pages/inventory_shipments_list.dart`:
+  - Updated Supabase query select query under `shipmentsProvider` to fetch `inventory_package_items(quantity, products(product_name))` inside the nested `inventory_packages` selector. This loads items and their corresponding names/quantities, correcting the empty table display.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 7, 2026 - 5:00 PM (IST)
+
+
+## 277. Picklist Creation Dialog Filters Polish (July 8, 2026)
+
+### Summary
+Improved the picklist creation "Add Items" dialog filters by removing the redundant "Search" button (since selecting values triggers automatic live refetches) and dynamically styling the "Filter" toggle button to show highlighted blue styling when the filters are collapsed/vanished.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/inventory/picklists/presentation/pages/inventory_picklists_create.dart`:
+  - Removed the `ElevatedButton` for "Search" and the associated preceding spacer inside `_buildFilterSection()` to keep the layout compact and clean.
+  - Updated the toggle "Filter" button inside `_buildDialogHeader()` to check `!_showFilters` state and dynamically apply `Colors.blue.shade600` styling to its border, text, and icon when the filter panel is collapsed.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 8, 2026 - 8:45 AM (IST)
+
+
+## 278. Refactor and Consolidate Item Quick Edit Dialog (July 8, 2026)
+
+### Summary
+Consolidated the two duplicate `sales_item_quick_edit_dialog.dart` files into a single reusable shared widget `item_quick_edit_dialog.dart` located in the `shared/widgets/dialogs/` directory. Renamed the class to `ItemQuickEditDialog` and updated all occurrences across the sales and purchases creation screens. Created compatibility shims at the old locations.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/shared/widgets/dialogs/item_quick_edit_dialog.dart`:
+  - [NEW] Created the consolidated file with the more robust implementation (containing proper type casting for categories lists and modern `Radio` buttons).
+  - Renamed the widget class to `ItemQuickEditDialog` and its state class to `_ItemQuickEditDialogState`.
+- `lib/modules/sales/sales_orders/presentation/widgets/sales_item_quick_edit_dialog.dart`:
+  - Overwrote with a library compatibility shim exporting `item_quick_edit_dialog.dart` and maintaining a deprecated `typedef SalesItemQuickEditDialog = ItemQuickEditDialog`.
+- `lib/modules/sales/credit_note/presentation/pages/sales_item_quick_edit_dialog.dart`:
+  - Overwrote with a library compatibility shim exporting `item_quick_edit_dialog.dart` and maintaining a deprecated `typedef SalesItemQuickEditDialog = ItemQuickEditDialog`.
+- Updated imports and class instantiation calls to point to the consolidated shared widget in:
+  - `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`
+  - `lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`
+  - `lib/modules/sales/credit_note/presentation/pages/credit_note_create_page.dart`
+  - `lib/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_create.dart`
+  - `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`
+  - `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 8, 2026 - 9:30 AM (IST)
+
+
+## 279. Clean Up Legacy Shim Files for Item Quick Edit Dialog (July 8, 2026)
+
+### Summary
+Completely deleted the legacy compatibility shims for `sales_item_quick_edit_dialog.dart` after verifying import-zero state across the codebase.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/sales_orders/presentation/widgets/sales_item_quick_edit_dialog.dart`:
+  - [DELETE] Deleted this compatibility shim file.
+- `lib/modules/sales/credit_note/presentation/pages/sales_item_quick_edit_dialog.dart`:
+  - [DELETE] Deleted this compatibility shim file.
+- `lib/modules/sales/credit_note/presentation/sales_item_quick_edit_dialog.dart`:
+  - [DELETE] Deleted this compatibility export shim file.
+- `lib/shared/widgets/dialogs/bulk_items_dialog.dart`:
+  - Updated a commented-out import reference to point to `item_quick_edit_dialog.dart`.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 8, 2026 - 9:45 AM (IST)
+
+
+## 280. Formulation Section Pack Sizes Type Refinement (July 8, 2026)
+
+### Summary
+Fixed a runtime `TypeError` in `FormulationSection` where string elements inside the dynamic `packSizeOptions` list triggered a subtype error during Map key dereferencing (`pack['id']`). Cleaned up warning items in `item_quick_edit_dialog.dart`.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/items/items/presentation/sections/formulation_section.dart`:
+  - Updated the item mapping logic under `_packStyleDropdown()` to perform safe type introspection (distinguishing between nullable, String, Map, and custom model inputs) before retrieving unit pack names, eliminating `TypeError: "id": type 'String' is not a subtype of type 'int'`.
+- `lib/shared/widgets/dialogs/item_quick_edit_dialog.dart`:
+  - Fixed dead code / non-nullable warnings inside both Goods/Service unit dropdown `displayStringForValue` callbacks by returning `id` directly.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 8, 2026 - 9:55 AM (IST)
+
+
+## 281. Replace Legacy QuickNewItemDialog with ItemQuickEditDialog (July 8, 2026)
+
+### Summary
+Replaced all occurrences of `QuickEditItemDialog` and `QuickNewItemDialog` in `composite_items_create.dart` with the new reusable `ItemQuickEditDialog`. Completely deleted `quick_new_item_dialog.dart` as it is no longer referenced anywhere in the codebase.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/items/composite_items/presentation/composite_items_create.dart`:
+  - Replaced the import of `quick_new_item_dialog.dart` with `item_quick_edit_dialog.dart`.
+  - Updated `_showEditAssociateItemDialog` to fetch the matched product from the global products state and display `ItemQuickEditDialog`.
+  - Updated both settings dropdown action callbacks (for goods and services) to present `ItemQuickEditDialog` initialized with a new template `Item`.
+- `lib/shared/widgets/dialogs/quick_new_item_dialog.dart`:
+  - [DELETE] Deleted this file entirely.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 8, 2026 - 10:00 AM (IST)
