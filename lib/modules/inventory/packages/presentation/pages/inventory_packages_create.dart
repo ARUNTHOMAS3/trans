@@ -3175,6 +3175,7 @@ class _InventoryPackagesCreateScreenState
                   decoration: const BoxDecoration(
                     border: Border(bottom: BorderSide(color: _borderCol)),
                   ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -3236,7 +3237,10 @@ class _InventoryPackagesCreateScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          SizedBox(width: 80, child: qtyInput),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: SizedBox(width: 80, child: qtyInput),
+          ),
           const SizedBox(height: 12),
           Text(
             '$currentView:',

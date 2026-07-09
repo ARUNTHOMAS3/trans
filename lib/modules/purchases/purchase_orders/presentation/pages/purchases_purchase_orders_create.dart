@@ -2302,7 +2302,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               SizedBox(
                                 width: 240,
                                 child: FormDropdown<String>(
-                                  height: 36,
+                                  height: 32,
                                   value: poState.warehouseId,
                                   textStyle: TextStyle(
                                     fontSize: 13,
@@ -2355,7 +2355,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 SizedBox(
                                   width: 180,
                                   child: FormDropdown<String>(
-                                    height: 36,
+                                    height: 32,
                                     itemHeight: 44,
                                     value: poState.taxType == 'inclusive'
                                         ? 'Tax Inclusive'
@@ -2423,7 +2423,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               SizedBox(
                                 width: 220,
                                 child: FormDropdown<String>(
-                                  height: 36,
+                                  height: 32,
                                   value: poState.discountLevel,
                                   textStyle: const TextStyle(
                                     fontSize: 13,
@@ -2477,7 +2477,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     },
                                     onExit: (_) => _hideValueTooltip(),
                                     child: FormDropdown<PriceList>(
-                                      height: 36,
+                                      height: 32,
                                       hint: 'Select Price List',
                                       value: activePriceLists
                                           .where((pl) => pl.id == _selectedPriceListId)
@@ -3678,8 +3678,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 child: SizedBox(
                   width: 320,
                   child: FormDropdown<String>(
-                    height: 36,
-                    value:
+                                    height: 32,
+                                    value:
                         vendor.sourceOfSupply != null &&
                             vendor.sourceOfSupply!.isNotEmpty
                         ? vendor.sourceOfSupply!
@@ -3712,7 +3712,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 child: SizedBox(
                   width: 320,
                   child: FormDropdown<String>(
-                    height: 36,
+                    height: 32,
                     value: poState.destinationOfSupply.isNotEmpty
                         ? poState.destinationOfSupply
                         : '[KL] - Kerala',
@@ -4636,32 +4636,36 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       children: [
         // Editable bold name field
         _HoverableField(
-          builder: (isHovered) => TextFormField(
-            controller: _deliveryNameCtrl,
-            onChanged: (v) => notifier.updateField(deliveryAddressName: v),
-            style: const TextStyle(
-              fontSize: 13,
-              color: _textPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 9,
+          builder: (isHovered) => SizedBox(
+            height: 32,
+            child: TextFormField(
+              controller: _deliveryNameCtrl,
+              onChanged: (v) => notifier.updateField(deliveryAddressName: v),
+              textAlignVertical: TextAlignVertical.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _textPrimary,
+                fontWeight: FontWeight.bold,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(3),
-                borderSide: BorderSide(
-                  color: isHovered ? _linkBlue : _fieldBorder,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 9,
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(3),
+                  borderSide: BorderSide(
+                    color: isHovered ? _linkBlue : _fieldBorder,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(3),
+                  borderSide: const BorderSide(color: _linkBlue, width: 1.5),
+                ),
+                fillColor: _bgWhite,
+                filled: true,
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(3),
-                borderSide: const BorderSide(color: _linkBlue, width: 1.5),
-              ),
-              fillColor: _bgWhite,
-              filled: true,
             ),
           ),
         ),
@@ -7256,7 +7260,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 4,
+                              vertical: 6,
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.center,
@@ -7272,6 +7276,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                         final isActive = isHovered || fn.hasFocus || (_activeDiscountRowIndex == index);
                                         return AnimatedContainer(
                                           duration: const Duration(milliseconds: 120),
+                                          height: 32,
                                           decoration: BoxDecoration(
                                             color: Colors.white,
                                             border: Border.all(
@@ -7298,16 +7303,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                   textAlign: TextAlign.right,
                                                   style: const TextStyle(
                                                     fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
+                                                    fontWeight: FontWeight.w400,
                                                     color: _textPrimary,
                                                   ),
                                                   decoration: const InputDecoration(
                                                     isDense: true,
                                                     contentPadding: EdgeInsets.symmetric(
                                                       horizontal: 8,
-                                                      vertical: 12,
+                                                      vertical: 6,
                                                     ),
                                                     border: InputBorder.none,
+                                                    enabledBorder: InputBorder.none,
+                                                    focusedBorder: InputBorder.none,
+                                                    disabledBorder: InputBorder.none,
                                                     hintText: '0',
                                                     hintStyle: TextStyle(
                                                       color: _hintColor,
@@ -7328,7 +7336,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(
                                                       horizontal: 8,
-                                                      vertical: 8,
+                                                      vertical: 6,
                                                     ),
                                                     color: Colors.transparent,
                                                     child: Row(
@@ -7796,6 +7804,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             final isActive = isHovered || fn.hasFocus;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 120),
+              height: 32,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -7827,7 +7836,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 6),
                 ),
               ),
             );
@@ -8095,7 +8104,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final dropdownItems = _getExpenseAccountsForDropdown(availableAccounts);
 
     return FormDropdown<AccountNode>(
-      height: 36,
+      height: 32,
       value: selectedAcc,
       items: dropdownItems,
       displayStringForValue: (a) => a.name.isEmpty

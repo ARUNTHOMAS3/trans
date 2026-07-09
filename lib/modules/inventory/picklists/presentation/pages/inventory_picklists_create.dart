@@ -3170,23 +3170,6 @@ class _InventoryPicklistsCreateScreenState
               ),
             ),
           ),
-          const Spacer(),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(LucideIcons.package, size: 20, color: Colors.black),
-              const SizedBox(width: 8),
-              Text(
-                'Total Items Selected : ${_selectedItems.length}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -3528,8 +3511,9 @@ class _AddItemsDialogContentState
         sortAscending: _sortAscending,
       );
 
-      final items = result['items'] as List<WarehouseStockData>;
-      final total = result['total'] as int;
+      final allItems = result['items'] as List<WarehouseStockData>;
+      final items = allItems.where((item) => (item.quantityToPick ?? 0.0) > 0.0).toList();
+      final total = items.length;
 
       if (mounted) {
         setState(() {
@@ -3602,10 +3586,6 @@ class _AddItemsDialogContentState
   List<Map<String, dynamic>> _selectedProducts = [];
   List<Map<String, dynamic>> _selectedSalesOrders = [];
 
-  void _onSearch() {
-    _currentPage = 1;
-    _fetchData();
-  }
 
   void _onSelectionChanged(WarehouseStockData item, bool isSelected) {
     final key = _buildRowKey(item);
@@ -3677,9 +3657,11 @@ class _AddItemsDialogContentState
 
           setState(() {
             for (final item in allItems) {
-              final key = _buildRowKey(item);
-              selectedRowKeys.add(key);
-              _selectedItemsMap[key] = item;
+              if ((item.quantityToPick ?? 0.0) > 0.0) {
+                final key = _buildRowKey(item);
+                selectedRowKeys.add(key);
+                _selectedItemsMap[key] = item;
+              }
             }
             _isLoading = false;
           });

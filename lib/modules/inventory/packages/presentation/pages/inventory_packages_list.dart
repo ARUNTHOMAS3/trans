@@ -1861,7 +1861,6 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 24),
-                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(color: const Color(0xFFE5E7EB)),
@@ -1870,130 +1869,139 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF7ED),
-                              border: Border.all(color: const Color(0xFFFFEDD5)),
-                              borderRadius: BorderRadius.circular(8),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF7ED),
+                                border: Border.all(color: const Color(0xFFFFEDD5)),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                LucideIcons.package,
+                                color: Color(0xFFF97316),
+                                size: 24,
+                              ),
                             ),
-                            child: const Icon(
-                              LucideIcons.package,
-                              color: Color(0xFFF97316),
-                              size: 24,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Shipment Order#',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: _textSecondary,
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      InkWell(
+                                        onTap: () {
+                                          final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+                                          context.go('/$orgId/inventory/shipments/${shipment['id']}');
+                                        },
+                                        child: Text(
+                                          shipment['shipment_number'] ?? '',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryBlue,
+                                            decoration: TextDecoration.underline,
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0088FF),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        child: const Text(
+                                          'SHIPPED',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          ],
+                        ),
+                      ),
+                      const Divider(color: _borderCol, height: 1, thickness: 1),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 24, right: 24, top: 16, bottom: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                const Text(
-                                  'Shipment Order#',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: _textSecondary,
+                                const SizedBox(
+                                  width: 140,
+                                  child: Text(
+                                    'Date of Shipment',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _textSecondary,
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  shipment['date'] != null
+                                      ? DateFormat('dd-MM-yyyy').format(DateTime.parse(shipment['date']))
+                                      : '-',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: _textPrimary,
                                     fontFamily: 'Inter',
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    InkWell(
-                                      onTap: () {
-                                        final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
-                                        context.go('/$orgId/inventory/shipments/${shipment['id']}');
-                                      },
-                                      child: Text(
-                                        shipment['shipment_number'] ?? '',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.primaryBlue,
-                                          decoration: TextDecoration.underline,
-                                          fontFamily: 'Inter',
-                                        ),
-                                      ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const SizedBox(
+                                  width: 140,
+                                  child: Text(
+                                    'Carrier',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _textSecondary,
+                                      fontFamily: 'Inter',
                                     ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF0088FF),
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                      child: const Text(
-                                        'SHIPPED',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                          fontFamily: 'Inter',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
+                                ),
+                                Text(
+                                  shipment['carrier'] ?? '-',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: _textPrimary,
+                                    fontFamily: 'Inter',
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      const Divider(color: _borderCol),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          const SizedBox(
-                            width: 140,
-                            child: Text(
-                              'Date of Shipment',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _textSecondary,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ),
-                          Text(
-                            shipment['date'] != null
-                                ? DateFormat('dd-MM-yyyy').format(DateTime.parse(shipment['date']))
-                                : '-',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: _textPrimary,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const SizedBox(
-                            width: 140,
-                            child: Text(
-                              'Carrier',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _textSecondary,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ),
-                          Text(
-                            shipment['carrier'] ?? '-',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: _textPrimary,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),

@@ -134,6 +134,7 @@ class _AdvancedCustomerSearchDialogState
                             width: 480,
                             child: Container(
                               height: 32,
+                              clipBehavior: Clip.antiAlias,
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: const Color(0xFFD1D5DB),

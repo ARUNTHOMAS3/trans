@@ -258,11 +258,14 @@ class AppRoutes {
   // Purchases - Expenses
   static const String expenses = '/purchases/expenses';
   static const String expensesCreate = '/purchases/expenses/create';
+  static const String expensesReceiptsInbox = '/purchases/expenses/receipts-inbox';
 
   // Purchases - Recurring Expenses
   static const String recurringExpenses = '/purchases/recurring-expenses';
   static const String recurringExpensesCreate =
       '/purchases/recurring-expenses/create';
+  static const String recurringExpensesCustomView =
+      '/purchases/recurring-expenses/custom-view';
 
   // Purchases - Purchase Orders
   static const String purchaseOrders = '/purchases/purchase-orders';

@@ -227,16 +227,18 @@ class _CustomTextFieldState extends State<CustomTextField> {
                     (widget.enabled ? Colors.white : const Color(0xFFF3F4F6)),
                 borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
                 border: widget.border ??
-                    Border(
-                      top: BorderSide(color: effectiveBorderColor, width: 1),
-                      bottom: BorderSide(color: effectiveBorderColor, width: 1),
-                      left: widget.showLeftBorder
-                          ? BorderSide(color: effectiveBorderColor, width: 1)
-                          : BorderSide.none,
-                      right: widget.showRightBorder
-                          ? BorderSide(color: effectiveBorderColor, width: 1)
-                          : BorderSide.none,
-                    ),
+                    ((widget.showLeftBorder && widget.showRightBorder)
+                        ? Border.all(color: effectiveBorderColor, width: 1)
+                        : Border(
+                            top: BorderSide(color: effectiveBorderColor, width: 1),
+                            bottom: BorderSide(color: effectiveBorderColor, width: 1),
+                            left: widget.showLeftBorder
+                                ? BorderSide(color: effectiveBorderColor, width: 1)
+                                : BorderSide.none,
+                            right: widget.showRightBorder
+                                ? BorderSide(color: effectiveBorderColor, width: 1)
+                                : BorderSide.none,
+                          )),
               ),
               padding:
                   widget.padding ??
@@ -370,16 +372,18 @@ class _CustomTextFieldState extends State<CustomTextField> {
                       (widget.enabled ? Colors.white : const Color(0xFFF3F4F6)),
                   borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
                   border: widget.border ??
-                      Border(
-                        top: BorderSide(color: effectiveBorderColor, width: 1),
-                        bottom: BorderSide(color: effectiveBorderColor, width: 1),
-                        left: widget.showLeftBorder
-                            ? BorderSide(color: effectiveBorderColor, width: 1)
-                            : BorderSide.none,
-                        right: widget.showRightBorder
-                            ? BorderSide(color: effectiveBorderColor, width: 1)
-                            : BorderSide.none,
-                      ),
+                      ((widget.showLeftBorder && widget.showRightBorder)
+                          ? Border.all(color: effectiveBorderColor, width: 1)
+                          : Border(
+                              top: BorderSide(color: effectiveBorderColor, width: 1),
+                              bottom: BorderSide(color: effectiveBorderColor, width: 1),
+                              left: widget.showLeftBorder
+                                  ? BorderSide(color: effectiveBorderColor, width: 1)
+                                  : BorderSide.none,
+                              right: widget.showRightBorder
+                                  ? BorderSide(color: effectiveBorderColor, width: 1)
+                                  : BorderSide.none,
+                            )),
                 ),
                 padding: widget.padding ??
                     EdgeInsets.only(

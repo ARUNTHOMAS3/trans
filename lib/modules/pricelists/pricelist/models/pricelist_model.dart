@@ -186,6 +186,29 @@ class PriceList extends Equatable {
     return rate;
   }
 
+  /// Returns the discount percentage for a specific item from this price list.
+  /// Returns null if no discount is configured or the item isn't found.
+  double? getItemDiscount(String itemId, {String? productName}) {
+    if (!isDiscountEnabled) return null;
+    if (itemRates == null || itemRates!.isEmpty) return null;
+
+    final override = itemRates!.firstWhere(
+      (r) =>
+          r.itemId == itemId ||
+          r.itemId == productName ||
+          (r.itemName != null &&
+              productName != null &&
+              r.itemName!.toLowerCase() == productName.toLowerCase()) ||
+          (r.itemName != null &&
+              r.itemName!.toLowerCase() == itemId.toLowerCase()),
+      orElse: () => const PriceListItemRate(itemId: ''),
+    );
+    if (override.itemId.isNotEmpty && override.discountPercentage != null && override.discountPercentage! > 0) {
+      return override.discountPercentage;
+    }
+    return null;
+  }
+
   /// Creates a dummy PriceList for loading states
   factory PriceList.dummy() => PriceList(
     id: 'dummy-id',

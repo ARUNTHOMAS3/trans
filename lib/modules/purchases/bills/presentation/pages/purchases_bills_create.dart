@@ -7915,7 +7915,7 @@ class _PurchasesBillCreateScreenState
           });
         }
       },
-      height: 36,
+      height: 32,
       borderRadius: BorderRadius.circular(6),
       hideBorderDefault: true,
     );
@@ -7924,7 +7924,7 @@ class _PurchasesBillCreateScreenState
   /// Builds only the discount type dropdown.
   Widget _buildDiscountTypeDropdown() {
     return FormDropdown<String>(
-      height: 36,
+      height: 32,
       value: _discountType,
       textStyle: const TextStyle(
         fontSize: 13,
@@ -8067,7 +8067,7 @@ class _PurchasesBillCreateScreenState
 
     final hasAcc = currentVal != null && currentVal.id.isNotEmpty;
     return FormDropdown<shared.AccountNode>(
-      height: 36,
+      height: 32,
       value: currentVal,
       textStyle: TextStyle(
         fontSize: 13,
@@ -8126,7 +8126,7 @@ class _PurchasesBillCreateScreenState
         .firstOrNull;
     final hasPL = selectedPL != null;
     return FormDropdown<PriceList>(
-      height: 36,
+      height: 32,
       value: selectedPL,
       textStyle: TextStyle(
         fontSize: 13,
@@ -8544,7 +8544,7 @@ class _PurchasesBillCreateScreenState
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: SizedBox(
-                          height: 36,
+                          height: 32,
                           child: TextField(
                             controller: searchCtrl,
                             focusNode: focusNode,
@@ -8810,7 +8810,7 @@ class _PurchasesBillCreateScreenState
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: SizedBox(
-                          height: 36,
+                          height: 32,
                           child: TextField(
                             controller: searchCtrl,
                             focusNode: focusNode,
@@ -9102,8 +9102,8 @@ class _PurchasesBillCreateScreenState
                                 ? Row(
                                     children: [
                                       Container(
-                                        width: 36,
-                                        height: 36,
+                                        width: 32,
+                                        height: 32,
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFF3F4F6),
                                           border: Border.all(
@@ -9994,7 +9994,7 @@ class _PurchasesBillCreateScreenState
             _buildCompactNumberField(
               row.rateCtrl,
               focusNode: row.rateFocus,
-              isTransparentBorder: true,
+              isTransparentBorder: false,
               textAlign: TextAlign.right,
               inputFormatters: [
                 _numericInputFormatter,
@@ -10132,42 +10132,51 @@ class _PurchasesBillCreateScreenState
           mainAxisAlignment: MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            InCellWrapper(
-              focusNode: row.discountFocus,
-              isDropdownOpen: _activeDiscountRowIndex == _lineItems.indexOf(row),
-              isTransparentBorder: true,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: row.discountCtrl,
-                      focusNode: row.discountFocus,
-                      onChanged: (v) {
-                        setState(() {});
-                      },
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      textAlign: TextAlign.left,
-                      style: const TextStyle(fontSize: 12),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
+            SizedBox(
+              height: 32,
+              child: InCellWrapper(
+                focusNode: row.discountFocus,
+                isDropdownOpen: _activeDiscountRowIndex == _lineItems.indexOf(row),
+                isTransparentBorder: true,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: row.discountCtrl,
+                        focusNode: row.discountFocus,
+                        onChanged: (v) {
+                          setState(() {});
+                        },
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        textAlign: TextAlign.left,
+                        textAlignVertical: TextAlignVertical.center,
+                        style: const TextStyle(fontSize: 12),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          filled: true,
+                          fillColor: Colors.transparent,
+                          hoverColor: Colors.transparent,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 0,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
                         ),
-                        border: InputBorder.none,
                       ),
                     ),
-                  ),
-                  CompositedTransformTarget(
-                    link: row.discountTypeLink,
-                    child: GestureDetector(
-                      onTap: () => _showDiscountMenu(
-                        context,
-                        _lineItems.indexOf(row),
-                        row,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    CompositedTransformTarget(
+                      link: row.discountTypeLink,
+                      child: GestureDetector(
+                        onTap: () => _showDiscountMenu(
+                          context,
+                          _lineItems.indexOf(row),
+                          row,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                         color: Colors.transparent,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -10194,11 +10203,12 @@ class _PurchasesBillCreateScreenState
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _taxCell(_BillLineItemRow row, ItemsState itemsState) {
     final bool isUnregistered =
@@ -11521,12 +11531,12 @@ class _PurchasesBillCreateScreenState
             return InCellWrapper(
               focusNode: focusNode,
               child: SizedBox(
-                height: 36,
+                height: 32,
                 child: FormDropdown<String>(
                   value: row.batchCtrl.text.isEmpty ? null : row.batchCtrl.text,
                   items: batches.map((b) => b.batchReference).toList(),
                   hint: 'Batch#',
-                  height: 36,
+                  height: 32,
                   border: Border.all(color: Colors.transparent),
                   fillColor: Colors.transparent,
                   allowCustomValue: true,
@@ -11561,7 +11571,7 @@ class _PurchasesBillCreateScreenState
             ignoreContainers: true,
             enabled: true,
             child: SizedBox(
-              height: 36,
+              height: 32,
               width: double.infinity,
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -12898,7 +12908,7 @@ class _PurchasesBillCreateScreenState
                               : const Color(0xFFD1D5DB),
                         ),
                         child: Container(
-                          height: 36,
+                          height: 32,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(4),
@@ -13018,7 +13028,7 @@ class _PurchasesBillCreateScreenState
       child: InkWell(
         onTap: _toggleAttachmentListOverlay,
         child: Container(
-          height: 36,
+          height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: const Color(0xFF3B82F6),
@@ -13604,34 +13614,42 @@ class _PurchasesBillCreateScreenState
     bool isTransparentBorder = false,
     List<TextInputFormatter>? inputFormatters,
   }) {
-    return InCellWrapper(
-      focusNode: focusNode,
-      isTransparentBorder: isTransparentBorder,
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        onSubmitted: onSubmitted,
+    return SizedBox(
+      height: 32,
+      child: InCellWrapper(
         focusNode: focusNode,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: inputFormatters,
-        textAlign: textAlign,
-        style: const TextStyle(fontSize: 12),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 12,
-          ),
-          prefixIcon: prefixIcon,
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 28,
-            minHeight: 28,
-          ),
-          border: InputBorder.none,
-          hintText: hintText,
-          hintStyle: hintText != null
-              ? const TextStyle(color: _hintColor, fontSize: 12)
-              : null,
+        isTransparentBorder: isTransparentBorder,
+        child: Row(
+          children: [
+            if (prefixIcon != null) ...[prefixIcon, const SizedBox(width: 4)],
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                onSubmitted: onSubmitted,
+                focusNode: focusNode,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: inputFormatters,
+                textAlign: textAlign,
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  hintText: hintText,
+                  hintStyle: hintText != null
+                      ? const TextStyle(color: _hintColor, fontSize: 12)
+                      : null,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -14116,6 +14134,7 @@ class _PurchasesBillCreateScreenState
             final isActive = isHovered || fn.hasFocus;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 120),
+              height: 32,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -14127,34 +14146,39 @@ class _PurchasesBillCreateScreenState
                 ),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: TextField(
-                controller: ctrl,
-                focusNode: fn,
-                onChanged: onChanged,
-                onSubmitted: onSubmitted,
-                inputFormatters: inputFormatters,
-                textAlign: textAlign,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: valueFontWeight,
-                  color: _textPrimary,
-                ),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: hint,
-                  hintStyle: TextStyle(
-                    color: _hintColor.withValues(alpha: 0.6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: ctrl,
+                      focusNode: fn,
+                      onChanged: onChanged,
+                      onSubmitted: onSubmitted,
+                      inputFormatters: inputFormatters,
+                      textAlign: textAlign,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: valueFontWeight,
+                        color: _textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        hoverColor: Colors.transparent,
+                        hintText: hint,
+                        hintStyle: TextStyle(
+                          color: _hintColor.withValues(alpha: 0.6),
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
                   ),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  suffixIcon: suffixIcon,
-                  suffixIconConstraints: const BoxConstraints(
-                    minWidth: 24,
-                    minHeight: 24,
-                  ),
-                ),
+                  if (suffixIcon != null) ...[const SizedBox(width: 8), suffixIcon],
+                ],
               ),
             );
           },
@@ -14221,9 +14245,7 @@ class _InCellWrapperState extends State<InCellWrapper> {
                 ? widget.isTransparentBorder
                       ? Border.all(color: Colors.transparent, width: 0)
                       : Border.all(
-                          color: isActive
-                              ? const Color(0xFF3B82F6)
-                              : const Color(0xFFE1E5EE),
+                          color: const Color(0xFF0088FF),
                           width: isActive ? 1.5 : 1.0,
                         )
                 : Border.all(color: Colors.transparent, width: 0),
@@ -17201,6 +17223,7 @@ class _TaxCellDropdownState extends State<_TaxCellDropdown> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Container(
+        height: 32,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(4),

@@ -4033,3 +4033,30 @@ Replaced all occurrences of `QuickEditItemDialog` and `QuickNewItemDialog` in `c
 - None.
 
 Timestamp of Log Update: July 8, 2026 - 10:00 AM (IST)
+
+## 282. Integration of Purchases Expenses & Recurring Expenses Modules (July 8, 2026)
+
+### Summary
+Successfully merged and integrated purchases expenses and recurring expenses modules across the frontend (Flutter) and backend (NestJS). Configured routing paths, imported module registrations on both sides, resolved multi-tenancy resolution via tenant middleware, and fixed compilation issues without altering core theme styles.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [app_routes.dart](file:///c:/Users/User/Documents/work/zerpai/lib/core/routing/app_routes.dart):
+  - Added `expensesReceiptsInbox` and `recurringExpensesCustomView` route constants.
+- [app_router.dart](file:///c:/Users/User/Documents/work/zerpai/lib/app/routing/app_router.dart):
+  - Imported new page widgets (`ExpensesReportPage`, `ExpensesCreatePage`, `ExpensesReceiptsInboxPage`, `ExpensesOverview`, `PurchasesRecurringExpensesPage`, `PurchasesRecurringExpensesCreatePage`, `PurchasesRecurringExpensesCustomViewPage`).
+  - Added GoRouter route paths for `/purchases/expenses`, `/purchases/expenses/create`, `/purchases/expenses/receipts-inbox`, `/purchases/expenses/:id`, `/purchases/recurring-expenses`, `/purchases/recurring-expenses/create`, and `/purchases/recurring-expenses/custom-view`.
+- Modified newly added pages/widgets under `lib/modules/purchases/expenses` and `lib/modules/purchases/recurring_expences`:
+  - Replaced all occurrences of `AppTheme.transparent` with Flutter's native `Colors.transparent` to resolve linter errors.
+
+#### Backend Files
+- [purchases.module.ts](file:///c:/Users/User/Documents/work/zerpai/backend/src/modules/purchases/purchases.module.ts):
+  - Registered `ExpensesModule` and `RecurringExpensesModule` under purchases import/export dependencies.
+- [tenant.middleware.ts](file:///c:/Users/User/Documents/work/zerpai/backend/src/common/middleware/tenant.middleware.ts):
+  - Registered the `/api/v1/recurring-expenses` prefix mapping to the `recurring_expenses` module key for multi-tenant entity resolution.
+
+#### Backups Created
+- Backup location: [20260708_155738-expenses/](file:///c:/Users/User/Documents/work/zerpai/backups/refactor-batches/20260708_155738-expenses) (renamed all backed up files to `.bak`).
+
+Timestamp of Log Update: July 8, 2026 - 4:45 PM (IST)

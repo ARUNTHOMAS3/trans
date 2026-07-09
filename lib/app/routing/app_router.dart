@@ -95,6 +95,13 @@ import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purc
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create_page.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_create.dart';
+import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_create_page.dart';
+import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_overview_page.dart';
+import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_receipts_inbox_page.dart';
+import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_report_page.dart';
+import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/pages/purchases_recurring_expences_create_page.dart';
+import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/pages/purchases_recurring_expences_custom_view_page.dart';
+import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/pages/purchases_recurring_expences_page.dart';
 import 'package:zerpai_erp/shared/widgets/placeholder_screen.dart';
 import 'package:zerpai_erp/app/layout/zerpai_shell.dart';
 import 'package:zerpai_erp/app/pages/error_page.dart';
@@ -1435,14 +1442,39 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/expenses',
               name: AppRoutes.expenses,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Expenses'),
+              builder: (context, state) => const ExpensesReportPage(),
             ),
             GoRoute(
               path: 'purchases/expenses/create',
               name: AppRoutes.expensesCreate,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'New Expense'),
+              builder: (context, state) => const ExpensesCreatePage(),
+            ),
+            GoRoute(
+              path: 'purchases/expenses/receipts-inbox',
+              name: AppRoutes.expensesReceiptsInbox,
+              builder: (context, state) => const ExpensesReceiptsInboxPage(),
+            ),
+            GoRoute(
+              path: 'purchases/expenses/:id',
+              builder: (context, state) {
+                final expenseId = state.pathParameters['id'] ?? '';
+                return ExpensesOverview(expenseId: expenseId);
+              },
+            ),
+            GoRoute(
+              path: 'purchases/recurring-expenses',
+              name: AppRoutes.recurringExpenses,
+              builder: (context, state) => const PurchasesRecurringExpensesPage(),
+            ),
+            GoRoute(
+              path: 'purchases/recurring-expenses/create',
+              name: AppRoutes.recurringExpensesCreate,
+              builder: (context, state) => const PurchasesRecurringExpensesCreatePage(),
+            ),
+            GoRoute(
+              path: 'purchases/recurring-expenses/custom-view',
+              name: AppRoutes.recurringExpensesCustomView,
+              builder: (context, state) => const PurchasesRecurringExpensesCustomViewPage(),
             ),
             GoRoute(
               path: 'purchases/bills',

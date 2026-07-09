@@ -120,7 +120,7 @@ class ZerpaiLayout extends StatelessWidget {
         horizontalPaddingValue ??
         (useHorizontalPadding ? responsivePadding : 0);
     final double topPadding = useTopPadding ? 24 : 0;
-    final double bottomPadding = 32;
+    final double bottomPadding = enableBodyScroll ? 32 : 0;
 
     final Widget bodyContent = enableBodyScroll
         ? SingleChildScrollView(

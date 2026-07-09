@@ -109,6 +109,7 @@ export class TenantMiddleware implements NestMiddleware {
 
     { prefix: "/api/v1/vendors", moduleKey: "vendors" },
     { prefix: "/api/v1/expenses", moduleKey: "expenses" },
+    { prefix: "/api/v1/recurring-expenses", moduleKey: "recurring_expenses" },
     { prefix: "/api/v1/purchase-orders", moduleKey: "purchase_orders" },
     { prefix: "/api/v1/purchase-receives", moduleKey: "purchase_receives" },
     { prefix: "/api/v1/bills", moduleKey: "bills" },

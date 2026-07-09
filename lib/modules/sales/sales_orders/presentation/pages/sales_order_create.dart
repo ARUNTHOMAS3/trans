@@ -681,8 +681,8 @@ class _SalesOrderCreateScreenState
 
   SalesOrderItemRow _createItemRow({
     String quantity = '',
-    String rate = '0',
-    String discount = '0',
+    String rate = '',
+    String discount = '',
     String fQty = '0',
     String mrp = '0',
     String description = '',
@@ -3524,8 +3524,8 @@ class _SalesOrderCreateScreenState
                                                 height: 32,
                                                 hint: 'Apply Price List',
                                                 padding:
-                                                    const EdgeInsets.only(
-                                                      right: 10,
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
                                                     ),
                                                 menuWidth: 250,
                                                 items: applicablePriceLists,
@@ -3558,6 +3558,14 @@ class _SalesOrderCreateScreenState
                                                       row.priceListId = v.id;
                                                       row.rateCtrl.text = rate
                                                           .toStringAsFixed(2);
+                                                      // Apply discount from price list if available
+                                                      final discount = v.getItemDiscount(
+                                                        row.itemId,
+                                                        productName: row.item?.productName,
+                                                      );
+                                                      if (discount != null) {
+                                                        row.discountCtrl.text = discount.toStringAsFixed(2);
+                                                      }
                                                       _calculateTotals();
                                                     });
                                                   } else {
@@ -3567,6 +3575,7 @@ class _SalesOrderCreateScreenState
                                                           row.item?.sellingPrice ?? 0;
                                                       row.rateCtrl.text =
                                                           baseRate.toStringAsFixed(2);
+                                                      row.discountCtrl.text = '0';
                                                       _calculateTotals();
                                                     });
                                                   }
@@ -3613,6 +3622,7 @@ class _SalesOrderCreateScreenState
                             ),
                             child: CustomTextField(
                               controller: row.discountCtrl,
+                              hintText: '0',
                               height: 32,
                               hideBorderDefault: true,
                               keyboardType:
@@ -3625,7 +3635,7 @@ class _SalesOrderCreateScreenState
                                 left: 12,
                                 right: 0,
                               ),
-                              suffixSeparator: true,
+                              suffixSeparator: false,
                               suffixWidget: _buildDiscountTypeSelector(row),
                               onTap: () =>
                                   row.discountCtrl.selection = TextSelection(
@@ -7630,42 +7640,53 @@ class _SalesOrderCreateScreenState
                   mainAxisSize: MainAxisSize.min,
                   children: ['%', '₹'].map((s) {
                     final isSelected = s == row.discountType;
-                    return InkWell(
-                      onTap: () {
-                        setState(() {
-                          row.discountType = s;
-                        });
-                        _calculateTotals();
-                        _discountOverlay?.remove();
-                        _discountOverlay = null;
-                        _activeDiscountRow = null;
-                        setState(() {});
-                      },
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        width: double.infinity,
-                        height: 38,
-                        margin: const EdgeInsets.only(bottom: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF3B82F6).withValues(alpha: 0.85)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          s,
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF374151),
-                            fontSize: 15,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w500,
+                    bool isHovered = false;
+                    return StatefulBuilder(
+                      builder: (context, setStateItem) {
+                        return MouseRegion(
+                          onEnter: (_) => setStateItem(() => isHovered = true),
+                          onExit: (_) => setStateItem(() => isHovered = false),
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                row.discountType = s;
+                              });
+                              _calculateTotals();
+                              _discountOverlay?.remove();
+                              _discountOverlay = null;
+                              _activeDiscountRow = null;
+                              setState(() {});
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              width: double.infinity,
+                              height: 38,
+                              margin: const EdgeInsets.only(bottom: 2),
+                              decoration: BoxDecoration(
+                                color: isHovered
+                                    ? const Color(0xFF3B82F6)
+                                    : isSelected
+                                        ? const Color(0xFFF3F4F6)
+                                        : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                s,
+                                style: TextStyle(
+                                  color: isHovered
+                                      ? Colors.white
+                                      : const Color(0xFF111827),
+                                  fontSize: 15,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     );
                   }).toList(),
                 ),
@@ -7767,8 +7788,8 @@ class _SalesOrderCreateScreenState
                         idx + 1,
                         _createItemRow(
                           quantity: '',
-                          rate: '0',
-                          discount: '0',
+                          rate: '',
+                          discount: '',
                         ),
                       );
                     });

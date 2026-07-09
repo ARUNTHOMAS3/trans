@@ -207,6 +207,7 @@ class _AdvancedCustomerSearchModalState
                       child: CustomTextField(
                         controller: _searchController,
                         hintText: 'Search...',
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     const SizedBox(width: 8),

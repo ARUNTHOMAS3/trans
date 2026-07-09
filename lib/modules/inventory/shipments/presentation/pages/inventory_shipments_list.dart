@@ -53,7 +53,7 @@ final shipmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async
     print('[shipmentsProvider] Querying Supabase with entityId: $entityId');
     final response = await supabase
         .from('inventory_shipments')
-        .select('*, customers(display_name, place_of_supply), inventory_shipment_sales_orders(sales_orders(sale_number, sale_date, status)), inventory_shipment_packages(inventory_packages(package_number, created_at, inventory_package_items(quantity, products(product_name))))')
+        .select('*, customers(display_name, place_of_supply), inventory_shipment_sales_orders(sales_orders(id, sale_number, sale_date, status)), inventory_shipment_packages(inventory_packages(id, package_number, created_at, inventory_package_items(quantity, products(product_name))))')
         .eq('entity_id', entityId)
         .order('created_at', ascending: false);
         
@@ -2043,7 +2043,23 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
             decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF3F4F6)))),
             child: Row(
               children: [
-                Expanded(flex: 3, child: Text(pkg?['package_number'] ?? '', style: const TextStyle(fontSize: 13))),
+                Expanded(
+                  flex: 3,
+                  child: InkWell(
+                    onTap: pkg?['id'] == null
+                        ? null
+                        : () => context.go('/inventory/packages/${pkg['id']}'),
+                    child: Text(
+                      pkg?['package_number'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
                 Expanded(flex: 3, child: Text(pkg?['created_at'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(pkg['created_at'])) : '', style: const TextStyle(fontSize: 13))),
                 Expanded(flex: 3, child: Text(totalQty.toString(), style: const TextStyle(fontSize: 13))),
               ],
@@ -2078,7 +2094,23 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
             child: Row(
               children: [
                 Expanded(flex: 3, child: Text(order?['sale_date'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(order['sale_date'])) : '', style: const TextStyle(fontSize: 13))),
-                Expanded(flex: 3, child: Text(order?['sale_number'] ?? '', style: const TextStyle(fontSize: 13))),
+                Expanded(
+                  flex: 3,
+                  child: InkWell(
+                    onTap: order?['id'] == null
+                        ? null
+                        : () => context.go('/sales/orders/${order['id']}'),
+                    child: Text(
+                      order?['sale_number'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
                 Expanded(flex: 3, child: Text(order?['status'] ?? '', style: const TextStyle(fontSize: 13))),
                 Expanded(flex: 3, child: Text(order?['shipment_date'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(order['shipment_date'])) : '', style: const TextStyle(fontSize: 13))),
               ],
