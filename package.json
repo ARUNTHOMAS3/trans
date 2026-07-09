@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.1",
-    "@commitlint/config-conventional": "^19.6.0",
+    "@commitlint/config-conventional": "^21.2.0",
     "@playwright/test": "^1.42.1",
     "@types/node": "^20.11.24",
     "http-server": "^14.1.1",
