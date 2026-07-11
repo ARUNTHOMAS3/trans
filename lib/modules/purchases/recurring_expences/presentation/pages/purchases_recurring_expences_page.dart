@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/texts/zerpai_link_text.dart';
 import 'package:zerpai_erp/shared/widgets/z_currency_display.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import '../../config/recurring_expense_constants.dart';
 import '../../config/recurring_expense_routes.dart';
 import '../../config/recurring_expense_table_config.dart';
@@ -28,7 +30,6 @@ import '../../models/recurring_expense_response_model.dart';
 import '../../providers/recurring_expense_provider.dart';
 import '../dialogs/recurring_expense_bulk_update_dialog.dart';
 import '../models/recurring_expense_search_filters.dart';
-import '../widgets/recurring_expense_loading_indicator_widget.dart';
 import '../widgets/recurring_expense_hover_popup_menu_item.dart';
 import '../widgets/recurring_expense_model.dart';
 import '../widgets/recurring_expense_details_widget.dart';
@@ -761,14 +762,36 @@ class _PurchasesRecurringExpensesPageState
     return visibleColumns;
   }
 
-  double _columnWidthFor(String columnId) {
-    return recurringExpenseColumnWidths[columnId] ?? 120;
+  Map<String, double> _calculateColumnWidths(double availableWidth) {
+    const double staticPrefixWidth = 12 + 28 + 10 + 20 + 24 + 40;
+
+    double totalMinWidth = staticPrefixWidth.toDouble();
+    double totalFlex = 0;
+    final Map<String, double> minWidths = <String, double>{};
+
+    for (final column in _visibleColumns) {
+      final minWidth = recurringExpenseColumnWidths[column.id] ?? 120;
+      minWidths[column.id] = minWidth;
+      totalMinWidth += minWidth;
+      totalFlex += minWidth;
+    }
+
+    final extraSpace = math.max(0.0, availableWidth - totalMinWidth);
+    final results = <String, double>{};
+
+    for (final column in _visibleColumns) {
+      final minWidth = minWidths[column.id]!;
+      final flex = totalFlex == 0 ? 0.0 : minWidth / totalFlex;
+      results[column.id] = minWidth + (extraSpace * flex);
+    }
+
+    return results;
   }
 
-  double get _tableWidth {
-    final columnsWidth = _visibleColumns.fold<double>(
+  double _tableWidthFor(Map<String, double> columnWidths) {
+    final columnsWidth = columnWidths.values.fold<double>(
       0,
-      (sum, column) => sum + _columnWidthFor(column.id),
+      (sum, width) => sum + width,
     );
     return 12 + 28 + 10 + 20 + 24 + columnsWidth + 40;
   }
@@ -1350,12 +1373,12 @@ class _PurchasesRecurringExpensesPageState
     );
   }
 
-  Widget _buildHeaderCell(ColumnConfig column) {
+  Widget _buildHeaderCell(ColumnConfig column, Map<String, double> columnWidths) {
     final isProfile = column.id == 'profile';
     final isAmount = column.id == 'amount';
 
     return SizedBox(
-      width: _columnWidthFor(column.id),
+      width: columnWidths[column.id] ?? 120,
       child: Align(
         alignment: isAmount ? Alignment.centerRight : Alignment.centerLeft,
         child: Row(
@@ -1424,14 +1447,18 @@ class _PurchasesRecurringExpensesPageState
     }
   }
 
-  Widget _buildBodyCell(RecurringExpenseProfile profile, ColumnConfig column) {
+  Widget _buildBodyCell(
+    RecurringExpenseProfile profile,
+    ColumnConfig column,
+    Map<String, double> columnWidths,
+  ) {
     final isProfile = column.id == 'profile';
     final isStatus = column.id == 'status';
     final isAmount = column.id == 'amount';
     final maxLines = _clipTableText ? 1 : 2;
 
     return SizedBox(
-      width: _columnWidthFor(column.id),
+      width: columnWidths[column.id] ?? 120,
       child: Align(
         alignment: isAmount ? Alignment.centerRight : Alignment.centerLeft,
         child: isAmount
@@ -1483,6 +1510,7 @@ class _PurchasesRecurringExpensesPageState
 
   Widget _buildEmptyTableStructure(
     List<RecurringExpenseProfile> filteredExpenses,
+    Map<String, double> columnWidths,
   ) {
     return Container(
       color: AppTheme.backgroundColor,
@@ -1522,7 +1550,8 @@ class _PurchasesRecurringExpensesPageState
                   ),
                 ),
                 const SizedBox(width: 24),
-                for (final column in _visibleColumns) _buildHeaderCell(column),
+                for (final column in _visibleColumns)
+                  _buildHeaderCell(column, columnWidths),
                 const SizedBox(width: 40),
               ],
             ),
@@ -1556,6 +1585,7 @@ class _PurchasesRecurringExpensesPageState
   Widget _buildWrappedTable(
     String orgSystemId,
     List<RecurringExpenseProfile> filteredExpenses,
+    Map<String, double> columnWidths,
     double tableWidth,
     double availableHeight,
     Widget? footer,
@@ -1604,7 +1634,8 @@ class _PurchasesRecurringExpensesPageState
                   ),
                 ),
                 const SizedBox(width: 24),
-                for (final column in _visibleColumns) _buildHeaderCell(column),
+                for (final column in _visibleColumns)
+                  _buildHeaderCell(column, columnWidths),
                 const SizedBox(width: 40),
               ],
             ),
@@ -1663,7 +1694,7 @@ class _PurchasesRecurringExpensesPageState
                               ),
                               const SizedBox(width: 24),
                               for (final column in _visibleColumns)
-                                _buildBodyCell(profile, column),
+                                _buildBodyCell(profile, column, columnWidths),
                               const SizedBox(width: 40),
                             ],
                           ),
@@ -1750,18 +1781,36 @@ class _PurchasesRecurringExpensesPageState
   }
 
   Widget _buildPageHeaderActions(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 14),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildPageHeaderNewButton(),
+        const SizedBox(width: 8),
+        _buildMoreMenu(context, isCompact: false),
+      ],
+    );
+  }
+
+  Widget _buildMainToolbar(BuildContext context) {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      decoration: const BoxDecoration(
+        color: AppTheme.backgroundColor,
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildPageHeaderNewButton(),
-          const SizedBox(width: 8),
-          _buildMoreMenu(context, isCompact: false),
+          Expanded(
+            child: _buildViewSelector(context, isDetailsMode: false),
+          ),
+          const SizedBox(width: 16),
+          _buildPageHeaderActions(context),
         ],
       ),
     );
   }
+
 
   void _toggleMoreMenuOverlay({required bool isCompact}) {
     if (_moreMenuOverlay == null) {
@@ -2220,6 +2269,43 @@ class _PurchasesRecurringExpensesPageState
     );
   }
 
+  Widget _buildInitialLoadingPage() {
+    return ZerpaiLayout(
+      pageTitle: '',
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.space16),
+        child: const ZListSkeleton(itemCount: 7),
+      ),
+    );
+  }
+
+  Widget _buildRecurringDetailsLoading() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.space24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            ZBone(width: 220, height: 28),
+            SizedBox(height: AppTheme.space12),
+            ZBone(width: 120, height: 18),
+            SizedBox(height: AppTheme.space24),
+            ZTableSkeleton(rows: 4, columns: 4),
+            SizedBox(height: AppTheme.space24),
+            ZFormSkeleton(rows: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecurringGridLoading() {
+    return const Padding(
+      padding: EdgeInsets.all(AppTheme.space16),
+      child: ZTableSkeleton(rows: 8, columns: 6),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = GoRouterState.of(context);
@@ -2287,10 +2373,7 @@ class _PurchasesRecurringExpensesPageState
         : null;
 
     if (recurringExpensesAsync.isLoading && _profiles.isEmpty) {
-      return ZerpaiLayout(
-        pageTitle: '',
-        child: const RecurringExpenseLoadingIndicator(fillAvailableSpace: true),
-      );
+      return _buildInitialLoadingPage();
     }
 
     final bool showPaginationFooter = totalCount > 10;
@@ -2653,13 +2736,11 @@ class _PurchasesRecurringExpensesPageState
                   // Tab content widget
                   Expanded(
                     child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final detailsPaneWidth = constraints.maxWidth;
-                        return _isDetailActionLoading
-                            ? const RecurringExpenseLoadingIndicator(
-                                fillAvailableSpace: true,
-                              )
-                            : detailAsync.when(
+                        builder: (context, constraints) {
+                          final detailsPaneWidth = constraints.maxWidth;
+                          return _isDetailActionLoading
+                              ? _buildRecurringDetailsLoading()
+                              : detailAsync.when(
                                 data: (details) {
                                   if (details == null) {
                                     return Center(
@@ -2695,10 +2776,7 @@ class _PurchasesRecurringExpensesPageState
                                           );
                                         },
                                       ),
-                                      loading: () =>
-                                          const RecurringExpenseLoadingIndicator(
-                                            fillAvailableSpace: true,
-                                          ),
+                                      loading: _buildRecurringDetailsLoading,
                                       error: (_, __) =>
                                           RecurringExpenseDetailsWidget(
                                             details: details,
@@ -2712,10 +2790,7 @@ class _PurchasesRecurringExpensesPageState
                                             },
                                           ),
                                     ),
-                                    loading: () =>
-                                        const RecurringExpenseLoadingIndicator(
-                                          fillAvailableSpace: true,
-                                        ),
+                                    loading: _buildRecurringDetailsLoading,
                                     error: (_, __) => runsAsync.when(
                                       data: (runs) => RecurringExpenseDetailsWidget(
                                         details: details,
@@ -2731,10 +2806,7 @@ class _PurchasesRecurringExpensesPageState
                                           );
                                         },
                                       ),
-                                      loading: () =>
-                                          const RecurringExpenseLoadingIndicator(
-                                            fillAvailableSpace: true,
-                                          ),
+                                      loading: _buildRecurringDetailsLoading,
                                       error: (_, __) => RecurringExpenseDetailsWidget(
                                         details: details,
                                         history:
@@ -2752,49 +2824,38 @@ class _PurchasesRecurringExpensesPageState
                                     ),
                                   );
                                 },
-                                loading: () =>
-                                    const RecurringExpenseLoadingIndicator(
-                                      fillAvailableSpace: true,
-                                    ),
+                                loading: _buildRecurringDetailsLoading,
                                 error: (error, _) => Center(
                                   child: Text(
                                     ErrorHandler.getFriendlyMessage(error),
                                     style: AppTextStyles.body.copyWith(
                                       color: AppTheme.textSecondary,
                                     ),
-                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               );
-                      },
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    }
+            ],
+          ),
+        );
+      }
 
-    // STANDARD FULL GRID VIEW
-    final hasSelection = _selectedProfileIds.isNotEmpty;
+      // STANDARD FULL GRID VIEW
+      final hasSelection = _selectedProfileIds.isNotEmpty;
 
-    return ZerpaiLayout(
-      pageTitle: '', // Empty to use custom title widget
-      enableBodyScroll: false,
-      useHorizontalPadding: false,
-      useTopPadding: false,
-      titlePadding: const EdgeInsets.only(left: 32),
-      titleWidget: hasSelection
-          ? const SizedBox.shrink()
-          : _buildViewSelector(context, isDetailsMode: false),
-      actions: hasSelection ? const [] : [_buildPageHeaderActions(context)],
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Column(
+      return ZerpaiLayout(
+        pageTitle: '',
+        enableBodyScroll: false,
+        useHorizontalPadding: false,
+        useTopPadding: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (hasSelection)
@@ -2805,7 +2866,9 @@ class _PurchasesRecurringExpensesPageState
                       onAction: _onSelectionAction,
                       onClearSelection: _clearSelection,
                     ),
-                  ),
+                  )
+                else
+                  _buildMainToolbar(context),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
@@ -2816,28 +2879,33 @@ class _PurchasesRecurringExpensesPageState
                     child: Column(
                       children: [
                         if (_isBulkStatusActionLoading)
-                          const Expanded(
-                            child: RecurringExpenseLoadingIndicator(
-                              fillAvailableSpace: true,
-                            ),
-                          )
+                          Expanded(child: _buildRecurringGridLoading())
                         else
                           Expanded(
                             child: LayoutBuilder(
                               builder: (context, tableConstraints) {
+                                final columnWidths = _calculateColumnWidths(
+                                  tableConstraints.maxWidth,
+                                );
+                                final tableWidth = math.max(
+                                  tableConstraints.maxWidth,
+                                  _tableWidthFor(columnWidths),
+                                );
                                 return ResponsiveTableShell(
-                                  minWidth: _tableWidth,
+                                  minWidth: tableWidth,
                                   child: SizedBox(
-                                    width: _tableWidth,
+                                    width: tableWidth,
                                     height: tableConstraints.maxHeight,
                                     child: filteredExpenses.isEmpty
                                         ? _buildEmptyTableStructure(
                                             filteredExpenses,
+                                            columnWidths,
                                           )
                                         : _buildWrappedTable(
                                             orgSystemId,
                                             filteredExpenses,
-                                            _tableWidth,
+                                            columnWidths,
+                                            tableWidth,
                                             tableConstraints.maxHeight,
                                             showPaginationFooter
                                                 ? _buildPaginationFooter(
@@ -2860,10 +2928,13 @@ class _PurchasesRecurringExpensesPageState
                   ),
                 ),
               ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+            );
+          },
+        ),
+      );
+    }
 }
+
+
+
+

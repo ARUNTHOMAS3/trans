@@ -1788,10 +1788,6 @@ export class ExpensesService {
     const sortField = this.resolveSortField(query);
     const sortAscending = this.resolveSortAscending(query);
 
-    this.logger.debug(
-      `findAll:start entity=${tenant.entityId} org=${tenant.orgId} page=${page} limit=${limit} search=${query.search ?? "-"} status=${query.status ?? "-"} mode=${query.expense_mode ?? "-"} vendor=${query.vendor_id ?? "-"} customer=${query.customer_id ?? "-"} itemized=${query.is_itemized ?? "-"} favorite=${query.favorite_filter ?? "-"} sort=${sortField}:${sortAscending ? "asc" : "desc"}`,
-    );
-
     let mapped: any[] = [];
     let total = 0;
     let totalPages = 1;
@@ -1833,17 +1829,11 @@ export class ExpensesService {
         );
       }
 
-      this.logger.debug(
-        `findAll:raw entity=${tenant.entityId} count=${count ?? 0} rows=${data?.length ?? 0} ids=${(data ?? []).slice(0, 10).map((row: any) => row.id).join(",")}`,
-      );
       mapped = await this.attachLookups(data ?? []);
       total = count ?? 0;
       totalPages = total === 0 ? 1 : Math.ceil(total / limit);
     }
 
-    this.logger.debug(
-      `findAll:mapped entity=${tenant.entityId} mappedRows=${mapped.length} firstExpense=${mapped[0]?.expense_number ?? mapped[0]?.invoice_number ?? "-"}`,
-    );
     return {
       data: mapped,
       meta: {

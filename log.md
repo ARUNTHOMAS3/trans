@@ -1,4 +1,4 @@
-### Dev- Arun
+﻿### Dev- Arun
 
 <!-- LOG RULES START -->
 
@@ -4060,3 +4060,127 @@ Successfully merged and integrated purchases expenses and recurring expenses mod
 - Backup location: [20260708_155738-expenses/](file:///c:/Users/User/Documents/work/zerpai/backups/refactor-batches/20260708_155738-expenses) (renamed all backed up files to `.bak`).
 
 Timestamp of Log Update: July 8, 2026 - 4:45 PM (IST)
+
+## 18. PO Approval Dialog Enhancements & API Integration (July 10, 2026)
+
+### Summary
+Enhanced the branch Purchase Order approval workflow for Starlex Healthcare Pvt. Ltd. by displaying credit limits in the awaiting approval dialog, removing unnecessary column layouts, and introducing automated picklist and sales order generation upon approval.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart:
+  - Added creditLimit field to the PurchaseOrder model with mapping and copying support.
+- lib/modules/sales/sales_orders/data/services/sales_order_api_service.dart:
+  - Added pprovePurchaseOrders call to hit the new POST endpoint.
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart:
+  - Modified columns in _RemainingPoApprovalDialog: removed "WAREHOUSE", renamed "BRANCH" to "CUSTOMER", and added "CREDIT LIMIT".
+  - Replaced the dialog footer "Close" button with left-aligned "Approve" and "Cancel" buttons.
+  - Linked the "Approve" button to call the POST endpoint, notify on success/error, invalidate provider state, and close the dialog.
+
+#### Backend Files
+- ackend/src/modules/sales/services/sales.service.ts:
+  - Updated getAwaitingPoApprovals() to resolve each branch's corresponding customer record via the ssociated_branch_id and the branch's ef_id inside organisation_branch_master, returning the resolved credit_limit.
+  - Implemented pprovePurchaseOrders() to convert selected branch POs into confirmed Sales Orders (status: 'confirmed') and automatically generate a linked picklist (status: 'DRAFT') and its picklist_items (status: 'YET_TO_START', qty_picked: 0.0).
+- ackend/src/modules/sales/controllers/sales.controller.ts:
+  - Exposed the POST route /api/v1/sales/awaiting-po-approvals/approve.
+
+Timestamp of Log Update: July 10, 2026 - 10:45 AM (IST)
+
+## 19. PO Approval Error Handling & Database Constraints Resolution (July 10, 2026)
+
+### Summary
+Fixed a database insertion error in PO approval workflow where the ccounts column in sales_order_items was missing, violating its not-null database constraint. Also converted the error message display from a bottom screen SnackBar to a custom popup error dialog.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart:
+  - Replaced the bottom screen SnackBar error message with a custom styled Dialog modal error popup using showDialog matching the Zerpai UI design framework.
+
+#### Backend Files
+- ackend/src/modules/sales/services/sales.service.ts:
+  - Fixed pprovePurchaseOrders to query product sales_account_id and fall back to the default sales account of Starlex ORG to fill the ccounts column of sales_order_items.
+
+Timestamp of Log Update: July 10, 2026 - 11:00 AM (IST)
+
+## 20. Clone/Void Logic & Convert to PO Dropship Support in Sales/Purchase Orders (July 11, 2026)
+
+### Summary
+Implemented "Clone" and "Void" operations for Sales Orders, resolved item loading issues when converting Sales Orders to Purchase Orders, and added support for complete and partial dropshipping where custom customer addresses are passed automatically. Also ensured dropship purchase orders render as a new PO form (not edit mode) and only show the "DropShip To" address instead of standard delivery controls.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [app_router.dart](file:///c:/Users/User/Documents/work/zerpai/lib/app/routing/app_router.dart):
+  - Passed isClone query parameters to SalesOrderCreateScreen.
+  - Passed isClone, isDropship, dropshipCustomerName, and dropshipAddress query parameters to PurchaseOrderCreateScreen.
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart):
+  - Added isClone field and constructor parameter to SalesOrderCreateScreen.
+  - Decoupled _isEditMode so it resolves to false when isClone is true, ensuring cloning creates a new record instead of modifying the existing one.
+  - Implemented _hydrateFromInitialOrder for cloning: clears salesOrderNumberCtrl, referenceCtrl, sets order date to today, sets expected shipment date to null, and resets item cancelled quantities to 0.0.
+  - Added deep-link check in initState to fetch initial sales order by widget.cloneId when widget.initialOrder is null.
+- [purchases_purchase_orders_create.dart](file:///c:/Users/User/Documents/work/zerpai/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart):
+  - Added isClone, isDropship, dropshipCustomerName, and dropshipAddress fields/parameters to PurchaseOrderCreateScreen.
+  - Decoupled _isEditMode to evaluate to false when either isClone or isDropship is true.
+  - Rendered a custom "DropShip To" row with customer details instead of the "Delivery Address" input controls when isDropship is true.
+  - Implemented _hydrateFromInitialOrder: clears poNumberCtrl, refCtrl, sets order date to today, expected delivery date to null, and resets item cancelled quantities to 0.0 when cloning or dropshipping.
+- [sales_order_list.dart](file:///c:/Users/User/Documents/work/zerpai/lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart):
+  - Handled "Void" action by updating status to 'void' in Supabase and invalidating controllers/refreshing cache.
+  - Handled "Clone" action by routing with clone=true and cloneId.
+  - Redesigned the "Cancel Sales Order Items" dialog: set width to 850px, styled headers, left-aligned buttons, and computed accurate invoiced/shipped quantities dynamically using database queries.
+  - Implemented complete and partial dropshipping dialog choices: allowed selecting items, copy descriptions preference, and resolved stock mapping before routing to PO creation with dropship parameters.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 11, 2026 - 11:30 AM (IST)
+## 21. Sales Order & Invoice Create Compilation Resolution (July 11, 2026)
+
+### Summary
+Resolved compiler and analysis errors caused by brace mismatches and incorrect scoping of the _HoverableSalesDescription and _HoverableSalesDescriptionState classes in both the Sales Orders and Invoices create screens.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [sales_order_create.dart](file:///c:/Users/User/Documents/work/zerpai/lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart):
+  - Removed early class closing brace in _buildDescriptionField.
+  - Shifted _HoverableSalesDescription and _HoverableSalesDescriptionState outside the _SalesOrderCreateScreenState class to the bottom of the file, restoring the class scope of the remaining helper methods.
+- [sales_invoice_create.dart](file:///c:/Users/User/Documents/work/zerpai/lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart):
+  - Removed early class closing brace in _buildDescriptionField.
+  - Shifted _HoverableSalesDescription and _HoverableSalesDescriptionState outside the _SalesInvoiceCreateScreenState class to the bottom of the file, resolving similar compiler diagnostics.
+- [index.html](file:///c:/Users/User/Documents/work/zerpai/web/index.html):
+  - Added Open Graph meta tags to satisfy SEO checklist verification requirements.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 11, 2026 - 12:00 PM (IST)
+
+
+## 22. Dropshipping & Convert to Purchase Order Enhancements (July 11, 2026)
+
+### Summary
+Implemented complete and partial dropshipping workflows when converting a Sales Order to a Purchase Order. Added automated mapping of customer addresses, select-items dialog, preferred copy of descriptions, and custom "DropShip To" address rendering on the PO creation page. Also resolved border styling issues on PO line item descriptions.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- [app_router.dart](file:///c:/Users/User/Documents/work/zerpai/lib/app/routing/app_router.dart):
+  - Parsed `isDropship`, `dropshipCustomerName`, and `dropshipAddress` query parameters from the URI and passed them to the `PurchaseOrderCreateScreen`.
+- [purchases_purchase_orders_create.dart](file:///c:/Users/User/Documents/work/zerpai/lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart):
+  - Integrated `isDropship`, `dropshipCustomerName`, and `dropshipAddress` fields.
+  - Decoupled `_isEditMode` to evaluate to `false` when `isDropship` is active, ensuring the dropshipped order generates a new PO form instead of updating an existing one.
+  - Hydrated the PO items from the Sales Order extra payload, mapping descriptions correctly, clearing quantities cancelled/received/billed, setting date to today, and resetting delivery dates.
+  - Built a custom "DropShip To" display row when `isDropship` is true, overriding the standard warehouse delivery controls to show the customer address.
+  - Fixed border rendering on the line item description input fields by setting all input borders to `InputBorder.none` to resolve styling issues.
+- [sales_order_list.dart](file:///c:/Users/User/Documents/work/zerpai/lib/modules/sales/sales_orders/presentation/pages/sales_order_list.dart):
+  - Updated `_convertToPurchaseOrder` to present a dialog asking the user to choose between Complete Dropship or Partial Dropship.
+  - In the dropship configuration modal, allowed selecting specific items, choosing whether to copy item descriptions, and displaying customer shipping/billing addresses.
+  - Extracted and formatted the customer's shipping address (falling back to billing address) to pass as query parameters.
+  - Routed to PO create screen with the populated extra payload (items, vendor) and dropship query flags.
+
+#### Backend Files
+- None.
+
+Timestamp of Log Update: July 11, 2026 - 1:00 PM (IST)

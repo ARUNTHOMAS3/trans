@@ -293,7 +293,7 @@ export const warehouses = pgTable("warehouses", {
   entityId: uuid("entity_id")
     .notNull()
     .references(() => organisationBranchMaster.id),
-  branchId: uuid("branch_id"),
+  sourceBranchId: uuid("source_branch_id"),
   name: varchar("name", { length: 255 }).notNull(),
   warehouseCode: varchar("warehouse_code", { length: 50 }),
   attention: text("attention"),
@@ -1060,6 +1060,7 @@ export const salesOrderItems = pgTable("sales_order_items", {
   batchId: uuid("batch_id").references(() => batches.id),
   warehouseId: uuid("warehouse_id").references(() => warehouses.id),
   lineMeta: jsonb("line_meta"),
+  cancelledQuantity: numeric("cancelled_quantity").default("0"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   entityId: uuid("entity_id")

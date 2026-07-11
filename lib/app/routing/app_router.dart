@@ -822,6 +822,7 @@ final GoRouter appRouter = GoRouter(
                       initialCustomerId:
                           state.uri.queryParameters['customerId'],
                       cloneId: state.uri.queryParameters['cloneId'],
+                      isClone: state.uri.queryParameters['clone'] == 'true',
                     );
                   },
                 ),
@@ -1382,6 +1383,10 @@ final GoRouter appRouter = GoRouter(
                       initialOrder: initialOrder is PurchaseOrder
                           ? initialOrder
                           : null,
+                      isClone: state.uri.queryParameters['clone'] == 'true',
+                      isDropship: state.uri.queryParameters['isDropship'] == 'true',
+                      dropshipCustomerName: state.uri.queryParameters['dropshipCustomerName'],
+                      dropshipAddress: state.uri.queryParameters['dropshipAddress'],
                     );
                   },
                 ),

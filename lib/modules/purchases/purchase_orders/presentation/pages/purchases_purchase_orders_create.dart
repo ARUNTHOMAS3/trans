@@ -141,12 +141,18 @@ class PurchaseOrderCreateScreen extends ConsumerStatefulWidget {
   final PurchaseOrder? initialOrder;
   final String? initialOrderId;
   final bool isClone;
+  final bool isDropship;
+  final String? dropshipCustomerName;
+  final String? dropshipAddress;
 
   const PurchaseOrderCreateScreen({
     super.key,
     this.initialOrder,
     this.initialOrderId,
     this.isClone = false,
+    this.isDropship = false,
+    this.dropshipCustomerName,
+    this.dropshipAddress,
   });
 
   @override
@@ -1155,11 +1161,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
   bool get _isEditMode =>
       !widget.isClone &&
+      !widget.isDropship &&
       (widget.initialOrder != null ||
        (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty));
 
   String? get _editingOrderId {
-    if (widget.isClone) return null;
+    if (widget.isClone || widget.isDropship) return null;
     final directId = widget.initialOrder?.id;
     if (directId != null && directId.isNotEmpty) {
       return directId;
@@ -1229,7 +1236,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           .eq('purchase_order_id', orderId);
 
       if (order != null && mounted) {
-        _hydrateFromInitialOrder(order, isClone: widget.isClone);
+        _hydrateFromInitialOrder(order, isClone: widget.isClone || widget.isDropship);
         setState(() {
           _attachedFiles = (attachmentsData as List).map<PlatformFile>((row) {
             final sizeVal = row['file_size'];
@@ -1302,8 +1309,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       _loadTdsRates();
 
       if (widget.initialOrder != null) {
-        _hydrateFromInitialOrder(widget.initialOrder!, isClone: widget.isClone);
-        if (widget.initialOrder!.id != null && !widget.isClone) {
+        _hydrateFromInitialOrder(widget.initialOrder!, isClone: widget.isClone || widget.isDropship);
+        if (widget.initialOrder!.id != null && !(widget.isClone || widget.isDropship)) {
           _loadAttachmentsForOrder(widget.initialOrder!.id!);
         }
       } else if (widget.initialOrderId != null &&
@@ -2676,36 +2683,75 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Delivery Address ──
-              const SizedBox(height: 12),
-              _zFormRow(
-                label: 'Delivery Address',
-                isRequired: true,
-                crossStart: true,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              if (widget.isDropship) ...[
+                const SizedBox(height: 12),
+                _zFormRow(
+                  label: 'DropShip To',
+                  isRequired: true,
+                  crossStart: true,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _zRadio(
-                          'Warehouses',
-                          'warehouse',
-                          poState.deliveryType,
-                          (v) => notifier.updateField(deliveryType: v),
+                        Text(
+                          widget.dropshipCustomerName ?? 'Customer',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F2937),
+                          ),
                         ),
-                        const SizedBox(width: 16),
-                        _zRadio(
-                          'Customer',
-                          'customer',
-                          poState.deliveryType,
-                          (v) => notifier.updateField(deliveryType: v),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.dropshipAddress ?? '',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF4B5563),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _deliverySection(warehouses, customers, poState),
-                  ],
+                  ),
                 ),
-              ),
+              ] else ...[
+                const SizedBox(height: 12),
+                _zFormRow(
+                  label: 'Delivery Address',
+                  isRequired: true,
+                  crossStart: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _zRadio(
+                            'Warehouses',
+                            'warehouse',
+                            poState.deliveryType,
+                            (v) => notifier.updateField(deliveryType: v),
+                          ),
+                          const SizedBox(width: 16),
+                          _zRadio(
+                            'Customer',
+                            'customer',
+                            poState.deliveryType,
+                            (v) => notifier.updateField(deliveryType: v),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _deliverySection(warehouses, customers, poState),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               // ── Purchase Order# ──
               _zFormRow(
@@ -3228,7 +3274,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       topLeft: Radius.circular(4),
                       bottomLeft: Radius.circular(4),
                     ),
-                    showRightBorder: false,
+                    showRightBorder: true,
                     border: Border.all(color: _fieldBorder),
                   ),
                 ),
@@ -4552,7 +4598,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     topLeft: Radius.circular(4),
                     bottomLeft: Radius.circular(4),
                   ),
-                  showRightBorder: false,
+                  showRightBorder: true,
                   border: Border.all(color: _fieldBorder),
                 ),
               ),
@@ -6642,21 +6688,28 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                           onFocusChange: (_) => setState(() {}),
                                                           child: Builder(
                                                             builder: (focusCtx) {
-                                                              final isDescActive = isDescHovered || Focus.of(focusCtx).hasFocus;
+                                                              final isFocused = Focus.of(focusCtx).hasFocus;
                                                               return AnimatedContainer(
                                                                 duration: const Duration(milliseconds: 120),
                                                                 height: 72,
                                                                 decoration: BoxDecoration(
+                                                                  color: Colors.white,
                                                                   border: Border.all(
-                                                                    color: isDescActive
+                                                                    color: isFocused
                                                                         ? const Color(0xFF0088FF)
-                                                                        : _borderCol,
-                                                                    width: 1,
+                                                                        : (isDescHovered
+                                                                            ? const Color(0xFF2196F3)
+                                                                            : _borderCol),
+                                                                    width: isFocused ? 1.5 : 1.0,
                                                                   ),
                                                                   borderRadius:
                                                                       BorderRadius.circular(
                                                                         4,
                                                                       ),
+                                                                ),
+                                                                padding: const EdgeInsets.symmetric(
+                                                                  horizontal: 8,
+                                                                  vertical: 6,
                                                                 ),
                                                                 child: TextField(
                                                                   controller:
@@ -6673,11 +6726,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                                   decoration: const InputDecoration(
                                                                     isDense: true,
                                                                     contentPadding:
-                                                                        EdgeInsets.symmetric(
-                                                                          horizontal: 8,
-                                                                          vertical: 6,
-                                               ),
+                                                                        EdgeInsets.zero,
                                                                     border:
+                                                                        InputBorder.none,
+                                                                    focusedBorder:
+                                                                        InputBorder.none,
+                                                                    enabledBorder:
+                                                                        InputBorder.none,
+                                                                    errorBorder:
+                                                                        InputBorder.none,
+                                                                    disabledBorder:
                                                                         InputBorder.none,
                                                                     hintText:
                                                                         'Add a description to your item',
@@ -6685,6 +6743,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                                       fontSize: 12,
                                                                       color: _hintColor,
                                                                     ),
+                                                                    filled: true,
+                                                                    fillColor: Colors.transparent,
+                                                                    hoverColor: Colors.transparent,
+                                                                    focusColor: Colors.transparent,
                                                                   ),
                                                                   onChanged: (v) =>
                                                                       notifier.updateItem(

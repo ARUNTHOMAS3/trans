@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { SupabaseService } from "../../../supabase/supabase.service";
 import { CreatePurchaseOrderDto } from "../dto/create-purchase-order.dto";
 import { UpdatePurchaseOrderDto } from "../dto/update-purchase-order.dto";
@@ -97,7 +97,10 @@ export class PurchaseOrdersService {
     if (dto.tax_amount !== undefined) dbData.tax_amount = dto.tax_amount;
     if (dto.discount !== undefined) dbData.discount = dto.discount;
     if (dto.tds_tcs_type !== undefined) dbData.tds_tcs_type = dto.tds_tcs_type;
-    if (dto.tds_id !== undefined) dbData.tds_id = this.cleanUuid(dto.tds_id);
+    const resolvedTdsId = dto.tds_tcs_id || dto.tds_id;
+    if (resolvedTdsId !== undefined) {
+      dbData.tds_tcs_id = this.cleanUuid(resolvedTdsId);
+    }
     if (dto.tds_tcs_amount !== undefined) dbData.tds_tcs_amount = dto.tds_tcs_amount;
     if (dto.adjustment !== undefined) dbData.adjustment = dto.adjustment;
     if (dto.total_quantity !== undefined) dbData.total_quantity = dto.total_quantity;
@@ -129,7 +132,8 @@ export class PurchaseOrdersService {
       subtotal: db.subtotal !== null && db.subtotal !== undefined ? parseFloat(db.subtotal) : 0,
       tax_amount: db.tax_amount !== null && db.tax_amount !== undefined ? parseFloat(db.tax_amount) : 0,
       discount: db.discount !== null && db.discount !== undefined ? parseFloat(db.discount) : 0,
-      tds_id: this.cleanUuid(db.tds_id),
+      tds_id: this.cleanUuid(db.tds_tcs_id),
+      tds_tcs_id: this.cleanUuid(db.tds_tcs_id),
       notes: db.notes,
       total_quantity: db.total_quantity !== null && db.total_quantity !== undefined ? parseFloat(db.total_quantity) : 0,
       total: db.total !== null && db.total !== undefined ? parseFloat(db.total) : 0,
@@ -469,7 +473,6 @@ export class PurchaseOrdersService {
       .from("purchase_orders")
       .select("*")
       .eq("id", id)
-      .eq("entity_id", tenant.entityId)
       .limit(1);
 
     if (error) {
@@ -483,14 +486,28 @@ export class PurchaseOrdersService {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
 
+    // Tenancy authorization check:
+    if (data.entity_id !== tenant.entityId) {
+      const { data: branchCheck } = await client
+        .from("organisation_branch_master")
+        .select("id")
+        .eq("id", data.entity_id)
+        .eq("parent_id", tenant.entityId)
+        .maybeSingle();
+
+      if (!branchCheck) {
+        throw new ForbiddenException("You do not have access to this Purchase Order");
+      }
+    }
+
     const [enriched] = await this.attachPurchaseOrderLookups([data]);
-    const [withProgress] = await this.attachProgressStatuses([enriched], tenant.entityId);
+    const [withProgress] = await this.attachProgressStatuses([enriched], data.entity_id);
 
     const { data: items } = await client
       .from("purchase_order_items")
       .select("*")
       .eq("purchase_order_id", id)
-      .eq("entity_id", tenant.entityId);
+      .eq("entity_id", data.entity_id);
 
     const productIds = Array.from(
       new Set((items ?? []).map((item) => item.product_id).filter(Boolean)),

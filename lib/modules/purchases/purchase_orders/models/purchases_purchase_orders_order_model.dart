@@ -281,6 +281,8 @@ class PurchaseOrder {
   final String? id;
   final String? orgId;
   final String? branchId;
+  final String? branchName;
+  final double? creditLimit;
   final String orderNumber;
   final DateTime orderDate;
   final DateTime? expectedDeliveryDate;
@@ -330,6 +332,8 @@ class PurchaseOrder {
     this.id,
     this.orgId,
     this.branchId,
+    this.branchName,
+    this.creditLimit,
     required this.orderNumber,
     required this.orderDate,
     this.expectedDeliveryDate,
@@ -385,6 +389,8 @@ class PurchaseOrder {
       id: _extractPurchaseOrderId(json),
       orgId: json['org_id'] as String?,
       branchId: json['branch_id'] as String?,
+      branchName: json['branch_name'] as String?,
+      creditLimit: json['credit_limit'] != null ? (json['credit_limit'] as num).toDouble() : null,
       orderNumber: json['order_number'] as String? ?? '',
       orderDate: json['order_date'] != null
           ? DateTime.tryParse(json['order_date'] as String) ?? DateTime.now()
@@ -484,6 +490,8 @@ class PurchaseOrder {
     return {
       if (orgId != null) 'org_id': orgId,
       if (branchId != null) 'branch_id': branchId,
+      if (branchName != null) 'branch_name': branchName,
+      if (creditLimit != null) 'credit_limit': creditLimit,
       'vendor_id': vendorId,
       'order_number': orderNumber,
       'order_date': orderDate.toIso8601String().split('T').first,
@@ -533,6 +541,8 @@ class PurchaseOrder {
     String? id,
     String? orgId,
     String? branchId,
+    String? branchName,
+    double? creditLimit,
     String? orderNumber,
     DateTime? orderDate,
     DateTime? expectedDeliveryDate,
@@ -581,6 +591,8 @@ class PurchaseOrder {
       id: id ?? this.id,
       orgId: orgId ?? this.orgId,
       branchId: branchId ?? this.branchId,
+      branchName: branchName ?? this.branchName,
+      creditLimit: creditLimit ?? this.creditLimit,
       orderNumber: orderNumber ?? this.orderNumber,
       orderDate: orderDate ?? this.orderDate,
       expectedDeliveryDate: expectedDeliveryDate ?? this.expectedDeliveryDate,
@@ -706,7 +718,7 @@ class WarehouseModel {
       email: json['email']?.toString(),
       isActive: json['isActive'] ?? json['is_active'] ?? true,
       locationType: (json['locationType'] ?? json['location_type'])?.toString(),
-      parentBranchId: (json['parentBranchId'] ?? json['parent_branch_id'] ?? json['branch_id'])?.toString(),
+      parentBranchId: (json['parentBranchId'] ?? json['parent_branch_id'] ?? json['branch_id'] ?? json['source_branch_id'] ?? json['sourceBranchId'])?.toString(),
       entityId: (json['entity_id'] ?? json['entityId'])?.toString(),
       isDefaultForBranch: json['is_default_for_branch'] as bool? ?? json['isDefaultForBranch'] as bool? ?? true,
     );

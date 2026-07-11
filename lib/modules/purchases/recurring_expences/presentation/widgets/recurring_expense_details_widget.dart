@@ -10,7 +10,7 @@ import '../../models/recurring_expense_details_model.dart';
 import '../../models/recurring_expense_enums.dart';
 import '../../models/recurring_expense_history_model.dart';
 import '../../providers/recurring_expense_provider.dart';
-import 'recurring_expense_loading_indicator_widget.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 class RecurringExpenseDetailsWidget extends ConsumerStatefulWidget {
   final RecurringExpenseDetails details;
@@ -908,11 +908,9 @@ class _RecurringExpenseDetailsWidgetState
           ],
         );
       },
-      loading: () => const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
-          child: RecurringExpenseLoadingIndicator(),
-        ),
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppTheme.space24),
+        child: ZTableSkeleton(rows: 4, columns: 3),
       ),
       error: (err, stack) => Center(
         child: Padding(

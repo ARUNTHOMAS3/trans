@@ -633,10 +633,10 @@ class _PurchasesVendorsVendorCreateScreenState
         email: _emailCtrl.text.trim(),
         phone: _workPhoneCtrl.text.trim().isEmpty
             ? null
-            : '${_workPhoneCode} ${_workPhoneCtrl.text.trim()}',
+            : _workPhoneCtrl.text.trim(),
         mobilePhone: _mobilePhoneCtrl.text.trim().isEmpty
             ? null
-            : '${_mobilePhoneCode} ${_mobilePhoneCtrl.text.trim()}',
+            : _mobilePhoneCtrl.text.trim(),
         gstTreatment: _gstTreatment?.label,
         gstin: _gstinPrefillCtrl.text.trim(),
         sourceOfSupply: _sourceOfSupply,

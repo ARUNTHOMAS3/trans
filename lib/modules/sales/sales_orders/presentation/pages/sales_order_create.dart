@@ -81,6 +81,7 @@ class SalesOrderCreateScreen extends ConsumerStatefulWidget {
 
   /// Deep-link support: clone an existing sales order by ID.
   final String? cloneId;
+  final bool isClone;
 
   const SalesOrderCreateScreen({
     super.key,
@@ -88,6 +89,7 @@ class SalesOrderCreateScreen extends ConsumerStatefulWidget {
     this.initialOrderId,
     this.initialCustomerId,
     this.cloneId,
+    this.isClone = false,
   });
 
   @override
@@ -225,11 +227,28 @@ class _SalesOrderCreateScreenState
 
   bool _isHydratingInitialOrder = false;
 
+  String? _normalizePlaceOfSupply(String? val) {
+    if (val == null) return null;
+    final lowercase = val.toLowerCase();
+    if (lowercase.contains('kerala') || lowercase.contains('[kl]') || lowercase == 'kl') {
+      return '[KL] - Kerala';
+    }
+    if (lowercase.contains('tamil nadu') || lowercase.contains('[tn]') || lowercase == 'tn') {
+      return '[TN] - Tamil Nadu';
+    }
+    if (lowercase.contains('karnataka') || lowercase.contains('[ka]') || lowercase == 'ka') {
+      return '[KA] - Karnataka';
+    }
+    return null;
+  }
+
   bool get _isEditMode =>
-      widget.initialOrder != null ||
-      (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty);
+      !widget.isClone &&
+      (widget.initialOrder != null ||
+       (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty));
 
   String? get _editingOrderId {
+    if (widget.isClone) return null;
     final directId = widget.initialOrder?.id;
     if (directId != null && directId.isNotEmpty) {
       return directId;
@@ -271,10 +290,15 @@ class _SalesOrderCreateScreenState
     adjustmentCtrl.addListener(_calculateTotals);
 
     if (widget.initialOrder != null) {
-      _hydrateFromInitialOrder(widget.initialOrder!);
+      _hydrateFromInitialOrder(widget.initialOrder!, isClone: widget.isClone);
+      if (widget.isClone) {
+        _loadNextSalesOrderNumber();
+      }
     } else if (widget.initialOrderId != null &&
         widget.initialOrderId!.isNotEmpty) {
       _loadInitialOrder(widget.initialOrderId!);
+    } else if (widget.cloneId != null && widget.cloneId!.isNotEmpty) {
+      _loadInitialOrder(widget.cloneId!, isClone: true);
     } else {
       rows.add(_createItemRow());
       _loadNextSalesOrderNumber();
@@ -304,7 +328,7 @@ class _SalesOrderCreateScreenState
     }
   }
 
-  Future<void> _loadInitialOrder(String orderId) async {
+  Future<void> _loadInitialOrder(String orderId, {bool isClone = false}) async {
     setState(() => _isHydratingInitialOrder = true);
     try {
       final order = await ref
@@ -322,21 +346,27 @@ class _SalesOrderCreateScreenState
 
       setState(() {
         rows.clear();
-        _hydrateFromInitialOrder(order);
+        _hydrateFromInitialOrder(order, isClone: isClone);
 
-        _attachedFiles = (attachmentsData as List).map<PlatformFile>((row) {
-          final sizeVal = row['file_size'];
-          int parsedSize = 0;
-          if (sizeVal is int) {
-            parsedSize = sizeVal;
-          } else if (sizeVal is String) {
-            parsedSize = int.tryParse(sizeVal) ?? 0;
-          }
-          return PlatformFile(name: row['file_name'] ?? '', size: parsedSize);
-        }).toList();
+        if (!isClone) {
+          _attachedFiles = (attachmentsData as List).map<PlatformFile>((row) {
+            final sizeVal = row['file_size'];
+            int parsedSize = 0;
+            if (sizeVal is int) {
+              parsedSize = sizeVal;
+            } else if (sizeVal is String) {
+              parsedSize = int.tryParse(sizeVal) ?? 0;
+            }
+            return PlatformFile(name: row['file_name'] ?? '', size: parsedSize);
+          }).toList();
+        }
 
         _isHydratingInitialOrder = false;
       });
+
+      if (isClone) {
+        _loadNextSalesOrderNumber();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -349,17 +379,17 @@ class _SalesOrderCreateScreenState
     }
   }
 
-  void _hydrateFromInitialOrder(SalesOrder order) {
+  void _hydrateFromInitialOrder(SalesOrder order, {bool isClone = false}) {
     _selectedCustomerId = order.customerId;
     _selectedCustomer = order.customer;
-    salesOrderNumberCtrl.text = order.saleNumber;
-    referenceCtrl.text = order.reference ?? '';
+    salesOrderNumberCtrl.text = isClone ? '' : order.saleNumber;
+    referenceCtrl.text = isClone ? '' : (order.reference ?? '');
     notesCtrl.text = order.customerNotes ?? '';
     termsCtrl.text = order.termsAndConditions ?? '';
     shippingCtrl.text = order.shippingCharges.toStringAsFixed(2);
     adjustmentCtrl.text = order.adjustment.toStringAsFixed(2);
-    salesOrderDate = order.saleDate;
-    expectedShipmentDate = order.expectedShipmentDate;
+    salesOrderDate = isClone ? DateTime.now() : order.saleDate;
+    expectedShipmentDate = isClone ? null : order.expectedShipmentDate;
     paymentTerms = order.paymentTerms;
     deliveryMethod = order.deliveryMethod;
     salesperson = order.salesperson;
@@ -1324,16 +1354,22 @@ class _SalesOrderCreateScreenState
             ),
             const SizedBox(height: 24),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: bodyHorizontalPadding),
+              padding: const EdgeInsets.only(left: 32, right: 32),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1320),
-                  child: _buildItemsTable(
-                    itemsState.items,
-                    customersAsync,
-                    priceListsAsync,
-                    availableAccounts,
+                  constraints: const BoxConstraints(maxWidth: 1400),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: 1270.0,
+                      child: _buildItemsTable(
+                        itemsState.items,
+                        customersAsync,
+                        priceListsAsync,
+                        availableAccounts,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1462,7 +1498,7 @@ class _SalesOrderCreateScreenState
                                   topLeft: Radius.circular(4),
                                   bottomLeft: Radius.circular(4),
                                 ),
-                                showRightBorder: false,
+                                showRightBorder: true,
                                 items: customers,
                                 allowClear: !_isEditMode,
                                 hint: 'Select or add a customer',
@@ -1686,9 +1722,10 @@ class _SalesOrderCreateScreenState
                             key: const ValueKey('so_place_of_supply'),
                             enabled: !_isEditMode,
                             height: _kDropdownHeight,
-                            value:
-                                placeOfSupply ??
-                                selectedCustomerFromList.placeOfSupply,
+                            value: _normalizePlaceOfSupply(
+                              placeOfSupply ??
+                              selectedCustomerFromList.placeOfSupply,
+                            ),
                             items: const [
                               '[KL] - Kerala',
                               '[TN] - Tamil Nadu',
@@ -4501,26 +4538,7 @@ class _SalesOrderCreateScreenState
   }
 
   Widget _buildDescriptionField(TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      maxLines: 2,
-      style: const TextStyle(fontSize: 13, color: _kBodyText),
-      decoration: InputDecoration(
-        hintText: 'Add a description to your item',
-        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
-        filled: true,
-        fillColor: const Color(0xFFF9FAFB),
-        contentPadding: const EdgeInsets.all(12),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
-        ),
-      ),
-    );
+    return _HoverableSalesDescription(controller: controller);
   }
 
   Widget _buildSummaryAndNotes(List<Item>? products) {
@@ -5943,12 +5961,12 @@ class _SalesOrderCreateScreenState
               children: [
                 InkWell(
                   onTap: () => _saveSalesOrder(
-                    status: widget.initialOrder?.status ?? 'sent',
+                    status: widget.initialOrder?.status ?? 'confirmed',
                   ),
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      _isEditMode ? 'Update' : 'Save and Send',
+                      _isEditMode ? 'Update' : 'Save and Confirm',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -6016,10 +6034,11 @@ class _SalesOrderCreateScreenState
         ?.value
         .where((c) => c.id == _selectedCustomerId)
         .firstOrNull;
-    final effectivePlaceOfSupply =
-        placeOfSupply ??
-        _selectedCustomer?.placeOfSupply ??
-        customerFromList?.placeOfSupply;
+    final effectivePlaceOfSupply = _normalizePlaceOfSupply(
+      placeOfSupply ??
+      _selectedCustomer?.placeOfSupply ??
+      customerFromList?.placeOfSupply,
+    );
     if (effectivePlaceOfSupply == null) {
       ZerpaiToast.error(context, 'Please select Place of Supply');
       return;
@@ -8324,6 +8343,67 @@ Widget _dropdownItemBuilder(
   );
 }
 
+class _HoverableSalesDescription extends StatefulWidget {
+  final TextEditingController controller;
+  const _HoverableSalesDescription({required this.controller});
+  @override
+  State<_HoverableSalesDescription> createState() => _HoverableSalesDescriptionState();
+}
+
+class _HoverableSalesDescriptionState extends State<_HoverableSalesDescription> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (hasFocus) => setState(() => _focused = hasFocus),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Container(
+          height: 72,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: _focused
+                  ? const Color(0xFF0088FF) // Selected/Focused blue
+                  : (_hovered
+                      ? const Color(0xFF2196F3) // Hovered blue
+                      : const Color(0xFFE5E7EB)), // Inactive grey
+              width: _focused ? 1.5 : 1.0,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: TextField(
+            controller: widget.controller,
+            maxLines: null,
+            expands: true,
+            textAlignVertical: TextAlignVertical.top,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF1F2937)),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              hintText: 'Add a description to your item',
+              hintStyle: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+              filled: true,
+              fillColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ManageTaxInfoDialog extends ConsumerStatefulWidget {
   const _ManageTaxInfoDialog();
 
@@ -9275,37 +9355,54 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchCtrl,
-                  autofocus: true,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'Select an account',
-                    prefixIcon: Icon(
-                      Icons.search,
-                      size: 16,
-                      color: Color(0xFF6B7280),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
-                  ),
-                  onChanged: (v) => setState(() => _search = v),
+          padding: const EdgeInsets.all(8),
+          child: SizedBox(
+            height: 36,
+            child: TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Select an account',
+                hintStyle: const TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontSize: 13,
                 ),
-              ),
-              GestureDetector(
-                onTap: () {}, // Handled by overlay removal usually
-                child: const Icon(
-                  Icons.close,
-                  size: 14,
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 16,
                   color: Color(0xFF6B7280),
                 ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 36,
+                ),
+                contentPadding: EdgeInsets.zero,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFD1D5DB),
+                    width: 1,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFD1D5DB),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF3B82F6),
+                    width: 1.5,
+                  ),
+                ),
               ),
-            ],
+              onChanged: (v) => setState(() => _search = v),
+            ),
           ),
         ),
         const Divider(height: 1),
@@ -9334,14 +9431,38 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
                     ),
                   ),
                   // Items
-                  ...entry.value.map((acc) {
-                    final isSelected = acc.id == widget.selectedAccountId;
-                    return _PopoverListItem(
-                      label: acc.name,
-                      isSelected: isSelected,
-                      onTap: () => widget.onSelected(acc),
-                    );
-                  }),
+                  ...() {
+                    final List<Widget> items = [];
+                    final groupAccounts = entry.value;
+                    final accountMap = {for (var a in groupAccounts) a.id: a};
+                    
+                    final rootNodes = groupAccounts.where((a) => a.parentId == null || !accountMap.containsKey(a.parentId)).toList();
+                    
+                    void addNode(AccountNode node, int depth) {
+                      final isSelected = node.id == widget.selectedAccountId;
+                      items.add(
+                        _PopoverListItem(
+                          label: node.systemAccountName.isNotEmpty
+                              ? node.systemAccountName
+                              : node.userAccountName,
+                          indent: depth,
+                          isSelected: isSelected,
+                          onTap: () => widget.onSelected(node),
+                        )
+                      );
+                      
+                      final children = groupAccounts.where((a) => a.parentId == node.id).toList();
+                      for (var child in children) {
+                        addNode(child, depth + 1);
+                      }
+                    }
+                    
+                    for (var root in rootNodes) {
+                      addNode(root, 0);
+                    }
+                    
+                    return items;
+                  }(),
                 ];
               }).toList(),
             ),
@@ -9357,11 +9478,13 @@ class _PopoverListItem extends StatefulWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+  final int indent;
 
   const _PopoverListItem({
     required this.label,
     required this.isSelected,
     required this.onTap,
+    this.indent = 0,
   });
 
   @override
@@ -9388,7 +9511,12 @@ class _PopoverListItemState extends State<_PopoverListItem> {
         child: Container(
           width: double.infinity,
           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.only(
+            left: 32.0 + (widget.indent * 16.0),
+            right: 12,
+            top: 8,
+            bottom: 8,
+          ),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(4),

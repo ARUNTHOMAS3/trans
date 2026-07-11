@@ -1838,7 +1838,7 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     let query = supabase
       .from("warehouses")
-      .select("id, name, is_active, entity_id")
+      .select("id, name, is_active, entity_id, source_branch_id")
       .eq("is_active", true);
 
     if (tenant) {

@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:web/web.dart' as web;
 import 'package:zerpai_erp/core/theme/app_text_styles.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 final Set<String> _registeredExpenseAttachmentPreviewFrames = <String>{};
 
@@ -265,28 +266,24 @@ class _ExpenseAttachmentPdfFrameState
           Positioned.fill(
             child: Container(
               color: const Color(0xFF2D2D2D),
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.6,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const ZBone(
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      color: Color(0x33FFFFFF),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Loading PDF preview...',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(height: 14),
+                    const ZBone(
+                      width: 136,
+                      height: 12,
+                      color: Color(0x33FFFFFF),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ),
           ),
       ],

@@ -8,7 +8,7 @@ import {
   ArrayMinSize,
   IsBoolean,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 
 class PurchaseOrderItemDto {
   @IsUUID()
@@ -138,10 +138,12 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   reference_number?: string;
 
+  @Transform(({ value }) => value === "" ? null : value)
   @IsUUID()
   @IsOptional()
   payment_terms_id?: string;
 
+  @Transform(({ value }) => value === "" ? null : value)
   @IsUUID()
   @IsOptional()
   shipment_preference_id?: string;
@@ -150,14 +152,17 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   delivery_type?: string;
 
+  @Transform(({ value }) => value === "" ? null : value)
   @IsUUID()
   @IsOptional()
   delivery_warehouse_id?: string;
 
+  @Transform(({ value }) => value === "" ? null : value)
   @IsUUID()
   @IsOptional()
   delivery_customer_id?: string;
 
+  @Transform(({ value }) => value === "" ? null : value)
   @IsUUID()
   @IsOptional()
   warehouse_id?: string;
@@ -166,6 +171,7 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   discount_level?: string;
 
+  @Transform(({ value }) => value === "" ? null : value)
   @IsUUID()
   @IsOptional()
   discount_account_id?: string;
@@ -202,9 +208,33 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   tds_tcs_type?: string;
 
+  @Transform(({ value }) => value === "" ? null : value)
   @IsUUID()
   @IsOptional()
   tds_id?: string;
+
+  @Transform(({ value }) => value === "" ? null : value)
+  @IsUUID()
+  @IsOptional()
+  tds_tcs_id?: string;
+
+  @IsString()
+  @IsOptional()
+  source_of_supply?: string;
+
+  @IsString()
+  @IsOptional()
+  destination_to_supply?: string;
+
+  @Transform(({ value }) => value === "" ? null : value)
+  @IsUUID()
+  @IsOptional()
+  billing_address?: string;
+
+  @Transform(({ value }) => value === "" ? null : value)
+  @IsUUID()
+  @IsOptional()
+  shipping_address?: string;
 
   @IsNumber()
   @IsOptional()

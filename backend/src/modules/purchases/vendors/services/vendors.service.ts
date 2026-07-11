@@ -69,9 +69,31 @@ export class VendorsService {
       .select(
         "*, vendor_addresses(*), vendor_contact_persons(*), vendor_bank_accounts(*)",
         { count: "exact" },
-      )
-      .eq("entity_id", tenant.entityId)
-      .range(offset, offset + limit - 1);
+      );
+
+    let isStarlexBranch = false;
+    if (tenant.branchId) {
+      const { data: obm } = await this.supabaseService
+        .getClient()
+        .from("organisation_branch_master")
+        .select("parent_id")
+        .eq("id", tenant.entityId)
+        .maybeSingle();
+      if (obm && obm.parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a") {
+        isStarlexBranch = true;
+      }
+    }
+
+    if (isStarlexBranch) {
+      query = query.or(`entity_id.eq.${tenant.entityId},id.eq.db013159-6ac3-49a6-95b1-eaec10f964db`);
+    } else {
+      query = query.eq("entity_id", tenant.entityId);
+      if (tenant.entityId === "66d79887-be98-40ab-ac40-9e0a008f9d8a") {
+        query = query.neq("id", "db013159-6ac3-49a6-95b1-eaec10f964db");
+      }
+    }
+
+    query = query.range(offset, offset + limit - 1);
 
     if (search) {
       query = query.or(
@@ -97,7 +119,7 @@ export class VendorsService {
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
+    let query = this.supabaseService
       .getClient()
       .from("vendors")
       .select(
@@ -108,9 +130,28 @@ export class VendorsService {
         vendor_bank_accounts(*)
       `,
       )
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .single();
+      .eq("id", id);
+
+    let isStarlex = false;
+    if (id === "db013159-6ac3-49a6-95b1-eaec10f964db") {
+      const { data: obm } = await this.supabaseService
+        .getClient()
+        .from("organisation_branch_master")
+        .select("parent_id")
+        .eq("id", tenant.entityId)
+        .maybeSingle();
+      if (obm && (obm.parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a" || tenant.entityId === "66d79887-be98-40ab-ac40-9e0a008f9d8a")) {
+        isStarlex = true;
+      }
+    }
+
+    if (isStarlex) {
+      // Allow loading Starlex Healthcare Org Vendor from any of its branches
+    } else {
+      query = query.eq("entity_id", tenant.entityId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) {
       throw new NotFoundException(`Vendor with ID ${id} not found`);
@@ -394,12 +435,31 @@ export class VendorsService {
 
     const client = this.supabaseService.getClient();
 
+    let isStarlex = false;
+    if (id === "db013159-6ac3-49a6-95b1-eaec10f964db") {
+      const { data: obm } = await client
+        .from("organisation_branch_master")
+        .select("parent_id")
+        .eq("id", tenant.entityId)
+        .maybeSingle();
+      if (obm && (obm.parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a" || tenant.entityId === "66d79887-be98-40ab-ac40-9e0a008f9d8a")) {
+        isStarlex = true;
+      }
+    }
+
+    const targetEntityId = isStarlex ? "66d79887-be98-40ab-ac40-9e0a008f9d8a" : tenant.entityId;
+
     // 1. Update main table
-    const { data: vendor, error: vendorError } = await client
+    let updateQuery = client
       .from("vendors")
       .update(updateData)
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
+      .eq("id", id);
+
+    if (!isStarlex) {
+      updateQuery = updateQuery.eq("entity_id", tenant.entityId);
+    }
+
+    const { data: vendor, error: vendorError } = await updateQuery
       .select()
       .single();
 
@@ -423,7 +483,7 @@ export class VendorsService {
           billingAddress.city)
       ) {
         addresses.push({
-          entity_id: tenant.entityId,
+          entity_id: targetEntityId,
           vendor_id: id,
           address_type: "billing",
           attention: billingAddress.attention ?? null,
@@ -454,7 +514,7 @@ export class VendorsService {
           shippingAddress.city)
       ) {
         addresses.push({
-          entity_id: tenant.entityId,
+          entity_id: targetEntityId,
           vendor_id: id,
           address_type: "shipping",
           attention: shippingAddress.attention ?? null,

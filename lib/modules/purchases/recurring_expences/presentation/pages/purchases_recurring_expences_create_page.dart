@@ -22,7 +22,6 @@ import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/wid
 import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/customer_dropdown_widget.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/account_tree_dropdown_with_add_widget.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/expense_account_dropdown_widget.dart';
-import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/recurring_expense_loading_indicator_widget.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
@@ -32,6 +31,7 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accounta
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import '../../config/recurring_expense_constants.dart';
 import '../../config/recurring_expense_routes.dart';
 import '../../models/create_recurring_expense_request.dart';
@@ -2095,7 +2095,10 @@ class _PurchasesRecurringExpensesCreatePageState
       child: Padding(
         padding: const EdgeInsets.only(top: _recurringExpenseFormTopPadding),
         child: _isLoadingEditProfile
-            ? const RecurringExpenseLoadingIndicator(fillAvailableSpace: true)
+            ? const Padding(
+                padding: EdgeInsets.fromLTRB(32, 0, 32, 24),
+                child: ZFormSkeleton(rows: 9),
+              )
             : Form(
                 key: _formKey,
                 child: Container(

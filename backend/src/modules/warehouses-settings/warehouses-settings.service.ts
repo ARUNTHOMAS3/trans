@@ -160,7 +160,6 @@ export class WarehousesSettingsService {
       org_id: tenant.orgId,
       name: dto.name,
       warehouse_code: dto.warehouse_code ?? null,
-      branch_id: branchId,
       source_branch_id: branchId,
       customer_id: this.normalizeUuid(dto.customer_id),
       vendor_id: this.normalizeUuid(dto.vendor_id),
@@ -235,8 +234,11 @@ export class WarehousesSettingsService {
     for (const field of fields) {
       if (field in dto) payload[field] = dto[field] ?? null;
     }
-    if ("branch_id" in payload) {
-      payload.branch_id = this.normalizeUuid(payload.branch_id);
+    if ("branch_id" in dto) {
+      payload.source_branch_id = this.normalizeUuid(dto.branch_id);
+    }
+    if ("source_branch_id" in dto) {
+      payload.source_branch_id = this.normalizeUuid(dto.source_branch_id);
     }
     if ("customer_id" in payload) {
       payload.customer_id = this.normalizeUuid(payload.customer_id);

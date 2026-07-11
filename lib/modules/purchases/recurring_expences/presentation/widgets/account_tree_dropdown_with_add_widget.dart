@@ -6,6 +6,7 @@ import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 class AccountTreeDropdownWithAddButton extends StatefulWidget {
   final String? value;
@@ -432,9 +433,9 @@ class _AccountTreeDropdownWithAddButtonState
                     if (_isSearching)
                       const SizedBox(
                         height: 2,
-                        child: LinearProgressIndicator(
-                          backgroundColor: Colors.transparent,
-                          valueColor: AlwaysStoppedAnimation(AppTheme.infoBlue),
+                        child: ZBone(
+                          borderRadius: 0,
+                          color: AppTheme.infoBlue,
                         ),
                       ),
                     Padding(

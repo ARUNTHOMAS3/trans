@@ -199,6 +199,7 @@ import '../../../customers/data/models/sales_customer_detail_context_model.dart'
 import 'package:zerpai_erp/modules/sales/payment_recieved/data/models/sales_payment_model.dart';
 import '../../../eway_bills/data/models/sales_eway_bill_model.dart';
 import '../../../payment_links/data/models/sales_payment_link_model.dart';
+import '../../../../purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 
 class SalesOrderApiService {
   final ApiClient _apiClient = ApiClient();
@@ -718,6 +719,33 @@ class SalesOrderApiService {
       throw Exception('Failed to update invoice');
     } catch (e) {
       throw Exception('Error updating invoice: $e');
+    }
+  }
+
+  Future<List<PurchaseOrder>> getAwaitingPoApprovals() async {
+    try {
+      final response = await _apiClient.get('/sales/awaiting-po-approvals');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
+        return data.map((json) => PurchaseOrder.fromJson(json as Map<String, dynamic>)).toList();
+      }
+      throw Exception('Failed to load awaiting PO approvals');
+    } catch (e) {
+      throw Exception('Error fetching awaiting PO approvals: $e');
+    }
+  }
+
+  Future<void> approvePurchaseOrders(List<String> poIds) async {
+    try {
+      final response = await _apiClient.post(
+        '/sales/awaiting-po-approvals/approve',
+        data: {'poIds': poIds},
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to approve purchase orders');
+      }
+    } catch (e) {
+      throw Exception('Error approving purchase orders: $e');
     }
   }
 }

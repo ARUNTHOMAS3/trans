@@ -36,7 +36,6 @@ import 'package:zerpai_erp/modules/purchases/recurring_expences/models/create_re
 import 'package:zerpai_erp/modules/purchases/recurring_expences/models/recurring_expense_details_model.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/models/recurring_expense_enums.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/models/recurring_expense_lookup_models.dart';
-import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/recurring_expense_loading_indicator_widget.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/providers/recurring_expense_provider.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
@@ -45,6 +44,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:zerpai_erp/shared/widgets/tables/split_list_detail_layout.dart';
 import 'package:zerpai_erp/shared/widgets/texts/zerpai_link_text.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
@@ -771,10 +771,7 @@ class _ExpensesOverviewState extends ConsumerState<ExpensesOverview> {
                 )
               : _buildLeftHeader(orgSystemId),
           leftBody: state.isLoading
-              ? const RecurringExpenseLoadingIndicator(
-                  fillAvailableSpace: true,
-                  backgroundColor: AppTheme.backgroundColor,
-                )
+              ? _buildOverviewListLoading()
               : Column(
                   children: [
                     Expanded(
@@ -807,10 +804,7 @@ class _ExpensesOverviewState extends ConsumerState<ExpensesOverview> {
           rightHeader: null,
           rightBody: detailAsync.when(
             data: (record) => _buildRightPane(record ?? selectedRecord),
-            loading: () => const RecurringExpenseLoadingIndicator(
-              fillAvailableSpace: true,
-              backgroundColor: AppTheme.backgroundColor,
-            ),
+            loading: _buildOverviewDetailLoading,
             error: (error, _) => Center(
               child: Text(
                 error.toString(),
@@ -821,6 +815,18 @@ class _ExpensesOverviewState extends ConsumerState<ExpensesOverview> {
         ),
       ),
     );
+  }
+
+  Widget _buildOverviewListLoading() {
+    return Container(
+      color: AppTheme.backgroundColor,
+      padding: const EdgeInsets.all(AppTheme.space16),
+      child: const ZListSkeleton(itemCount: 6),
+    );
+  }
+
+  Widget _buildOverviewDetailLoading() {
+    return const SingleChildScrollView(child: ZDetailContentSkeleton());
   }
 
   Widget _buildLeftHeader(String orgSystemId) {
@@ -2563,8 +2569,9 @@ class _ExpensesOverviewState extends ConsumerState<ExpensesOverview> {
                     },
                   );
                 },
-                loading: () => const RecurringExpenseLoadingIndicator(
-                  fillAvailableSpace: true,
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppTheme.space24),
+                  child: ZListSkeleton(itemCount: 3),
                 ),
                 error: (_, __) => _buildExpenseHistoryEmptyState(),
               ),
@@ -3245,14 +3252,8 @@ class _ExpensesOverviewState extends ConsumerState<ExpensesOverview> {
           journalAsync.when(
             data: (entries) => _buildJournalTable(entries),
             loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
+              padding: EdgeInsets.symmetric(vertical: AppTheme.space24),
+              child: ZTableSkeleton(rows: 3, columns: 4),
             ),
             error: (_, __) => Text(
               'Unable to load journal entries.',
@@ -4516,3 +4517,4 @@ class _ExpenseHistoryEntry {
   final String message;
   final IconData icon;
 }
+

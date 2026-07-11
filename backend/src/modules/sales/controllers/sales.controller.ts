@@ -27,6 +27,22 @@ export class SalesController {
     return this.salesService.getSalesByType(type, tenant.entityId);
   }
 
+  @Get("awaiting-po-approvals")
+  async getAwaitingPoApprovals(@Tenant() tenant: TenantContext) {
+    return this.salesService.getAwaitingPoApprovals(tenant);
+  }
+
+  @Post("awaiting-po-approvals/approve")
+  async approvePurchaseOrders(
+    @Body() body: { poIds: string[] },
+    @Tenant() tenant: TenantContext,
+  ) {
+    if (!body.poIds || !Array.isArray(body.poIds) || body.poIds.length === 0) {
+      throw new BadRequestException("poIds is required and must be a non-empty array");
+    }
+    return this.salesService.approvePurchaseOrders(body.poIds, tenant);
+  }
+
   @Get("customer/:customerId")
   async getSalesOrdersByCustomer(
     @Param("customerId") customerId: string,

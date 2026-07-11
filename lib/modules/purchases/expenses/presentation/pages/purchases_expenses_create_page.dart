@@ -26,7 +26,6 @@ import 'package:zerpai_erp/modules/purchases/expenses/models/expense_record.dart
 import 'package:zerpai_erp/modules/purchases/expenses/models/expense_request_models.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/widgets/expense_attachment_card_widget.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/providers/expenses_provider.dart';
-import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/recurring_expense_loading_indicator_widget.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/models/recurring_expense_enums.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/models/recurring_expense_lookup_models.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/models/recurring_expense_details_model.dart';
@@ -44,6 +43,7 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accounta
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/presentation/widgets/advanced_customer_search_dialog.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 final mileageEmployeesProvider = FutureProvider<List<ExpenseEmployeeOption>>((
   ref,
@@ -401,38 +401,7 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
             .toList(growable: false)
       : _taxes;
 
-  String? _lastLoggedTaxCatalogFingerprint;
-  String? _lastLoggedTaxOptionsFingerprint;
 
-  void _logTaxDebug(String stage, Object? value) {
-    debugPrint('========== TAX DEBUG ==========');
-    debugPrint('Stage: $stage');
-    debugPrint('Value: $value');
-    debugPrint('==============================');
-  }
-
-  void _logTaxCatalogSnapshot() {
-    final entries = _taxCatalog
-        .map(
-          (item) =>
-              'id=${item.id} tax_name=${item.label} displayLabel=${item.displayLabel} rate=${item.rate}',
-        )
-        .join(' || ');
-    if (_lastLoggedTaxCatalogFingerprint == entries) {
-      return;
-    }
-    _lastLoggedTaxCatalogFingerprint = entries;
-    _logTaxDebug('_taxCatalog', entries.isEmpty ? '[]' : entries);
-  }
-
-  void _logTaxOptionsSnapshot() {
-    final options = _taxOptions.join(' || ');
-    if (_lastLoggedTaxOptionsFingerprint == options) {
-      return;
-    }
-    _lastLoggedTaxOptionsFingerprint = options;
-    _logTaxDebug('_taxOptions', options.isEmpty ? '[]' : options);
-  }
 
   String? _resolveGstTreatmentLabel(String? value) {
     if (value == null || value.isEmpty) {
@@ -1184,9 +1153,7 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
   }
 
   RecurringExpenseTaxOption? _findTaxByLabel(String? label) {
-    _logTaxDebug('_findTaxByLabel incoming label', label);
     if (label == null || label.trim().isEmpty) {
-      _logTaxDebug('_findTaxByLabel matched tax object', 'null');
       return null;
     }
     for (final item in _taxCatalog) {
@@ -1196,14 +1163,9 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
       if (item.id == label ||
           item.displayLabel == label ||
           item.label == label) {
-        _logTaxDebug(
-          '_findTaxByLabel matched tax object',
-          'id=${item.id} label=${item.label} displayLabel=${item.displayLabel} rate=${item.rate}',
-        );
         return item;
       }
     }
-    _logTaxDebug('_findTaxByLabel matched tax object', 'null');
     return null;
   }
 
@@ -1254,19 +1216,11 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
   );
 
   String? _normalizedTaxId(RecurringExpenseTaxOption? option) {
-    _logTaxDebug(
-      '_normalizedTaxId incoming object',
-      option == null
-          ? 'null'
-          : 'id=${option.id} label=${option.label} displayLabel=${option.displayLabel} rate=${option.rate}',
-    );
     final raw = option?.id.trim();
     if (raw == null || raw.isEmpty) {
-      _logTaxDebug('_normalizedTaxId outgoing UUID', 'null');
       return null;
     }
     final normalized = _uuidPattern.hasMatch(raw) ? raw : null;
-    _logTaxDebug('_normalizedTaxId outgoing UUID', normalized);
     return normalized;
   }
 
@@ -1797,12 +1751,6 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
               _clearExemptionReason();
             }
             _clearTaxAmountOverride();
-            _logTaxDebug(
-              'header tax selected in dropdown',
-              val == null
-                  ? 'selected display label=null selected id=null'
-                  : 'selected display label=${val.displayLabel} selected id=${val.id} selected rate=${val.rate}',
-            );
           }),
           itemBuilder: (item, isSelected, isHovered) {
             if (item.isHeader) {
@@ -2620,13 +2568,6 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
           inclusive: isInclusive,
         );
         final normalizedRowTaxId = _normalizedTaxId(rowTax);
-        _logTaxDebug(
-          'before creating ExpenseItemModel',
-          'row=${index + 1} description=${row.notesController.text.trim()} '
-              'account=${rowAccount.id}/${rowAccount.displayName} tax label=${row.tax} '
-              'resolved tax object=${rowTax == null ? 'null' : 'id=${rowTax.id} label=${rowTax.label} displayLabel=${rowTax.displayLabel} rate=${rowTax.rate}'} '
-              'tax UUID=$normalizedRowTaxId',
-        );
         subtotal += amount;
         taxAmount += rowTaxAmount;
         items.add(
@@ -8596,10 +8537,6 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
                                           _hideItemizedTotalTaxEditor();
                                           row.tax = v;
                                           _itemizedTaxOverrides = {};
-                                          _logTaxDebug(
-                                            'item row tax selected in dropdown',
-                                            'row.tax=$v selected display label=$v',
-                                          );
                                         }),
                                       ),
                                     ),
@@ -9100,12 +9037,13 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
 
   @override
   Widget build(BuildContext context) {
-    _logTaxCatalogSnapshot();
-    _logTaxOptionsSnapshot();
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: _isLoadingEditExpense
-          ? const RecurringExpenseLoadingIndicator(fillAvailableSpace: true)
+          ? const Padding(
+              padding: EdgeInsets.fromLTRB(32, 32, 32, 24),
+              child: ZFormSkeleton(rows: 10),
+            )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -9418,3 +9356,4 @@ class VendorItem {
   @override
   String toString() => name;
 }
+

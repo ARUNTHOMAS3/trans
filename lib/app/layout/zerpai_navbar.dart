@@ -203,15 +203,10 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
       _locationLoading = true;
     });
 
-    final role = user.role.trim().toLowerCase();
     final isPrivilegedUser =
         user.role.trim().toLowerCase() == 'admin' ||
         isPlatformAdminOverride(user);
-    final isBranchScopedUser =
-        role == 'branch_admin' ||
-        ((user.activeTenantType ?? '').trim().toUpperCase() == 'BRANCH') ||
-        user.accessibleBranchIds.isNotEmpty;
-    final canShowOrgOption = isPrivilegedUser && !isBranchScopedUser;
+    final canShowOrgOption = isPrivilegedUser;
     final options = <_LocationOption>[];
 
     if (canShowOrgOption) {

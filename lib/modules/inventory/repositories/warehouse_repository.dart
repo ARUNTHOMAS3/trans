@@ -27,10 +27,15 @@ class WarehouseRepositoryImpl implements WarehouseRepository {
     String? outletId,
   }) async {
     final box = Hive.box('config');
+    final activeBranchId = (box.get('selected_branch_id') as String?)?.trim();
     final activeEntityId = (box.get('selected_entity_id') as String?)?.trim();
 
     List<Warehouse> filterByActiveEntity(List<Warehouse> list) {
-      if (activeEntityId != null && activeEntityId.isNotEmpty) {
+      if (activeBranchId != null && activeBranchId.isNotEmpty) {
+        return list.where((w) {
+          return w.branchId == activeBranchId || w.entityId == activeEntityId;
+        }).toList();
+      } else if (activeEntityId != null && activeEntityId.isNotEmpty) {
         return list.where((w) {
           return w.entityId == null ||
               w.entityId!.isEmpty ||
@@ -76,7 +81,7 @@ class WarehouseRepositoryImpl implements WarehouseRepository {
       final supabase = Supabase.instance.client;
       var query = supabase
           .from('warehouses')
-          .select('id, name, warehouse_code, is_active, entity_id');
+          .select('id, name, warehouse_code, is_active, entity_id, source_branch_id');
 
       if (activeEntityId != null && activeEntityId.isNotEmpty) {
         query = query.eq('entity_id', activeEntityId);

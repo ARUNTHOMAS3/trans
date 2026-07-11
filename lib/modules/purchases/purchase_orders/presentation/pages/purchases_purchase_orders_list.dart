@@ -2616,24 +2616,25 @@ class _PurchaseOrderOverviewScreenState
                       decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
                       child: Row(
                         children: [
-                          if (displayStatus.toLowerCase() == 'draft') ...[
+                          if (order.status.toLowerCase() != 'cancelled' &&
+                              order.status.toLowerCase() != 'canceled') ...[
                             _buildToolbarButton(
                               LucideIcons.pencil,
                               'Edit',
                               onPressed: () => _editPurchaseOrder(order),
                             ),
                             _buildDivider(),
+                            _buildToolbarButton(
+                              LucideIcons.mail,
+                              'Send Email',
+                              onPressed: () {
+                                context.go(
+                                  '/purchases/purchase-orders/${order.id}/email',
+                                );
+                              },
+                            ),
+                            _buildDivider(),
                           ],
-                          _buildToolbarButton(
-                            LucideIcons.mail,
-                            'Send Email',
-                            onPressed: () {
-                              context.go(
-                                '/purchases/purchase-orders/${order.id}/email',
-                              );
-                            },
-                          ),
-                          _buildDivider(),
                           _buildPdfPrintDropdown(order, orgSettings),
                           if (order.status.toLowerCase() == 'draft') ...[
                             _buildDivider(),
@@ -3520,13 +3521,31 @@ class _PurchaseOrderOverviewScreenState
   }
 
   List<Widget> _menuChildrenForStatus(PurchaseOrder order, _PoTxnSummary summary) {
-    final isFullyReceived = _isAllItemsReceived(order, summary);
-    if (isFullyReceived) {
+    final status = order.status.toLowerCase();
+    final hasCancelledItems = order.items.any((item) => !item.isHeader && item.cancelledQuantity > 0);
+
+    if (status == 'cancelled' || status == 'canceled') {
       return [
-        _detailActionMenuItem('Reopen canceled items', order, summary),
+        _detailActionMenuItem('Reopen cancelled items', order, summary),
         _detailActionMenuItem('Clone', order, summary),
         _detailActionMenuItem('Delete', order, summary),
       ];
+    }
+
+    final isFullyReceived = _isAllItemsReceived(order, summary);
+    if (isFullyReceived) {
+      return [
+        if (hasCancelledItems)
+          _detailActionMenuItem('Reopen cancelled items', order, summary),
+        _detailActionMenuItem('Clone', order, summary),
+        _detailActionMenuItem('Delete', order, summary),
+      ];
+    }
+
+    final List<Widget> items = [];
+
+    if (hasCancelledItems) {
+      items.add(_detailActionMenuItem('Reopen cancelled items', order, summary));
     }
 
     if (summary.receives.isNotEmpty) {
@@ -3534,59 +3553,52 @@ class _PurchaseOrderOverviewScreenState
               summary.receiveStatus.toLowerCase() == 'partially received') &&
           summary.billStatus.toLowerCase() == 'yet to be billed';
       if (!isTransitYetBilled) {
-        if (order.status.toLowerCase() == 'issued') {
-          return [
+        if (status == 'issued') {
+          items.addAll([
             _detailActionMenuItem('Expected Delivery Date', order, summary),
             _detailActionMenuItem('Cancel Items', order, summary),
             _detailActionMenuItem('Clone', order, summary),
             _detailActionMenuItem('View Bills', order, summary),
             _detailActionMenuItem('Delete', order, summary),
             _detailActionMenuItem('Mark as Received', order, summary),
-          ];
+          ]);
+        } else {
+          items.addAll([
+            _detailActionMenuItem('Cancel Items', order, summary),
+            _detailActionMenuItem('Clone', order, summary),
+            _detailActionMenuItem('Delete', order, summary),
+          ]);
         }
-        return [
-          _detailActionMenuItem('Cancel Items', order, summary),
-          _detailActionMenuItem('Clone', order, summary),
-          _detailActionMenuItem('Delete', order, summary),
-        ];
+        return items;
       }
     }
 
-    final status = order.status.toLowerCase();
     if (status == 'draft') {
-      return [
+      items.addAll([
         _detailActionMenuItem('Mark as Issued', order, summary),
         _detailActionMenuItem('Convert to Bill', order, summary),
         _detailActionMenuItem('Create Receive', order, summary),
         _detailActionMenuItem('Clone', order, summary),
         _detailActionMenuItem('Delete', order, summary),
         _detailActionMenuItem('Mark as Received', order, summary),
-      ];
+      ]);
     } else if (status == 'closed') {
-      return [
-        _detailActionMenuItem('Reopen canceled items', order, summary),
+      items.addAll([
         _detailActionMenuItem('Clone', order, summary),
         _detailActionMenuItem('Delete', order, summary),
-      ];
-    } else if (status == 'issued') {
-      return [
-        _detailActionMenuItem('Expected Delivery Date', order, summary),
-        _detailActionMenuItem('Cancel Items', order, summary),
-        _detailActionMenuItem('Mark as Canceled', order, summary),
-        _detailActionMenuItem('Clone', order, summary),
-        _detailActionMenuItem('Delete', order, summary),
-        _detailActionMenuItem('Mark as Received', order, summary),
-      ];
+      ]);
     } else {
-      return [
+      items.addAll([
         _detailActionMenuItem('Expected Delivery Date', order, summary),
         _detailActionMenuItem('Cancel Items', order, summary),
         _detailActionMenuItem('Mark as Canceled', order, summary),
         _detailActionMenuItem('Clone', order, summary),
         _detailActionMenuItem('Delete', order, summary),
         _detailActionMenuItem('Mark as Received', order, summary),
-      ];
+      ]);
     }
+
+    return items;
   }
 
   Widget _poBillsBanner(_PoTxnSummary summary) {
@@ -3879,12 +3891,25 @@ class _PurchaseOrderOverviewScreenState
           context.go('/$orgId/purchases/bills?q=${order.orderNumber}');
         } else if (label == 'Create Receive') {
           context.go('/purchases/purchase-receives/create?poId=${order.id}');
-        } else if (label == 'Reopen canceled items') {
+        } else if (label == 'Reopen cancelled items' || label == 'Reopen canceled items') {
           try {
             final supabase = Supabase.instance.client;
+            
+            // Reset cancelled quantity to 0 for all items in the purchase order
+            for (final item in order.items) {
+              if (item.isHeader || item.id == null) continue;
+              await supabase
+                  .from('purchase_order_items')
+                  .update({'cancelled_quantity': 0.0})
+                  .eq('id', item.id!);
+            }
+
+            final isCancelled = order.status.toLowerCase() == 'cancelled' || order.status.toLowerCase() == 'canceled';
+            final newStatus = isCancelled ? 'Draft' : order.status;
+
             await supabase
                 .from('purchase_orders')
-                .update({'status': 'Issued'})
+                .update({'status': newStatus})
                 .eq('id', order.id!);
 
             ref.read(apiClientProvider).clearCache('purchase-orders');

@@ -8,6 +8,7 @@ import '../../eway_bills/data/models/sales_eway_bill_model.dart';
 import '../../payment_links/data/models/sales_payment_link_model.dart';
 import '../data/services/sales_order_api_service.dart';
 import '../../../inventory/providers/stock_provider.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 
 final salesOrderApiServiceProvider = Provider((ref) => SalesOrderApiService());
 
@@ -78,6 +79,11 @@ final salesEWayBillsProvider = FutureProvider<List<SalesEWayBill>>((ref) {
 
 final salesPaymentLinksProvider = FutureProvider<List<SalesPaymentLink>>((ref) {
   return ref.watch(salesOrderApiServiceProvider).getPaymentLinks();
+});
+
+final awaitingPoApprovalsProvider = FutureProvider<List<PurchaseOrder>>((ref) async {
+  final apiService = ref.watch(salesOrderApiServiceProvider);
+  return apiService.getAwaitingPoApprovals();
 });
 
 final salesOrdersByCustomerProvider =

@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { SupabaseService } from "../../supabase/supabase.service";
+import { TenantContext } from "../../../common/middleware/tenant.middleware";
 
 @Injectable()
 export class SalesService {
@@ -1709,5 +1710,460 @@ export class SalesService {
       }
       throw error;
     }
+  }
+
+  async getAwaitingPoApprovals(tenant: TenantContext) {
+    const starlexOrgEntityId = "66d79887-be98-40ab-ac40-9e0a008f9d8a";
+    
+    // Only apply if active entity is Starlex ORG itself or organization matches
+    if (tenant.entityId !== starlexOrgEntityId && tenant.orgId !== "00000000-0000-0000-0000-000000000002") {
+      return [];
+    }
+
+    const client = this.supabaseService.getClient();
+
+    // 2. Resolve all branches under Starlex
+    const { data: branches, error: branchesError } = await client
+      .from("organisation_branch_master")
+      .select("id, name, ref_id")
+      .eq("parent_id", starlexOrgEntityId)
+      .eq("type", "BRANCH");
+
+    if (branchesError || !branches || branches.length === 0) {
+      return [];
+    }
+
+    const branchEntityIds = branches.map((b) => b.id);
+    const branchNameMap = new Map<string, string>();
+    const branchRefMap = new Map<string, string>();
+    for (const b of branches) {
+      branchNameMap.set(b.id, b.name);
+      if (b.ref_id) {
+        branchRefMap.set(b.id, b.ref_id);
+      }
+    }
+
+    // Resolve credit limits from customer records where associated_branch_id = branch.ref_id
+    const branchRefIds = branches.map((b) => b.ref_id).filter(Boolean);
+    const branchCreditLimitMap = new Map<string, number>();
+    if (branchRefIds.length > 0) {
+      const { data: custs } = await client
+        .from("customers")
+        .select("associated_branch_id, credit_limit")
+        .in("associated_branch_id", branchRefIds)
+        .eq("entity_id", starlexOrgEntityId);
+      if (custs) {
+        for (const c of custs) {
+          if (c.associated_branch_id) {
+            branchCreditLimitMap.set(
+              c.associated_branch_id,
+              c.credit_limit ? parseFloat(c.credit_limit.toString()) : 0.0
+            );
+          }
+        }
+      }
+    }
+
+    // 3. Find POs from these branches that are created against the organization vendor (id: db013159-6ac3-49a6-95b1-eaec10f964db)
+    // whose status is not 'Draft', and is_delete is false.
+    const { data: pos, error: posError } = await client
+      .from("purchase_orders")
+      .select("id, order_number, order_date, status, warehouse_id, total, entity_id")
+      .in("entity_id", branchEntityIds)
+      .eq("vendor_id", "db013159-6ac3-49a6-95b1-eaec10f964db")
+      .neq("status", "Draft")
+      .eq("is_delete", false)
+      .order("order_date", { ascending: false });
+
+    if (posError || !pos || pos.length === 0) {
+      return [];
+    }
+
+    // Resolve warehouse names
+    const warehouseIds = pos.map((p) => p.warehouse_id).filter(Boolean);
+    const warehouseNameMap = new Map<string, string>();
+    if (warehouseIds.length > 0) {
+      const { data: whs } = await client
+        .from("warehouses")
+        .select("id, name")
+        .in("id", warehouseIds);
+      if (whs) {
+        for (const w of whs) {
+          warehouseNameMap.set(w.id, w.name);
+        }
+      }
+    }
+
+    // 4. Get all existing references in sales_orders under the parent organization
+    // to filter out POs that have already been converted to Sales Orders.
+    const poNumbers = pos.map((p) => p.order_number).filter(Boolean);
+    let usedReferences: string[] = [];
+
+    if (poNumbers.length > 0) {
+      const { data: sos } = await client
+        .from("sales_orders")
+        .select("id, reference")
+        .eq("entity_id", starlexOrgEntityId)
+        .in("reference", poNumbers);
+
+      if (sos && sos.length > 0) {
+        const salesOrderIds = sos.map((so) => so.id);
+        
+        // Fetch picklist items for these Sales Orders
+        const { data: picklistItems } = await client
+          .from("picklist_items")
+          .select("sales_order_id, quantity_picked")
+          .in("sales_order_id", salesOrderIds);
+
+        // Group picklist items by Sales Order ID
+        const picklistItemsMap = new Map<string, any[]>();
+        if (picklistItems) {
+          for (const item of picklistItems) {
+            if (!picklistItemsMap.has(item.sales_order_id)) {
+              picklistItemsMap.set(item.sales_order_id, []);
+            }
+            picklistItemsMap.get(item.sales_order_id)!.push(item);
+          }
+        }
+
+        for (const so of sos) {
+          if (!so.reference) continue;
+          
+          const items = picklistItemsMap.get(so.id) || [];
+          
+          // If a picklist is created for the Sales Order:
+          // Check if quantity picked is 0 (Yet to Start status) or more.
+          // Since the user says: "if picklist is created with quantity picked =0 (yet to start status) then dont show that item"
+          // We exclude the PO if picking is yet to start (picked sum = 0) OR if picking has already started/completed (picked sum > 0).
+          // We also exclude it if no picklist items are found (Sales Order exists).
+          const totalPicked = items.reduce((sum, item) => sum + (parseFloat(item.quantity_picked || "0")), 0);
+          
+          // Therefore, if a Sales Order is created (and by extension its picklist is created with qty_picked >= 0),
+          // we exclude this reference from the awaiting list.
+          usedReferences.push(so.reference);
+        }
+      }
+    }
+
+    // Filter out used POs
+    const filteredPos = pos.filter((po) => !po.order_number || !usedReferences.includes(po.order_number));
+
+    const result = filteredPos.map((po) => {
+      const refId = branchRefMap.get(po.entity_id);
+      const creditLimit = refId ? branchCreditLimitMap.get(refId) ?? 0.0 : 0.0;
+      
+      return {
+        id: po.id,
+        order_date: po.order_date,
+        order_number: po.order_number,
+        status: po.status,
+        warehouse_name: po.warehouse_id ? warehouseNameMap.get(po.warehouse_id) ?? "Unknown Warehouse" : "Unknown Warehouse",
+        branch_name: branchNameMap.get(po.entity_id) ?? "Unknown Branch",
+        credit_limit: creditLimit,
+        total: po.total ? parseFloat(po.total.toString()) : 0.0,
+      };
+    });
+
+    return result;
+  }
+
+  async approvePurchaseOrders(poIds: string[], tenant: TenantContext) {
+    const client = this.supabaseService.getClient();
+    const starlexOrgEntityId = "66d79887-be98-40ab-ac40-9e0a008f9d8a";
+    
+    // Resolve the default sales account for starlexOrgEntityId
+    const defaultSalesAccountId = await this.resolveDefaultSalesAccountId(starlexOrgEntityId);
+    
+    const results = [];
+    for (const poId of poIds) {
+      // 1. Fetch PO with items
+      const { data: po, error: poError } = await client
+        .from("purchase_orders")
+        .select("*, items:purchase_order_items(*)")
+        .eq("id", poId)
+        .single();
+      
+      if (poError || !po) {
+        throw new NotFoundException(`Purchase Order ${poId} not found`);
+      }
+      
+      // 2. Check if Sales Order already exists
+      const { data: existingSo } = await client
+        .from("sales_orders")
+        .select("id")
+        .eq("entity_id", starlexOrgEntityId)
+        .eq("reference", po.order_number)
+        .maybeSingle();
+      
+      if (existingSo) {
+        results.push({ poId, status: "already_approved", salesOrderId: existingSo.id });
+        continue;
+      }
+      
+      // 3. Find customer record corresponding to the PO's branch
+      const { data: branch } = await client
+        .from("organisation_branch_master")
+        .select("id, name, ref_id")
+        .eq("id", po.entity_id)
+        .single();
+      
+      let customerId: string | null = null;
+      if (branch && branch.ref_id) {
+        const { data: cust } = await client
+          .from("customers")
+          .select("id")
+          .eq("associated_branch_id", branch.ref_id)
+          .eq("entity_id", starlexOrgEntityId)
+          .maybeSingle();
+        if (cust) {
+          customerId = cust.id;
+        }
+      }
+      
+      // Fallback to customer search by display_name or first customer in list
+      if (!customerId) {
+        const { data: custs } = await client
+          .from("customers")
+          .select("id, display_name")
+          .eq("entity_id", starlexOrgEntityId);
+        
+        if (custs && custs.length > 0) {
+          const match = branch ? custs.find(c => c.display_name.toLowerCase().includes(branch.name.toLowerCase())) : null;
+          customerId = match ? match.id : custs[0].id;
+        }
+      }
+      
+      if (!customerId) {
+        throw new BadRequestException(`No customer record found for branch ${branch?.name ?? po.entity_id}`);
+      }
+      
+      // Fetch product sales_account_id mapping
+      const productIds = (po.items || []).map((item) => item.product_id).filter(Boolean);
+      const productMap = new Map<string, string>();
+      if (productIds.length > 0) {
+        const { data: productsData } = await client
+          .from("products")
+          .select("id, sales_account_id")
+          .in("id", productIds);
+        if (productsData) {
+          for (const p of productsData) {
+            if (p.sales_account_id) {
+              productMap.set(p.id, p.sales_account_id);
+            }
+          }
+        }
+      }
+      
+      // Validate tax_ids exist in tax_rates (PO items may reference tax_groups instead)
+      const poTaxIds = (po.items || []).map((item) => item.tax_id).filter(Boolean);
+      const validTaxIds = new Set<string>();
+      if (poTaxIds.length > 0) {
+        const { data: taxRatesData } = await client
+          .from("tax_rates")
+          .select("id")
+          .in("id", poTaxIds);
+        if (taxRatesData) {
+          for (const tr of taxRatesData) {
+            validTaxIds.add(tr.id);
+          }
+        }
+      }
+      
+      // 4. Generate next sales order number
+      const { data: maxSo } = await client
+        .from("sales_orders")
+        .select("sale_number")
+        .eq("entity_id", starlexOrgEntityId)
+        .like("sale_number", "SO-%");
+      
+      let maxNum = 0;
+      for (const row of maxSo || []) {
+        const m = (row.sale_number as string).match(/^SO-(\d+)$/);
+        if (m) {
+          const num = parseInt(m[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      const nextSoNum = `SO-${String(maxNum + 1).padStart(5, "0")}`;
+      
+      // 4.5 Fetch the default warehouse for the destination organization (Starlex ORG)
+      let defaultWarehouseId: string | null = null;
+      let defaultWarehouseName: string | null = null;
+      const { data: defaultWhData } = await client
+        .from("warehouses")
+        .select("id, name")
+        .eq("entity_id", starlexOrgEntityId)
+        .eq("is_default_for_branch", true)
+        .maybeSingle();
+
+      if (defaultWhData) {
+        defaultWarehouseId = defaultWhData.id;
+        defaultWarehouseName = defaultWhData.name;
+      } else {
+        const { data: fallbackWhData } = await client
+          .from("warehouses")
+          .select("id, name")
+          .eq("entity_id", starlexOrgEntityId)
+          .limit(1)
+          .maybeSingle();
+        if (fallbackWhData) {
+          defaultWarehouseId = fallbackWhData.id;
+          defaultWarehouseName = fallbackWhData.name;
+        }
+      }
+
+      // 5. Insert Sales Order header
+      const subtotal = po.subtotal ? parseFloat(po.subtotal.toString()) : 0.0;
+      const taxAmount = po.tax_amount ? parseFloat(po.tax_amount.toString()) : 0.0;
+      const total = po.total ? parseFloat(po.total.toString()) : 0.0;
+      const discount = po.discount ? parseFloat(po.discount.toString()) : 0.0;
+      const adjustment = po.adjustment ? parseFloat(po.adjustment.toString()) : 0.0;
+      
+      const { data: so, error: soError } = await client
+        .from("sales_orders")
+        .insert({
+          entity_id: starlexOrgEntityId,
+          customer_id: customerId,
+          sale_number: nextSoNum,
+          reference: po.order_number,
+          sale_date: new Date().toISOString(),
+          status: "confirmed",
+          document_type: "order",
+          sub_total: subtotal,
+          tax_total: taxAmount,
+          discount_total: discount,
+          adjustment: adjustment,
+          total_quantity: po.items ? po.items.reduce((sum, item) => sum + (parseFloat(item.quantity?.toString() || "0")), 0) : 0,
+          total: total,
+          warehouse_id: defaultWarehouseId,
+          warehouse_name: defaultWarehouseName,
+          is_delete: false,
+        })
+        .select()
+        .single();
+      
+      if (soError || !so) {
+        throw soError || new BadRequestException("Failed to insert Sales Order");
+      }
+      
+      // 6. Insert Sales Order items
+      const soItems = (po.items || []).map((item, index) => {
+        const qty = parseFloat(item.quantity?.toString() || "0");
+        const rate = parseFloat(item.rate?.toString() || "0");
+        const amt = parseFloat(item.amount?.toString() || "0");
+        const taxAmt = parseFloat(item.tax_amount?.toString() || "0");
+        const discVal = parseFloat(item.discount?.toString() || "0");
+        
+        const resolvedAccount = productMap.get(item.product_id) || defaultSalesAccountId;
+        if (!resolvedAccount) {
+          throw new BadRequestException(
+            `Missing valid sales account for item. Configure item sales account or create a Stock/Sales account in Starlex ORG.`,
+          );
+        }
+        
+        const rawDiscType = item.discount_type || "percentage";
+        const discType = rawDiscType === "percentage" ? "%" : rawDiscType === "value" ? "value" : "%";
+        
+        return {
+          sales_order_id: so.id,
+          line_no: index + 1,
+          product_id: item.product_id,
+          description: item.description || null,
+          quantity: qty,
+          rate: rate,
+          discount_type: discType,
+          discount_value: discVal,
+          discount_amount: discType === "value" ? discVal : (qty * rate) * (discVal / 100),
+          tax_id: (item.tax_id && validTaxIds.has(item.tax_id)) ? item.tax_id : null,
+          tax_rate: item.item_tax_rate ? parseFloat(item.item_tax_rate.toString()) : 0.0,
+          tax_amount: taxAmt,
+          amount: amt,
+          hsn_code: item.hsn_code || "0",
+          accounts: resolvedAccount,
+          entity_id: starlexOrgEntityId,
+          is_invoiced: false,
+        };
+      });
+      
+      if (soItems.length > 0) {
+        const { error: itemsError } = await client
+          .from("sales_order_items")
+          .insert(soItems);
+        
+        if (itemsError) {
+          await client.from("sales_orders").delete().eq("id", so.id);
+          throw itemsError;
+        }
+      }
+      
+      // 7. AUTOMATICALLY CREATE PICKLIST for this Sales Order
+      const { data: maxPl } = await client
+        .from("picklist_master")
+        .select("picklist_no")
+        .eq("entity_id", starlexOrgEntityId)
+        .like("picklist_no", "PL-%");
+      
+      let maxPlNum = 0;
+      for (const row of maxPl || []) {
+        const m = (row.picklist_no as string).match(/^PL-(\d+)$/);
+        if (m) {
+          const num = parseInt(m[1], 10);
+          if (num > maxPlNum) maxPlNum = num;
+        }
+      }
+      const nextPlNum = `PL-${String(maxPlNum + 1).padStart(5, "0")}`;
+      
+      const { data: picklist, error: picklistError } = await client
+        .from("picklist_master")
+        .insert({
+          picklist_no: nextPlNum,
+          entity_id: starlexOrgEntityId,
+          warehouse_id: defaultWarehouseId,
+          picklist_date: new Date().toISOString().split("T")[0],
+          status: "DRAFT",
+          is_delete: false,
+          is_entrypass: false,
+        })
+        .select()
+        .single();
+      
+      if (picklistError || !picklist) {
+        throw picklistError || new BadRequestException("Failed to insert Picklist");
+      }
+      
+      // Fetch the created sales order items to map their line IDs
+      const { data: createdSoItems } = await client
+        .from("sales_order_items")
+        .select("id, product_id, quantity")
+        .eq("sales_order_id", so.id);
+      
+      if (createdSoItems && createdSoItems.length > 0) {
+        const plItems = createdSoItems.map((soItem) => {
+          const qty = parseFloat(soItem.quantity?.toString() || "0");
+          return {
+            picklist_id: picklist.id,
+            product_id: soItem.product_id,
+            sales_order_id: so.id,
+            sales_order_line_id: soItem.id,
+            qty_ordered: qty,
+            qty_to_pick: qty,
+            qty_picked: 0.0,
+            status: "YET_TO_START",
+          };
+        });
+        
+        const { error: plItemsError } = await client
+          .from("picklist_items")
+          .insert(plItems);
+        
+        if (plItemsError) {
+          throw plItemsError;
+        }
+      }
+      
+      results.push({ poId, status: "approved", salesOrderId: so.id, picklistId: picklist.id });
+    }
+    
+    return results;
   }
 }

@@ -820,6 +820,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                   }),
                   child: FormDropdown<Vendor>(
                     value: null,
+                    itemHeight: 56.0,
                     selectedValues: selectedFilterVendors,
                     multiSelect: true,
                     hideSelectedItemsInMultiSelect: true,

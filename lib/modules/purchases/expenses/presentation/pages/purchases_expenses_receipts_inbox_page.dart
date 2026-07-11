@@ -46,14 +46,16 @@ class _ExpensesReceiptsInboxPageState extends State<ExpensesReceiptsInboxPage> {
       pageTitle: '',
       enableBodyScroll: false,
       useHorizontalPadding: false,
+      useTopPadding: false,
       child: Container(
         color: AppTheme.backgroundColor,
         child: Column(
           children: [
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+            Container(
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   _tabItem(
                     'Receipts Inbox',
@@ -68,7 +70,7 @@ class _ExpensesReceiptsInboxPageState extends State<ExpensesReceiptsInboxPage> {
                   ),
                   const Spacer(),
                   Container(
-                    height: 44,
+                    height: 40,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
                       color: AppTheme.selectionActiveBg,
@@ -342,3 +344,4 @@ class _FeatureCard extends StatelessWidget {
     );
   }
 }
+

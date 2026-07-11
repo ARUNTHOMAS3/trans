@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/theme/app_text_styles.dart';
 import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/models/recurring_expense_lookup_models.dart';
-import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/recurring_expense_loading_indicator_widget.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 class AmountInputWidget extends StatefulWidget {
   final TextEditingController controller;
@@ -271,9 +271,20 @@ class _CurrencyDropdownContentState extends State<_CurrencyDropdownContent> {
         children: [
           Expanded(
             child: widget.isLoading
-                ? const RecurringExpenseLoadingIndicator(
-                    dotSize: 8,
-                    dotSpacing: 6,
+                ? const Padding(
+                    padding: EdgeInsets.all(AppTheme.space12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ZBone(height: 14),
+                        SizedBox(height: AppTheme.space10),
+                        ZBone(width: 110, height: 14),
+                        SizedBox(height: AppTheme.space10),
+                        ZBone(width: 96, height: 14),
+                        SizedBox(height: AppTheme.space10),
+                        ZBone(width: 120, height: 14),
+                      ],
+                    ),
                   )
                 : widget.currencies.isEmpty
                 ? Center(

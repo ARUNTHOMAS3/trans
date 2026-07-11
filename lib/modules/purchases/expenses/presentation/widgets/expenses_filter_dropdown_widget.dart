@@ -8,9 +8,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
-import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/recurring_expense_loading_indicator_widget.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 class ExpensesFilterDropdownWidget extends ConsumerStatefulWidget {
   final String moduleName;
@@ -266,7 +266,21 @@ class _ExpensesFilterMenuContentState
       return const SizedBox(
         width: 280,
         height: 120,
-        child: RecurringExpenseLoadingIndicator(),
+        child: Padding(
+          padding: EdgeInsets.all(AppTheme.space12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ZBone(width: 120, height: 16),
+              SizedBox(height: AppTheme.space12),
+              ZBone(height: 14),
+              SizedBox(height: AppTheme.space10),
+              ZBone(width: 220, height: 14),
+              SizedBox(height: AppTheme.space10),
+              ZBone(width: 180, height: 14),
+            ],
+          ),
+        ),
       );
     }
 

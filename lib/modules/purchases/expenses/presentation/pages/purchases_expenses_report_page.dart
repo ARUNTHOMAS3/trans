@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +29,7 @@ import 'package:zerpai_erp/modules/purchases/expenses/presentation/widgets/expen
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/widgets/expense_mileage_indicator_widget.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/widgets/expenses_more_menu_widgets.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/providers/expenses_provider.dart';
-import 'package:zerpai_erp/modules/purchases/recurring_expences/presentation/widgets/recurring_expense_loading_indicator_widget.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 class _ColumnDef {
   final String id;
@@ -1103,6 +1104,7 @@ class _ExpensesReportPageState extends ConsumerState<ExpensesReportPage> {
       pageTitle: '',
       enableBodyScroll: false,
       useHorizontalPadding: false,
+      useTopPadding: false,
       child: Container(
         color: AppTheme.backgroundColor,
         child: Column(
@@ -1235,12 +1237,11 @@ class _ExpensesReportPageState extends ConsumerState<ExpensesReportPage> {
               )
             else
               // Normal Top Bar matching mockup layout
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24.0,
-                  vertical: 12.0,
-                ),
+              Container(
+                height: 64,
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // Tabs
                     _tabItem(
@@ -1558,9 +1559,13 @@ class _ExpensesReportPageState extends ConsumerState<ExpensesReportPage> {
                             ),
                       if (_isLoading)
                         Positioned.fill(
-                          child: const RecurringExpenseLoadingIndicator(
-                            fillAvailableSpace: true,
-                            backgroundColor: AppTheme.backgroundColor,
+                          child: Container(
+                            color: AppTheme.backgroundColor,
+                            padding: const EdgeInsets.all(AppTheme.space16),
+                            child: ZTableSkeleton(
+                              rows: 8,
+                              columns: math.max(1, visibleCols.length),
+                            ),
                           ),
                         ),
                     ],
@@ -2252,3 +2257,5 @@ class _UploadMenuItemState extends State<_UploadMenuItem> {
     );
   }
 }
+
+

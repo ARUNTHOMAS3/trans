@@ -558,6 +558,7 @@ class _PurchasesBillCreateScreenState
   OverlayEntry? _discountOverlay;
   int? _activeDiscountRowIndex;
   OverlayEntry? _accountOverlay;
+  int? _activeAccountRowIndex;
   OverlayEntry? _itemMenuOverlay;
 
   // Search/pricing variables
@@ -4746,6 +4747,7 @@ class _PurchasesBillCreateScreenState
       width: 550,
       child: FormDropdown<Vendor>(
         height: 32,
+        itemHeight: 56.0,
         value: _selectedVendor,
         textStyle: TextStyle(
           fontSize: 13,
@@ -4769,7 +4771,7 @@ class _PurchasesBillCreateScreenState
           topLeft: Radius.circular(4),
           bottomLeft: Radius.circular(4),
         ),
-        showRightBorder: false,
+        showRightBorder: true,
       ),
     );
   }
@@ -9259,7 +9261,7 @@ class _PurchasesBillCreateScreenState
                         ),
                         _vLine(),
                         // ACCOUNT
-                        _accountCell(row, mappedNodes),
+                        _accountCell(row, mappedNodes, index),
                         _vLine(),
                         // QUANTITY
                         _qtyCell(row),
@@ -9498,10 +9500,18 @@ class _PurchasesBillCreateScreenState
             style: const TextStyle(fontSize: 12, color: _textPrimary),
             decoration: const InputDecoration(
               isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              contentPadding: EdgeInsets.zero,
               border: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
               hintText: 'Add a description to your item',
               hintStyle: TextStyle(fontSize: 12, color: _hintColor),
+              filled: true,
+              fillColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
             ),
           ),
         ),
@@ -9554,93 +9564,104 @@ class _PurchasesBillCreateScreenState
     );
   }
 
-  Widget _accountCell(_BillLineItemRow row, List<coa.AccountNode> mappedNodes) {
+  Widget _accountCell(_BillLineItemRow row, List<coa.AccountNode> mappedNodes, int index) {
     return Expanded(
       flex: 5,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: FormDropdown<coa.AccountNode>(
-          height: 32,
-          value: mappedNodes.where((a) => a.id == row.accountId).firstOrNull,
-          items: mappedNodes,
-          hint: 'Select Account',
-          hideBorderDefault: true,
-          menuWidth: 420,
-          displayStringForValue: (a) => a.name,
-          onChanged: (val) {
-            setState(() {
-              if (val != null) {
-                row.accountId = val.id;
-                row.accountName = val.name;
-              } else {
-                row.accountId = null;
-                row.accountName = null;
-              }
-            });
-          },
-          itemBuilder: (node, isSelected, isHovered) {
-            final depth = _getAccountDepth(node, mappedNodes);
-            final name = depth == 0
-                ? (node.systemAccountName.isNotEmpty
-                    ? node.systemAccountName
-                    : node.name)
-                : node.name;
-            return _buildStandardLookupRow(
-              name,
-              isSelected,
-              isHovered,
-              indentation: 20.0 + (depth * 16.0),
-            );
-          },
-          listBuilder: (filteredNodes, buildItem) {
-            final Map<String, List<coa.AccountNode>> grouped = {};
-            for (var node in filteredNodes) {
-              grouped.putIfAbsent(node.accountType, () => []).add(node);
-            }
-
-            return ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              children: grouped.entries.expand((entry) {
-                return [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Text(
-                      entry.key,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: _textPrimary,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  ...() {
-                    final List<Widget> items = [];
-                    final groupAccounts = entry.value;
-                    final accountMap = {for (var a in groupAccounts) a.id: a};
-                    final rootNodes = groupAccounts.where((a) => a.parentId == null || !accountMap.containsKey(a.parentId)).toList();
-                    
-                    void addNode(coa.AccountNode node, int depth) {
-                      items.add(buildItem(node));
-                      final children = groupAccounts.where((a) => a.parentId == node.id).toList();
-                      for (var child in children) {
-                        addNode(child, depth + 1);
-                      }
-                    }
-                    
-                    for (var root in rootNodes) {
-                      addNode(root, 0);
-                    }
-                    return items;
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: CompositedTransformTarget(
+            link: row.accountLink,
+            child: Builder(
+              builder: (btnContext) {
+                return GestureDetector(
+                  onTap: () {
+                    final renderBox = btnContext.findRenderObject() as RenderBox?;
+                    final offset = renderBox?.localToGlobal(Offset.zero);
+                    _showAccountMenu(
+                      context,
+                      index,
+                      row,
+                      mappedNodes,
+                      link: row.accountLink,
+                      buttonOffset: offset,
+                    );
+                  },
+                  child: () {
+                    bool isHovered = false;
+                    return StatefulBuilder(
+                      builder: (context, setOverlayState) {
+                        return MouseRegion(
+                          onEnter: (_) => setOverlayState(() => isHovered = true),
+                          onExit: (_) => setOverlayState(() => isHovered = false),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: (isHovered || _activeAccountRowIndex == index)
+                                    ? const Color(0xFF0088FF)
+                                    : Colors.transparent,
+                                width: 1,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: () {
+                                    final displayAccountName =
+                                        (row.accountName != null &&
+                                            row.accountName!.isNotEmpty)
+                                        ? row.accountName!
+                                        : (row.accountId != null &&
+                                                      row
+                                                          .accountId!
+                                                          .isNotEmpty
+                                                  ? mappedNodes
+                                                        .where(
+                                                          (a) =>
+                                                              a.id ==
+                                                              row.accountId,
+                                                        )
+                                                        .firstOrNull
+                                                        ?.name
+                                                  : null) ??
+                                              'Select Account';
+                                    final isPlaceholder =
+                                        displayAccountName ==
+                                        'Select Account';
+                                    return Text(
+                                      displayAccountName,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isPlaceholder
+                                            ? _hintColor
+                                            : _textPrimary,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    );
+                                  }(),
+                                ),
+                                const Icon(
+                                  Icons.arrow_drop_down,
+                                  size: 16,
+                                  color: _hintColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
                   }(),
-                ];
-              }).toList(),
-            );
-          },
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -10151,20 +10172,21 @@ class _PurchasesBillCreateScreenState
                         textAlign: TextAlign.left,
                         textAlignVertical: TextAlignVertical.center,
                         style: const TextStyle(fontSize: 12),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          filled: true,
-                          fillColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 0,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            filled: true,
+                            fillColor: Colors.transparent,
+                            hoverColor: Colors.transparent,
+                            focusColor: Colors.transparent,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 0,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
                           ),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                        ),
                       ),
                     ),
                     CompositedTransformTarget(
@@ -11151,27 +11173,44 @@ class _PurchasesBillCreateScreenState
     }
   }
 
+  void _closeAccountOverlay() {
+    if (_accountOverlay != null) {
+      _accountOverlay!.remove();
+      _accountOverlay = null;
+      setState(() {
+        _activeAccountRowIndex = null;
+      });
+    }
+  }
+
   void _showAccountMenu(
     BuildContext context,
     int index,
     _BillLineItemRow row,
     List<coa.AccountNode> accounts, {
     LayerLink? link,
+    Offset? buttonOffset,
   }) {
-    _accountOverlay?.remove();
-    _accountOverlay = null;
+    _closeAccountOverlay();
+    setState(() {
+      _activeAccountRowIndex = index;
+    });
 
     final overlay = Overlay.of(context);
+    final screenHeight = MediaQuery.of(context).size.height;
+    bool showAbove = false;
+    if (buttonOffset != null) {
+      if (buttonOffset.dy + 400 > screenHeight && buttonOffset.dy > 400) {
+        showAbove = true;
+      }
+    }
 
     _accountOverlay = OverlayEntry(
       builder: (ctx) => Stack(
         children: [
           Positioned.fill(
             child: GestureDetector(
-              onTap: () {
-                _accountOverlay?.remove();
-                _accountOverlay = null;
-              },
+              onTap: _closeAccountOverlay,
               behavior: HitTestBehavior.translucent,
               child: Container(color: Colors.transparent),
             ),
@@ -11179,20 +11218,24 @@ class _PurchasesBillCreateScreenState
           CompositedTransformFollower(
             link: link ?? row.accountLink,
             showWhenUnlinked: false,
-            offset: const Offset(0, 32),
+            targetAnchor: showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+            followerAnchor: showAbove ? Alignment.bottomLeft : Alignment.topLeft,
+            offset: Offset.zero,
             child: Material(
               color: Colors.transparent,
-              child: _AccountSelectionPopover(
-                accounts: accounts,
-                selectedAccountId: row.accountId,
-                onSelected: (acc) {
-                  setState(() {
-                    row.accountId = acc.id;
-                    row.accountName = acc.name;
-                  });
-                  _accountOverlay?.remove();
-                  _accountOverlay = null;
-                },
+              child: TapRegion(
+                onTapOutside: (_) => _closeAccountOverlay(),
+                child: _AccountSelectionPopover(
+                  accounts: accounts,
+                  selectedAccountId: row.accountId,
+                  onSelected: (acc) {
+                    setState(() {
+                      row.accountId = acc.id;
+                      row.accountName = acc.name;
+                    });
+                    _closeAccountOverlay();
+                  },
+                ),
               ),
             ),
           ),
@@ -13637,6 +13680,7 @@ class _PurchasesBillCreateScreenState
                   filled: true,
                   fillColor: Colors.transparent,
                   hoverColor: Colors.transparent,
+                  focusColor: Colors.transparent,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -14166,6 +14210,7 @@ class _PurchasesBillCreateScreenState
                         filled: true,
                         fillColor: Colors.transparent,
                         hoverColor: Colors.transparent,
+                        focusColor: Colors.transparent,
                         hintText: hint,
                         hintStyle: TextStyle(
                           color: _hintColor.withValues(alpha: 0.6),
@@ -14631,7 +14676,7 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
   Widget build(BuildContext context) {
     final groups = _grouped;
     return Container(
-      width: 480,
+      width: 320,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -14649,29 +14694,54 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    autofocus: true,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      hintText: 'Select an account',
-                      prefixIcon: Icon(
-                        Icons.search,
-                        size: 16,
-                        color: Color(0xFF9CA3AF),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.all(8),
+            child: SizedBox(
+              height: 36,
+              child: TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Select an account',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 13,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 16,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 36,
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFD1D5DB),
+                      width: 1,
                     ),
-                    onChanged: (v) => setState(() => _search = v),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFD1D5DB),
+                      width: 1,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF3B82F6),
+                      width: 1.5,
+                    ),
                   ),
                 ),
-              ],
+                onChanged: (v) => setState(() => _search = v),
+              ),
             ),
           ),
           const Divider(height: 1),
@@ -14710,7 +14780,9 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
                         final isSelected = node.id == widget.selectedAccountId;
                         items.add(
                           _PopoverListItem(
-                            label: depth == 0 ? node.systemAccountName : node.name,
+                            label: node.systemAccountName.isNotEmpty
+                                ? node.systemAccountName
+                                : node.userAccountName,
                             indent: depth,
                             isSelected: isSelected,
                             onTap: () => widget.onSelected(node),
@@ -16305,23 +16377,32 @@ class _HoverableDescriptionContainer extends StatefulWidget {
 class _HoverableDescriptionContainerState
     extends State<_HoverableDescriptionContainer> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: Container(
-        height: 72,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(
-            color: _hovered ? const Color(0xFF3B82F6) : const Color(0xFFE5E7EB),
-            width: _hovered ? 1.5 : 1.0,
+    return Focus(
+      onFocusChange: (hasFocus) => setState(() => _focused = hasFocus),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Container(
+          height: 72,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: _focused
+                  ? const Color(0xFF0088FF)
+                  : (_hovered
+                      ? const Color(0xFF2196F3)
+                      : const Color(0xFFE5E7EB)),
+              width: _focused ? 1.5 : 1.0,
+            ),
+            borderRadius: BorderRadius.circular(4),
           ),
-          borderRadius: BorderRadius.circular(4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: widget.child,
         ),
-        child: widget.child,
       ),
     );
   }

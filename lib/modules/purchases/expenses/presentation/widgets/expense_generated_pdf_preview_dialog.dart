@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 import 'package:zerpai_erp/core/theme/app_text_styles.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 final Set<String> _registeredExpenseGeneratedPdfFrames = <String>{};
 
@@ -146,28 +147,24 @@ class _ExpenseGeneratedPdfFrameState extends State<_ExpenseGeneratedPdfFrame> {
           Positioned.fill(
             child: Container(
               color: const Color(0xFF2D2D2D),
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    width: 30,
-                    height: 30,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.6,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const ZBone(
+                      width: 30,
+                      height: 30,
+                      borderRadius: 15,
+                      color: Color(0x33FFFFFF),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Loading PDF preview...',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(height: 14),
+                    const ZBone(
+                      width: 136,
+                      height: 12,
+                      color: Color(0x33FFFFFF),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ),
           ),
       ],

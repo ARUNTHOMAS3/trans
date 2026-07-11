@@ -33,6 +33,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import '../../../../../shared/models/column_config.dart';
 import '../../../../../shared/widgets/tables/table_header_menu.dart';
 import '../../../../../shared/widgets/skeleton.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class _ClearPicklistSelectionIntent extends Intent {
   const _ClearPicklistSelectionIntent();
@@ -2073,7 +2074,21 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                 ],
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => Skeletonizer(
+              enabled: true,
+              child: _buildDetailContent(
+                context,
+                Picklist(
+                  id: 'loading',
+                  picklistNumber: 'PL-XXXXX',
+                  date: DateTime.now(),
+                  status: 'DRAFT',
+                  location: '————————————————————',
+                  customerName: '——————————————————————',
+                  salesOrderNumber: 'SO-XXXXX',
+                ),
+              ),
+            ),
             error: (err, _) => Center(child: Text('Error: $err')),
           ),
         ),

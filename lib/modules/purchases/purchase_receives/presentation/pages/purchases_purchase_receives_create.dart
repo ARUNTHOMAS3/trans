@@ -1817,6 +1817,7 @@ class _PRCreateState
                               width: 550,
                               child: FormDropdown<Vendor>(
                                 height: 32,
+                                itemHeight: 56.0,
                                 enabled: !_isEditMode,
                                 fillColor: _isEditMode ? const Color(0xFFF1F5F9) : Colors.white,
                                 value: hasDisplayName ? selectedVendor : null,
