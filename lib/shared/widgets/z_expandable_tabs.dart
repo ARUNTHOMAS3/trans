@@ -35,6 +35,50 @@ class _ZExpandableTabsState extends State<ZExpandableTabs> {
     _isExpanded = widget.initiallyExpanded;
   }
 
+  Widget _buildTabTitle(String title, bool isSelected) {
+    final parts = title.split(' ');
+    if (parts.length >= 2 && int.tryParse(parts.last) != null) {
+      final text = parts.sublist(0, parts.length - 1).join(' ');
+      final count = parts.last;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: AppTheme.bodyText.copyWith(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              count,
+              style: AppTheme.bodyText.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryBlue,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Text(
+      title,
+      style: AppTheme.bodyText.copyWith(
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimary,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -65,7 +109,7 @@ class _ZExpandableTabsState extends State<ZExpandableTabs> {
                       onTap: () {
                         setState(() {
                           _activeIndex = index;
-                          _isExpanded = true; // Expand if clicked on tab
+                          _isExpanded = true;
                         });
                       },
                       child: Container(
@@ -81,13 +125,7 @@ class _ZExpandableTabsState extends State<ZExpandableTabs> {
                               : null,
                         ),
                         child: Center(
-                          child: Text(
-                            widget.tabs[index],
-                            style: AppTheme.bodyText.copyWith(
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: _buildTabTitle(widget.tabs[index], isSelected),
                         ),
                       ),
                     );

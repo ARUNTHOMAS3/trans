@@ -1190,17 +1190,7 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
     );
   }
 
-  MenuStyle _menuStyle() {
-    return MenuStyle(
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      elevation: const WidgetStatePropertyAll(8),
-      backgroundColor: const WidgetStatePropertyAll(Colors.white),
-      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-    );
-  }
+
 
   Future<void> _deletePackage(String id) async {
     final confirmed = await showDialog<bool>(
@@ -1253,7 +1243,25 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: _menuStyle(),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
+      builder: (context, controller, _) => SizedBox(
+        width: 100,
+        child: _buildToolbarButton(
+          LucideIcons.printer,
+          'PDF/Print',
+          onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+        ),
+      ),
       menuChildren: [
         MenuItemButton(
           onPressed: () async {
@@ -1263,8 +1271,33 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
               filename: '${pkg.packageNumber}.pdf',
             );
           },
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Text('Download PDF'),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
+          child: const Text('PDF', style: TextStyle(fontSize: 14)),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -1274,16 +1307,35 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
               name: pkg.packageNumber,
             );
           },
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Text('Print'),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
+          child: const Text('Print', style: TextStyle(fontSize: 14)),
         ),
       ],
-      builder: (context, controller, _) => _buildToolbarButton(
-        LucideIcons.printer,
-        'PDF/Print',
-        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-        hasDropdownArrow: true,
-      ),
     );
   }
 
@@ -2795,11 +2847,14 @@ class _PackageColumn extends ConsumerWidget {
     final sort = ref.watch(packageSortProvider);
 
     return SubmenuButton(
-      menuStyle: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        elevation: const WidgetStatePropertyAll(8),
+      style: ZTableMoreMenu.menuItemButtonStyle().copyWith(
+        minimumSize: const WidgetStatePropertyAll(Size(180, 40)),
+      ),
+      menuStyle: const MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+        elevation: WidgetStatePropertyAll(8),
       ),
       menuChildren: [
         _buildSortItem(ref, 'Package Date', sort.field == 'Package Date', sort.isAscending),
@@ -2813,14 +2868,7 @@ class _PackageColumn extends ConsumerWidget {
         _buildSortItem(ref, 'Created Time', sort.field == 'Created Time', sort.isAscending),
         _buildSortItem(ref, 'Last Modified Time', sort.field == 'Last Modified Time', sort.isAscending),
       ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: const [
-            Text('Sort by', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-          ],
-        ),
-      ),
+      child: const Text('Sort by', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
     );
   }
 
@@ -2829,40 +2877,24 @@ class _PackageColumn extends ConsumerWidget {
       onPressed: () {
         final currentSort = ref.read(packageSortProvider);
         if (currentSort.field == label) {
-          // Toggle direction
           ref.read(packageSortProvider.notifier).state = (field: label, isAscending: !currentSort.isAscending);
         } else {
-          // New field, default to descending for Created/Modified Time, ascending for others?
-          // User said "default descending order"
           ref.read(packageSortProvider.notifier).state = (field: label, isAscending: false);
         }
       },
-      style: ButtonStyle(
-        backgroundColor: WidgetStatePropertyAll(isActive ? AppTheme.primaryBlue : Colors.transparent),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+      style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive).copyWith(
+        minimumSize: const WidgetStatePropertyAll(Size(180, 40)),
         shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
       ),
-      child: Container(
-        width: 160,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: isActive ? Colors.white : const Color(0xFF1F2937),
-                fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
-              ),
-            ),
-            if (isActive)
-              Icon(
-                isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
-                size: 14,
-                color: Colors.white,
-              ),
-          ],
-        ),
+      trailingIcon: isActive
+          ? Icon(
+              isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+              size: 14,
+            )
+          : null,
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 13),
       ),
     );
   }
@@ -2870,17 +2902,12 @@ class _PackageColumn extends ConsumerWidget {
   Widget _buildColumnSimpleItem(IconData icon, String label, VoidCallback onTap) {
     return MenuItemButton(
       onPressed: onTap,
-      style: const ButtonStyle(
-        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-        shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+      style: ZTableMoreMenu.menuItemButtonStyle().copyWith(
+        minimumSize: const WidgetStatePropertyAll(Size(180, 40)),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
       ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: AppTheme.primaryBlue),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563))),
-        ],
-      ),
+      leadingIcon: Icon(icon, size: 14),
+      child: Text(label, style: const TextStyle(fontSize: 13)),
     );
   }
 }

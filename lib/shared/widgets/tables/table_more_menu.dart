@@ -30,12 +30,12 @@ class ZTableMoreMenu extends StatelessWidget {
       ),
       child: MenuAnchor(
         alignmentOffset: alignmentOffset,
-        style: MenuStyle(
-          backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-          surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-          padding: const WidgetStatePropertyAll(EdgeInsets.all(8)),
-          elevation: const WidgetStatePropertyAll(8),
-          shape: const WidgetStatePropertyAll(
+        style: const MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: WidgetStatePropertyAll(Colors.white),
+          padding: WidgetStatePropertyAll(EdgeInsets.all(8)),
+          elevation: WidgetStatePropertyAll(8),
+          shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
           ),
         ),
@@ -55,11 +55,13 @@ class ZTableMoreMenu extends StatelessWidget {
   /// Standard style for menu items (MenuItemButton, SubmenuButton) with blue hover effect.
   static ButtonStyle menuItemButtonStyle({bool isActive = false, bool isHeader = false}) {
     return ButtonStyle(
+      animationDuration: Duration.zero,
+      splashFactory: NoSplash.splashFactory,
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       backgroundColor: WidgetStateProperty.resolveWith((states) {
         if (isActive) return AppTheme.primaryBlue;
         if (states.contains(WidgetState.hovered)) return AppTheme.primaryBlue;
-        return isHeader ? Colors.transparent : AppTheme.backgroundColor;
+        return isHeader ? Colors.transparent : Colors.white;
       }),
       foregroundColor: WidgetStateProperty.resolveWith((states) {
         if (isActive || states.contains(WidgetState.hovered)) return Colors.white;

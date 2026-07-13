@@ -23,6 +23,7 @@ import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_model.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
@@ -38,8 +39,9 @@ const _greenBtn = Color(0xFF22A95E);
 
 class InventoryPicklistsCreateScreen extends ConsumerStatefulWidget {
   final String? id;
+  final String? salesOrderId;
 
-  const InventoryPicklistsCreateScreen({super.key, this.id});
+  const InventoryPicklistsCreateScreen({super.key, this.id, this.salesOrderId});
 
   @override
   ConsumerState<InventoryPicklistsCreateScreen> createState() =>
@@ -169,6 +171,45 @@ class _InventoryPicklistsCreateScreenState
       _picklistNumberCtrl.text = _generatePicklistNumber();
       _loadNextPicklistNumber();
       _dateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+      if (widget.salesOrderId != null) {
+        _loadPrefilledSalesOrderData();
+      }
+    }
+  }
+
+  Future<void> _loadPrefilledSalesOrderData() async {
+    try {
+      final response = await ref.read(apiClientProvider).get('/sales/${widget.salesOrderId}');
+      if (response.statusCode == 200 && response.data != null) {
+        final payload = response.data['data'] ?? response.data;
+        final order = SalesOrder.fromJson(payload);
+        
+        final warehouses = await ref.read(warehousesProvider.future);
+        final matchedWarehouse = warehouses.firstWhere(
+          (w) => w.id == order.warehouseId,
+          orElse: () => warehouses.firstWhere(
+            (w) => w.isDefaultForBranch,
+            orElse: () => warehouses.first,
+          ),
+        );
+
+        setState(() {
+          _selectedWarehouse = matchedWarehouse;
+        });
+
+        final allItems = await ref.read(stockByWarehouseProvider(matchedWarehouse.id).future);
+        final matchedItems = allItems.where((item) => item.salesOrderId == widget.salesOrderId).toList();
+        
+        setState(() {
+          _selectedItems = matchedItems.map((item) {
+            return item.copyWith(
+              quantityPicked: item.quantityToPick,
+            );
+          }).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error prefilling picklist data: $e');
     }
   }
 
@@ -3197,7 +3238,15 @@ class _InventoryPicklistsCreateScreenState
                 initialSelectedItems: _selectedItems,
                 onItemsSelected: (selected) {
                   setState(() {
-                    _selectedItems = selected;
+                    _selectedItems = selected.map((item) {
+                      final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == _buildRowKey(item));
+                      if (idx != -1) {
+                        return _selectedItems[idx];
+                      }
+                      return item.copyWith(
+                        quantityPicked: item.quantityToPick,
+                      );
+                    }).toList();
                   });
                   Navigator.pop(dialogContext);
                 },

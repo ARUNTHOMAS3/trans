@@ -267,4 +267,15 @@ class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
       rethrow;
     }
   }
+
+  Future<SalesOrder?> updateSalesOrderStatus(String id, String status, String reason) async {
+    try {
+      final updated = await _apiService.updateSalesOrderStatus(id, status, reason);
+      await loadSalesOrders();
+      return updated;
+    } catch (e) {
+      debugPrint('Error updating sales order status: $e');
+      rethrow;
+    }
+  }
 }

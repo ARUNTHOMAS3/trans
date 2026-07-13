@@ -4456,10 +4456,6 @@ class _PurchasesBillCreateScreenState
                         ],
                       ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Divider(height: 1, color: Color(0xFFE5E7EB)),
-                    ),
                     const SizedBox(height: 16),
                     // ── Item Table ─────────────────────────────────────────
                     _buildItemTable(itemsState, accountsRoots),
@@ -9380,7 +9376,7 @@ class _PurchasesBillCreateScreenState
                         child: Text(
                           row.itemName ?? '',
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: _textPrimary,
                           ),
@@ -9530,7 +9526,7 @@ class _PurchasesBillCreateScreenState
               row.itemType == 'service'
                   ? 'SAC Code: '
                   : 'HSN Code: ',
-              style: const TextStyle(fontSize: 11, color: _hintColor),
+              style: const TextStyle(fontSize: 12, color: _hintColor),
             ),
             CompositedTransformTarget(
               link: row.hsnLayerLink,
@@ -9550,7 +9546,7 @@ class _PurchasesBillCreateScreenState
                           ? row.hsnCode!
                           : 'Update',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: Color(0xFF0088FF),
                       ),
                     ),
@@ -16313,28 +16309,33 @@ class _MenuHoverItemState extends State<_MenuHoverItem> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: _isHovered ? const Color(0xFF0088FF) : Colors.transparent,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              widget.icon,
-              size: 16,
-              color: _isHovered ? Colors.white : const Color(0xFF6B7280),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              widget.label,
-              style: TextStyle(
-                fontSize: 14,
-                color: _isHovered ? Colors.white : const Color(0xFF1F2937),
-                fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _isHovered ? AppTheme.primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 16,
+                color: _isHovered ? Colors.white : const Color(0xFF6B7280),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+                  fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

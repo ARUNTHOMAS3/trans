@@ -2689,35 +2689,27 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   label: 'DropShip To',
                   isRequired: true,
                   crossStart: true,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.dropshipCustomerName ?? 'Customer',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1F2937),
-                          ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.dropshipCustomerName ?? 'Customer',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1F2937),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.dropshipAddress ?? '',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF4B5563),
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.dropshipAddress ?? '',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF4B5563),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ] else ...[
@@ -6087,7 +6079,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         controller: _headerTextControllers[index],
                         onChanged: (v) => notifier.updateHeaderText(index, v),
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: _textPrimary,
                         ),
@@ -6095,7 +6087,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           hintText: 'Add New Header',
                           hintStyle: const TextStyle(
                             color: _hintColor,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(3),
@@ -6482,7 +6474,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                           item.productName ??
                                                               '',
                                                           style: const TextStyle(
-                                                            fontSize: 13,
+                                                            fontSize: 14,
                                                             fontWeight:
                                                                 FontWeight.w600,
                                                             color: _textPrimary,
@@ -6787,7 +6779,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                             ? 'SAC Code: '
                                                             : 'HSN Code: ',
                                                         style: TextStyle(
-                                                          fontSize: 11,
+                                                          fontSize: 12,
                                                           color: _hintColor,
                                                         ),
                                                       ),
@@ -6829,7 +6821,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                                     ? item.hsnCode!
                                                                     : 'Update',
                                                                 style: const TextStyle(
-                                                                  fontSize: 11,
+                                                                  fontSize: 12,
                                                                   color: Color(
                                                                     0xFF0088FF,
                                                                   ),
@@ -13221,28 +13213,33 @@ class _MenuHoverItemState extends State<_MenuHoverItem> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: _isHovered ? const Color(0xFF0088FF) : Colors.transparent,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              widget.icon,
-              size: 16,
-              color: _isHovered ? Colors.white : const Color(0xFF6B7280),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              widget.label,
-              style: TextStyle(
-                fontSize: 14,
-                color: _isHovered ? Colors.white : const Color(0xFF1F2937),
-                fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _isHovered ? AppTheme.primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 16,
+                color: _isHovered ? Colors.white : const Color(0xFF6B7280),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+                  fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -13265,17 +13262,22 @@ class _MenuHoverItemNoIconState extends State<_MenuHoverItemNoIcon> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: _isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
-        ),
-        child: Text(
-          widget.label,
-          style: TextStyle(
-            fontSize: 13,
-            color: _isHovered ? Colors.white : const Color(0xFF1F2937),
-            fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _isHovered ? AppTheme.primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 13,
+              color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+              fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+            ),
           ),
         ),
       ),

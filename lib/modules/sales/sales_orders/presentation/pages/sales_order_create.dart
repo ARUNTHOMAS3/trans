@@ -1352,7 +1352,7 @@ class _SalesOrderCreateScreenState
               priceListsAsync,
               currenciesAsync,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.only(left: 32, right: 32),
               child: Align(
@@ -2192,8 +2192,7 @@ class _SalesOrderCreateScreenState
                 ),
               ),
 
-              const SizedBox(height: 24),
-              const Divider(),
+              const SizedBox(height: 0),
             ],
           ),
         ),
@@ -9036,29 +9035,33 @@ class _MenuHoverItemState extends State<_MenuHoverItem> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: _isHovered ? const Color(0xFF0088FF) : Colors.transparent,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              widget.icon,
-              size: 16,
-              color: _isHovered ? Colors.white : const Color(0xFF6B7280),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              widget.label,
-              style: TextStyle(
-                fontSize: 14,
-                color: _isHovered ? Colors.white : const Color(0xFF1F2937),
-                fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _isHovered ? AppTheme.primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 16,
+                color: _isHovered ? Colors.white : const Color(0xFF6B7280),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+                  fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

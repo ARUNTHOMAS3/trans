@@ -699,9 +699,8 @@ class _PurchasesBillsListScreenState
         final highlighted =
             states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused);
-        if (isActive) return const Color(0xFF3B82F6);
-        if (highlighted) {
-          return const Color(0xFF3B82F6);
+        if (isActive || highlighted) {
+          return AppTheme.primaryBlue;
         }
         return Colors.white;
       }),
@@ -714,8 +713,20 @@ class _PurchasesBillsListScreenState
         }
         return AppTheme.textBody;
       }),
+      iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        if (isActive || highlighted) {
+          return Colors.white;
+        }
+        return AppTheme.textBody;
+      }),
       padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
         const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      shape: WidgetStateProperty.all<OutlinedBorder>(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     );
   }
@@ -1730,25 +1741,51 @@ class _PurchasesBillsListScreenState
 
   Widget _buildPdfPrintDropdown(PurchasesBill bill) {
     return MenuAnchor(
-      style: _menuStyle(),
+      alignmentOffset: const Offset(0, 4),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
       builder: (context, controller, child) {
-        return _buildToolbarButton(
-          LucideIcons.printer,
-          'PDF/Print',
-          onPressed: () =>
-              controller.isOpen ? controller.close() : controller.open(),
+        return SizedBox(
+          width: 100,
+          child: _buildToolbarButton(
+            LucideIcons.printer,
+            'PDF/Print',
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+          ),
         );
       },
       menuChildren: [
         MenuItemButton(
-          style: _menuItemStyle(),
+          style: _menuItemStyle().copyWith(
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
           onPressed: () => _handlePdfPrintAction(bill, 'Download PDF'),
-          child: const Text('Download PDF'),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
+          child: const Text('PDF', style: TextStyle(fontSize: 14)),
         ),
         MenuItemButton(
-          style: _menuItemStyle(),
+          style: _menuItemStyle().copyWith(
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
           onPressed: () => _handlePdfPrintAction(bill, 'Print'),
-          child: const Text('Print'),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
+          child: const Text('Print', style: TextStyle(fontSize: 14)),
         ),
       ],
     );
@@ -2468,14 +2505,7 @@ class _PurchasesBillsListScreenState
           ZerpaiToast.success(context, '$label applied successfully');
         }
       },
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: AppTheme.bodyText.fontFamily,
-          fontSize: AppTheme.bodyText.fontSize,
-          fontWeight: AppTheme.bodyText.fontWeight,
-        ),
-      ),
+      child: SizedBox(width: 240, child: Text(label)),
     );
   }
 

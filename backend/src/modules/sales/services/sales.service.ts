@@ -235,6 +235,73 @@ export class SalesService {
 
     if (itemsError) throw itemsError;
 
+    // Fetch picklist items for this Sales Order
+    const { data: pickItems } = await client
+      .from("picklist_items")
+      .select("sales_order_line_id, qty_picked")
+      .eq("sales_order_id", id);
+
+    // Fetch package items for this Sales Order
+    const { data: pkgItems } = await client
+      .from("inventory_package_items")
+      .select("product_id, quantity, package_id")
+      .eq("sales_order_id", id);
+
+    const uniquePkgIds = Array.from(new Set((pkgItems ?? []).map((pi: any) => pi.package_id).filter(Boolean)));
+
+    const { data: pkgs } = uniquePkgIds.length > 0 ? await client
+      .from("inventory_packages")
+      .select("id, status")
+      .in("id", uniquePkgIds) : { data: [] };
+
+    // Fetch invoice items for this Sales Order
+    const { data: linkedInvoices } = await client
+      .from("invoice_sales_orders")
+      .select("invoice_id")
+      .eq("sales_order_id", id);
+
+    const invoiceIds = (linkedInvoices ?? []).map((li: any) => li.invoice_id);
+    let invItems: any[] = [];
+    if (invoiceIds.length > 0) {
+      const { data } = await client
+        .from("invoice_items")
+        .select("product_id, quantity")
+        .in("invoice_id", invoiceIds);
+      invItems = data ?? [];
+    }
+
+    const itemsWithMetrics = (items ?? []).map((item: any) => {
+      const picked = (pickItems ?? [])
+        .filter((pi: any) => pi.sales_order_line_id === item.id)
+        .reduce((sum: number, pi: any) => sum + Number(pi.qty_picked ?? 0), 0);
+
+      const packed = (pkgItems ?? [])
+        .filter((pi: any) => {
+          const pkg = (pkgs ?? []).find((p: any) => p.id === pi.package_id);
+          return pi.product_id === item.product_id && pkg?.status !== 'Shipped';
+        })
+        .reduce((sum: number, pi: any) => sum + Number(pi.quantity ?? 0), 0);
+
+      const shipped = (pkgItems ?? [])
+        .filter((pi: any) => {
+          const pkg = (pkgs ?? []).find((p: any) => p.id === pi.package_id);
+          return pi.product_id === item.product_id && pkg?.status === 'Shipped';
+        })
+        .reduce((sum: number, pi: any) => sum + Number(pi.quantity ?? 0), 0);
+
+      const invoiced = invItems
+        ?.filter((ii: any) => ii.product_id === item.product_id)
+        .reduce((sum: number, ii: any) => sum + Number(ii.quantity ?? 0), 0) ?? 0;
+
+      return {
+        ...item,
+        picked_quantity: picked,
+        packed_quantity: packed,
+        shipped_quantity: shipped,
+        invoiced_quantity: invoiced,
+      };
+    });
+
     const total_items = items ? items.length : 0;
     const invoiced_items = items
       ? items.filter(
@@ -253,7 +320,7 @@ export class SalesService {
       invoiced_items,
       pending_items,
       completion_percentage,
-      items: items ?? [],
+      items: itemsWithMetrics,
     };
   }
 
@@ -2165,5 +2232,45 @@ export class SalesService {
     }
     
     return results;
+  }
+
+  async updateSalesOrderStatus(id: string, entityId: string, status: string, reason: string) {
+    const client = this.supabaseService.getClient();
+
+    const { data: salesOrder, error: fetchError } = await client
+      .from('sales_orders')
+      .select('status')
+      .eq('id', id)
+      .eq('entity_id', entityId)
+      .single();
+
+    if (fetchError || !salesOrder) {
+      throw new NotFoundException(`Sales order not found`);
+    }
+
+    const updatePayload: any = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (status.toLowerCase() === 'void') {
+      updatePayload.reason_to_void = reason;
+    } else if (status.toLowerCase() === 'confirmed') {
+      updatePayload.reason_to_confirmed = reason;
+    }
+
+    const { data: updatedOrder, error: updateError } = await client
+      .from('sales_orders')
+      .update(updatePayload)
+      .eq('id', id)
+      .eq('entity_id', entityId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new BadRequestException(`Failed to update sales order status: ${updateError.message}`);
+    }
+
+    return updatedOrder;
   }
 }

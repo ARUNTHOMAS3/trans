@@ -22,6 +22,7 @@ import 'package:zerpai_erp/shared/widgets/email_composer.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/lock_record_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/form_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
@@ -43,6 +44,11 @@ import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_co
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_item_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
+import 'package:zerpai_erp/modules/inventory/packages/providers/inventory_packages_provider.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
+import 'package:zerpai_erp/modules/inventory/packages/models/inventory_package_model.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/models/inventory_picklist_model.dart';
+import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 
 final _salesOrderDetailProvider = FutureProvider.family<SalesOrder, String>((
   ref,
@@ -101,6 +107,46 @@ final _salesOrderDetailProvider = FutureProvider.family<SalesOrder, String>((
     return order;
   }
 });
+
+final _hasStockShortageProvider = FutureProvider.family<bool, String>((ref, orderId) async {
+  final order = await ref.watch(_salesOrderDetailProvider(orderId).future);
+  final items = order.items ?? [];
+  if (items.isEmpty) return false;
+
+  final productIds = items
+      .map((i) => i.itemId)
+      .where((id) => id.isNotEmpty)
+      .toList();
+  if (productIds.isEmpty) return false;
+
+  try {
+    final response = await ref.read(apiClientProvider).post(
+      '/branch_inventory/bulk',
+      data: {'product_ids': productIds},
+    );
+    final responseData = response.data['data'] ?? response.data;
+    final stocks = responseData['stocks'] as List<dynamic>? ?? [];
+
+    final Map<String, double> tempMap = {};
+    for (final row in stocks) {
+      final pId = row['product_id']?.toString() ?? '';
+      final stock = ((row['available_stock'] ?? row['current_stock']) ?? 0).toDouble();
+      tempMap[pId] = (tempMap[pId] ?? 0.0) + stock;
+    }
+
+    for (final item in items) {
+      if (item.itemId.isEmpty) continue;
+      final stock = tempMap[item.itemId] ?? 0.0;
+      if (item.quantity > stock) {
+        return true;
+      }
+    }
+  } catch (e) {
+    debugPrint('Error checking stock shortage: $e');
+  }
+  return false;
+});
+
 
 class _SalesOrderView {
   final String label;
@@ -288,6 +334,7 @@ class _SalesOrderOverviewScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(salesOrderControllerProvider);
       ref.invalidate(warehousesProvider);
+      ref.read(inventoryPackagesProvider.notifier).fetchPackages();
     });
     _columnConfigs = _defaultColumnConfigs();
 
@@ -366,19 +413,19 @@ class _SalesOrderOverviewScreenState
     context.push('/sales/orders/${order.id}/edit', extra: order);
   }
 
-  void _handleCreateAction(String actionLabel) {
+  void _handleCreateAction(String actionLabel, SalesOrder order) {
     switch (actionLabel) {
       case 'Picklist':
-        context.go(AppRoutes.picklistsCreate);
+        context.go('${AppRoutes.picklistsCreate}?salesOrderId=${order.id}');
         return;
       case 'Package':
-        context.go(AppRoutes.packagesCreate);
+        context.go('${AppRoutes.packagesCreate}?salesOrderId=${order.id}');
         return;
       case 'Shipment':
-        context.go(AppRoutes.shipmentsCreate);
+        context.go('${AppRoutes.shipmentsCreate}?salesOrderId=${order.id}');
         return;
       case 'Instant Invoice':
-        context.go(AppRoutes.salesInvoicesCreate);
+        context.go('${AppRoutes.salesInvoicesCreate}?fromOrderId=${order.id}');
         return;
       default:
         _showUnavailableAction(actionLabel);
@@ -1071,29 +1118,96 @@ class _SalesOrderOverviewScreenState
     }
   }
 
-  MenuItemButton _detailActionMenuItem(String label, SalesOrder order) {
+  MenuItemButton _detailActionMenuItem(String label, SalesOrder order, {IconData? icon}) {
     return MenuItemButton(
       style: _menuItemStyle(),
       onPressed: () => _handleDetailAction(label, order),
-      child: SizedBox(width: 240, child: Text(label)),
+      leadingIcon: icon != null ? Icon(icon, size: 16) : null,
+      child: SizedBox(
+        width: 180,
+        child: Text(label),
+      ),
     );
   }
 
   void _handleDetailAction(String action, SalesOrder order) {
     if (action == 'Delete') {
       _deleteSingleOrder(order.id);
+    } else if (action == 'Convert to Invoice') {
+      context.go('${AppRoutes.salesInvoicesCreate}?fromOrderId=${order.id}');
     } else if (action == 'Convert to Purchase Order') {
       _convertToPurchaseOrder(order);
     } else if (action == 'Cancel Items') {
       _cancelSalesOrderItems(order);
+    } else if (action == 'Reopen cancelled items') {
+      _reopenCancelledItems(order);
     } else if (action == 'Void') {
       _voidSalesOrder(order);
     } else if (action == 'Clone') {
       _cloneSalesOrder(order);
     } else if (action == 'Dropship') {
       _showDropshipTypeDialog(order);
+    } else if (action == 'Convert to Confirmed') {
+      _showReasonDialog(context, order, 'confirmed');
+    } else if (action == 'Backorder') {
+      _showBackorderDialog(order);
+    } else if (action == 'Lock sales order') {
+      _showLockSalesOrderDialog(order);
     } else {
       _showUnavailableAction(action);
+    }
+  }
+
+  void _showLockSalesOrderDialog(SalesOrder order) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (dialogCtx) {
+        return LockRecordDialog(
+          title: 'Lock sales order',
+          onLock: (config, reason) {
+            Navigator.of(dialogCtx).pop();
+            if (mounted) {
+              ZerpaiToast.success(
+                context,
+                '${order.saleNumber} has been locked successfully.',
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+
+  void _reopenCancelledItems(SalesOrder order) async {
+    try {
+      final supabase = Supabase.instance.client;
+      for (final item in order.items ?? []) {
+        if (item.id == null) continue;
+        await supabase
+            .from('sales_order_items')
+            .update({'cancelled_quantity': 0.0})
+            .eq('id', item.id!);
+      }
+
+      final isCancelled = order.status.toLowerCase() == 'cancelled' || order.status.toLowerCase() == 'canceled';
+      final newStatus = isCancelled ? 'Draft' : order.status;
+
+      await supabase
+          .from('sales_orders')
+          .update({'status': newStatus})
+          .eq('id', order.id);
+
+      ref.invalidate(salesOrderControllerProvider);
+      ref.invalidate(_salesOrderDetailProvider(order.id));
+
+      if (mounted) {
+        ZerpaiToast.success(context, 'Canceled items reopened successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to reopen items: $e');
+      }
     }
   }
 
@@ -1154,26 +1268,72 @@ class _SalesOrderOverviewScreenState
     context.push('/$_orgId/purchases/purchase-orders/create', extra: po);
   }
 
+  void _showReasonDialog(BuildContext context, SalesOrder order, String targetStatus) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return _ReasonInputDialog(
+          order: order,
+          targetStatus: targetStatus,
+          onConfirm: (reason) async {
+            try {
+              await ref
+                  .read(salesOrderControllerProvider.notifier)
+                  .updateSalesOrderStatus(order.id, targetStatus, reason);
+
+              ref.read(apiClientProvider).clearCache('sales');
+              ref.invalidate(_salesOrderDetailProvider(order.id));
+
+              if (context.mounted) {
+                ZerpaiToast.success(
+                  context,
+                  targetStatus == 'void'
+                      ? 'Sales order marked as Void'
+                      : targetStatus == 'completed'
+                          ? 'Sales order marked as Completed'
+                          : 'Sales order converted to Confirmed',
+                );
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ZerpaiToast.error(
+                  context,
+                  'Failed to update status: $e',
+                );
+              }
+            }
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _voidSalesOrder(SalesOrder order) async {
-    try {
-      final supabase = Supabase.instance.client;
-      await supabase
-          .from('sales_orders')
-          .update({'status': 'void'})
-          .eq('id', order.id);
+    _showReasonDialog(context, order, 'void');
+  }
 
-      ref.read(apiClientProvider).clearCache('sales');
-      ref.invalidate(salesOrderControllerProvider);
-      ref.invalidate(_salesOrderDetailProvider(order.id));
-
-      if (context.mounted) {
-        ZerpaiToast.success(context, 'Sales order marked as Void');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ZerpaiToast.error(context, 'Failed to void sales order: $e');
-      }
-    }
+  void _showBackorderDialog(SalesOrder order) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.3),
+      builder: (context) {
+        return Dialog(
+          alignment: Alignment.topCenter,
+          insetPadding: const EdgeInsets.only(top: 0),
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: _BackorderDialog(
+              order: order,
+              orgId: _orgId,
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _cloneSalesOrder(SalesOrder order) {
@@ -1505,6 +1665,24 @@ class _SalesOrderOverviewScreenState
         final items = order.items ?? const <SalesOrderItem>[];
         final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
 
+        final packagesState = ref.watch(inventoryPackagesProvider);
+        final packages = packagesState.packages;
+        final orderPackages = packages
+            .where((p) =>
+                p.salesOrderIds.contains(order.id) ||
+                p.salesOrderNumbers.contains(order.saleNumber))
+            .toList();
+
+        final picklistsAsync = ref.watch(picklistsProvider);
+        final picklists = picklistsAsync.valueOrNull ?? [];
+        final orderPicklists = picklists
+            .where((p) =>
+                p.salesOrderIds.contains(order.id) ||
+                p.salesOrderNumbers.contains(order.saleNumber) ||
+                p.salesOrderNumber == order.saleNumber ||
+                p.items.any((item) => item.salesOrderId == order.id))
+            .toList();
+
         return StatefulBuilder(
           builder: (context, setInnerState) {
             return Column(
@@ -1544,7 +1722,10 @@ class _SalesOrderOverviewScreenState
                       const SizedBox(height: 4),
                       Text(
                         order.saleNumber,
-                        style: AppTheme.sectionHeader.copyWith(fontSize: 22),
+                        style: AppTheme.sectionHeader.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
@@ -1557,42 +1738,84 @@ class _SalesOrderOverviewScreenState
                   decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
                   child: Row(
                     children: [
-                      _buildToolbarButton(
-                        LucideIcons.pencil,
-                        'Edit',
-                        onPressed: () => _editSalesOrder(order),
-                      ),
-                      _buildDivider(),
-                      _buildToolbarButton(
-                        LucideIcons.mail,
-                        'Send Email',
-                        onPressed: () {
-                          context.push(
-                            AppRoutes.salesOrdersEmail.replaceAll(
-                              ':id',
-                              order.id,
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDivider(),
-                      _buildPdfPrintDropdown(order, orgSettings),
-                      _buildDivider(),
-                      _buildToolbarButton(
-                        LucideIcons.fileText,
-                        'Convert to Invoice',
-                        onPressed: () =>
-                            _showUnavailableAction('Convert to Invoice'),
-                      ),
-                      _buildDivider(),
-                      _ActionSplitMenu(
-                        icon: LucideIcons.plusCircle, // test
-                        label: 'Create',
-                        onPrimaryTap: () => _showUnavailableAction('Create'),
-                        onSelected: _handleCreateAction,
-                      ),
-                      _buildDivider(),
-                      _buildMoreButton(order),
+                      if (order.status.toLowerCase() == 'void') ...[
+                        _buildPdfPrintDropdown(order, orgSettings),
+                        _buildDivider(),
+                        _buildMoreButton(order),
+                      ] else if (order.status.toLowerCase() == 'draft') ...[
+                        _buildToolbarButton(
+                          LucideIcons.pencil,
+                          'Edit',
+                          onPressed: () => _editSalesOrder(order),
+                        ),
+                        _buildDivider(),
+                        _buildToolbarButton(
+                          LucideIcons.mail,
+                          'Send Email',
+                          onPressed: () {
+                            context.push(
+                              AppRoutes.salesOrdersEmail.replaceAll(
+                                ':id',
+                                order.id,
+                              ),
+                            );
+                          },
+                        ),
+                        _buildDivider(),
+                        _buildPdfPrintDropdown(order, orgSettings),
+                        _buildDivider(),
+                        _buildToolbarButton(
+                          LucideIcons.checkCircle,
+                          'Mark as Confirmed',
+                          onPressed: () => _showReasonDialog(context, order, 'confirmed'),
+                        ),
+                        _buildDivider(),
+                        _ActionSplitMenu(
+                          icon: LucideIcons.plusCircle,
+                          label: 'Create',
+                          onPrimaryTap: () => _showUnavailableAction('Create'),
+                          onSelected: (action) => _handleCreateAction(action, order),
+                        ),
+                        _buildDivider(),
+                        _buildMoreButton(order),
+                      ] else ...[
+                        _buildToolbarButton(
+                          LucideIcons.pencil,
+                          'Edit',
+                          onPressed: () => _editSalesOrder(order),
+                        ),
+                        _buildDivider(),
+                        _buildToolbarButton(
+                          LucideIcons.mail,
+                          'Send Email',
+                          onPressed: () {
+                            context.push(
+                              AppRoutes.salesOrdersEmail.replaceAll(
+                                ':id',
+                                order.id,
+                              ),
+                            );
+                          },
+                        ),
+                        _buildDivider(),
+                        _buildPdfPrintDropdown(order, orgSettings),
+                        _buildDivider(),
+                        _buildToolbarButton(
+                          LucideIcons.fileText,
+                          'Convert to Invoice',
+                          onPressed: () =>
+                              _showUnavailableAction('Convert to Invoice'),
+                        ),
+                        _buildDivider(),
+                        _ActionSplitMenu(
+                          icon: LucideIcons.plusCircle,
+                          label: 'Create',
+                          onPrimaryTap: () => _showUnavailableAction('Create'),
+                          onSelected: (action) => _handleCreateAction(action, order),
+                        ),
+                        _buildDivider(),
+                        _buildMoreButton(order),
+                      ],
                     ],
                   ),
                 ),
@@ -1624,54 +1847,180 @@ class _SalesOrderOverviewScreenState
                                 child: RichText(
                                   text: TextSpan(
                                     style: AppTheme.bodyText,
-                                    children: const [
-                                      TextSpan(
+                                    children: [
+                                      const TextSpan(
                                         text: 'WHAT\'S NEXT? ',
                                         style: TextStyle(
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                       TextSpan(
-                                        text:
-                                            'Convert the sales order into packages, shipments, or invoices.',
+                                        text: order.status.toLowerCase() == 'draft'
+                                            ? 'Send this Sales Order to your customer by email or mark it as Confirmed.'
+                                            : 'Convert the sales order into packages, shipments, or invoices.',
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              SizedBox(
-                                height: 34,
-                                child: ZButton.primary(
-                                  label: 'Convert',
-                                  onPressed: () {},
+                              if (order.status.toLowerCase() == 'draft') ...[
+                                SizedBox(
+                                  height: 34,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      context.push(
+                                        AppRoutes.salesOrdersEmail.replaceAll(
+                                          ':id',
+                                          order.id,
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF22A95E),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    ),
+                                    child: const Text(
+                                      'Send Sales Order',
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              SizedBox(
-                                height: 34,
-                                child: ZButton.secondary(
-                                  label: 'Create Package',
-                                  onPressed: () {},
+                                const SizedBox(width: 10),
+                                SizedBox(
+                                  height: 34,
+                                  child: OutlinedButton(
+                                    onPressed: () => _showReasonDialog(context, order, 'confirmed'),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Color(0xFFD1D5DB)),
+                                      foregroundColor: const Color(0xFF4B5563),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    ),
+                                    child: const Text(
+                                      'Mark as Confirmed',
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ] else ...[
+                                SizedBox(
+                                  height: 34,
+                                  width: 100,
+                                  child: MenuAnchor(
+                                    alignmentOffset: const Offset(0, 4),
+                                    style: MenuStyle(
+                                      backgroundColor: const WidgetStatePropertyAll(Colors.white),
+                                      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+                                      elevation: const WidgetStatePropertyAll(8),
+                                      padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+                                      shape: const WidgetStatePropertyAll(
+                                        RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.all(Radius.circular(4)),
+                                        ),
+                                      ),
+                                    ),
+                                    builder: (context, controller, child) {
+                                      return ElevatedButton(
+                                        onPressed: () {
+                                          if (controller.isOpen) {
+                                            controller.close();
+                                          } else {
+                                            controller.open();
+                                          }
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Theme.of(context).colorScheme.primary,
+                                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'Convert',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            SizedBox(width: 4),
+                                            Icon(
+                                              Icons.keyboard_arrow_down,
+                                              size: 16,
+                                              color: Colors.white,
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                    menuChildren: [
+                                      MenuItemButton(
+                                        style: ZTableMoreMenu.menuItemButtonStyle().copyWith(
+                                          minimumSize: const WidgetStatePropertyAll(Size(130, 44)),
+                                          shape: const WidgetStatePropertyAll(
+                                            RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          context.go('${AppRoutes.salesInvoicesCreate}?fromOrderId=${order.id}');
+                                        },
+                                        child: const Text('Convert to Invoice'),
+                                      ),
+                                      MenuItemButton(
+                                        style: ZTableMoreMenu.menuItemButtonStyle().copyWith(
+                                          minimumSize: const WidgetStatePropertyAll(Size(130, 44)),
+                                          shape: const WidgetStatePropertyAll(
+                                            RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          final hasNonBatchTrackedItem = (order.items ?? []).any((item) {
+                                            return item.item?.trackBatches != true;
+                                          });
+                                          if (hasNonBatchTrackedItem) {
+                                            ZerpaiToast.error(
+                                              context,
+                                              'non batch track items cannot be instant invoiced.',
+                                            );
+                                            return;
+                                          }
+                                          context.go(
+                                            '${AppRoutes.salesInvoicesCreate}?fromOrderId=${order.id}&instant=true',
+                                          );
+                                        },
+                                        child: const Text('Instant Invoice'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                SizedBox(
+                                  height: 34,
+                                  child: ZButton.secondary(
+                                    label: 'Create Package',
+                                    onPressed: () {
+                                      context.go('${AppRoutes.packagesCreate}?salesOrderId=${order.id}');
+                                    },
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                         const SizedBox(height: 18),
                         ZExpandableTabs(
-                          tabs: const ['Packages', 'Picklists'],
+                          contentPadding: EdgeInsets.zero,
+                          tabs: [
+                            'Packages ${orderPackages.length}',
+                            'Picklists ${orderPicklists.length}',
+                          ],
                           children: [
-                            _banner(
-                              icon: LucideIcons.info,
-                              text:
-                                  'Package tracking will appear here when fulfillment data is available from the backend.',
-                            ),
-                            _banner(
-                              icon: LucideIcons.info,
-                              text:
-                                  'Picklist tracking will appear here when fulfillment data is available from the backend.',
-                            ),
+                            _buildPackagesTab(orderPackages),
+                            _buildPicklistsTab(orderPicklists),
                           ],
                         ),
                         const SizedBox(height: 18),
@@ -1758,11 +2107,14 @@ class _SalesOrderOverviewScreenState
           ),
         ),
       ),
-      builder: (context, controller, _) => _buildToolbarButton(
-        LucideIcons.printer,
-        'PDF/Print',
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
+      builder: (context, controller, _) => SizedBox(
+        width: 100,
+        child: _buildToolbarButton(
+          LucideIcons.printer,
+          'PDF/Print',
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+        ),
       ),
       menuChildren: [
         MenuItemButton(
@@ -1784,22 +2136,22 @@ class _SalesOrderOverviewScreenState
                   ? Colors.white
                   : AppTheme.textSecondary,
             ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
             padding: const WidgetStatePropertyAll(
               EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
             alignment: Alignment.centerLeft,
             shape: const WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
           ),
-          child: const Row(
-            children: [
-              Icon(LucideIcons.fileText, size: 16),
-              SizedBox(width: 12),
-              Text('PDF', style: TextStyle(fontSize: 14)),
-            ],
-          ),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
+          child: const Text('PDF', style: TextStyle(fontSize: 14)),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -1820,22 +2172,22 @@ class _SalesOrderOverviewScreenState
                   ? Colors.white
                   : AppTheme.textSecondary,
             ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
             padding: const WidgetStatePropertyAll(
               EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
             alignment: Alignment.centerLeft,
             shape: const WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
           ),
-          child: const Row(
-            children: [
-              Icon(LucideIcons.printer, size: 16),
-              SizedBox(width: 12),
-              Text('Print', style: TextStyle(fontSize: 14)),
-            ],
-          ),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
+          child: const Text('Print', style: TextStyle(fontSize: 14)),
         ),
       ],
     );
@@ -1897,6 +2249,8 @@ class _SalesOrderOverviewScreenState
 
   Widget _buildMoreButton(SalesOrder order) {
     bool isHovered = false;
+    final hasShortage = ref.watch(_hasStockShortageProvider(order.id)).value ?? false;
+    final hasCancelledItems = (order.items ?? []).any((item) => item.cancelledQuantity > 0);
     return StatefulBuilder(
       builder: (context, setState) {
         return MouseRegion(
@@ -1927,15 +2281,48 @@ class _SalesOrderOverviewScreenState
                 ),
               );
             },
-            menuChildren: [
-              _detailActionMenuItem('Convert to Purchase Order', order),
-              _detailActionMenuItem('Dropship', order),
-              _detailActionMenuItem('Cancel Items', order),
-              _detailActionMenuItem('Void', order),
-              _detailActionMenuItem('Backorder', order),
-              _detailActionMenuItem('Clone', order),
-              _detailActionMenuItem('Delete', order),
-            ],
+            menuChildren: order.status.toLowerCase() == 'draft'
+                ? [
+                    _detailActionMenuItem('Convert to Invoice', order),
+                    _detailActionMenuItem('Convert to Purchase Order', order),
+                    _detailActionMenuItem('Clone', order),
+                    _detailActionMenuItem('Delete', order),
+                    const Divider(height: 1, color: AppTheme.borderLight),
+                    _detailActionMenuItem(
+                      'Lock sales order',
+                      order,
+                      icon: LucideIcons.lock,
+                    ),
+                  ]
+                : order.status.toLowerCase() == 'void'
+                    ? [
+                        _detailActionMenuItem('Convert to Confirmed', order),
+                        if (hasCancelledItems) _detailActionMenuItem('Reopen cancelled items', order),
+                        _detailActionMenuItem('Clone', order),
+                        _detailActionMenuItem('Delete', order),
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                        _detailActionMenuItem(
+                          'Lock sales order',
+                          order,
+                          icon: LucideIcons.lock,
+                        ),
+                      ]
+                    : [
+                        _detailActionMenuItem('Convert to Purchase Order', order),
+                        _detailActionMenuItem('Dropship', order),
+                        _detailActionMenuItem('Cancel Items', order),
+                        if (hasCancelledItems) _detailActionMenuItem('Reopen cancelled items', order),
+                        _detailActionMenuItem('Void', order),
+                        if (hasShortage) _detailActionMenuItem('Backorder', order),
+                        _detailActionMenuItem('Clone', order),
+                        _detailActionMenuItem('Delete', order),
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                        _detailActionMenuItem(
+                          'Lock sales order',
+                          order,
+                          icon: LucideIcons.lock,
+                        ),
+                      ],
           ),
         );
       },
@@ -3561,14 +3948,6 @@ class _SalesOrderOverviewScreenState
                                     ),
                                   );
                                 })(),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _quantity(item.quantity),
-                                  style: AppTheme.bodyText.copyWith(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
                               ],
                             ),
                           ),
@@ -3615,11 +3994,19 @@ class _SalesOrderOverviewScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isShipped(order) ? '${item.quantity.toInt()} Shipped' : '0 Shipped',
+                            '${item.pickedQuantity.toInt()} Picked',
                             style: AppTheme.bodyText.copyWith(fontSize: 11),
                           ),
                           Text(
-                            order.status.toUpperCase() == 'FULFILLED' ? '${item.quantity.toInt()} Invoiced' : '0 Invoiced',
+                            '${item.packedQuantity.toInt()} Packed',
+                            style: AppTheme.bodyText.copyWith(fontSize: 11),
+                          ),
+                          Text(
+                            '${item.shippedQuantity.toInt()} Shipped',
+                            style: AppTheme.bodyText.copyWith(fontSize: 11),
+                          ),
+                          Text(
+                            '${item.invoicedQuantity.toInt()} Invoiced',
                             style: AppTheme.bodyText.copyWith(fontSize: 11),
                           ),
                           if (item.cancelledQuantity > 0)
@@ -3824,30 +4211,6 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  Widget _banner({required IconData icon, required String text}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.warningBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFDE7B8)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppTheme.warningTextDark),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: AppTheme.bodyText.copyWith(
-                color: AppTheme.warningTextDark,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _infoPair(String label, String value) {
     return SizedBox(
@@ -4160,6 +4523,615 @@ class _SalesOrderOverviewScreenState
         ),
       ],
     );
+  }
+
+  Widget _buildPicklistsTab(List<Picklist> picklists) {
+    if (picklists.isEmpty) {
+      return Container(
+        height: 60,
+        alignment: Alignment.center,
+        child: Text(
+          'No picklists found for this sales order.',
+          style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(3),
+          1: FlexColumnWidth(3),
+          2: FlexColumnWidth(4),
+          3: FlexColumnWidth(3),
+        },
+        children: [
+          TableRow(
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8F9FA),
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderLight, width: 0.8),
+              ),
+            ),
+            children: [
+              'Picklist#',
+              'Date',
+              'Assignee',
+              'Status',
+            ].map((h) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Text(
+                h.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6B7280),
+                  fontFamily: 'Inter',
+                  letterSpacing: 0.3,
+                ),
+              ),
+            )).toList(),
+          ),
+          ...picklists.map((pl) {
+            final dateStr = pl.date != null ? DateFormat('dd-MM-yyyy').format(pl.date!) : '--';
+            final assigneeName = pl.assignee ?? 'N/A';
+            
+            final statusStr = pl.status.toUpperCase().replaceAll('_', ' ');
+            Color statusColor = AppTheme.textSecondary;
+            if (statusStr == 'COMPLETED' || statusStr == 'APPROVED') {
+              statusColor = const Color(0xFF10B981);
+            } else if (statusStr == 'IN PROGRESS') {
+              statusColor = const Color(0xFFD97706);
+            } else if (statusStr == 'CANCELLED') {
+              statusColor = const Color(0xFFEF4444);
+            }
+
+            return TableRow(
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppTheme.borderLight, width: 0.5),
+                ),
+              ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: InkWell(
+                    onTap: () {
+                      if (pl.id != null) {
+                        context.go('/inventory/picklists/${pl.id}');
+                      }
+                    },
+                    child: Text(
+                      pl.picklistNumber,
+                      style: AppTheme.bodyText.copyWith(
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.underline,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    dateStr,
+                    style: AppTheme.bodyText.copyWith(fontSize: 13),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    assigneeName,
+                    style: AppTheme.bodyText.copyWith(fontSize: 13),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    statusStr,
+                    style: AppTheme.bodyText.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPackagesTab(List<InventoryPackage> packages) {
+    if (packages.isEmpty) {
+      return Container(
+        height: 60,
+        alignment: Alignment.center,
+        child: Text(
+          'No packages found for this sales order.',
+          style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(3),
+          1: FlexColumnWidth(4),
+          2: FlexColumnWidth(3),
+          3: FlexColumnWidth(3),
+          4: FlexColumnWidth(3),
+          5: FlexColumnWidth(3),
+          6: FixedColumnWidth(50),
+        },
+        children: [
+          TableRow(
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8F9FA),
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderLight, width: 0.8),
+              ),
+            ),
+            children: [
+              'Date',
+              'Package',
+              'Status',
+              'Carrier',
+              'Shipped on',
+              'Delivered On',
+              '',
+            ].map((h) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Text(
+                h.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6B7280),
+                  fontFamily: 'Inter',
+                  letterSpacing: 0.3,
+                ),
+              ),
+            )).toList(),
+          ),
+          ...packages.map((pkg) {
+            final dateStr = pkg.packageDate != null ? DateFormat('dd-MM-yyyy').format(pkg.packageDate!) : '--';
+            final shipDateStr = pkg.shipmentDate != null ? DateFormat('dd-MM-yyyy').format(pkg.shipmentDate!) : '--';
+            final carrierStr = pkg.carrier ?? '--';
+            
+            final statusStr = pkg.status.toUpperCase().replaceAll('_', ' ');
+            Color statusColor = AppTheme.textSecondary;
+            if (statusStr == 'SHIPPED') {
+              statusColor = const Color(0xFF10B981);
+            } else if (statusStr == 'NOT SHIPPED') {
+              statusColor = const Color(0xFF9CA3AF);
+            } else if (statusStr == 'DELIVERED') {
+              statusColor = AppTheme.primaryBlue;
+            }
+
+            return TableRow(
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppTheme.borderLight, width: 0.5),
+                ),
+              ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    dateStr,
+                    style: AppTheme.bodyText.copyWith(fontSize: 13),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: InkWell(
+                    onTap: () {
+                      if (pkg.id != null) {
+                        context.go('/inventory/packages/${pkg.id}');
+                      }
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.package,
+                          size: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          pkg.packageNumber,
+                          style: AppTheme.bodyText.copyWith(
+                            color: AppTheme.primaryBlue,
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.underline,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    statusStr,
+                    style: AppTheme.bodyText.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    carrierStr,
+                    style: AppTheme.bodyText.copyWith(fontSize: 13),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    shipDateStr,
+                    style: AppTheme.bodyText.copyWith(fontSize: 13),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    '--',
+                    style: AppTheme.bodyText.copyWith(fontSize: 13),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  child: Center(
+                    child: SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: _buildPackageRowActionMenu(pkg),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPackageRowActionMenu(InventoryPackage pkg) {
+    final orgSettings = ref.read(orgSettingsProvider).asData?.value;
+    return MenuAnchor(
+      alignmentOffset: const Offset(-80, 4),
+      style: MenuStyle(
+        backgroundColor: WidgetStateProperty.all(Colors.white),
+        elevation: WidgetStateProperty.all(8),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: AppTheme.borderLight),
+          ),
+        ),
+      ),
+      menuChildren: [
+        if (pkg.status.toUpperCase() != 'SHIPPED' && pkg.status.toUpperCase() != 'DELIVERED')
+          MenuItemButton(
+            onPressed: () {
+              if (pkg.id != null) {
+                context.go('/inventory/shipments/create?packageId=${pkg.id}');
+              }
+            },
+            style: ZTableMoreMenu.menuItemButtonStyle(),
+            child: const Text('Ship via Carrier'),
+          ),
+        MenuItemButton(
+          onPressed: () async {
+            try {
+              final bytes = await _generatePackagePdf(pkg, orgSettings);
+              await Printing.layoutPdf(
+                onLayout: (_) async => bytes,
+                name: pkg.packageNumber,
+              );
+            } catch (e) {
+              ZerpaiToast.error(context, 'Error printing package slip: $e');
+            }
+          },
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          child: const Text('Print Package Slip'),
+        ),
+        MenuItemButton(
+          onPressed: () async {
+            try {
+              final bytes = await _generatePackagePdf(pkg, orgSettings);
+              await Printing.sharePdf(
+                bytes: bytes,
+                filename: '${pkg.packageNumber}.pdf',
+              );
+            } catch (e) {
+              ZerpaiToast.error(context, 'Error downloading package slip: $e');
+            }
+          },
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          child: const Text('Download Package Slip'),
+        ),
+        MenuItemButton(
+          onPressed: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Delete Package'),
+                content: Text('Are you sure you want to delete package ${pkg.packageNumber}?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+            );
+            if (confirm == true && pkg.id != null) {
+              final success = await ref.read(inventoryPackagesProvider.notifier).deletePackage(pkg.id!);
+              if (success && mounted) {
+                ZerpaiToast.success(context, 'Package deleted successfully');
+                ref.read(inventoryPackagesProvider.notifier).fetchPackages();
+              }
+            }
+          },
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          child: const Text('Delete Package Slip'),
+        ),
+      ],
+      builder: (context, controller, _) => IconButton(
+        icon: const Icon(LucideIcons.moreVertical, size: 16, color: AppTheme.textBody),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        splashRadius: 18,
+        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+      ),
+    );
+  }
+
+  Future<Uint8List> _generatePackagePdf(InventoryPackage pkg, OrgSettings? org) async {
+    final doc = pw.Document();
+    SalesCustomer? customer;
+    if (pkg.customerId != null) {
+      try {
+        customer = await ref.read(salesCustomerByIdProvider(pkg.customerId!).future);
+      } catch (_) {}
+    }
+
+    pw.MemoryImage? logoImage;
+    if (org?.logoUrl != null && org!.logoUrl!.trim().isNotEmpty) {
+      try {
+        final res = await Dio().get<List<int>>(
+          org.logoUrl!,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (res.data != null) {
+          logoImage = pw.MemoryImage(Uint8List.fromList(res.data!));
+        }
+      } catch (_) {}
+    }
+
+    final dateStr = pkg.packageDate != null
+        ? DateFormat('dd-MM-yyyy').format(pkg.packageDate!)
+        : '-';
+    final soNumber = pkg.salesOrderNumbers.isNotEmpty
+        ? pkg.salesOrderNumbers.join(', ')
+        : (pkg.salesOrderNumber ?? '-');
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        build: (pw.Context ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      if (logoImage != null)
+                        pw.Container(
+                          width: 130,
+                          height: 56,
+                          padding: const pw.EdgeInsets.all(6),
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(color: PdfColors.grey300),
+                          ),
+                          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                        )
+                      else
+                        pw.Container(
+                          width: 130,
+                          height: 56,
+                          color: const PdfColor.fromInt(0xFF101820),
+                          child: pw.Center(
+                            child: pw.Text('LOGO',
+                                style: pw.TextStyle(color: PdfColors.white, fontSize: 12)),
+                          ),
+                        ),
+                      pw.SizedBox(height: 10),
+                      pw.Text(
+                        org?.name.trim().toUpperCase() ?? 'YOUR COMPANY',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      if (org?.paymentStubAddress?.trim().isNotEmpty == true)
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(top: 3),
+                          child: pw.Text(
+                            _formatAddress(org!.paymentStubAddress!.trim()),
+                            style: const pw.TextStyle(fontSize: 9, lineSpacing: 2),
+                          ),
+                        ),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'PACKAGE',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 28,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        'Package# ${pkg.packageNumber}',
+                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 32),
+              pw.Row(
+                children: [
+                  _pwInfoCell('Package#', pkg.packageNumber),
+                  _pwInfoCell('Order Date', dateStr),
+                  _pwInfoCell('Package Date', dateStr),
+                  _pwInfoCell('Sales Order#', soNumber),
+                ],
+              ),
+              pw.Divider(color: PdfColors.grey300, height: 24),
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Bill To',
+                            style: pw.TextStyle(
+                                color: PdfColors.blue,
+                                fontSize: 11,
+                                fontWeight: pw.FontWeight.bold)),
+                        pw.SizedBox(height: 4),
+                        pw.Text(pkg.customerName ?? '',
+                            style: pw.TextStyle(
+                                fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                        if (customer != null && customer.fullBillingAddress != 'N/A')
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(top: 2),
+                            child: pw.Text(
+                              customer.fullBillingAddress,
+                              style: const pw.TextStyle(fontSize: 10, lineSpacing: 2),
+                            ),
+                          ),
+                        if (customer != null && customer.billingAddressPhone != null)
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(top: 2),
+                            child: pw.Text(
+                              'Phone: ${customer.billingAddressPhone}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Ship To',
+                            style: pw.TextStyle(
+                                color: PdfColors.blue,
+                                fontSize: 11,
+                                fontWeight: pw.FontWeight.bold)),
+                        pw.SizedBox(height: 4),
+                        pw.Text(pkg.customerName ?? '',
+                            style: pw.TextStyle(
+                                fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                        if (customer != null && customer.fullShippingAddress != 'N/A')
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(top: 2),
+                            child: pw.Text(
+                              customer.fullShippingAddress,
+                              style: const pw.TextStyle(fontSize: 10, lineSpacing: 2),
+                            ),
+                          ),
+                        if (customer != null && customer.shippingAddressPhone != null)
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(top: 2),
+                            child: pw.Text(
+                              'Phone: ${customer.shippingAddressPhone}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 32),
+              pw.Table(
+                columnWidths: const {
+                  0: pw.FixedColumnWidth(32),
+                  1: pw.FlexColumnWidth(5),
+                  2: pw.FlexColumnWidth(2),
+                  3: pw.FixedColumnWidth(60),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                        color: PdfColor.fromInt(0xFF1F2937)),
+                    children: [
+                      _pwHeaderCell('#'),
+                      _pwHeaderCell('Item & Description'),
+                      _pwHeaderCell('HSN/SAC'),
+                      _pwHeaderCell('Qty', align: pw.Alignment.centerRight),
+                    ],
+                  ),
+                  ...pkg.items.asMap().entries.map((e) {
+                    return pw.TableRow(
+                      decoration: pw.BoxDecoration(
+                        color: e.key.isEven ? PdfColors.white : const PdfColor.fromInt(0xFFF9FAFB),
+                        border: const pw.Border(
+                          bottom: pw.BorderSide(color: PdfColors.grey200),
+                        ),
+                      ),
+                      children: [
+                        _pwDataCell('${e.key + 1}'),
+                        _pwDataCell(e.value.itemName ?? ''),
+                        _pwDataCell(''),
+                        _pwDataCell(
+                          e.value.quantity.toStringAsFixed(0),
+                          align: pw.Alignment.centerRight,
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return doc.save();
   }
 
   void _showRemainingPoApprovalDialog(BuildContext context) {
@@ -4666,6 +5638,7 @@ class _ActionSplitMenu extends StatelessWidget {
             Container(width: 1, height: 22, color: AppTheme.borderLight),
             PopupMenuButton<String>(
               tooltip: '',
+              constraints: const BoxConstraints(minWidth: 120, maxWidth: 120),
               color: Colors.white,
               elevation: 8,
               splashRadius: 18,
@@ -4680,21 +5653,8 @@ class _ActionSplitMenu extends StatelessWidget {
                   .map(
                     (item) => PopupMenuItem<String>(
                       value: item,
-                      labelTextStyle:
-                          WidgetStateProperty.resolveWith<TextStyle>((states) {
-                            if (states.contains(WidgetState.hovered)) {
-                              return AppTheme.bodyText.copyWith(
-                                fontSize: 13,
-                                color: Colors.white,
-                              );
-                            }
-                            return AppTheme.bodyText.copyWith(fontSize: 13);
-                          }),
-                      textStyle: AppTheme.bodyText.copyWith(fontSize: 13),
-                      child: Text(
-                        item,
-                        style: AppTheme.bodyText.copyWith(fontSize: 13),
-                      ),
+                      padding: EdgeInsets.zero,
+                      child: _ActionMenuItem(item: item),
                     ),
                   )
                   .toList(),
@@ -4715,6 +5675,44 @@ class _ActionSplitMenu extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionMenuItem extends StatefulWidget {
+  final String item;
+  const _ActionMenuItem({required this.item});
+
+  @override
+  State<_ActionMenuItem> createState() => _ActionMenuItemState();
+}
+
+class _ActionMenuItemState extends State<_ActionMenuItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: _isHovered ? AppTheme.primaryBlue : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          widget.item,
+          style: AppTheme.bodyText.copyWith(
+            fontSize: 13,
+            color: _isHovered ? Colors.white : AppTheme.textPrimary,
+          ),
         ),
       ),
     );
@@ -5609,9 +6607,8 @@ ButtonStyle _menuItemStyle({bool isActive = false}) {
       final highlighted =
           states.contains(WidgetState.hovered) ||
           states.contains(WidgetState.focused);
-      if (isActive) return AppTheme.primaryBlue;
-      if (highlighted) {
-        return AppTheme.primaryBlueDark;
+      if (isActive || highlighted) {
+        return AppTheme.primaryBlue;
       }
       return Colors.white;
     }),
@@ -5624,8 +6621,20 @@ ButtonStyle _menuItemStyle({bool isActive = false}) {
       }
       return AppTheme.textBody;
     }),
+    iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+      final highlighted =
+          states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused);
+      if (isActive || highlighted) {
+        return Colors.white;
+      }
+      return AppTheme.textBody;
+    }),
     padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    ),
+    shape: WidgetStateProperty.all<OutlinedBorder>(
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     ),
   );
 }
@@ -6048,8 +7057,6 @@ class _CancelSalesItemsDialog extends StatefulWidget {
 class _CancelSalesItemsDialogState extends State<_CancelSalesItemsDialog> {
   final Map<String, TextEditingController> _controllers = {};
   final List<SalesOrderItem> _cancellableItems = [];
-  final Map<String, double> _shippedQuantities = {};
-  final Map<String, double> _invoicedQuantities = {};
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -6059,105 +7066,27 @@ class _CancelSalesItemsDialogState extends State<_CancelSalesItemsDialog> {
     _loadQuantities();
   }
 
-  Future<void> _loadQuantities() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final orderId = widget.order.id;
+  void _loadQuantities() {
+    setState(() {
+      _cancellableItems.clear();
+      for (final item in widget.order.items ?? []) {
+        final lockedQty = [
+          item.pickedQuantity,
+          item.packedQuantity,
+          item.shippedQuantity,
+          item.invoicedQuantity,
+        ].reduce((a, b) => a > b ? a : b);
 
-      // 1. Fetch Invoiced quantities
-      final invLinks = await supabase
-          .from('invoice_sales_orders')
-          .select('invoice_id')
-          .eq('sales_order_id', orderId);
-      final invLinkList = List<Map<String, dynamic>>.from(invLinks as List);
-      final invoiceIds = invLinkList.map((l) => l['invoice_id'] as String).toList();
-
-      List<Map<String, dynamic>> invoiceItemsList = [];
-      if (invoiceIds.isNotEmpty) {
-        final invItems = await supabase
-            .from('invoice_items')
-            .select('product_id, quantity')
-            .inFilter('invoice_id', invoiceIds);
-        invoiceItemsList = List<Map<String, dynamic>>.from(invItems as List);
+        final remaining = item.quantity - lockedQty - item.cancelledQuantity;
+        if (remaining > 0) {
+          _cancellableItems.add(item);
+          _controllers[item.itemId] = TextEditingController(
+            text: remaining.toInt().toString(),
+          );
+        }
       }
-
-      final Map<String, double> invoicedQtys = {};
-      for (final item in invoiceItemsList) {
-        final prodId = item['product_id'] as String;
-        final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
-        invoicedQtys[prodId] = (invoicedQtys[prodId] ?? 0.0) + qty;
-      }
-
-      // 2. Fetch Shipped quantities
-      final shipLinks = await supabase
-          .from('inventory_shipment_sales_orders')
-          .select('shipment_id')
-          .eq('sales_order_id', orderId);
-      final shipLinkList = List<Map<String, dynamic>>.from(shipLinks as List);
-      final shipmentIds = shipLinkList.map((l) => l['shipment_id'] as String).toList();
-
-      List<Map<String, dynamic>> shipPackList = [];
-      if (shipmentIds.isNotEmpty) {
-        final shipPacks = await supabase
-            .from('inventory_shipment_packages')
-            .select('package_id')
-            .inFilter('shipment_id', shipmentIds);
-        shipPackList = List<Map<String, dynamic>>.from(shipPacks as List);
-      }
-      final shipPackageIds = shipPackList.map((l) => l['package_id'] as String).toList();
-
-      List<Map<String, dynamic>> shipPackItemsList = [];
-      if (shipPackageIds.isNotEmpty) {
-        final packItems = await supabase
-            .from('inventory_package_items')
-            .select('product_id, quantity')
-            .inFilter('package_id', shipPackageIds);
-        shipPackItemsList = List<Map<String, dynamic>>.from(packItems as List);
-      }
-
-      final Map<String, double> shippedQtys = {};
-      for (final item in shipPackItemsList) {
-        final prodId = item['product_id'] as String;
-        final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
-        shippedQtys[prodId] = (shippedQtys[prodId] ?? 0.0) + qty;
-      }
-
-      if (mounted) {
-        setState(() {
-          for (final item in widget.order.items ?? []) {
-            final recQty = shippedQtys[item.itemId] ?? 0.0;
-            final billQty = invoicedQtys[item.itemId] ?? 0.0;
-            _shippedQuantities[item.itemId] = recQty;
-            _invoicedQuantities[item.itemId] = billQty;
-
-            final remaining = item.quantity - recQty - item.cancelledQuantity;
-            if (remaining > 0) {
-              _cancellableItems.add(item);
-              _controllers[item.itemId] = TextEditingController(
-                text: remaining.toInt().toString(),
-              );
-            }
-          }
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading quantities for cancel dialog: $e');
-      if (mounted) {
-        setState(() {
-          for (final item in widget.order.items ?? []) {
-            final remaining = item.quantity - item.cancelledQuantity;
-            if (remaining > 0) {
-              _cancellableItems.add(item);
-              _controllers[item.itemId] = TextEditingController(
-                text: remaining.toInt().toString(),
-              );
-            }
-          }
-          _isLoading = false;
-        });
-      }
-    }
+      _isLoading = false;
+    });
   }
 
   @override
@@ -6182,8 +7111,14 @@ class _CancelSalesItemsDialogState extends State<_CancelSalesItemsDialog> {
         cancelQty = double.tryParse(_controllers[item.itemId]!.text) ?? 0.0;
       }
 
-      final recQty = _shippedQuantities[item.itemId] ?? 0.0;
-      final maxCancel = currentQty - recQty - item.cancelledQuantity;
+      final lockedQty = [
+        item.pickedQuantity,
+        item.packedQuantity,
+        item.shippedQuantity,
+        item.invoicedQuantity,
+      ].reduce((a, b) => a > b ? a : b);
+
+      final maxCancel = currentQty - lockedQty - item.cancelledQuantity;
 
       if (cancelQty > maxCancel) {
         ZerpaiToast.error(
@@ -6271,7 +7206,7 @@ class _CancelSalesItemsDialogState extends State<_CancelSalesItemsDialog> {
       surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Container(
-        width: 850,
+        width: 950,
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -6353,28 +7288,35 @@ class _CancelSalesItemsDialogState extends State<_CancelSalesItemsDialog> {
                           Expanded(
                             flex: 1,
                             child: Text(
-                              'QUANTITY ORDERED',
+                              'ORDERED',
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
                             ),
                           ),
                           Expanded(
                             flex: 1,
                             child: Text(
-                              'RECEIVED',
+                              'PICKED',
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
                             ),
                           ),
                           Expanded(
                             flex: 1,
                             child: Text(
-                              'BILLED',
+                              'PACKED',
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
                             ),
                           ),
                           Expanded(
                             flex: 1,
                             child: Text(
-                              'RECEIVED AND BILLED',
+                              'SHIPPED',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'INVOICED',
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
                             ),
                           ),
@@ -6390,10 +7332,6 @@ class _CancelSalesItemsDialogState extends State<_CancelSalesItemsDialog> {
                       ),
                     ),
                     ..._cancellableItems.map((item) {
-                      final recQty = _shippedQuantities[item.itemId] ?? 0.0;
-                      final billQty = _invoicedQuantities[item.itemId] ?? 0.0;
-                      final recAndBill = recQty < billQty ? recQty : billQty;
-
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: const BoxDecoration(
@@ -6425,21 +7363,28 @@ class _CancelSalesItemsDialogState extends State<_CancelSalesItemsDialog> {
                             Expanded(
                               flex: 1,
                               child: Text(
-                                recQty.toInt().toString(),
+                                item.pickedQuantity.toInt().toString(),
                                 style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
                               ),
                             ),
                             Expanded(
                               flex: 1,
                               child: Text(
-                                billQty.toInt().toString(),
+                                item.packedQuantity.toInt().toString(),
                                 style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
                               ),
                             ),
                             Expanded(
                               flex: 1,
                               child: Text(
-                                recAndBill.toInt().toString(),
+                                item.shippedQuantity.toInt().toString(),
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                item.invoicedQuantity.toInt().toString(),
                                 style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
                               ),
                             ),
@@ -6810,7 +7755,6 @@ class _PartialDropshipItemsDialogState extends ConsumerState<_PartialDropshipIte
 
   Future<void> _loadStockData() async {
     try {
-      final supabase = Supabase.instance.client;
       final productIds = widget.order.items
           ?.map((i) => i.itemId)
           .where((id) => id.isNotEmpty)
@@ -6821,15 +7765,17 @@ class _PartialDropshipItemsDialogState extends ConsumerState<_PartialDropshipIte
         return;
       }
 
-      final response = await supabase
-          .from('branch_inventory')
-          .select('product_id, current_stock')
-          .inFilter('product_id', productIds);
+      final response = await ref.read(apiClientProvider).post(
+        '/branch_inventory/bulk',
+        data: {'product_ids': productIds},
+      );
+      final responseData = response.data['data'] ?? response.data;
+      final stocks = responseData['stocks'] as List<dynamic>? ?? [];
 
       final Map<String, double> tempMap = {};
-      for (final row in response) {
+      for (final row in stocks) {
         final pId = row['product_id']?.toString() ?? '';
-        final stock = (row['current_stock'] ?? 0).toDouble();
+        final stock = ((row['available_stock'] ?? row['current_stock']) ?? 0).toDouble();
         tempMap[pId] = (tempMap[pId] ?? 0.0) + stock;
       }
 
@@ -7183,6 +8129,648 @@ class _PartialDropshipItemsDialogState extends ConsumerState<_PartialDropshipIte
 
     context.push(
       '/${widget.orgId}/purchases/purchase-orders/create?isDropship=true&dropshipCustomerName=$encodedName&dropshipAddress=$encodedAddress',
+      extra: po,
+    );
+  }
+}
+
+class _ReasonInputDialog extends StatefulWidget {
+  final SalesOrder order;
+  final String targetStatus;
+  final Future<void> Function(String reason) onConfirm;
+
+  const _ReasonInputDialog({
+    required this.order,
+    required this.targetStatus,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_ReasonInputDialog> createState() => _ReasonInputDialogState();
+}
+
+class _ReasonInputDialogState extends State<_ReasonInputDialog> {
+  final TextEditingController _reasonController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isVoid = widget.targetStatus == 'void';
+    final isCompleted = widget.targetStatus == 'completed';
+    final title = isVoid
+        ? 'Enter a reason for marking this transaction as Void.'
+        : isCompleted
+            ? 'Note down the reason as to why you want to convert this transaction to Completed.'
+            : 'Note down the reason as to why you want to convert this void transaction to Confirmed.';
+    
+    final confirmLabel = isVoid 
+        ? 'Void it' 
+        : isCompleted 
+            ? 'Convert to Completed' 
+            : 'Convert to Confirmed';
+
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: const EdgeInsets.only(top: 0),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      child: Container(
+        width: 480,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13.5,
+                fontWeight: FontWeight.normal,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reasonController,
+              maxLines: 4,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: Color(0xFF1E293B),
+              ),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                ElevatedButton(
+                  onPressed: _submitting
+                      ? null
+                      : () async {
+                          final text = _reasonController.text.trim();
+                          if (text.isEmpty) {
+                            ZerpaiToast.error(
+                              context,
+                              'Reason cannot be empty',
+                            );
+                            return;
+                          }
+                          setState(() => _submitting = true);
+                          await widget.onConfirm(text);
+                          if (mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981), // Emerald green
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFFA7F3D0),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          confirmLabel,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: _submitting ? null : () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1E293B),
+                    side: const BorderSide(color: Color(0xFFD1D5DB)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BackorderDialog extends ConsumerStatefulWidget {
+  final SalesOrder order;
+  final String orgId;
+  const _BackorderDialog({required this.order, required this.orgId});
+
+  @override
+  ConsumerState<_BackorderDialog> createState() => _BackorderDialogState();
+}
+
+class _BackorderDialogState extends ConsumerState<_BackorderDialog> {
+  bool _isLoading = true;
+  Map<String, double> _productStockMap = {};
+  final Set<String> _selectedItemIds = {};
+  bool _copyDescriptions = false;
+
+  /// Items that have stock shortage (ordered > stock)
+  List<SalesOrderItem> _shortageItems = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStockData();
+  }
+
+  Future<void> _loadStockData() async {
+    try {
+      final productIds = widget.order.items
+          ?.map((i) => i.itemId)
+          .where((id) => id.isNotEmpty)
+          .toList() ?? [];
+
+      if (productIds.isEmpty) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final response = await ref.read(apiClientProvider).post(
+        '/branch_inventory/bulk',
+        data: {'product_ids': productIds},
+      );
+      final responseData = response.data['data'] ?? response.data;
+      final stocks = responseData['stocks'] as List<dynamic>? ?? [];
+
+      final Map<String, double> tempMap = {};
+      for (final row in stocks) {
+        final pId = row['product_id']?.toString() ?? '';
+        final stock = ((row['available_stock'] ?? row['current_stock']) ?? 0).toDouble();
+        tempMap[pId] = (tempMap[pId] ?? 0.0) + stock;
+      }
+
+      // Filter to items where ordered > stock (available for sale is negative)
+      final shortage = (widget.order.items ?? []).where((item) {
+        final stock = tempMap[item.itemId] ?? 0.0;
+        return item.quantity > stock;
+      }).toList();
+
+      // Default all shortage items selected
+      for (final item in shortage) {
+        _selectedItemIds.add(item.id ?? item.itemId);
+      }
+
+      setState(() {
+        _productStockMap = tempMap;
+        _shortageItems = shortage;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading stock data for backorder: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  String? _getAccountName(String? purchaseAccountId) {
+    if (purchaseAccountId == null || purchaseAccountId.isEmpty) return null;
+    final accountsState = ref.read(chartOfAccountsProvider);
+    final List<AccountNode> availableAccounts = [];
+    void collect(List<AccountNode> nodes) {
+      for (final node in nodes) {
+        availableAccounts.add(node);
+        collect(node.children);
+      }
+    }
+    collect(accountsState.roots);
+    try {
+      return availableAccounts.firstWhere((acc) => acc.id == purchaseAccountId).name;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allSelected = _shortageItems.isNotEmpty &&
+        _shortageItems.every((item) => _selectedItemIds.contains(item.id ?? item.itemId));
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Choose the items to be backordered',
+                style: AppTheme.sectionHeader.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(LucideIcons.x, color: Colors.red, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_isLoading)
+            const SizedBox(
+              height: 150,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_shortageItems.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              child: const Center(
+                child: Text(
+                  'No items require backordering. All items have sufficient stock.',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+                ),
+              ),
+            )
+          else ...[
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: SingleChildScrollView(
+                child: Table(
+                  columnWidths: const {
+                    0: FixedColumnWidth(48),
+                    1: FlexColumnWidth(3),
+                    2: FlexColumnWidth(2),
+                    3: FlexColumnWidth(1.5),
+                    4: FlexColumnWidth(1.5),
+                    5: FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF9FAFB),
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                      ),
+                      children: [
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Checkbox(
+                            value: allSelected,
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  for (final item in _shortageItems) {
+                                    _selectedItemIds.add(item.id ?? item.itemId);
+                                  }
+                                } else {
+                                  _selectedItemIds.clear();
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        ...[
+                          'ITEM DETAILS',
+                          'LOCATION NAME',
+                          'QUANTITY ORDERED',
+                          'STOCK ON HAND',
+                          'BACKORDER QUANTITY',
+                        ].map((header) => TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: Text(
+                              header,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF4B5563),
+                              ),
+                            ),
+                          ),
+                        )),
+                      ],
+                    ),
+                    ..._shortageItems.map((item) {
+                      final itemId = item.id ?? item.itemId;
+                      final isSelected = _selectedItemIds.contains(itemId);
+                      final stock = _productStockMap[item.itemId] ?? 0.0;
+                      final backorderQty = item.quantity - stock;
+                      final unit = item.item?.unitName ?? 'pcs';
+
+                      // Resolve warehouse/location name
+                      String locationName = '-';
+                      final whs = ref.watch(warehousesProvider).value;
+                      final whId = item.warehouseId ?? widget.order.warehouseId;
+                      if (whs != null && whId != null) {
+                        try {
+                          locationName = whs.firstWhere((w) => w.id == whId).name;
+                        } catch (_) {}
+                      }
+
+                      return TableRow(
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                          ),
+                        ),
+                        children: [
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Checkbox(
+                              value: isSelected,
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val == true) {
+                                    _selectedItemIds.add(itemId);
+                                  } else {
+                                    _selectedItemIds.remove(itemId);
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10.0,
+                                vertical: 12.0,
+                              ),
+                              child: Text(
+                                item.item?.productName ?? item.description ?? 'Unnamed Item',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1F2937),
+                                ),
+                              ),
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text(
+                                locationName,
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                              ),
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text(
+                                '${item.quantity.toInt()} ($unit)',
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                              ),
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text(
+                                '${stock.toInt()} ($unit)',
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                              ),
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text(
+                                '${backorderQty.toInt()} ($unit)',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                border: Border.all(color: const Color(0xFFBAE6FD)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Note:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0369A1),
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '• A new purchase order will be created for the backordered items.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF0369A1)),
+                  ),
+                  Text(
+                    '• The backorder quantity is based on the stock shortfall.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF0369A1)),
+                  ),
+                  Text(
+                    '• You can modify the quantities in the purchase order before saving.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF0369A1)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                border: Border.all(color: const Color(0xFFFEF3C7)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Item Description Preference',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _copyDescriptions,
+                        onChanged: (val) {
+                          setState(() {
+                            _copyDescriptions = val ?? false;
+                          });
+                        },
+                      ),
+                      const Expanded(
+                        child: Text(
+                          "Copy the sales order's item descriptions to the new purchase order",
+                          style: TextStyle(fontSize: 13, color: Color(0xFF92400E)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: _isLoading || _selectedItemIds.isEmpty || _shortageItems.isEmpty
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        _proceedBackorder();
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: const Text('Backorder', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFD1D5DB)),
+                  foregroundColor: const Color(0xFF4B5563),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _proceedBackorder() {
+    final selectedItems = _shortageItems.where((item) {
+      final itemId = item.id ?? item.itemId;
+      return _selectedItemIds.contains(itemId);
+    }).map((item) {
+      final purchaseAccountId = item.item?.purchaseAccountId;
+      final purchaseAccountName = _getAccountName(purchaseAccountId);
+      final stock = _productStockMap[item.itemId] ?? 0.0;
+      final backorderQty = item.quantity - stock;
+      final rate = item.rate;
+      return PurchaseOrderItem(
+        productId: item.itemId,
+        productName: item.item?.productName ?? item.description,
+        hsnCode: item.hsnCode ?? item.item?.hsnCode,
+        itemCode: item.item?.itemCode,
+        description: _copyDescriptions ? item.description : null,
+        accountId: purchaseAccountId,
+        accountName: purchaseAccountName,
+        quantity: backorderQty,
+        rate: rate,
+        amount: backorderQty * rate,
+        taxId: item.taxId,
+        taxRate: item.taxPercentage,
+        taxAmount: item.taxAmount,
+        discount: item.discount,
+        discountType: item.discountType == '%' ? 'percentage' : 'fixed',
+      );
+    }).toList();
+
+    final po = PurchaseOrder(
+      orderNumber: '',
+      orderDate: DateTime.now(),
+      vendorId: '',
+      notes: widget.order.customerNotes,
+      termsAndConditions: widget.order.termsAndConditions,
+      discount: 0,
+      discountType: 'percentage',
+      adjustment: 0,
+      subTotal: 0,
+      taxAmount: 0,
+      total: 0,
+      items: selectedItems,
+    );
+
+    context.push(
+      '/${widget.orgId}/purchases/purchase-orders/create',
       extra: po,
     );
   }

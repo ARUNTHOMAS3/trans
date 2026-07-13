@@ -92,7 +92,10 @@ import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purc
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart';
 
 
-import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create_page.dart';
+import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create.dart';
+import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart';
+import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_report.dart';
+import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_create.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_create.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_create_page.dart';
@@ -870,6 +873,7 @@ final GoRouter appRouter = GoRouter(
                     initialCustomerId: state.uri.queryParameters['customerId'],
                     fromOrderId: state.uri.queryParameters['fromOrderId'],
                     cloneId: state.uri.queryParameters['cloneId'],
+                    isInstant: state.uri.queryParameters['instant'] == 'true',
                   ),
                 ),
                 GoRoute(
@@ -1163,8 +1167,9 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'inventory/picklists/create',
               name: AppRoutes.picklistsCreate,
-              builder: (context, state) =>
-                  const InventoryPicklistsCreateScreen(),
+              builder: (context, state) => InventoryPicklistsCreateScreen(
+                salesOrderId: state.uri.queryParameters['salesOrderId'],
+              ),
             ),
             GoRoute(
               path: 'inventory/picklists/edit/:id',
@@ -1192,8 +1197,9 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'inventory/packages/create',
               name: AppRoutes.packagesCreate,
-              builder: (context, state) =>
-                  const InventoryPackagesCreateScreen(),
+              builder: (context, state) => InventoryPackagesCreateScreen(
+                salesOrderId: state.uri.queryParameters['salesOrderId'],
+              ),
             ),
             GoRoute(
               path: 'inventory/packages/edit/:id',
@@ -1215,8 +1221,9 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.shipmentsCreate,
-                  builder: (context, state) =>
-                      const InventoryShipmentsCreateScreen(),
+                  builder: (context, state) => InventoryShipmentsCreateScreen(
+                    salesOrderId: state.uri.queryParameters['salesOrderId'],
+                  ),
                 ),
                 GoRoute(
                   path: 'edit/:id',
@@ -1485,23 +1492,62 @@ final GoRouter appRouter = GoRouter(
               path: 'purchases/bills',
               name: AppRoutes.bills,
               builder: (context, state) => const PurchasesBillsListScreen(),
-            ),
-            GoRoute(
-              path: 'purchases/bills/create',
-              name: AppRoutes.billsCreate,
-              builder: (context, state) => const PurchasesBillCreateScreen(),
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  name: AppRoutes.billsCreate,
+                  builder: (context, state) {
+                    return PurchasesBillCreateScreen(
+                      editBillId: state.uri.queryParameters['editId'],
+                      cloneBillId: state.uri.queryParameters['cloneId'],
+                      poId: state.uri.queryParameters['poId'],
+                      receiveId: state.uri.queryParameters['receiveId'],
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: ':id',
+                  name: AppRoutes.billsDetail,
+                  builder: (context, state) => PurchasesBillsListScreen(
+                    initialSelectedId: state.pathParameters['id'],
+                    initialSearchQuery: state.uri.queryParameters['q'],
+                    initialFilter:
+                        state.uri.queryParameters['filter'] ??
+                        state.uri.queryParameters['status'],
+                  ),
+                ),
+              ],
             ),
             GoRoute(
               path: 'purchases/payments-made',
               name: AppRoutes.paymentsMade,
-              builder: (context, state) => const PlaceholderScreen(title: 'Payments Made'),
-              routes: [
-                GoRoute(
-                  path: 'create',
-                  name: AppRoutes.paymentsMadeCreate,
-                  builder: (context, state) => const PurchasesPaymentsMadeCreatePage(billIds: []),
-                ),
-              ],
+              builder: (context, state) => const PaymentsMadeOverviewPage(),
+            ),
+            GoRoute(
+              path: 'purchases/payments-made/create',
+              name: AppRoutes.paymentsMadeCreate,
+              builder: (context, state) {
+                final billIds = state.uri.queryParameters['billIds'];
+                final paymentId = state.uri.queryParameters['paymentId'];
+                final paymentNumber = state.uri.queryParameters['paymentNumber'];
+                return CreatePaymentMadePage(
+                  billIds: billIds != null && billIds.isNotEmpty
+                      ? billIds.split(',')
+                      : const [],
+                  paymentId: paymentId != null && paymentId.isNotEmpty
+                      ? paymentId
+                      : null,
+                  paymentNumber:
+                      paymentNumber != null && paymentNumber.isNotEmpty
+                      ? paymentNumber
+                      : null,
+                );
+              },
+            ),
+            GoRoute(
+              path: 'purchases/payments-made/report',
+              name: AppRoutes.paymentsMadeReport,
+              builder: (context, state) => const PaymentsMadeReportPage(),
             ),
             GoRoute(
               path: 'purchases/vendor-credits',
@@ -1512,8 +1558,11 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/vendor-credits/create',
               name: AppRoutes.vendorCreditsCreate,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'New Vendor Credit'),
+              builder: (context, state) {
+                final vendorCreditId =
+                    state.uri.queryParameters['vendorCreditId'];
+                return VendorCreditsCreatePage(vendorCreditId: vendorCreditId);
+              },
             ),
             GoRoute(
               path: 'documents',

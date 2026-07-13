@@ -1011,9 +1011,8 @@ class _PurchaseOrderOverviewScreenState
         final highlighted =
             states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused);
-        if (isActive) return AppTheme.primaryBlue;
-        if (highlighted) {
-          return AppTheme.primaryBlueDark;
+        if (isActive || highlighted) {
+          return AppTheme.primaryBlue;
         }
         return Colors.white;
       }),
@@ -1026,8 +1025,20 @@ class _PurchaseOrderOverviewScreenState
         }
         return AppTheme.textBody;
       }),
+      iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        if (isActive || highlighted) {
+          return Colors.white;
+        }
+        return AppTheme.textBody;
+      }),
       padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
         const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      shape: WidgetStateProperty.all<OutlinedBorder>(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     );
   }
@@ -4133,8 +4144,8 @@ class _PurchaseOrderOverviewScreenState
           ZerpaiToast.success(context, '$label action clicked');
         }
       },
-      style: ZTableMoreMenu.menuItemButtonStyle(),
-      child: Text(label),
+      style: _menuItemStyle(),
+      child: SizedBox(width: 240, child: Text(label)),
     );
   }
 
@@ -4194,18 +4205,37 @@ class _PurchaseOrderOverviewScreenState
 
   Widget _buildPdfPrintDropdown(PurchaseOrder order, OrgSettings? orgSettings) {
     return MenuAnchor(
-      style: _menuStyle(),
+      alignmentOffset: const Offset(0, 4),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
       builder: (context, controller, child) {
-        return _buildToolbarButton(
-          LucideIcons.printer,
-          'PDF/Print',
-          onPressed: () =>
-              controller.isOpen ? controller.close() : controller.open(),
+        return SizedBox(
+          width: 100,
+          child: _buildToolbarButton(
+            LucideIcons.printer,
+            'PDF/Print',
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+          ),
         );
       },
       menuChildren: [
         MenuItemButton(
-          style: ZTableMoreMenu.menuItemButtonStyle(),
+          style: _menuItemStyle().copyWith(
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
           onPressed: () async {
             final bytes = await _generatePdf(order, orgSettings);
             await Printing.sharePdf(
@@ -4213,15 +4243,22 @@ class _PurchaseOrderOverviewScreenState
               filename: '${order.orderNumber}.pdf',
             );
           },
-          child: const Text('Download PDF'),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
+          child: const Text('PDF', style: TextStyle(fontSize: 14)),
         ),
         MenuItemButton(
-          style: ZTableMoreMenu.menuItemButtonStyle(),
+          style: _menuItemStyle().copyWith(
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
           onPressed: () async {
             final bytes = await _generatePdf(order, orgSettings);
             await Printing.layoutPdf(onLayout: (_) async => bytes);
           },
-          child: const Text('Print'),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
+          child: const Text('Print', style: TextStyle(fontSize: 14)),
         ),
       ],
     );

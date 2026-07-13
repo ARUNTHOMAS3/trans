@@ -305,6 +305,7 @@ class AppRoutes {
   // Purchases - Payments Made
   static const String paymentsMade = '/purchases/payments-made';
   static const String paymentsMadeCreate = '/purchases/payments-made/create';
+  static const String paymentsMadeReport = '/purchases/payments-made/report';
 
   // Purchases - Vendor Credits
   static const String vendorCredits = '/purchases/vendor-credits';

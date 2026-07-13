@@ -113,6 +113,59 @@ class _PurchasesPurchaseReceivesListScreenState
     'modified_time': 'LAST MODIFIED TIME',
   };
 
+  ButtonStyle _menuItemStyle({bool isActive = false}) {
+    return ButtonStyle(
+      animationDuration: Duration.zero,
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        if (isActive || highlighted) {
+          return AppTheme.primaryBlue;
+        }
+        return Colors.white;
+      }),
+      foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        if (isActive || highlighted) {
+          return Colors.white;
+        }
+        return AppTheme.textBody;
+      }),
+      iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        if (isActive || highlighted) {
+          return Colors.white;
+        }
+        return AppTheme.textBody;
+      }),
+      padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      shape: WidgetStateProperty.all<OutlinedBorder>(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+    );
+  }
+
+  MenuStyle _menuStyle() {
+    return MenuStyle(
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      elevation: const WidgetStatePropertyAll(8),
+      backgroundColor: const WidgetStatePropertyAll(Colors.white),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -445,15 +498,7 @@ class _PurchasesPurchaseReceivesListScreenState
   Widget _buildBulkActionsDropdown() {
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        elevation: const WidgetStatePropertyAll(8),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        ),
-      ),
+      style: _menuStyle(),
       builder: (context, controller, child) {
         return Container(
           height: 32,
@@ -490,18 +535,19 @@ class _PurchasesPurchaseReceivesListScreenState
       menuChildren: [
         MenuItemButton(
           onPressed: () => _applyBulkStatus('RECEIVED'),
-          child: const SizedBox(width: 180, child: Text('Mark as Received')),
+          style: _menuItemStyle(),
+          child: const SizedBox(width: 240, child: Text('Mark as Received')),
         ),
-        const Divider(height: 1),
         MenuItemButton(
           onPressed: () => _applyBulkStatus('INTRANSIT'),
-          child: const SizedBox(width: 180, child: Text('Mark as In Transit')),
+          style: _menuItemStyle(),
+          child: const SizedBox(width: 240, child: Text('Mark as In Transit')),
         ),
-        const Divider(height: 1),
         MenuItemButton(
           onPressed: _deleteSelectedReceives,
+          style: _menuItemStyle(),
           child: const SizedBox(
-            width: 180,
+            width: 240,
             child: Text('Delete', style: TextStyle(color: AppTheme.errorRed)),
           ),
         ),
@@ -2152,21 +2198,64 @@ class _PurchaseReceiveDetailPanelState
     );
   }
 
+  ButtonStyle _menuItemStyle({bool isActive = false}) {
+    return ButtonStyle(
+      animationDuration: Duration.zero,
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        if (isActive || highlighted) {
+          return AppTheme.primaryBlue;
+        }
+        return Colors.white;
+      }),
+      foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        if (isActive || highlighted) {
+          return Colors.white;
+        }
+        return AppTheme.textBody;
+      }),
+      iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        if (isActive || highlighted) {
+          return Colors.white;
+        }
+        return AppTheme.textBody;
+      }),
+      padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      shape: WidgetStateProperty.all<OutlinedBorder>(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+    );
+  }
+
+  MenuStyle _menuStyle() {
+    return MenuStyle(
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      elevation: const WidgetStatePropertyAll(8),
+      backgroundColor: const WidgetStatePropertyAll(Colors.white),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+    );
+  }
+
   Widget _buildPdfPrintDropdown(PurchaseReceive receive) {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        elevation: const WidgetStatePropertyAll(8),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(4)),
-          ),
-        ),
-      ),
+      style: _menuStyle(),
       menuChildren: [
         MenuItemButton(
           onPressed: () async {
@@ -2176,38 +2265,9 @@ class _PurchaseReceiveDetailPanelState
               filename: '${receive.purchaseReceiveNumber}.pdf',
             );
           },
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? AppTheme.primaryBlue
-                  : Colors.white,
-            ),
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? Colors.white
-                  : AppTheme.textPrimary,
-            ),
-            iconColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? Colors.white
-                  : AppTheme.primaryBlue,
-            ),
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-            ),
-          ),
-          child: const Row(
-            children: [
-              Icon(LucideIcons.fileText, size: 16),
-              SizedBox(width: 12),
-              Text('PDF', style: TextStyle(fontSize: 14)),
-            ],
-          ),
+          style: _menuItemStyle(),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
+          child: const SizedBox(width: 240, child: Text('PDF')),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -2217,38 +2277,9 @@ class _PurchaseReceiveDetailPanelState
               name: receive.purchaseReceiveNumber,
             );
           },
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? AppTheme.primaryBlue
-                  : Colors.white,
-            ),
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? Colors.white
-                  : AppTheme.textPrimary,
-            ),
-            iconColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? Colors.white
-                  : AppTheme.primaryBlue,
-            ),
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-            ),
-          ),
-          child: const Row(
-            children: [
-              Icon(LucideIcons.printer, size: 16),
-              SizedBox(width: 12),
-              Text('Print', style: TextStyle(fontSize: 14)),
-            ],
-          ),
+          style: _menuItemStyle(),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
+          child: const SizedBox(width: 240, child: Text('Print')),
         ),
       ],
       builder: (context, controller, _) => _buildToolbarButton(

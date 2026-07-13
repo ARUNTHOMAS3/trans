@@ -40,7 +40,8 @@ const Color _dangerRed = Color(0xFFDC2626);
 
 class InventoryPackagesCreateScreen extends ConsumerStatefulWidget {
   final String? id;
-  const InventoryPackagesCreateScreen({super.key, this.id});
+  final String? salesOrderId;
+  const InventoryPackagesCreateScreen({super.key, this.id, this.salesOrderId});
 
   @override
   ConsumerState<InventoryPackagesCreateScreen> createState() =>
@@ -306,6 +307,9 @@ class _InventoryPackagesCreateScreenState
       _loadNextPackageNumber();
       _dateCtrl.text =
           "${DateTime.now().day.toString().padLeft(2, '0')}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().year}";
+      if (widget.salesOrderId != null) {
+        _fetchMultipleSalesOrderItems([widget.salesOrderId!]);
+      }
     }
 
     if (_isEditMode) {
@@ -1045,6 +1049,25 @@ class _InventoryPackagesCreateScreenState
                   TextEditingController(text: allItems[i].quantity.toString()),
             ),
           );
+          
+          if (allOrders.isNotEmpty && allOrders.first.customer != null) {
+            _selectedCustomer = allOrders.first.customer;
+          }
+
+          for (var i = 0; i < _items.length; i++) {
+            final salesOrderItem = allItems[i];
+            final itemWarehouseId = salesOrderItem.warehouseId ?? (allOrders.isNotEmpty ? allOrders.first.warehouseId : null);
+            if (itemWarehouseId != null) {
+              ref.read(warehousesProvider).whenData((warehouses) {
+                final w = warehouses.firstWhere((wh) => wh.id == itemWarehouseId, orElse: () => warehouses.first);
+                setState(() {
+                  _rowSelectedWarehouseIds[i] = w.id;
+                  _rowSelectedWarehouses[i] = w.name;
+                });
+              });
+            }
+          }
+
           _isLoadingItems = false;
         });
       }

@@ -1031,7 +1031,9 @@ export const salesOrder = pgTable("sales_orders", {
   currency: varchar("currency", { length: 20 }).default("INR"),
   customerNotes: text("customer_notes"),
   termsAndConditions: text("terms_and_conditions"),
-  isDelete: boolean("is_delete").notNull().default(false),
+   isDelete: boolean("is_delete").notNull().default(false),
+  reasonToVoid: text("reason_to_void"),
+  reasonToConfirmed: text("reason_to_confirmed"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

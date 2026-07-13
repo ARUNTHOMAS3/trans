@@ -55,10 +55,7 @@ export class PicklistsService {
 
     // Resolve customer_name and sales_order_number from picklist_items
     const picklistIds = rows.map((r: any) => r.id);
-    const picklistItemsMap = new Map<
-      string,
-      { customer_name: string | null; sales_order_number: string | null }
-    >();
+    const picklistItemsMap = new Map<string, any>();
     if (picklistIds.length > 0) {
       const { data: items } = await client
         .from("picklist_items")
@@ -105,26 +102,29 @@ export class PicklistsService {
         );
       }
 
-      // For each picklist, get first item's SO info
+      // For each picklist, resolve all unique sales_order_ids and sales_order_numbers
       for (const picklistId of picklistIds) {
-        const firstItem = (items || []).find(
-          (i: any) => i.picklist_id === picklistId && i.sales_order_id,
-        );
-        if (firstItem) {
-          const soInfo = soMap.get(firstItem.sales_order_id);
-          picklistItemsMap.set(picklistId, {
-            customer_name: soInfo?.customer_id
-              ? customerMap.get(soInfo.customer_id) || null
-              : null,
-            sales_order_number: soInfo?.sale_number || null,
-          });
-        }
+        const pItems = (items || []).filter((i: any) => i.picklist_id === picklistId);
+        const pSoIds = [...new Set(pItems.map((i: any) => i.sales_order_id).filter(Boolean))] as string[];
+        const pSoNumbers = pSoIds.map(id => soMap.get(id)?.sale_number).filter(Boolean) as string[];
+
+        const firstItemWithCust = pItems.find((i: any) => i.sales_order_id);
+        const soInfo = firstItemWithCust ? soMap.get(firstItemWithCust.sales_order_id) : null;
+
+        picklistItemsMap.set(picklistId, {
+          customer_name: soInfo?.customer_id
+            ? customerMap.get(soInfo.customer_id) || null
+            : null,
+          sales_order_number: soInfo?.sale_number || null,
+          sales_order_ids: pSoIds,
+          sales_order_numbers: pSoNumbers,
+        });
       }
     }
 
     return {
       data: rows.map((row: any) => {
-        const itemInfo = picklistItemsMap.get(row.id);
+        const itemInfo = picklistItemsMap.get(row.id) as any;
         return {
           id: row.id,
           picklist_number: row.picklist_no,
@@ -136,6 +136,8 @@ export class PicklistsService {
           customer_name: itemInfo?.customer_name || null,
           sales_order_number: itemInfo?.sales_order_number || null,
           is_entrypass: row.is_entrypass || false,
+          sales_order_ids: itemInfo?.sales_order_ids || [],
+          sales_order_numbers: itemInfo?.sales_order_numbers || [],
         };
       }),
       total: count || 0,
@@ -327,6 +329,9 @@ export class PicklistsService {
       (i: any) => i.sales_order_number,
     );
 
+    const uniqueSoIds = [...new Set((items || []).map((i: any) => i.sales_order_id).filter(Boolean))] as string[];
+    const uniqueSoNumbers = uniqueSoIds.map(id => soMap.get(id)?.sale_number).filter(Boolean) as string[];
+
     return {
       id: picklist.id,
       picklist_number: picklist.picklist_no,
@@ -339,6 +344,8 @@ export class PicklistsService {
       sales_order_number: firstItemWithSO?.sales_order_number || null,
       is_entrypass: picklist.is_entrypass || false,
       items: itemsWithBatches,
+      sales_order_ids: uniqueSoIds,
+      sales_order_numbers: uniqueSoNumbers,
     };
   }
 

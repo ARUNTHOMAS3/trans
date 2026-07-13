@@ -21,6 +21,7 @@ import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/lock_record_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/email_composer.dart';
@@ -93,7 +94,15 @@ final _salesInvoiceDetailProvider = FutureProvider.family<SalesOrder, String>((
 ) async {
   final api = ref.watch(salesOrderApiServiceProvider);
   final rawInvoice = await api.getInvoiceById(id);
-  final order = SalesOrder.fromJson(rawInvoice);
+  final mappedInvoice = {
+    ...rawInvoice,
+    'sale_number': rawInvoice['invoice_number'] ?? rawInvoice['sale_number'] ?? rawInvoice['saleNumber'],
+    'sale_date': rawInvoice['invoice_date'] ?? rawInvoice['sale_date'] ?? rawInvoice['saleDate'],
+    'sub_total': rawInvoice['subtotal'] ?? rawInvoice['sub_total'] ?? rawInvoice['subTotal'] ?? 0,
+    'total': rawInvoice['grand_total'] ?? rawInvoice['total'] ?? 0,
+    'document_type': rawInvoice['document_type'] ?? rawInvoice['documentType'] ?? 'invoice',
+  };
+  final order = SalesOrder.fromJson(mappedInvoice);
 
   final customer = order.customer;
   final hasCustomerName =
@@ -955,26 +964,29 @@ class _SalesInvoiceOverviewScreenState
           bottom: BorderSide(color: AppTheme.borderLight),
         ),
       ),
-      child: Row(
-        children: [
-          _buildToolbarButton(
-            LucideIcons.pencil,
-            'Edit',
-            onPressed: () => context.push('/$orgId/sales/invoices/${invoice.id}/edit', extra: invoice),
-          ),
-          _buildDivider(),
-          _buildSendDropdown(invoice),
-          _buildDivider(),
-          _buildShareButton(invoice),
-          _buildDivider(),
-          _buildRemindersDropdown(invoice),
-          _buildDivider(),
-          _buildPdfPrintDropdown(invoice),
-          _buildDivider(),
-          _buildRecordPaymentDropdown(invoice),
-          _buildDivider(),
-          _buildMoreActionsDropdown(invoice),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildToolbarButton(
+              LucideIcons.pencil,
+              'Edit',
+              onPressed: () => context.push('/$orgId/sales/invoices/${invoice.id}/edit', extra: invoice),
+            ),
+            _buildDivider(),
+            _buildSendDropdown(invoice),
+            _buildDivider(),
+            _buildShareButton(invoice),
+            _buildDivider(),
+            _buildRemindersDropdown(invoice),
+            _buildDivider(),
+            _buildPdfPrintDropdown(invoice),
+            _buildDivider(),
+            _buildRecordPaymentDropdown(invoice),
+            _buildDivider(),
+            _buildMoreActionsDropdown(invoice),
+          ],
+        ),
       ),
     );
   }
@@ -1020,16 +1032,19 @@ class _SalesInvoiceOverviewScreenState
           label: 'Send Email',
           icon: LucideIcons.mail,
           onTap: () => _openEmailComposer(invoice),
+          width: 100,
         ),
         _menuItem(
           label: 'Stop Reminders',
           icon: LucideIcons.pause,
           onTap: () => ZerpaiToast.success(context, 'Reminders stopped successfully'),
+          width: 160,
         ),
         _menuItem(
           label: 'Expected Payment Date',
           icon: LucideIcons.calendar,
           onTap: () => ZerpaiToast.info(context, 'Expected payment date settings opened'),
+          width: 160,
         ),
       ],
     );
@@ -1061,11 +1076,13 @@ class _SalesInvoiceOverviewScreenState
           label: 'Record Payment',
           icon: LucideIcons.arrowDownCircle,
           onTap: () => setState(() => _showPaymentFormForId = invoice.id),
+          width: 120,
         ),
         _menuItem(
           label: 'Write Off',
           icon: LucideIcons.fileText,
           onTap: () => ZerpaiToast.info(context, 'Write-off functionality initiated'),
+          width: 120,
         ),
       ],
     );
@@ -1126,55 +1143,17 @@ class _SalesInvoiceOverviewScreenState
             controller.isOpen ? controller.close() : controller.open(),
       ),
       menuChildren: [
-        MenuItemButton(
-          onPressed: () => _openEmailComposer(invoice),
-          leadingIcon: const Icon(LucideIcons.mail, size: 16),
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? AppTheme.primaryBlue
-                  : Colors.transparent,
-            ),
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? Colors.white
-                  : AppTheme.textSecondary,
-            ),
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-            ),
-          ),
-          child: const Text('Send Email', style: TextStyle(fontSize: 14)),
+        _menuItem(
+          label: 'Send Email',
+          icon: LucideIcons.mail,
+          onTap: () => _openEmailComposer(invoice),
+          width: 100,
         ),
-        MenuItemButton(
-          onPressed: () => ZerpaiToast.info(context, 'Send SMS coming soon'),
-          leadingIcon: const Icon(LucideIcons.messageSquare, size: 16),
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? AppTheme.primaryBlue
-                  : Colors.transparent,
-            ),
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? Colors.white
-                  : AppTheme.textSecondary,
-            ),
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
-            alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-            ),
-          ),
-          child: const Text('Send SMS', style: TextStyle(fontSize: 14)),
+        _menuItem(
+          label: 'Send SMS',
+          icon: LucideIcons.messageSquare,
+          onTap: () => ZerpaiToast.info(context, 'Send SMS coming soon'),
+          width: 100,
         ),
       ],
     );
@@ -1225,16 +1204,19 @@ class _SalesInvoiceOverviewScreenState
                 label: 'Create Credit Note',
                 icon: LucideIcons.fileMinus,
                 onTap: () => context.push('/$orgId/sales/credit-notes/create', extra: invoice),
+                width: 180,
               ),
               _menuItem(
                 label: 'Add e-Way Bill Details',
                 icon: LucideIcons.truck,
                 onTap: () => context.push('/$orgId/sales/e-way-bills/create', extra: invoice),
+                width: 180,
               ),
               _menuItem(
                 label: 'Clone',
                 icon: LucideIcons.copy,
                 onTap: () => context.push('/$orgId/sales/invoices/create?cloneId=${invoice.id}'),
+                width: 180,
               ),
               _menuItem(
                 label: 'Void',
@@ -1266,6 +1248,7 @@ class _SalesInvoiceOverviewScreenState
                     }
                   }
                 },
+                width: 180,
               ),
               _menuItem(
                 label: 'Delete',
@@ -1302,11 +1285,20 @@ class _SalesInvoiceOverviewScreenState
                     }
                   }
                 },
+                width: 180,
               ),
               _menuItem(
                 label: 'Invoice Preferences',
                 icon: LucideIcons.sliders,
                 onTap: () => ZerpaiToast.info(context, 'Invoice Preferences opened'),
+                width: 180,
+              ),
+              const Divider(height: 1, color: AppTheme.borderLight),
+              _menuItem(
+                label: 'Lock invoice',
+                icon: LucideIcons.lock,
+                onTap: () => _showLockInvoiceDialog(invoice),
+                width: 180,
               ),
             ],
           ),
@@ -1315,31 +1307,15 @@ class _SalesInvoiceOverviewScreenState
     );
   }
 
-  MenuItemButton _menuItem({required String label, required IconData icon, required VoidCallback onTap}) {
+  MenuItemButton _menuItem({required String label, required IconData icon, required VoidCallback onTap, double width = 180}) {
     return MenuItemButton(
       onPressed: onTap,
       leadingIcon: Icon(icon, size: 16),
-      style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.hovered)
-              ? AppTheme.primaryBlue
-              : Colors.transparent,
-        ),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.hovered)
-              ? Colors.white
-              : AppTheme.textSecondary,
-        ),
-        padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        minimumSize: const WidgetStatePropertyAll(Size(220, 44)),
-        alignment: Alignment.centerLeft,
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        ),
+      style: _menuItemStyle(),
+      child: SizedBox(
+        width: width,
+        child: Text(label),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 14)),
     );
   }
 
@@ -1368,7 +1344,7 @@ class _SalesInvoiceOverviewScreenState
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Location: ${whName.toUpperCase()}',
+                  'Warehouse: ${whName.toUpperCase()}',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -1380,11 +1356,9 @@ class _SalesInvoiceOverviewScreenState
                 const SizedBox(height: 4),
                 Text(
                   invoice.saleNumber,
-                  style: const TextStyle(
+                  style: AppTheme.sectionHeader.copyWith(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Inter',
-                    color: Color(0xFF111827),
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -1547,7 +1521,7 @@ class _SalesInvoiceOverviewScreenState
   }
 
   Widget _buildPdfPrintDropdown(SalesOrder invoice) {
-    final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+    final orgSettings = ref.read(orgSettingsProvider).asData?.value;
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
       style: MenuStyle(
@@ -1561,12 +1535,15 @@ class _SalesInvoiceOverviewScreenState
           ),
         ),
       ),
-      builder: (context, controller, _) => _buildToolbarButton(
-        LucideIcons.fileText,
-        'PDF/Print',
-        hasDropdownArrow: true,
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
+      builder: (context, controller, _) => SizedBox(
+        width: 120,
+        child: _buildToolbarButton(
+          LucideIcons.fileText,
+          'PDF/Print',
+          hasDropdownArrow: true,
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+        ),
       ),
       menuChildren: [
         MenuItemButton(
@@ -1577,7 +1554,6 @@ class _SalesInvoiceOverviewScreenState
               filename: '${invoice.saleNumber}.pdf',
             );
           },
-          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
           style: ButtonStyle(
             backgroundColor: WidgetStateProperty.resolveWith(
               (s) => s.contains(WidgetState.hovered)
@@ -1589,15 +1565,21 @@ class _SalesInvoiceOverviewScreenState
                   ? Colors.white
                   : AppTheme.textSecondary,
             ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
             padding: const WidgetStatePropertyAll(
               EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
+            minimumSize: const WidgetStatePropertyAll(Size(120, 44)),
             alignment: Alignment.centerLeft,
             shape: const WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
           ),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
           child: const Text('PDF', style: TextStyle(fontSize: 14)),
         ),
         MenuItemButton(
@@ -1608,7 +1590,6 @@ class _SalesInvoiceOverviewScreenState
               name: invoice.saleNumber,
             );
           },
-          leadingIcon: const Icon(LucideIcons.printer, size: 16),
           style: ButtonStyle(
             backgroundColor: WidgetStateProperty.resolveWith(
               (s) => s.contains(WidgetState.hovered)
@@ -1620,15 +1601,21 @@ class _SalesInvoiceOverviewScreenState
                   ? Colors.white
                   : AppTheme.textSecondary,
             ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
             padding: const WidgetStatePropertyAll(
               EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
+            minimumSize: const WidgetStatePropertyAll(Size(120, 44)),
             alignment: Alignment.centerLeft,
             shape: const WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
           ),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
           child: const Text('Print', style: TextStyle(fontSize: 14)),
         ),
       ],
@@ -3642,6 +3629,27 @@ class _SalesInvoiceOverviewScreenState
     }
   }
 
+  void _showLockInvoiceDialog(SalesOrder invoice) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (dialogCtx) {
+        return LockRecordDialog(
+          title: 'Lock invoice',
+          onLock: (config, reason) {
+            Navigator.of(dialogCtx).pop();
+            if (mounted) {
+              ZerpaiToast.success(
+                context,
+                '${invoice.saleNumber} has been locked successfully.',
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _showBulkUpdateDialog() async {
     if (_selectedIds.isEmpty) {
       ZerpaiToast.info(context, 'Select at least one invoice');
@@ -5615,8 +5623,9 @@ ButtonStyle _menuItemStyle({bool isActive = false}) {
     backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
       final highlighted = states.contains(WidgetState.hovered) ||
           states.contains(WidgetState.focused);
-      if (isActive) return AppTheme.primaryBlue;
-      if (highlighted) return AppTheme.primaryBlueDark;
+      if (isActive || highlighted) {
+        return AppTheme.primaryBlue;
+      }
       return Colors.white;
     }),
     foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
@@ -5625,8 +5634,17 @@ ButtonStyle _menuItemStyle({bool isActive = false}) {
       if (isActive || highlighted) return Colors.white;
       return AppTheme.textBody;
     }),
+    iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+      final highlighted = states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused);
+      if (isActive || highlighted) return Colors.white;
+      return AppTheme.textBody;
+    }),
     padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    ),
+    shape: WidgetStateProperty.all<OutlinedBorder>(
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     ),
   );
 }

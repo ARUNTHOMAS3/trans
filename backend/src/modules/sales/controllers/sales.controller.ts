@@ -159,6 +159,20 @@ export class SalesController {
     return this.salesService.updateSalesOrder(id, body, tenant.entityId);
   }
 
+  @Post(":id/status")
+  async updateStatus(
+    @Tenant() tenant: TenantContext,
+    @Param("id") id: string,
+    @Body() body: { status: string; reason: string },
+  ) {
+    return this.salesService.updateSalesOrderStatus(
+      id,
+      tenant.entityId,
+      body.status,
+      body.reason,
+    );
+  }
+
   // Must be last — dynamic segment catches anything not matched above
   @Get(":id([0-9a-fA-F-]{36})")
   async getSalesOrderById(

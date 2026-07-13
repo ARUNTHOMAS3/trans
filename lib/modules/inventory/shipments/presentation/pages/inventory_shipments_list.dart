@@ -1633,17 +1633,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
     );
   }
 
-  MenuStyle _menuStyle() {
-    return MenuStyle(
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      elevation: const WidgetStatePropertyAll(8),
-      backgroundColor: const WidgetStatePropertyAll(Colors.white),
-      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-    );
-  }
+
 
   Widget _buildDivider() {
     return Container(
@@ -1658,7 +1648,17 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: _menuStyle(),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
       menuChildren: [
         MenuItemButton(
           onPressed: () async {
@@ -1668,8 +1668,33 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               filename: '${shipment['shipment_number'] ?? 'shipment'}.pdf',
             );
           },
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Text('Download PDF'),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
+          child: const Text('PDF', style: TextStyle(fontSize: 14)),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -1679,15 +1704,42 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               name: shipment['shipment_number'] ?? 'shipment',
             );
           },
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Text('Print'),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
+          child: const Text('Print', style: TextStyle(fontSize: 14)),
         ),
       ],
-      builder: (context, controller, _) => _buildActionButton(
-        'PDF/Print',
-        LucideIcons.printer,
-        () => controller.isOpen ? controller.close() : controller.open(),
-        hasDropdown: true,
+      builder: (context, controller, _) => SizedBox(
+        width: 100,
+        child: _buildActionButton(
+          'PDF/Print',
+          LucideIcons.printer,
+          () => controller.isOpen ? controller.close() : controller.open(),
+        ),
       ),
     );
   }
@@ -1695,19 +1747,56 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
   Widget _buildMarkAsDeliveredDropdown(Map<String, dynamic> shipment) {
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: _menuStyle(),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
       menuChildren: [
         MenuItemButton(
           onPressed: () => _showMarkAsDeliveredDialog(shipment),
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Text('Mark as Delivered'),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(140, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          leadingIcon: const Icon(LucideIcons.check, size: 16),
+          child: const Text('Delivered', style: TextStyle(fontSize: 14)),
         ),
       ],
-      builder: (context, controller, _) => _buildActionButton(
-        'Mark as Delivered',
-        LucideIcons.check,
-        () => controller.isOpen ? controller.close() : controller.open(),
-        hasDropdown: true,
+      builder: (context, controller, _) => SizedBox(
+        width: 140,
+        child: _buildActionButton(
+          'Mark as Delivered',
+          LucideIcons.check,
+          () => controller.isOpen ? controller.close() : controller.open(),
+        ),
       ),
     );
   }

@@ -457,6 +457,15 @@ class _InventoryPicklistsListScreenState
     bool isDanger = false,
   }) {
     return MenuItemButton(
+      style: ZTableMoreMenu.menuItemButtonStyle().copyWith(
+        minimumSize: const WidgetStatePropertyAll(Size(180, 40)),
+        foregroundColor: isDanger
+            ? WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.hovered)) return Colors.white;
+                return AppTheme.errorRed;
+              })
+            : null,
+      ),
       onPressed: () {
         if (action == 'DELETE') {
           _deleteSelectedPicklists();
@@ -464,16 +473,11 @@ class _InventoryPicklistsListScreenState
           _applyBulkStatus(action);
         }
       },
-      child: Container(
-        width: 180,
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: isDanger ? AppTheme.errorRed : AppTheme.textPrimary,
-            fontWeight: FontWeight.w500,
-          ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -2149,17 +2153,7 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
     );
   }
 
-  MenuStyle _menuStyle() {
-    return MenuStyle(
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      elevation: const WidgetStatePropertyAll(8),
-      backgroundColor: const WidgetStatePropertyAll(Colors.white),
-      surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-    );
-  }
+
 
   Widget _buildPdfPrintDropdown(BuildContext context) {
     final p = ref.watch(picklistByIdProvider(widget.id)).asData?.value;
@@ -2168,7 +2162,17 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
 
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: _menuStyle(),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
       menuChildren: [
         MenuItemButton(
           onPressed: () async {
@@ -2178,8 +2182,33 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
               filename: 'Picklist_${p.picklistNumber}.pdf',
             );
           },
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Text('Download PDF'),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
+          child: const Text('PDF', style: TextStyle(fontSize: 14)),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -2189,15 +2218,42 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
               name: p.picklistNumber,
             );
           },
-          style: ZTableMoreMenu.menuItemButtonStyle(),
-          child: const Text('Print'),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(100, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
+          child: const Text('Print', style: TextStyle(fontSize: 14)),
         ),
       ],
-      builder: (context, controller, _) => _buildToolbarButton(
-        LucideIcons.printer,
-        'PDF/Print',
-        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-        hasDropdown: true,
+      builder: (context, controller, _) => SizedBox(
+        width: 100,
+        child: _buildToolbarButton(
+          LucideIcons.printer,
+          'PDF/Print',
+          onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+        ),
       ),
     );
   }

@@ -257,7 +257,7 @@ class NavigationRegistry {
         ),
         AppNavItem(
           label: 'Payments Made',
-          listRoute: AppRoutes.paymentsMade,
+          listRoute: AppRoutes.paymentsMadeReport,
           createRoute: AppRoutes.paymentsMadeCreate,
           permissionKey: 'vendor_payments',
         ),

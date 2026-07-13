@@ -77,6 +77,32 @@ class StorageService {
     }
   }
 
+  Future<String?> uploadPaymentAttachment(PlatformFile file) async {
+    if (file.bytes == null) return null;
+
+    final ext = file.extension?.toLowerCase();
+    String contentType = 'application/octet-stream';
+    if (ext == 'pdf') {
+      contentType = 'application/pdf';
+    } else if (ext == 'jpg' || ext == 'jpeg') {
+      contentType = 'image/jpeg';
+    } else if (ext == 'png') {
+      contentType = 'image/png';
+    }
+
+    try {
+      return await _uploadViaBackend(
+        fileName: '${DateTime.now().millisecondsSinceEpoch}_${file.name}',
+        fileBytes: file.bytes!,
+        mimeType: contentType,
+        prefix: 'payments',
+      );
+    } catch (e) {
+      debugPrint('Error uploading payment attachment: $e');
+      return null;
+    }
+  }
+
   Future<void> deleteProductImage(String url) async {
     try {
       await ApiClient().delete(

@@ -748,5 +748,25 @@ class SalesOrderApiService {
       throw Exception('Error approving purchase orders: $e');
     }
   }
+
+  Future<SalesOrder> updateSalesOrderStatus(String id, String status, String reason) async {
+    try {
+      final response = await _apiClient.post(
+        '/sales/$id/status',
+        data: {'status': status, 'reason': reason},
+      );
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return SalesOrder.fromJson(response.data);
+      }
+      throw Exception('Failed to update sales order status');
+    } catch (e) {
+      if (e is DioException) {
+        debugPrint(
+          '❌ updateSalesOrderStatus error response: ${e.response?.statusCode} -> ${e.response?.data}',
+        );
+      }
+      throw Exception('Error updating sales order status: $e');
+    }
+  }
 }
 

@@ -20,6 +20,10 @@ class SalesOrderItem {
   final double taxPercentage;
   final List<dynamic>? batches;
   final double cancelledQuantity;
+  final double pickedQuantity;
+  final double packedQuantity;
+  final double shippedQuantity;
+  final double invoicedQuantity;
 
   SalesOrderItem({
     this.id,
@@ -41,6 +45,10 @@ class SalesOrderItem {
     this.taxPercentage = 0.0,
     this.batches,
     this.cancelledQuantity = 0.0,
+    this.pickedQuantity = 0.0,
+    this.packedQuantity = 0.0,
+    this.shippedQuantity = 0.0,
+    this.invoicedQuantity = 0.0,
   });
 
   factory SalesOrderItem.fromJson(Map<String, dynamic> json) {
@@ -74,6 +82,10 @@ class SalesOrderItem {
           .toDouble(),
       batches: json['batches'],
       cancelledQuantity: double.tryParse(json['cancelledQuantity']?.toString() ?? json['cancelled_quantity']?.toString() ?? '0.0') ?? 0.0,
+      pickedQuantity: double.tryParse(json['pickedQuantity']?.toString() ?? json['picked_quantity']?.toString() ?? '0.0') ?? 0.0,
+      packedQuantity: double.tryParse(json['packedQuantity']?.toString() ?? json['packed_quantity']?.toString() ?? '0.0') ?? 0.0,
+      shippedQuantity: double.tryParse(json['shippedQuantity']?.toString() ?? json['shipped_quantity']?.toString() ?? '0.0') ?? 0.0,
+      invoicedQuantity: double.tryParse(json['invoicedQuantity']?.toString() ?? json['invoiced_quantity']?.toString() ?? '0.0') ?? 0.0,
     );
   }
 
@@ -93,6 +105,10 @@ class SalesOrderItem {
       if (accountId != null) 'accounts': accountId,
       if (priceListId != null) 'pricelist': priceListId,
       'cancelled_quantity': cancelledQuantity,
+      'picked_quantity': pickedQuantity,
+      'packed_quantity': packedQuantity,
+      'shipped_quantity': shippedQuantity,
+      'invoiced_quantity': invoicedQuantity,
     };
   }
 }

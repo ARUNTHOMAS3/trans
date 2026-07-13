@@ -5,8 +5,7 @@ class Picklist {
   final String? id;
   final String picklistNumber;
   final DateTime? date;
-  final String
-  status; // 'YET_TO_PICK' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'FORCE_COMPLETE' | 'APPROVED'
+  final String status; // 'YET_TO_PICK' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'FORCE_COMPLETE' | 'APPROVED'
   final String? assignee;
   final String? location;
   final String? notes;
@@ -14,6 +13,8 @@ class Picklist {
   final String? salesOrderNumber;
   final bool isEntrypass;
   final List<PicklistItem> items;
+  final List<String> salesOrderIds;
+  final List<String> salesOrderNumbers;
 
   Picklist({
     this.id,
@@ -27,6 +28,8 @@ class Picklist {
     this.salesOrderNumber,
     this.isEntrypass = false,
     this.items = const [],
+    this.salesOrderIds = const [],
+    this.salesOrderNumbers = const [],
   });
 
   Picklist copyWith({
@@ -41,6 +44,8 @@ class Picklist {
     String? salesOrderNumber,
     bool? isEntrypass,
     List<PicklistItem>? items,
+    List<String>? salesOrderIds,
+    List<String>? salesOrderNumbers,
   }) {
     return Picklist(
       id: id ?? this.id,
@@ -54,6 +59,8 @@ class Picklist {
       salesOrderNumber: salesOrderNumber ?? this.salesOrderNumber,
       isEntrypass: isEntrypass ?? this.isEntrypass,
       items: items ?? this.items,
+      salesOrderIds: salesOrderIds ?? this.salesOrderIds,
+      salesOrderNumbers: salesOrderNumbers ?? this.salesOrderNumbers,
     );
   }
 
@@ -68,6 +75,8 @@ class Picklist {
     'customer_name': customerName,
     'sales_order_number': salesOrderNumber,
     'is_entrypass': isEntrypass,
+    'sales_order_ids': salesOrderIds,
+    'sales_order_numbers': salesOrderNumbers,
   };
 
   factory Picklist.fromJson(Map<String, dynamic> json) {
@@ -90,6 +99,14 @@ class Picklist {
                 .map((e) => PicklistItem.fromJson(e as Map<String, dynamic>))
                 .toList()
           : [],
+      salesOrderIds: (json['sales_order_ids'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      salesOrderNumbers: (json['sales_order_numbers'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
     );
   }
 

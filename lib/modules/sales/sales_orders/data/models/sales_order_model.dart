@@ -37,6 +37,9 @@ class SalesOrder {
   final double tdsTotal;
   final double tcsTotal;
 
+  final String? reasonToVoid;
+  final String? reasonToConfirmed;
+
   SalesOrder({
     required this.id,
     required this.customerId,
@@ -72,6 +75,8 @@ class SalesOrder {
     this.tdsTcsAmount = 0.0,
     this.tdsTotal = 0.0,
     this.tcsTotal = 0.0,
+    this.reasonToVoid,
+    this.reasonToConfirmed,
   });
 
   factory SalesOrder.fromJson(Map<String, dynamic> json) {
@@ -152,6 +157,8 @@ class SalesOrder {
           (json['tds_tcs_amount'] ?? json['tdsTcsAmount'] ?? 0.0).toDouble(),
       tdsTotal: (json['tds_total'] ?? json['tdsTotal'] ?? 0.0).toDouble(),
       tcsTotal: (json['tcs_total'] ?? json['tcsTotal'] ?? 0.0).toDouble(),
+      reasonToVoid: json['reason_to_void'] ?? json['reasonToVoid'],
+      reasonToConfirmed: json['reason_to_confirmed'] ?? json['reasonToConfirmed'],
     );
   }
 
@@ -187,6 +194,8 @@ class SalesOrder {
       'tdsTcsAmount': tdsTcsAmount,
       'tdsTotal': tdsTotal,
       'tcsTotal': tcsTotal,
+      if (reasonToVoid != null) 'reasonToVoid': reasonToVoid,
+      if (reasonToConfirmed != null) 'reasonToConfirmed': reasonToConfirmed,
     };
   }
 

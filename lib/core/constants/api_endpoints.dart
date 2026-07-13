@@ -29,6 +29,9 @@ class ApiEndpoints {
       'purchase-returns/next-number';
   static const String warehouses = 'warehouses-settings';
   static const String bills = 'bills';
+  static const String paymentsMade = 'payments-made';
+  static const String paymentsMadeSettings = 'payments-made/settings';
+  static const String paymentsMadeNextNumber = 'payments-made/next-number';
 
   // Items endpoints
   static const String products = 'products';

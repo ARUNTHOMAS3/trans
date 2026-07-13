@@ -23,6 +23,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_list_dialog.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'inventory_shipments_list.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 
 // ignore: constant_identifier_names
 const Color _textPrimary = Color(0xFF1F2937);
@@ -38,7 +39,8 @@ const Color _greenBtn = Color(0xFF10B981);
 const Color _dangerRed = Color(0xFFDC2626);
 
 class InventoryShipmentsCreateScreen extends ConsumerStatefulWidget {
-  const InventoryShipmentsCreateScreen({super.key});
+  final String? salesOrderId;
+  const InventoryShipmentsCreateScreen({super.key, this.salesOrderId});
 
   @override
   ConsumerState<InventoryShipmentsCreateScreen> createState() =>
@@ -254,7 +256,30 @@ class _InventoryShipmentsCreateScreenState
       _initialPackageId = GoRouterState.of(context).uri.queryParameters['packageId'];
       ref.read(inventoryPackagesProvider.notifier).fetchPackages();
       _fetchNextShipmentNumber();
+      if (widget.salesOrderId != null) {
+        _loadPrefilledSalesOrderData();
+      }
     });
+  }
+
+  Future<void> _loadPrefilledSalesOrderData() async {
+    if (widget.salesOrderId == null || _initialPrefillApplied) return;
+    try {
+      final response = await ref.read(apiClientProvider).get('/sales/${widget.salesOrderId}');
+      if (response.statusCode == 200 && response.data != null) {
+        final payload = response.data['data'] ?? response.data;
+        final order = SalesOrder.fromJson(payload);
+        if (order.customer != null && mounted) {
+          setState(() {
+            _selectedCustomer = order.customer;
+            _selectedSalesOrders = [order.saleNumber];
+            _selectedSalesOrdersData = [order];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error prefilling shipment data: $e');
+    }
   }
 
   void _tryApplyInitialPackagePrefill(
@@ -262,6 +287,26 @@ class _InventoryShipmentsCreateScreenState
     List<SalesCustomer> customers,
   ) {
     if (_initialPrefillApplied) return;
+
+    if (widget.salesOrderId != null) {
+      final matchedPkgs = packages.where((p) => p.salesOrderIds.contains(widget.salesOrderId)).toList();
+      if (matchedPkgs.isNotEmpty) {
+        final selectedCustomer = customers.cast<SalesCustomer?>().firstWhere(
+          (c) => c?.id == matchedPkgs.first.customerId,
+          orElse: () => null,
+        );
+        if (selectedCustomer != null) {
+          _initialPrefillApplied = true;
+          setState(() {
+            _selectedCustomer = selectedCustomer;
+            _selectedPackages = matchedPkgs.map((p) => p.packageNumber).toList();
+            _selectedSalesOrders = matchedPkgs.expand((p) => p.salesOrderNumbers).toSet().toList();
+          });
+          return;
+        }
+      }
+    }
+
     final packageId = _initialPackageId;
     if (packageId == null || packageId.isEmpty) return;
 

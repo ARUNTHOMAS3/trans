@@ -831,8 +831,8 @@ export class ProductsService {
 
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("branch_inventory")
-      .select("product_id, current_stock, available_stock")
+      .from("v_product_stock_summary")
+      .select("product_id, physical_stock, available_stock")
       .eq("entity_id", tenant.entityId)
       .in("product_id", productIds);
 
@@ -841,7 +841,19 @@ export class ProductsService {
       throw new Error(`Bulk stock fetch failed: ${error.message}`);
     }
 
-    return { stocks: data || [] };
+    const aggregated = new Map<string, { product_id: string; current_stock: number; available_stock: number }>();
+    for (const row of (data || [])) {
+      const pId = row.product_id;
+      const physical = Number(row.physical_stock ?? 0);
+      const available = Number(row.available_stock ?? 0);
+
+      const existing = aggregated.get(pId) || { product_id: pId, current_stock: 0, available_stock: 0 };
+      existing.current_stock += physical;
+      existing.available_stock += available;
+      aggregated.set(pId, existing);
+    }
+
+    return { stocks: Array.from(aggregated.values()) };
   }
 
   async getBatches(productId: string) {
