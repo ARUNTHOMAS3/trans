@@ -18,6 +18,7 @@ import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 //
@@ -2559,13 +2560,9 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
             .read(picklistsProvider.notifier)
             .updatePicklistStatus(widget.id, value)
             .then((_) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Status updated to ${value.replaceAll("_", " ")}',
-                  ),
-                  backgroundColor: AppTheme.successGreen,
-                ),
+              ZerpaiToast.success(
+                context,
+                'Status updated to ${value.replaceAll("_", " ")}',
               );
             });
       },

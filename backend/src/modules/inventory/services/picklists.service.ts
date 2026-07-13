@@ -452,13 +452,11 @@ export class PicklistsService {
       updatePayload.picklist_date = headerData.picklist_date;
     if (headerData.status !== undefined) {
       updatePayload.status = headerData.status;
-      // Cascade ON_HOLD status to all items
-      if (headerData.status === "ON_HOLD") {
-        await client
-          .from("picklist_items")
-          .update({ status: "ON_HOLD" })
-          .eq("picklist_id", id);
-      }
+      // Cascade status to all items
+      await client
+        .from("picklist_items")
+        .update({ status: headerData.status })
+        .eq("picklist_id", id);
     }
     if (headerData.notes !== undefined) updatePayload.notes = headerData.notes;
     if (headerData.is_entrypass !== undefined)
