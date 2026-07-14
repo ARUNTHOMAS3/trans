@@ -1212,7 +1212,7 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
       return;
     }
     final orgId = resolveOrgSystemId(context);
-    context.goNamed('PaymentsReceived', pathParameters: {'orgSystemId': orgId});
+    context.goNamed(AppRoutes.salesPaymentsReceived, pathParameters: {'orgSystemId': orgId});
   }
 
   // ── Bottom Section Builders ──────────────────────────────────────────────
@@ -1675,7 +1675,7 @@ Widget _buildUnpaidInvoicesTable() {
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final customersAsync = ref.watch(invoicePaymentCustomersProvider);
+    final customersAsync = ref.watch(salesCustomersProvider);
 
     if (customersAsync.hasError) {
       final error = customersAsync.error;
@@ -1699,7 +1699,7 @@ Widget _buildUnpaidInvoicesTable() {
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
-                    ref.invalidate(invoicePaymentCustomersProvider);
+                    ref.invalidate(salesCustomersProvider);
                   },
                   child: const Text('Retry'),
                 ),
@@ -1718,19 +1718,14 @@ Widget _buildUnpaidInvoicesTable() {
       );
     }
 
-    final invoiceCustomers = customersAsync.value ?? [];
-    final customerItems = invoiceCustomers.map((c) => CustomerItem(
+    final customersList = customersAsync.value ?? [];
+    final customerItems = customersList.map((c) => CustomerItem(
       id: c.id,
-      name: c.name,
-      code: c.code,
+      name: c.displayName,
+      code: c.customerNumber ?? '',
       email: c.email,
-      secondaryCode: c.code,
+      secondaryCode: c.customerNumber,
     )).toList();
-
-    // Full customer records (from the customers table) used only to enrich the
-    // details sidebar; the dropdown above is sourced from invoice_master.
-    final customersList =
-        ref.watch(salesCustomersProvider).valueOrNull ?? const <SalesCustomer>[];
 
     if (_selectedCustomer == null && customerItems.isNotEmpty) {
       if (widget.initialCustomerId != null) {
@@ -3633,8 +3628,9 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
         child: Row(
           children: [
             _tabItem('Invoice Payment', isActive: false, onTap: () {
-              final orgId = resolveOrgSystemId(context);
-              context.goNamed(AppRoutes.salesPaymentsReceivedCreate, pathParameters: {'orgSystemId': orgId});
+              if (widget.onTabChanged != null) {
+                widget.onTabChanged!(0);
+              }
             }),
             const SizedBox(width: 24),
             _tabItem('Customer Advance', isActive: true, onTap: () {}),
@@ -4413,7 +4409,7 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
                   return;
                 }
                 final orgId = resolveOrgSystemId(context);
-                context.goNamed('PaymentsReceived', pathParameters: {'orgSystemId': orgId});
+                context.goNamed(AppRoutes.salesPaymentsReceived, pathParameters: {'orgSystemId': orgId});
               },
             ),
           ],

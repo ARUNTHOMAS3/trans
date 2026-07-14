@@ -144,10 +144,12 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
   void _closeMoreMenu() {
     _moreMenuOverlayEntry?.remove();
     _moreMenuOverlayEntry = null;
-    setState(() {
-      _isMoreMenuOpen = false;
-      _activeSubMenu = _SubMenuType.none;
-    });
+    if (mounted) {
+      setState(() {
+        _isMoreMenuOpen = false;
+        _activeSubMenu = _SubMenuType.none;
+      });
+    }
   }
 
   void _showAttachmentMenu(PaymentRecord record) {
@@ -195,9 +197,11 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
   void _closeAttachmentMenu() {
     _attachmentOverlayEntry?.remove();
     _attachmentOverlayEntry = null;
-    setState(() {
-      _isAttachmentOpen = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isAttachmentOpen = false;
+      });
+    }
   }
 
   void _showPaymentHistoryPanel(PaymentRecord record) {
@@ -253,9 +257,11 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
   void _closePaymentHistoryPanel() {
     _paymentHistoryOverlayEntry?.remove();
     _paymentHistoryOverlayEntry = null;
-    setState(() {
-      _isPaymentHistoryOpen = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isPaymentHistoryOpen = false;
+      });
+    }
   }
 
   @override

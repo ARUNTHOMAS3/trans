@@ -1799,38 +1799,20 @@ class _SalesInvoiceOverviewScreenState
                 const SizedBox(width: 8),
                 Expanded(
                   child: RichText(
-                    text: TextSpan(
-                      style: const TextStyle(
+                    text: const TextSpan(
+                      style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 13,
                         color: Color(0xFF374151),
                         height: 1.4,
                       ),
                       children: [
-                        const TextSpan(
+                        TextSpan(
                           text: "WHAT'S NEXT? ",
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        const TextSpan(
-                          text: "Invoice has been sent. Record payment for it as soon as you receive payment. ",
-                        ),
-                        WidgetSpan(
-                          alignment: PlaceholderAlignment.middle,
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () => ZerpaiToast.info(context, 'Learn more opened'),
-                              child: const Text(
-                                'Learn More',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryBlue,
-                                ),
-                              ),
-                            ),
-                          ),
+                        TextSpan(
+                          text: "Invoice has been sent. Record payment for it as soon as you receive payment.",
                         ),
                       ],
                     ),
@@ -1843,8 +1825,9 @@ class _SalesInvoiceOverviewScreenState
                     backgroundColor: const Color(0xFF28A745),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    minimumSize: const Size(0, 32),
+                    fixedSize: const Size.fromHeight(32),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
