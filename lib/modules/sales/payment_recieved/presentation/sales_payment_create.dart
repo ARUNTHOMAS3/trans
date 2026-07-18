@@ -183,7 +183,7 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
 
   // ── Field state ──────────────────────────────────────────────────────────
   CustomerItem? _selectedCustomer;
-  String? _selectedLocation = 'ZABNIX PRIVATE LIMITED';
+  String? _selectedLocation;
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _bankChargesController = TextEditingController();
@@ -658,7 +658,7 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
               ),
               clipBehavior: Clip.antiAlias,
               child: _ConfigurePaymentPreferencesDialog(
-                location: _selectedLocation ?? 'ZABNIX PRIVATE LIMITED',
+                location: _selectedLocation ?? '',
                 associatedSeries: _selectedTransactionSeries ?? 'Default Transaction Series',
                 initialNextNumber: _paymentController.text,
                 onSave: (nextNum) {
@@ -1092,7 +1092,7 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
       amount: amount,
       unusedAmount: amount,
       status: status,
-      location: _selectedLocation ?? 'ZABNIX PRIVATE LIMITED',
+      location: _selectedLocation ?? '',
       paymentType: 'INVOICE_PAYMENT',
     );
 
@@ -3045,7 +3045,7 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
   // ── Field state ──────────────────────────────────────────────────────────
   CustomerItem? _selectedCustomer;
   String? _placeOfSupply = '[KL] - Kerala';
-  String? _selectedLocation = 'ZABNIX PRIVATE LIMITED';
+  String? _selectedLocation;
   String? _selectedTax = 'Select a Tax';
   String? _selectedSeries = 'Default Transaction Series';
   String? _selectedPaymentMode = 'Cash';
@@ -3229,7 +3229,7 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
       amount: amount,
       unusedAmount: amount,
       status: status,
-      location: _selectedLocation ?? 'ZABNIX PRIVATE LIMITED',
+      location: _selectedLocation ?? '',
       paymentType: 'CUSTOMER_ADVANCE',
     );
 
@@ -3389,7 +3389,7 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
               ),
               clipBehavior: Clip.antiAlias,
               child: _AdvConfigurePaymentPreferencesDialog(
-                location: _selectedLocation ?? 'ZABNIX PRIVATE LIMITED',
+                location: _selectedLocation ?? '',
                 associatedSeries: _selectedSeries ?? 'Default Transaction Series',
                 initialNextNumber: _paymentNumberController.text,
                 onSave: (nextNum) {

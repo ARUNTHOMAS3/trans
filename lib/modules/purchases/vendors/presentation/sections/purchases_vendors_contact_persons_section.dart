@@ -53,55 +53,67 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             child: Text(
               'SALUTATION',
               style: headerStyle,
+              textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          SizedBox(width: 8),
           Expanded(
             flex: 2,
             child: Text(
               'FIRST NAME',
               style: headerStyle,
+              textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          SizedBox(width: 8),
           Expanded(
             flex: 2,
             child: Text(
               'LAST NAME',
               style: headerStyle,
+              textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          SizedBox(width: 8),
           Expanded(
             flex: 3,
             child: Text(
               'EMAIL ADDRESS',
               style: headerStyle,
+              textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          SizedBox(width: 8),
           Expanded(
             flex: 3,
             child: Text(
               'WORK PHONE',
               style: headerStyle,
+              textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          SizedBox(width: 8),
           Expanded(
             flex: 3,
             child: Text(
               'MOBILE',
               style: headerStyle,
+              textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          SizedBox(width: 8),
           SizedBox(width: 32),
         ],
       ),
@@ -127,7 +139,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                   Expanded(
                     flex: 2,
                     child: FormDropdown<String>(
-                      height: _inputHeight,
+                      height: 32,
                       value: row.salutation,
                       items: const ['Mr.', 'Mrs.', 'Ms.', 'Miss', 'Dr.'],
                       onChanged: (v) =>
@@ -138,7 +150,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                   Expanded(
                     flex: 2,
                     child: CustomTextField(
-                      height: _inputHeight,
+                      height: 32,
                       controller: row.firstNameCtrl,
                       forceUppercase: false,
                     ),
@@ -147,7 +159,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                   Expanded(
                     flex: 2,
                     child: CustomTextField(
-                      height: _inputHeight,
+                      height: 32,
                       controller: row.lastNameCtrl,
                       forceUppercase: false,
                     ),
@@ -156,7 +168,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                   Expanded(
                     flex: 3,
                     child: CustomTextField(
-                      height: _inputHeight,
+                      height: 32,
                       controller: row.emailCtrl,
                       forceUppercase: false,
                       keyboardType: TextInputType.emailAddress,
@@ -166,6 +178,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                   Expanded(
                     flex: 3,
                     child: PhoneInputField(
+                      height: 32,
                       controller: row.workPhoneCtrl,
                       selectedPrefix: row.workCode,
                       onPrefixChanged: (v) => _state(() => row.workCode = v ?? '+91'),
@@ -176,6 +189,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                   Expanded(
                     flex: 3,
                     child: PhoneInputField(
+                      height: 32,
                       controller: row.mobilePhoneCtrl,
                       selectedPrefix: row.mobileCode,
                       onPrefixChanged: (v) => _state(() => row.mobileCode = v ?? '+91'),

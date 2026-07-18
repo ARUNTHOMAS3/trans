@@ -452,6 +452,7 @@ class ItemsController extends StateNotifier<ItemsState> {
       List<Map<String, dynamic>> categories;
       List<TaxRate> taxRates;
       List<TaxRate> taxGroups;
+      List<Map<String, dynamic>> taxGroupRates;
       List<Map<String, dynamic>> manufacturersRaw;
       List<Map<String, dynamic>> brandsRaw;
       List<Map<String, dynamic>> repsRaw;
@@ -489,6 +490,9 @@ class ItemsController extends StateNotifier<ItemsState> {
           final map = Map<String, dynamic>.from(json as Map);
           return TaxRate.fromJson({...map, 'tax_name': map['tax_group_name']});
         }).toList();
+        taxGroupRates = List<Map<String, dynamic>>.from(
+          bootstrap['taxGroupRates'] ?? const [],
+        );
         manufacturersRaw = List<Map<String, dynamic>>.from(
           bootstrap['manufacturers'] ?? const [],
         );
@@ -570,6 +574,7 @@ class ItemsController extends StateNotifier<ItemsState> {
           _lookupsService.getProductTypes(),
           _lookupsService.getProductPackSizes(),
           _lookupsService.getUqc(),
+          _lookupsService.getTaxGroupRates(),
         ]);
 
         units = futureResults[0] as List<Unit>;
@@ -621,6 +626,9 @@ class ItemsController extends StateNotifier<ItemsState> {
         uqcList = (futureResults.length > 18)
             ? (futureResults[18] as List<Uqc>)
             : <Uqc>[];
+        taxGroupRates = (futureResults.length > 19)
+            ? (futureResults[19] as List<Map<String, dynamic>>)
+            : <Map<String, dynamic>>[];
       }
 
       final manufacturers = manufacturersRaw
@@ -778,6 +786,7 @@ class ItemsController extends StateNotifier<ItemsState> {
         categories: categories,
         taxRates: taxRates,
         taxGroups: taxGroups,
+        taxGroupRates: taxGroupRates,
         manufacturers: manufacturers,
         brands: brands,
         reps: reps,

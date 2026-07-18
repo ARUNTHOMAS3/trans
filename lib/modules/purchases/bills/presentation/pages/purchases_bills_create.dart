@@ -1737,8 +1737,9 @@ class _PurchasesBillCreateScreenState
 
         final billsResp = await supabase
             .from('bills')
-            .select('id, bill_number, bill_date, status, grand_total, order_number, bill_items(product_id, quantity)')
+            .select('id, bill_number, bill_date, status, grand_total, order_number, bill_items(product_id, quantity, purchase_receive_item_id)')
             .filter('order_number', 'in', poNumbers)
+            .eq('is_delete', false)
             .order('created_at', ascending: true);
 
         receives = (receivesResp as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
@@ -1790,8 +1791,86 @@ class _PurchasesBillCreateScreenState
       }
     }
 
-    final unreceived = totalOrdered - totalReceived;
+    // Sum of all billed quantities that are NOT from a received PR
+    double totalBilledForUnreceived = 0.0;
+    final poBills = _poBillsList.where((bill) =>
+        bill['order_number']?.toString() == order.orderNumber &&
+        bill['status']?.toString().toLowerCase() != 'void').toList();
+
+    for (final bill in poBills) {
+      if (widget.editBillId != null && bill['id']?.toString() == widget.editBillId) continue;
+      final billItems = bill['bill_items'] as List<dynamic>? ?? [];
+      for (final item in billItems) {
+        final rxItemId = item['purchase_receive_item_id']?.toString();
+        bool isFromReceivedPr = false;
+        if (rxItemId != null && rxItemId.isNotEmpty) {
+          for (final rx in poReceives) {
+            final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
+            if (rxItems.any((i) => i['id']?.toString() == rxItemId)) {
+              isFromReceivedPr = true;
+              break;
+            }
+          }
+        }
+        if (!isFromReceivedPr) {
+          final qty = double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+          totalBilledForUnreceived += qty;
+        }
+      }
+    }
+
+    final unreceived = totalOrdered - totalReceived - totalBilledForUnreceived;
     return unreceived > 0 ? unreceived : 0.0;
+  }
+
+  double _getAlreadyBilledQuantityForPrItem(String? prItemId) {
+    if (prItemId == null) return 0.0;
+    double totalBilled = 0.0;
+    for (final bill in _poBillsList) {
+      if (bill['status']?.toString().toLowerCase() == 'void') continue;
+      if (widget.editBillId != null && bill['id']?.toString() == widget.editBillId) continue;
+      final billItems = bill['bill_items'] as List<dynamic>? ?? [];
+      for (final item in billItems) {
+        if (item['purchase_receive_item_id']?.toString() == prItemId) {
+          final qty = double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+          totalBilled += qty;
+        }
+      }
+    }
+    return totalBilled;
+  }
+
+  double _getBilledQtyForUnreceived(String orderNumber, String productId) {
+    double totalBilled = 0.0;
+    for (final bill in _poBillsList) {
+      if (bill['order_number']?.toString() != orderNumber) continue;
+      if (bill['status']?.toString().toLowerCase() == 'void') continue;
+      if (widget.editBillId != null && bill['id']?.toString() == widget.editBillId) continue;
+
+      final billItems = bill['bill_items'] as List<dynamic>? ?? [];
+      for (final item in billItems) {
+        if (item['product_id']?.toString() == productId) {
+          final rxItemId = item['purchase_receive_item_id']?.toString();
+          bool isFromReceivedPr = false;
+          if (rxItemId != null && rxItemId.isNotEmpty) {
+            for (final rx in _poReceivesList) {
+              if (rx['status']?.toString().toLowerCase() == 'received') {
+                final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
+                if (rxItems.any((i) => i['id']?.toString() == rxItemId)) {
+                  isFromReceivedPr = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (!isFromReceivedPr) {
+            final qty = double.tryParse(item['quantity']?.toString() ?? '0.0') ?? 0.0;
+            totalBilled += qty;
+          }
+        }
+      }
+    }
+    return totalBilled;
   }
 
 
@@ -2761,7 +2840,9 @@ class _PurchasesBillCreateScreenState
             row.descriptionCtrl.text = poItem.description ?? '';
             row.accountId = poItem.accountId;
             row.accountName = poItem.accountName;
-            row.quantityCtrl.text = rxItem.quantityToReceive.toInt().toString();
+            final billedQty = _getAlreadyBilledQuantityForPrItem(rxItem.id);
+            final remainingQty = rxItem.quantityToReceive - billedQty;
+            row.quantityCtrl.text = remainingQty > 0 ? remainingQty.toInt().toString() : '0';
             row.rateCtrl.text = poItem.rate.toStringAsFixed(2);
             row.taxId = poItem.taxId;
             row.taxName = poItem.taxName;
@@ -2798,7 +2879,8 @@ class _PurchasesBillCreateScreenState
                 0.0,
                 (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
               );
-              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+              final remainingBilledQty = (totalQty + totalFoc) - billedQty;
+              row.quantityCtrl.text = remainingBilledQty > 0 ? remainingBilledQty.toInt().toString() : '0';
             }
 
             if (mounted) {
@@ -2820,7 +2902,9 @@ class _PurchasesBillCreateScreenState
             row.itemName = rxItem.itemName;
             row.itemNameCtrl.text = rxItem.itemName;
             row.descriptionCtrl.text = rxItem.description ?? '';
-            row.quantityCtrl.text = rxItem.quantityToReceive.toInt().toString();
+            final billedQty = _getAlreadyBilledQuantityForPrItem(rxItem.id);
+            final remainingQty = rxItem.quantityToReceive - billedQty;
+            row.quantityCtrl.text = remainingQty > 0 ? remainingQty.toInt().toString() : '0';
             row.rateCtrl.text = '0.00';
             row.discountCtrl.text = '0';
             row.discountType = '%';
@@ -2852,7 +2936,8 @@ class _PurchasesBillCreateScreenState
                 0.0,
                 (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
               );
-              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+              final remainingBilledQty = (totalQty + totalFoc) - billedQty;
+              row.quantityCtrl.text = remainingBilledQty > 0 ? remainingBilledQty.toInt().toString() : '0';
             }
 
             if (mounted) {
@@ -2915,7 +3000,8 @@ class _PurchasesBillCreateScreenState
 
           final orderedQty = poItem.quantity;
           final receivedQty = productReceivedQty[poItem.productId] ?? 0.0;
-          final remainingQty = orderedQty - receivedQty;
+          final billedQty = _getBilledQtyForUnreceived(po.orderNumber, poItem.productId);
+          final remainingQty = orderedQty - receivedQty - billedQty;
 
           if (remainingQty > 0) {
             final row = _BillLineItemRow();
@@ -3817,6 +3903,14 @@ class _PurchasesBillCreateScreenState
           'Please select an account for item: ${row.itemName ?? 'Selected Item'}.',
         );
         return;
+      }
+      if (_selectedVendor?.gstTreatment == 'Registered Business - Regular') {
+        if (row.taxId == null || row.taxId!.isEmpty) {
+          _showValidationError(
+            'Please select a tax rate for item: ${row.itemName ?? 'Selected Item'}.',
+          );
+          return;
+        }
       }
       if (!row.hasBatchData ||
           row.savedBatchData == null ||
@@ -6940,6 +7034,11 @@ class _PurchasesBillCreateScreenState
                   child: Row(
                     children: [
                       _buildBulkButton(
+                        'Update Reporting Tags',
+                        onTap: () {}, // Placeholder
+                      ),
+                      const SizedBox(width: 10),
+                      _buildBulkButton(
                         'Update Account',
                         onTap: () {
                           showDialog(
@@ -9698,6 +9797,7 @@ class _PurchasesBillCreateScreenState
                     hint: '0',
                     textAlign: TextAlign.right,
                     valueFontWeight: FontWeight.w400,
+                    readOnly: row.purchaseReceiveItemId != null,
                     inputFormatters: [
                       _numericInputFormatter,
                     ],
@@ -10933,7 +11033,7 @@ class _PurchasesBillCreateScreenState
         builder: (context, setModalState) {
           return SizedBox(
             width: 600,
-            height: 320,
+            height: 350,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -10971,25 +11071,27 @@ class _PurchasesBillCreateScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _zRadio(
-                                'Percentage (%)',
-                                'percentage',
-                                discountType,
-                                (v) => setModalState(() => discountType = v),
-                              ),
-                            ),
-                            Expanded(
-                              child: _zRadio(
-                                'Flat (₹)',
-                                'fixed',
-                                discountType,
-                                (v) => setModalState(() => discountType = v),
-                              ),
-                            ),
-                          ],
+                        const Text(
+                          'Choose how to apply the bulk discount',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _zRadio(
+                          'Percentage Discount (%)',
+                          'percentage',
+                          discountType,
+                          (v) => setModalState(() => discountType = v),
+                        ),
+                        const SizedBox(height: 10),
+                        _zRadio(
+                          'Flat Discount (₹)',
+                          'fixed',
+                          discountType,
+                          (v) => setModalState(() => discountType = v),
                         ),
                         const SizedBox(height: 16),
                         Container(
@@ -11006,15 +11108,17 @@ class _PurchasesBillCreateScreenState
                                   textAlign: TextAlign.right,
                                   decoration: const InputDecoration(
                                     border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
                                     contentPadding: EdgeInsets.symmetric(
                                       horizontal: 12,
                                     ),
+                                    filled: true,
+                                    fillColor: Colors.transparent,
+                                    hoverColor: Colors.transparent,
                                     hintText: '0',
                                   ),
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
+                                  keyboardType: TextInputType.number,
                                 ),
                               ),
                               Container(
@@ -11928,7 +12032,8 @@ class _PurchasesBillCreateScreenState
     if (_selectedVendor == null) {
       return [];
     }
-    final Map<double, double> rateToTax = {};
+
+    final Map<String, ({String name, double rate, double amount})> groups = {};
     for (final row in _lineItems) {
       if (row.itemId != null && row.taxRate > 0) {
         double taxableAmount = row.amount;
@@ -11939,74 +12044,133 @@ class _PurchasesBillCreateScreenState
           taxableAmount = row.amount - (proportion * _discountAmount);
         }
         final tax = taxableAmount * row.taxRate / 100;
-        rateToTax.update(row.taxRate, (v) => v + tax, ifAbsent: () => tax);
+        final key = row.taxId ?? row.taxName ?? '';
+        if (key.isEmpty) continue;
+
+        if (groups.containsKey(key)) {
+          final e = groups[key]!;
+          groups[key] = (
+            name: e.name,
+            rate: e.rate,
+            amount: e.amount + tax,
+          );
+        } else {
+          groups[key] = (
+            name: row.taxName ?? 'Tax',
+            rate: row.taxRate,
+            amount: tax,
+          );
+        }
       }
     }
 
-    final sortedRates = rateToTax.keys.toList()..sort();
-    final widgets = <Widget>[];
+    final itemsState = ref.read(itemsControllerProvider);
+    final Map<String, ({String name, double rate, double amount})> breakdown = {};
 
-    for (final rate in sortedRates) {
-      final tax = rateToTax[rate] ?? 0;
-      final rateStr = rate % 1 == 0 ? rate.toInt().toString() : rate.toString();
+    for (final entry in groups.entries) {
+      final taxId = entry.key;
+      final groupVal = entry.value;
 
       if (_isKeralaPlaceOfSupply) {
-        final half = rate / 2;
-        final halfAmt = tax / 2;
-        final halfStr = half % 1 == 0
-            ? half.toInt().toString()
-            : half.toStringAsFixed(1);
+        final components = itemsState.taxGroupRates
+            .where((r) => r['tax_group_id'] == taxId || r['taxGroupId'] == taxId)
+            .toList();
 
-        widgets.add(
-          Row(
-            children: [
-              Text(
-                'CGST$halfStr [$halfStr%]',
-                style: const TextStyle(fontSize: 13, color: _labelColor),
-              ),
-              const Spacer(),
-              Text(
-                halfAmt.toStringAsFixed(2),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-        );
-        widgets.add(const SizedBox(height: 8));
-        widgets.add(
-          Row(
-            children: [
-              Text(
-                'SGST$halfStr [$halfStr%]',
-                style: const TextStyle(fontSize: 13, color: _labelColor),
-              ),
-              const Spacer(),
-              Text(
-                halfAmt.toStringAsFixed(2),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-        );
-        widgets.add(const SizedBox(height: 12));
+        if (components.isNotEmpty) {
+          for (final comp in components) {
+            final compTaxId = comp['tax_id'] ?? comp['taxId'];
+            final compTaxRateObj = itemsState.taxRates.firstWhere(
+              (tr) => tr.id == compTaxId,
+              orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
+            );
+
+            if (compTaxRateObj.id.isNotEmpty) {
+              final rate = compTaxRateObj.taxRate;
+              final propAmount = groupVal.rate > 0
+                  ? groupVal.amount * (rate / groupVal.rate)
+                  : 0.0;
+
+              final breakdownKey = compTaxRateObj.id;
+              if (breakdown.containsKey(breakdownKey)) {
+                final existing = breakdown[breakdownKey]!;
+                breakdown[breakdownKey] = (
+                  name: existing.name,
+                  rate: existing.rate,
+                  amount: existing.amount + propAmount,
+                );
+              } else {
+                breakdown[breakdownKey] = (
+                  name: compTaxRateObj.taxName,
+                  rate: rate,
+                  amount: propAmount,
+                );
+              }
+            }
+          }
+        } else {
+          final breakdownKey = taxId;
+          if (breakdown.containsKey(breakdownKey)) {
+            final existing = breakdown[breakdownKey]!;
+            breakdown[breakdownKey] = (
+              name: existing.name,
+              rate: existing.rate,
+              amount: existing.amount + groupVal.amount,
+            );
+          } else {
+            breakdown[breakdownKey] = (
+              name: groupVal.name,
+              rate: groupVal.rate,
+              amount: groupVal.amount,
+            );
+          }
+        }
       } else {
-        widgets.add(
-          Row(
-            children: [
-              Text(
-                'IGST$rateStr [$rateStr%]',
-                style: const TextStyle(fontSize: 13, color: _labelColor),
-              ),
-              const Spacer(),
-              Text(
-                tax.toStringAsFixed(2),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
+        // Interstate supply -> Map to IGST rate of the same percentage
+        final igstTaxRateObj = itemsState.taxRates.firstWhere(
+          (tr) => (tr.taxType == 'IGST' || tr.taxName.startsWith('IGST')) && tr.taxRate == groupVal.rate,
+          orElse: () => TaxRate(id: '', taxName: 'IGST${groupVal.rate.toInt()}', taxRate: groupVal.rate),
         );
-        widgets.add(const SizedBox(height: 12));
+
+        final breakdownKey = igstTaxRateObj.id.isNotEmpty ? igstTaxRateObj.id : 'IGST_${groupVal.rate}';
+        if (breakdown.containsKey(breakdownKey)) {
+          final existing = breakdown[breakdownKey]!;
+          breakdown[breakdownKey] = (
+            name: existing.name,
+            rate: existing.rate,
+            amount: existing.amount + groupVal.amount,
+          );
+        } else {
+          breakdown[breakdownKey] = (
+            name: igstTaxRateObj.taxName,
+            rate: groupVal.rate,
+            amount: groupVal.amount,
+          );
+        }
       }
+    }
+
+    final widgets = <Widget>[];
+    for (final tax in breakdown.values) {
+      final rateStr = tax.rate % 1 == 0
+          ? tax.rate.toInt().toString()
+          : tax.rate.toStringAsFixed(1);
+
+      widgets.add(
+        Row(
+          children: [
+            Text(
+              '${tax.name} [$rateStr%]',
+              style: const TextStyle(fontSize: 13, color: _labelColor),
+            ),
+            const Spacer(),
+            Text(
+              tax.amount.toStringAsFixed(2),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+      );
+      widgets.add(const SizedBox(height: 8));
     }
     return widgets;
   }
@@ -14164,6 +14328,7 @@ class _PurchasesBillCreateScreenState
     FocusNode? focusNode,
     List<TextInputFormatter>? inputFormatters,
     Widget? suffixIcon,
+    bool readOnly = false,
   }) {
     final fn = focusNode ?? FocusNode();
     return _HoverableField(
@@ -14192,8 +14357,9 @@ class _PurchasesBillCreateScreenState
                     child: TextField(
                       controller: ctrl,
                       focusNode: fn,
-                      onChanged: onChanged,
-                      onSubmitted: onSubmitted,
+                      readOnly: readOnly,
+                      onChanged: readOnly ? null : onChanged,
+                      onSubmitted: readOnly ? null : onSubmitted,
                       inputFormatters: inputFormatters,
                       textAlign: textAlign,
                       style: TextStyle(

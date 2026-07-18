@@ -88,6 +88,7 @@ export interface CreateInventoryAdjustmentDto {
   reference_number?: string;
   notes?: string;
   status?: string;
+  allow_reserved_consumption?: boolean;
   items?: CreateInventoryAdjustmentItemDto[];
   value_items?: CreateInventoryAdjustmentValueItemDto[];
   account_entries?: CreateInventoryAdjustmentAccountEntryDto[];
@@ -111,6 +112,23 @@ export interface UpdateInventoryAdjustmentDto {
   items?: CreateInventoryAdjustmentItemDto[];
   value_items?: CreateInventoryAdjustmentValueItemDto[];
   account_entries?: CreateInventoryAdjustmentAccountEntryDto[];
+}
+
+export interface ApproveStockCountItemDto {
+  product_id: string;
+  name?: string;
+  system_qty?: number;
+  counted_qty?: number | null;
+  rate?: number;
+  decision?: string;
+  adjustment_reason?: string | null;
+  batches?: Array<Record<string, unknown>>;
+}
+
+export interface ApproveStockCountDto {
+  warehouse_id?: string | null;
+  description?: string | null;
+  items?: ApproveStockCountItemDto[];
 }
 
 interface UserIdentity {
@@ -188,6 +206,46 @@ export class InventoryAdjustmentsService {
     );
   }
 
+  private isMissingColumnError(error: unknown): boolean {
+    const code = (error as { code?: string })?.code ?? "";
+    const message = String((error as { message?: string })?.message ?? "")
+      .trim()
+      .toLowerCase();
+    return (
+      code === "PGRST204" ||
+      message.includes("schema cache") ||
+      message.includes("could not find the") && message.includes("column")
+    );
+  }
+
+  private getMissingColumnName(error: unknown): string | null {
+    const message = String((error as { message?: string })?.message ?? "").trim();
+    const match = message.match(/'([^']+)' column/i);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+    const alternate = message.match(/could not find the '([^']+)'/i);
+    return alternate?.[1]?.trim() ?? null;
+  }
+
+  private errorMentionsRelation(error: unknown, relation: string): boolean {
+    const haystack = [
+      (error as { message?: string })?.message ?? "",
+      (error as { details?: string })?.details ?? "",
+      (error as { hint?: string })?.hint ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(relation.toLowerCase());
+  }
+
+  private isOptionalBatchTransactionStorageError(error: unknown): boolean {
+    return (
+      this.errorMentionsRelation(error, "batch_transactions") &&
+      (this.isMissingTableError(error) || this.isMissingColumnError(error))
+    );
+  }
+
   private handleStorageError(error: unknown): never {
     if (this.isMissingTableError(error)) {
       throw new ServiceUnavailableException(
@@ -195,6 +253,120 @@ export class InventoryAdjustmentsService {
       );
     }
     throw error;
+  }
+
+  private async insertWithSchemaFallback(
+    table: string,
+    payload: Record<string, unknown>,
+    selectClause?: string,
+  ) {
+    let currentPayload = { ...payload };
+    const strippedColumns = new Set<string>();
+
+    while (true) {
+      let query: any = this.client.from(table).insert(currentPayload);
+      if (selectClause) {
+        query = query.select(selectClause).single();
+      }
+
+      const { data, error } = await query;
+      if (!error) {
+        return { data, payload: currentPayload };
+      }
+
+      const missingColumn = this.getMissingColumnName(error);
+      if (
+        !this.isMissingColumnError(error) ||
+        !missingColumn ||
+        strippedColumns.has(missingColumn) ||
+        !(missingColumn in currentPayload)
+      ) {
+        this.handleStorageError(error);
+      }
+
+      strippedColumns.add(missingColumn);
+      delete currentPayload[missingColumn];
+      this.logger.warn(
+        `insertWithSchemaFallback table=${table} dropped unsupported column=${missingColumn}`,
+      );
+    }
+  }
+
+  private async updateWithSchemaFallback(
+    table: string,
+    payload: Record<string, unknown>,
+    applyFilters: (query: any) => any,
+  ) {
+    let currentPayload = { ...payload };
+    const strippedColumns = new Set<string>();
+
+    while (true) {
+      const query = applyFilters(this.client.from(table).update(currentPayload));
+      const { data, error } = await query;
+      if (!error) {
+        return { data, payload: currentPayload };
+      }
+
+      const missingColumn = this.getMissingColumnName(error);
+      if (
+        !this.isMissingColumnError(error) ||
+        !missingColumn ||
+        strippedColumns.has(missingColumn) ||
+        !(missingColumn in currentPayload)
+      ) {
+        this.handleStorageError(error);
+      }
+
+      strippedColumns.add(missingColumn);
+      delete currentPayload[missingColumn];
+      this.logger.warn(
+        `updateWithSchemaFallback table=${table} dropped unsupported column=${missingColumn}`,
+      );
+    }
+  }
+
+  private buildFallbackAdjustmentResponse(
+    header: Record<string, unknown>,
+    items: CreateInventoryAdjustmentItemDto[] = [],
+  ) {
+    return {
+      ...header,
+      items: items.map((item) => ({
+        ...item,
+        batch_allocations: Array.isArray(item.batch_allocations)
+          ? item.batch_allocations
+          : [],
+      })),
+      value_items: [],
+      account_entries: [],
+    };
+  }
+
+  private async isStockCountBackedAdjustment(
+    tenant: TenantContext,
+    adjustment: Record<string, unknown>,
+  ): Promise<boolean> {
+    const entityId = this.ensureEntity(tenant);
+    const referenceNumber = String(
+      adjustment.reference_number ?? adjustment.referenceNumber ?? "",
+    ).trim();
+    if (!referenceNumber) {
+      return false;
+    }
+
+    const { data, error } = await this.client
+      .from("inventory_stock_count")
+      .select("id")
+      .eq("entity_id", entityId)
+      .eq("stock_count_number", referenceNumber)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      this.handleStorageError(error);
+    }
+
+    return !!data;
   }
 
   private parseNumber(value: unknown, fallback = 0) {
@@ -346,19 +518,40 @@ export class InventoryAdjustmentsService {
       "v_product_stock_summary unavailable; falling back to batch_stock_layers for stock baseline",
     );
 
-    let fallbackQuery = this.client
-      .from("batch_stock_layers")
-      .select("qty, reserved_qty, warehouse_id")
-      .eq("entity_id", entityId)
-      .eq("product_id", productId);
+    let layerRows: any[] | null = null;
+    {
+      let fallbackQuery = this.client
+        .from("batch_stock_layers")
+        .select("qty, reserved_qty, warehouse_id")
+        .eq("entity_id", entityId)
+        .eq("product_id", productId);
 
-    if (normalizedWarehouseId) {
-      fallbackQuery = fallbackQuery.eq("warehouse_id", normalizedWarehouseId);
-    }
+      if (normalizedWarehouseId) {
+        fallbackQuery = fallbackQuery.eq("warehouse_id", normalizedWarehouseId);
+      }
 
-    const { data: layerRows, error: layerError } = await fallbackQuery;
-    if (layerError) {
-      this.handleStorageError(layerError);
+      const firstAttempt = await fallbackQuery;
+      if (!firstAttempt.error) {
+        layerRows = firstAttempt.data ?? [];
+      } else if (this.isMissingColumnError(firstAttempt.error)) {
+        let minimalQuery = this.client
+          .from("batch_stock_layers")
+          .select("qty, warehouse_id")
+          .eq("entity_id", entityId)
+          .eq("product_id", productId);
+
+        if (normalizedWarehouseId) {
+          minimalQuery = minimalQuery.eq("warehouse_id", normalizedWarehouseId);
+        }
+
+        const secondAttempt = await minimalQuery;
+        if (secondAttempt.error) {
+          this.handleStorageError(secondAttempt.error);
+        }
+        layerRows = secondAttempt.data ?? [];
+      } else {
+        this.handleStorageError(firstAttempt.error);
+      }
     }
 
     const currentStock = (layerRows ?? []).reduce((sum, row: any) => {
@@ -377,11 +570,14 @@ export class InventoryAdjustmentsService {
     adjustment: Record<string, unknown>,
     tenant: TenantContext,
     batchRows: any[],
+    options?: { allowReservedConsumption?: boolean },
   ) {
     const entityId = this.ensureEntity(tenant);
     const now = new Date().toISOString();
     const transDate =
       adjustment.adjustment_date?.toString() ?? new Date().toISOString();
+    const allowReservedConsumption =
+      options?.allowReservedConsumption === true;
 
     for (const row of batchRows) {
       const productId = String(row?.product_id ?? "").trim();
@@ -392,7 +588,7 @@ export class InventoryAdjustmentsService {
       const qOut = this.parseNumber(row?.quantity_out, 0);
       const delta = qIn - qOut;
 
-      if (!productId || !batchId || !warehouseId || !binId || delta === 0) {
+      if (!productId || !batchId || !warehouseId || delta === 0) {
         continue;
       }
 
@@ -400,102 +596,571 @@ export class InventoryAdjustmentsService {
 
       if (delta < 0) {
         const qtyToConsume = Math.abs(delta);
-        let layerQuery = this.client
-          .from("batch_stock_layers")
-          .select("id, qty, reserved_qty")
-          .eq("entity_id", entityId)
-          .eq("product_id", productId)
-          .eq("warehouse_id", warehouseId)
-          .eq("bin_id", binId)
-          .eq("batch_id", batchId)
-          .order("updated_at", { ascending: false })
-          .limit(1);
+        let layerRows: any[] | null = null;
+        {
+          let layerQuery = this.client
+            .from("batch_stock_layers")
+            .select("id, qty, reserved_qty")
+            .eq("entity_id", entityId)
+            .eq("product_id", productId)
+            .eq("warehouse_id", warehouseId)
+            .eq("batch_id", batchId)
+            .order("updated_at", { ascending: false });
 
-        if (layerId) {
-          layerQuery = layerQuery.eq("id", layerId);
+          if (layerId) {
+            layerQuery = layerQuery.eq("id", layerId);
+          }
+          if (binId) {
+            layerQuery = layerQuery.eq("bin_id", binId);
+          }
+
+          const firstAttempt = await layerQuery;
+          if (!firstAttempt.error) {
+            layerRows = firstAttempt.data ?? [];
+          } else if (this.isMissingColumnError(firstAttempt.error)) {
+            let minimalLayerQuery = this.client
+              .from("batch_stock_layers")
+              .select("id, qty")
+              .eq("entity_id", entityId)
+              .eq("product_id", productId)
+              .eq("warehouse_id", warehouseId)
+              .eq("batch_id", batchId);
+
+            if (layerId) {
+              minimalLayerQuery = minimalLayerQuery.eq("id", layerId);
+            }
+            if (binId) {
+              minimalLayerQuery = minimalLayerQuery.eq("bin_id", binId);
+            }
+
+            const secondAttempt = await minimalLayerQuery;
+            if (secondAttempt.error) this.handleStorageError(secondAttempt.error);
+            layerRows = secondAttempt.data ?? [];
+          } else {
+            this.handleStorageError(firstAttempt.error);
+          }
         }
 
-        const { data: layerRows, error: layerReadError } = await layerQuery;
-        if (layerReadError) this.handleStorageError(layerReadError);
-
-        const layer = layerRows?.[0] as
-          | { id: string; qty?: number | string; reserved_qty?: number | string }
-          | undefined;
-        if (!layer?.id) {
+        const layers = (layerRows ?? []) as Array<{
+          id?: string;
+          qty?: number | string;
+          reserved_qty?: number | string;
+        }>;
+        if (layers.length === 0) {
           throw new BadRequestException(
             `Missing source stock layer for adjustment batch row (product ${productId})`,
           );
         }
 
-        const currentQty = this.parseNumber(layer.qty, 0);
-        const reservedQty = this.parseNumber(layer.reserved_qty, 0);
-        const availableQty = currentQty - reservedQty;
-        if (availableQty < qtyToConsume) {
+        const totalAvailableQty = layers.reduce((sum, layer) => {
+          const currentQty = this.parseNumber(layer.qty, 0);
+          const reservedQty = allowReservedConsumption
+            ? 0
+            : this.parseNumber(layer.reserved_qty, 0);
+          return sum + Math.max(0, currentQty - reservedQty);
+        }, 0);
+        if (totalAvailableQty < qtyToConsume) {
           throw new BadRequestException(
-            `Insufficient available stock for product ${productId} in selected bin`,
+            binId != null
+              ? `Insufficient available stock for product ${productId} in selected bin`
+              : `Insufficient available stock for product ${productId} in selected warehouse batch layers`,
           );
         }
 
-        const { error: updateErr } = await this.client
-          .from("batch_stock_layers")
-          .update({
-            qty: currentQty - qtyToConsume,
-            updated_at: now,
-          })
-          .eq("id", layer.id)
-          .eq("entity_id", entityId);
-        if (updateErr) this.handleStorageError(updateErr);
-        layerId = layer.id;
-      } else {
-        const upsertPayload = {
-          batch_id: batchId,
-          product_id: productId,
-          entity_id: entityId,
-          warehouse_id: warehouseId,
-          bin_id: binId,
-          purchase_rate: this.parseNumber(row?.rate, 0),
-          mrp: 0,
-          qty: delta,
-          foc_qty: 0,
-          ref_id: adjustmentId,
-          ref_type: "ADJUSTMENT",
-          reserved_qty: 0,
-          updated_at: now,
-        };
+        let remainingQtyToConsume = qtyToConsume;
+        for (const layer of layers) {
+          if (remainingQtyToConsume <= 0) {
+            break;
+          }
+          const currentQty = this.parseNumber(layer.qty, 0);
+          const reservedQty = allowReservedConsumption
+            ? 0
+            : this.parseNumber(layer.reserved_qty, 0);
+          const availableQty = Math.max(0, currentQty - reservedQty);
+          if (availableQty <= 0 || !layer.id) {
+            continue;
+          }
 
-        const { data: upserted, error: upsertError } = await this.client
+          const consumeQty = Math.min(availableQty, remainingQtyToConsume);
+          await this.updateWithSchemaFallback(
+            "batch_stock_layers",
+            {
+              qty: currentQty - consumeQty,
+              updated_at: now,
+            },
+            (query) => query.eq("id", layer.id).eq("entity_id", entityId),
+          );
+
+          remainingQtyToConsume -= consumeQty;
+          layerId = layer.id;
+        }
+        if (remainingQtyToConsume > 0.00001) {
+          throw new BadRequestException(
+            `Insufficient available stock for product ${productId} in selected warehouse batch layers`,
+          );
+        }
+      } else {
+        // Query to check if the layer already exists for the combination
+        let layerCheckQuery = this.client
           .from("batch_stock_layers")
-          .upsert(upsertPayload, {
-            onConflict: "batch_id,product_id,entity_id,warehouse_id,bin_id",
-            ignoreDuplicates: false,
-          })
-          .select("id")
+          .select("id, qty")
+          .eq("entity_id", entityId)
+          .eq("product_id", productId)
+          .eq("warehouse_id", warehouseId)
+          .eq("batch_id", batchId)
           .limit(1);
-        if (upsertError) this.handleStorageError(upsertError);
-        layerId =
-          this.normalizeUuid((upserted?.[0] as any)?.id) ??
-          this.normalizeUuid(row?.batch_stock_layer_id);
+
+        if (binId) {
+          layerCheckQuery = layerCheckQuery.eq("bin_id", binId);
+        }
+
+        const { data: existingLayers, error: layerCheckError } =
+          await layerCheckQuery;
+
+        if (layerCheckError) this.handleStorageError(layerCheckError);
+
+        const matchingLayers = (existingLayers ?? []) as Array<{
+          id?: string;
+          qty?: number | string;
+        }>;
+        const existingLayer = matchingLayers[0];
+
+        if (existingLayer?.id) {
+          const currentQty = this.parseNumber(existingLayer.qty, 0);
+          await this.updateWithSchemaFallback(
+            "batch_stock_layers",
+            {
+              qty: currentQty + delta,
+              updated_at: now,
+            },
+            (query) =>
+              query.eq("id", existingLayer.id).eq("entity_id", entityId),
+          );
+          layerId = existingLayer.id;
+        } else {
+          // If layer doesn't exist, insert it
+          const insertPayload = {
+            batch_id: batchId,
+            product_id: productId,
+            entity_id: entityId,
+            warehouse_id: warehouseId,
+            bin_id: binId,
+            vendor_id: null,
+            purchase_rate: this.parseNumber(row?.rate, 0),
+            mrp: 0,
+            qty: delta,
+            reserved_qty: 0,
+            ref_id: adjustmentId,
+            ref_type: "INVENTORY_ADJUSTMENT",
+            created_at: now,
+            updated_at: now,
+          };
+
+          const { data: inserted } = await this.insertWithSchemaFallback(
+            "batch_stock_layers",
+            insertPayload,
+            "id",
+          );
+          layerId = this.normalizeUuid((inserted as any)?.id);
+        }
       }
 
-      const { error: transError } = await this.client
+      let transactionQuery = this.client
         .from("batch_transactions")
-        .insert({
-          batch_id: batchId,
-          layer_id: layerId,
-          product_id: productId,
-          entity_id: entityId,
-          warehouse_id: warehouseId,
-          bin_id: binId,
-          trans_type: "ADJUSTMENT",
-          ref_id: adjustmentId,
-          ref_no: adjustment.reference_number ?? null,
-          qty_in: Math.max(0, qIn),
-          qty_out: Math.max(0, qOut),
-          rate: this.parseNumber(row?.rate, 0) || null,
-          trans_date: transDate,
-        });
-      if (transError) this.handleStorageError(transError);
+        .select("id, qty_in, qty_out")
+        .eq("entity_id", entityId)
+        .eq("product_id", productId)
+        .eq("warehouse_id", warehouseId)
+        .eq("batch_id", batchId)
+        .eq("trans_type", "ADJUSTMENT")
+        .eq("ref_id", adjustmentId)
+        .limit(1);
+
+      if (binId) {
+        transactionQuery = transactionQuery.eq("bin_id", binId);
+      }
+
+      const {
+        data: existingTransactions,
+        error: transactionReadError,
+      } = await transactionQuery;
+      if (transactionReadError) {
+        if (this.isOptionalBatchTransactionStorageError(transactionReadError)) {
+          this.logger.warn(
+            `applyBatchLayerQuantityAdjustments adjustment=${adjustmentId} skipped batch_transactions read ∵ optional ledger schema unavailable`,
+          );
+          continue;
+        }
+        this.handleStorageError(transactionReadError);
+      }
+
+      const existingTransaction = (existingTransactions?.[0] ?? null) as
+        | { id?: string; qty_in?: number | string; qty_out?: number | string }
+        | null;
+
+      if (existingTransaction?.id) {
+        try {
+          await this.updateWithSchemaFallback(
+            "batch_transactions",
+            {
+              layer_id: layerId,
+              qty_in:
+                this.parseNumber(existingTransaction.qty_in, 0) +
+                Math.max(0, qIn),
+              qty_out:
+                this.parseNumber(existingTransaction.qty_out, 0) +
+                Math.max(0, qOut),
+              rate: this.parseNumber(row?.rate, 0) || null,
+              trans_date: transDate,
+            },
+            (query) =>
+              query.eq("id", existingTransaction.id).eq("entity_id", entityId),
+          );
+        } catch (error) {
+          if (this.isOptionalBatchTransactionStorageError(error)) {
+            this.logger.warn(
+              `applyBatchLayerQuantityAdjustments adjustment=${adjustmentId} skipped batch_transactions update ∵ optional ledger schema unavailable`,
+            );
+            continue;
+          }
+          throw error;
+        }
+      } else {
+        try {
+          await this.insertWithSchemaFallback("batch_transactions", {
+            batch_id: batchId,
+            layer_id: layerId,
+            product_id: productId,
+            entity_id: entityId,
+            warehouse_id: warehouseId,
+            bin_id: binId,
+            trans_type: "ADJUSTMENT",
+            ref_id: adjustmentId,
+            ref_no: adjustment.reference_number ?? null,
+            qty_in: Math.max(0, qIn),
+            qty_out: Math.max(0, qOut),
+            rate: this.parseNumber(row?.rate, 0) || null,
+            trans_date: transDate,
+          });
+        } catch (error) {
+          if (this.isOptionalBatchTransactionStorageError(error)) {
+            this.logger.warn(
+              `applyBatchLayerQuantityAdjustments adjustment=${adjustmentId} skipped batch_transactions insert ∵ optional ledger schema unavailable`,
+            );
+            continue;
+          }
+          throw error;
+        }
+      }
     }
+  }
+
+  private composeBatchStockKey(batchId: string, binId?: string | null) {
+    return `${batchId}::${binId ?? ""}`;
+  }
+
+  private async resolveBinIdForStockCountBatch(
+    entityId: string,
+    warehouseId: string,
+    rawBinId: unknown,
+    rawBinCode: string,
+  ) {
+    const normalizedBinId = this.normalizeUuid(rawBinId);
+    if (normalizedBinId) {
+      return normalizedBinId;
+    }
+
+    const normalizedBinCode = rawBinCode.trim();
+    if (!normalizedBinCode) {
+      return null;
+    }
+
+    const { data, error } = await this.client
+      .from("bin_master")
+      .select("id")
+      .eq("entity_id", entityId)
+      .eq("warehouse_id", warehouseId)
+      .ilike("bin_code", normalizedBinCode)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      this.handleStorageError(error);
+    }
+
+    return this.normalizeUuid((data as any)?.id);
+  }
+
+  private async resolveOrCreateStockCountBatchMaster(
+    entityId: string,
+    productId: string,
+    rawBatchId: unknown,
+    rawBatchNo: string,
+  ) {
+    const normalizedBatchId = this.normalizeUuid(rawBatchId);
+    if (normalizedBatchId) {
+      return {
+        batchId: normalizedBatchId,
+        batchNo: rawBatchNo.trim(),
+      };
+    }
+
+    const normalizedBatchNo = rawBatchNo.trim();
+    if (!normalizedBatchNo) {
+      return {
+        batchId: null,
+        batchNo: normalizedBatchNo,
+      };
+    }
+
+    const { data: existingBatch, error: existingBatchError } = await this.client
+      .from("batch_master")
+      .select("id, batch_no")
+      .eq("product_id", productId)
+      .ilike("batch_no", normalizedBatchNo)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingBatchError) {
+      this.handleStorageError(existingBatchError);
+    }
+
+    const existingBatchId = this.normalizeUuid((existingBatch as any)?.id);
+    if (existingBatchId) {
+      return {
+        batchId: existingBatchId,
+        batchNo: String((existingBatch as any)?.batch_no ?? normalizedBatchNo)
+          .trim(),
+      };
+    }
+
+    const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+
+    const { data: insertedBatch } = await this.insertWithSchemaFallback(
+      "batch_master",
+      {
+        batch_no: normalizedBatchNo,
+        product_id: productId,
+        expiry_date: fallbackDate,
+        unit_pack: null,
+        manufacture_batch_number: normalizedBatchNo,
+        manufacture_exp: fallbackDate,
+        created_by_entity_id: entityId,
+        source_type: "INVENTORY_ADJUSTMENT",
+      },
+      "id, batch_no",
+    );
+
+    return {
+      batchId: this.normalizeUuid((insertedBatch as any)?.id),
+      batchNo: String((insertedBatch as any)?.batch_no ?? normalizedBatchNo)
+        .trim(),
+    };
+  }
+
+  private async loadBatchBinSnapshot(
+    entityId: string,
+    warehouseId: string,
+    productId: string,
+  ) {
+    const { data: layerRows, error: layerError } = await this.client
+      .from("batch_stock_layers")
+      .select(
+        "batch_id, bin_id, qty, batch_master(batch_no), bin_master(bin_code)",
+      )
+      .eq("entity_id", entityId)
+      .eq("warehouse_id", warehouseId)
+      .eq("product_id", productId);
+
+    if (layerError) {
+      this.handleStorageError(layerError);
+    }
+
+    const { data: binRows, error: binError } = await this.client
+      .from("v_bin_wise_stock")
+      .select("bin_id, stock_on_hand")
+      .eq("entity_id", entityId)
+      .eq("warehouse_id", warehouseId)
+      .eq("product_id", productId);
+
+    if (binError) {
+      this.handleStorageError(binError);
+    }
+
+    const activeBinIds = new Set<string>();
+    for (const row of binRows ?? []) {
+      const binId = this.normalizeUuid((row as any)?.bin_id);
+      const stockOnHand = this.parseNumber((row as any)?.stock_on_hand, 0);
+      if (binId && Math.abs(stockOnHand) > 0.00001) {
+        activeBinIds.add(binId);
+      }
+    }
+
+    return {
+      activeBinIds,
+      layers: (layerRows ?? []).map((row: any) => ({
+        batchId: this.normalizeUuid(row?.batch_id),
+        binId: this.normalizeUuid(row?.bin_id),
+        qty: this.parseNumber(row?.qty, 0),
+        batchNo: String(row?.batch_master?.batch_no ?? "").trim(),
+        binCode: String(row?.bin_master?.bin_code ?? "").trim(),
+      })),
+    };
+  }
+
+  private async normalizeStockCountBatchRows(
+    entityId: string,
+    warehouseId: string | null,
+    productId: string,
+    rawBatches: Array<Record<string, unknown>>,
+  ) {
+    if (!warehouseId) {
+      const batchRows = [] as Array<{
+        batchId: string | null;
+        binId: string | null;
+        batchNo: string;
+        binCode: string;
+        qty: number;
+      }>;
+
+      for (const batch of rawBatches) {
+        const rawBatchNo = String(
+          batch?.batch_no ?? batch?.batchNo ?? "",
+        ).trim();
+        const resolvedBatch = await this.resolveOrCreateStockCountBatchMaster(
+          entityId,
+          productId,
+          batch?.batch_id ?? batch?.batchId,
+          rawBatchNo,
+        );
+
+        batchRows.push({
+          batchId: resolvedBatch.batchId,
+          binId: this.normalizeUuid(batch?.bin_id ?? batch?.binId),
+          batchNo: resolvedBatch.batchNo,
+          binCode: String(batch?.bin_code ?? batch?.binCode ?? "").trim(),
+          qty: this.parseNumber(batch?.qty, 0),
+        });
+      }
+
+      return {
+        hasTrackedBinRows: false,
+        batchRows,
+        snapshotLayers: [] as Array<{
+          batchId: string | null;
+          binId: string | null;
+          qty: number;
+          batchNo: string;
+          binCode: string;
+        }>,
+      };
+    }
+
+    const snapshot = await this.loadBatchBinSnapshot(
+      entityId,
+      warehouseId,
+      productId,
+    );
+
+    const batchRows = [] as Array<{
+      batchId: string | null;
+      binId: string | null;
+      batchNo: string;
+      binCode: string;
+      qty: number;
+    }>;
+
+    for (const batch of rawBatches) {
+      let batchId = this.normalizeUuid(batch?.batch_id ?? batch?.batchId);
+      let binId = this.normalizeUuid(batch?.bin_id ?? batch?.binId);
+      let batchNo = String(batch?.batch_no ?? batch?.batchNo ?? "").trim();
+      let binCode = String(batch?.bin_code ?? batch?.binCode ?? "").trim();
+
+      const candidates = snapshot.layers.filter((layer) => {
+        if (!layer.batchId) {
+          return false;
+        }
+        const batchMatches = batchId
+          ? layer.batchId === batchId
+          : batchNo.length > 0 &&
+            layer.batchNo.toLowerCase() === batchNo.toLowerCase();
+        if (!batchMatches) {
+          return false;
+        }
+        if (binId) {
+          return layer.binId === binId;
+        }
+        if (binCode.length > 0) {
+          return layer.binCode.toLowerCase() === binCode.toLowerCase();
+        }
+        return true;
+      });
+
+      if (candidates.length === 1) {
+        const match = candidates[0];
+        batchId = batchId ?? match.batchId;
+        binId = binId ?? match.binId;
+        batchNo = batchNo || match.batchNo;
+        binCode = binCode || match.binCode;
+      } else if (batchId && !binId) {
+        const batchBins = Array.from(
+          new Set(
+            snapshot.layers
+              .filter((layer) => layer.batchId === batchId && layer.binId)
+              .map((layer) => layer.binId as string),
+          ),
+        );
+        if (
+          batchBins.length === 1 &&
+          snapshot.activeBinIds.has(batchBins[0])
+        ) {
+          binId = batchBins[0];
+          const match = snapshot.layers.find(
+            (layer) => layer.batchId === batchId && layer.binId === binId,
+          );
+          if (match) {
+            batchNo = batchNo || match.batchNo;
+            binCode = binCode || match.binCode;
+          }
+        }
+      }
+
+      if (!binId && warehouseId) {
+        binId = await this.resolveBinIdForStockCountBatch(
+          entityId,
+          warehouseId,
+          batch?.bin_id ?? batch?.binId,
+          binCode,
+        );
+      }
+
+      if (!batchId && batchNo.length > 0) {
+        const resolvedBatch = await this.resolveOrCreateStockCountBatchMaster(
+          entityId,
+          productId,
+          batch?.batch_id ?? batch?.batchId,
+          batchNo,
+        );
+        batchId = resolvedBatch.batchId;
+        batchNo = resolvedBatch.batchNo || batchNo;
+      }
+
+      batchRows.push({
+        batchId,
+        binId,
+        batchNo,
+        binCode,
+        qty: this.parseNumber(batch?.qty, 0),
+      });
+    }
+
+    return {
+      hasTrackedBinRows: batchRows.some((row) => row.binId != null),
+      batchRows,
+      snapshotLayers: snapshot.layers,
+    };
   }
 
   private normalizeItemRow(
@@ -921,8 +1586,19 @@ export class InventoryAdjustmentsService {
       .eq("entity_id", entityId)
       .order("created_at", { ascending: true });
 
-    if (valueItemsError) {
-      this.handleStorageError(valueItemsError);
+    const safeValueItemsError = valueItemsError;
+    const safeValueItems =
+      safeValueItemsError && this.isMissingTableError(safeValueItemsError)
+        ? []
+        : valueItems;
+    if (safeValueItemsError) {
+      if (this.isMissingTableError(safeValueItemsError)) {
+        this.logger.warn(
+          `findOne adjustment=${id} skipped inventory_adjustment_value_items ∵ table missing`,
+        );
+      } else {
+        this.handleStorageError(safeValueItemsError);
+      }
     }
 
     const { data: accountEntries, error: accountEntriesError } =
@@ -935,8 +1611,19 @@ export class InventoryAdjustmentsService {
         .eq("entity_id", entityId)
         .order("created_at", { ascending: true });
 
-    if (accountEntriesError) {
-      this.handleStorageError(accountEntriesError);
+    const safeAccountEntriesError = accountEntriesError;
+    const safeAccountEntries =
+      safeAccountEntriesError && this.isMissingTableError(safeAccountEntriesError)
+        ? []
+        : accountEntries;
+    if (safeAccountEntriesError) {
+      if (this.isMissingTableError(safeAccountEntriesError)) {
+        this.logger.warn(
+          `findOne adjustment=${id} skipped inventory_adjustment_account_entries ∵ table missing`,
+        );
+      } else {
+        this.handleStorageError(safeAccountEntriesError);
+      }
     }
 
     const { data: itemBatches, error: itemBatchesError } = await this.client
@@ -946,10 +1633,21 @@ export class InventoryAdjustmentsService {
       .eq("entity_id", entityId)
       .order("created_at", { ascending: true });
 
-    if (itemBatchesError) {
-      this.handleStorageError(itemBatchesError);
+    const safeItemBatchesError = itemBatchesError;
+    const safeItemBatches =
+      safeItemBatchesError && this.isMissingTableError(safeItemBatchesError)
+        ? []
+        : itemBatches;
+    if (safeItemBatchesError) {
+      if (this.isMissingTableError(safeItemBatchesError)) {
+        this.logger.warn(
+          `findOne adjustment=${id} skipped inventory_adjustment_item_batches ∵ table missing`,
+        );
+      } else {
+        this.handleStorageError(safeItemBatchesError);
+      }
     }
-    const rawItemBatches = itemBatches ?? [];
+    const rawItemBatches = safeItemBatches ?? [];
     const batchIdsForHydration = rawItemBatches
       .map((row: any) => String(row?.batch_id ?? "").trim())
       .filter((id: string) => id.length > 0);
@@ -1158,8 +1856,8 @@ export class InventoryAdjustmentsService {
         approvedIdentity?.email ??
         (status === "approved" ? (adjustedIdentity?.email ?? null) : null),
       items: hydratedItems,
-      value_items: valueItems ?? [],
-      account_entries: (accountEntries ?? []).map((entry: any) => ({
+      value_items: safeValueItems ?? [],
+      account_entries: (safeAccountEntries ?? []).map((entry: any) => ({
         ...entry,
         account_name:
           entry?.accounts?.user_account_name ??
@@ -1533,6 +2231,7 @@ export class InventoryAdjustmentsService {
       quantityBefore + quantityAdjusted,
     );
     const status = this.normalizeStatus(createDto.status);
+    const persistedStatus = status === "approved" ? "submitted" : status;
     const adjustmentType = this.normalizeType(createDto.adjustment_type);
     const resolvedAccountId =
       this.normalizeUuid(createDto.account_id) ??
@@ -1554,7 +2253,7 @@ export class InventoryAdjustmentsService {
       account_id: resolvedAccountId,
       reference_number: createDto.reference_number?.trim() || null,
       notes: createDto.notes?.trim() || null,
-      status,
+      status: persistedStatus,
       adjusted_by: tenant.userId ?? null,
     };
 
@@ -1591,10 +2290,309 @@ export class InventoryAdjustmentsService {
     );
 
     if (status === "approved") {
-      await this.approve(data.id, tenant);
+      await this.approve(data.id, tenant, {
+        allowReservedConsumption: createDto.allow_reserved_consumption === true,
+      });
     }
 
-    return this.findOne(data.id, tenant);
+    try {
+      return await this.findOne(data.id, tenant);
+    } catch (error) {
+      if (!this.isMissingTableError(error)) {
+        throw error;
+      }
+      this.logger.warn(
+        `Adjustment ${data.id} created but detail hydration skipped ∵ optional table missing`,
+      );
+      return this.buildFallbackAdjustmentResponse(data as Record<string, unknown>, [
+        ...this.safeArray<CreateInventoryAdjustmentItemDto>(createDto.items),
+      ]);
+    }
+  }
+
+  async approveStockCount(
+    stockCountId: string,
+    approvalDto: ApproveStockCountDto,
+    tenant: TenantContext,
+  ) {
+    const entityId = this.ensureEntity(tenant);
+    const normalizedStockCountId = this.normalizeUuid(stockCountId);
+    if (!normalizedStockCountId) {
+      throw new BadRequestException("Invalid stock count id");
+    }
+
+    const { data: stockCount, error: stockCountError } = await this.client
+      .from("inventory_stock_count")
+      .select(
+        "id, entity_id, stock_count_number, description, warehouse_id, status",
+      )
+      .eq("id", normalizedStockCountId)
+      .eq("entity_id", entityId)
+      .maybeSingle();
+
+    if (stockCountError) {
+      this.handleStorageError(stockCountError);
+    }
+    if (!stockCount) {
+      throw new NotFoundException("Stock count not found");
+    }
+
+    const currentStatus = String((stockCount as any).status ?? "")
+      .trim()
+      .toLowerCase();
+    if (currentStatus === "cancelled" || currentStatus === "expired") {
+      throw new BadRequestException(
+        `Stock count cannot be approved from status: ${(
+          stockCount as any
+        ).status}`,
+      );
+    }
+
+    const normalizedWarehouseId =
+      this.normalizeUuid(approvalDto.warehouse_id) ??
+      this.normalizeUuid((stockCount as any).warehouse_id);
+    const stockCountNumber = String(
+      (stockCount as any).stock_count_number ?? normalizedStockCountId,
+    ).trim();
+
+    const adjustmentItems: Array<
+      CreateInventoryAdjustmentItemDto & {
+        adjustment_reason: string;
+        product_name: string | null;
+      }
+    > = [];
+    for (const item of this.safeArray<ApproveStockCountItemDto>(
+      approvalDto.items,
+    )) {
+      const productId = String(item?.product_id ?? "").trim();
+      if (!productId) continue;
+
+      const decision = String(item?.decision ?? "Approve")
+        .trim()
+        .toLowerCase();
+      if (decision === "reject") continue;
+
+      const systemQty = this.parseNumber(item?.system_qty, 0);
+      const countedQty = this.parseNumber(item?.counted_qty, systemQty);
+      const quantityAdjusted = countedQty - systemQty;
+      if (Math.abs(quantityAdjusted) <= 0.00001) {
+        continue;
+      }
+
+      const normalizedBatchRows = await this.normalizeStockCountBatchRows(
+        entityId,
+        normalizedWarehouseId,
+        productId,
+        this.safeArray<Record<string, unknown>>(item.batches),
+      );
+
+      const countedQtyByBatchKey = new Map<string, number>();
+      const batchReferenceByKey = new Map<string, string | null>();
+      const batchIdByKey = new Map<string, string>();
+      const binIdByKey = new Map<string, string | null>();
+      for (const batch of normalizedBatchRows.batchRows) {
+        const batchId = batch.batchId;
+        if (!batchId) continue;
+        const binId = batch.binId;
+        const batchKey = this.composeBatchStockKey(batchId, binId);
+        const qty = this.parseNumber(batch.qty, 0);
+        const batchNo = batch.batchNo.trim();
+        countedQtyByBatchKey.set(
+          batchKey,
+          this.parseNumber(countedQtyByBatchKey.get(batchKey), 0) + qty,
+        );
+        batchReferenceByKey.set(batchKey, batchNo || null);
+        batchIdByKey.set(batchKey, batchId);
+        binIdByKey.set(batchKey, binId);
+      }
+
+      const currentQtyByBatchKey = new Map<string, number>();
+      if (normalizedWarehouseId) {
+        for (const row of normalizedBatchRows.snapshotLayers) {
+          const batchId = row.batchId;
+          if (!batchId) continue;
+          const binId = normalizedBatchRows.hasTrackedBinRows ? row.binId : null;
+          const batchKey = this.composeBatchStockKey(batchId, binId);
+          const physicalQty = this.parseNumber(row.qty, 0);
+          currentQtyByBatchKey.set(
+            batchKey,
+            this.parseNumber(currentQtyByBatchKey.get(batchKey), 0) +
+              physicalQty,
+          );
+          batchIdByKey.set(batchKey, batchId);
+          binIdByKey.set(batchKey, binId);
+        }
+      }
+
+      const batchAllocations: CreateInventoryAdjustmentBatchDto[] = [];
+      const allBatchKeys = new Set<string>([
+        ...currentQtyByBatchKey.keys(),
+        ...countedQtyByBatchKey.keys(),
+      ]);
+
+      for (const batchKey of allBatchKeys) {
+        const batchId = batchIdByKey.get(batchKey);
+        if (batchId == null) {
+          continue;
+        }
+        const binId = binIdByKey.get(batchKey) ?? null;
+        const currentBatchQty = this.parseNumber(
+          currentQtyByBatchKey.get(batchKey),
+          0,
+        );
+        const countedBatchQty = this.parseNumber(
+          countedQtyByBatchKey.get(batchKey),
+          0,
+        );
+        const batchDelta = countedBatchQty - currentBatchQty;
+        if (Math.abs(batchDelta) <= 0.00001) {
+          continue;
+        }
+
+        batchAllocations.push({
+          batch_id: batchId,
+          bin_id: binId,
+          batch_reference: batchReferenceByKey.get(batchKey) ?? null,
+          warehouse_id: normalizedWarehouseId,
+          product_id: productId,
+          quantity_in: batchDelta > 0 ? batchDelta : 0,
+          quantity_out: batchDelta < 0 ? Math.abs(batchDelta) : 0,
+          rate: this.parseNumber(item.rate, 0),
+        });
+      }
+
+      const batchDeltaTotal = batchAllocations.reduce(
+        (sum, batch) =>
+          sum +
+          this.parseNumber(batch.quantity_in, 0) -
+          this.parseNumber(batch.quantity_out, 0),
+        0,
+      );
+      const unresolvedDelta = quantityAdjusted - batchDeltaTotal;
+      if (
+        Math.abs(unresolvedDelta) > 0.00001 &&
+        batchAllocations.length > 0
+      ) {
+        const firstBatch = batchAllocations[0];
+        batchAllocations[0] = {
+          ...firstBatch,
+          quantity_in:
+            this.parseNumber(firstBatch.quantity_in, 0) +
+            (unresolvedDelta > 0 ? unresolvedDelta : 0),
+          quantity_out:
+            this.parseNumber(firstBatch.quantity_out, 0) +
+            (unresolvedDelta < 0 ? Math.abs(unresolvedDelta) : 0),
+        };
+      }
+
+      adjustmentItems.push({
+        product_id: productId,
+        quantity_adjusted: quantityAdjusted,
+        cost_price: this.parseNumber(item.rate, 0),
+        batch_allocations: batchAllocations,
+        adjustment_reason:
+          String(item.adjustment_reason ?? "Stocktaking results").trim() ||
+          "Stocktaking results",
+        product_name: String(item.name ?? "").trim() || null,
+      });
+    }
+
+    let approvedAdjustment: any = null;
+    if (adjustmentItems.length > 0) {
+      const { data: existingAdjustment, error: existingAdjustmentError } =
+        await this.client
+          .from("inventory_adjustments")
+          .select("id, status")
+          .eq("entity_id", entityId)
+          .eq("reference_number", stockCountNumber)
+          .eq("warehouse_id", normalizedWarehouseId ?? null)
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      if (existingAdjustmentError) {
+        this.handleStorageError(existingAdjustmentError);
+      }
+
+      if (existingAdjustment?.id) {
+        try {
+          approvedAdjustment = await this.findOne(existingAdjustment.id, tenant);
+        } catch (error) {
+          if (!this.isMissingTableError(error)) {
+            throw error;
+          }
+          this.logger.warn(
+            `Adjustment ${existingAdjustment.id} found but detail hydration skipped ∵ optional table missing`,
+          );
+          approvedAdjustment = this.buildFallbackAdjustmentResponse(
+            existingAdjustment as Record<string, unknown>,
+            adjustmentItems,
+          );
+        }
+      } else {
+        const totalQtyAdjusted = adjustmentItems.reduce(
+          (sum, item) => sum + this.parseNumber(item.quantity_adjusted, 0),
+          0,
+        );
+        const combinedReasons = Array.from(
+          new Set(
+            adjustmentItems
+              .map((item) => item.adjustment_reason)
+              .filter((reason) => reason && reason.trim().length > 0),
+          ),
+        ).join(", ");
+
+        approvedAdjustment = await this.create(
+          {
+            product_id: adjustmentItems[0].product_id,
+            warehouse_id: normalizedWarehouseId,
+            adjustment_date: new Date().toISOString(),
+            adjustment_type: "quantity",
+            reason: combinedReasons || "Stocktaking results",
+            quantity_before: 0,
+            quantity_adjusted: totalQtyAdjusted,
+            quantity_after: 0,
+            cost_price: this.parseNumber(adjustmentItems[0].cost_price, 0),
+            reference_number: stockCountNumber,
+            notes:
+              approvalDto.description?.trim() ||
+              String((stockCount as any).description ?? "").trim() ||
+              "Stock count approval",
+            status: "approved",
+            allow_reserved_consumption: true,
+            items: adjustmentItems.map((item) => ({
+              product_id: item.product_id,
+              quantity_adjusted: item.quantity_adjusted,
+              cost_price: item.cost_price,
+              batch_allocations: item.batch_allocations,
+            })),
+          },
+          tenant,
+        );
+      }
+    }
+
+    const { data: updatedStockCount, error: updateError } = await this.client
+      .from("inventory_stock_count")
+      .update({
+        status: "Completed",
+      })
+      .eq("id", normalizedStockCountId)
+      .eq("entity_id", entityId)
+      .select(
+        "id, entity_id, stock_count_number, description, warehouse_id, status",
+      )
+      .single();
+
+    if (updateError) {
+      this.handleStorageError(updateError);
+    }
+
+    return {
+      stock_count: updatedStockCount,
+      inventory_adjustment: approvedAdjustment,
+    };
   }
 
   async update(
@@ -1771,6 +2769,7 @@ export class InventoryAdjustmentsService {
     adjustmentId: string,
     adjustment: Record<string, unknown>,
     tenant: TenantContext,
+    options?: { allowReservedConsumption?: boolean },
   ) {
     const entityId = this.ensureEntity(tenant);
     const { data: items, error: itemsError } = await this.client
@@ -1795,6 +2794,7 @@ export class InventoryAdjustmentsService {
         adjustment,
         tenant,
         batchRows,
+        options,
       );
     } else {
       this.logger.warn(
@@ -2018,7 +3018,11 @@ export class InventoryAdjustmentsService {
     }
   }
 
-  async approve(id: string, tenant: TenantContext) {
+  async approve(
+    id: string,
+    tenant: TenantContext,
+    options?: { allowReservedConsumption?: boolean },
+  ) {
     const entityId = this.ensureEntity(tenant);
     const existing = await this.findOne(id, tenant);
     if (existing.status === "approved") {
@@ -2026,8 +3030,13 @@ export class InventoryAdjustmentsService {
     }
 
     const normalizedType = this.normalizeType(existing.adjustment_type);
+    const allowReservedConsumption =
+      options?.allowReservedConsumption === true ||
+      (await this.isStockCountBackedAdjustment(tenant, existing));
     if (normalizedType === "quantity") {
-      await this.postQuantityAdjustment(id, existing, tenant);
+      await this.postQuantityAdjustment(id, existing, tenant, {
+        allowReservedConsumption,
+      });
     } else {
       await this.postValueAdjustment(id, existing, tenant);
     }

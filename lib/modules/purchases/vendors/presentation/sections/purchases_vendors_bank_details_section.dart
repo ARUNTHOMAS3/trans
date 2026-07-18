@@ -118,7 +118,7 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                             ),
                           ),
                           _buildFormRow(
-                            label: 'Account Number*',
+                            label: 'Account Number',
                             isRequired: true,
                             showInfo: true,
                             tooltip: 'Enter the bank account number.',
@@ -149,7 +149,7 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                             ),
                           ),
                           _buildFormRow(
-                            label: 'Re-enter Account Number*',
+                            label: 'Re-enter Account Number',
                             isRequired: true,
                             showInfo: true,
                             tooltip: 'Re-verify the bank account number.',

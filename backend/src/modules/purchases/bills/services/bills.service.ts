@@ -1303,13 +1303,14 @@ export class BillsService {
           org_id: orgId,
           account_id: accountId,
           transaction_date: dto.billDate || new Date().toISOString(),
-          transaction_type: type,
           reference_number: dto.billNumber || dto.bill_number || 'BILL',
           description: dto.notes || 'Purchase Bill transaction',
           debit: dVal,
           credit: cVal,
           source_id: billId,
           source_type: 'BILL',
+          contact_id: dto.vendorId || null,
+          contact_type: dto.vendorId ? 'vendor' : null,
         });
       }
     };

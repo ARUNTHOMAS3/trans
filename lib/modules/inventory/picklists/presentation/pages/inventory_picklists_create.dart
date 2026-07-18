@@ -1550,9 +1550,8 @@ class _InventoryPicklistsCreateScreenState
             padding: const EdgeInsets.only(
               left: 16,
               right: 0,
-              top: 10,
-              bottom: 10,
             ),
+            height: 45,
             decoration: const BoxDecoration(
               color: Color(0xFFF9FAFB),
               border: Border(bottom: BorderSide(color: _borderCol)),
@@ -1565,19 +1564,22 @@ class _InventoryPicklistsCreateScreenState
                     flex: 8,
                     child: Padding(
                       padding: const EdgeInsets.only(right: 12),
-                      child: _buildHeaderSearchField(
-                        label: 'ITEM DETAILS',
-                        controller: _itemNameSearchCtrl,
-                        hintText: 'Search items...',
-                        isSearchVisible: _isItemSearchVisible,
-                        onToggle: () => setState(
-                          () => _isItemSearchVisible = !_isItemSearchVisible,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _buildHeaderSearchField(
+                          label: 'ITEM DETAILS',
+                          controller: _itemNameSearchCtrl,
+                          hintText: 'Search items...',
+                          isSearchVisible: _isItemSearchVisible,
+                          onToggle: () => setState(
+                            () => _isItemSearchVisible = !_isItemSearchVisible,
+                          ),
+                          sortAscending: _salesOrderSortAscending,
+                          onChanged: (val) => setState(() {
+                            _itemNameSearchQuery = val;
+                            _currentPage = 0;
+                          }),
                         ),
-                        sortAscending: _salesOrderSortAscending,
-                        onChanged: (val) => setState(() {
-                          _itemNameSearchQuery = val;
-                          _currentPage = 0;
-                        }),
                       ),
                     ),
                   ),
@@ -1586,29 +1588,32 @@ class _InventoryPicklistsCreateScreenState
                     flex: 4,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: _buildHeaderSearchField(
-                        label: 'SALES ORDER#',
-                        controller: _salesOrderSearchCtrl,
-                        hintText: 'Search SO...',
-                        isSearchVisible: _isSOSearchVisible,
-                        onToggle: () => setState(
-                          () => _isSOSearchVisible = !_isSOSearchVisible,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: _buildHeaderSearchField(
+                          label: 'SALES ORDER#',
+                          controller: _salesOrderSearchCtrl,
+                          hintText: 'Search SO...',
+                          isSearchVisible: _isSOSearchVisible,
+                          onToggle: () => setState(
+                            () => _isSOSearchVisible = !_isSOSearchVisible,
+                          ),
+                          textAlign: TextAlign.center,
+                          showSortControls: false,
+                          sortAscending: _salesOrderSortAscending,
+                          onSortAscendingTap: () {
+                            if (_salesOrderSortAscending) return;
+                            setState(() => _salesOrderSortAscending = true);
+                          },
+                          onSortDescendingTap: () {
+                            if (!_salesOrderSortAscending) return;
+                            setState(() => _salesOrderSortAscending = false);
+                          },
+                          onChanged: (val) => setState(() {
+                            _salesOrderSearchQuery = val;
+                            _currentPage = 0;
+                          }),
                         ),
-                        textAlign: TextAlign.center,
-                        showSortControls: false,
-                        sortAscending: _salesOrderSortAscending,
-                        onSortAscendingTap: () {
-                          if (_salesOrderSortAscending) return;
-                          setState(() => _salesOrderSortAscending = true);
-                        },
-                        onSortDescendingTap: () {
-                          if (!_salesOrderSortAscending) return;
-                          setState(() => _salesOrderSortAscending = false);
-                        },
-                        onChanged: (val) => setState(() {
-                          _salesOrderSearchQuery = val;
-                          _currentPage = 0;
-                        }),
                       ),
                     ),
                   ),
@@ -1632,27 +1637,31 @@ class _InventoryPicklistsCreateScreenState
                   Container(width: 1, color: _borderCol),
                   const Expanded(
                     flex: 3,
-                    child: Text(
-                      'QUANTITY ORDERED',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.normal,
-                        color: _textSecondary,
+                    child: Center(
+                      child: Text(
+                        'QUANTITY ORDERED',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.normal,
+                          color: _textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
                   Container(width: 1, color: _borderCol),
                   const Expanded(
                     flex: 3,
-                    child: Text(
-                      'QUANTITY PACKED',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.normal,
-                        color: _textSecondary,
+                    child: Center(
+                      child: Text(
+                        'QUANTITY PACKED',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.normal,
+                          color: _textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
                   Container(width: 1, color: _borderCol),

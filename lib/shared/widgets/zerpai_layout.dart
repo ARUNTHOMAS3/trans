@@ -64,6 +64,7 @@ class ZerpaiLayout extends StatelessWidget {
   final Widget? endDrawer;
   final EdgeInsetsGeometry? titlePadding;
   final Widget? titleWidget;
+  final bool showHeaderDivider;
 
   const ZerpaiLayout({
     super.key,
@@ -86,6 +87,7 @@ class ZerpaiLayout extends StatelessWidget {
     this.endDrawer,
     this.titlePadding,
     this.titleWidget,
+    this.showHeaderDivider = false,
   });
 
   @override
@@ -160,64 +162,74 @@ class ZerpaiLayout extends StatelessWidget {
                 horizontalPadding,
                 0,
               ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final bool isNarrow = constraints.maxWidth < 600;
-                  return isNarrow
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: titlePadding ?? EdgeInsets.zero,
-                              child: titleWidget ?? Text(
-                                pageTitle,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                            ),
-                            if (actions != null && actions!.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 8,
-                                children: actions!,
-                              ),
-                            ],
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            Expanded(
-                              child: Padding(
-                                padding: titlePadding ?? EdgeInsets.zero,
-                                child: titleWidget ?? Text(
-                                  pageTitle,
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimary,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final bool isNarrow = constraints.maxWidth < 600;
+                      return isNarrow
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: titlePadding ?? EdgeInsets.zero,
+                                  child: titleWidget ?? Text(
+                                    pageTitle,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimary,
+                                    ),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                            ),
-                            if (actions != null && actions!.isNotEmpty) ...[
-                              const SizedBox(width: 16),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 8,
-                                alignment: WrapAlignment.end,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: actions!,
-                              ),
-                            ],
-                          ],
-                        );
-                },
+                                if (actions != null && actions!.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 8,
+                                    children: actions!,
+                                  ),
+                                ],
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: Padding(
+                                    padding: titlePadding ?? EdgeInsets.zero,
+                                    child: titleWidget ?? Text(
+                                      pageTitle,
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                if (actions != null && actions!.isNotEmpty) ...[
+                                  const SizedBox(width: 16),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.end,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: actions!,
+                                  ),
+                                ],
+                              ],
+                            );
+                    },
+                  ),
+                  if (showHeaderDivider) ...[
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  ],
+                ],
               ),
             ),
           Expanded(child: bodyContent),

@@ -30,7 +30,7 @@ class PaymentRecord {
     required this.amount,
     required this.unusedAmount,
     this.status = 'PAID',
-    this.location = 'ZABNIX PRIVATE LIMITED',
+    this.location = '',
     this.isSelected = false,
     this.attachments = const [],
     this.paymentType,
@@ -63,8 +63,8 @@ class PaymentRecord {
       mode: (json['payment_mode'] ?? '').toString(),
       amount: amount,
       unusedAmount: excess,
-      status: rawStatus.toUpperCase(),
-      location: (json['location_name'] ?? 'ZABNIX PRIVATE LIMITED').toString(),
+      status: rawStatus.toUpperCase() == 'VOID' ? 'VOIDED' : rawStatus.toUpperCase(),
+      location: (json['location_name'] ?? '').toString(),
       paymentType: json['payment_type']?.toString(),
     );
   }

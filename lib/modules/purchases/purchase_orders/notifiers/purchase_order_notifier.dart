@@ -523,7 +523,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
 
     // Find account name
     String? accountName;
-    if (product.purchaseAccountId != null) {
+    if (product.inventoryAccountId != null) {
       try {
         final accountsState = _ref.read(chartOfAccountsProvider);
         List<AccountNode> allAccounts = [];
@@ -536,11 +536,11 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
 
         collect(accountsState.roots);
         final account = allAccounts.firstWhere(
-          (a) => a.id == product.purchaseAccountId,
+          (a) => a.id == product.inventoryAccountId,
         );
         accountName = account.name;
       } catch (e) {
-        accountName = product.purchaseAccountId;
+        accountName = product.inventoryAccountId;
       }
     }
 
@@ -557,7 +557,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       description: product.purchaseDescription,
       itemCode: product.itemCode,
       hsnCode: product.hsnCode,
-      accountId: product.purchaseAccountId,
+      accountId: product.inventoryAccountId,
       accountName: accountName,
       quantity: 0.0,
       rate: initialRate,
@@ -852,7 +852,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       String? accountId = item.accountId;
       String? accountName = item.accountName;
       if ((accountId == null || accountId.isEmpty) && product != null) {
-        accountId = product.purchaseAccountId;
+        accountId = product.inventoryAccountId;
         if (accountId != null && accountId.isNotEmpty) {
           try {
             final acc = allAccounts.firstWhere((a) => a.id == accountId);

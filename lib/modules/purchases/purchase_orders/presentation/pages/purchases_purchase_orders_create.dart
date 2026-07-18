@@ -56,6 +56,7 @@ import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
@@ -258,7 +259,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           backgroundColor: Colors.white,
-          foregroundColor: _linkBlue,
+          foregroundColor: const Color(0xFF2563EB),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(4),
             side: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -477,6 +478,290 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
+  Widget _buildUpdateDiscountDialog() {
+    String discountType = 'percentage';
+    final controller = TextEditingController();
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      alignment: Alignment.topCenter,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 0),
+      child: StatefulBuilder(
+        builder: (context, setModalState) {
+          return SizedBox(
+            width: 600,
+            height: 350,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Bulk Update Line Items',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111827),
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: Color(0xFFEF4444),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => context.pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Choose how to apply the bulk discount',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setModalState(() => discountType = 'percentage'),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 18,
+                                      height: 18,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: discountType == 'percentage'
+                                              ? const Color(0xFF2563EB)
+                                              : const Color(0xFFAAAAAA),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: discountType == 'percentage'
+                                          ? Center(
+                                              child: Container(
+                                                width: 9,
+                                                height: 9,
+                                                decoration: const BoxDecoration(
+                                                  color: Color(0xFF2563EB),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Percentage Discount (%)',
+                                      style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setModalState(() => discountType = 'fixed'),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 18,
+                                      height: 18,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: discountType == 'fixed'
+                                              ? const Color(0xFF2563EB)
+                                              : const Color(0xFFAAAAAA),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: discountType == 'fixed'
+                                          ? Center(
+                                              child: Container(
+                                                width: 9,
+                                                height: 9,
+                                                decoration: const BoxDecoration(
+                                                  color: Color(0xFF2563EB),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Flat Discount (₹)',
+                                      style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: const Color(0xFFE5E7EB),
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: controller,
+                                  textAlign: TextAlign.right,
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.transparent,
+                                    hoverColor: Colors.transparent,
+                                    hintText: '0',
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d*'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                width: 40,
+                                height: 32,
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  color: Color(0xFFF9FAFB),
+                                ),
+                                child: Text(
+                                  discountType == 'percentage' ? '%' : '₹',
+                                  style: const TextStyle(
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          final discVal =
+                              double.tryParse(controller.text) ?? 0;
+                          final notifier = ref.read(
+                            purchaseOrderFormNotifierProvider.notifier,
+                          );
+                          final poState = ref.read(
+                            purchaseOrderFormNotifierProvider,
+                          );
+                          for (int i = 0; i < poState.items.length; i++) {
+                            final item = poState.items[i];
+                            if (item.productId.isNotEmpty && !item.isHeader) {
+                              if (_selectedRows.isEmpty ||
+                                  _selectedRows.contains(i)) {
+                                _rowControllers[i].discountCtrl.text =
+                                    discVal.toStringAsFixed(2);
+                                notifier.updateItem(
+                                  i,
+                                  item.copyWith(
+                                    discountType: discountType,
+                                    discount: discVal,
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                          context.pop();
+                          setState(() {
+                            _bulkMode = false;
+                            _selectedRows.clear();
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                        ),
+                        child: const Text('Update'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () => context.pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF374151),
+                          side: const BorderSide(color: Color(0xFFD1D5DB)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _showNewVendorDialog() async {
     final newVendor = await showDialog<Vendor>(
       context: context,
@@ -676,6 +961,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           'Please select Account for item ${i + 1} (${item.productName ?? 'Product'})',
         );
         return;
+      }
+      if (vendor.gstTreatment == 'Registered Business - Regular') {
+        if (item.taxId == null || item.taxId!.isEmpty) {
+          ZerpaiToast.error(
+            context,
+            'Please select Tax for item ${i + 1} (${item.productName ?? 'Product'})',
+          );
+          return;
+        }
       }
     }
 
@@ -5440,6 +5734,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           );
                         },
                       ),
+                      const SizedBox(width: 10),
+                      _buildBulkButton(
+                        'Update Discount',
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => _buildUpdateDiscountDialog(),
+                          );
+                        },
+                      ),
                       const Spacer(),
                       IconButton(
                         icon: const Icon(LucideIcons.x, size: 18),
@@ -7479,17 +7783,43 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                           child: Row(
                                             children: [
                                               Expanded(
-                                                child: Text(
-                                                  (isUnregistered || item.taxId == null)
-                                                      ? 'Select Tax'
-                                                      : '${item.taxName} [${item.taxRate}%]',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: (isUnregistered || item.taxId == null)
-                                                        ? _hintColor
-                                                        : _textPrimary,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
+                                                child: Builder(
+                                                  builder: (context) {
+                                                    String displayText = 'Select Tax';
+                                                    if (!isUnregistered && item.taxId != null && item.taxId!.isNotEmpty) {
+                                                      String? resolvedName = item.taxName;
+                                                      double resolvedRate = item.taxRate;
+                                                      if (resolvedName == null || resolvedName.isEmpty || resolvedName == 'null') {
+                                                        final itemsState = ref.read(itemsControllerProvider);
+                                                        final matchingTax = itemsState.taxRates.firstWhere(
+                                                          (t) => t.id == item.taxId,
+                                                          orElse: () => itemsState.taxGroups.firstWhere(
+                                                            (tg) => tg.id == item.taxId,
+                                                            orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
+                                                          ),
+                                                        );
+                                                        if (matchingTax.id.isNotEmpty) {
+                                                          resolvedName = matchingTax.taxName;
+                                                          resolvedRate = matchingTax.taxRate;
+                                                        }
+                                                      }
+                                                      if (resolvedName != null && resolvedName.isNotEmpty && resolvedName != 'null') {
+                                                        displayText = '$resolvedName [$resolvedRate%]';
+                                                      } else {
+                                                        displayText = '[$resolvedRate%]';
+                                                      }
+                                                    }
+                                                    return Text(
+                                                      displayText,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: (displayText == 'Select Tax')
+                                                            ? _hintColor
+                                                            : _textPrimary,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    );
+                                                  }
                                                 ),
                                               ),
                                               if (item.taxId != null && !isUnregistered && isHovered)
@@ -8685,69 +9015,113 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final destination = poState.destinationOfSupply.toLowerCase();
     final isKerala = source.contains('kerala') && destination.contains('kerala');
 
-    final widgets = <Widget>[];
-    for (final tax in groups.values) {
+    final itemsState = ref.read(itemsControllerProvider);
+    final Map<String, ({String name, double rate, double amount})> breakdown = {};
+
+    for (final entry in groups.entries) {
+      final taxId = entry.key;
+      final groupVal = entry.value;
+
       if (isKerala) {
-        final half = tax.rate / 2;
-        final halfAmt = tax.amount / 2;
-        final halfStr = half % 1 == 0
-            ? half.toInt().toString()
-            : half.toStringAsFixed(1);
+        final components = itemsState.taxGroupRates
+            .where((r) => r['tax_group_id'] == taxId || r['taxGroupId'] == taxId)
+            .toList();
 
-        widgets.add(
-          Row(
-            children: [
-              Text(
-                'CGST$halfStr [$halfStr%]',
-                style: const TextStyle(fontSize: 13, color: _labelColor),
-              ),
-              const Spacer(),
-              Text(
-                halfAmt.toStringAsFixed(2),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-        );
-        widgets.add(const SizedBox(height: 8));
-        widgets.add(
-          Row(
-            children: [
-              Text(
-                'SGST$halfStr [$halfStr%]',
-                style: const TextStyle(fontSize: 13, color: _labelColor),
-              ),
-              const Spacer(),
-              Text(
-                halfAmt.toStringAsFixed(2),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-        );
-        widgets.add(const SizedBox(height: 12));
+        if (components.isNotEmpty) {
+          for (final comp in components) {
+            final compTaxId = comp['tax_id'] ?? comp['taxId'];
+            final compTaxRateObj = itemsState.taxRates.firstWhere(
+              (tr) => tr.id == compTaxId,
+              orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
+            );
+
+            if (compTaxRateObj.id.isNotEmpty) {
+              final rate = compTaxRateObj.taxRate;
+              final propAmount = groupVal.rate > 0
+                  ? groupVal.amount * (rate / groupVal.rate)
+                  : 0.0;
+
+              final breakdownKey = compTaxRateObj.id;
+              if (breakdown.containsKey(breakdownKey)) {
+                final existing = breakdown[breakdownKey]!;
+                breakdown[breakdownKey] = (
+                  name: existing.name,
+                  rate: existing.rate,
+                  amount: existing.amount + propAmount,
+                );
+              } else {
+                breakdown[breakdownKey] = (
+                  name: compTaxRateObj.taxName,
+                  rate: rate,
+                  amount: propAmount,
+                );
+              }
+            }
+          }
+        } else {
+          final breakdownKey = taxId;
+          if (breakdown.containsKey(breakdownKey)) {
+            final existing = breakdown[breakdownKey]!;
+            breakdown[breakdownKey] = (
+              name: existing.name,
+              rate: existing.rate,
+              amount: existing.amount + groupVal.amount,
+            );
+          } else {
+            breakdown[breakdownKey] = (
+              name: groupVal.name,
+              rate: groupVal.rate,
+              amount: groupVal.amount,
+            );
+          }
+        }
       } else {
-        final rateStr = tax.rate % 1 == 0
-            ? tax.rate.toInt().toString()
-            : tax.rate.toStringAsFixed(1);
-
-        widgets.add(
-          Row(
-            children: [
-              Text(
-                'IGST$rateStr [$rateStr%]',
-                style: const TextStyle(fontSize: 13, color: _labelColor),
-              ),
-              const Spacer(),
-              Text(
-                tax.amount.toStringAsFixed(2),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
+        // Interstate supply -> Map to IGST rate of the same percentage
+        final igstTaxRateObj = itemsState.taxRates.firstWhere(
+          (tr) => (tr.taxType == 'IGST' || tr.taxName.startsWith('IGST')) && tr.taxRate == groupVal.rate,
+          orElse: () => TaxRate(id: '', taxName: 'IGST${groupVal.rate.toInt()}', taxRate: groupVal.rate),
         );
-        widgets.add(const SizedBox(height: 12));
+
+        final breakdownKey = igstTaxRateObj.id.isNotEmpty ? igstTaxRateObj.id : 'IGST_${groupVal.rate}';
+        if (breakdown.containsKey(breakdownKey)) {
+          final existing = breakdown[breakdownKey]!;
+          breakdown[breakdownKey] = (
+            name: existing.name,
+            rate: existing.rate,
+            amount: existing.amount + groupVal.amount,
+          );
+        } else {
+          breakdown[breakdownKey] = (
+            name: igstTaxRateObj.taxName,
+            rate: groupVal.rate,
+            amount: groupVal.amount,
+          );
+        }
       }
+    }
+
+    final widgets = <Widget>[];
+    for (final tax in breakdown.values) {
+      final rateStr = tax.rate % 1 == 0
+          ? tax.rate.toInt().toString()
+          : tax.rate.toStringAsFixed(1);
+
+      widgets.add(
+        Row(
+          children: [
+            Text(
+              '${tax.name} [$rateStr%]',
+              style: const TextStyle(fontSize: 13, color: _labelColor),
+            ),
+            const Spacer(),
+            Text(
+              tax.amount.toStringAsFixed(2),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+      );
+      widgets.add(const SizedBox(height: 8));
     }
     return widgets;
   }
@@ -10706,11 +11080,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             onSelected(selected);
           }
         },
-        suffixIcon: const Icon(
-          Icons.calendar_today_outlined,
-          size: 16,
-          color: _hintColor,
-        ),
       ),
     );
   }

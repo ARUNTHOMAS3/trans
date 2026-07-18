@@ -19,6 +19,8 @@ import 'package:zerpai_erp/shared/widgets/z_currency_display.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
+import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
+import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/lock_record_dialog.dart';
@@ -1181,22 +1183,25 @@ class _SalesInvoiceOverviewScreenState
                 ),
               ),
             ),
-            builder: (context, controller, _) => AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              decoration: BoxDecoration(
-                color: isHovered || controller.isOpen ? Colors.white : Colors.transparent,
-                border: Border.all(
-                  color: isHovered || controller.isOpen ? const Color(0xFFD3D9E3) : Colors.transparent,
-                  width: 1,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: IconButton(
-                icon: const Icon(LucideIcons.moreHorizontal, size: 16, color: Color(0xFF4B5563)),
-                onPressed: () =>
-                    controller.isOpen ? controller.close() : controller.open(),
-                constraints: const BoxConstraints(),
+            builder: (context, controller, _) => GestureDetector(
+              onTap: () =>
+                  controller.isOpen ? controller.close() : controller.open(),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 100),
                 padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isHovered || controller.isOpen ? Colors.white : Colors.transparent,
+                  border: Border.all(
+                    color: isHovered || controller.isOpen ? const Color(0xFFD3D9E3) : Colors.transparent,
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(
+                  LucideIcons.moreHorizontal,
+                  size: 16,
+                  color: Color(0xFF4B5563),
+                ),
               ),
             ),
             menuChildren: [
@@ -1529,10 +1534,8 @@ class _SalesInvoiceOverviewScreenState
         surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
         elevation: const WidgetStatePropertyAll(8),
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(4)),
-          ),
+        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
       ),
       builder: (context, controller, _) => SizedBox(
@@ -1555,18 +1558,21 @@ class _SalesInvoiceOverviewScreenState
             );
           },
           style: ButtonStyle(
+            animationDuration: Duration.zero,
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             backgroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
+              (s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)
                   ? AppTheme.primaryBlue
                   : Colors.transparent,
             ),
             foregroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
+              (s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)
                   ? Colors.white
                   : AppTheme.textSecondary,
             ),
             iconColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
+              (s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)
                   ? Colors.white
                   : AppTheme.textSecondary,
             ),
@@ -1575,8 +1581,10 @@ class _SalesInvoiceOverviewScreenState
             ),
             minimumSize: const WidgetStatePropertyAll(Size(120, 44)),
             alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            shape: WidgetStateProperty.all<OutlinedBorder>(
+              const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
+              ),
             ),
           ),
           leadingIcon: const Icon(LucideIcons.fileText, size: 16),
@@ -1591,18 +1599,21 @@ class _SalesInvoiceOverviewScreenState
             );
           },
           style: ButtonStyle(
+            animationDuration: Duration.zero,
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             backgroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
+              (s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)
                   ? AppTheme.primaryBlue
                   : Colors.transparent,
             ),
             foregroundColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
+              (s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)
                   ? Colors.white
                   : AppTheme.textSecondary,
             ),
             iconColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
+              (s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)
                   ? Colors.white
                   : AppTheme.textSecondary,
             ),
@@ -1611,8 +1622,10 @@ class _SalesInvoiceOverviewScreenState
             ),
             minimumSize: const WidgetStatePropertyAll(Size(120, 44)),
             alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            shape: WidgetStateProperty.all<OutlinedBorder>(
+              const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(4)),
+              ),
             ),
           ),
           leadingIcon: const Icon(LucideIcons.printer, size: 16),
@@ -1770,7 +1783,16 @@ class _SalesInvoiceOverviewScreenState
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: GestureDetector(
-                      onTap: () => ZerpaiToast.success(context, 'Credits applied successfully'),
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: true,
+                          builder: (context) => ApplyCreditsDialog(
+                            invoiceNumber: invoice.saleNumber,
+                            invoiceBalance: 210.0,
+                          ),
+                        );
+                      },
                       child: const Text(
                         'Apply Now',
                         style: TextStyle(
@@ -3864,14 +3886,17 @@ class _SalesInvoiceOverviewScreenState
         menuChildren: [
           MenuItemButton(
             style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
             child: const Text('Export Invoices'),
           ),
           MenuItemButton(
             style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
             child: const Text('Export Current View'),
           ),
           MenuItemButton(
             style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
             child: const Text('Export as E-Way Bill'),
           ),
         ],
@@ -4004,14 +4029,34 @@ class _SalesInvoiceOverviewScreenState
 
   Future<void> _showCustomizeColumnsDialog() async {
     final working = _columnConfigs.map((c) => c.copy()).toList();
-    final result = await showDialog<List<_InvColumnConfig>>(
+    final configs = working.map((c) => ColumnConfig(
+      id: c.key.name,
+      label: c.label,
+      isVisible: c.visible,
+      isLocked: c.locked,
+      orderIndex: working.indexOf(c),
+    )).toList();
+
+    await showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.58),
-      builder: (_) => _InvoiceCustomizeColumnsDialog(columns: working),
+      builder: (dialogContext) => ColumnCustomizerDialog(
+        columns: configs,
+        onSave: (saved) {
+          final List<_InvColumnConfig> newColumns = [];
+          for (final cc in saved) {
+            final originalCol = working.firstWhere((c) => c.key.name == cc.id);
+            originalCol.visible = cc.isVisible;
+            newColumns.add(originalCol);
+          }
+          Navigator.of(dialogContext).pop();
+          setState(() {
+            _columnConfigs = newColumns;
+          });
+          ZerpaiToast.success(context, 'Column preferences saved');
+        },
+      ),
     );
-    if (result == null) return;
-    setState(() => _columnConfigs = result);
-    if (mounted) ZerpaiToast.success(context, 'Column preferences saved');
   }
 
   // ─── CHECKBOX ───────────────────────────────────
@@ -4299,12 +4344,25 @@ class _SalesInvoiceOverviewScreenState
     // Load fonts to draw ₹ symbol and italic styles
     final regularData = await rootBundle.load('assets/fonts/Inter-Regular.ttf');
     final boldData = await rootBundle.load('assets/fonts/Inter-Bold.ttf');
-    final italicData = await rootBundle.load('assets/fonts/Inter-Italic.ttf');
-    final boldItalicData = await rootBundle.load('assets/fonts/Inter-BoldItalic.ttf');
     final regularFont = pw.Font.ttf(regularData);
     final boldFont = pw.Font.ttf(boldData);
-    final italicFont = pw.Font.ttf(italicData);
-    final boldItalicFont = pw.Font.ttf(boldItalicData);
+
+    // Italic fonts may not be bundled as assets; fall back gracefully
+    pw.Font italicFont;
+    pw.Font boldItalicFont;
+    try {
+      final italicData = await rootBundle.load('assets/fonts/Inter-Italic.ttf');
+      italicFont = pw.Font.ttf(italicData);
+    } catch (_) {
+      italicFont = regularFont;
+    }
+    try {
+      final boldItalicData = await rootBundle.load('assets/fonts/Inter-BoldItalic.ttf');
+      boldItalicFont = pw.Font.ttf(boldItalicData);
+    } catch (_) {
+      boldItalicFont = boldFont;
+    }
+
     final pdfTheme = pw.ThemeData.withFont(
       base: regularFont,
       bold: boldFont,
@@ -5124,333 +5182,7 @@ class _Cell extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────
-//  Customize Columns Dialog
-// ─────────────────────────────────────────────────
 
-class _InvoiceCustomizeColumnsDialog extends StatefulWidget {
-  final List<_InvColumnConfig> columns;
-
-  const _InvoiceCustomizeColumnsDialog({required this.columns});
-
-  @override
-  State<_InvoiceCustomizeColumnsDialog> createState() =>
-      _InvoiceCustomizeColumnsDialogState();
-}
-
-class _InvoiceCustomizeColumnsDialogState
-    extends State<_InvoiceCustomizeColumnsDialog> {
-  late final List<_InvColumnConfig> _columns;
-  String _searchQuery = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _columns = widget.columns.map((c) => c.copy()).toList();
-  }
-
-  Widget _buildColumnTile(
-    _InvColumnConfig column, {
-    required Key key,
-    bool showDragHandle = true,
-  }) {
-    return Container(
-      key: key,
-      height: 38,
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 10),
-          if (showDragHandle)
-            ReorderableDragStartListener(
-              index: _columns.indexOf(column),
-              child: const Icon(
-                LucideIcons.gripVertical,
-                size: 14,
-                color: AppTheme.textMuted,
-              ),
-            )
-          else
-            const Icon(
-              LucideIcons.gripVertical,
-              size: 14,
-              color: AppTheme.borderLight,
-            ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 28,
-            child: Center(
-              child: column.locked
-                  ? const Icon(
-                      LucideIcons.lock,
-                      size: 14,
-                      color: AppTheme.textMuted,
-                    )
-                  : SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: Checkbox(
-                        value: column.visible,
-                        onChanged: (v) =>
-                            setState(() => column.visible = v ?? false),
-                        activeColor: AppTheme.primaryBlue,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              column.label,
-              style: AppTheme.bodyText.copyWith(fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filtered = _columns.where((c) {
-      final q = _searchQuery.trim().toLowerCase();
-      return q.isEmpty || c.label.toLowerCase().contains(q);
-    }).toList();
-    final selectedCount = _columns.where((c) => c.visible).length;
-
-    return Dialog(
-      alignment: Alignment.topCenter,
-      backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: SizedBox(
-        width: 520,
-        height: 610,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(18, 16, 14, 14),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: AppTheme.borderLight),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.slidersHorizontal,
-                    size: 18,
-                    color: AppTheme.textBody,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Customize Columns',
-                    style: AppTheme.sectionHeader.copyWith(fontSize: 16),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '$selectedCount of ${_columns.length} Selected',
-                    style: AppTheme.bodyText.copyWith(
-                      fontSize: 13,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.primaryBlue),
-                      ),
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: 16,
-                        color: AppTheme.errorRed,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: Container(
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.borderColor),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 10),
-                    const Icon(
-                      LucideIcons.search,
-                      size: 15,
-                      color: AppTheme.textSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        onChanged: (v) =>
-                            setState(() => _searchQuery = v),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textPrimary,
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'Search',
-                          hintStyle: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textMuted,
-                          ),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          isDense: true,
-                          filled: true,
-                          fillColor: Colors.transparent,
-                          contentPadding:
-                              EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: _searchQuery.trim().isEmpty
-                  ? ReorderableListView.builder(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _columns.length,
-                      onReorder: (oldIndex, newIndex) {
-                        setState(() {
-                          if (newIndex > oldIndex) newIndex -= 1;
-                          final item = _columns.removeAt(oldIndex);
-                          _columns.insert(newIndex, item);
-                        });
-                      },
-                      proxyDecorator: (child, index, animation) {
-                        return Material(
-                          color: Colors.transparent,
-                          child: AnimatedBuilder(
-                            animation: animation,
-                            builder: (context, child) {
-                              return Transform.scale(
-                                scale: 1.02,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius:
-                                        BorderRadius.circular(4),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: child,
-                          ),
-                        );
-                      },
-                      itemBuilder: (context, index) {
-                        final column = _columns[index];
-                        return _buildColumnTile(
-                          column,
-                          key: ValueKey(column.key),
-                        );
-                      },
-                    )
-                  : ListView.separated(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final column = filtered[index];
-                        return _buildColumnTile(
-                          column,
-                          key: ValueKey(column.key),
-                          showDragHandle: false,
-                        );
-                      },
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-              child: Row(
-                children: [
-                  SizedBox(
-                    height: 32,
-                    child: ZButton.primary(
-                      label: 'Save',
-                      onPressed: () =>
-                          Navigator.of(context).pop(_columns),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    height: 32,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(
-                          color: AppTheme.borderLight,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style:
-                            AppTheme.bodyText.copyWith(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────
 //  Invoice Batches & Lot Tracking Section
@@ -5589,6 +5321,9 @@ MenuStyle _menuStyle() {
       Colors.black.withValues(alpha: 0.08),
     ),
     elevation: WidgetStateProperty.all<double>(8),
+    padding: WidgetStateProperty.all<EdgeInsetsGeometry>(
+      EdgeInsets.zero,
+    ),
     shape: WidgetStateProperty.all<RoundedRectangleBorder>(
       RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ),
@@ -6034,6 +5769,398 @@ class _InvoiceBulkUpdateDialogState extends State<_InvoiceBulkUpdateDialog> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class ApplyCreditsDialog extends StatefulWidget {
+  final String invoiceNumber;
+  final double invoiceBalance;
+  
+  const ApplyCreditsDialog({
+    super.key,
+    required this.invoiceNumber,
+    required this.invoiceBalance,
+  });
+
+  @override
+  State<ApplyCreditsDialog> createState() => _ApplyCreditsDialogState();
+}
+
+class _ApplyCreditsDialogState extends State<ApplyCreditsDialog> {
+  bool _setAppliedDate = true;
+  final TextEditingController _amount1Controller = TextEditingController();
+  final TextEditingController _amount2Controller = TextEditingController();
+  
+  double _amount1 = 0.0;
+  double _amount2 = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _amount1Controller.addListener(() {
+      setState(() {
+        _amount1 = double.tryParse(_amount1Controller.text) ?? 0.0;
+      });
+    });
+    _amount2Controller.addListener(() {
+      setState(() {
+        _amount2 = double.tryParse(_amount2Controller.text) ?? 0.0;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _amount1Controller.dispose();
+    _amount2Controller.dispose();
+    super.dispose();
+  }
+
+  double get totalApplied => _amount1 + _amount2;
+  double get remainingBalance => (widget.invoiceBalance - totalApplied).clamp(0.0, widget.invoiceBalance);
+
+  @override
+  Widget build(BuildContext context) {
+    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    final numberFormat = NumberFormat('#,##0.00', 'en_IN');
+
+    return Dialog(
+      alignment: Alignment.topCenter,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+      ),
+      insetPadding: const EdgeInsets.only(top: 0, left: 16, right: 16, bottom: 16),
+      child: Container(
+        width: 1000,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Apply credits to ${widget.invoiceNumber}',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(LucideIcons.x, size: 18, color: Colors.red),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppTheme.borderLight),
+
+            // Top section: Credits to Apply & Switch
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Credits to Apply',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      const Text(
+                        'Set Applied on Date',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(LucideIcons.helpCircle, size: 14, color: AppTheme.textSecondary),
+                      const SizedBox(width: 8),
+                      Switch(
+                        value: _setAppliedDate,
+                        onChanged: (val) => setState(() => _setAppliedDate = val),
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: AppTheme.primaryBlue,
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: Colors.grey.shade300,
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Invoice Balance: ${currencyFormat.format(widget.invoiceBalance)} (16-07-2026)',
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Table of credits
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.borderLight),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Table(
+                  columnWidths: const {
+                    0: FlexColumnWidth(1.8),
+                    1: FlexColumnWidth(1.2),
+                    2: FlexColumnWidth(2.2),
+                    3: FlexColumnWidth(1.2),
+                    4: FlexColumnWidth(1.2),
+                    5: FlexColumnWidth(1.5),
+                    6: FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    // Header Row
+                    TableRow(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          topRight: Radius.circular(4),
+                        ),
+                      ),
+                      children: [
+                        _buildTableHeader('TRANSACTION#'),
+                        _buildTableHeader('TRANSACTION DATE'),
+                        _buildTableHeader('LOCATION'),
+                        _buildTableHeader('CREDIT AMOUNT'),
+                        _buildTableHeader('CREDITS AVAILABLE'),
+                        _buildTableHeader('CREDITS APPLIED DATE'),
+                        _buildTableHeader('CREDITS TO APPLY'),
+                      ],
+                    ),
+                    // Row 1
+                    TableRow(
+                      decoration: const BoxDecoration(
+                        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+                      ),
+                      children: [
+                        _buildTableCell('Excess Payment'),
+                        _buildTableCell('09-06-2026'),
+                        _buildTableCell('ZABNIX PRIVATE LIMITED'),
+                        _buildTableCell('₹100.00'),
+                        _buildTableCell('₹100.00'),
+                        _buildTableCell('16-07-2026'),
+                        _buildTableInputCell(_amount1Controller),
+                      ],
+                    ),
+                    // Row 2
+                    TableRow(
+                      children: [
+                        _buildTableCell('Excess Payment'),
+                        _buildTableCell('16-07-2026'),
+                        _buildTableCell('ZABNIX PRIVATE LIMITED'),
+                        _buildTableCell('₹10,000.00'),
+                        _buildTableCell('₹10,000.00'),
+                        _buildTableCell('16-07-2026'),
+                        _buildTableInputCell(_amount2Controller),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Summary and warning banner
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Alert Banner (Left)
+                  Expanded(
+                    flex: 3,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(LucideIcons.info, size: 14, color: AppTheme.textSecondary),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Note: If there is any tax applied to the advance payment, the tax will be reversed.',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                  // Calculations (Right)
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildSummaryRow('Amount to Credit:', numberFormat.format(totalApplied)),
+                        const SizedBox(height: 8),
+                        _buildSummaryRow('Invoice Balance Due:', numberFormat.format(remainingBalance)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Actions footer
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(totalApplied);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981), // primary green
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    child: const Text('Apply Credits'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.borderLight),
+                      foregroundColor: AppTheme.textSecondary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableHeader(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF4B5563),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          color: AppTheme.textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableInputCell(TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: SizedBox(
+        height: 36,
+        child: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: 'Enter amount',
+            hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+            border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.borderLight)),
+            enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.borderLight)),
+            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF3B82F6), width: 1.5)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 }

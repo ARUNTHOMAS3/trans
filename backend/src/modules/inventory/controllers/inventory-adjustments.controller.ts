@@ -12,6 +12,7 @@ import {
 import { Tenant } from "../../../common/decorators/tenant.decorator";
 import { TenantContext } from "../../../common/middleware/tenant.middleware";
 import {
+  ApproveStockCountDto,
   CreateInventoryAdjustmentDto,
   InventoryAdjustmentsService,
   ListInventoryAdjustmentsQuery,
@@ -122,6 +123,19 @@ export class InventoryAdjustmentsController {
   @Post(":id/approve")
   approve(@Tenant() tenant: TenantContext, @Param("id") id: string) {
     return this.inventoryAdjustmentsService.approve(id, tenant);
+  }
+
+  @Post("stock-counts/:id/approve")
+  approveStockCount(
+    @Tenant() tenant: TenantContext,
+    @Param("id") id: string,
+    @Body() body: ApproveStockCountDto,
+  ) {
+    return this.inventoryAdjustmentsService.approveStockCount(
+      id,
+      body,
+      tenant,
+    );
   }
 
   @Post(":id/reject")

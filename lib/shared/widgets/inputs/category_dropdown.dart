@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 
 /// =======================================================
 /// CATEGORY DATA MODEL
@@ -98,6 +99,18 @@ class CategoryPicker extends StatelessWidget {
   final List<CategoryNode> nodes;
   final String? value;
   final ValueChanged<String?> onChanged;
+  final String? displayString;
+  final Future<List<CategoryNode>> Function(String query)? onSearch;
+
+  // Multi-select fields:
+  final bool multiSelect;
+  final List<String> selectedValues;
+  final ValueChanged<List<String>>? onSelectedValuesChanged;
+  final String? hintText;
+  final double? fieldHeight;
+  final Color? selectedBackgroundColor;
+  final Color? hoverBackgroundColor;
+  final double? rowBorderRadius;
 
   const CategoryPicker({
     super.key,
@@ -106,12 +119,34 @@ class CategoryPicker extends StatelessWidget {
     required this.onChanged,
     this.displayString,
     this.onSearch,
+    this.multiSelect = false,
+    this.selectedValues = const [],
+    this.onSelectedValuesChanged,
+    this.hintText,
+    this.fieldHeight,
+    this.selectedBackgroundColor,
+    this.hoverBackgroundColor,
+    this.rowBorderRadius,
   });
-
-  final String? displayString;
 
   @override
   Widget build(BuildContext context) {
+    if (multiSelect) {
+      final flatNodes = _flatten(nodes);
+      return FormDropdown<String>(
+        value: null,
+        items: flatNodes.map((n) => n.id).toList(),
+        hint: hintText ?? 'Category',
+        onChanged: (_) {},
+        multiSelect: true,
+        selectedValues: selectedValues,
+        onSelectedValuesChanged: onSelectedValuesChanged,
+        displayStringForValue: (id) =>
+            flatNodes.firstWhere((n) => n.id == id, orElse: () => CategoryNode(id: '', name: '')).name,
+        height: fieldHeight,
+      );
+    }
+
     return _BaseCategoryDropdown(
       nodes: nodes,
       value: value,
@@ -123,7 +158,14 @@ class CategoryPicker extends StatelessWidget {
     );
   }
 
-  final Future<List<CategoryNode>> Function(String query)? onSearch;
+  List<CategoryNode> _flatten(List<CategoryNode> treeNodes) {
+    final list = <CategoryNode>[];
+    for (final node in treeNodes) {
+      list.add(node);
+      list.addAll(_flatten(node.children));
+    }
+    return list;
+  }
 }
 
 /// =======================================================

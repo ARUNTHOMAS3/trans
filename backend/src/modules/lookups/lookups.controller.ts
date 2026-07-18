@@ -78,6 +78,7 @@ export class LookupsController {
       "buying-rules": { table: "buying_rules", field: "item_rule" },
       "drug-schedules": { table: "drug_schedules", field: "shedule_name" },
       "tax-rates": { table: "tax_rates", field: "tax_name" },
+      "tax-group-rates": { table: "tax_group_rates", field: "id" },
       "tds-rates": { table: "tds_rates", field: "tax_name" },
       "tds-sections": { table: "tds_sections", field: "section_name" },
       "tcs-rates": { table: "tcs_rates", field: "tax_name" },

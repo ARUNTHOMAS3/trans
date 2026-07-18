@@ -1145,7 +1145,7 @@ class _SalesOrderCreateScreenState
     double st = 0;
     final itemsState = ref.read(itemsControllerProvider);
     final taxRates = [...itemsState.taxGroups, ...itemsState.taxRates];
-    final Map<double, double> localTaxGroups = {};
+    final Map<String, double> localTaxGroups = {};
 
     for (var row in rows) {
       if (row.itemId.isNotEmpty) {
@@ -1172,8 +1172,8 @@ class _SalesOrderCreateScreenState
           }
         }
 
-        if (rowTaxRate > 0) {
-          localTaxGroups[rowTaxRate] = (localTaxGroups[rowTaxRate] ?? 0.0) + rowSubtotal;
+        if (rowTaxRate > 0 && row.taxId != null) {
+          localTaxGroups[row.taxId!] = (localTaxGroups[row.taxId!] ?? 0.0) + rowSubtotal;
         }
       }
     }
@@ -1200,25 +1200,59 @@ class _SalesOrderCreateScreenState
     final List<Map<String, dynamic>> calculatedTaxLines = [];
 
     if (_selectedCustomerId != null && _selectedCustomerId!.isNotEmpty) {
-      localTaxGroups.forEach((rate, taxableAmount) {
+      localTaxGroups.forEach((taxId, taxableAmount) {
+        final taxGroup = taxRates.where((t) => t.id == taxId).firstOrNull;
+        final rate = taxGroup?.taxRate ?? 0.0;
         final totalTaxForRate = taxableAmount * (rate / 100);
         currentTaxTotal += totalTaxForRate;
 
         if (isKerala) {
-          final halfRate = rate / 2;
-          final rateStr = halfRate % 1 == 0 ? halfRate.toInt().toString() : halfRate.toString();
-          calculatedTaxLines.add({
-            'label': 'CGST$rateStr [$rateStr%]',
-            'amount': totalTaxForRate / 2,
-          });
-          calculatedTaxLines.add({
-            'label': 'SGST$rateStr [$rateStr%]',
-            'amount': totalTaxForRate / 2,
-          });
+          final components = itemsState.taxGroupRates
+              .where((r) => r['tax_group_id'] == taxId || r['taxGroupId'] == taxId)
+              .toList();
+
+          if (components.isNotEmpty) {
+            for (final comp in components) {
+              final compTaxId = comp['tax_id'] ?? comp['taxId'];
+              final compTaxRateObj = itemsState.taxRates.firstWhere(
+                (tr) => tr.id == compTaxId,
+                orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
+              );
+
+              if (compTaxRateObj.id.isNotEmpty) {
+                final compRate = compTaxRateObj.taxRate;
+                final propAmount = rate > 0
+                    ? totalTaxForRate * (compRate / rate)
+                    : 0.0;
+
+                final rateStr = compRate % 1 == 0
+                    ? compRate.toInt().toString()
+                    : compRate.toStringAsFixed(1);
+
+                calculatedTaxLines.add({
+                  'label': '${compTaxRateObj.taxName} [$rateStr%]',
+                  'amount': propAmount,
+                });
+              }
+            }
+          } else {
+            final labelName = taxGroup?.taxName ?? 'Tax';
+            final rateStr = rate % 1 == 0 ? rate.toInt().toString() : rate.toString();
+            calculatedTaxLines.add({
+              'label': '$labelName [$rateStr%]',
+              'amount': totalTaxForRate,
+            });
+          }
         } else {
+          // Interstate supply -> Map to IGST rate of the same percentage
+          final igstTaxRateObj = itemsState.taxRates.firstWhere(
+            (tr) => (tr.taxType == 'IGST' || tr.taxName.startsWith('IGST')) && tr.taxRate == rate,
+            orElse: () => TaxRate(id: '', taxName: 'IGST${rate.toInt()}', taxRate: rate),
+          );
+
           final rateStr = rate % 1 == 0 ? rate.toInt().toString() : rate.toString();
           calculatedTaxLines.add({
-            'label': 'IGST$rateStr [$rateStr%]',
+            'label': '${igstTaxRateObj.taxName} [$rateStr%]',
             'amount': totalTaxForRate,
           });
         }
@@ -6047,7 +6081,10 @@ class _SalesOrderCreateScreenState
     bool itemsValid = true;
     bool hsnValid = true;
     bool accountValid = true;
+    bool taxValid = true;
     bool hasItems = false;
+
+    final activeCustomer = _selectedCustomer ?? customerFromList;
 
     for (var row in rows) {
       if (row.itemId.isNotEmpty) {
@@ -6062,6 +6099,11 @@ class _SalesOrderCreateScreenState
         }
         if (row.accountId == null || row.accountId!.isEmpty) {
           accountValid = false;
+        }
+        if (activeCustomer?.gstTreatment == 'Registered Business - Regular') {
+          if (row.taxId == null || row.taxId!.isEmpty) {
+            taxValid = false;
+          }
         }
       }
     }
@@ -6083,6 +6125,10 @@ class _SalesOrderCreateScreenState
     }
     if (!accountValid) {
       ZerpaiToast.error(context, 'Please select an account for all items');
+      return;
+    }
+    if (!taxValid) {
+      ZerpaiToast.error(context, 'Please select a tax rate for all items');
       return;
     }
 

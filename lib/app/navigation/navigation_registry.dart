@@ -103,6 +103,12 @@ class NavigationRegistry {
           createRoute: AppRoutes.moveOrdersCreate,
           permissionKey: 'move_orders',
         ),
+        AppNavItem(
+          label: 'Stock Count',
+          listRoute: AppRoutes.stockCounts,
+          createRoute: AppRoutes.stockCountsCreate,
+          permissionKey: 'stock_count',
+        ),
       ],
     ),
     AppModule(

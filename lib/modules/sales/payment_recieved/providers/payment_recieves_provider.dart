@@ -42,51 +42,11 @@ class PaymentRecievesState {
 class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
   PaymentRecievesNotifier()
       : super(
-          const PaymentRecievesState(
-            records: [
-              PaymentRecord(
-                date: '23-04-2026',
-                paymentNo: 'PR-000097',
-                reference: 'REF-82910',
-                customer: 'STARLEX HEALTH SERVICES & PRODUCTS PVT LTD',
-                invoiceNo: 'INV-2026-001',
-                mode: 'Cash',
-                amount: 15000.0,
-                unusedAmount: 0.0,
-                status: 'PAID',
-                location: 'ZABNIX PRIVATE LIMITED',
-                attachments: [],
-              ),
-              PaymentRecord(
-                date: '19-11-2025',
-                paymentNo: 'PR-000096',
-                reference: 'REF-73821',
-                customer: 'GYANKAAR TECHNOLOGIES PRIVATE LIMITED',
-                invoiceNo: 'INV-2025-084',
-                mode: 'Bank Transfer',
-                amount: 7080.0,
-                unusedAmount: 7080.0,
-                status: 'PAID',
-                location: 'ZABNIX PRIVATE LIMITED',
-                attachments: [],
-              ),
-              PaymentRecord(
-                date: '10-11-2025',
-                paymentNo: 'PR-000095',
-                reference: 'REF-62512',
-                customer: 'FIRST LOGIC META LAB PRIVATE LIMITED',
-                invoiceNo: 'INV-2025-082',
-                mode: 'Cash',
-                amount: 133000.0,
-                unusedAmount: 133000.0,
-                status: 'PAID',
-                location: 'ZABNIX PRIVATE LIMITED',
-                attachments: [],
-              ),
-            ],
+          PaymentRecievesState(
+            records: const [],
             sortField: 'date',
             sortAscending: false,
-            paymentModes: ['Cash', 'Bank Transfer', 'Cheque', 'Credit Card', 'UPI'],
+            paymentModes: const ['Cash', 'Bank Transfer', 'Cheque', 'Credit Card', 'UPI'],
             defaultPaymentMode: 'Cash',
             selectedFilter: FavoriteFilterOption(
               label: 'All Payments',
@@ -219,7 +179,15 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
     state = state.copyWith(records: updatedList);
   }
 
-  void deleteSelected() {
+  Future<void> deleteSelected() async {
+    final toDelete = state.records.where((record) => record.isSelected).toList();
+    for (final r in toDelete) {
+      if (r.id != null) {
+        try {
+          await _api.updatePayment(r.id!, {'is_delete': true});
+        } catch (_) {}
+      }
+    }
     final updatedList = state.records.where((record) => !record.isSelected).toList();
     state = state.copyWith(records: updatedList);
   }
@@ -228,17 +196,29 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
     state = state.copyWith(selectedFilter: filter);
   }
 
-  void voidRecord(String paymentNo) {
+  Future<void> voidRecord(String paymentNo) async {
+    try {
+      final record = state.records.firstWhere((r) => r.paymentNo == paymentNo);
+      if (record.id != null) {
+        await _api.updatePayment(record.id!, {'status': 'void'});
+      }
+    } catch (_) {}
     final updatedList = state.records.map((record) {
       if (record.paymentNo == paymentNo) {
-        return record.copyWith(status: 'VOID');
+        return record.copyWith(status: 'VOIDED');
       }
       return record;
     }).toList();
     state = state.copyWith(records: updatedList);
   }
 
-  void deleteRecord(String paymentNo) {
+  Future<void> deleteRecord(String paymentNo) async {
+    try {
+      final record = state.records.firstWhere((r) => r.paymentNo == paymentNo);
+      if (record.id != null) {
+        await _api.updatePayment(record.id!, {'is_delete': true});
+      }
+    } catch (_) {}
     final updatedList = state.records.where((record) => record.paymentNo != paymentNo).toList();
     state = state.copyWith(records: updatedList);
   }

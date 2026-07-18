@@ -620,6 +620,16 @@ class _PurchasesVendorsVendorCreateScreenState
 
   Future<void> _handleSave() async {
     if (_formKey.currentState!.validate()) {
+      // Validate bank account numbers match
+      for (var r in bankRows) {
+        final accNum = r.accountNumberCtrl.text.trim();
+        final reAccNum = r.reEnterAccountNumberCtrl.text.trim();
+        if (accNum != reAccNum) {
+          ZerpaiToast.error(context, 'bankaccount number does not match');
+          return;
+        }
+      }
+
       setState(() => isLoading = true);
 
       final vendor = Vendor(
@@ -861,10 +871,30 @@ class _PurchasesVendorsVendorCreateScreenState
   @override
   Widget build(BuildContext context) {
     final pageTitle = _isEditMode ? 'Edit Vendor' : 'New Vendor';
+    
+    final dialogActions = widget.isDialog
+        ? [
+            IconButton(
+              icon: const Icon(
+                Icons.close,
+                size: 20,
+                color: AppTheme.textSecondary,
+              ),
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ]
+        : null;
+
     if (_isInitializing) {
       return ZerpaiLayout(
         pageTitle: pageTitle,
         enableBodyScroll: true,
+        showHeaderDivider: widget.isDialog,
+        actions: dialogActions,
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
           child: FormSkeleton(),
@@ -874,6 +904,8 @@ class _PurchasesVendorsVendorCreateScreenState
     return ZerpaiLayout(
       pageTitle: pageTitle,
       enableBodyScroll: true,
+      showHeaderDivider: widget.isDialog,
+      actions: dialogActions,
       footer: _buildFooter(),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),

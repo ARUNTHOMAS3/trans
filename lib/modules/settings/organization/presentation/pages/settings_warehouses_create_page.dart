@@ -963,6 +963,8 @@ class _SettingsWarehouseCreatePageState
               _selectedDistrictId!.trim().isEmpty ||
               _selectedLocalBodyId == null ||
               _selectedLocalBodyId!.trim().isEmpty ||
+              _selectedAssemblyId == null ||
+              _selectedAssemblyId!.trim().isEmpty ||
               _selectedWardId == null ||
               _selectedWardId!.trim().isEmpty);
       if (mainAddressLsgdMissing) {
@@ -1756,7 +1758,11 @@ class _SettingsWarehouseCreatePageState
                                       _AssemblyOption(id: value, name: value),
                                 )
                                 .name,
-                            errorText: null,
+                            errorText: _showValidationErrors &&
+                                    (_selectedAssemblyId == null ||
+                                        _selectedAssemblyId!.trim().isEmpty)
+                                ? 'Assembly is required'
+                                : null,
                             onChanged: (value) =>
                                 setState(() => _selectedAssemblyId = value),
                           ),

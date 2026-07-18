@@ -195,6 +195,18 @@ class LookupsApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getTaxGroupRates() async {
+    try {
+      final response = await _apiClient.get('/products/lookups/tax-group-rates');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getCountries() async {
     try {
       final response = await _apiClient.get('/lookups/countries');

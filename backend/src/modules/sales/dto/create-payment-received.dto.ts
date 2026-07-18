@@ -152,7 +152,7 @@ export class CreatePaymentReceivedDto {
   excess_amount?: number;
 
   @IsOptional()
-  @IsIn(["draft", "paid"])
+  @IsIn(["draft", "paid", "void"])
   status?: string;
 
   @IsOptional()

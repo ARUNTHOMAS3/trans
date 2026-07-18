@@ -126,6 +126,12 @@ import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/invent
 import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/inventory_transfer_orders_create.dart';
 import 'package:zerpai_erp/modules/inventory/move_orders/presentation/inventory_move_orders_list.dart';
 import 'package:zerpai_erp/modules/inventory/move_orders/presentation/inventory_move_orders_create.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_report_page.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_create_page.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/recurring_stock_count_report_page.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_overview_page.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_perform_page.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/models/stock_count_model.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 export 'package:zerpai_erp/core/routing/app_routes.dart';
 
@@ -299,6 +305,7 @@ const List<_RoutePermissionRule> _kRoutePermissionRules = [
   _RoutePermissionRule('/inventory/packages', 'packages'),
   _RoutePermissionRule('/inventory/shipments', 'shipments'),
   _RoutePermissionRule('/inventory/transfer-orders', 'transfer_orders'),
+  _RoutePermissionRule('/inventory/stock-counts', 'stock_count'),
 
   _RoutePermissionRule('/sales/customers', 'customers'),
   _RoutePermissionRule('/sales/quotations', 'quotations'),
@@ -1287,6 +1294,46 @@ final GoRouter appRouter = GoRouter(
               name: AppRoutes.moveOrdersDetail,
               builder: (context, state) =>
                   InventoryMoveOrdersListScreen(id: state.pathParameters['id']),
+            ),
+            GoRoute(
+              path: 'inventory/stock-counts',
+              name: AppRoutes.stockCounts,
+              builder: (context, state) => const StockCountReportPage(),
+            ),
+            GoRoute(
+              path: 'inventory/stock-counts/create',
+              name: AppRoutes.stockCountsCreate,
+              builder: (context, state) {
+                final isRecurring = state.uri.queryParameters['recurring'] == 'true';
+                final editId = state.uri.queryParameters['editId'];
+                final extra = state.extra;
+                return StockCountCreatePage(
+                  editCountId: editId,
+                  startAsRecurring: isRecurring,
+                  initialCount: extra is StockCount ? extra : null,
+                );
+              },
+            ),
+            GoRoute(
+              path: 'inventory/stock-counts/recurring',
+              name: AppRoutes.recurringStockCounts,
+              builder: (context, state) => const RecurringStockCountReportPage(),
+            ),
+            GoRoute(
+              path: 'inventory/stock-counts/:id',
+              name: AppRoutes.stockCountsDetail,
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                return StockCountOverviewPage(countId: id);
+              },
+            ),
+            GoRoute(
+              path: 'inventory/stock-counts/:id/perform',
+              name: AppRoutes.stockCountsPerform,
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                return StockCountPerformPage(countId: id);
+              },
             ),
 
             // Missing Module Placeholders

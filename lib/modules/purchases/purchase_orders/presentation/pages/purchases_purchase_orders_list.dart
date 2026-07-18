@@ -314,22 +314,42 @@ class _PurchaseOrderOverviewScreenState
       },
     );
 
-    double totalReceived = 0.0;
+    final productReceivedQty = <String, double>{};
     for (final r in receives) {
       final itemsList =
           r['purchases_purchase_receive_items'] as List<dynamic>? ??
           r['purchase_receive_items'] as List<dynamic>? ??
           [];
       for (final item in itemsList) {
+        final prodId = (item['item_id'] ?? item['product_id'])?.toString();
+        if (prodId == null) continue;
         final batches = item['purchase_receive_item_batches'] as List<dynamic>? ??
             item['purchases_purchase_receive_item_batches'] as List<dynamic>? ??
             [];
+        double itemQty = 0.0;
         if (batches.isNotEmpty) {
           for (final b in batches) {
-            totalReceived += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+            itemQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
           }
         } else {
-          totalReceived += double.tryParse(item['quantity_to_receive']?.toString() ?? item['received']?.toString() ?? '0.0') ?? 0.0;
+          itemQty += double.tryParse(item['quantity_to_receive']?.toString() ?? item['received']?.toString() ?? '0.0') ?? 0.0;
+        }
+        productReceivedQty[prodId] = (productReceivedQty[prodId] ?? 0.0) + itemQty;
+      }
+    }
+
+    bool isAllReceived = true;
+    if (order.items.isEmpty) {
+      isAllReceived = false;
+    } else {
+      for (final poItem in order.items) {
+        if (poItem.isHeader) continue;
+        final expected = poItem.quantity - poItem.cancelledQuantity;
+        if (expected <= 0) continue;
+        final received = productReceivedQty[poItem.productId] ?? 0.0;
+        if (received < expected - 0.0001) {
+          isAllReceived = false;
+          break;
         }
       }
     }
@@ -343,7 +363,7 @@ class _PurchaseOrderOverviewScreenState
         ? 'Yet to be Received'
         : hasInTransit
         ? 'In Transit'
-        : totalReceived < expectedTotalQuantity
+        : !isAllReceived
         ? 'Partially Received'
         : 'Received';
 
@@ -1860,10 +1880,12 @@ class _PurchaseOrderOverviewScreenState
         menuChildren: [
           MenuItemButton(
             style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
             child: const Text('Export Purchase Orders'),
           ),
           MenuItemButton(
             style: ZTableMoreMenu.menuItemButtonStyle(),
+            onPressed: () {},
             child: const Text('Export Current View'),
           ),
         ],
@@ -7109,7 +7131,11 @@ class _CancelItemsDialogState extends State<_CancelItemsDialog> {
                               flex: 3,
                               child: Text(
                                 item.productName ?? 'Unnamed Item',
-                                style: AppTheme.linkText.copyWith(fontSize: 13),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF1E293B),
+                                  decoration: TextDecoration.none,
+                                ),
                               ),
                             ),
                             Expanded(

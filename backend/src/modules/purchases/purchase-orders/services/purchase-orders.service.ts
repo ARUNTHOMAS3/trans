@@ -157,17 +157,20 @@ export class PurchaseOrdersService {
     // 1. Get PO items to calculate expected quantities
     const { data: allPoItems } = await client
       .from("purchase_order_items")
-      .select("purchase_order_id, quantity, cancelled_quantity, is_header")
+      .select("purchase_order_id, product_id, quantity, cancelled_quantity, is_header")
       .in("purchase_order_id", poIds)
       .eq("entity_id", entityId);
 
-    const poExpectedQtyMap = new Map<string, number>();
+    const poExpectedItemsMap = new Map<string, Array<{ product_id: string; expected: number }>>();
     for (const item of allPoItems ?? []) {
       if (item.is_header) continue;
       const qty = parseFloat(item.quantity?.toString() ?? "0");
       const cancelled = parseFloat(item.cancelled_quantity?.toString() ?? "0");
-      const current = poExpectedQtyMap.get(item.purchase_order_id) ?? 0;
-      poExpectedQtyMap.set(item.purchase_order_id, current + (qty - cancelled));
+      const expected = qty - cancelled;
+      if (expected <= 0) continue;
+      const list = poExpectedItemsMap.get(item.purchase_order_id) ?? [];
+      list.push({ product_id: item.product_id, expected });
+      poExpectedItemsMap.set(item.purchase_order_id, list);
     }
 
     // 2. Get receives and receive items
@@ -192,7 +195,7 @@ export class PurchaseOrdersService {
     if (receiveIds.length > 0) {
       const { data } = await client
         .from("purchase_receive_items")
-        .select("id, purchase_receive_id, received")
+        .select("id, purchase_receive_id, item_id, received")
         .in("purchase_receive_id", receiveIds)
         .eq("entity_id", entityId);
       allReceiveItems = data ?? [];
@@ -216,12 +219,25 @@ export class PurchaseOrdersService {
       batchQtyMap.set(b.purchase_receive_item_id, current + parseFloat(b.quantity?.toString() ?? "0"));
     }
 
-    const receiveQtyMap = new Map<string, number>();
+    const receiveToPoMap = new Map<string, string>();
+    for (const r of allReceives ?? []) {
+      receiveToPoMap.set(r.id, r.purchase_order_id);
+    }
+
+    const poReceivedItemsMap = new Map<string, Map<string, number>>();
     for (const ri of allReceiveItems) {
-      const current = receiveQtyMap.get(ri.purchase_receive_id) ?? 0;
+      const poId = receiveToPoMap.get(ri.purchase_receive_id);
+      if (!poId) continue;
+      
       const batchQty = batchQtyMap.get(ri.id);
       const qty = batchQty !== undefined ? batchQty : parseFloat(ri.received?.toString() ?? "0");
-      receiveQtyMap.set(ri.purchase_receive_id, current + qty);
+      const prodId = ri.item_id;
+      if (!prodId) continue;
+      
+      const orderMap = poReceivedItemsMap.get(poId) ?? new Map<string, number>();
+      const current = orderMap.get(prodId) ?? 0;
+      orderMap.set(prodId, current + qty);
+      poReceivedItemsMap.set(poId, orderMap);
     }
 
     // 3. Get bills and bill items
@@ -261,15 +277,6 @@ export class PurchaseOrdersService {
     }
 
     return rows.map((row) => {
-      const expected = poExpectedQtyMap.get(row.id) ?? 0;
-
-      // Calculate received total
-      let received = 0;
-      const recIds = poToReceiveIdsMap.get(row.id) ?? [];
-      for (const rid of recIds) {
-        received += receiveQtyMap.get(rid) ?? 0;
-      }
-
       // Calculate billed total
       let billed = 0;
       if (row.order_number) {
@@ -281,17 +288,35 @@ export class PurchaseOrdersService {
 
       // Determine statuses
       let receive_status = "none";
-      if (received > 0) {
-        if (received >= expected - 0.0001) {
-          receive_status = "full";
+      const expectedItems = poExpectedItemsMap.get(row.id) ?? [];
+      const receivedMap = poReceivedItemsMap.get(row.id) ?? new Map<string, number>();
+      const recIds = poToReceiveIdsMap.get(row.id) ?? [];
+
+      if (recIds.length > 0) {
+        let isAllReceived = true;
+        if (expectedItems.length === 0) {
+          isAllReceived = false;
         } else {
-          receive_status = "partial";
+          for (const item of expectedItems) {
+            const receivedQty = receivedMap.get(item.product_id) ?? 0;
+            if (receivedQty < item.expected - 0.0001) {
+              isAllReceived = false;
+              break;
+            }
+          }
         }
+        receive_status = isAllReceived ? "full" : "partial";
+      }
+
+      // We still need expected sum for billing status check
+      let expectedSum = 0;
+      for (const item of expectedItems) {
+        expectedSum += item.expected;
       }
 
       let bill_status = "none";
       if (billed > 0) {
-        if (billed >= expected - 0.0001) {
+        if (billed >= expectedSum - 0.0001) {
           bill_status = "full";
         } else {
           bill_status = "partial";

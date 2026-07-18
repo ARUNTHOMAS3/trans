@@ -1,9 +1,14 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:dio/dio.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/document/zerpai_document_view.dart';
@@ -16,6 +21,9 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/models/payment_record.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/providers/payment_recieves_provider.dart';
 import 'refund_page.dart';
+import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
+import 'package:zerpai_erp/core/models/org_settings_model.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 
 class PaymentRecievesOverview extends ConsumerStatefulWidget {
   final String paymentId;
@@ -31,6 +39,7 @@ class PaymentRecievesOverview extends ConsumerStatefulWidget {
 }
 
 class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOverview> {
+  bool _isDisposed = false;
   OverlayEntry? _moreMenuOverlayEntry;
   final LayerLink _moreMenuLayerLink = LayerLink();
   bool _isMoreMenuOpen = false;
@@ -55,6 +64,310 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
   final ScrollController _scrollController = ScrollController();
   String _selectedTemplate = 'Elite Template';
 
+  ButtonStyle _menuItemButtonStyle({double? width, BorderRadius? borderRadius}) {
+    return ButtonStyle(
+      animationDuration: Duration.zero,
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        final highlighted = states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        return highlighted ? AppTheme.primaryBlue : Colors.transparent;
+      }),
+      foregroundColor: WidgetStateProperty.resolveWith((states) {
+        final highlighted = states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        return highlighted ? Colors.white : AppTheme.textSecondary;
+      }),
+      iconColor: WidgetStateProperty.resolveWith((states) {
+        final highlighted = states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused);
+        return highlighted ? Colors.white : AppTheme.textSecondary;
+      }),
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+      minimumSize: WidgetStatePropertyAll(Size(width ?? 0, 44)),
+      alignment: Alignment.centerLeft,
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: borderRadius ?? BorderRadius.zero,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfField(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 150,
+            child: pw.Text(
+              label,
+              style: const pw.TextStyle(
+                fontSize: 10,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontSize: 10,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Uint8List> _generatePaymentReceivedPdf(
+    PaymentRecord r,
+    OrgSettings? org,
+  ) async {
+    final doc = pw.Document();
+
+    pw.MemoryImage? logoImage;
+    if (org?.logoUrl != null && org!.logoUrl!.trim().isNotEmpty) {
+      try {
+        final dio = Dio();
+        final res = await dio.get(
+          org.logoUrl!,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (res.data != null) {
+          logoImage = pw.MemoryImage(Uint8List.fromList(res.data));
+        }
+      } catch (_) {}
+    }
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        build: (pw.Context ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Company Header
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  if (logoImage != null)
+                    pw.Container(
+                      width: 140,
+                      height: 60,
+                      child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                    )
+                  else
+                    pw.Container(
+                      width: 140,
+                      height: 60,
+                      color: const PdfColor.fromInt(0xFF101820),
+                      child: pw.Center(
+                        child: pw.Text(
+                          'LOGO',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  pw.SizedBox(width: 24),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          (org?.name.isNotEmpty == true) ? org!.name : r.location,
+                          style: pw.TextStyle(
+                            fontSize: 18,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          org == null
+                              ? 'PERINTHALMANNA\nMALAPPURAM Kerala 679322\nIndia\nGSTIN 32AACCZ4912F1ZL\n8086355500\nzabnixprivatelimited@gmail.com'
+                              : '${org.attention ?? org.name}\n${org.street ?? ""}${org.street != null ? "\n" : ""}${org.city ?? ""} ${org.pincode ?? ""}\n${org.country ?? ""}\n${org.companyIdLabel ?? "GSTIN"}: ${org.companyIdValue ?? ""}\nPhone: ${org.phone ?? ""}\nEmail: ${org.email ?? ""}',
+                          style: const pw.TextStyle(
+                            fontSize: 10,
+                            color: PdfColors.grey700,
+                            lineSpacing: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 30),
+
+              // Title
+              pw.Text(
+                'PAYMENT RECEIPT',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                  color: const PdfColor.fromInt(0xFF1F2937),
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Divider(height: 1, color: PdfColors.grey300),
+              pw.SizedBox(height: 20),
+
+              // Details & Amount Box
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Table details
+                  pw.Expanded(
+                    flex: 3,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        _buildPdfField('Payment Date', r.date),
+                        _buildPdfField('Reference Number', r.reference.isNotEmpty ? r.reference : '-'),
+                        _buildPdfField('Payment Mode', r.mode),
+                        _buildPdfField('Amount Received In Words', _convertAmountToWords(r.amount)),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(width: 20),
+                  // Amount box
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.all(16),
+                      decoration: pw.BoxDecoration(
+                        color: r.status == 'VOIDED' ? PdfColors.grey500 : const PdfColor.fromInt(0xFF5CB85C),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.Text(
+                            'Amount Received',
+                            style: const pw.TextStyle(
+                              fontSize: 11,
+                              color: PdfColors.white,
+                            ),
+                          ),
+                          pw.SizedBox(height: 6),
+                          pw.Text(
+                            _fmt(r.amount).replaceAll('\u20B9', 'Rs. '),
+                            style: pw.TextStyle(
+                              fontSize: 20,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 40),
+
+              // Bottom Section: Customer & Signature
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    flex: 3,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Received From',
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                        pw.SizedBox(height: 6),
+                        pw.Text(
+                          r.customer,
+                          style: pw.TextStyle(
+                            fontSize: 13,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          _getCustomerAddressLines(r.customer).join('\n'),
+                          style: const pw.TextStyle(
+                            fontSize: 11,
+                            color: PdfColors.grey700,
+                            lineSpacing: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(width: 20),
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Column(
+                      children: [
+                        pw.SizedBox(height: 50),
+                        pw.Container(
+                          height: 1,
+                          color: PdfColors.grey400,
+                        ),
+                        pw.SizedBox(height: 6),
+                        pw.Text(
+                          'Authorized Signature',
+                          style: const pw.TextStyle(
+                            fontSize: 11,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 30),
+
+              // Over payment
+              pw.Divider(height: 1, color: PdfColors.grey300),
+              pw.SizedBox(height: 16),
+              pw.Text(
+                'Over payment',
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.grey600,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                _fmt(r.unusedAmount).replaceAll('\u20B9', 'Rs. '),
+                style: pw.TextStyle(
+                  fontSize: 13,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return doc.save();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +389,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
 
   @override
   void dispose() {
+    _isDisposed = true;
     _scrollController.dispose();
     _closeMoreMenu();
     _closeAttachmentMenu();
@@ -144,7 +458,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
   void _closeMoreMenu() {
     _moreMenuOverlayEntry?.remove();
     _moreMenuOverlayEntry = null;
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         _isMoreMenuOpen = false;
         _activeSubMenu = _SubMenuType.none;
@@ -197,7 +511,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
   void _closeAttachmentMenu() {
     _attachmentOverlayEntry?.remove();
     _attachmentOverlayEntry = null;
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         _isAttachmentOpen = false;
       });
@@ -257,7 +571,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
   void _closePaymentHistoryPanel() {
     _paymentHistoryOverlayEntry?.remove();
     _paymentHistoryOverlayEntry = null;
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         _isPaymentHistoryOpen = false;
       });
@@ -409,6 +723,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
 
   Widget _buildRightHeader(PaymentRecord r) {
     final orgSystemId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
+    final orgSettings = ref.watch(orgSettingsProvider).valueOrNull;
 
     return Container(
       color: Colors.white,
@@ -426,7 +741,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Location: ${r.location.toUpperCase()}',
+                      'Location: ${(r.location.isNotEmpty ? r.location : (orgSettings?.name ?? "ZABNIX PRIVATE LIMITED")).toUpperCase()}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppTheme.textSecondary,
@@ -524,8 +839,9 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
           const Divider(height: 1, color: Color(0xFFE5E7EB)),
           // Row 2: Sub-header Toolbar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            color: const Color(0xFFF3F4F6),
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            color: const Color(0xFFF9FAFB),
             child: Row(
               children: [
                 // Edit Button
@@ -551,7 +867,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
                 _buildToolbarSendDropdownButton(context, orgSystemId),
                 _buildToolbarDivider(),
                 // PDF/Print Dropdown
-                _buildToolbarPdfDropdownButton(context, orgSystemId),
+                _buildToolbarPdfDropdownButton(context, orgSystemId, r),
                 _buildToolbarDivider(),
                 // Apply to Invoices
                 _buildToolbarButton(
@@ -629,129 +945,177 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
   }
 
   Widget _buildToolbarSendDropdownButton(BuildContext context, String orgSystemId) {
-    return PopupMenuButton<String>(
-      tooltip: 'Send Options',
-      offset: const Offset(0, 36),
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      onSelected: (val) {
-        if (val == 'email') {
-          ZerpaiToast.success(context, 'Email sent successfully');
-        } else if (val == 'sms') {
-          ZerpaiToast.success(context, 'SMS sent successfully');
-        }
-      },
-      itemBuilder: (ctx) => [
-        PopupMenuItem<String>(
-          value: 'email',
-          padding: EdgeInsets.zero,
-          height: 36,
-          child: _HoverPopupMenuItemWithIcon(
-            icon: LucideIcons.mail,
-            label: 'Send Email',
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      style: const MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
+        elevation: WidgetStatePropertyAll(8),
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
           ),
         ),
-        PopupMenuItem<String>(
-          value: 'sms',
-          padding: EdgeInsets.zero,
-          height: 36,
-          child: _HoverPopupMenuItemWithIcon(
-            icon: LucideIcons.messageSquare,
-            label: 'Send SMS',
-          ),
+      ),
+      builder: (context, controller, _) => GestureDetector(
+        onTap: () {
+          if (controller.isOpen) {
+            controller.close();
+          } else {
+            controller.open();
+          }
+        },
+        child: const _HoverDropdownChild(
+          icon: LucideIcons.mail,
+          label: 'Send',
+        ),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          onPressed: () {
+            ZerpaiToast.success(context, 'Email sent successfully');
+          },
+          style: _menuItemButtonStyle(borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+          leadingIcon: const Icon(LucideIcons.mail, size: 16),
+          child: const Text('Send Email', style: TextStyle(fontSize: 14)),
+        ),
+        MenuItemButton(
+          onPressed: () {
+            ZerpaiToast.success(context, 'SMS sent successfully');
+          },
+          style: _menuItemButtonStyle(borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4))),
+          leadingIcon: const Icon(LucideIcons.messageSquare, size: 16),
+          child: const Text('Send SMS', style: TextStyle(fontSize: 14)),
         ),
       ],
-      child: const _HoverDropdownChild(
-        icon: LucideIcons.mail,
-        label: 'Send',
-      ),
     );
   }
 
-  Widget _buildToolbarPdfDropdownButton(BuildContext context, String orgSystemId) {
-    return PopupMenuButton<String>(
-      tooltip: 'PDF/Print Options',
-      offset: const Offset(0, 36),
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      onSelected: (val) {
-        if (val == 'pdf') {
-          ZerpaiToast.success(context, 'PDF generated successfully');
-        } else if (val == 'print') {
-          ZerpaiToast.success(context, 'Printing document...');
-        }
-      },
-      itemBuilder: (ctx) => [
-        PopupMenuItem<String>(
-          value: 'pdf',
-          padding: EdgeInsets.zero,
-          height: 36,
-          child: _HoverPopupMenuItemWithIcon(
-            icon: LucideIcons.fileText,
-            label: 'PDF',
+  Widget _buildToolbarPdfDropdownButton(BuildContext context, String orgSystemId, PaymentRecord r) {
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      style: const MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
+        elevation: WidgetStatePropertyAll(8),
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
           ),
         ),
-        PopupMenuItem<String>(
-          value: 'print',
-          padding: EdgeInsets.zero,
-          height: 36,
-          child: _HoverPopupMenuItemWithIcon(
-            icon: LucideIcons.printer,
-            label: 'Print',
+      ),
+      builder: (context, controller, _) => GestureDetector(
+        onTap: () {
+          if (controller.isOpen) {
+            controller.close();
+          } else {
+            controller.open();
+          }
+        },
+        child: const SizedBox(
+          width: 130,
+          child: _HoverDropdownChild(
+            icon: LucideIcons.fileText,
+            label: 'PDF/Print',
           ),
+        ),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          onPressed: () async {
+            final orgSettings = ref.read(orgSettingsProvider).valueOrNull;
+            final bytes = await _generatePaymentReceivedPdf(r, orgSettings);
+            await Printing.sharePdf(
+              bytes: bytes,
+              filename: '${r.paymentNo}.pdf',
+            );
+          },
+          style: _menuItemButtonStyle(width: 130, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+          leadingIcon: const Icon(LucideIcons.fileText, size: 16),
+          child: const Text('PDF', style: TextStyle(fontSize: 14)),
+        ),
+        MenuItemButton(
+          onPressed: () async {
+            final orgSettings = ref.read(orgSettingsProvider).valueOrNull;
+            final bytes = await _generatePaymentReceivedPdf(r, orgSettings);
+            await Printing.layoutPdf(
+              onLayout: (_) async => bytes,
+              name: r.paymentNo,
+            );
+          },
+          style: _menuItemButtonStyle(width: 130, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4))),
+          leadingIcon: const Icon(LucideIcons.printer, size: 16),
+          child: const Text('Print', style: TextStyle(fontSize: 14)),
         ),
       ],
-      child: const _HoverDropdownChild(
-        icon: LucideIcons.fileText,
-        label: 'PDF/Print',
-      ),
     );
   }
 
   Widget _buildToolbarMoreDropdownButton(BuildContext context, String orgSystemId, PaymentRecord r) {
-    return PopupMenuButton<String>(
-      tooltip: 'More Options',
-      offset: const Offset(0, 36),
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      onSelected: (val) {
-        if (val == 'void') {
-          ref.read(paymentRecievesProvider.notifier).voidRecord(r.paymentNo);
-          ZerpaiToast.success(context, 'Payment voided successfully');
-        } else if (val == 'delete') {
-          showDialog<bool>(
-            context: context,
-            builder: (context) => const _DeleteConfirmationDialog(),
-          ).then((confirmed) {
-            if (confirmed == true) {
-              ref.read(paymentRecievesProvider.notifier).deleteRecord(r.paymentNo);
-              ZerpaiToast.deleted(context, 'Payment');
-              context.go('/$orgSystemId/sales/payments-received');
-            }
-          });
-        }
-      },
-      itemBuilder: (ctx) => [
-        PopupMenuItem<String>(
-          value: 'void',
-          padding: EdgeInsets.zero,
-          height: 36,
-          child: _HoverPopupMenuItemWithIcon(
-            icon: LucideIcons.xCircle,
-            label: 'Void',
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      style: const MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
+        elevation: WidgetStatePropertyAll(8),
+        padding: WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
           ),
         ),
-        PopupMenuItem<String>(
-          value: 'delete',
-          padding: EdgeInsets.zero,
-          height: 36,
-          child: _HoverPopupMenuItemWithIcon(
-            icon: LucideIcons.trash2,
-            label: 'Delete',
-          ),
+      ),
+      builder: (context, controller, _) => GestureDetector(
+        onTap: () {
+          if (controller.isOpen) {
+            controller.close();
+          } else {
+            controller.open();
+          }
+        },
+        child: const _HoverMoreButtonChild(),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          onPressed: () {
+            showZerpaiConfirmationDialog(
+              context,
+              title: 'Void Payment',
+              message: 'Are you sure you want to mark payment ${r.paymentNo} as Void?',
+              confirmLabel: 'Void',
+              cancelLabel: 'Cancel',
+              variant: ZerpaiConfirmationVariant.danger,
+            ).then((confirmed) {
+              if (confirmed == true) {
+                ref.read(paymentRecievesProvider.notifier).voidRecord(r.paymentNo);
+                ZerpaiToast.success(context, 'Payment marked as Void');
+              }
+            });
+          },
+          style: _menuItemButtonStyle(borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+          leadingIcon: const Icon(LucideIcons.xCircle, size: 16),
+          child: const Text('Void', style: TextStyle(fontSize: 14)),
+        ),
+        MenuItemButton(
+          onPressed: () {
+            showDialog<bool>(
+              context: context,
+              builder: (context) => _DeleteConfirmationDialog(paymentNo: r.paymentNo),
+            ).then((confirmed) {
+              if (confirmed == true) {
+                ref.read(paymentRecievesProvider.notifier).deleteRecord(r.paymentNo);
+                ZerpaiToast.deleted(context, 'Payment');
+                context.go('/$orgSystemId/sales/payments-received');
+              }
+            });
+          },
+          style: _menuItemButtonStyle(borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4))),
+          leadingIcon: const Icon(LucideIcons.trash2, size: 16),
+          child: const Text('Delete', style: TextStyle(fontSize: 14)),
         ),
       ],
-      child: const _HoverMoreButtonChild(),
     );
   }
 
@@ -759,6 +1123,8 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
     if (r.paymentNo.isEmpty) {
       return const Center(child: Text('No payment selected.'));
     }
+
+    final orgSettings = ref.watch(orgSettingsProvider).valueOrNull;
 
     Color templatePrimaryColor = const Color(0xFF5CB85C); // Green default
     Color customerNameColor = const Color(0xFF2563EB); // Blue default
@@ -854,7 +1220,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
                                 child: ZerpaiDocumentCornerRibbon(
                                   label: r.status == 'VOIDED' ? 'Voided' : 'Paid',
                                   color: r.status == 'VOIDED'
-                                      ? AppTheme.errorRed
+                                      ? AppTheme.textSecondary
                                       : AppTheme.successGreen,
                                 ),
                               ),
@@ -872,8 +1238,26 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
                                       // balanced rather than hugging the top.
                                       crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
-                                        // Logo window on the left
-                                        _buildMatrixLogo(),
+                                        orgSettings?.logoUrl != null && orgSettings!.logoUrl!.isNotEmpty
+                                            ? ClipRRect(
+                                                borderRadius: BorderRadius.circular(4),
+                                                child: Container(
+                                                  width: 140,
+                                                  height: 60,
+                                                  color: Colors.white,
+                                                  alignment: Alignment.center,
+                                                  child: Image.network(
+                                                    orgSettings.logoUrl!,
+                                                    width: 140,
+                                                    height: 60,
+                                                    fit: BoxFit.contain,
+                                                    errorBuilder: (context, error, stackTrace) {
+                                                      return _buildMatrixLogo();
+                                                    },
+                                                  ),
+                                                ),
+                                              )
+                                            : _buildMatrixLogo(),
                                         const SizedBox(width: 24),
                                         // Right: Company Profile Info
                                         Expanded(
@@ -881,7 +1265,7 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                r.location,
+                                                (orgSettings?.name.isNotEmpty == true) ? orgSettings!.name : r.location,
                                                 style: const TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.bold,
@@ -890,9 +1274,11 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
                                                 ),
                                               ),
                                               const SizedBox(height: 8),
-                                              const Text(
-                                                'PERINTHALMANNA\nMALAPPURAM Kerala 679322\nIndia\nGSTIN 32AACCZ4912F1ZL\n8086355500\nzabnixprivatelimited@gmail.com',
-                                                style: TextStyle(
+                                              Text(
+                                                orgSettings == null
+                                                    ? 'PERINTHALMANNA\nMALAPPURAM Kerala 679322\nIndia\nGSTIN 32AACCZ4912F1ZL\n8086355500\nzabnixprivatelimited@gmail.com'
+                                                    : '${orgSettings.attention ?? orgSettings.name}\n${orgSettings.street ?? ""}${orgSettings.street != null ? "\n" : ""}${orgSettings.city ?? ""} ${orgSettings.pincode ?? ""}\n${orgSettings.country ?? ""}\n${orgSettings.companyIdLabel ?? "GSTIN"}: ${orgSettings.companyIdValue ?? ""}\nPhone: ${orgSettings.phone ?? ""}\nEmail: ${orgSettings.email ?? ""}',
+                                                style: const TextStyle(
                                                   fontSize: 13,
                                                   height: 1.5,
                                                   color: AppTheme.textSecondary,
@@ -1729,10 +2115,12 @@ class _PaymentListCardState extends State<_PaymentListCard> {
                     const SizedBox(width: 36),
                     Text(
                       widget.record.status.toUpperCase(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF10B981), // success green
+                        color: widget.record.status == 'VOIDED'
+                            ? AppTheme.textSecondary
+                            : const Color(0xFF10B981),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -2421,7 +2809,8 @@ class _BulkUpdateDialogState extends State<_BulkUpdateDialog> {
 }
 
 class _DeleteConfirmationDialog extends StatelessWidget {
-  const _DeleteConfirmationDialog();
+  final String? paymentNo;
+  const _DeleteConfirmationDialog({this.paymentNo});
 
   @override
   Widget build(BuildContext context) {
@@ -2432,8 +2821,8 @@ class _DeleteConfirmationDialog extends StatelessWidget {
       insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 24),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(12),
-          bottomRight: Radius.circular(12),
+          bottomLeft: Radius.circular(8),
+          bottomRight: Radius.circular(8),
         ),
       ),
       child: Container(
@@ -2444,39 +2833,43 @@ class _DeleteConfirmationDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(
-                      Icons.warning_rounded,
-                      color: Color(0xFFEAB308),
-                      size: 26,
-                    ),
-                    Positioned(
-                      top: -3,
-                      right: -3,
-                      child: const Icon(
-                        Icons.auto_awesome,
-                        color: Color(0xFFEAB308),
-                        size: 11,
-                      ),
-                    ),
-                  ],
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(
+                    LucideIcons.alertTriangle,
+                    color: Color(0xFFEF4444),
+                    size: 16,
+                  ),
                 ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Text(
-                    'Are you sure about deleting the selected Payment(s)?',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF374151),
-                    ),
+                const SizedBox(width: 12),
+                Text(
+                  paymentNo != null ? 'Delete Payment' : 'Delete Payments',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              paymentNo != null
+                  ? 'Are you sure you want to delete payment $paymentNo?'
+                  : 'Are you sure you want to delete the selected Payment(s)?',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -2484,35 +2877,35 @@ class _DeleteConfirmationDialog extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(true),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5CB85C),
+                    backgroundColor: const Color(0xFFDC2626), // red
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(70, 32),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    minimumSize: const Size(70, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
                     elevation: 0,
                   ),
                   child: const Text(
-                    'OK',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    'Delete',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(false),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4B5563),
-                    side: const BorderSide(color: Color(0xFFD1D5DB)),
-                    minimumSize: const Size(70, 32),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    foregroundColor: AppTheme.textSecondary,
+                    side: const BorderSide(color: AppTheme.borderLight),
+                    minimumSize: const Size(70, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                   child: const Text(
                     'Cancel',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -2684,6 +3077,10 @@ class _HoverToolbarButtonState extends State<_HoverToolbarButton> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: _isHovered ? Colors.white : Colors.transparent,
+            border: Border.all(
+              color: _isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+              width: 1,
+            ),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
@@ -2731,10 +3128,15 @@ class _HoverDropdownChildState extends State<_HoverDropdownChild> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: _isHovered ? Colors.white : Colors.transparent,
+          border: Border.all(
+            color: _isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+            width: 1,
+          ),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(widget.icon, size: 14, color: AppTheme.textPrimary),
             const SizedBox(width: 6),
@@ -2776,6 +3178,10 @@ class _HoverMoreButtonChildState extends State<_HoverMoreButtonChild> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: _isHovered ? Colors.white : Colors.transparent,
+          border: Border.all(
+            color: _isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+            width: 1,
+          ),
           borderRadius: BorderRadius.circular(4),
         ),
         child: const Icon(LucideIcons.moreHorizontal, size: 16, color: AppTheme.textSecondary),

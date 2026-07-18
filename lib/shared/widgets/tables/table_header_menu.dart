@@ -29,13 +29,16 @@ class ZTableHeaderMenu extends StatelessWidget {
       height: 28,
       child: MenuAnchor(
         alignmentOffset: alignmentOffset,
-        style: MenuStyle(
-          backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-          surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-          padding: const WidgetStatePropertyAll(EdgeInsets.all(8)),
-          elevation: const WidgetStatePropertyAll(8),
-          shape: const WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+        style: const MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: WidgetStatePropertyAll(Colors.white),
+          padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 6, vertical: 6)),
+          elevation: WidgetStatePropertyAll(8),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+              side: BorderSide(color: AppTheme.borderLight),
+            ),
           ),
         ),
         builder: (context, controller, child) => IconButton(
@@ -50,8 +53,8 @@ class ZTableHeaderMenu extends StatelessWidget {
             child: Row(
               children: const [
                 Icon(LucideIcons.columns, size: 16),
-                SizedBox(width: 12),
-                const Text('Customize Columns', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 12),
+                Text('Customize Columns', style: TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -60,7 +63,11 @@ class ZTableHeaderMenu extends StatelessWidget {
             style: ZTableMoreMenu.menuItemButtonStyle(),
             child: Row(
               children: [
-                const SizedBox(width: 4), // Small offset since icon is removed
+                Icon(
+                  wrapText ? LucideIcons.list : LucideIcons.wrapText,
+                  size: 16,
+                ),
+                const SizedBox(width: 12),
                 Text(wrapText ? 'Clip Text' : 'Wrap Text', style: const TextStyle(fontSize: 13)),
               ],
             ),

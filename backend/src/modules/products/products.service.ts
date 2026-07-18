@@ -1676,8 +1676,7 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("tax_rates")
-      .select("*")
-      .eq("is_active", true);
+      .select("*");
 
     if (error) throw new Error(error.message);
     return data;
@@ -1702,6 +1701,16 @@ export class ProductsService {
       .from("tax_groups")
       .select("*")
       .eq("is_active", true);
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  async getTaxGroupRates() {
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from("tax_group_rates")
+      .select("*");
 
     if (error) throw new Error(error.message);
     return data;
@@ -2244,6 +2253,7 @@ export class ProductsService {
       categories,
       taxRates,
       taxGroups,
+      taxGroupRates,
       manufacturers,
       brands,
       vendors,
@@ -2262,6 +2272,7 @@ export class ProductsService {
       safeLookup("categories", () => this.getCategories()),
       safeLookup("taxRates", () => this.getTaxRates()),
       safeLookup("taxGroups", () => this.getTaxGroups()),
+      safeLookup("taxGroupRates", () => this.getTaxGroupRates()),
       safeLookup("manufacturers", () => this.getManufacturers()),
       safeLookup("brands", () => this.getBrands()),
       safeLookup("vendors", () => this.getVendors()),
@@ -2282,6 +2293,7 @@ export class ProductsService {
       categories,
       taxRates,
       taxGroups,
+      taxGroupRates,
       manufacturers,
       brands,
       vendors,

@@ -163,6 +163,8 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
           'Pin Code',
           isShipping ? _shippingPinCtrl : _billingPinCtrl,
           isShipping: isShipping,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         ),
         _buildAddressField(
           'Phone',
@@ -189,6 +191,8 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
     int maxLines = 1,
     String? dropdownValue,
     ValueChanged<String?>? onDropdownChanged,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -299,6 +303,8 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
                               controller: ctrl!,
                               hintText: hint,
                               maxLines: maxLines,
+                              keyboardType: keyboardType,
+                              inputFormatters: inputFormatters,
                             )),
               ),
             ),

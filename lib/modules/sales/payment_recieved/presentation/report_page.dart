@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
@@ -14,6 +17,8 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/models/payment_record.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/providers/payment_recieves_provider.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/payment_recieved_skeleton.dart';
+import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
+import 'package:zerpai_erp/shared/widgets/z_button.dart';
 
 /// A single column definition carrying id, label, width, and visibility.
 class _ColumnDef {
@@ -49,6 +54,8 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
   _SubMenuType _activeSubMenu = _SubMenuType.none;
 
   bool _isLoading = false;
+  final ScrollController _horizontalScrollController = ScrollController();
+  Map<String, double>? _customColumnWidths;
 
   @override
   void initState() {
@@ -56,6 +63,7 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(paymentRecievesProvider.notifier).loadPayments();
     });
+    _loadColumnSettings();
   }
 
   Future<void> _refreshData() async {
@@ -117,21 +125,10 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
                   onResetWidths: () {
                     _closeMoreMenu();
                     setState(() {
-                      for (var col in _columns) {
-                        if (col.id == 'status') col.width = 100;
-                        if (col.id == 'payment') col.width = 110;
-                        if (col.id == 'date') col.width = 110;
-                        if (col.id == 'reference') col.width = 160;
-                        if (col.id == 'customer') col.width = 220;
-                        if (col.id == 'invoice') col.width = 110;
-                        if (col.id == 'mode') col.width = 110;
-                        if (col.id == 'amount') col.width = 130;
-                        if (col.id == 'unused') col.width = 130;
-                        if (col.id == 'location') col.width = 120;
-                        if (col.id == 'paytype') col.width = 130;
-                      }
+                      _customColumnWidths = null;
                       _showResizedBanner = false;
                     });
+                    _saveColumnSettings();
                   },
                 ),
               ),
@@ -188,10 +185,6 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
 
   int get _selectedCount => _records.where((r) => r.isSelected).length;
 
-  // ── Customize columns overlay ────────────────────────
-  final LayerLink _colsLayerLink = LayerLink();
-  bool _isColsOpen = false;
-  OverlayEntry? _colsOverlay;
   bool _clipText = true;
 
   /// Ordered, sized, visible column definitions.
@@ -205,25 +198,122 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
     _ColumnDef(id: 'mode',      label: 'Mode',             width: 110, visible: true,  isLocked: true),
     _ColumnDef(id: 'amount',    label: 'Amount',           width: 130, visible: true,  isLocked: true),
     _ColumnDef(id: 'unused',    label: 'Unused Amount',    width: 130, visible: true),
-    _ColumnDef(id: 'location',  label: 'Location',         width: 120, visible: true),
+    _ColumnDef(id: 'location',  label: 'Warehouse',        width: 120, visible: true),
     _ColumnDef(id: 'paytype',   label: 'Payment Type',     width: 130, visible: false),
   ];
 
   bool _showResizedBanner = false;
   int? _hoveredRowIndex;
-  int? _hoveredHeaderIndex;
-  bool _hoveringHeaderRow = false;
   bool _hoveringRowsPerPage = false;
   bool _hoveringPrevPage = false;
   bool _hoveringNextPage = false;
 
+  Map<String, double> _calculateColumnWidths(double totalWidth) {
+    const double staticPrefixWidth = 140.0;
 
-  /// Widths of every visible column after a resize.
-  void _onColResize(int colIndex, double delta) {
+    final Map<String, ({double min, double flex})> metrics = {
+      'status': (min: 100.0, flex: 1.0),
+      'payment': (min: 110.0, flex: 1.1),
+      'date': (min: 110.0, flex: 1.1),
+      'reference': (min: 120.0, flex: 1.2),
+      'customer': (min: 180.0, flex: 1.8),
+      'invoice': (min: 110.0, flex: 1.1),
+      'mode': (min: 110.0, flex: 1.1),
+      'amount': (min: 120.0, flex: 1.2),
+      'unused': (min: 120.0, flex: 1.2),
+      'location': (min: 120.0, flex: 1.2),
+      'paytype': (min: 130.0, flex: 1.3),
+    };
+
+    double totalMinWidth = staticPrefixWidth;
+    double totalFlex = 0;
+
+    final visibleCols = _columns.where((c) => c.visible).toList();
+    for (final col in visibleCols) {
+      final colKey = col.id;
+      final m = metrics[colKey] ?? (min: 120.0, flex: 1.0);
+      totalMinWidth += m.min;
+      totalFlex += m.flex;
+    }
+
+    final extraSpace = math.max(0.0, totalWidth - totalMinWidth);
+    final results = <String, double>{};
+    for (final col in visibleCols) {
+      final colKey = col.id;
+      final m = metrics[colKey] ?? (min: 120.0, flex: 1.0);
+      results[colKey] = m.min + (m.flex / totalFlex) * extraSpace;
+    }
+    return results;
+  }
+
+  double _getMinColWidth(String key) {
+    switch (key) {
+      case 'status': return 80.0;
+      case 'payment': return 100.0;
+      case 'date': return 80.0;
+      case 'reference': return 110.0;
+      case 'customer': return 140.0;
+      case 'invoice': return 100.0;
+      case 'mode': return 80.0;
+      case 'amount': return 90.0;
+      case 'unused': return 140.0;
+      case 'location': return 120.0;
+      case 'paytype': return 130.0;
+      default: return 80.0;
+    }
+  }
+
+  void _resizeColumn(String key, double dx) {
     setState(() {
-      _columns[colIndex].width = (_columns[colIndex].width + delta).clamp(50.0, 600.0);
-      _showResizedBanner = true;
+      if (_customColumnWidths == null) {
+        _customColumnWidths = _calculateColumnWidths(
+          context.size?.width ?? 1200,
+        );
+      }
+      final current = _customColumnWidths![key] ?? 120.0;
+      final minW = _getMinColWidth(key);
+      _customColumnWidths![key] = (current + dx).clamp(minW, 1000.0);
     });
+    _saveColumnSettings();
+  }
+
+  Future<void> _loadColumnSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final widthsJson = prefs.getString('payment_received_column_widths');
+      if (widthsJson != null) {
+        final Map<String, dynamic> decoded = jsonDecode(widthsJson);
+        setState(() {
+          _customColumnWidths = decoded.map(
+            (key, value) => MapEntry(key, (value as num).toDouble()),
+          );
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading column settings: $e');
+    }
+  }
+
+  Future<void> _saveColumnSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_customColumnWidths == null) {
+        await prefs.remove('payment_received_column_widths');
+      } else {
+        await prefs.setString(
+          'payment_received_column_widths',
+          jsonEncode(_customColumnWidths),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving column settings: $e');
+    }
+  }
+
+  TextAlign _columnAlign(String colId) {
+    if (colId == 'status') return TextAlign.center;
+    if (colId == 'amount' || colId == 'unused') return TextAlign.right;
+    return TextAlign.left;
   }
 
   String _fmt(double v) {
@@ -255,76 +345,7 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
 
   bool _isLink(_ColumnDef col) => col.id == 'payment' || col.id == 'customer';
 
-  void _openColsOverlay() {
-    if (_colsOverlay != null) return;
-    final overlay = Overlay.of(context);
-    _colsOverlay = OverlayEntry(builder: (ctx) {
-      return Stack(children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: _closeColsOverlay,
-            child: const SizedBox.expand(),
-          ),
-        ),
-        CompositedTransformFollower(
-          link: _colsLayerLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, 26),
-          child: Material(
-            elevation: 0,
-            color: Colors.transparent,
-            child: StatefulBuilder(builder: (ctx2, setInner) {
-              return Container(
-                width: 220,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Customize Columns row
-                    _ColsMenuItem(
-                      icon: LucideIcons.sliders,
-                      label: 'Customize Columns',
-                      onTap: () {
-                        _closeColsOverlay();
-                        _showCustomizeColumnsDialog();
-                      },
-                    ),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                    // ── Clip Text toggle row
-                    _ColsMenuToggleItem(
-                      icon: LucideIcons.alignLeft,
-                      label: _clipText ? 'Clip Text' : 'Wrap Text',
-                      value: false,
-                      onChanged: (v) {
-                        _closeColsOverlay();
-                        setState(() {
-                          _clipText = !_clipText;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ),
-      ]);
-    });
-    overlay.insert(_colsOverlay!);
-    setState(() => _isColsOpen = true);
-  }
 
-  void _closeColsOverlay() {
-    _colsOverlay?.remove();
-    _colsOverlay = null;
-    setState(() => _isColsOpen = false);
-  }
 
   void _showCustomizeColumnsDialog() {
     // Convert _ColumnDef list → ColumnConfig list for the shared dialog
@@ -409,77 +430,34 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
   // ── Resizable column header cell (draggable reordering removed) ───────────
   Widget _buildHeader(
     _ColumnDef col,
-    int globalIdx,
-    int visibleIdx,
-    int totalVisible,
-    double scaledWidth,
+    double width,
   ) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hoveredHeaderIndex = visibleIdx),
-      onExit: (_) => setState(() => _hoveredHeaderIndex = null),
-      child: Container(
-        width: scaledWidth,
-        height: 42,
-        color: Colors.transparent,
-        child: Stack(
+    final align = _columnAlign(col.id);
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Row(
+          mainAxisAlignment: align == TextAlign.center
+              ? MainAxisAlignment.center
+              : (align == TextAlign.right ? MainAxisAlignment.end : MainAxisAlignment.start),
           children: [
-            // Column label + sort indicator
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 6, right: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          col.label.toUpperCase(),
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ),
-                      if (_isSortable(col.id)) ...[
-                        const SizedBox(width: 4),
-                        _buildSortIcon(col.id),
-                      ],
-                    ],
-                  ),
+            Flexible(
+              child: Text(
+                col.label.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            // Resize handle — right edge
-            Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.resizeColumn,
-                child: GestureDetector(
-                  onHorizontalDragUpdate: (d) => _onColResize(globalIdx, d.delta.dx),
-                  child: Container(
-                    width: 8,
-                    color: Colors.transparent,
-                    child: Center(
-                      child: Container(
-                        width: 2,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: (_hoveringHeaderRow && _hoveredHeaderIndex == visibleIdx)
-                              ? const Color(0xFFCBD5E1)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            if (_isSortable(col.id)) ...[
+              const SizedBox(width: 4),
+              _buildSortIcon(col.id),
+            ],
           ],
         ),
       ),
@@ -514,6 +492,7 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
       pageTitle: '',
       enableBodyScroll: false,
       useHorizontalPadding: false,
+      useTopPadding: false,
       child: Container(
         color: Colors.white,
         child: Column(
@@ -604,76 +583,71 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
               )
             else
               // Normal Top Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              Container(
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+                ),
                 child: Row(
                   children: [
-                    FavoriteFilterDropdown(
-                      moduleName: 'payment_recieves',
-                      options: const [
-                        FavoriteFilterOption(
-                          label: 'All Payments',
-                          value: 'all_payments',
-                        ),
-                      ],
-                      selectedOption: _selectedFilter,
-                      onChanged: (opt) {
-                        setState(() {
-                          ref.read(paymentRecievesProvider.notifier).updateFilter(opt);
-                        });
-                      },
+                    Padding(
+                      padding: const EdgeInsets.only(left: 20),
+                      child: FavoriteFilterDropdown(
+                        moduleName: 'payment_recieves',
+                        options: const [
+                          FavoriteFilterOption(
+                            label: 'All Payments',
+                            value: 'all_payments',
+                          ),
+                        ],
+                        selectedOption: _selectedFilter,
+                        onChanged: (opt) {
+                          setState(() {
+                            ref.read(paymentRecievesProvider.notifier).updateFilter(opt);
+                          });
+                        },
+                      ),
                     ),
                     const Spacer(),
-                    ElevatedButton(
+                    ZButton.primary(
                       onPressed: () {
                         final orgId = GoRouterState.of(context)
                             .pathParameters['orgSystemId'] ?? '6000000000';
                         context.go('/$orgId/sales/payments-received/create');
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        minimumSize: const Size(0, 36),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4.0),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, size: 16, color: Colors.white),
-                          SizedBox(width: 4),
-                          Text(
-                            'New',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
+                      icon: LucideIcons.plus,
+                      label: 'New',
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 4),
                     CompositedTransformTarget(
                       link: _moreMenuLayerLink,
-                      child: IconButton(
-                        onPressed: () {
-                          if (_isMoreMenuOpen) {
-                            _closeMoreMenu();
-                          } else {
-                            _showMoreMenu();
-                          }
-                        },
-                        icon: Icon(
-                          LucideIcons.moreHorizontal,
-                          size: 20,
-                          color: _isMoreMenuOpen ? const Color(0xFF2563EB) : AppTheme.textSecondary,
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: _isMoreMenuOpen ? const Color(0xFF2563EB) : AppTheme.borderLight),
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        splashRadius: 20,
+                        child: IconButton(
+                          onPressed: () {
+                            if (_isMoreMenuOpen) {
+                              _closeMoreMenu();
+                            } else {
+                              _showMoreMenu();
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            LucideIcons.moreHorizontal,
+                            size: 16,
+                            color: _isMoreMenuOpen ? const Color(0xFF2563EB) : AppTheme.textSecondary,
+                          ),
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 24),
                   ],
                 ),
               ),
@@ -682,189 +656,184 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
             Expanded(
               child: LayoutBuilder(
                 builder: (ctx, constraints) {
-                  final screenW = constraints.maxWidth;
                   final visibleCols = _columns.where((c) => c.visible).toList();
-                  final colsTotalW = visibleCols.fold(0.0, (s, c) => s + c.width);
-                  final offsetW = 8 + 14 + 8 + 36 + 8 + 38; // Sliders, checkbox, spacer, padding
-                  final minTableW = colsTotalW + offsetW;
+                  final columnWidths = _customColumnWidths ?? _calculateColumnWidths(constraints.maxWidth);
+                  const double actualPrefixWidth = 102.0; // ZTableHeaderMenu placeholder/spacing
+                  final double totalColumnsWidth = columnWidths.values.fold(
+                    0.0,
+                    (sum, w) => sum + w,
+                  );
+                  final screenWidth = math.max(
+                    constraints.maxWidth,
+                    totalColumnsWidth + actualPrefixWidth,
+                  );
 
-                  final bool shouldStretch = screenW > minTableW;
-                  final double scale = shouldStretch ? (screenW - offsetW) / colsTotalW : 1.0;
-                  final double tableW = shouldStretch ? screenW : minTableW;
-
-                  Widget tableContent = SizedBox(
-                    width: tableW,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // ── Draggable Table Header ─────────────────────────
-                        MouseRegion(
-                          onEnter: (_) => setState(() => _hoveringHeaderRow = true),
-                          onExit: (_) => setState(() {
-                            _hoveringHeaderRow = false;
-                            _hoveredHeaderIndex = null;
-                          }),
-                          child: Container(
-                            height: 42,
-                            color: const Color(0xFFF9FAFB),
-                            child: Row(
+                  return Stack(
+                    children: [
+                      Scrollbar(
+                        controller: _horizontalScrollController,
+                        thumbVisibility: screenWidth > constraints.maxWidth,
+                        trackVisibility: screenWidth > constraints.maxWidth,
+                        child: SingleChildScrollView(
+                          controller: _horizontalScrollController,
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: screenWidth,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Sliders icon
-                                const SizedBox(width: 8),
-                                CompositedTransformTarget(
-                                  link: _colsLayerLink,
-                                  child: MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: GestureDetector(
-                                      onTap: () => _isColsOpen ? _closeColsOverlay() : _openColsOverlay(),
-                                      child: Icon(
-                                        LucideIcons.sliders,
-                                        size: 14,
-                                        color: const Color(0xFF2563EB),
+                                // ── Table Header ─────────────────────────
+                                Container(
+                                  height: 36,
+                                  color: const Color(0xFFF9FAFB),
+                                  child: Row(
+                                    children: [
+                                      const SizedBox(width: 8),
+                                      ZTableHeaderMenu(
+                                        wrapText: !_clipText,
+                                        onWrapChange: (v) => setState(() => _clipText = !v),
+                                        onCustomize: _showCustomizeColumnsDialog,
                                       ),
-                                    ),
+                                      const SizedBox(width: 12),
+                                      // Select-all checkbox
+                                      SizedBox(
+                                        width: 36,
+                                        child: Checkbox(
+                                          value: _allSelected,
+                                          onChanged: _toggleSelectAll,
+                                          activeColor: AppTheme.primaryBlue,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // ── Data columns (resizable) ──────
+                                      ...visibleCols.map((col) {
+                                        final w = columnWidths[col.id] ?? col.width;
+                                        return _ResizableHeaderCell(
+                                          width: w,
+                                          onResize: (dx) => _resizeColumn(col.id, dx),
+                                          child: _buildHeader(col, w),
+                                        );
+                                      }),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                // Select-all checkbox
-                                SizedBox(
-                                  width: 36,
-                                  child: Checkbox(
-                                    value: _allSelected,
-                                    onChanged: _toggleSelectAll,
-                                    activeColor: AppTheme.primaryBlue,
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // ── Data columns (resizable) ──────
-                                ...List.generate(visibleCols.length, (vi) {
-                                  final col = visibleCols[vi];
-                                  final globalIdx = _columns.indexOf(col);
-                                  return _buildHeader(col, globalIdx, vi, visibleCols.length, col.width * scale);
-                                }),
-                                // Search icon pin
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                  child: Icon(
-                                    LucideIcons.search,
-                                    size: 14,
-                                    color: AppTheme.textSecondary.withAlpha(200),
+                                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                                // ── Data Rows ──────────────────────────────────────
+                                Expanded(
+                                  child: ListView.builder(
+                                    padding: EdgeInsets.zero,
+                                    itemCount: paginatedRecords.length,
+                                    itemBuilder: (context, index) {
+                                      final record = paginatedRecords[index];
+                                      final isHovered = _hoveredRowIndex == index;
+                                      return MouseRegion(
+                                        onEnter: (_) => setState(() => _hoveredRowIndex = index),
+                                        onExit: (_) => setState(() => _hoveredRowIndex = null),
+                                        child: Container(
+                                          height: _clipText ? 44 : null,
+                                          constraints: _clipText ? null : const BoxConstraints(minHeight: 44),
+                                          decoration: BoxDecoration(
+                                            color: record.isSelected
+                                                ? const Color(0xFFF8FAFF)
+                                                : (isHovered ? const Color(0xFFF0F4FF) : Colors.white),
+                                            border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const SizedBox(width: 8),
+                                              const SizedBox(width: 28), // Placeholder to match ZTableHeaderMenu
+                                              const SizedBox(width: 12),
+                                              SizedBox(
+                                                width: 36,
+                                                child: Checkbox(
+                                                  value: record.isSelected,
+                                                  onChanged: (v) => _toggleRecordSelect(startIndex + index, v),
+                                                  activeColor: AppTheme.primaryBlue,
+                                                  visualDensity: VisualDensity.compact,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: GestureDetector(
+                                                  behavior: HitTestBehavior.opaque,
+                                                  onTap: () {
+                                                    final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
+                                                    context.go('/$orgId/sales/payments-received/${record.paymentNo}');
+                                                  },
+                                                  child: Row(
+                                                    children: [
+                                                      ...visibleCols.map((col) {
+                                                        final val = _cellValue(col, record);
+                                                        final isLink = _isLink(col);
+                                                        final isPayment = col.id == 'payment';
+                                                        final w = columnWidths[col.id] ?? col.width;
+                                                        final align = _columnAlign(col.id);
+
+                                                        return SizedBox(
+                                                          width: w,
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                            child: Align(
+                                                              alignment: align == TextAlign.center
+                                                                  ? Alignment.center
+                                                                  : (align == TextAlign.right
+                                                                      ? Alignment.centerRight
+                                                                      : Alignment.centerLeft),
+                                                              child: isPayment
+                                                                  ? Row(
+                                                                      mainAxisSize: MainAxisSize.min,
+                                                                      children: [
+                                                                        Text(
+                                                                          val,
+                                                                          style: const TextStyle(
+                                                                            fontSize: 13,
+                                                                            color: AppTheme.primaryBlue,
+                                                                            fontWeight: FontWeight.w500,
+                                                                          ),
+                                                                        ),
+                                                                        const SizedBox(width: 4),
+                                                                        Icon(
+                                                                          LucideIcons.copy,
+                                                                          size: 12,
+                                                                          color: AppTheme.textSecondary.withAlpha(150),
+                                                                        ),
+                                                                      ],
+                                                                    )
+                                                                  : Text(
+                                                                      val,
+                                                                      overflow: _clipText ? TextOverflow.ellipsis : TextOverflow.visible,
+                                                                      maxLines: _clipText ? 1 : null,
+                                                                      softWrap: !_clipText,
+                                                                      style: TextStyle(
+                                                                        fontSize: 13,
+                                                                        color: col.id == 'status'
+                                                                            ? const Color(0xFF10B981)
+                                                                            : (isLink ? AppTheme.primaryBlue : AppTheme.textPrimary),
+                                                                        fontWeight: col.id == 'amount' || col.id == 'unused' || col.id == 'status'
+                                                                            ? FontWeight.w500
+                                                                            : FontWeight.normal,
+                                                                      ),
+                                                                    ),
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                        // ── Data Rows ──────────────────────────────────────
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: paginatedRecords.length,
-                          itemBuilder: (context, index) {
-                            final record = paginatedRecords[index];
-                            final isHovered = _hoveredRowIndex == index;
-                            return MouseRegion(
-                              onEnter: (_) => setState(() => _hoveredRowIndex = index),
-                              onExit: (_) => setState(() => _hoveredRowIndex = null),
-                              child: Container(
-                                height: _clipText ? 44 : null,
-                                constraints: _clipText ? null : const BoxConstraints(minHeight: 44),
-                                padding: EdgeInsets.symmetric(vertical: _clipText ? 0 : 8),
-                                decoration: BoxDecoration(
-                                  color: record.isSelected
-                                      ? const Color(0xFFF8FAFF)
-                                      : (isHovered ? const Color(0xFFF0F4FF) : Colors.white),
-                                  border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const SizedBox(width: 8),
-                                    const SizedBox(width: 14),
-                                    const SizedBox(width: 8),
-                                    SizedBox(
-                                      width: 36,
-                                      child: Checkbox(
-                                        value: record.isSelected,
-                                        onChanged: (v) => _toggleRecordSelect(startIndex + index, v),
-                                        activeColor: AppTheme.primaryBlue,
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () {
-                                          final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
-                                          context.go('/$orgId/sales/payments-received/${record.paymentNo}');
-                                        },
-                                        child: Row(
-                                          children: [
-                                            ...visibleCols.map((col) {
-                                              final val = _cellValue(col, record);
-                                              final isLink = _isLink(col);
-                                              final isPayment = col.id == 'payment';
-                                              return SizedBox(
-                                                width: col.width * scale,
-                                                child: Padding(
-                                                  padding: const EdgeInsets.only(left: 6, right: 10),
-                                                  child: isPayment
-                                                      ? Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            Text(
-                                                              val,
-                                                              style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue, fontWeight: FontWeight.w500),
-                                                            ),
-                                                            const SizedBox(width: 4),
-                                                            Icon(LucideIcons.copy, size: 12, color: AppTheme.textSecondary.withAlpha(150)),
-                                                          ],
-                                                        )
-                                                      : Text(
-                                                          val,
-                                                          overflow: _clipText ? TextOverflow.ellipsis : TextOverflow.visible,
-                                                          maxLines: _clipText ? 1 : null,
-                                                          softWrap: !_clipText,
-                                                          style: TextStyle(
-                                                            fontSize: 13,
-                                                            color: col.id == 'status'
-                                                                ? const Color(0xFF10B981)
-                                                                : (col.id == 'location'
-                                                                    ? const Color(0xFFD97706)
-                                                                    : (isLink ? AppTheme.primaryBlue : AppTheme.textPrimary)),
-                                                            fontWeight: col.id == 'amount' || col.id == 'unused' || col.id == 'status' ? FontWeight.w500 : FontWeight.normal,
-                                                          ),
-                                                        ),
-                                                ),
-                                              );
-                                            }),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 38),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-
-                        ),
-                      ],
-                    ),
-                  );
-
-                  return Stack(
-                    children: [
-                      SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: shouldStretch
-                            ? tableContent
-                            : SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: tableContent,
-                              ),
                       ),
                       if (_isLoading)
                         const Positioned.fill(
@@ -2121,6 +2090,60 @@ class _HoverPopupMenuItemState extends State<_HoverPopupMenuItem> {
             fontSize: 13,
             color: _isHovered ? Colors.white : const Color(0xFF374151),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResizableHeaderCell extends StatefulWidget {
+  final double width;
+  final Widget child;
+  final ValueChanged<double> onResize;
+
+  const _ResizableHeaderCell({
+    required this.width,
+    required this.child,
+    required this.onResize,
+  });
+
+  @override
+  State<_ResizableHeaderCell> createState() => _ResizableHeaderCellState();
+}
+
+class _ResizableHeaderCellState extends State<_ResizableHeaderCell> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: SizedBox(
+        width: widget.width,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            widget.child,
+            Positioned(
+              right: -5,
+              top: 0,
+              bottom: 0,
+              width: 10,
+              child: GestureDetector(
+                onHorizontalDragUpdate: (details) =>
+                    widget.onResize(details.delta.dx),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.resizeLeftRight,
+                  child: Container(
+                    color: _isHovering
+                        ? AppTheme.primaryBlue.withAlpha(51)
+                        : Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

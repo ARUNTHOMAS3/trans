@@ -69,6 +69,13 @@ class FormDropdown<T> extends StatefulWidget {
   final TextStyle? textStyle;
   final TextAlign textAlign;
 
+  final bool compactMultiSelectSummary;
+  final String? compactMultiSelectLabel;
+  final double? compactMultiSelectLabelYOffset;
+  final String? multiSelectAllValue;
+  final bool alwaysShowClear;
+  final bool showClearDivider;
+
   const FormDropdown({
     super.key,
     required this.value,
@@ -121,6 +128,12 @@ class FormDropdown<T> extends StatefulWidget {
     this.textStyle,
     this.textAlign = TextAlign.start,
     this.forceDownward = false,
+    this.compactMultiSelectSummary = false,
+    this.compactMultiSelectLabel,
+    this.compactMultiSelectLabelYOffset,
+    this.multiSelectAllValue,
+    this.alwaysShowClear = false,
+    this.showClearDivider = false,
   });
 
   @override

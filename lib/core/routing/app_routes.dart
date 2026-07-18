@@ -227,6 +227,11 @@ class AppRoutes {
   static const String moveOrders = '/inventory/move-orders';
   static const String moveOrdersCreate = '/inventory/move-orders/create';
   static const String moveOrdersDetail = '/inventory/move-orders/:id';
+  static const String stockCounts = '/inventory/stock-counts';
+  static const String stockCountsCreate = '/inventory/stock-counts/create';
+  static const String stockCountsPerform = '/inventory/stock-counts/:id/perform';
+  static const String stockCountsDetail = '/inventory/stock-counts/:id';
+  static const String recurringStockCounts = '/inventory/stock-counts/recurring';
 
   // Items utility routes
   static const String itemGroups = '/items/item-groups';

@@ -142,6 +142,7 @@ class ItemsState {
   final List<Map<String, dynamic>> categories;
   final List<TaxRate> taxRates;
   final List<TaxRate> taxGroups;
+  final List<Map<String, dynamic>> taxGroupRates;
   final List<Map<String, dynamic>> manufacturers;
   final List<Map<String, dynamic>> brands;
   final List<Map<String, dynamic>> reps;
@@ -187,6 +188,7 @@ class ItemsState {
     this.categories = const [],
     this.taxRates = const [],
     this.taxGroups = const [],
+    this.taxGroupRates = const [],
     this.manufacturers = const [],
     this.brands = const [],
     this.reps = const [],
@@ -227,6 +229,7 @@ class ItemsState {
     List<Map<String, dynamic>>? categories,
     List<TaxRate>? taxRates,
     List<TaxRate>? taxGroups,
+    List<Map<String, dynamic>>? taxGroupRates,
     List<Map<String, dynamic>>? manufacturers,
     List<Map<String, dynamic>>? brands,
     List<Map<String, dynamic>>? reps,
@@ -270,6 +273,7 @@ class ItemsState {
       categories: categories ?? this.categories,
       taxRates: taxRates ?? this.taxRates,
       taxGroups: taxGroups ?? this.taxGroups,
+      taxGroupRates: taxGroupRates ?? this.taxGroupRates,
       manufacturers: manufacturers ?? this.manufacturers,
       brands: brands ?? this.brands,
       reps: reps ?? this.reps,

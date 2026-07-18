@@ -806,7 +806,7 @@ class _SalesInvoiceCreateScreenState
                                   const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 8),
                                     child: Text(
-                                      'LOCATION',
+                                      'WAREHOUSE',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -849,12 +849,12 @@ class _SalesInvoiceCreateScreenState
                                 final isChecked = selectedOrders.contains(
                                   order,
                                 );
-                                final locationStr =
-                                    order.customer?.companyName ??
-                                    order.customer?.displayName ??
-                                    _selectedCustomer?.companyName ??
-                                    _selectedCustomer?.displayName ??
-                                    '—';
+                                final warehouseList = ref.read(warehousesProvider).value ?? <Warehouse>[];
+                                final matchedWarehouse = warehouseList.firstWhere(
+                                  (w) => w.id == order.warehouseId,
+                                  orElse: () => Warehouse(id: '', name: '—'),
+                                );
+                                final locationStr = matchedWarehouse.name;
                                 final amountFormatter =
                                     intl.NumberFormat.currency(
                                       locale: 'en_IN',
@@ -2035,10 +2035,10 @@ class _SalesInvoiceCreateScreenState
   void _calculateTotals() {
     double st = 0;
     double currentTaxTotal = 0;
-    final Map<double, double> localTaxGroups = {};
+    final Map<String, double> localTaxGroups = {};
 
     final itemsState = ref.read(itemsControllerProvider);
-    final taxRates = itemsState.taxGroups;
+    final taxRates = [...itemsState.taxGroups, ...itemsState.taxRates];
 
     for (var row in rows) {
       if (row.itemId.isNotEmpty) {
@@ -2065,8 +2065,8 @@ class _SalesInvoiceCreateScreenState
           }
         }
 
-        if (rowTaxRate > 0) {
-          localTaxGroups[rowTaxRate] = (localTaxGroups[rowTaxRate] ?? 0.0) + rowSubtotal;
+        if (rowTaxRate > 0 && row.taxId != null) {
+          localTaxGroups[row.taxId!] = (localTaxGroups[row.taxId!] ?? 0.0) + rowSubtotal;
         }
       }
     }
@@ -2088,26 +2088,63 @@ class _SalesInvoiceCreateScreenState
     final isKerala = pos.contains('[kl]') || pos.contains('kerala');
     final List<Map<String, dynamic>> calculatedTaxLines = [];
 
-    localTaxGroups.forEach((rate, taxableAmount) {
+    localTaxGroups.forEach((taxId, taxableAmount) {
+      final taxGroup = taxRates.where((t) => t.id == taxId).firstOrNull;
+      final rate = taxGroup?.taxRate ?? 0.0;
       final totalTaxForRate = taxableAmount * (rate / 100);
       currentTaxTotal += totalTaxForRate;
 
       if (isKerala) {
-        final halfRate = rate / 2;
-        final rateStr = halfRate % 1 == 0 ? halfRate.toInt().toString() : halfRate.toString();
-        calculatedTaxLines.add({
-          'label': 'CGST$rateStr [$rateStr%]',
-          'amount': totalTaxForRate / 2,
-        });
-        calculatedTaxLines.add({
-          'label': 'SGST$rateStr [$rateStr%]',
-          'amount': totalTaxForRate / 2,
-        });
+        final components = itemsState.taxGroupRates
+            .where((r) => r['tax_group_id'] == taxId || r['taxGroupId'] == taxId)
+            .toList();
+
+        if (components.isNotEmpty) {
+          for (final comp in components) {
+            final compTaxId = comp['tax_id'] ?? comp['taxId'];
+            final compTaxRateObj = itemsState.taxRates.firstWhere(
+              (tr) => tr.id == compTaxId,
+              orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
+            );
+
+            if (compTaxRateObj.id.isNotEmpty) {
+              final compRate = compTaxRateObj.taxRate;
+              final propAmount = rate > 0
+                  ? totalTaxForRate * (compRate / rate)
+                  : 0.0;
+
+              final rateStr = compRate % 1 == 0
+                  ? compRate.toInt().toString()
+                  : compRate.toStringAsFixed(1);
+
+              calculatedTaxLines.add({
+                'label': '${compTaxRateObj.taxName} [$rateStr%]',
+                'amount': propAmount,
+                'tax_id': compTaxRateObj.id,
+              });
+            }
+          }
+        } else {
+          final labelName = taxGroup?.taxName ?? 'Tax';
+          final rateStr = rate % 1 == 0 ? rate.toInt().toString() : rate.toString();
+          calculatedTaxLines.add({
+            'label': '$labelName [$rateStr%]',
+            'amount': totalTaxForRate,
+            'tax_id': taxId,
+          });
+        }
       } else {
+        // Interstate supply -> Map to IGST rate of the same percentage
+        final igstTaxRateObj = itemsState.taxRates.firstWhere(
+          (tr) => (tr.taxType == 'IGST' || tr.taxName.startsWith('IGST')) && tr.taxRate == rate,
+          orElse: () => TaxRate(id: '', taxName: 'IGST${rate.toInt()}', taxRate: rate),
+        );
+
         final rateStr = rate % 1 == 0 ? rate.toInt().toString() : rate.toString();
         calculatedTaxLines.add({
-          'label': 'IGST$rateStr [$rateStr%]',
+          'label': '${igstTaxRateObj.taxName} [$rateStr%]',
           'amount': totalTaxForRate,
+          'tax_id': igstTaxRateObj.id.isNotEmpty ? igstTaxRateObj.id : taxId,
         });
       }
     });
@@ -7108,6 +7145,15 @@ class _SalesInvoiceCreateScreenState
           'Please select account for item: ${row.item?.productName ?? "selected item"}',
         );
         return;
+      }
+      if (_selectedCustomer?.gstTreatment == 'Registered Business - Regular') {
+        if (row.taxId == null || row.taxId!.isEmpty) {
+          ZerpaiToast.error(
+            context,
+            'Please select tax rate for item: ${row.item?.productName ?? "selected item"}',
+          );
+          return;
+        }
       }
       if (!row.hasBatchData || row.batchDataList.isEmpty) {
         ZerpaiToast.error(

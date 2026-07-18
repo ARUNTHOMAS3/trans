@@ -51,6 +51,7 @@ export class PaymentsReceivedService {
       tax_amount: dto.tax_amount ?? 0,
       excess_amount: dto.excess_amount ?? 0,
       status,
+      is_delete: false,
       notes: dto.notes ?? null,
       created_by: tenant.userId || null,
       created_at: nowIso,
@@ -242,12 +243,22 @@ export class PaymentsReceivedService {
     const entityId = this.ensureEntityId(tenant);
 
     // Ensure the row exists and belongs to this tenant before updating.
-    await this.findOne(id, tenant);
+    const existing = await this.findOne(id, tenant);
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     const assign = (key: string, value: unknown) => {
       if (value !== undefined) updates[key] = value;
     };
+
+    if (dto.is_delete === true) {
+      updates.is_delete = true;
+      const currentNum = (existing as any).payment_number || "";
+      if (currentNum && !currentNum.startsWith("SD-")) {
+        updates.payment_number = `SD-${currentNum}`;
+      }
+    } else {
+      assign("is_delete", dto.is_delete);
+    }
 
     assign("customer_id", dto.customer_id);
     assign("payment_number", dto.payment_number);
@@ -351,6 +362,7 @@ export class PaymentsReceivedService {
       .from("payments_received")
       .select("*", { count: "exact" })
       .eq("entity_id", entityId)
+      .eq("is_delete", false)
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -372,7 +384,8 @@ export class PaymentsReceivedService {
       );
     }
 
-    const enriched = await this.attachCustomers(client, data ?? []);
+    const enrichedWithCustomers = await this.attachCustomers(client, data ?? []);
+    const enriched = await this.attachLocations(client, enrichedWithCustomers);
 
     return {
       data: enriched,
@@ -423,6 +436,54 @@ export class PaymentsReceivedService {
     }));
   }
 
+  /// Attaches a resolved warehouse/location display name to each row as `location_name`.
+  private async attachLocations(
+    client: ReturnType<SupabaseService["getClient"]>,
+    rows: Array<{ location_id?: string | null; entity_id?: string | null }>,
+  ): Promise<Array<Record<string, unknown>>> {
+    if (!rows.length) return rows as Array<Record<string, unknown>>;
+
+    const entityId = rows[0].entity_id;
+    let defaultWarehouseName: string | null = null;
+    if (entityId) {
+      const { data: wh } = await client
+        .from("warehouses")
+        .select("name")
+        .eq("entity_id", entityId)
+        .limit(1);
+      if (wh && wh.length > 0) {
+        defaultWarehouseName = wh[0].name;
+      }
+    }
+
+    const locationIds = Array.from(
+      new Set(
+        rows
+          .map((row) => row.location_id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    );
+
+    const nameById = new Map<string, string>();
+    if (locationIds.length > 0) {
+      const { data: warehouses } = await client
+        .from("warehouses")
+        .select("id, name")
+        .in("id", locationIds);
+
+      for (const w of warehouses ?? []) {
+        if (w.id) nameById.set(w.id, w.name || "");
+      }
+    }
+
+    return rows.map((row) => ({
+      ...row,
+      location_name: row.location_id
+        ? nameById.get(row.location_id) ?? defaultWarehouseName
+        : defaultWarehouseName,
+    }));
+  }
+
   async findOne(id: string, tenant: TenantContext) {
     const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
@@ -449,7 +510,9 @@ export class PaymentsReceivedService {
       .eq("payment_received_id", id)
       .eq("entity_id", entityId);
 
-    return { ...data, allocations: allocations ?? [] };
+    const enriched = await this.attachLocations(client, [data]);
+
+    return { ...enriched[0], allocations: allocations ?? [] };
   }
 
   /// Returns the distinct customers that appear in `invoice_master` for the
