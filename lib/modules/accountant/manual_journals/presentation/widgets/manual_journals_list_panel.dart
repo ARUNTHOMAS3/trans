@@ -319,7 +319,11 @@ class _ManualJournalsListPanelState
                   ignoreContainers: true,
                   enabled: true,
                   child: widget.compact
-                      ? _buildCompactBody(state, ManualJournal.dummyList(5), notifier)
+                      ? _buildCompactBody(
+                          state,
+                          ManualJournal.dummyList(5),
+                          notifier,
+                        )
                       : _buildTableBody(
                           state,
                           ManualJournal.dummyList(10),

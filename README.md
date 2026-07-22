@@ -358,21 +358,30 @@ npm run start:dev      # http://localhost:3001
 
 ```bash
 flutter pub get
-cp .env.example .env   # fill in API_BASE_URL + Supabase keys
-flutter run -d chrome
+pwsh -File .\scripts\run-web.ps1
 ```
+
+The launcher reads local `backend/.env` first, then `.env.local`, `.env`, and
+`assets/.env` as fallbacks. It forwards only the browser-safe public values
+required by Flutter Web, so developers do not retype `--dart-define` flags.
 
 ---
 
 ## Environment Variables
 
-### Frontend (`.env`)
+### Frontend build-time configuration
 
 ```env
 API_BASE_URL=http://localhost:3001
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_anon_key
 ```
+
+Flutter Web does not bundle or load `.env` files. Pass public client
+configuration at build time; `scripts/run-web.ps1` reads ignored local
+configuration and supplies the same defines without printing their values.
+Never pass service-role keys, database passwords, JWT secrets, or private API
+keys to the frontend.
 
 ### Backend (`backend/.env`)
 
@@ -416,7 +425,9 @@ npm test            # run tests
 ### Frontend
 
 ```bash
-flutter run -d chrome   # web dev
+pwsh -File .\scripts\run-web.ps1   # web dev on localhost:53431; reads ignored backend/.env first
+# Optional alternate port:
+pwsh -File .\scripts\run-web.ps1 -WebPort 53432
 flutter build web       # production web build
 flutter build apk       # Android APK
 flutter test            # run tests

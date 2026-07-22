@@ -127,10 +127,7 @@ class _SalesRecurringInvoiceCreateScreenState
             _row([
               _labeledField(
                 'Profile Name',
-                CustomTextField(
-                  controller: profileNameCtrl,
-                  height: 36,
-                ),
+                CustomTextField(controller: profileNameCtrl, height: 36),
               ),
             ]),
             const SizedBox(height: 16),
@@ -159,7 +156,10 @@ class _SalesRecurringInvoiceCreateScreenState
                   value: frequency,
                   height: 32,
                   items: const ['Weekly', 'Monthly', 'Yearly'],
-                  onChanged: (v) => setState(() => frequency = v!),
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() => frequency = v);
+                  },
                 ),
               ),
               _labeledField(
@@ -235,7 +235,10 @@ class _SalesRecurringInvoiceCreateScreenState
                         displayStringForValue: (id) => productList
                             .firstWhere((p) => p.id == id)
                             .productName,
-                        onChanged: (v) => setState(() => row.itemId = v!),
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() => row.itemId = v);
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),

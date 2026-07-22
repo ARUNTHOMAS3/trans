@@ -29,7 +29,7 @@ import 'package:zerpai_erp/shared/widgets/dialogs/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/warehouse_change_confirm_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/buttons/z_split_action_menu_button.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared;
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
@@ -1206,8 +1206,7 @@ class _InventoryAdjustmentsCreateScreenState
       context.go(returnTo);
       return;
     }
-    final orgId =
-        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
     context.go('/$orgId/inventory/adjustments');
   }
 
@@ -4763,9 +4762,8 @@ class _InventoryAdjustmentsCreateScreenState
                                                             final updated = await repo
                                                                 .updateAdjustmentReason(
                                                                   reason.id,
-                                                                  isActive:
-                                                                      !reason
-                                                                          .isActive,
+                                                                  isActive: !reason
+                                                                      .isActive,
                                                                 );
                                                             if (!mounted) {
                                                               return;
@@ -4829,9 +4827,10 @@ class _InventoryAdjustmentsCreateScreenState
                                                               return;
                                                             }
                                                             setState(() {
-                                                              _reasonOptions.removeAt(
-                                                                index,
-                                                              );
+                                                              _reasonOptions
+                                                                  .removeAt(
+                                                                    index,
+                                                                  );
                                                               if (_selectedReason ==
                                                                   reason.name) {
                                                                 _selectedReason =
@@ -6446,4 +6445,3 @@ final _adjBinLookupProvider = FutureProvider.family<List<BinLookup>, String>((
       .where((row) => row.id.isNotEmpty && row.code.isNotEmpty)
       .toList(growable: false);
 });
-

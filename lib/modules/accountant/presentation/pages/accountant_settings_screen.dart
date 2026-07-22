@@ -107,7 +107,10 @@ class _AccountantSettingsScreenState
                   child: FormDropdown<String>(
                     value: _baseCurrency,
                     items: const ['INR', 'USD', 'EUR', 'GBP'],
-                    onChanged: (v) => setState(() => _baseCurrency = v!),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() => _baseCurrency = v);
+                    },
                   ),
                 ),
               ],
@@ -124,7 +127,10 @@ class _AccountantSettingsScreenState
                   child: FormDropdown<String>(
                     value: _roundingType,
                     items: const ['Normal Rounding', 'Round Up', 'Round Down'],
-                    onChanged: (v) => setState(() => _roundingType = v!),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() => _roundingType = v);
+                    },
                   ),
                 ),
                 SwitchListTile(
@@ -199,4 +205,3 @@ class _AccountantSettingsScreenState
     );
   }
 }
-

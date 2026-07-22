@@ -14,11 +14,15 @@ class BranchPriceListService {
     return await _repository.getBranchPriceList(id);
   }
 
-  Future<BranchPriceList> createBranchPriceList(BranchPriceList priceList) async {
+  Future<BranchPriceList> createBranchPriceList(
+    BranchPriceList priceList,
+  ) async {
     return await _repository.createBranchPriceList(priceList);
   }
 
-  Future<BranchPriceList> updateBranchPriceList(BranchPriceList priceList) async {
+  Future<BranchPriceList> updateBranchPriceList(
+    BranchPriceList priceList,
+  ) async {
     return await _repository.updateBranchPriceList(priceList);
   }
 
@@ -35,13 +39,14 @@ class BranchPriceListService {
     if (priceList.name.isEmpty) {
       return false;
     }
-    
+
     if (priceList.pricingScheme.isEmpty) {
       return false;
     }
-    
+
     // Additional validation based on pricing scheme
-    if (priceList.pricingScheme == 'markup' || priceList.pricingScheme == 'markdown') {
+    if (priceList.pricingScheme == 'markup' ||
+        priceList.pricingScheme == 'markdown') {
       try {
         final String safeDetails = priceList.details ?? '';
         final value = double.tryParse(safeDetails.replaceAll('%', ''));
@@ -52,14 +57,7 @@ class BranchPriceListService {
         return false;
       }
     }
-    
+
     return true;
   }
 }
-
-
-
-
-
-
-

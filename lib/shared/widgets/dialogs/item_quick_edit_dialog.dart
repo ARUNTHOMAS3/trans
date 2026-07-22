@@ -42,8 +42,7 @@ class ItemQuickEditDialog extends ConsumerStatefulWidget {
       _ItemQuickEditDialogState();
 }
 
-class _ItemQuickEditDialogState
-    extends ConsumerState<ItemQuickEditDialog> {
+class _ItemQuickEditDialogState extends ConsumerState<ItemQuickEditDialog> {
   final _formKey = GlobalKey<FormState>();
   bool isSaving = false;
 
@@ -139,7 +138,7 @@ class _ItemQuickEditDialogState
     selectedCategoryId = item.categoryId;
     isReturnable = item.isReturnable;
     pushToEcommerce = item.pushToEcommerce;
-    
+
     if (item.type == 'service') {
       sacCtrl = TextEditingController(text: item.hsnCode ?? '');
       hsnCtrl = TextEditingController();
@@ -147,29 +146,37 @@ class _ItemQuickEditDialogState
       hsnCtrl = TextEditingController(text: item.hsnCode ?? '');
       sacCtrl = TextEditingController();
     }
-    
+
     taxPreference = item.taxPreference == 'taxable'
         ? 'Taxable'
         : item.taxPreference == 'exempt'
-            ? 'Tax Exempt'
-            : 'Non-Taxable';
-            
+        ? 'Tax Exempt'
+        : 'Non-Taxable';
+
     intraStateTaxId = item.intraStateTaxId;
     interStateTaxId = item.interStateTaxId;
 
-    sellingPriceCtrl = TextEditingController(text: item.sellingPrice?.toString() ?? '');
+    sellingPriceCtrl = TextEditingController(
+      text: item.sellingPrice?.toString() ?? '',
+    );
     salesCurrency = item.sellingPriceCurrency;
     mrpCtrl = TextEditingController(text: item.mrp?.toString() ?? '');
     ptrCtrl = TextEditingController(text: item.ptr?.toString() ?? '');
     salesAccountId = item.salesAccountId;
-    salesDescriptionCtrl = TextEditingController(text: item.salesDescription ?? '');
+    salesDescriptionCtrl = TextEditingController(
+      text: item.salesDescription ?? '',
+    );
 
-    costPriceCtrl = TextEditingController(text: item.costPrice?.toString() ?? '');
+    costPriceCtrl = TextEditingController(
+      text: item.costPrice?.toString() ?? '',
+    );
     purchaseCurrency = item.costPriceCurrency;
     purchaseAccountId = item.purchaseAccountId;
     repId = item.repId;
     preferredVendorId = item.preferredVendorId;
-    purchaseDescriptionCtrl = TextEditingController(text: item.purchaseDescription ?? '');
+    purchaseDescriptionCtrl = TextEditingController(
+      text: item.purchaseDescription ?? '',
+    );
 
     dimXCtrl = TextEditingController(text: item.length?.toString() ?? '');
     dimYCtrl = TextEditingController(text: item.width?.toString() ?? '');
@@ -191,15 +198,19 @@ class _ItemQuickEditDialogState
     trackingMode = item.trackSerialNumber
         ? InventoryTrackingMode.serialNumbers
         : item.trackBatches
-            ? InventoryTrackingMode.batches
-            : InventoryTrackingMode.none;
-            
+        ? InventoryTrackingMode.batches
+        : InventoryTrackingMode.none;
+
     inventoryAccountId = item.inventoryAccountId;
     valuationMethod = item.inventoryValuationMethod ?? 'FIFO';
     storageId = item.storageId;
     rackId = item.rackId;
-    reorderPointCtrl = TextEditingController(text: item.reorderPoint.toString());
-    lockUnitPackCtrl = TextEditingController(text: item.lockUnitPack?.toString() ?? '');
+    reorderPointCtrl = TextEditingController(
+      text: item.reorderPoint.toString(),
+    );
+    lockUnitPackCtrl = TextEditingController(
+      text: item.lockUnitPack?.toString() ?? '',
+    );
     reorderTermsId = item.reorderTermId;
 
     compositions = item.compositions ?? [];
@@ -207,12 +218,16 @@ class _ItemQuickEditDialogState
     buyingRuleId = item.buyingRuleId;
     scheduleOfDrugId = item.scheduleOfDrugId;
 
-    storageDescCtrl = TextEditingController(text: item.storageDescription ?? '');
+    storageDescCtrl = TextEditingController(
+      text: item.storageDescription ?? '',
+    );
     aboutCtrl = TextEditingController(text: item.about ?? '');
     usesDescCtrl = TextEditingController(text: item.usesDescription ?? '');
     howToUseCtrl = TextEditingController(text: item.howToUse ?? '');
     dosageDescCtrl = TextEditingController(text: item.dosageDescription ?? '');
-    missedDoseDescCtrl = TextEditingController(text: item.missedDoseDescription ?? '');
+    missedDoseDescCtrl = TextEditingController(
+      text: item.missedDoseDescription ?? '',
+    );
     safetyAdviceCtrl = TextEditingController(text: item.safetyAdvice ?? '');
 
     if (item.sideEffects != null) {
@@ -281,7 +296,12 @@ class _ItemQuickEditDialogState
 
     return Dialog(
       backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.only(top: 0, left: 40, right: 40, bottom: 24),
+      insetPadding: const EdgeInsets.only(
+        top: 0,
+        left: 40,
+        right: 40,
+        bottom: 24,
+      ),
       alignment: Alignment.topCenter,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Container(
@@ -340,7 +360,11 @@ class _ItemQuickEditDialogState
         children: [
           const Text(
             'Edit Item Full Details',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.close, color: AppTheme.textMuted),
@@ -392,7 +416,8 @@ class _ItemQuickEditDialogState
                   onChanged: (v) {
                     setState(() {
                       isGoods = false;
-                      if (selectedUnitId == null && itemsState.units.isNotEmpty) {
+                      if (selectedUnitId == null &&
+                          itemsState.units.isNotEmpty) {
                         selectedUnitId = itemsState.units.first.id;
                       }
                     });
@@ -448,7 +473,10 @@ class _ItemQuickEditDialogState
               compact: true,
               child: FormDropdown<String>(
                 value: selectedUnitId,
-                items: itemsState.units.where((u) => u.isActive).map((u) => u.id).toList(),
+                items: itemsState.units
+                    .where((u) => u.isActive)
+                    .map((u) => u.id)
+                    .toList(),
                 hint: "Select Unit",
                 onChanged: (v) => setState(() => selectedUnitId = v),
                 displayStringForValue: (id) {
@@ -464,7 +492,9 @@ class _ItemQuickEditDialogState
               required: true,
               compact: true,
               child: CategoryDropdown(
-                nodes: CategoryNode.fromFlatList(itemsState.categories.cast<Map<String, dynamic>>()),
+                nodes: CategoryNode.fromFlatList(
+                  itemsState.categories.cast<Map<String, dynamic>>(),
+                ),
                 value: selectedCategoryId,
                 displayString: itemsState.lookupCache[selectedCategoryId],
                 onChanged: (v) => setState(() => selectedCategoryId = v),
@@ -472,7 +502,9 @@ class _ItemQuickEditDialogState
                   final results = await ref
                       .read(itemsControllerProvider.notifier)
                       .searchCategories(q);
-                  return CategoryNode.fromFlatList(results.cast<Map<String, dynamic>>());
+                  return CategoryNode.fromFlatList(
+                    results.cast<Map<String, dynamic>>(),
+                  );
                 },
               ),
             ),
@@ -499,7 +531,10 @@ class _ItemQuickEditDialogState
                 value: taxPreference,
                 items: _taxPreferenceOptions,
                 hint: "Select Tax Preference",
-                onChanged: (v) => setState(() => taxPreference = v!),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => taxPreference = v);
+                },
               ),
             ),
             SharedFieldLayout(
@@ -517,7 +552,8 @@ class _ItemQuickEditDialogState
                   _InlineCheckbox(
                     label: "Push To Ecommerce",
                     value: pushToEcommerce,
-                    onChanged: (v) => setState(() => pushToEcommerce = v ?? false),
+                    onChanged: (v) =>
+                        setState(() => pushToEcommerce = v ?? false),
                   ),
                 ],
               ),
@@ -549,7 +585,10 @@ class _ItemQuickEditDialogState
               compact: true,
               child: FormDropdown<String>(
                 value: selectedUnitId,
-                items: itemsState.units.where((u) => u.isActive).map((u) => u.id).toList(),
+                items: itemsState.units
+                    .where((u) => u.isActive)
+                    .map((u) => u.id)
+                    .toList(),
                 hint: "Select Unit",
                 onChanged: (v) => setState(() => selectedUnitId = v),
                 displayStringForValue: (id) {
@@ -583,7 +622,10 @@ class _ItemQuickEditDialogState
                 value: taxPreference,
                 items: _taxPreferenceOptions,
                 hint: "Select Tax Preference",
-                onChanged: (v) => setState(() => taxPreference = v!),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => taxPreference = v);
+                },
               ),
             ),
           ],
@@ -612,7 +654,9 @@ class _ItemQuickEditDialogState
         children: [
           Container(
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1)),
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderColor, width: 1),
+              ),
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -663,10 +707,12 @@ class _ItemQuickEditDialogState
                       initialRows: compositions,
                       onChanged: (v) => setState(() => compositions = v),
                       initialBuyingRule: buyingRuleId,
-                      onBuyingRuleChanged: (v) => setState(() => buyingRuleId = v),
+                      onBuyingRuleChanged: (v) =>
+                          setState(() => buyingRuleId = v),
                       buyingRuleOptions: itemsState.buyingRules,
                       initialDrugSchedule: scheduleOfDrugId,
-                      onDrugScheduleChanged: (v) => setState(() => scheduleOfDrugId = v),
+                      onDrugScheduleChanged: (v) =>
+                          setState(() => scheduleOfDrugId = v),
                       drugScheduleOptions: itemsState.drugSchedules,
                       initialProductType: productTypeId,
                       onProductTypeChanged: (v) =>
@@ -676,7 +722,8 @@ class _ItemQuickEditDialogState
                       strengthOptions: itemsState.strengths,
                       lookupCache: itemsState.lookupCache,
                       initialTrackActiveIngredients: trackAssocIngredients,
-                      onTrackActiveIngredientsChanged: (v) => setState(() => trackAssocIngredients = v),
+                      onTrackActiveIngredientsChanged: (v) =>
+                          setState(() => trackAssocIngredients = v),
                     )
                   else if (selectedTab == ItemTab.formulation)
                     FormulationSection(
@@ -684,12 +731,15 @@ class _ItemQuickEditDialogState
                       dimYCtrl: dimYCtrl,
                       dimZCtrl: dimZCtrl,
                       dimUnit: dimUnit,
-                      onDimUnitChange: (v) => setState(() => dimUnit = v ?? 'cm'),
+                      onDimUnitChange: (v) =>
+                          setState(() => dimUnit = v ?? 'cm'),
                       weightCtrl: weightCtrl,
                       weightUnit: weightUnit,
-                      onWeightUnitChange: (v) => setState(() => weightUnit = v ?? 'kg'),
+                      onWeightUnitChange: (v) =>
+                          setState(() => weightUnit = v ?? 'kg'),
                       manufacturer: manufacturerId,
-                      onManufacturerChange: (v) => setState(() => manufacturerId = v),
+                      onManufacturerChange: (v) =>
+                          setState(() => manufacturerId = v),
                       manufacturerOptions: itemsState.manufacturers,
                       brand: brandId,
                       onBrandChange: (v) => setState(() => brandId = v),
@@ -704,11 +754,10 @@ class _ItemQuickEditDialogState
                           : lockUnitPackCtrl.text.trim(),
                       onLockUnitPackChanged: (v) {
                         final text = v?.trim() ?? '';
-                        final match = RegExp(r'\(([^()]+)\)\s*$').firstMatch(
-                          text,
-                        );
-                        lockUnitPackCtrl.text =
-                            match?.group(1)?.trim() ?? text;
+                        final match = RegExp(
+                          r'\(([^()]+)\)\s*$',
+                        ).firstMatch(text);
+                        lockUnitPackCtrl.text = match?.group(1)?.trim() ?? text;
                       },
                       lockUnitPackCtrl: lockUnitPackCtrl,
                       upcCtrl: upcCtrl,
@@ -727,9 +776,11 @@ class _ItemQuickEditDialogState
                       ptrCtrl: ptrCtrl,
                       descriptionCtrl: salesDescriptionCtrl,
                       currency: salesCurrency,
-                      onCurrencyChange: (v) => setState(() => salesCurrency = v ?? 'INR'),
+                      onCurrencyChange: (v) =>
+                          setState(() => salesCurrency = v ?? 'INR'),
                       accountValue: salesAccountId,
-                      onAccountChanged: (v) => setState(() => salesAccountId = v),
+                      onAccountChanged: (v) =>
+                          setState(() => salesAccountId = v),
                       sellable: true,
                       onSellableChanged: (v) {},
                       zerpaiField: _zerpaiField,
@@ -742,13 +793,16 @@ class _ItemQuickEditDialogState
                       costPriceCtrl: costPriceCtrl,
                       descriptionCtrl: purchaseDescriptionCtrl,
                       currency: purchaseCurrency,
-                      onCurrencyChange: (v) => setState(() => purchaseCurrency = v ?? 'INR'),
+                      onCurrencyChange: (v) =>
+                          setState(() => purchaseCurrency = v ?? 'INR'),
                       accountValue: purchaseAccountId,
-                      onAccountChanged: (v) => setState(() => purchaseAccountId = v),
+                      onAccountChanged: (v) =>
+                          setState(() => purchaseAccountId = v),
                       repValue: repId,
                       onRepChanged: (v) => setState(() => repId = v),
                       preferredVendor: preferredVendorId,
-                      onVendorChanged: (v) => setState(() => preferredVendorId = v),
+                      onVendorChanged: (v) =>
+                          setState(() => preferredVendorId = v),
                       purchasable: true,
                       onPurchasableChanged: (v) {},
                       zerpaiField: _zerpaiField,
@@ -769,10 +823,18 @@ class _ItemQuickEditDialogState
                       safetyAdviceCtrl: safetyAdviceCtrl,
                       sideEffectCtrls: sideEffectCtrls,
                       faqTextCtrls: faqTextCtrls,
-                      onAddSideEffect: () => setState(() => sideEffectCtrls.add(TextEditingController())),
-                      onRemoveSideEffect: (index) => setState(() => sideEffectCtrls.removeAt(index).dispose()),
-                      onAddFaq: () => setState(() => faqTextCtrls.add(TextEditingController())),
-                      onRemoveFaq: (index) => setState(() => faqTextCtrls.removeAt(index).dispose()),
+                      onAddSideEffect: () => setState(
+                        () => sideEffectCtrls.add(TextEditingController()),
+                      ),
+                      onRemoveSideEffect: (index) => setState(
+                        () => sideEffectCtrls.removeAt(index).dispose(),
+                      ),
+                      onAddFaq: () => setState(
+                        () => faqTextCtrls.add(TextEditingController()),
+                      ),
+                      onRemoveFaq: (index) => setState(
+                        () => faqTextCtrls.removeAt(index).dispose(),
+                      ),
                     ),
                 ],
               ),
@@ -795,7 +857,11 @@ class _ItemQuickEditDialogState
     return labels.toSet().toList();
   }
 
-  Widget _tabHeader({required String title, required bool active, required VoidCallback onTap}) {
+  Widget _tabHeader({
+    required String title,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -827,7 +893,11 @@ class _ItemQuickEditDialogState
       children: [
         const Text(
           'Inventory Settings',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary,
+          ),
         ),
         const SizedBox(height: 8),
         Row(
@@ -836,7 +906,10 @@ class _ItemQuickEditDialogState
               value: trackInventory,
               onChanged: (v) => setState(() => trackInventory = v ?? false),
             ),
-            const Text('Track Inventory for this item', style: TextStyle(fontSize: 13)),
+            const Text(
+              'Track Inventory for this item',
+              style: TextStyle(fontSize: 13),
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -846,7 +919,10 @@ class _ItemQuickEditDialogState
               value: trackBinLocation,
               onChanged: (v) => setState(() => trackBinLocation = v ?? false),
             ),
-            const Text('Track Bin Location for this item', style: TextStyle(fontSize: 13)),
+            const Text(
+              'Track Bin Location for this item',
+              style: TextStyle(fontSize: 13),
+            ),
           ],
         ),
         if (trackInventory) ...[
@@ -860,7 +936,9 @@ class _ItemQuickEditDialogState
               hint: 'Select account',
               onChanged: (v) => setState(() => inventoryAccountId = v),
               displayStringForValue: (id) {
-                final acc = itemsState.accounts.where((a) => a['id'] == id).firstOrNull;
+                final acc = itemsState.accounts
+                    .where((a) => a['id'] == id)
+                    .firstOrNull;
                 return acc?['system_account_name'] ?? id;
               },
             ),
@@ -873,7 +951,10 @@ class _ItemQuickEditDialogState
               value: valuationMethod,
               items: const ['FIFO', 'LIFO', 'FEFO', 'Weighted Average'],
               hint: 'Select method',
-              onChanged: (v) => setState(() => valuationMethod = v!),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => valuationMethod = v);
+              },
             ),
           ),
         ],
@@ -895,10 +976,18 @@ class _ItemQuickEditDialogState
                 backgroundColor: Color(0xFF10B981),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
-              child: Text(isSaving ? 'Saving...' : (widget.item.id == null || widget.item.id!.isEmpty ? 'Save & Create Item' : 'Save & Update Item')),
+              child: Text(
+                isSaving
+                    ? 'Saving...'
+                    : (widget.item.id == null || widget.item.id!.isEmpty
+                          ? 'Save & Create Item'
+                          : 'Save & Update Item'),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -982,19 +1071,34 @@ class _ItemQuickEditDialogState
       );
 
       final isNew = updatedItem.id == null || updatedItem.id!.isEmpty;
-      final success = isNew 
-          ? await ref.read(itemsControllerProvider.notifier).createItem(updatedItem)
-          : await ref.read(itemsControllerProvider.notifier).updateItem(updatedItem);
+      final success = isNew
+          ? await ref
+                .read(itemsControllerProvider.notifier)
+                .createItem(updatedItem)
+          : await ref
+                .read(itemsControllerProvider.notifier)
+                .updateItem(updatedItem);
       if (success) {
         widget.onUpdated(updatedItem);
         Navigator.of(context).pop();
-        ZerpaiToast.success(context, isNew ? 'Item created successfully' : 'Item updated successfully');
+        ZerpaiToast.success(
+          context,
+          isNew ? 'Item created successfully' : 'Item updated successfully',
+        );
       } else {
-        ZerpaiToast.error(context, isNew ? 'Failed to create item in database' : 'Failed to update item in database');
+        ZerpaiToast.error(
+          context,
+          isNew
+              ? 'Failed to create item in database'
+              : 'Failed to update item in database',
+        );
       }
     } catch (e) {
       final isNew = widget.item.id == null || widget.item.id!.isEmpty;
-      ZerpaiToast.error(context, isNew ? 'Failed to create item: $e' : 'Failed to update item: $e');
+      ZerpaiToast.error(
+        context,
+        isNew ? 'Failed to create item: $e' : 'Failed to update item: $e',
+      );
     } finally {
       setState(() => isSaving = false);
     }
@@ -1003,11 +1107,9 @@ class _ItemQuickEditDialogState
   void _openHsnSacSearch(BuildContext context, {bool isSac = false}) async {
     final result = await showDialog<HsnSacCode>(
       context: context,
-      builder: (context) => HsnSacSearchModal(
-        type: isSac ? 'SAC' : 'HSN',
-      ),
+      builder: (context) => HsnSacSearchModal(type: isSac ? 'SAC' : 'HSN'),
     );
-    
+
     if (result != null) {
       setState(() {
         if (isSac) {
@@ -1113,12 +1215,18 @@ class _TypeRadio extends StatelessWidget {
           Radio<bool>(
             value: value,
             groupValue: selected ? value : !value,
-            onChanged: (v) => onChanged(v!),
+            onChanged: (v) {
+              if (v == null) return;
+              onChanged(v);
+            },
             activeColor: AppTheme.primaryBlueDark,
             visualDensity: VisualDensity.compact,
           ),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+          ),
         ],
       ),
     );
@@ -1150,7 +1258,10 @@ class _InlineCheckbox extends StatelessWidget {
             visualDensity: VisualDensity.compact,
           ),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+          ),
         ],
       ),
     );
@@ -1287,7 +1398,11 @@ class MoreInfoSection extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.add, size: 16, color: AppTheme.primaryBlueDark),
+                const Icon(
+                  Icons.add,
+                  size: 16,
+                  color: AppTheme.primaryBlueDark,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   "Add More",

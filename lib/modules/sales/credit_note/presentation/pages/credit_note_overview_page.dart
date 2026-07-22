@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
-import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/app/routing/app_router.dart';
@@ -128,20 +128,27 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
   bool _favoritesExpanded = true;
   // 'clip' = ellipsis, 'wrap' = text wraps
   String _textMode = 'clip';
-  final Set<String> _starredViews = {'Draft', 'Approved', 'Open', 'Closed', 'Void', 'Invoice unassociated'};
+  final Set<String> _starredViews = {
+    'Draft',
+    'Approved',
+    'Open',
+    'Closed',
+    'Void',
+    'Invoice unassociated',
+  };
   final Set<int> _selectedIndices = {};
   int? _detailIndex;
   List<ColumnConfig> _columns = _defaultColumns();
-  
+
   final LayerLink _downloadLink = LayerLink();
   OverlayEntry? _downloadOverlay;
 
   final LayerLink _compactBulkLink = LayerLink();
   OverlayEntry? _compactBulkOverlay;
-  
+
   final LayerLink _pdfPrintLink = LayerLink();
   OverlayEntry? _pdfPrintOverlay;
-  
+
   final LayerLink _customizeLink = LayerLink();
   OverlayEntry? _customizeOverlay;
   bool _pdfHovered = false;
@@ -164,7 +171,11 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
   List<_CreditNoteRow> get _filteredRows {
     final base = _selectedView == 'All'
         ? List<_CreditNoteRow>.from(_rows)
-        : _rows.where((r) => r.status.toUpperCase() == _selectedView.toUpperCase()).toList();
+        : _rows
+              .where(
+                (r) => r.status.toUpperCase() == _selectedView.toUpperCase(),
+              )
+              .toList();
     base.sort((a, b) {
       final cmp = a.creditNoteNumber.compareTo(b.creditNoteNumber);
       return _sortAscending ? cmp : -cmp;
@@ -173,77 +184,36 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
   }
 
   bool get _allSelected =>
-      _filteredRows.isNotEmpty && _selectedIndices.length == _filteredRows.length;
+      _filteredRows.isNotEmpty &&
+      _selectedIndices.length == _filteredRows.length;
   bool get _someSelected =>
-      _selectedIndices.isNotEmpty && _selectedIndices.length < _filteredRows.length;
+      _selectedIndices.isNotEmpty &&
+      _selectedIndices.length < _filteredRows.length;
   List<ColumnConfig> get _visibleColumns {
-    final columns = _columns
-        .where((c) => c.isVisible)
-        .map((c) => c.copy())
-        .toList()
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    final columns =
+        _columns.where((c) => c.isVisible).map((c) => c.copy()).toList()
+          ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
     return columns;
   }
 
   static List<ColumnConfig> _defaultColumns() => [
-        ColumnConfig(
-          id: 'date',
-          label: 'Date',
-          orderIndex: 0,
-          isLocked: true,
-        ),
-        ColumnConfig(
-          id: 'location',
-          label: 'Location',
-          orderIndex: 1,
-        ),
-        ColumnConfig(
-          id: 'creditNoteNumber',
-          label: 'Credit Note#',
-          orderIndex: 2,
-          isLocked: true,
-        ),
-        ColumnConfig(
-          id: 'referenceNumber',
-          label: 'Reference#',
-          orderIndex: 3,
-        ),
-        ColumnConfig(
-          id: 'customerName',
-          label: 'Customer Name',
-          orderIndex: 4,
-        ),
-        ColumnConfig(
-          id: 'invoiceNumber',
-          label: 'Invoice#',
-          orderIndex: 5,
-        ),
-        ColumnConfig(
-          id: 'status',
-          label: 'Status',
-          orderIndex: 6,
-        ),
-        ColumnConfig(
-          id: 'amount',
-          label: 'Amount',
-          orderIndex: 7,
-        ),
-        ColumnConfig(
-          id: 'balance',
-          label: 'Balance',
-          orderIndex: 8,
-        ),
-        ColumnConfig(
-          id: 'issueDate',
-          label: 'Issue Date',
-          orderIndex: 9,
-        ),
-        ColumnConfig(
-          id: 'salesPerson',
-          label: 'Sales Person',
-          orderIndex: 10,
-        ),
-      ];
+    ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
+    ColumnConfig(id: 'location', label: 'Location', orderIndex: 1),
+    ColumnConfig(
+      id: 'creditNoteNumber',
+      label: 'Credit Note#',
+      orderIndex: 2,
+      isLocked: true,
+    ),
+    ColumnConfig(id: 'referenceNumber', label: 'Reference#', orderIndex: 3),
+    ColumnConfig(id: 'customerName', label: 'Customer Name', orderIndex: 4),
+    ColumnConfig(id: 'invoiceNumber', label: 'Invoice#', orderIndex: 5),
+    ColumnConfig(id: 'status', label: 'Status', orderIndex: 6),
+    ColumnConfig(id: 'amount', label: 'Amount', orderIndex: 7),
+    ColumnConfig(id: 'balance', label: 'Balance', orderIndex: 8),
+    ColumnConfig(id: 'issueDate', label: 'Issue Date', orderIndex: 9),
+    ColumnConfig(id: 'salesPerson', label: 'Sales Person', orderIndex: 10),
+  ];
 
   void _toggleSelectAll(bool? value) {
     setState(() {
@@ -552,7 +522,9 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
       ),
     );
     overlay.insert(_customizeOverlay!);
-    setState(() {}); // trigger rebuild so _customizeOverlay != null keeps button visible
+    setState(
+      () {},
+    ); // trigger rebuild so _customizeOverlay != null keeps button visible
   }
 
   void _closeCustomizeMenu() {
@@ -603,7 +575,10 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                       onTap: () {
                         _closeMoreActionMenu();
                         final row = _filteredRows[_detailIndex!];
-                        context.go(AppRoutes.creditNotesCreate, extra: row.customerName);
+                        context.go(
+                          AppRoutes.creditNotesCreate,
+                          extra: row.customerName,
+                        );
                       },
                     ),
                     _MoreActionMenuOption(
@@ -661,7 +636,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
           constraints: const BoxConstraints(maxWidth: 680),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -792,7 +767,10 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.all(12),
                   ),
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -803,8 +781,13 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                       backgroundColor: AppTheme.accentGreen,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     onPressed: () {
                       setState(() {
@@ -813,7 +796,13 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                       });
                       Navigator.of(ctx).pop();
                     },
-                    child: const Text('Void it', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Void it',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
@@ -821,11 +810,22 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                       backgroundColor: const Color(0xFFEEEEEE),
                       foregroundColor: AppTheme.textPrimary,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -909,7 +909,10 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.all(12),
                   ),
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -920,8 +923,13 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                       backgroundColor: AppTheme.accentGreen,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     onPressed: () {
                       setState(() {
@@ -930,7 +938,13 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                       });
                       Navigator.of(ctx).pop();
                     },
-                    child: const Text('Convert to Draft', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Convert to Draft',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
@@ -938,11 +952,22 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                       backgroundColor: const Color(0xFFEEEEEE),
                       foregroundColor: AppTheme.textPrimary,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1004,7 +1029,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                 Positioned.fill(child: _buildSplitView())
               else
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _selectedIndices.isNotEmpty
                         ? _buildBulkToolbar()
@@ -1045,8 +1070,10 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                               children: [
                                 // ── FAVORITES header ─────────────────────────
                                 GestureDetector(
-                                  onTap: () => setState(() =>
-                                      _favoritesExpanded = !_favoritesExpanded),
+                                  onTap: () => setState(
+                                    () => _favoritesExpanded =
+                                        !_favoritesExpanded,
+                                  ),
                                   child: _DropdownSectionHeader(
                                     label: 'FAVORITES',
                                     count: _starredViews.length,
@@ -1055,15 +1082,20 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                                   ),
                                 ),
                                 // ── Starred items ─────────────────────────────
-                                if (_favoritesExpanded && _starredViews.isNotEmpty)
+                                if (_favoritesExpanded &&
+                                    _starredViews.isNotEmpty)
                                   ..._viewOptions
-                                      .where((opt) => _starredViews.contains(opt))
+                                      .where(
+                                        (opt) => _starredViews.contains(opt),
+                                      )
                                       .map(
                                         (opt) => _ViewFilterOption(
                                           label: opt,
                                           selected: opt == _selectedView,
                                           starred: true,
-                                          onStarTap: () => setState(() => _starredViews.remove(opt)),
+                                          onStarTap: () => setState(
+                                            () => _starredViews.remove(opt),
+                                          ),
                                           onTap: () => setState(() {
                                             _selectedView = opt;
                                             _dropdownOpen = false;
@@ -1139,12 +1171,18 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                             onTap: _openColumnCustomizer,
                           ),
                           _ColumnMenuOption(
-                            label: _textMode == 'clip' ? 'Clip Text' : 'Wrap Text',
-                            icon: _textMode == 'clip' ? LucideIcons.minus : LucideIcons.alignLeft,
+                            label: _textMode == 'clip'
+                                ? 'Clip Text'
+                                : 'Wrap Text',
+                            icon: _textMode == 'clip'
+                                ? LucideIcons.minus
+                                : LucideIcons.alignLeft,
                             selected: false,
                             onTap: () => setState(() {
                               _textMode = _textMode == 'clip' ? 'wrap' : 'clip';
-                              _columnWidths = _CnColumnWidths.defaults(clip: _textMode == 'clip');
+                              _columnWidths = _CnColumnWidths.defaults(
+                                clip: _textMode == 'clip',
+                              );
                               _columnMenuOpen = false;
                             }),
                           ),
@@ -1232,7 +1270,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
           child: SizedBox(
             width: _tableWidth,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _CnTableHeader(
                   allSelected: _allSelected,
@@ -1296,7 +1334,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
       width: 460,
       color: AppTheme.backgroundColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _selectedIndices.isNotEmpty
               ? _buildCompactBulkToolbar()
@@ -1305,65 +1343,72 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: const BoxDecoration(
                     border: Border(
-                        bottom: BorderSide(color: AppTheme.borderLight, width: 1)),
+                      bottom: BorderSide(color: AppTheme.borderLight, width: 1),
+                    ),
                   ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () =>
-                      setState(() => _dropdownOpen = !_dropdownOpen),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _selectedView == 'All'
-                            ? 'All Credit Notes'
-                            : _selectedView,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _dropdownOpen = !_dropdownOpen),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _selectedView == 'All'
+                                  ? 'All Credit Notes'
+                                  : _selectedView,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              _dropdownOpen
+                                  ? LucideIcons.chevronUp
+                                  : LucideIcons.chevronDown,
+                              size: 16,
+                              color: AppTheme.primaryBlueDark,
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        _dropdownOpen
-                            ? LucideIcons.chevronUp
-                            : LucideIcons.chevronDown,
-                        size: 16,
-                        color: AppTheme.primaryBlueDark,
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => context.go(AppRoutes.creditNotesCreate),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentGreen,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Icon(
+                            LucideIcons.plus,
+                            size: 18,
+                            color: AppTheme.backgroundColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderLight),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          LucideIcons.moreHorizontal,
+                          size: 16,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => context.go(AppRoutes.creditNotesCreate),
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentGreen,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Icon(LucideIcons.plus,
-                        size: 18, color: AppTheme.backgroundColor),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.borderLight),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(LucideIcons.moreHorizontal,
-                      size: 16, color: AppTheme.textPrimary),
-                ),
-              ],
-            ),
-          ),
           // List
           Expanded(
             child: ListView.separated(
@@ -1390,7 +1435,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
     return Container(
       color: AppTheme.bgLight,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             height: 64,
@@ -1398,7 +1443,8 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
               border: Border(
-                  bottom: BorderSide(color: AppTheme.borderLight, width: 1)),
+                bottom: BorderSide(color: AppTheme.borderLight, width: 1),
+              ),
             ),
             child: Row(
               children: [
@@ -1467,21 +1513,26 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
               border: Border(
-                  bottom: BorderSide(color: AppTheme.borderLight, width: 1)),
+                bottom: BorderSide(color: AppTheme.borderLight, width: 1),
+              ),
             ),
             child: Row(
               children: [
                 if (row.status.toUpperCase() != 'VOID') ...[
                   _DetailActionBtn(
-                      icon: LucideIcons.pencil,
-                      label: 'Edit',
-                      onTap: () => context.go(
-                        '${AppRoutes.creditNotesEdit}/${row.creditNoteNumber}',
-                        extra: row.customerName,
-                      )),
+                    icon: LucideIcons.pencil,
+                    label: 'Edit',
+                    onTap: () => context.go(
+                      '${AppRoutes.creditNotesEdit}/${row.creditNoteNumber}',
+                      extra: row.customerName,
+                    ),
+                  ),
                   const _DetailActionDivider(),
                   _DetailActionBtn(
-                      icon: LucideIcons.mail, label: 'Email', onTap: () {}),
+                    icon: LucideIcons.mail,
+                    label: 'Email',
+                    onTap: () {},
+                  ),
                   const _DetailActionDivider(),
                 ],
                 CompositedTransformTarget(
@@ -1496,20 +1547,23 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                 const _DetailActionDivider(),
                 if (row.status.toUpperCase() != 'VOID') ...[
                   _DetailActionBtn(
-                      icon: LucideIcons.fileUp,
-                      label: 'Apply to Invoices',
-                      onTap: () => _showApplyToInvoicesDialog(context, row)),
+                    icon: LucideIcons.fileUp,
+                    label: 'Apply to Invoices',
+                    onTap: () => _showApplyToInvoicesDialog(context, row),
+                  ),
                   const _DetailActionDivider(),
                   _DetailActionBtn(
-                      icon: LucideIcons.rotateCcw,
-                      label: 'Refund',
-                      onTap: () {}),
+                    icon: LucideIcons.rotateCcw,
+                    label: 'Refund',
+                    onTap: () {},
+                  ),
                   const _DetailActionDivider(),
                 ] else ...[
                   _DetailActionBtn(
-                      icon: LucideIcons.rotateCw,
-                      label: 'Convert to Draft',
-                      onTap: () => _showConvertDraftDialog(context)),
+                    icon: LucideIcons.rotateCw,
+                    label: 'Convert to Draft',
+                    onTap: () => _showConvertDraftDialog(context),
+                  ),
                   const _DetailActionDivider(),
                 ],
                 CompositedTransformTarget(
@@ -1528,7 +1582,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                 SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(24, 44, 24, 32),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (row.status.toUpperCase() == 'DRAFT') ...[
                         Container(
@@ -1542,7 +1596,11 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(LucideIcons.sparkles, color: Colors.purple, size: 16),
+                              const Icon(
+                                LucideIcons.sparkles,
+                                color: Colors.purple,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
@@ -1579,26 +1637,50 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                                       backgroundColor: AppTheme.accentGreen,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
                                     ),
                                     onPressed: () {},
-                                    child: const Text('Send Credit Note', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                    child: const Text(
+                                      'Send Credit Note',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(width: 10),
                                   OutlinedButton(
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppTheme.textPrimary,
-                                      side: const BorderSide(color: AppTheme.borderLight),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                      side: const BorderSide(
+                                        color: AppTheme.borderLight,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
                                     ),
                                     onPressed: () {
                                       setState(() {
                                         row.status = 'OPEN';
                                       });
                                     },
-                                    child: const Text('Convert to Open', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400)),
+                                    child: const Text(
+                                      'Convert to Open',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1628,23 +1710,32 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                                         borderRadius: BorderRadius.circular(5),
                                       ),
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 14, vertical: 7),
+                                        horizontal: 14,
+                                        vertical: 7,
+                                      ),
                                       child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(LucideIcons.settings2,
-                                              size: 14, color: Colors.white),
+                                          Icon(
+                                            LucideIcons.settings2,
+                                            size: 14,
+                                            color: Colors.white,
+                                          ),
                                           SizedBox(width: 6),
                                           Text(
                                             'Customize',
                                             style: TextStyle(
-                                                fontSize: 13,
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w500),
+                                              fontSize: 13,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                           SizedBox(width: 4),
-                                          Icon(LucideIcons.chevronDown,
-                                              size: 13, color: Colors.white),
+                                          Icon(
+                                            LucideIcons.chevronDown,
+                                            size: 13,
+                                            color: Colors.white,
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1709,11 +1800,17 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                                 children: [
                                   const TextSpan(
                                     text: ': ',
-                                    style: TextStyle(fontSize: 13, color: Color(0xFF111111)),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF111111),
+                                    ),
                                   ),
                                   TextSpan(
                                     text: row.invoiceNumber,
-                                    style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.primaryBlue,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1764,7 +1861,8 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
-            bottom: BorderSide(color: AppTheme.borderLight, width: 1)),
+          bottom: BorderSide(color: AppTheme.borderLight, width: 1),
+        ),
       ),
       child: Row(
         children: [
@@ -1859,10 +1957,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
           ),
           const SizedBox(width: 8),
           // Print
-          _BulkActionButton(
-            icon: LucideIcons.printer,
-            onTap: () {},
-          ),
+          _BulkActionButton(icon: LucideIcons.printer, onTap: () {}),
           // Separator
           Container(
             height: 24,
@@ -1997,10 +2092,7 @@ class _MoreActionMenuOption extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _MoreActionMenuOption({
-    required this.label,
-    required this.onTap,
-  });
+  const _MoreActionMenuOption({required this.label, required this.onTap});
 
   @override
   State<_MoreActionMenuOption> createState() => _MoreActionMenuOptionState();
@@ -2176,8 +2268,7 @@ class _DropdownSectionHeader extends StatelessWidget {
           ),
           if (count > 0)
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                 color: countColor,
                 borderRadius: BorderRadius.circular(10),
@@ -2231,8 +2322,8 @@ class _ViewFilterOptionState extends State<_ViewFilterOption> {
             color: widget.selected
                 ? AppTheme.primaryBlue
                 : _hovered
-                    ? AppTheme.primaryBlue.withValues(alpha: 0.06)
-                    : Colors.transparent,
+                ? AppTheme.primaryBlue.withValues(alpha: 0.06)
+                : Colors.transparent,
           ),
           child: Row(
             children: [
@@ -2255,15 +2346,18 @@ class _ViewFilterOptionState extends State<_ViewFilterOption> {
                 onTap: widget.onStarTap,
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
                   child: Icon(
                     widget.starred ? Icons.star : Icons.star_border,
                     size: 16,
                     color: widget.selected
                         ? Colors.white.withValues(alpha: 0.85)
                         : widget.starred
-                            ? const Color(0xFFE8A838)   // orange when starred
-                            : AppTheme.borderLight,      // grey when not starred
+                        ? const Color(0xFFE8A838) // orange when starred
+                        : AppTheme.borderLight, // grey when not starred
                   ),
                 ),
               ),
@@ -2301,13 +2395,13 @@ class _ColumnMenuOptionState extends State<_ColumnMenuOption> {
     final foreground = filled
         ? AppTheme.backgroundColor
         : widget.selected
-            ? AppTheme.primaryBlue
-            : AppTheme.textPrimary;
+        ? AppTheme.primaryBlue
+        : AppTheme.textPrimary;
     final iconColor = filled
         ? AppTheme.backgroundColor
         : widget.selected
-            ? AppTheme.primaryBlue
-            : AppTheme.primaryBlue;
+        ? AppTheme.primaryBlue
+        : AppTheme.primaryBlue;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -2322,15 +2416,14 @@ class _ColumnMenuOptionState extends State<_ColumnMenuOption> {
             color: filled
                 ? AppTheme.primaryBlue.withValues(alpha: 0.9)
                 : widget.selected
-                    ? AppTheme.primaryBlue.withValues(alpha: 0.07)
-                    : AppTheme.backgroundColor,
+                ? AppTheme.primaryBlue.withValues(alpha: 0.07)
+                : AppTheme.backgroundColor,
             borderRadius: BorderRadius.circular(6),
             border: filled
                 ? Border.all(color: AppTheme.primaryBlueDark, width: 2)
                 : widget.selected
-                    ? Border.all(
-                        color: AppTheme.primaryBlue.withValues(alpha: 0.3))
-                    : null,
+                ? Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.3))
+                : null,
           ),
           child: Row(
             children: [
@@ -2434,7 +2527,9 @@ class _CnTableHeader extends StatelessWidget {
           ),
           for (final column in columns)
             _CnHeaderCell(
-              width: columnWidths[column.id] ?? _CnColumnWidths.forId(column.id, clip: clipText),
+              width:
+                  columnWidths[column.id] ??
+                  _CnColumnWidths.forId(column.id, clip: clipText),
               label: column.label.toUpperCase(),
               sorted: column.id == 'creditNoteNumber',
               sortAscending: sortAscending,
@@ -2472,8 +2567,9 @@ class _CnTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isClip = clipText;
     final rowContent = Row(
-      crossAxisAlignment:
-          isClip ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      crossAxisAlignment: isClip
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
       children: [
         if (!hasSelection) const SizedBox(width: 28),
         SizedBox(
@@ -2487,8 +2583,7 @@ class _CnTableRow extends StatelessWidget {
                 onChanged: onChanged,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 activeColor: AppTheme.primaryBlue,
-                side:
-                    const BorderSide(color: AppTheme.borderLight, width: 1.5),
+                side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
                 visualDensity: VisualDensity.compact,
               ),
             ),
@@ -2496,7 +2591,9 @@ class _CnTableRow extends StatelessWidget {
         ),
         for (final column in columns)
           _CnBodyCell(
-            width: columnWidths[column.id] ?? _CnColumnWidths.forId(column.id, clip: isClip),
+            width:
+                columnWidths[column.id] ??
+                _CnColumnWidths.forId(column.id, clip: isClip),
             clip: isClip,
             child: _buildCell(column.id, isClip),
           ),
@@ -2523,12 +2620,18 @@ class _CnTableRow extends StatelessWidget {
 
   static Color _statusColor(String status) {
     switch (status.toUpperCase()) {
-      case 'OPEN': return AppTheme.primaryBlue;
-      case 'CLOSED': return AppTheme.textSecondary;
-      case 'DRAFT': return const Color(0xFFE67E22);
-      case 'VOID': return const Color(0xFF666666);
-      case 'PENDING APPROVAL': return const Color(0xFF9B59B6);
-      default: return AppTheme.primaryBlue;
+      case 'OPEN':
+        return AppTheme.primaryBlue;
+      case 'CLOSED':
+        return AppTheme.textSecondary;
+      case 'DRAFT':
+        return const Color(0xFFE67E22);
+      case 'VOID':
+        return const Color(0xFF666666);
+      case 'PENDING APPROVAL':
+        return const Color(0xFF9B59B6);
+      default:
+        return AppTheme.primaryBlue;
     }
   }
 
@@ -2600,18 +2703,18 @@ class _CnColumnWidths {
   static const double salesPersonWrap = 200;
 
   static Map<String, double> defaults({required bool clip}) => {
-        'date': clip ? date : dateWrap,
-        'location': clip ? location : locationWrap,
-        'creditNoteNumber': clip ? creditNoteNumber : creditNoteNumberWrap,
-        'referenceNumber': clip ? referenceNumber : referenceNumberWrap,
-        'customerName': clip ? customerName : customerNameWrap,
-        'invoiceNumber': clip ? invoiceNumber : invoiceNumberWrap,
-        'status': clip ? status : statusWrap,
-        'amount': clip ? amount : amountWrap,
-        'balance': clip ? balance : balanceWrap,
-        'issueDate': clip ? issueDate : issueDateWrap,
-        'salesPerson': clip ? salesPerson : salesPersonWrap,
-      };
+    'date': clip ? date : dateWrap,
+    'location': clip ? location : locationWrap,
+    'creditNoteNumber': clip ? creditNoteNumber : creditNoteNumberWrap,
+    'referenceNumber': clip ? referenceNumber : referenceNumberWrap,
+    'customerName': clip ? customerName : customerNameWrap,
+    'invoiceNumber': clip ? invoiceNumber : invoiceNumberWrap,
+    'status': clip ? status : statusWrap,
+    'amount': clip ? amount : amountWrap,
+    'balance': clip ? balance : balanceWrap,
+    'issueDate': clip ? issueDate : issueDateWrap,
+    'salesPerson': clip ? salesPerson : salesPersonWrap,
+  };
 
   static double forId(String id, {bool clip = true}) {
     switch (id) {
@@ -2697,7 +2800,9 @@ class _CnHeaderCellState extends State<_CnHeaderCell> {
                   GestureDetector(
                     onTap: widget.onSort,
                     child: Icon(
-                      widget.sortAscending ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                      widget.sortAscending
+                          ? LucideIcons.chevronUp
+                          : LucideIcons.chevronDown,
                       size: 14,
                       color: AppTheme.primaryBlue,
                     ),
@@ -2716,7 +2821,8 @@ class _CnHeaderCellState extends State<_CnHeaderCell> {
               onEnter: (_) => setState(() => _resizeHovered = true),
               onExit: (_) => setState(() => _resizeHovered = false),
               child: GestureDetector(
-                onHorizontalDragUpdate: (d) => widget.onResize?.call(d.delta.dx),
+                onHorizontalDragUpdate: (d) =>
+                    widget.onResize?.call(d.delta.dx),
                 child: Container(
                   width: 6,
                   decoration: BoxDecoration(
@@ -2842,8 +2948,8 @@ class _CnCompactItemState extends State<_CnCompactItem> {
     final bg = widget.selected
         ? AppTheme.primaryBlue.withValues(alpha: 0.06)
         : _hovered
-            ? AppTheme.primaryBlue.withValues(alpha: 0.04)
-            : AppTheme.backgroundColor;
+        ? AppTheme.primaryBlue.withValues(alpha: 0.04)
+        : AppTheme.backgroundColor;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -2866,7 +2972,9 @@ class _CnCompactItemState extends State<_CnCompactItem> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   activeColor: AppTheme.primaryBlue,
                   side: const BorderSide(
-                      color: AppTheme.borderLight, width: 1.5),
+                    color: AppTheme.borderLight,
+                    width: 1.5,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -2931,10 +3039,7 @@ class _CnCompactItemState extends State<_CnCompactItem> {
 // ─── Detail panel action button ───────────────────────────────────────────────
 
 class _DetailHeaderIconButton extends StatefulWidget {
-  const _DetailHeaderIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _DetailHeaderIconButton({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
@@ -2964,11 +3069,7 @@ class _DetailHeaderIconButtonState extends State<_DetailHeaderIconButton> {
             border: Border.all(color: AppTheme.borderLight),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Icon(
-            widget.icon,
-            size: 16,
-            color: AppTheme.textSecondary,
-          ),
+          child: Icon(widget.icon, size: 16, color: AppTheme.textSecondary),
         ),
       ),
     );
@@ -3040,8 +3141,11 @@ class _DetailActionBtnState extends State<_DetailActionBtn> {
                 ),
               if (widget.trailingIcon != null) ...[
                 const SizedBox(width: 3),
-                Icon(widget.trailingIcon,
-                    size: 11, color: AppTheme.textSecondary),
+                Icon(
+                  widget.trailingIcon,
+                  size: 11,
+                  color: AppTheme.textSecondary,
+                ),
               ],
             ],
           ),
@@ -3087,199 +3191,223 @@ class _CnDocumentPreview extends ConsumerWidget {
               ],
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-              // ── Header ─────────────────────────────────────────────
-              // Use a plain Row — no IntrinsicHeight so Expanded works
-              Container(
-                decoration: const BoxDecoration(
-                  border: Border(
-                      bottom: BorderSide(color: _border, width: 0.8)),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _OrgLogoBox(
-                      orgSettings: orgSettings,
-                      width: 110,
-                      height: 44,
+                // ── Header ─────────────────────────────────────────────
+                // Use a plain Row so Expanded works in bounded layout.
+                Container(
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: _border, width: 0.8),
                     ),
-                    const SizedBox(width: 12),
-                    // Company details — Expanded takes all remaining space
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'ZABNIX PRIVATE LIMITED',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF111111),
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          Text('PERINTHALMANNA',
-                              style: TextStyle(fontSize: 10)),
-                          Text('MALAPPURAM Kerala 679322',
-                              style: TextStyle(fontSize: 10)),
-                          Text('India', style: TextStyle(fontSize: 10)),
-                          SizedBox(height: 3),
-                          Text('GSTIN 32AACCZ4912F1ZL',
-                              style: TextStyle(fontSize: 10)),
-                          Text('8086355500',
-                              style: TextStyle(fontSize: 10)),
-                          Text('zabnixprivatelimited@gmail.com',
-                              style: TextStyle(fontSize: 10)),
-                        ],
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _OrgLogoBox(
+                        orgSettings: orgSettings,
+                        width: 110,
+                        height: 44,
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    // CREDIT NOTE — fixed width so it never wraps regardless of screen size
-                    const SizedBox(
-                      width: 140,
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: Text(
-                          'CREDIT NOTE',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w300,
-                            letterSpacing: 1.2,
-                            color: Color(0xFF888888),
+                      const SizedBox(width: 12),
+                      // Company details — Expanded takes all remaining space
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'ZABNIX PRIVATE LIMITED',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111111),
+                              ),
+                            ),
+                            SizedBox(height: 3),
+                            Text(
+                              'PERINTHALMANNA',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            Text(
+                              'MALAPPURAM Kerala 679322',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            Text('India', style: TextStyle(fontSize: 10)),
+                            SizedBox(height: 3),
+                            Text(
+                              'GSTIN 32AACCZ4912F1ZL',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            Text('8086355500', style: TextStyle(fontSize: 10)),
+                            Text(
+                              'zabnixprivatelimited@gmail.com',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // CREDIT NOTE — fixed width so it never wraps regardless of screen size
+                      const SizedBox(
+                        width: 140,
+                        child: Align(
+                          alignment: Alignment.topRight,
+                          child: Text(
+                            'CREDIT NOTE',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w300,
+                              letterSpacing: 1.2,
+                              color: Color(0xFF888888),
+                            ),
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+
+                // ── Details table ───────────────────────────────────────
+                Table(
+                  border: TableBorder(
+                    top: const BorderSide(color: _border, width: 0.8),
+                    bottom: const BorderSide(color: _border, width: 0.8),
+                    left: const BorderSide(color: _border, width: 0.8),
+                    right: const BorderSide(color: _border, width: 0.8),
+                    verticalInside: const BorderSide(
+                      color: _border,
+                      width: 0.8,
                     ),
-                  ],
-                ),
-              ),
-
-              // ── Details table ───────────────────────────────────────
-              Table(
-                border: TableBorder(
-                  top: const BorderSide(color: _border, width: 0.8),
-                  bottom: const BorderSide(color: _border, width: 0.8),
-                  left: const BorderSide(color: _border, width: 0.8),
-                  right: const BorderSide(color: _border, width: 0.8),
-                  verticalInside: const BorderSide(color: _border, width: 0.8),
-                ),
-                columnWidths: const {
-                  0: FlexColumnWidth(1),
-                  1: FlexColumnWidth(1),
-                },
-                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                children: [
-                  _tableRow('#', row.creditNoteNumber,
-                      'Place Of Supply', 'Kerala (32)'),
-                  _tableRow('Credit Date', row.date, '', ''),
-                  _tableRow('Invoice#', row.invoiceNumber, '', ''),
-                  _tableRow('Invoice Date', row.issueDate, '', ''),
-                ],
-              ),
-
-              // ── Bill To ────────────────────────────────────────────
-              Container(
-                decoration: const BoxDecoration(
-                  border: Border(
-                      top: BorderSide(color: _border, width: 0.8)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  ),
+                  columnWidths: const {
+                    0: FlexColumnWidth(1),
+                    1: FlexColumnWidth(1),
+                  },
+                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                   children: [
-                    Container(
-                      color: const Color(0xFFF5F5F5),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      child: const Text(
-                        'Bill To',
-                        style: TextStyle(
-                            fontSize: 10, fontWeight: FontWeight.w600),
-                      ),
+                    _tableRow(
+                      '#',
+                      row.creditNoteNumber,
+                      'Place Of Supply',
+                      'Kerala (32)',
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            row.customerName,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.primaryBlue,
-                            ),
+                    _tableRow('Credit Date', row.date, '', ''),
+                    _tableRow('Invoice#', row.invoiceNumber, '', ''),
+                    _tableRow('Invoice Date', row.issueDate, '', ''),
+                  ],
+                ),
+
+                // ── Bill To ────────────────────────────────────────────
+                Container(
+                  decoration: const BoxDecoration(
+                    border: Border(top: BorderSide(color: _border, width: 0.8)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        color: const Color(0xFFF5F5F5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        child: const Text(
+                          'Bill To',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(height: 3),
-                          const Text(
-                            'THARAVADU STARLEX, Mysuru - Ooty Rd, near Moulana hospital',
-                            style: TextStyle(fontSize: 10),
-                          ),
-                          const Text('PERINTHALMANNA',
-                              style: TextStyle(fontSize: 10)),
-                          const Text('PERINTHALMANNA',
-                              style: TextStyle(fontSize: 10)),
-                          const Text('679322',
-                              style: TextStyle(fontSize: 10)),
-                          const Text('India',
-                              style: TextStyle(fontSize: 10)),
-                          const SizedBox(height: 3),
-                          const Text('GSTIN 32ABACS3075R1ZX',
-                              style: TextStyle(fontSize: 10)),
-                        ],
+                        ),
                       ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              row.customerName,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            const Text(
+                              'THARAVADU STARLEX, Mysuru - Ooty Rd, near Moulana hospital',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            const Text(
+                              'PERINTHALMANNA',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            const Text(
+                              'PERINTHALMANNA',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            const Text(
+                              '679322',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            const Text('India', style: TextStyle(fontSize: 10)),
+                            const SizedBox(height: 3),
+                            const Text(
+                              'GSTIN 32ABACS3075R1ZX',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Items Table ─────────────────────────────────────────
+                Table(
+                  border: const TableBorder(
+                    top: BorderSide(color: _border, width: 0.8),
+                    bottom: BorderSide(color: _border, width: 0.8),
+                    verticalInside: BorderSide(color: _border, width: 0.8),
+                    horizontalInside: BorderSide(color: _border, width: 0.8),
+                  ),
+                  columnWidths: const {
+                    0: FlexColumnWidth(0.8),
+                    1: FlexColumnWidth(4),
+                    2: FlexColumnWidth(2),
+                    3: FlexColumnWidth(1.5),
+                    4: FlexColumnWidth(1.5),
+                    5: FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: const BoxDecoration(color: Color(0xFFF5F5F5)),
+                      children: [
+                        _tableHeaderCell('#', align: TextAlign.center),
+                        _tableHeaderCell('Item & Description'),
+                        _tableHeaderCell('HSN/SAC'),
+                        _tableHeaderCell('Qty', align: TextAlign.right),
+                        _tableHeaderCell('Rate', align: TextAlign.right),
+                        _tableHeaderCell('Amount', align: TextAlign.right),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        _tableDataCell('1', align: TextAlign.center),
+                        _tableDataCell('ITEM 11'),
+                        _tableDataCell('30045037'),
+                        _tableDataCell('10.00\nbox', align: TextAlign.right),
+                        _tableDataCell('45.00', align: TextAlign.right),
+                        _tableDataCell('450.00', align: TextAlign.right),
+                      ],
                     ),
                   ],
                 ),
-              ),
 
-              // ── Items Table ─────────────────────────────────────────
-              Table(
-                border: const TableBorder(
-                  top: BorderSide(color: _border, width: 0.8),
-                  bottom: BorderSide(color: _border, width: 0.8),
-                  verticalInside: BorderSide(color: _border, width: 0.8),
-                  horizontalInside: BorderSide(color: _border, width: 0.8),
-                ),
-                columnWidths: const {
-                  0: FlexColumnWidth(0.8),
-                  1: FlexColumnWidth(4),
-                  2: FlexColumnWidth(2),
-                  3: FlexColumnWidth(1.5),
-                  4: FlexColumnWidth(1.5),
-                  5: FlexColumnWidth(1.5),
-                },
-                children: [
-                  TableRow(
-                    decoration: const BoxDecoration(color: Color(0xFFF5F5F5)),
-                    children: [
-                      _tableHeaderCell('#', align: TextAlign.center),
-                      _tableHeaderCell('Item & Description'),
-                      _tableHeaderCell('HSN/SAC'),
-                      _tableHeaderCell('Qty', align: TextAlign.right),
-                      _tableHeaderCell('Rate', align: TextAlign.right),
-                      _tableHeaderCell('Amount', align: TextAlign.right),
-                    ],
-                  ),
-                  TableRow(
-                    children: [
-                      _tableDataCell('1', align: TextAlign.center),
-                      _tableDataCell('ITEM 11'),
-                      _tableDataCell('30045037'),
-                      _tableDataCell('10.00\nbox', align: TextAlign.right),
-                      _tableDataCell('45.00', align: TextAlign.right),
-                      _tableDataCell('450.00', align: TextAlign.right),
-                    ],
-                  ),
-                ],
-              ),
-
-              // ── Footer (Total and Words) ────────────────────────────
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                // ── Footer (Total and Words) ────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Left side (Aligns exactly with first 3 columns: 0.8 + 4 + 2 = 6.8)
                     Expanded(
@@ -3326,7 +3454,11 @@ class _CnDocumentPreview extends ConsumerWidget {
                                 _summaryRow('SGST6 (6%)', '27.00'),
                                 const SizedBox(height: 8),
                                 _summaryRow('Total', '₹504.00', isBold: true),
-                                _summaryRow('Credits Remaining', '₹504.00', isBold: true),
+                                _summaryRow(
+                                  'Credits Remaining',
+                                  '₹504.00',
+                                  isBold: true,
+                                ),
                               ],
                             ),
                           ),
@@ -3349,11 +3481,10 @@ class _CnDocumentPreview extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
 
         // ── Corner status ribbon — on outermost border corner ─────
         Positioned(
@@ -3373,19 +3504,21 @@ class _CnDocumentPreview extends ConsumerWidget {
                       child: Container(
                         width: 130,
                         height: 36,
-                        color: (row.status.toUpperCase() == 'VOID' || row.status.toUpperCase() == 'DRAFT')
+                        color:
+                            (row.status.toUpperCase() == 'VOID' ||
+                                row.status.toUpperCase() == 'DRAFT')
                             ? const Color(0xFF7F8C8D)
                             : row.status.toUpperCase() == 'CLOSED'
-                                ? AppTheme.textSecondary
-                                : row.status.toUpperCase() == 'PENDING APPROVAL'
-                                    ? const Color(0xFF9B59B6)
-                                    : AppTheme.primaryBlue,
+                            ? AppTheme.textSecondary
+                            : row.status.toUpperCase() == 'PENDING APPROVAL'
+                            ? const Color(0xFF9B59B6)
+                            : AppTheme.primaryBlue,
                         alignment: Alignment.center,
                         child: Text(
                           row.status.toUpperCase() == 'PENDING APPROVAL'
                               ? 'Pending'
                               : row.status.substring(0, 1).toUpperCase() +
-                                  row.status.substring(1).toLowerCase(),
+                                    row.status.substring(1).toLowerCase(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -3426,10 +3559,7 @@ class _CnDocumentPreview extends ConsumerWidget {
       child: Text(
         text,
         textAlign: align,
-        style: const TextStyle(
-          fontSize: 11,
-          color: Color(0xFF111111),
-        ),
+        style: const TextStyle(fontSize: 11, color: Color(0xFF111111)),
       ),
     );
   }
@@ -3464,7 +3594,10 @@ class _CnDocumentPreview extends ConsumerWidget {
   TableRow _tableRow(String l1, String v1, String l2, String v2) {
     const cellStyle = TextStyle(fontSize: 10, color: Color(0xFF444444));
     const valStyle = TextStyle(
-        fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF111111));
+      fontSize: 10,
+      fontWeight: FontWeight.w600,
+      color: Color(0xFF111111),
+    );
 
     return TableRow(
       children: [
@@ -3537,8 +3670,15 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
   double get _availableCredits =>
       double.tryParse(widget.creditNote.balance.replaceAll(',', '')) ?? 0.0;
 
-  double get _creditsApplied => _invoices.fold(0.0, (sum, inv) =>
-      sum + (double.tryParse(inv.creditsToApplyController.text.replaceAll(',', '')) ?? 0.0));
+  double get _creditsApplied => _invoices.fold(
+    0.0,
+    (sum, inv) =>
+        sum +
+        (double.tryParse(
+              inv.creditsToApplyController.text.replaceAll(',', ''),
+            ) ??
+            0.0),
+  );
 
   double get _remainingCredits => _availableCredits - _creditsApplied;
 
@@ -3550,8 +3690,12 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
         invoiceNumber: widget.creditNote.invoiceNumber,
         invoiceDate: widget.creditNote.date,
         location: widget.creditNote.location,
-        invoiceAmount: double.tryParse(widget.creditNote.amount.replaceAll(',', '')) ?? 0.0,
-        invoiceBalance: double.tryParse(widget.creditNote.balance.replaceAll(',', '')) ?? 0.0,
+        invoiceAmount:
+            double.tryParse(widget.creditNote.amount.replaceAll(',', '')) ??
+            0.0,
+        invoiceBalance:
+            double.tryParse(widget.creditNote.balance.replaceAll(',', '')) ??
+            0.0,
         creditsAppliedOn: _dateFmt.format(DateTime.now()),
       ),
     ];
@@ -3570,12 +3714,16 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
 
   void _payInFull(_AtiInvoiceRow inv) {
     final alreadyApplied =
-        double.tryParse(inv.creditsToApplyController.text.replaceAll(',', '')) ?? 0.0;
+        double.tryParse(
+          inv.creditsToApplyController.text.replaceAll(',', ''),
+        ) ??
+        0.0;
     final maxApplicable = _remainingCredits + alreadyApplied;
     final amount = inv.invoiceBalance.clamp(0.0, maxApplicable);
     inv.creditsToApplyController.text = _fmt.format(amount);
-    inv.creditsToApplyController.selection =
-        TextSelection.collapsed(offset: inv.creditsToApplyController.text.length);
+    inv.creditsToApplyController.selection = TextSelection.collapsed(
+      offset: inv.creditsToApplyController.text.length,
+    );
   }
 
   void _clearAppliedAmount() {
@@ -3595,7 +3743,7 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
         constraints: const BoxConstraints(maxWidth: 1100, minWidth: 700),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Title bar ──
             Padding(
@@ -3614,7 +3762,11 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
+                    icon: const Icon(
+                      LucideIcons.x,
+                      size: 18,
+                      color: AppTheme.errorRed,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -3630,7 +3782,10 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                 children: [
                   // Credit Note# card (orange)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.warningBg,
                       borderRadius: BorderRadius.circular(8),
@@ -3642,19 +3797,29 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: AppTheme.warningOrange.withValues(alpha: 0.15),
+                            color: AppTheme.warningOrange.withValues(
+                              alpha: 0.15,
+                            ),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Icon(LucideIcons.fileMinus,
-                              size: 18, color: AppTheme.warningOrange),
+                          child: const Icon(
+                            LucideIcons.fileMinus,
+                            size: 18,
+                            color: AppTheme.warningOrange,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('Credit Note#',
-                                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                            const Text(
+                              'Credit Note#',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
                             const SizedBox(height: 2),
                             Text(
                               widget.creditNote.creditNoteNumber,
@@ -3672,7 +3837,10 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                   const SizedBox(width: 12),
                   // Available Credits card (blue)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.infoBg,
                       borderRadius: BorderRadius.circular(8),
@@ -3687,16 +3855,24 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                             color: AppTheme.primaryBlue.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Icon(LucideIcons.wallet,
-                              size: 18, color: AppTheme.primaryBlue),
+                          child: const Icon(
+                            LucideIcons.wallet,
+                            size: 18,
+                            color: AppTheme.primaryBlue,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('Available Credits',
-                                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                            const Text(
+                              'Available Credits',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
                             const SizedBox(height: 2),
                             Row(
                               mainAxisSize: MainAxisSize.min,
@@ -3733,7 +3909,7 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // "Unpaid Invoices" title + Set Applied on Date toggle
                   Row(
@@ -3748,12 +3924,18 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                         ),
                       ),
                       const Spacer(),
-                      const Text('Set Applied on Date',
-                          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                      const Text(
+                        'Set Applied on Date',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                       const SizedBox(width: 4),
                       ZTooltip(
-                          message:
-                              'When enabled, the date on which credits are applied will be recorded.'),
+                        message:
+                            'When enabled, the date on which credits are applied will be recorded.',
+                      ),
                       const SizedBox(width: 6),
                       Switch(
                         value: _setAppliedOnDate,
@@ -3773,7 +3955,10 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                       onTap: _clearAppliedAmount,
                       child: const Text(
                         'Clear Applied Amount',
-                        style: TextStyle(fontSize: 13, color: AppTheme.primaryBlue),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.primaryBlue,
+                        ),
                       ),
                     ),
                   ),
@@ -3797,65 +3982,112 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                         5: FlexColumnWidth(1.6), // CREDITS APPLIED ON
                         6: FlexColumnWidth(2.0), // CREDITS TO APPLY
                       },
-                      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                      defaultVerticalAlignment:
+                          TableCellVerticalAlignment.middle,
                       children: [
                         // Header row
                         TableRow(
-                          decoration: const BoxDecoration(color: AppTheme.bgLight),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.bgLight,
+                          ),
                           children: [
                             _AtiCell(child: _AtiColHeader('INVOICE NUMBER')),
                             _AtiCell(child: _AtiColHeader('INVOICE DATE')),
                             _AtiCell(child: _AtiColHeader('LOCATION')),
-                            _AtiCell(child: _AtiColHeader('INVOICE AMOUNT', align: TextAlign.right)),
-                            _AtiCell(child: _AtiColHeader('INVOICE BALANCE', align: TextAlign.right)),
-                            _AtiCell(child: _AtiColHeader('CREDITS APPLIED ON')),
-                            _AtiCell(child: _AtiColHeader('CREDITS TO APPLY', align: TextAlign.right)),
+                            _AtiCell(
+                              child: _AtiColHeader(
+                                'INVOICE AMOUNT',
+                                align: TextAlign.right,
+                              ),
+                            ),
+                            _AtiCell(
+                              child: _AtiColHeader(
+                                'INVOICE BALANCE',
+                                align: TextAlign.right,
+                              ),
+                            ),
+                            _AtiCell(
+                              child: _AtiColHeader('CREDITS APPLIED ON'),
+                            ),
+                            _AtiCell(
+                              child: _AtiColHeader(
+                                'CREDITS TO APPLY',
+                                align: TextAlign.right,
+                              ),
+                            ),
                           ],
                         ),
                         // Data rows
                         ...List.generate(_invoices.length, (i) {
                           final inv = _invoices[i];
                           return TableRow(
-                            decoration:
-                                const BoxDecoration(color: AppTheme.backgroundColor),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.backgroundColor,
+                            ),
                             children: [
                               _AtiCell(
-                                child: Text(inv.invoiceNumber,
-                                    style: const TextStyle(
-                                        fontSize: 13, color: AppTheme.textPrimary)),
+                                child: Text(
+                                  inv.invoiceNumber,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
                               ),
                               _AtiCell(
-                                child: Text(inv.invoiceDate,
-                                    style: const TextStyle(
-                                        fontSize: 13, color: AppTheme.textPrimary)),
+                                child: Text(
+                                  inv.invoiceDate,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
                               ),
                               _AtiCell(
-                                child: Text(inv.location,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        fontSize: 13, color: AppTheme.textPrimary)),
+                                child: Text(
+                                  inv.location,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
                               ),
                               _AtiCell(
-                                child: Text('₹${_fmt.format(inv.invoiceAmount)}',
-                                    textAlign: TextAlign.right,
-                                    style: const TextStyle(
-                                        fontSize: 13, color: AppTheme.textPrimary)),
+                                child: Text(
+                                  '₹${_fmt.format(inv.invoiceAmount)}',
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
                               ),
                               _AtiCell(
-                                child: Text('₹${_fmt.format(inv.invoiceBalance)}',
-                                    textAlign: TextAlign.right,
-                                    style: const TextStyle(
-                                        fontSize: 13, color: AppTheme.textPrimary)),
+                                child: Text(
+                                  '₹${_fmt.format(inv.invoiceBalance)}',
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
                               ),
                               _AtiCell(
-                                child: Text(inv.creditsAppliedOn,
-                                    style: const TextStyle(
-                                        fontSize: 13, color: AppTheme.textPrimary)),
+                                child: Text(
+                                  inv.creditsAppliedOn,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
                               ),
                               // Credits to Apply — editable + Pay in Full link
                               _AtiCell(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 8),
+                                  horizontal: 8,
+                                  vertical: 8,
+                                ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   mainAxisSize: MainAxisSize.min,
@@ -3863,26 +4095,41 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                                     TextField(
                                       controller: inv.creditsToApplyController,
                                       textAlign: TextAlign.right,
-                                      keyboardType: const TextInputType.numberWithOptions(
-                                          decimal: true),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
                                       style: const TextStyle(fontSize: 13),
                                       decoration: InputDecoration(
-                                        contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 8),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(3),
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
                                           borderSide: const BorderSide(
-                                              color: AppTheme.borderLight),
+                                            color: AppTheme.borderLight,
+                                          ),
                                         ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(3),
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
                                           borderSide: const BorderSide(
-                                              color: AppTheme.borderLight),
+                                            color: AppTheme.borderLight,
+                                          ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(3),
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
                                           borderSide: const BorderSide(
-                                              color: AppTheme.primaryBlue, width: 1.5),
+                                            color: AppTheme.primaryBlue,
+                                            width: 1.5,
+                                          ),
                                         ),
                                         isDense: true,
                                       ),
@@ -3945,12 +4192,17 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                       backgroundColor: AppTheme.successGreen,
                       foregroundColor: AppTheme.backgroundColor,
                       elevation: 0,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w500),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     child: const Text('Save'),
                   ),
@@ -3960,12 +4212,17 @@ class _ApplyToInvoicesDialogState extends State<_ApplyToInvoicesDialog> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textPrimary,
                       side: const BorderSide(color: AppTheme.borderLight),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w500),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -4041,9 +4298,10 @@ class _AtiSummaryRow extends StatelessWidget {
             value,
             textAlign: TextAlign.right,
             style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
           ),
         ),
       ],
@@ -4098,7 +4356,11 @@ class _OrgLogoBox extends StatelessWidget {
       alignment: Alignment.center,
       child: const Text(
         'LOGO',
-        style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8),
+        style: TextStyle(
+          color: Colors.white54,
+          fontSize: 12,
+          letterSpacing: 0.8,
+        ),
       ),
     );
   }

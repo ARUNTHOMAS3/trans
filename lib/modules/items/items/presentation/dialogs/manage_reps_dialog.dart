@@ -130,11 +130,10 @@ class _ManageRepsDialogState extends State<ManageRepsDialog> {
         (b) => b['id']?.toString() == _selectedBrandId,
         orElse: () => const {},
       );
-      final selectedBrandName = (selectedBrand['name'] ??
-              selectedBrand['brand_name'] ??
-              '')
-          .toString()
-          .trim();
+      final selectedBrandName =
+          (selectedBrand['name'] ?? selectedBrand['brand_name'] ?? '')
+              .toString()
+              .trim();
       final created = await widget.onCreate(
         name: name,
         number: _numberCtrl.text.trim(),
@@ -245,8 +244,7 @@ class _ManageRepsDialogState extends State<ManageRepsDialog> {
                             .where((id) => id.isNotEmpty)
                             .toList(),
                         hint: 'Select brand or division',
-                        onChanged: (v) =>
-                            setState(() => _selectedBrandId = v),
+                        onChanged: (v) => setState(() => _selectedBrandId = v),
                         displayStringForValue: (id) {
                           final brand = widget.brands.firstWhere(
                             (b) => b['id']?.toString() == id,
@@ -316,8 +314,10 @@ class _ManageRepsDialogState extends State<ManageRepsDialog> {
                             },
                           );
                         },
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1, color: AppTheme.borderLight),
+                        separatorBuilder: (_, __) => const Divider(
+                          height: 1,
+                          color: AppTheme.borderLight,
+                        ),
                         itemCount: _reps.length,
                       ),
               ),

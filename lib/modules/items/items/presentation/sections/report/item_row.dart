@@ -159,17 +159,17 @@ class ItemRow {
   String get selectionId => id ?? name;
 
   static ItemRow get dummy => const ItemRow(
-        id: 'dummy',
-        name: 'Skeleton Item Product Name',
-        accountName: 'Sales/Purchase Account',
-        itemCode: 'ITEM-001',
-        sku: 'SKU-12345',
-        stockOnHand: '0.00',
-        sellingPrice: '0.00',
-        costPrice: '0.00',
-        hsn: '123456',
-        category: 'Sample Category',
-      );
+    id: 'dummy',
+    name: 'Skeleton Item Product Name',
+    accountName: 'Sales/Purchase Account',
+    itemCode: 'ITEM-001',
+    sku: 'SKU-12345',
+    stockOnHand: '0.00',
+    sellingPrice: '0.00',
+    costPrice: '0.00',
+    hsn: '123456',
+    category: 'Sample Category',
+  );
 
   static List<ItemRow> dummyList(int count) =>
       List.generate(count, (index) => dummy);

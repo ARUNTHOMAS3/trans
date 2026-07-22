@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart';
@@ -64,6 +65,7 @@ class _AccountTreeDropdownWithAddButtonState
   bool _didScrollToSelected = false;
   List<AccountNode>? _remoteResults;
   bool _isSearching = false;
+  bool _overlayRebuildQueued = false;
   Timer? _debounce;
   bool _isAddAccountHovered = false;
   static const double _rowHeight = 36;
@@ -342,7 +344,26 @@ class _AccountTreeDropdownWithAddButtonState
   }
 
   void _markOverlayNeedsBuild() {
-    _overlay?.markNeedsBuild();
+    final entry = _overlay;
+    if (entry == null) return;
+
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final canRebuildNow =
+        phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks;
+
+    if (canRebuildNow) {
+      entry.markNeedsBuild();
+      return;
+    }
+
+    if (_overlayRebuildQueued) return;
+    _overlayRebuildQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _overlayRebuildQueued = false;
+      if (!mounted) return;
+      _overlay?.markNeedsBuild();
+    });
   }
 
   Offset _calculateOverlayOffset(Size fieldSize, double overlayHeight) {
@@ -433,10 +454,7 @@ class _AccountTreeDropdownWithAddButtonState
                     if (_isSearching)
                       const SizedBox(
                         height: 2,
-                        child: ZBone(
-                          borderRadius: 0,
-                          color: AppTheme.infoBlue,
-                        ),
+                        child: ZBone(borderRadius: 0, color: AppTheme.infoBlue),
                       ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),

@@ -20,7 +20,7 @@ class RefundPage extends ConsumerStatefulWidget {
 
 class _RefundPageState extends ConsumerState<RefundPage> {
   final GlobalKey _datePickerKey = GlobalKey();
-  
+
   late final TextEditingController _amountController;
   late final TextEditingController _refundedOnController;
   late final TextEditingController _referenceController;
@@ -64,7 +64,11 @@ class _RefundPageState extends ConsumerState<RefundPage> {
     try {
       final parts = _refundedOnController.text.split('-');
       if (parts.length == 3) {
-        initial = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+        initial = DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
       }
     } catch (_) {}
 
@@ -74,7 +78,8 @@ class _RefundPageState extends ConsumerState<RefundPage> {
       targetKey: _datePickerKey,
     );
     if (picked != null) {
-      final formatted = "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
+      final formatted =
+          "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
       setState(() {
         _refundedOnController.text = formatted;
       });
@@ -101,7 +106,9 @@ class _RefundPageState extends ConsumerState<RefundPage> {
     final paymentModes = state.paymentModes;
     if (!_initialized) {
       _amountController.text = record.unusedAmount.toStringAsFixed(0);
-      _paymentMode = state.defaultPaymentMode.isNotEmpty ? state.defaultPaymentMode : record.mode;
+      _paymentMode = state.defaultPaymentMode.isNotEmpty
+          ? state.defaultPaymentMode
+          : record.mode;
       _initialized = true;
     }
 
@@ -111,7 +118,8 @@ class _RefundPageState extends ConsumerState<RefundPage> {
           : (paymentModes.isNotEmpty ? paymentModes.first : '');
     }
 
-    final orgSystemId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
+    final orgSystemId =
+        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
 
     return Container(
       color: Colors.white,
@@ -190,11 +198,16 @@ class _RefundPageState extends ConsumerState<RefundPage> {
                     width: 260,
                     child: CustomTextField(
                       controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       height: 40,
                       prefixWidget: const Text(
                         'INR',
-                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                       prefixBox: true,
                     ),
@@ -292,7 +305,12 @@ class _RefundPageState extends ConsumerState<RefundPage> {
                                     backgroundColor: Colors.white,
                                     surfaceTintColor: Colors.transparent,
                                     alignment: Alignment.topCenter,
-                                    insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 0),
+                                    insetPadding: const EdgeInsets.fromLTRB(
+                                      40,
+                                      0,
+                                      40,
+                                      0,
+                                    ),
                                     shape: const RoundedRectangleBorder(
                                       borderRadius: BorderRadius.only(
                                         bottomLeft: Radius.circular(12),
@@ -306,12 +324,18 @@ class _RefundPageState extends ConsumerState<RefundPage> {
                                       ),
                                       child: _ConfigurePaymentModeDialog(
                                         initialModes: state.paymentModes,
-                                        initialDefaultMode: state.defaultPaymentMode,
+                                        initialDefaultMode:
+                                            state.defaultPaymentMode,
                                         onSave: (result) {
-                                          ref.read(paymentRecievesProvider.notifier).updatePaymentModes(
-                                            result.$1,
-                                            result.$2,
-                                          );
+                                          ref
+                                              .read(
+                                                paymentRecievesProvider
+                                                    .notifier,
+                                              )
+                                              .updatePaymentModes(
+                                                result.$1,
+                                                result.$2,
+                                              );
                                         },
                                       ),
                                     ),
@@ -344,11 +368,15 @@ class _RefundPageState extends ConsumerState<RefundPage> {
                               'TDS Payable',
                               'GST Payable',
                             ],
-                            isItemEnabled: (item) => item != 'Cash' && item != 'Bank',
+                            isItemEnabled: (item) =>
+                                item != 'Cash' && item != 'Bank',
                             itemBuilder: (item, isSelected, isHovered) {
                               if (item == 'Cash' || item == 'Bank') {
                                 return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                   alignment: Alignment.centerLeft,
                                   child: Text(
                                     item,
@@ -360,9 +388,14 @@ class _RefundPageState extends ConsumerState<RefundPage> {
                                   ),
                                 );
                               }
-                              final bool isTestingCash = item == 'TESTINGS CASH';
-                              final String displayLabel = isTestingCash ? '• TESTINGS CASH' : item;
-                              final Color textColor = isHovered ? Colors.white : AppTheme.textPrimary;
+                              final bool isTestingCash =
+                                  item == 'TESTINGS CASH';
+                              final String displayLabel = isTestingCash
+                                  ? '• TESTINGS CASH'
+                                  : item;
+                              final Color textColor = isHovered
+                                  ? Colors.white
+                                  : AppTheme.textPrimary;
 
                               return Container(
                                 height: 40,
@@ -387,7 +420,9 @@ class _RefundPageState extends ConsumerState<RefundPage> {
                                       Icon(
                                         Icons.check,
                                         size: 16,
-                                        color: isHovered ? Colors.white : const Color(0xFF2563EB),
+                                        color: isHovered
+                                            ? Colors.white
+                                            : const Color(0xFF2563EB),
                                       ),
                                   ],
                                 ),
@@ -414,75 +449,93 @@ class _RefundPageState extends ConsumerState<RefundPage> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    final amtText = _amountController.text.trim();
-                    if (amtText.isEmpty) {
-                      ZerpaiToast.error(context, 'Amount is required');
-                      return;
-                    }
-                    final amtVal = double.tryParse(amtText);
-                    if (amtVal == null || amtVal <= 0) {
-                      ZerpaiToast.error(context, 'Please enter a valid amount');
-                      return;
-                    }
-                    if (amtVal > record.unusedAmount) {
-                      ZerpaiToast.error(
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      final amtText = _amountController.text.trim();
+                      if (amtText.isEmpty) {
+                        ZerpaiToast.error(context, 'Amount is required');
+                        return;
+                      }
+                      final amtVal = double.tryParse(amtText);
+                      if (amtVal == null || amtVal <= 0) {
+                        ZerpaiToast.error(
+                          context,
+                          'Please enter a valid amount',
+                        );
+                        return;
+                      }
+                      if (amtVal > record.unusedAmount) {
+                        ZerpaiToast.error(
+                          context,
+                          'Refund amount cannot exceed remaining balance of ${_fmt(record.unusedAmount)}',
+                        );
+                        return;
+                      }
+                      ref
+                          .read(paymentRecievesProvider.notifier)
+                          .refundRecord(record.paymentNo, amtVal);
+                      ZerpaiToast.success(
                         context,
-                        'Refund amount cannot exceed remaining balance of ${_fmt(record.unusedAmount)}',
+                        'Refund processed successfully',
                       );
-                      return;
-                    }
-                    ref.read(paymentRecievesProvider.notifier).refundRecord(record.paymentNo, amtVal);
-                    ZerpaiToast.success(context, 'Refund processed successfully');
-                    context.go('/$orgSystemId/sales/payments-received/${record.paymentNo}');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shadowColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    minimumSize: const Size(80, 38),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4.0),
+                      context.go(
+                        '/$orgSystemId/sales/payments-received/${record.paymentNo}',
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      minimumSize: const Size(80, 38),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4.0),
+                      ),
+                    ),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    onPressed: () {
+                      context.go(
+                        '/$orgSystemId/sales/payments-received/${record.paymentNo}',
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.textBody,
+                      side: const BorderSide(color: AppTheme.borderColor),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      minimumSize: const Size(80, 38),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4.0),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textBody,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton(
-                  onPressed: () {
-                    context.go('/$orgSystemId/sales/payments-received/${record.paymentNo}');
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textBody,
-                    side: const BorderSide(color: AppTheme.borderColor),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    minimumSize: const Size(80, 38),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4.0),
-                    ),
-                  ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textBody,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ],
         ),
@@ -497,20 +550,27 @@ class _RefundPageState extends ConsumerState<RefundPage> {
     required Widget child,
   }) {
     return Row(
-      crossAxisAlignment: label == 'Description' ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: label == 'Description'
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
         SizedBox(
           width: 160,
           child: Padding(
             padding: const EdgeInsets.only(right: 16.0, top: 4.0),
-            child: labelWidget ??
+            child:
+                labelWidget ??
                 Text(
                   label ?? '',
                   textAlign: TextAlign.right,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: isLabelRed ? FontWeight.w500 : FontWeight.normal,
-                    color: isLabelRed ? const Color(0xFFDC2626) : AppTheme.textPrimary,
+                    fontWeight: isLabelRed
+                        ? FontWeight.w500
+                        : FontWeight.normal,
+                    color: isLabelRed
+                        ? const Color(0xFFDC2626)
+                        : AppTheme.textPrimary,
                   ),
                 ),
           ),
@@ -534,10 +594,12 @@ class _ConfigurePaymentModeDialog extends StatefulWidget {
   });
 
   @override
-  State<_ConfigurePaymentModeDialog> createState() => _ConfigurePaymentModeDialogState();
+  State<_ConfigurePaymentModeDialog> createState() =>
+      _ConfigurePaymentModeDialogState();
 }
 
-class _ConfigurePaymentModeDialogState extends State<_ConfigurePaymentModeDialog> {
+class _ConfigurePaymentModeDialogState
+    extends State<_ConfigurePaymentModeDialog> {
   late List<String> _modes;
   late String _defaultMode;
   late List<TextEditingController> _controllers;
@@ -657,12 +719,15 @@ class _ConfigurePaymentModeDialogState extends State<_ConfigurePaymentModeDialog
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (index > 0) const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      if (index > 0)
+                        const Divider(height: 1, color: Color(0xFFE5E7EB)),
                       _PaymentModeRow(
                         label: _modes[index],
                         controller: _controllers[index],
                         focusNode: _focusNodes[index],
-                        isDefault: _defaultMode == _modes[index] && _modes[index].isNotEmpty,
+                        isDefault:
+                            _defaultMode == _modes[index] &&
+                            _modes[index].isNotEmpty,
                         onSetDefault: () {
                           setState(() {
                             _modes[index] = _controllers[index].text.trim();
@@ -716,7 +781,10 @@ class _ConfigurePaymentModeDialogState extends State<_ConfigurePaymentModeDialog
                   }
 
                   if (finalModes.isEmpty) {
-                    ZerpaiToast.error(context, 'At least one payment mode is required');
+                    ZerpaiToast.error(
+                      context,
+                      'At least one payment mode is required',
+                    );
                     return;
                   }
 
@@ -733,7 +801,10 @@ class _ConfigurePaymentModeDialogState extends State<_ConfigurePaymentModeDialog
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4.0),
                   ),
@@ -753,7 +824,10 @@ class _ConfigurePaymentModeDialogState extends State<_ConfigurePaymentModeDialog
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.textBody,
                   side: const BorderSide(color: AppTheme.borderColor),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4.0),
                   ),
@@ -804,7 +878,8 @@ class _PaymentModeRowState extends State<_PaymentModeRow> {
 
   @override
   Widget build(BuildContext context) {
-    final showActions = widget.isDefault || _isHovered || widget.focusNode.hasFocus;
+    final showActions =
+        widget.isDefault || _isHovered || widget.focusNode.hasFocus;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -820,9 +895,15 @@ class _PaymentModeRowState extends State<_PaymentModeRow> {
                   controller: widget.controller,
                   focusNode: widget.focusNode,
                   onChanged: widget.onChanged,
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
+                  ),
                   decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     isDense: true,
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
@@ -830,7 +911,10 @@ class _PaymentModeRowState extends State<_PaymentModeRow> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
-                      borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF3B82F6),
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
@@ -845,56 +929,60 @@ class _PaymentModeRowState extends State<_PaymentModeRow> {
                 child: !showActions
                     ? const SizedBox.shrink()
                     : (widget.isDefault
-                        ? Container(
-                            key: const ValueKey('default'),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF4F772D),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            child: const Text(
-                              'Default',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                          ? Container(
+                              key: const ValueKey('default'),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
                               ),
-                            ),
-                          )
-                        : Row(
-                            key: const ValueKey('actions'),
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              TextButton(
-                                onPressed: widget.onSetDefault,
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  foregroundColor: const Color(0xFF6B7280),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4F772D),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              child: const Text(
+                                'Default',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                child: const Text(
-                                  'Mark as Default',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                              ),
+                            )
+                          : Row(
+                              key: const ValueKey('actions'),
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextButton(
+                                  onPressed: widget.onSetDefault,
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    foregroundColor: const Color(0xFF6B7280),
+                                  ),
+                                  child: const Text(
+                                    'Mark as Default',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              IconButton(
-                                onPressed: widget.onDelete,
-                                icon: const Icon(
-                                  Icons.cancel,
-                                  color: Color(0xFFDC2626),
-                                  size: 16,
+                                const SizedBox(width: 12),
+                                IconButton(
+                                  onPressed: widget.onDelete,
+                                  icon: const Icon(
+                                    Icons.cancel,
+                                    color: Color(0xFFDC2626),
+                                    size: 16,
+                                  ),
+                                  constraints: const BoxConstraints(),
+                                  padding: EdgeInsets.zero,
+                                  splashRadius: 12,
                                 ),
-                                constraints: const BoxConstraints(),
-                                padding: EdgeInsets.zero,
-                                splashRadius: 12,
-                              ),
-                            ],
-                          )),
+                              ],
+                            )),
               ),
             ),
           ],

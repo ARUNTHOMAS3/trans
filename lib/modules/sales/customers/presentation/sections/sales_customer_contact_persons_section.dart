@@ -11,7 +11,8 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
           if (_hasFieldError('contactPersons')) ...[
             const SizedBox(height: 8),
             Text(
-              _fieldError('contactPersons') ?? 'Contact person values are invalid',
+              _fieldError('contactPersons') ??
+                  'Contact person values are invalid',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.errorRed,
@@ -179,7 +180,8 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
                     child: PhoneInputField(
                       controller: row.workPhoneCtrl,
                       selectedPrefix: row.workCode,
-                      onPrefixChanged: (v) => _state(() => row.workCode = v ?? '+91'),
+                      onPrefixChanged: (v) =>
+                          _state(() => row.workCode = v ?? '+91'),
                       hintText: '',
                       height: _inputHeight,
                     ),
@@ -190,7 +192,8 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
                     child: PhoneInputField(
                       controller: row.mobilePhoneCtrl,
                       selectedPrefix: row.mobileCode,
-                      onPrefixChanged: (v) => _state(() => row.mobileCode = v ?? '+91'),
+                      onPrefixChanged: (v) =>
+                          _state(() => row.mobileCode = v ?? '+91'),
                       hintText: '',
                       height: _inputHeight,
                     ),
@@ -244,4 +247,3 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
     });
   }
 }
-

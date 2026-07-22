@@ -31,7 +31,11 @@ class ItemComposition {
 
   factory ItemComposition.fromJson(Map<String, dynamic> json) {
     if (kDebugMode) {
-      AppLogger.debug('ItemComposition.fromJson', data: {'raw': jsonEncode(json)}, module: 'items');
+      AppLogger.debug(
+        'ItemComposition.fromJson',
+        data: {'raw': jsonEncode(json)},
+        module: 'items',
+      );
     }
 
     // Handle Supabase join structure (can be Map or List of Map)

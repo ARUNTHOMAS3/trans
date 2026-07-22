@@ -24,7 +24,12 @@ class Warehouse {
   factory Warehouse.fromJson(Map<String, dynamic> json) {
     return Warehouse(
       id: (json['id'] ?? json['warehouse_id'] ?? '').toString(),
-      branchId: (json['branch_id'] ?? json['branchId'] ?? json['source_branch_id'] ?? json['sourceBranchId'])?.toString(),
+      branchId:
+          (json['branch_id'] ??
+                  json['branchId'] ??
+                  json['source_branch_id'] ??
+                  json['sourceBranchId'])
+              ?.toString(),
       name: (json['name'] ?? 'Unnamed Warehouse').toString(),
       code: json['code']?.toString(),
       isActive: json['is_active'] ?? json['isActive'] ?? true,

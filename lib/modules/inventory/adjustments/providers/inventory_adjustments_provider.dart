@@ -61,7 +61,7 @@ final inventoryAdjustmentsListProvider =
         final matchesType = filters.adjustmentType == 'all'
             ? true
             : row.adjustmentType.toLowerCase() ==
-                filters.adjustmentType.toLowerCase();
+                  filters.adjustmentType.toLowerCase();
 
         return matchesSearch && matchesStatus && matchesType;
       }).toList();

@@ -89,7 +89,9 @@ class CustomerTransactionItem {
       title: (json['title'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
-      date: json['date'] != null ? DateTime.tryParse(json['date'].toString()) : null,
+      date: json['date'] != null
+          ? DateTime.tryParse(json['date'].toString())
+          : null,
     );
   }
 }
@@ -201,7 +203,9 @@ class CustomerStatementEntry {
   factory CustomerStatementEntry.fromJson(Map<String, dynamic> json) {
     return CustomerStatementEntry(
       id: (json['id'] ?? '').toString(),
-      date: json['date'] != null ? DateTime.tryParse(json['date'].toString()) : null,
+      date: json['date'] != null
+          ? DateTime.tryParse(json['date'].toString())
+          : null,
       type: (json['type'] ?? '').toString(),
       number: (json['number'] ?? '').toString(),
       reference: json['reference']?.toString(),

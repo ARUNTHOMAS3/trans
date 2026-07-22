@@ -502,274 +502,264 @@ class _PurchasesRecurringExpensesCustomViewPageState
                     borderRadius: BorderRadius.circular(8),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Left Column Box: Available Columns
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Container(
-                                color: AppTheme.bgLight,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                child: Text(
-                                  'AVAILABLE COLUMNS',
-                                  style: AppTextStyles.helper.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column Box: Available Columns
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              color: AppTheme.bgLight,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Text(
+                                'AVAILABLE COLUMNS',
+                                style: AppTextStyles.helper.copyWith(
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const Divider(
-                                height: 1,
-                                color: AppTheme.borderLight,
+                            ),
+                            const Divider(
+                              height: 1,
+                              color: AppTheme.borderLight,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: ZSearchField(
+                                controller: _searchCtrl,
+                                hintText: 'Search',
+                                onChanged: (val) {
+                                  setState(() {
+                                    _searchQuery = val;
+                                  });
+                                },
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: ZSearchField(
-                                  controller: _searchCtrl,
-                                  hintText: 'Search',
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _searchQuery = val;
-                                    });
-                                  },
-                                ),
-                              ),
-                              const Divider(
-                                height: 1,
-                                color: AppTheme.borderLight,
-                              ),
-                              Container(
-                                height: 200,
-                                color: AppTheme.backgroundColor,
-                                child: filteredAvailable.isEmpty
-                                    ? Center(
-                                        child: Text(
-                                          'No columns found',
-                                          style: AppTextStyles.bodySmall
-                                              .copyWith(
-                                                color: AppTheme.textMuted,
-                                              ),
+                            ),
+                            const Divider(
+                              height: 1,
+                              color: AppTheme.borderLight,
+                            ),
+                            Container(
+                              height: 200,
+                              color: AppTheme.backgroundColor,
+                              child: filteredAvailable.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        'No columns found',
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: AppTheme.textMuted,
                                         ),
-                                      )
-                                    : ListView.builder(
-                                        itemCount: filteredAvailable.length,
-                                        itemBuilder: (context, index) {
-                                          final colName =
-                                              filteredAvailable[index];
-                                          return InkWell(
-                                            onTap: () {
-                                              setState(() {
-                                                _availableColumns.remove(
-                                                  colName,
-                                                );
-                                                _selectedColumns.add(colName);
-                                                AppLogger.info(
-                                                  'Moved column from available to selected',
-                                                  data: {'column': colName},
-                                                  module:
-                                                      'purchases_recurring_expenses',
-                                                );
-                                              });
-                                            },
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 10,
-                                                  ),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(
-                                                    LucideIcons.gripVertical,
-                                                    color: AppTheme.textMuted,
-                                                    size: 14,
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    colName,
-                                                    style: AppTextStyles.body
-                                                        .copyWith(
-                                                          color: AppTheme
-                                                              .textPrimary,
-                                                        ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
                                       ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Vertical Separator
-                        const VerticalDivider(
-                          width: 1,
-                          thickness: 1,
-                          color: AppTheme.borderLight,
-                        ),
-                        // Right Column Box: Selected Columns
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Container(
-                                color: AppTheme.bgLight,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.check_circle_outline,
-                                      color: AppTheme.successDark,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'SELECTED COLUMNS',
-                                      style: AppTextStyles.helper.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.successDark,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Divider(
-                                height: 1,
-                                color: AppTheme.borderLight,
-                              ),
-                              Container(
-                                height: 260, // Sized to match available height
-                                color: AppTheme.backgroundColor,
-                                child: _selectedColumns.isEmpty
-                                    ? Center(
-                                        child: Text(
-                                          'Select columns from available list',
-                                          style: AppTextStyles.bodySmall
-                                              .copyWith(
-                                                color: AppTheme.textMuted,
-                                              ),
-                                        ),
-                                      )
-                                    : Theme(
-                                        data: Theme.of(context).copyWith(
-                                          canvasColor: AppTheme.backgroundColor,
-                                          shadowColor: AppTheme.textPrimary
-                                              .withValues(alpha: 0.05),
-                                        ),
-                                        child: ReorderableListView.builder(
-                                          buildDefaultDragHandles: false,
-                                          itemCount: _selectedColumns.length,
-                                          onReorder: (oldIndex, newIndex) {
+                                    )
+                                  : ListView.builder(
+                                      itemCount: filteredAvailable.length,
+                                      itemBuilder: (context, index) {
+                                        final colName =
+                                            filteredAvailable[index];
+                                        return InkWell(
+                                          onTap: () {
                                             setState(() {
-                                              if (newIndex > oldIndex) {
-                                                newIndex -= 1;
-                                              }
-                                              final item = _selectedColumns
-                                                  .removeAt(oldIndex);
-                                              _selectedColumns.insert(
-                                                newIndex,
-                                                item,
-                                              );
+                                              _availableColumns.remove(colName);
+                                              _selectedColumns.add(colName);
                                               AppLogger.info(
-                                                'Reordered custom view selected columns',
-                                                data: {
-                                                  'item': item,
-                                                  'oldIndex': oldIndex,
-                                                  'newIndex': newIndex,
-                                                },
+                                                'Moved column from available to selected',
+                                                data: {'column': colName},
                                                 module:
                                                     'purchases_recurring_expenses',
                                               );
                                             });
                                           },
-                                          itemBuilder: (context, index) {
-                                            final colName =
-                                                _selectedColumns[index];
-                                            return ReorderableDragStartListener(
-                                              key: ValueKey(colName),
-                                              index: index,
-                                              child: InkWell(
-                                                onTap: () {
-                                                  setState(() {
-                                                    _selectedColumns.removeAt(
-                                                      index,
-                                                    );
-                                                    _availableColumns.add(
-                                                      colName,
-                                                    );
-                                                    AppLogger.info(
-                                                      'Moved column from selected to available',
-                                                      data: {'column': colName},
-                                                      module:
-                                                          'purchases_recurring_expenses',
-                                                    );
-                                                  });
-                                                },
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 16,
-                                                        vertical: 10,
-                                                      ),
-                                                  child: Row(
-                                                    children: [
-                                                      const MouseRegion(
-                                                        cursor:
-                                                            SystemMouseCursors
-                                                                .grab,
-                                                        child: Icon(
-                                                          LucideIcons
-                                                              .gripVertical,
-                                                          color: AppTheme
-                                                              .textMuted,
-                                                          size: 14,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        colName,
-                                                        style: AppTextStyles
-                                                            .body
-                                                            .copyWith(
-                                                              color: AppTheme
-                                                                  .textPrimary,
-                                                            ),
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Text(
-                                                        '*',
-                                                        style: AppTextStyles
-                                                            .body
-                                                            .copyWith(
-                                                              color: AppTheme
-                                                                  .errorRed,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 10,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                const Icon(
+                                                  LucideIcons.gripVertical,
+                                                  color: AppTheme.textMuted,
+                                                  size: 14,
                                                 ),
-                                              ),
-                                            );
-                                          },
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  colName,
+                                                  style: AppTextStyles.body
+                                                      .copyWith(
+                                                        color: AppTheme
+                                                            .textPrimary,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Vertical Separator
+                      const VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: AppTheme.borderLight,
+                      ),
+                      // Right Column Box: Selected Columns
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              color: AppTheme.bgLight,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle_outline,
+                                    color: AppTheme.successDark,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'SELECTED COLUMNS',
+                                    style: AppTextStyles.helper.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.successDark,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(
+                              height: 1,
+                              color: AppTheme.borderLight,
+                            ),
+                            Container(
+                              height: 260, // Sized to match available height
+                              color: AppTheme.backgroundColor,
+                              child: _selectedColumns.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        'Select columns from available list',
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: AppTheme.textMuted,
                                         ),
                                       ),
-                              ),
-                            ],
-                          ),
+                                    )
+                                  : Theme(
+                                      data: Theme.of(context).copyWith(
+                                        canvasColor: AppTheme.backgroundColor,
+                                        shadowColor: AppTheme.textPrimary
+                                            .withValues(alpha: 0.05),
+                                      ),
+                                      child: ReorderableListView.builder(
+                                        buildDefaultDragHandles: false,
+                                        itemCount: _selectedColumns.length,
+                                        onReorder: (oldIndex, newIndex) {
+                                          setState(() {
+                                            if (newIndex > oldIndex) {
+                                              newIndex -= 1;
+                                            }
+                                            final item = _selectedColumns
+                                                .removeAt(oldIndex);
+                                            _selectedColumns.insert(
+                                              newIndex,
+                                              item,
+                                            );
+                                            AppLogger.info(
+                                              'Reordered custom view selected columns',
+                                              data: {
+                                                'item': item,
+                                                'oldIndex': oldIndex,
+                                                'newIndex': newIndex,
+                                              },
+                                              module:
+                                                  'purchases_recurring_expenses',
+                                            );
+                                          });
+                                        },
+                                        itemBuilder: (context, index) {
+                                          final colName =
+                                              _selectedColumns[index];
+                                          return ReorderableDragStartListener(
+                                            key: ValueKey(colName),
+                                            index: index,
+                                            child: InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedColumns.removeAt(
+                                                    index,
+                                                  );
+                                                  _availableColumns.add(
+                                                    colName,
+                                                  );
+                                                  AppLogger.info(
+                                                    'Moved column from selected to available',
+                                                    data: {'column': colName},
+                                                    module:
+                                                        'purchases_recurring_expenses',
+                                                  );
+                                                });
+                                              },
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 10,
+                                                    ),
+                                                child: Row(
+                                                  children: [
+                                                    const MouseRegion(
+                                                      cursor: SystemMouseCursors
+                                                          .grab,
+                                                      child: Icon(
+                                                        LucideIcons
+                                                            .gripVertical,
+                                                        color:
+                                                            AppTheme.textMuted,
+                                                        size: 14,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      colName,
+                                                      style: AppTextStyles.body
+                                                          .copyWith(
+                                                            color: AppTheme
+                                                                .textPrimary,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '*',
+                                                      style: AppTextStyles.body
+                                                          .copyWith(
+                                                            color: AppTheme
+                                                                .errorRed,
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),

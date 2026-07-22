@@ -17,15 +17,16 @@ final branchPriceListServiceProvider = Provider<BranchPriceListService>((ref) {
 
 /// Notifier Provider for Branch Price List State
 final branchPriceListNotifierProvider =
-    StateNotifierProvider<BranchPriceListNotifier, AsyncValue<List<BranchPriceList>>>(
-      (ref) {
-        ref.watch(entityProvider);
-        return BranchPriceListNotifier(
-          ref.watch(branchPriceListServiceProvider),
-          isAuthenticated: true,
-        );
-      },
-    );
+    StateNotifierProvider<
+      BranchPriceListNotifier,
+      AsyncValue<List<BranchPriceList>>
+    >((ref) {
+      ref.watch(entityProvider);
+      return BranchPriceListNotifier(
+        ref.watch(branchPriceListServiceProvider),
+        isAuthenticated: true,
+      );
+    });
 
 /// Provider for Active Branch Price Lists only
 final activeBranchPriceListsProvider = Provider<List<BranchPriceList>>((ref) {
@@ -40,7 +41,10 @@ final activeBranchPriceListsProvider = Provider<List<BranchPriceList>>((ref) {
 });
 
 /// Provider for a specific Branch Price List by ID
-final branchPriceListByIdProvider = Provider.family<BranchPriceList?, String>((ref, id) {
+final branchPriceListByIdProvider = Provider.family<BranchPriceList?, String>((
+  ref,
+  id,
+) {
   return ref
       .watch(branchPriceListNotifierProvider)
       .when(
@@ -61,40 +65,41 @@ final branchPriceListLimitProvider = StateProvider<int>((ref) => 25);
 final branchPriceListPageProvider = StateProvider<int>((ref) => 1);
 
 final branchPriceListFilterProvider =
-    StateNotifierProvider<BranchPriceListFilterNotifier, BranchPriceListFilters>(
-  (ref) => BranchPriceListFilterNotifier(ref),
-);
+    StateNotifierProvider<
+      BranchPriceListFilterNotifier,
+      BranchPriceListFilters
+    >((ref) => BranchPriceListFilterNotifier(ref));
 
 final branchPriceListColumnProvider =
     StateNotifierProvider<BranchPriceListColumnNotifier, Map<String, bool>>(
-  (ref) => BranchPriceListColumnNotifier(),
-);
+      (ref) => BranchPriceListColumnNotifier(),
+    );
 
 final branchPriceListSortProvider =
     StateNotifierProvider<BranchPriceListSortNotifier, BranchSortState>(
-  (ref) => BranchPriceListSortNotifier(),
-);
+      (ref) => BranchPriceListSortNotifier(),
+    );
 
 final filteredBranchPriceListsProvider =
     Provider<AsyncValue<List<BranchPriceList>>>((ref) {
-  final priceListsAsync = ref.watch(branchPriceListNotifierProvider);
-  final filters = ref.watch(branchPriceListFilterProvider);
+      final priceListsAsync = ref.watch(branchPriceListNotifierProvider);
+      final filters = ref.watch(branchPriceListFilterProvider);
 
-  return priceListsAsync.whenData(
-    (priceLists) => _applyFilters(priceLists, filters),
-  );
-});
+      return priceListsAsync.whenData(
+        (priceLists) => _applyFilters(priceLists, filters),
+      );
+    });
 
 final filteredBranchPriceListPaginationProvider =
     Provider<AsyncValue<BranchPriceListPagination>>((ref) {
-  final listAsync = ref.watch(filteredBranchPriceListsProvider);
-  final limit = ref.watch(branchPriceListLimitProvider);
-  final page = ref.watch(branchPriceListPageProvider);
+      final listAsync = ref.watch(filteredBranchPriceListsProvider);
+      final limit = ref.watch(branchPriceListLimitProvider);
+      final page = ref.watch(branchPriceListPageProvider);
 
-  return listAsync.whenData(
-    (priceLists) => _paginatePriceLists(priceLists, limit, page),
-  );
-});
+      return listAsync.whenData(
+        (priceLists) => _paginatePriceLists(priceLists, limit, page),
+      );
+    });
 
 class BranchPriceListFilters {
   final String status;
@@ -128,8 +133,10 @@ class BranchPriceListFilters {
   }
 }
 
-class BranchPriceListFilterNotifier extends StateNotifier<BranchPriceListFilters> {
-  BranchPriceListFilterNotifier(this._ref) : super(const BranchPriceListFilters());
+class BranchPriceListFilterNotifier
+    extends StateNotifier<BranchPriceListFilters> {
+  BranchPriceListFilterNotifier(this._ref)
+    : super(const BranchPriceListFilters());
 
   final Ref _ref;
 
@@ -165,14 +172,14 @@ class BranchPriceListFilterNotifier extends StateNotifier<BranchPriceListFilters
 
 class BranchPriceListColumnNotifier extends StateNotifier<Map<String, bool>> {
   BranchPriceListColumnNotifier()
-      : super({
-          'name': true,
-          'itemsCovered': true,
-          'currency': true,
-          'details': true,
-          'pricingScheme': true,
-          'roundOffPreference': true,
-        });
+    : super({
+        'name': true,
+        'itemsCovered': true,
+        'currency': true,
+        'details': true,
+        'pricingScheme': true,
+        'roundOffPreference': true,
+      });
 
   void toggleColumn(String key) {
     final current = state[key] ?? false;
@@ -184,15 +191,9 @@ class BranchSortState {
   final String column;
   final bool ascending;
 
-  const BranchSortState({
-    required this.column,
-    this.ascending = true,
-  });
+  const BranchSortState({required this.column, this.ascending = true});
 
-  BranchSortState copyWith({
-    String? column,
-    bool? ascending,
-  }) {
+  BranchSortState copyWith({String? column, bool? ascending}) {
     return BranchSortState(
       column: column ?? this.column,
       ascending: ascending ?? this.ascending,
@@ -263,16 +264,18 @@ BranchPriceListPagination _paginatePriceLists(
 ) {
   final safeLimit = limit > 0 ? limit : 25;
   final totalCount = priceLists.length;
-  final totalPages =
-      totalCount == 0 ? 1 : ((totalCount + safeLimit - 1) ~/ safeLimit);
+  final totalPages = totalCount == 0
+      ? 1
+      : ((totalCount + safeLimit - 1) ~/ safeLimit);
   int currentPage = page;
   if (currentPage < 1) currentPage = 1;
   if (currentPage > totalPages) currentPage = totalPages;
 
   final startIndex = (currentPage - 1) * safeLimit;
   final endIndex = min(totalCount, startIndex + safeLimit);
-  final pageItems =
-      startIndex >= totalCount ? <BranchPriceList>[] : priceLists.sublist(startIndex, endIndex);
+  final pageItems = startIndex >= totalCount
+      ? <BranchPriceList>[]
+      : priceLists.sublist(startIndex, endIndex);
 
   return BranchPriceListPagination(
     items: pageItems,
@@ -281,9 +284,3 @@ BranchPriceListPagination _paginatePriceLists(
     limit: safeLimit,
   );
 }
-
-
-
-
-
-

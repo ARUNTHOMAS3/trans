@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import 'package:zerpai_erp/core/auth/auth_session_expiry_notifier.dart';
 import 'package:zerpai_erp/core/auth/permission_resolver.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/auth_state.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
@@ -93,7 +93,7 @@ class AuthController extends StateNotifier<AuthState> {
           : user.orgId;
       final defaultTenantType =
           (user.defaultBusinessBranchId?.isNotEmpty == true) ? 'BRANCH' : 'ORG';
-      
+
       return user.copyWith(
         activeTenantId: defaultTenantId,
         activeTenantType: defaultTenantType,

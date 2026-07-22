@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class OverviewSectionCard extends StatelessWidget {
-  const OverviewSectionCard({
-    super.key,
-    required this.entries,
-    this.title,
-  });
+  const OverviewSectionCard({super.key, required this.entries, this.title});
 
   final String? title;
   final List<OverviewEntry> entries;
@@ -38,7 +34,10 @@ class OverviewSectionCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entry.label.toUpperCase(), style: AppTheme.metaHelper),
+                        Text(
+                          entry.label.toUpperCase(),
+                          style: AppTheme.metaHelper,
+                        ),
                         const SizedBox(height: 4),
                         Text(entry.value, style: AppTheme.bodyText),
                       ],

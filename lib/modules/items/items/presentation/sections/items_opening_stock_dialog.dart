@@ -1748,8 +1748,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       ...widget.initialQueryParameters,
       'tab': 'warehouses',
     };
-    final orgSystemId =
-        resolveOrgSystemId(context);
+    final orgSystemId = resolveOrgSystemId(context);
     context.goNamed(
       AppRoutes.itemsDetail,
       pathParameters: {'orgSystemId': orgSystemId, 'id': widget.itemId},

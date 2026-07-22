@@ -68,7 +68,10 @@ class RecurringJournalImportDialog extends StatelessWidget {
             child: Center(
               child: Text(
                 title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -276,9 +279,7 @@ class _RecurringJournalExportDialogState
           const SizedBox(width: 12),
           ElevatedButton(
             onPressed: onTap,
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(foregroundColor: Colors.white),
             child: Text(actionLabel),
           ),
         ],

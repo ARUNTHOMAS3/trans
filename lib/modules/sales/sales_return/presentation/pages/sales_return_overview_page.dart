@@ -39,9 +39,7 @@ class _SalesReturnsOverviewPageState
   void _toggleSelectAll(bool? value) {
     setState(() {
       if (value == true) {
-        _selectedIndices.addAll(
-          List.generate(_filteredRows.length, (i) => i),
-        );
+        _selectedIndices.addAll(List.generate(_filteredRows.length, (i) => i));
       } else {
         _selectedIndices.clear();
       }
@@ -92,10 +90,12 @@ class _SalesReturnsOverviewPageState
       _error = null;
     });
     try {
-      final response = await ref.read(apiClientProvider).get(
-        'sales/returns',
-        queryParameters: const {'page': 1, 'limit': 200},
-      );
+      final response = await ref
+          .read(apiClientProvider)
+          .get(
+            'sales/returns',
+            queryParameters: const {'page': 1, 'limit': 200},
+          );
       final rawData = _extractSalesReturnsRows(response.data);
       final rows = rawData
           .whereType<Map<String, dynamic>>()
@@ -147,10 +147,7 @@ class _SalesReturnsOverviewPageState
                       label: 'Export as PDF',
                       onTap: _closeCompactBulkMenu,
                     ),
-                    _SrMenuOption(
-                      label: 'Print',
-                      onTap: _closeCompactBulkMenu,
-                    ),
+                    _SrMenuOption(label: 'Print', onTap: _closeCompactBulkMenu),
                     _SrMenuOption(
                       label: 'Delete',
                       onTap: () {
@@ -215,8 +212,8 @@ class _SalesReturnsOverviewPageState
                         children: [
                           _SalesReturnsTableHeader(
                             allSelected: _allSelected,
-                            someSelected: _selectedIndices.isNotEmpty &&
-                                !_allSelected,
+                            someSelected:
+                                _selectedIndices.isNotEmpty && !_allSelected,
                             onSelectAll: _toggleSelectAll,
                           ),
                           const Divider(height: 1, color: AppTheme.borderLight),
@@ -248,8 +245,7 @@ class _SalesReturnsOverviewPageState
             child: Checkbox(
               value: _selectedIndices.isNotEmpty,
               tristate: false,
-              onChanged: (v) =>
-                  _toggleSelectAll(_allSelected ? false : true),
+              onChanged: (v) => _toggleSelectAll(_allSelected ? false : true),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               activeColor: AppTheme.primaryBlue,
               side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
@@ -257,15 +253,9 @@ class _SalesReturnsOverviewPageState
             ),
           ),
           const SizedBox(width: 12),
-          _SrBulkActionButton(
-            label: 'Export as PDF',
-            onTap: () {},
-          ),
+          _SrBulkActionButton(label: 'Export as PDF', onTap: () {}),
           const SizedBox(width: 8),
-          _SrBulkActionButton(
-            icon: LucideIcons.printer,
-            onTap: () {},
-          ),
+          _SrBulkActionButton(icon: LucideIcons.printer, onTap: () {}),
           Container(
             height: 24,
             width: 1,
@@ -313,7 +303,11 @@ class _SalesReturnsOverviewPageState
           const Spacer(),
           GestureDetector(
             onTap: () => setState(() => _selectedIndices.clear()),
-            child: const Icon(LucideIcons.x, size: 20, color: Color(0xFFE53935)),
+            child: const Icon(
+              LucideIcons.x,
+              size: 20,
+              color: Color(0xFFE53935),
+            ),
           ),
         ],
       ),
@@ -359,8 +353,7 @@ class _SalesReturnsOverviewPageState
                       ),
                       const Spacer(),
                       GestureDetector(
-                        onTap: () =>
-                            context.go(AppRoutes.salesReturnsCreate),
+                        onTap: () => context.go(AppRoutes.salesReturnsCreate),
                         child: Container(
                           width: 32,
                           height: 32,
@@ -368,8 +361,11 @@ class _SalesReturnsOverviewPageState
                             color: AppTheme.successGreen,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Icon(LucideIcons.plus,
-                              size: 18, color: Colors.white),
+                          child: const Icon(
+                            LucideIcons.plus,
+                            size: 18,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],
@@ -377,32 +373,30 @@ class _SalesReturnsOverviewPageState
                 ),
           Expanded(
             child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                 : _rows.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No sales returns found',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: EdgeInsets.zero,
-                        itemCount: _filteredRows.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1, color: AppTheme.borderLight),
-                        itemBuilder: (context, index) => _SrCompactItem(
-                          row: _filteredRows[index],
-                          selected: index == _detailIndex,
-                          checked: _selectedIndices.contains(index),
-                          onCheckChanged: (v) => _toggleRow(index, v),
-                          onTap: () =>
-                              setState(() => _detailIndex = index),
-                        ),
+                ? const Center(
+                    child: Text(
+                      'No sales returns found',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
                       ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: EdgeInsets.zero,
+                    itemCount: _filteredRows.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                    itemBuilder: (context, index) => _SrCompactItem(
+                      row: _filteredRows[index],
+                      selected: index == _detailIndex,
+                      checked: _selectedIndices.contains(index),
+                      onCheckChanged: (v) => _toggleRow(index, v),
+                      onTap: () => setState(() => _detailIndex = index),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -424,8 +418,7 @@ class _SalesReturnsOverviewPageState
             child: Checkbox(
               value: _selectedIndices.isNotEmpty,
               tristate: false,
-              onChanged: (v) =>
-                  _toggleSelectAll(_allSelected ? false : true),
+              onChanged: (v) => _toggleSelectAll(_allSelected ? false : true),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               activeColor: AppTheme.primaryBlue,
               side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
@@ -476,8 +469,11 @@ class _SalesReturnsOverviewPageState
           const Spacer(),
           GestureDetector(
             onTap: () => setState(() => _selectedIndices.clear()),
-            child: const Icon(LucideIcons.x,
-                size: 20, color: Color(0xFFE53935)),
+            child: const Icon(
+              LucideIcons.x,
+              size: 20,
+              color: Color(0xFFE53935),
+            ),
           ),
         ],
       ),
@@ -497,8 +493,7 @@ class _SalesReturnsOverviewPageState
             padding: const EdgeInsets.only(left: 20, right: 8),
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
-              border: Border(
-                  bottom: BorderSide(color: AppTheme.borderLight)),
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
             ),
             child: Row(
               children: [
@@ -538,8 +533,11 @@ class _SalesReturnsOverviewPageState
                   child: const SizedBox(
                     width: 36,
                     height: 36,
-                    child: Icon(LucideIcons.x,
-                        size: 20, color: AppTheme.errorRed),
+                    child: Icon(
+                      LucideIcons.x,
+                      size: 20,
+                      color: AppTheme.errorRed,
+                    ),
                   ),
                 ),
               ],
@@ -551,16 +549,14 @@ class _SalesReturnsOverviewPageState
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
-              border: Border(
-                  bottom: BorderSide(color: AppTheme.borderLight)),
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
             ),
             child: Row(
               children: [
                 _DetailActionBtn(
                   icon: LucideIcons.pencil,
                   label: 'Edit',
-                  onTap: () =>
-                      context.go(AppRoutes.salesReturnsCreate),
+                  onTap: () => context.go(AppRoutes.salesReturnsCreate),
                 ),
                 const _DetailActionDivider(),
                 _DetailActionBtn(
@@ -592,8 +588,9 @@ class _SalesReturnsOverviewPageState
                   _DetailRow(label: 'Refund Status', value: row.refundStatus),
                   _DetailRow(label: 'Returned', value: row.returned),
                   _DetailRow(
-                      label: 'Amount Refunded',
-                      value: row.amountRefunded),
+                    label: 'Amount Refunded',
+                    value: row.amountRefunded,
+                  ),
                 ],
               ),
             ),
@@ -623,16 +620,18 @@ class _SalesReturnsOverviewPageState
     }
     if (_error != null) {
       return Center(
-        child: Text(_error!,
-            style: const TextStyle(
-                fontSize: 13, color: AppTheme.errorRed)),
+        child: Text(
+          _error!,
+          style: const TextStyle(fontSize: 13, color: AppTheme.errorRed),
+        ),
       );
     }
     if (_rows.isEmpty) {
       return const Center(
-        child: Text('No sales returns found',
-            style:
-                TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        child: Text(
+          'No sales returns found',
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        ),
       );
     }
     return ListView.separated(
@@ -686,8 +685,7 @@ class _SalesReturnsToolbar extends StatelessWidget {
             child: IconButton(
               icon: const Icon(LucideIcons.refreshCw, size: 18),
               onPressed: onRefresh,
-              constraints:
-                  const BoxConstraints(minWidth: 36, minHeight: 36),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               padding: EdgeInsets.zero,
               color: AppTheme.textPrimary,
             ),
@@ -763,8 +761,7 @@ class _SalesReturnsTableRow extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<_SalesReturnsTableRow> createState() =>
-      _SalesReturnsTableRowState();
+  State<_SalesReturnsTableRow> createState() => _SalesReturnsTableRowState();
 }
 
 class _SalesReturnsTableRowState extends State<_SalesReturnsTableRow> {
@@ -782,8 +779,8 @@ class _SalesReturnsTableRowState extends State<_SalesReturnsTableRow> {
           color: widget.checked
               ? AppTheme.primaryBlue.withValues(alpha: 0.04)
               : _hovered
-                  ? AppTheme.primaryBlue.withValues(alpha: 0.02)
-                  : Colors.transparent,
+              ? AppTheme.primaryBlue.withValues(alpha: 0.02)
+              : Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
@@ -795,7 +792,9 @@ class _SalesReturnsTableRowState extends State<_SalesReturnsTableRow> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   activeColor: AppTheme.primaryBlue,
                   side: const BorderSide(
-                      color: AppTheme.borderLight, width: 1.5),
+                    color: AppTheme.borderLight,
+                    width: 1.5,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -810,11 +809,10 @@ class _SalesReturnsTableRowState extends State<_SalesReturnsTableRow> {
                 ),
               ),
               _BodyCell(
-                  width: 160,
-                  child: _BodyText(widget.row.salesOrderNumber)),
-              _BodyCell(
-                  width: 180,
-                  child: _BodyText(widget.row.customerName)),
+                width: 160,
+                child: _BodyText(widget.row.salesOrderNumber),
+              ),
+              _BodyCell(width: 180, child: _BodyText(widget.row.customerName)),
               _BodyCell(
                 width: 140,
                 child: _BodyText(
@@ -823,17 +821,13 @@ class _SalesReturnsTableRowState extends State<_SalesReturnsTableRow> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+              _BodyCell(width: 140, child: _BodyText(widget.row.receiveStatus)),
+              _BodyCell(width: 140, child: _BodyText(widget.row.refundStatus)),
+              _BodyCell(width: 120, child: _BodyText(widget.row.returned)),
               _BodyCell(
-                  width: 140,
-                  child: _BodyText(widget.row.receiveStatus)),
-              _BodyCell(
-                  width: 140,
-                  child: _BodyText(widget.row.refundStatus)),
-              _BodyCell(
-                  width: 120, child: _BodyText(widget.row.returned)),
-              _BodyCell(
-                  width: 120,
-                  child: _BodyText(widget.row.amountRefunded)),
+                width: 120,
+                child: _BodyText(widget.row.amountRefunded),
+              ),
             ],
           ),
         ),
@@ -870,8 +864,8 @@ class _SrCompactItemState extends State<_SrCompactItem> {
     final bg = widget.selected
         ? AppTheme.primaryBlue.withValues(alpha: 0.06)
         : _hovered
-            ? AppTheme.primaryBlue.withValues(alpha: 0.04)
-            : AppTheme.backgroundColor;
+        ? AppTheme.primaryBlue.withValues(alpha: 0.04)
+        : AppTheme.backgroundColor;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -894,7 +888,9 @@ class _SrCompactItemState extends State<_SrCompactItem> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   activeColor: AppTheme.primaryBlue,
                   side: const BorderSide(
-                      color: AppTheme.borderLight, width: 1.5),
+                    color: AppTheme.borderLight,
+                    width: 1.5,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -999,8 +995,7 @@ class _SrBulkActionButtonState extends State<_SrBulkActionButton> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: _hovered
                 ? AppTheme.primaryBlue.withValues(alpha: 0.06)
@@ -1025,8 +1020,11 @@ class _SrBulkActionButtonState extends State<_SrBulkActionButton> {
                 ),
               if (widget.trailingIcon != null) ...[
                 const SizedBox(width: 4),
-                Icon(widget.trailingIcon,
-                    size: 14, color: AppTheme.textSecondary),
+                Icon(
+                  widget.trailingIcon,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
               ],
             ],
           ),
@@ -1059,8 +1057,7 @@ class _SrMenuOptionState extends State<_SrMenuOption> {
         onTap: widget.onTap,
         child: Container(
           width: double.infinity,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: _hovered ? AppTheme.primaryBlue : Colors.transparent,
           ),
@@ -1068,8 +1065,7 @@ class _SrMenuOptionState extends State<_SrMenuOption> {
             widget.label,
             style: TextStyle(
               fontSize: 13,
-              color:
-                  _hovered ? Colors.white : AppTheme.textPrimary,
+              color: _hovered ? Colors.white : AppTheme.textPrimary,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -1082,11 +1078,7 @@ class _SrMenuOptionState extends State<_SrMenuOption> {
 // ─── Detail panel helpers ─────────────────────────────────────────────────────
 
 class _DetailActionBtn extends StatelessWidget {
-  const _DetailActionBtn({
-    required this.icon,
-    this.label,
-    required this.onTap,
-  });
+  const _DetailActionBtn({required this.icon, this.label, required this.onTap});
   final IconData icon;
   final String? label;
   final VoidCallback onTap;
@@ -1104,9 +1096,13 @@ class _DetailActionBtn extends StatelessWidget {
             Icon(icon, size: 14, color: AppTheme.textSecondary),
             if (label != null) ...[
               const SizedBox(width: 5),
-              Text(label!,
-                  style: const TextStyle(
-                      fontSize: 13, color: AppTheme.textSecondary)),
+              Text(
+                label!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
             ],
           ],
         ),
@@ -1142,14 +1138,19 @@ class _DetailRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 140,
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textSecondary)),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+              ),
+            ),
           ),
           Expanded(
-            child: Text(value,
-                style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textPrimary)),
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            ),
           ),
         ],
       ),
@@ -1209,8 +1210,7 @@ class _BodyText extends StatelessWidget {
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style:
-          TextStyle(fontSize: 13, fontWeight: fontWeight, color: color),
+      style: TextStyle(fontSize: 13, fontWeight: fontWeight, color: color),
     );
   }
 }
@@ -1232,20 +1232,16 @@ class _SalesReturnRow {
   });
 
   factory _SalesReturnRow.fromJson(Map<String, dynamic> json) {
-    final customer =
-        (json['customer'] as Map<String, dynamic>?) ?? const {};
-    final displayName =
-        (customer['display_name'] ?? '').toString().trim();
-    final firstName =
-        (customer['first_name'] ?? '').toString().trim();
+    final customer = (json['customer'] as Map<String, dynamic>?) ?? const {};
+    final displayName = (customer['display_name'] ?? '').toString().trim();
+    final firstName = (customer['first_name'] ?? '').toString().trim();
     final lastName = (customer['last_name'] ?? '').toString().trim();
-    final companyName =
-        (customer['company_name'] ?? '').toString().trim();
+    final companyName = (customer['company_name'] ?? '').toString().trim();
     final customerName = displayName.isNotEmpty
         ? displayName
         : companyName.isNotEmpty
-            ? companyName
-            : '$firstName $lastName'.trim();
+        ? companyName
+        : '$firstName $lastName'.trim();
 
     final returnDateRaw = (json['return_date'] ?? '').toString();
     DateTime? returnDate;
@@ -1261,24 +1257,20 @@ class _SalesReturnRow {
         .whereType<Map<String, dynamic>>();
     double returnedTotal = 0;
     for (final row in items) {
-      final returnQty =
-          (row['return_qty'] as num?)?.toDouble() ?? 0;
-      final receivableQty =
-          (row['receivable_qty'] as num?)?.toDouble() ?? 0;
-      final creditOnlyQty =
-          (row['credit_only_qty'] as num?)?.toDouble() ?? 0;
-      returnedTotal +=
-          returnQty > 0 ? returnQty : (receivableQty + creditOnlyQty);
+      final returnQty = (row['return_qty'] as num?)?.toDouble() ?? 0;
+      final receivableQty = (row['receivable_qty'] as num?)?.toDouble() ?? 0;
+      final creditOnlyQty = (row['credit_only_qty'] as num?)?.toDouble() ?? 0;
+      returnedTotal += returnQty > 0
+          ? returnQty
+          : (receivableQty + creditOnlyQty);
     }
 
     return _SalesReturnRow(
       id: (json['id'] ?? '').toString(),
       date: date,
       rmaNumber: (json['rma_number'] ?? '-').toString(),
-      salesOrderNumber:
-          (json['reference_number'] ?? '-').toString(),
-      customerName:
-          customerName.isEmpty ? '-' : customerName,
+      salesOrderNumber: (json['reference_number'] ?? '-').toString(),
+      customerName: customerName.isEmpty ? '-' : customerName,
       status: status,
       receiveStatus: status == 'APPROVED' ? 'RECEIVED' : '-',
       refundStatus: '-',

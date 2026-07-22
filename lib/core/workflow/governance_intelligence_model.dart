@@ -25,4 +25,3 @@ class BranchGovernanceIntelligence {
     required this.escalationDensity,
   });
 }
-

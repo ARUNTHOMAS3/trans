@@ -28,7 +28,8 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
     taxPreference = customer.taxPreference?.isNotEmpty == true
         ? customer.taxPreference!
         : 'Taxable';
-    customerNumberCtrl.text = customer.customerNumber ?? customerNumberCtrl.text;
+    customerNumberCtrl.text =
+        customer.customerNumber ?? customerNumberCtrl.text;
     remarksCtrl.text = customer.privilegeCardNumber ?? '';
     xHandleCtrl.text = customer.twitterHandle ?? '';
     whatsappCtrl.text = customer.whatsappNumber ?? '';
@@ -136,7 +137,11 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
     }
   }
 
-  void _applyPhoneIntoRow(String? value, _ContactPersonRow row, {required bool isMobile}) {
+  void _applyPhoneIntoRow(
+    String? value,
+    _ContactPersonRow row, {
+    required bool isMobile,
+  }) {
     if (value == null || value.trim().isEmpty) return;
     final parsed = _splitPhone(value);
     if (isMobile) {
@@ -381,6 +386,4 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
     var i = (math.log(bytes) / math.log(1024)).floor();
     return "${(bytes / math.pow(1024, i)).toStringAsFixed(2)} ${suffixes[i]}";
   }
-
 }
-

@@ -36,7 +36,7 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:web/web.dart' as web;
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
@@ -775,7 +775,9 @@ class _PurchasesPurchaseReceivesListScreenState
           cmp = (a.vendorName ?? '').compareTo(b.vendorName ?? '');
           break;
         case 'qty':
-          cmp = _getTotalQuantityDouble(a).compareTo(_getTotalQuantityDouble(b));
+          cmp = _getTotalQuantityDouble(
+            a,
+          ).compareTo(_getTotalQuantityDouble(b));
           break;
         case 'bill_no':
           cmp = (a.billNo ?? '').compareTo(b.billNo ?? '');
@@ -1059,7 +1061,7 @@ class _PurchasesPurchaseReceivesListScreenState
             child: SizedBox(
               width: screenWidth,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildTableHeader(columnWidths, receives),
                   Expanded(
@@ -1535,7 +1537,10 @@ class _PurchasesPurchaseReceivesListScreenState
     double total = 0;
     for (var item in receive.items) {
       if (item.batches.isNotEmpty) {
-        total += item.batches.fold<double>(0, (sum, b) => sum + b.quantity + b.foc);
+        total += item.batches.fold<double>(
+          0,
+          (sum, b) => sum + b.quantity + b.foc,
+        );
       } else {
         total += item.quantityToReceive;
       }
@@ -1632,8 +1637,11 @@ class _PurchaseReceiveDetailPanelState
           .ilike('order_number', '%${receive.purchaseOrderNumber ?? ''}%')
           .order('created_at', ascending: true);
 
-      final normalizedPoNum = (receive.purchaseOrderNumber ?? '').trim().toLowerCase();
-      final rawBills = (billsResp as List<dynamic>?)
+      final normalizedPoNum = (receive.purchaseOrderNumber ?? '')
+          .trim()
+          .toLowerCase();
+      final rawBills =
+          (billsResp as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           [];
@@ -1902,9 +1910,7 @@ class _PurchaseReceiveDetailPanelState
                           borderRadius: BorderRadius.circular(6),
                           child: Container(
                             height: 34,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(6),
@@ -2135,7 +2141,9 @@ class _PurchaseReceiveDetailPanelState
               decoration: BoxDecoration(
                 color: isHovered ? Colors.white : Colors.transparent,
                 border: Border.all(
-                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  color: isHovered
+                      ? const Color(0xFFD3D9E3)
+                      : Colors.transparent,
                   width: 1,
                 ),
                 borderRadius: BorderRadius.circular(4),
@@ -2556,13 +2564,14 @@ class _PurchaseReceiveDetailPanelState
     );
   }
 
-  Widget _buildDetailTabs(PurchaseReceive receive, {bool inScrollView = false}) {
+  Widget _buildDetailTabs(
+    PurchaseReceive receive, {
+    bool inScrollView = false,
+  }) {
     final hasPurchaseOrder = receive.purchaseOrderId != null;
 
     return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: inScrollView ? 0 : 16,
-      ),
+      margin: EdgeInsets.symmetric(horizontal: inScrollView ? 0 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: const Color(0xFFE5E7EB)),
@@ -3328,7 +3337,8 @@ class _PurchaseReceiveDetailPanelState
                                                 color: Color(0xFF6B7280),
                                               ),
                                             ),
-                                          if (batch.binLabel != null && batch.binLabel!.isNotEmpty)
+                                          if (batch.binLabel != null &&
+                                              batch.binLabel!.isNotEmpty)
                                             Text(
                                               'Bin: ${batch.binLabel}',
                                               style: const TextStyle(
@@ -3339,7 +3349,8 @@ class _PurchaseReceiveDetailPanelState
                                         ],
                                       ),
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
@@ -3634,7 +3645,10 @@ class _PurchaseReceiveDetailPanelState
                           ),
                           if (totalQty > i.ordered)
                             ExtraQtyPopoverButton(
-                              poNumber: i.purchaseOrderNumber ?? receive.purchaseOrderNumber ?? '',
+                              poNumber:
+                                  i.purchaseOrderNumber ??
+                                  receive.purchaseOrderNumber ??
+                                  '',
                               ordered: i.ordered,
                               received: totalQty,
                               extra: totalQty - i.ordered,
@@ -3714,7 +3728,8 @@ class _PurchaseReceiveDetailPanelState
   Widget _buildCommentsSidebar(PurchaseReceive receive) {
     final List<_HistoryEvent> events = [];
     final user = ref.read(authUserProvider);
-    final currentUsername = user?.fullName ?? user?.email.split('@').first ?? 'system';
+    final currentUsername =
+        user?.fullName ?? user?.email.split('@').first ?? 'system';
 
     events.add(
       _HistoryEvent(
@@ -3727,11 +3742,14 @@ class _PurchaseReceiveDetailPanelState
 
     for (final a in _receiveAttachments) {
       final uploadedAtStr = a['uploaded_at']?.toString();
-      final dt = uploadedAtStr != null ? DateTime.tryParse(uploadedAtStr) : null;
+      final dt = uploadedAtStr != null
+          ? DateTime.tryParse(uploadedAtStr)
+          : null;
       events.add(
         _HistoryEvent(
           username: currentUsername,
-          time: dt ?? receive.createdAt ?? receive.receivedDate ?? DateTime.now(),
+          time:
+              dt ?? receive.createdAt ?? receive.receivedDate ?? DateTime.now(),
           content: 'Attachment modified',
           icon: LucideIcons.fileText,
         ),
@@ -3745,7 +3763,7 @@ class _PurchaseReceiveDetailPanelState
       width: 320,
       color: Colors.white,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -3814,94 +3832,88 @@ class _PurchaseReceiveDetailPanelState
                 final e = events[index];
                 final isLast = index == events.length - 1;
 
-                return IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Column(
-                        children: [
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
-                              ),
-                            ),
-                            child: Icon(
-                              e.icon,
-                              size: 12,
-                              color: AppTheme.warningOrange,
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: Icon(
+                            e.icon,
+                            size: 12,
+                            color: AppTheme.warningOrange,
+                          ),
+                        ),
+                        if (!isLast)
+                          Expanded(
+                            child: Container(
+                              width: 1.5,
+                              color: const Color(0xFFE5E7EB),
                             ),
                           ),
-                          if (!isLast)
-                            Expanded(
-                              child: Container(
-                                width: 1.5,
-                                color: const Color(0xFFE5E7EB),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    e.username,
-                                    style: AppTheme.bodyText.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.circle,
-                                    size: 3,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    DateFormat(
-                                      'dd-MM-yyyy hh:mm a',
-                                    ).format(e.time),
-                                    style: AppTheme.metaHelper.copyWith(
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF9FAFB),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  e.content,
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  e.username,
                                   style: AppTheme.bodyText.copyWith(
+                                    fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
                                 ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.circle,
+                                  size: 3,
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  DateFormat(
+                                    'dd-MM-yyyy hh:mm a',
+                                  ).format(e.time),
+                                  style: AppTheme.metaHelper.copyWith(
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
                               ),
-                            ],
-                          ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                e.content,
+                                style: AppTheme.bodyText.copyWith(fontSize: 12),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -4477,7 +4489,8 @@ class _PurchaseReceivePdfViewState
                                                 color: Color(0xFF6B7280),
                                               ),
                                             ),
-                                          if (batch.binLabel != null && batch.binLabel!.isNotEmpty)
+                                          if (batch.binLabel != null &&
+                                              batch.binLabel!.isNotEmpty)
                                             Text(
                                               'Bin: ${batch.binLabel}',
                                               style: const TextStyle(
@@ -4488,7 +4501,8 @@ class _PurchaseReceivePdfViewState
                                         ],
                                       ),
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
@@ -4904,7 +4918,8 @@ class _ReceiveAttachmentOverlayContent extends StatefulWidget {
       _ReceiveAttachmentOverlayContentState();
 }
 
-class _ReceiveAttachmentOverlayContentState extends State<_ReceiveAttachmentOverlayContent> {
+class _ReceiveAttachmentOverlayContentState
+    extends State<_ReceiveAttachmentOverlayContent> {
   bool _isUploading = false;
   List<Map<String, dynamic>> _attachments = [];
   bool _isLoading = true;
@@ -5122,7 +5137,9 @@ class _ReceiveAttachmentOverlayContentState extends State<_ReceiveAttachmentOver
       }
 
       await _loadAttachments();
-      widget.ref.invalidate(purchaseReceiveByIdProvider(widget.receive.id ?? ''));
+      widget.ref.invalidate(
+        purchaseReceiveByIdProvider(widget.receive.id ?? ''),
+      );
       widget.onRefresh();
       if (mounted) {
         ZerpaiToast.success(context, 'Attachments uploaded successfully');
@@ -5148,16 +5165,15 @@ class _ReceiveAttachmentOverlayContentState extends State<_ReceiveAttachmentOver
 
       if (filePath != null) {
         final apiClient = ApiClient();
-        await apiClient.delete(
-          '/lookups/uploads',
-          data: {'fileKey': filePath},
-        );
+        await apiClient.delete('/lookups/uploads', data: {'fileKey': filePath});
       }
 
       await supabase.from('purchase_receive_attachments').delete().eq('id', id);
 
       await _loadAttachments();
-      widget.ref.invalidate(purchaseReceiveByIdProvider(widget.receive.id ?? ''));
+      widget.ref.invalidate(
+        purchaseReceiveByIdProvider(widget.receive.id ?? ''),
+      );
       widget.onRefresh();
       if (mounted) {
         ZerpaiToast.success(context, 'Attachment deleted successfully');
@@ -5187,7 +5203,7 @@ class _ReceiveAttachmentOverlayContentState extends State<_ReceiveAttachmentOver
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -5302,7 +5318,8 @@ class _ReceiveAttachmentOverlayContentState extends State<_ReceiveAttachmentOver
                                   color: AppTheme.textSecondary,
                                 ),
                               ),
-                              if (_expandedAttachmentId == att['id']?.toString()) ...[
+                              if (_expandedAttachmentId ==
+                                  att['id']?.toString()) ...[
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [
@@ -5334,7 +5351,8 @@ class _ReceiveAttachmentOverlayContentState extends State<_ReceiveAttachmentOver
                                       message: 'Open in new tab',
                                       direction: ZTooltipDirection.bottom,
                                       child: InkWell(
-                                        onTap: () => _openAttachmentInNewTab(att),
+                                        onTap: () =>
+                                            _openAttachmentInNewTab(att),
                                         child: const Icon(
                                           LucideIcons.externalLink,
                                           size: 14,
@@ -5568,7 +5586,10 @@ class _ExtraQtyPopoverButtonState extends State<ExtraQtyPopoverButton> {
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5586,7 +5607,11 @@ class _ExtraQtyPopoverButtonState extends State<ExtraQtyPopoverButton> {
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(LucideIcons.x, size: 14, color: Colors.red),
+                                icon: const Icon(
+                                  LucideIcons.x,
+                                  size: 14,
+                                  color: Colors.red,
+                                ),
                                 onPressed: _closePopover,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
@@ -5608,19 +5633,51 @@ class _ExtraQtyPopoverButtonState extends State<ExtraQtyPopoverButton> {
                                 children: [
                                   Padding(
                                     padding: EdgeInsets.only(bottom: 6),
-                                    child: Text('po number', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, fontFamily: 'Inter', color: Color(0xFF6B7280))),
+                                    child: Text(
+                                      'po number',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
                                   ),
                                   Padding(
                                     padding: EdgeInsets.only(bottom: 6),
-                                    child: Text('ordered', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, fontFamily: 'Inter', color: Color(0xFF6B7280))),
+                                    child: Text(
+                                      'ordered',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
                                   ),
                                   Padding(
                                     padding: EdgeInsets.only(bottom: 6),
-                                    child: Text('received', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, fontFamily: 'Inter', color: Color(0xFF6B7280))),
+                                    child: Text(
+                                      'received',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
                                   ),
                                   Padding(
                                     padding: EdgeInsets.only(bottom: 6),
-                                    child: Text('extra', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, fontFamily: 'Inter', color: Color(0xFF6B7280))),
+                                    child: Text(
+                                      'extra',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -5630,28 +5687,54 @@ class _ExtraQtyPopoverButtonState extends State<ExtraQtyPopoverButton> {
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
                                       widget.poNumber,
-                                      style: const TextStyle(fontSize: 11, fontFamily: 'Inter', color: Color(0xFF2563EB)),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        color: Color(0xFF2563EB),
+                                      ),
                                     ),
                                   ),
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
-                                      widget.ordered == widget.ordered.roundToDouble() ? widget.ordered.toInt().toString() : widget.ordered.toStringAsFixed(2),
-                                      style: const TextStyle(fontSize: 11, fontFamily: 'Inter', color: Color(0xFF374151)),
+                                      widget.ordered ==
+                                              widget.ordered.roundToDouble()
+                                          ? widget.ordered.toInt().toString()
+                                          : widget.ordered.toStringAsFixed(2),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        color: Color(0xFF374151),
+                                      ),
                                     ),
                                   ),
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
-                                      widget.received == widget.received.roundToDouble() ? widget.received.toInt().toString() : widget.received.toStringAsFixed(2),
-                                      style: const TextStyle(fontSize: 11, fontFamily: 'Inter', color: Color(0xFF374151)),
+                                      widget.received ==
+                                              widget.received.roundToDouble()
+                                          ? widget.received.toInt().toString()
+                                          : widget.received.toStringAsFixed(2),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        color: Color(0xFF374151),
+                                      ),
                                     ),
                                   ),
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
-                                      widget.extra == widget.extra.roundToDouble() ? widget.extra.toInt().toString() : widget.extra.toStringAsFixed(2),
-                                      style: const TextStyle(fontSize: 11, fontFamily: 'Inter', color: Colors.red, fontWeight: FontWeight.w600),
+                                      widget.extra ==
+                                              widget.extra.roundToDouble()
+                                          ? widget.extra.toInt().toString()
+                                          : widget.extra.toStringAsFixed(2),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'Inter',
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -5680,11 +5763,7 @@ class _ExtraQtyPopoverButtonState extends State<ExtraQtyPopoverButton> {
         onTap: _togglePopover,
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Icon(
-            LucideIcons.info,
-            size: 15,
-            color: Color(0xFF2A95BF),
-          ),
+          child: Icon(LucideIcons.info, size: 15, color: Color(0xFF2A95BF)),
         ),
       ),
     );
@@ -5733,7 +5812,8 @@ class _ExtraQuantityDialog extends ConsumerStatefulWidget {
   const _ExtraQuantityDialog({required this.receives});
 
   @override
-  ConsumerState<_ExtraQuantityDialog> createState() => _ExtraQuantityDialogState();
+  ConsumerState<_ExtraQuantityDialog> createState() =>
+      _ExtraQuantityDialogState();
 }
 
 class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
@@ -5757,10 +5837,14 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
       final receive = await prRepository.getPurchaseReceive(receiveSummary.id!);
       if (receive == null) continue;
 
-      final whName = warehouses.firstWhere(
-        (w) => w['id']?.toString() == receive.warehouseId,
-        orElse: () => <String, dynamic>{},
-      )['name']?.toString() ?? '-';
+      final whName =
+          warehouses
+              .firstWhere(
+                (w) => w['id']?.toString() == receive.warehouseId,
+                orElse: () => <String, dynamic>{},
+              )['name']
+              ?.toString() ??
+          '-';
 
       for (final receiveItem in receive.items) {
         if (receiveItem.itemId == null) continue;
@@ -5770,15 +5854,17 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
             : receiveItem.quantityToReceive;
 
         if (totalQty > receiveItem.ordered) {
-          records.add(_ExtraQuantityRecord(
-            date: receive.receivedDate ?? receive.createdAt ?? DateTime.now(),
-            itemName: receiveItem.itemName,
-            purchaseOrderNumber: receive.purchaseOrderNumber ?? '-',
-            purchaseReceiveNumber: receive.purchaseReceiveNumber,
-            vendorName: receive.vendorName ?? '-',
-            warehouseName: whName,
-            quantity: totalQty - receiveItem.ordered,
-          ));
+          records.add(
+            _ExtraQuantityRecord(
+              date: receive.receivedDate ?? receive.createdAt ?? DateTime.now(),
+              itemName: receiveItem.itemName,
+              purchaseOrderNumber: receive.purchaseOrderNumber ?? '-',
+              purchaseReceiveNumber: receive.purchaseReceiveNumber,
+              vendorName: receive.vendorName ?? '-',
+              warehouseName: whName,
+              quantity: totalQty - receiveItem.ordered,
+            ),
+          );
         }
       }
     }
@@ -5834,17 +5920,17 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
                     constraints: const BoxConstraints(maxHeight: 250),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
-                      child: ZTableSkeleton(
-                        rows: 3,
-                        columns: 6,
-                      ),
+                      child: ZTableSkeleton(rows: 3, columns: 6),
                     ),
                   );
                 }
                 if (snapshot.hasError) {
                   return Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppTheme.errorRed)),
+                    child: Text(
+                      'Error: ${snapshot.error}',
+                      style: const TextStyle(color: AppTheme.errorRed),
+                    ),
                   );
                 }
 
@@ -5858,15 +5944,79 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
                         // Table Header
                         Container(
                           color: AppTheme.bgLight,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
                           child: const Row(
                             children: [
-                              Expanded(flex: 2, child: Text('DATE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              Expanded(flex: 3, child: Text('ITEM NAME', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              Expanded(flex: 2, child: Text('PURCHASE ORDER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              Expanded(flex: 3, child: Text('VENDOR NAME', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              Expanded(flex: 2, child: Text('WAREHOUSE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
-                              SizedBox(width: 80, child: Text('QUANTITY', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary))),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'DATE',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  'ITEM NAME',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'PURCHASE ORDER',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  'VENDOR NAME',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'WAREHOUSE',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 80,
+                                child: Text(
+                                  'QUANTITY',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -5877,7 +6027,10 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
                             child: Center(
                               child: Text(
                                 'No extra quantity records found.',
-                                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
                               ),
                             ),
                           )
@@ -5887,19 +6040,44 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: records.length,
-                            separatorBuilder: (context, index) => const Divider(height: 1, color: AppTheme.borderColor),
+                            separatorBuilder: (context, index) => const Divider(
+                              height: 1,
+                              color: AppTheme.borderColor,
+                            ),
                             itemBuilder: (context, index) {
                               final r = records[index];
                               return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
                                 child: Row(
                                   children: [
-                                    Expanded(flex: 2, child: Text(DateFormat('dd-MM-yyyy').format(r.date), style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                                    Expanded(flex: 3, child: Text(r.itemName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        DateFormat('dd-MM-yyyy').format(r.date),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        r.itemName,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
                                     Expanded(
                                       flex: 2,
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
@@ -5910,7 +6088,8 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
-                                          if (r.purchaseReceiveNumber != null) ...[
+                                          if (r.purchaseReceiveNumber !=
+                                              null) ...[
                                             const SizedBox(height: 2),
                                             Text(
                                               r.purchaseReceiveNumber!,
@@ -5923,8 +6102,26 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
                                         ],
                                       ),
                                     ),
-                                    Expanded(flex: 3, child: Text(r.vendorName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                                    Expanded(flex: 2, child: Text(r.warehouseName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        r.vendorName,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        r.warehouseName,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
                                     SizedBox(
                                       width: 80,
                                       child: Text(
@@ -5932,7 +6129,11 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
                                             ? r.quantity.toInt().toString()
                                             : r.quantity.toStringAsFixed(2),
                                         textAlign: TextAlign.right,
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textPrimary,
+                                        ),
                                       ),
                                     ),
                                   ],

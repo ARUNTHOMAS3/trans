@@ -51,7 +51,11 @@ class _ZDatePickerFieldState extends State<ZDatePickerField> {
         alignment: Alignment.centerLeft,
         child: Row(
           children: [
-            const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF6B7280)),
+            const Icon(
+              Icons.calendar_today_outlined,
+              size: 14,
+              color: Color(0xFF6B7280),
+            ),
             const SizedBox(width: 8),
             Text(
               DateFormat('dd-MM-yyyy').format(widget.selectedDate),

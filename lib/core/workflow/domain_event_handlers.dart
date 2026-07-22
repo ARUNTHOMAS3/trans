@@ -17,7 +17,10 @@ class DomainEventHandlers {
       _auditAndTelemetryHook,
     );
     DomainEventDispatcher.register('approval.queued', _approvalQueueHook);
-    DomainEventDispatcher.register('approval.escalated', _approvalEscalatedHook);
+    DomainEventDispatcher.register(
+      'approval.escalated',
+      _approvalEscalatedHook,
+    );
     DomainEventDispatcher.register(
       'workflow.blocked',
       _workflowBlockedNotificationHook,

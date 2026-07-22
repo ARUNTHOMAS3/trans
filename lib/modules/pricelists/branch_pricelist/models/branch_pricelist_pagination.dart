@@ -17,9 +17,3 @@ class BranchPriceListPagination extends Equatable {
   @override
   List<Object?> get props => [items, totalCount, page, limit];
 }
-
-
-
-
-
-

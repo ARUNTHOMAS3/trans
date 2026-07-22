@@ -133,9 +133,8 @@ class _InventoryBatchBinSelectionDialogState
               .toList(growable: true);
     _qtyControllers = _lines
         .map(
-          (line) => TextEditingController(
-            text: line.qty == 0 ? '' : _fmt(line.qty),
-          ),
+          (line) =>
+              TextEditingController(text: line.qty == 0 ? '' : _fmt(line.qty)),
         )
         .toList(growable: true);
   }
@@ -257,8 +256,8 @@ class _InventoryBatchBinSelectionDialogState
                               child: Text(
                                 widget.isSource
                                     ? (widget.requiresBatch
-                                        ? 'BATCH REFERENCE#*'
-                                        : 'BATCH REFERENCE#')
+                                          ? 'BATCH REFERENCE#*'
+                                          : 'BATCH REFERENCE#')
                                     : 'BATCH (FROM SOURCE)',
                                 style: AppTheme.tableHeader.copyWith(
                                   fontSize: 12,
@@ -471,7 +470,8 @@ class _InventoryBatchBinSelectionDialogState
               !selectedElsewhere.contains(option.id) || option.id == line.binId,
         )
         .toList(growable: false);
-    final constrainedByBatch = widget.isSource &&
+    final constrainedByBatch =
+        widget.isSource &&
         batchOption != null &&
         batchOption.connectedBinIds.isNotEmpty;
     final batchScopedOptions = constrainedByBatch
@@ -578,7 +578,8 @@ class _InventoryBatchBinSelectionDialogState
                 });
               },
               displayStringForValue: (value) => value.code,
-              searchStringForValue: (value) => '${value.code} ${_fmt(value.stock)}',
+              searchStringForValue: (value) =>
+                  '${value.code} ${_fmt(value.stock)}',
               itemBuilder: (item, isSelected, isHovered) {
                 final isActive = isHovered || isSelected;
                 final primaryColor = isActive
@@ -700,7 +701,8 @@ class _InventoryBatchBinSelectionDialogState
         final batch = widget.batchOptions
             .where(
               (option) =>
-                  option.id == line.batchId || option.reference == line.batchRef,
+                  option.id == line.batchId ||
+                  option.reference == line.batchRef,
             )
             .firstOrNull;
         if (batch != null &&

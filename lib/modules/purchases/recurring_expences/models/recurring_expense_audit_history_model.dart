@@ -21,9 +21,9 @@ class RecurringExpenseAuditHistoryEntry {
     final rawFieldChanges = json['field_changes'];
     final fieldChanges = rawFieldChanges is List
         ? rawFieldChanges
-            .map((value) => value?.toString().trim() ?? '')
-            .where((value) => value.isNotEmpty)
-            .toList()
+              .map((value) => value?.toString().trim() ?? '')
+              .where((value) => value.isNotEmpty)
+              .toList()
         : const <String>[];
 
     return RecurringExpenseAuditHistoryEntry(

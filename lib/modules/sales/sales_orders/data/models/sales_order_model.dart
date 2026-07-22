@@ -39,6 +39,7 @@ class SalesOrder {
 
   final String? reasonToVoid;
   final String? reasonToConfirmed;
+  final String? gstTreatment;
 
   SalesOrder({
     required this.id,
@@ -77,6 +78,7 @@ class SalesOrder {
     this.tcsTotal = 0.0,
     this.reasonToVoid,
     this.reasonToConfirmed,
+    this.gstTreatment,
   });
 
   factory SalesOrder.fromJson(Map<String, dynamic> json) {
@@ -159,6 +161,7 @@ class SalesOrder {
       tcsTotal: (json['tcs_total'] ?? json['tcsTotal'] ?? 0.0).toDouble(),
       reasonToVoid: json['reason_to_void'] ?? json['reasonToVoid'],
       reasonToConfirmed: json['reason_to_confirmed'] ?? json['reasonToConfirmed'],
+      gstTreatment: json['gst_treatment'] ?? json['gstTreatment'],
     );
   }
 
@@ -196,6 +199,7 @@ class SalesOrder {
       'tcsTotal': tcsTotal,
       if (reasonToVoid != null) 'reasonToVoid': reasonToVoid,
       if (reasonToConfirmed != null) 'reasonToConfirmed': reasonToConfirmed,
+      if (gstTreatment != null) 'gstTreatment': gstTreatment,
     };
   }
 

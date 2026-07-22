@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
@@ -10,16 +11,28 @@ class FormDropdown<T> extends StatefulWidget {
   final T? value;
   final List<T> items;
   final String? hint;
+  final String? hintText;
   final ValueChanged<T?> onChanged;
 
   final bool showSettings;
   final String settingsLabel;
   final VoidCallback? onSettingsTap;
+  final Widget? settingsLeading;
 
   final bool allowClear;
+  final String? clearTooltipMessage;
+  final dynamic clearTooltipDirection;
+  final bool showClearDivider;
 
   // ✅ ADD BACK itemBuilder (this fixes your error)
   final Widget Function(T item, bool isSelected, bool isHovered)? itemBuilder;
+  final Widget Function(
+    T item,
+    bool isSelected,
+    bool isHovered,
+    bool isMenuHovered,
+  )?
+  itemBuilderWithMenuHover;
 
   // ✅ Optional enable/disable per item
   final bool Function(T item)? isItemEnabled;
@@ -29,12 +42,14 @@ class FormDropdown<T> extends StatefulWidget {
   final bool enabled;
   final String? errorText;
   final double? height;
+  final double? fieldHeight;
   final bool allowCustomValue;
   final String Function(T item)? searchStringForValue;
   final IconData? settingsIcon;
   final EdgeInsets? padding;
   final double? iconSize;
   final BorderRadius? borderRadius;
+  final BorderRadius? rowBorderRadius;
   final Future<List<T>> Function(String query)? onSearch;
   final bool isLoading;
   final bool showSearchIcon;
@@ -43,6 +58,25 @@ class FormDropdown<T> extends StatefulWidget {
   final double? menuWidth;
   final bool showCustomValueAction;
   final bool forceDownward;
+  final bool openAbove;
+  final double? dropdownWidth;
+  final bool boldSelected;
+  final bool paintSelectionBackground;
+  final bool showHierarchyBullets;
+  final int? hierarchyBulletMinDepth;
+  final Color? activeBorderColor;
+  final bool disableBorder;
+  final String? emptyText;
+  final Widget? searchIcon;
+  final Widget? suffixWidget;
+  final bool isInline;
+  final bool alignMenuRightToField;
+  final double? scrollbarThickness;
+  final Color? scrollbarThumbColor;
+  final Color? scrollHintColor;
+  final double? scrollHintWidth;
+  final double? scrollbarGutterWidth;
+  final double? scrollHintIconSize;
 
   // Added missing properties from items_composite_item_create.dart usage
   final VoidCallback? onEdit;
@@ -64,40 +98,48 @@ class FormDropdown<T> extends StatefulWidget {
   final ValueChanged<List<T>>? onSelectedValuesChanged;
   final bool Function(T value)? isSelectedValueRemovable;
   final bool hideSelectedItemsInMultiSelect;
+  final bool compactMultiSelectSummary;
+  final String? compactMultiSelectLabel;
+  final double? compactMultiSelectLabelYOffset;
+  final T? multiSelectAllValue;
+  final bool alwaysShowClear;
+  final Color? selectedBackgroundColor;
+  final Color? hoverBackgroundColor;
   final Widget? prefixWidget;
   final bool isHovered;
   final TextStyle? textStyle;
   final TextAlign textAlign;
-
-  final bool compactMultiSelectSummary;
-  final String? compactMultiSelectLabel;
-  final double? compactMultiSelectLabelYOffset;
-  final String? multiSelectAllValue;
-  final bool alwaysShowClear;
-  final bool showClearDivider;
 
   const FormDropdown({
     super.key,
     required this.value,
     required this.items,
     this.hint,
+    this.hintText,
     required this.onChanged,
     this.showSettings = false,
     this.settingsLabel = 'Configure...',
     this.onSettingsTap,
+    this.settingsLeading,
     this.allowClear = false,
+    this.clearTooltipMessage,
+    this.clearTooltipDirection,
+    this.showClearDivider = false,
     this.itemBuilder,
+    this.itemBuilderWithMenuHover,
     this.isItemEnabled,
     this.displayStringForValue,
     this.enabled = true,
     this.errorText,
     this.height,
+    this.fieldHeight,
     this.allowCustomValue = false,
     this.searchStringForValue,
     this.settingsIcon,
     this.padding,
     this.iconSize,
     this.borderRadius,
+    this.rowBorderRadius,
     this.onSearch,
     this.isLoading = false,
     this.showSearchIcon = true,
@@ -123,17 +165,37 @@ class FormDropdown<T> extends StatefulWidget {
     this.onSelectedValuesChanged,
     this.isSelectedValueRemovable,
     this.hideSelectedItemsInMultiSelect = false,
-    this.prefixWidget,
-    this.isHovered = false,
-    this.textStyle,
-    this.textAlign = TextAlign.start,
-    this.forceDownward = false,
     this.compactMultiSelectSummary = false,
     this.compactMultiSelectLabel,
     this.compactMultiSelectLabelYOffset,
     this.multiSelectAllValue,
     this.alwaysShowClear = false,
-    this.showClearDivider = false,
+    this.selectedBackgroundColor,
+    this.hoverBackgroundColor,
+    this.prefixWidget,
+    this.isHovered = false,
+    this.textStyle,
+    this.textAlign = TextAlign.start,
+    this.forceDownward = false,
+    this.openAbove = false,
+    this.dropdownWidth,
+    this.boldSelected = true,
+    this.paintSelectionBackground = true,
+    this.showHierarchyBullets = true,
+    this.hierarchyBulletMinDepth,
+    this.activeBorderColor,
+    this.disableBorder = false,
+    this.emptyText,
+    this.searchIcon,
+    this.suffixWidget,
+    this.isInline = false,
+    this.alignMenuRightToField = false,
+    this.scrollbarThickness,
+    this.scrollbarThumbColor,
+    this.scrollHintColor,
+    this.scrollHintWidth,
+    this.scrollbarGutterWidth,
+    this.scrollHintIconSize,
   });
 
   @override
@@ -164,7 +226,14 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   final ScrollController _listScrollCtrl = ScrollController();
   bool _isSearching = false;
   Timer? _debounce;
+  bool _overlayRebuildQueued = false;
   final Set<T> _hoveredSelectedChips = <T>{};
+
+  Widget Function(T item, bool isSelected, bool isHovered)?
+  get _effectiveItemBuilder => widget.itemBuilderWithMenuHover != null
+      ? (item, isSelected, isHovered) =>
+            widget.itemBuilderWithMenuHover!(item, isSelected, isHovered, false)
+      : widget.itemBuilder;
 
   @override
   void initState() {
@@ -284,7 +353,26 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   }
 
   void _markOverlayNeedsBuild() {
-    _overlayEntry?.markNeedsBuild();
+    final entry = _overlayEntry;
+    if (entry == null) return;
+
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final canRebuildNow =
+        phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks;
+
+    if (canRebuildNow) {
+      entry.markNeedsBuild();
+      return;
+    }
+
+    if (_overlayRebuildQueued) return;
+    _overlayRebuildQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _overlayRebuildQueued = false;
+      if (!mounted) return;
+      _overlayEntry?.markNeedsBuild();
+    });
   }
 
   void _filterItems(String query) async {
@@ -433,7 +521,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   }
 
   void _handleClear() {
-    if (!widget.allowClear || !widget.enabled) return;
+    if (!(widget.allowClear || widget.alwaysShowClear) || !widget.enabled) {
+      return;
+    }
 
     _blockToggleOnce = true;
     if (widget.multiSelect) {
@@ -465,7 +555,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
     final targetGlobal = targetBox.localToGlobal(Offset.zero);
     final double screenHeight = MediaQuery.of(context).size.height;
-    final double spaceBelow = screenHeight - (targetGlobal.dy + fieldSize.height) - 16;
+    final double spaceBelow =
+        screenHeight - (targetGlobal.dy + fieldSize.height) - 16;
     final double spaceAbove = targetGlobal.dy - 16;
 
     if (widget.forceDownward) return true;
@@ -507,7 +598,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     final double searchRowHeight =
         widget.itemEstimatedHeight ??
         widget.itemHeight ??
-        (widget.itemBuilder != null ? 56.0 : _rowHeight);
+        (_effectiveItemBuilder != null ? 56.0 : _rowHeight);
     final double effectiveRowHeight = isSearchActive
         ? searchRowHeight
         : _rowHeight;
@@ -535,13 +626,19 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     }
 
     const double _borderWidth = 2.0; // 1px top + 1px bottom from Border.all
-    final double idealHeight = reservedHeight + (_filteredItems.isEmpty ? 64.0 : (_filteredItems.length * effectiveRowHeight)) + _borderWidth;
+    final double idealHeight =
+        reservedHeight +
+        (_filteredItems.isEmpty
+            ? 64.0
+            : (_filteredItems.length * effectiveRowHeight)) +
+        _borderWidth;
 
     // Compute available space below/above the field and clamp max overlay height
     double effectiveMaxHeight = _maxOverlayHeight;
     final targetGlobal = renderObject.localToGlobal(Offset.zero);
     final double screenHeight = MediaQuery.of(context).size.height;
-    final double spaceBelow = screenHeight - (targetGlobal.dy + size.height) - 16;
+    final double spaceBelow =
+        screenHeight - (targetGlobal.dy + size.height) - 16;
     final double spaceAbove = targetGlobal.dy - 16;
 
     final bool showBelow = _shouldShowBelow(size, idealHeight);
@@ -610,7 +707,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
             elevation: 6,
             color: Colors.transparent,
             child: Container(
-              width: widget.menuWidth ?? size.width,
+              width: widget.dropdownWidth ?? widget.menuWidth ?? size.width,
               constraints: BoxConstraints(maxHeight: effectiveMaxHeight),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -647,11 +744,12 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                               fontSize: 13,
                             ),
                             prefixIcon: widget.showSearchIcon
-                                ? const Icon(
-                                    Icons.search,
-                                    size: 16,
-                                    color: AppTheme.textMuted,
-                                  )
+                                ? (widget.searchIcon ??
+                                      const Icon(
+                                        Icons.search,
+                                        size: 16,
+                                        color: AppTheme.textMuted,
+                                      ))
                                 : null,
                             suffixIcon: _isSearching
                                 ? const Padding(
@@ -699,7 +797,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                   if (_isSearching && _filteredItems.isEmpty)
                     SizedBox(
                       height: emptyStateHeight,
-                      child: const Center(
+                      child: Center(
                         child: SizedBox(
                           width: 100,
                           height: 20,
@@ -714,9 +812,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                   else if (_filteredItems.isEmpty)
                     SizedBox(
                       height: emptyStateHeight,
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'No results found',
+                          widget.emptyText ?? 'No results found',
                           style: TextStyle(
                             color: AppTheme.textMuted,
                             fontSize: 13,
@@ -746,8 +844,12 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
                             final Color itemBg = enabled
                                 ? (isHovered
-                                    ? const Color(0xFF3B82F6)
-                                    : (isSelected ? const Color(0xFFF3F4F6) : Colors.transparent))
+                                      ? (widget.hoverBackgroundColor ??
+                                            const Color(0xFF3B82F6))
+                                      : (isSelected
+                                            ? (widget.selectedBackgroundColor ??
+                                                  const Color(0xFFF3F4F6))
+                                            : Colors.transparent))
                                 : Colors.transparent;
 
                             return MouseRegion(
@@ -772,7 +874,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                   highlightColor: Colors.transparent,
                                   child: Container(
                                     color: itemBg,
-                                    child: widget.itemBuilder!(
+                                    child: _effectiveItemBuilder!(
                                       item,
                                       isSelected,
                                       isHovered,
@@ -809,8 +911,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                 widget.isItemEnabled?.call(item) ?? true;
 
                             // ✅ If custom renderer exists, use it
-                            final Widget rowChild = widget.itemBuilder != null
-                                ? widget.itemBuilder!(
+                            final Widget rowChild =
+                                _effectiveItemBuilder != null
+                                ? _effectiveItemBuilder!(
                                     item,
                                     isSelected,
                                     isHovered,
@@ -824,8 +927,12 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
                             final Color itemBg = enabled
                                 ? (isHovered
-                                    ? const Color(0xFF3B82F6)
-                                    : (isSelected ? const Color(0xFFF3F4F6) : Colors.transparent))
+                                      ? (widget.hoverBackgroundColor ??
+                                            const Color(0xFF3B82F6))
+                                      : (isSelected
+                                            ? (widget.selectedBackgroundColor ??
+                                                  const Color(0xFFF3F4F6))
+                                            : Colors.transparent))
                                 : Colors.transparent;
 
                             // If itemBuilder is provided, it should only render content.
@@ -878,11 +985,12 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Row(
                             children: [
-                              Icon(
-                                widget.settingsIcon ?? Icons.settings,
-                                size: 14,
-                                color: AppTheme.primaryBlueDark,
-                              ),
+                              widget.settingsLeading ??
+                                  Icon(
+                                    widget.settingsIcon ?? Icons.settings,
+                                    size: 14,
+                                    color: AppTheme.primaryBlueDark,
+                                  ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -990,7 +1098,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   Widget _buildMultiSelectValue() {
     if (widget.selectedValues.isEmpty) {
       return Text(
-        widget.hint ?? '',
+        widget.hintText ?? widget.hint ?? '',
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
       );
@@ -1067,7 +1175,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   Widget build(BuildContext context) {
     if (widget.isLoading) {
       return Skeleton(
-        height: widget.height ?? _fieldHeight,
+        height: widget.height ?? widget.fieldHeight ?? _fieldHeight,
         borderRadius: widget.borderRadius?.topLeft.x ?? 4.0,
       );
     }
@@ -1075,9 +1183,13 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
         ? widget.selectedValues.isNotEmpty
         : widget.value != null;
     final bool hasError = widget.errorText != null;
-    final double effectiveHeight = widget.height ?? _fieldHeight;
+    final double effectiveHeight =
+        widget.height ?? widget.fieldHeight ?? _fieldHeight;
 
-    final borderRadius = widget.borderRadius ?? BorderRadius.circular(4);
+    final borderRadius =
+        widget.borderRadius ??
+        widget.rowBorderRadius ??
+        BorderRadius.circular(4);
     bool isUniform = widget.showLeftBorder && widget.showRightBorder;
     if (widget.border != null) {
       final b = widget.border;
@@ -1114,37 +1226,45 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                 border: (_isOpen || _isHoveredField || widget.isHovered)
                     ? Border(
                         top: BorderSide(
-                          color: hasError ? AppTheme.errorRed : const Color(0xFF3B82F6),
+                          color: hasError
+                              ? AppTheme.errorRed
+                              : const Color(0xFF3B82F6),
                           width: AppTheme.inputActiveBorderWidth,
                         ),
                         bottom: BorderSide(
-                          color: hasError ? AppTheme.errorRed : const Color(0xFF3B82F6),
+                          color: hasError
+                              ? AppTheme.errorRed
+                              : const Color(0xFF3B82F6),
                           width: AppTheme.inputActiveBorderWidth,
                         ),
                         left: widget.showLeftBorder
                             ? BorderSide(
-                                color: hasError ? AppTheme.errorRed : const Color(0xFF3B82F6),
+                                color: hasError
+                                    ? AppTheme.errorRed
+                                    : const Color(0xFF3B82F6),
                                 width: AppTheme.inputActiveBorderWidth,
                               )
                             : BorderSide.none,
                         right: widget.showRightBorder
                             ? BorderSide(
-                                color: hasError ? AppTheme.errorRed : const Color(0xFF3B82F6),
+                                color: hasError
+                                    ? AppTheme.errorRed
+                                    : const Color(0xFF3B82F6),
                                 width: AppTheme.inputActiveBorderWidth,
                               )
                             : BorderSide.none,
                       )
                     : (widget.border ??
-                        Border(
-                          top: _getBorderSide(hasError),
-                          bottom: _getBorderSide(hasError),
-                          left: widget.showLeftBorder
-                              ? _getBorderSide(hasError)
-                              : BorderSide.none,
-                          right: widget.showRightBorder
-                              ? _getBorderSide(hasError)
-                              : BorderSide.none,
-                        )),
+                          Border(
+                            top: _getBorderSide(hasError),
+                            bottom: _getBorderSide(hasError),
+                            left: widget.showLeftBorder
+                                ? _getBorderSide(hasError)
+                                : BorderSide.none,
+                            right: widget.showRightBorder
+                                ? _getBorderSide(hasError)
+                                : BorderSide.none,
+                          )),
               ),
               child: Row(
                 children: [
@@ -1162,10 +1282,11 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                           widget.value as T,
                                         )
                                       : widget.value.toString())
-                                : (widget.hint ?? ''),
+                                : (widget.hintText ?? widget.hint ?? ''),
                             textAlign: widget.textAlign,
                             overflow: TextOverflow.ellipsis,
-                            style: widget.textStyle ??
+                            style:
+                                widget.textStyle ??
                                 TextStyle(
                                   fontSize: 13,
                                   color: hasValue
@@ -1188,8 +1309,16 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       ),
                     ),
                   ],
-                  if (widget.allowClear && hasValue && (_isHoveredField || widget.isHovered)) ...[
+                  if ((widget.allowClear || widget.alwaysShowClear) &&
+                      hasValue &&
+                      (_isHoveredField || widget.isHovered)) ...[
                     const SizedBox(width: 8),
+                    if (widget.showClearDivider)
+                      Container(
+                        width: 1,
+                        height: 18,
+                        color: AppTheme.borderColor,
+                      ),
                     GestureDetector(
                       onTap: _handleClear,
                       child: const Icon(
@@ -1199,7 +1328,10 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       ),
                     ),
                   ],
-                  if (widget.showArrowOnSelection || !hasValue) ...[
+                  if (widget.suffixWidget != null) ...[
+                    const SizedBox(width: 6),
+                    widget.suffixWidget!,
+                  ] else if (widget.showArrowOnSelection || !hasValue) ...[
                     const SizedBox(width: 6),
                     Icon(
                       _isOpen
@@ -1225,7 +1357,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   BorderSide _getBorderSide(bool hasError) {
     final bool isHovered = _isHoveredField || widget.isHovered;
     final bool shouldShowBorder =
-        !widget.hideBorderDefault || _isOpen || isHovered || hasError;
+        !widget.disableBorder &&
+        (!widget.hideBorderDefault || _isOpen || isHovered || hasError);
     final bool isActiveBorder = hasError || _isOpen || isHovered;
     return BorderSide(
       color: !shouldShowBorder
@@ -1233,7 +1366,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
           : hasError
           ? AppTheme.errorRed
           : (_isOpen || isHovered)
-          ? AppTheme.primaryBlue
+          ? (widget.activeBorderColor ?? AppTheme.primaryBlue)
           : AppTheme.borderColor,
       width: isActiveBorder
           ? AppTheme.inputActiveBorderWidth

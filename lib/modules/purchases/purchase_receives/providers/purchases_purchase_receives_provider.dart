@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 import '../models/purchases_purchase_receives_model.dart';
 import '../repositories/purchases_purchase_receives_repository.dart';
@@ -117,9 +117,7 @@ class PurchaseReceivesNotifier
   Future<PurchaseReceiveSaveMode> createReceive(PurchaseReceive receive) async {
     final now = DateTime.now();
     final normalized = receive.copyWith(
-      id:
-          receive.id ??
-          'local-pr-${now.microsecondsSinceEpoch}',
+      id: receive.id ?? 'local-pr-${now.microsecondsSinceEpoch}',
       createdAt: receive.createdAt ?? now,
       updatedAt: now,
     );
@@ -127,7 +125,10 @@ class PurchaseReceivesNotifier
     try {
       final created = await _repository.createPurchaseReceive(normalized);
       _upsertLocal(created);
-      await fetchReceives(search: state.valueOrNull?.search, status: state.valueOrNull?.status);
+      await fetchReceives(
+        search: state.valueOrNull?.search,
+        status: state.valueOrNull?.status,
+      );
       return PurchaseReceiveSaveMode.remote;
     } catch (e, st) {
       AppLogger.error(
@@ -169,15 +170,11 @@ class PurchaseReceivesNotifier
   ) {
     final map = <String, PurchaseReceive>{};
     for (final receive in remote) {
-      final key =
-          receive.id ??
-          receive.purchaseReceiveNumber;
+      final key = receive.id ?? receive.purchaseReceiveNumber;
       map[key] = receive;
     }
     for (final receive in local) {
-      final key =
-          receive.id ??
-          receive.purchaseReceiveNumber;
+      final key = receive.id ?? receive.purchaseReceiveNumber;
       map[key] = receive;
     }
     final list = map.values.toList()
@@ -242,10 +239,11 @@ class PurchaseReceivesNotifier
   }
 }
 
-final purchaseReceivesProvider = StateNotifierProvider<
-  PurchaseReceivesNotifier,
-  AsyncValue<PurchaseReceivesState>
->((ref) {
-  final repository = ref.watch(purchaseReceivesRepositoryProvider);
-  return PurchaseReceivesNotifier(repository);
-});
+final purchaseReceivesProvider =
+    StateNotifierProvider<
+      PurchaseReceivesNotifier,
+      AsyncValue<PurchaseReceivesState>
+    >((ref) {
+      final repository = ref.watch(purchaseReceivesRepositoryProvider);
+      return PurchaseReceivesNotifier(repository);
+    });

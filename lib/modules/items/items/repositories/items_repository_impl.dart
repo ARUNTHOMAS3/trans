@@ -648,7 +648,8 @@ class ItemsRepositoryImpl implements ItemRepository {
         }
 
         return BatchData(
-          batchReference: (batch['batch_no'] ?? batch['batch'] ?? '').toString(),
+          batchReference: (batch['batch_no'] ?? batch['batch'] ?? '')
+              .toString(),
           manufacturerBatch: (batch['manufacture_batch_number'] ?? '')
               .toString(),
           unitPack: (batch['unit_pack'] ?? '').toString(),

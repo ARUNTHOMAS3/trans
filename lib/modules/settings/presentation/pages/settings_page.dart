@@ -51,7 +51,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingsEntry(
                   label: 'Approvals',
-                  route: AppRoutes.settingsGeneral,
+                  route: AppRoutes.settingsApproval,
                 ),
                 _SettingsEntry(
                   label: 'Manage Subscription',
@@ -70,10 +70,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               items: <_SettingsEntry>[
                 _SettingsEntry(label: 'Users', route: AppRoutes.settingsUsers),
                 _SettingsEntry(label: 'Roles', route: AppRoutes.settingsRoles),
-                _SettingsEntry(
-                  label: 'User Preferences',
-                  route: AppRoutes.settingsGeneral,
-                ),
               ],
             ),
           ],
@@ -98,10 +94,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: 'e-Invoicing',
                   route: AppRoutes.settingsEinvoicing,
                 ),
-                _SettingsEntry(
-                  label: 'MSME Settings',
-                  route: AppRoutes.settingsMsme,
-                ),
+                _SettingsEntry(label: 'MSME Settings'),
               ],
             ),
           ],
@@ -125,10 +118,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: 'Reminders',
                   route: AppRoutes.settingsReminders,
                 ),
-                _SettingsEntry(
-                  label: 'Customer Portal',
-                  route: AppRoutes.settingsCustomerPortal,
-                ),
+                _SettingsEntry(label: 'Customer Portal'),
               ],
             ),
           ],
@@ -205,9 +195,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               items: <_SettingsEntry>[
                 _SettingsEntry(
                   label: 'Customers and Vendors',
-                  route: AppRoutes.salesCustomers,
+                  route: AppRoutes.settingsCustomersAndVendors,
                 ),
-                _SettingsEntry(label: 'Items', route: AppRoutes.itemsReport),
+                _SettingsEntry(label: 'Items', route: AppRoutes.settingsItems),
               ],
             ),
           ],
@@ -229,10 +219,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingsEntry(label: 'Picklists', route: AppRoutes.picklists),
                 _SettingsEntry(label: 'Packages', route: AppRoutes.packages),
-                _SettingsEntry(label: 'Shipments', route: AppRoutes.shipments),
+                _SettingsEntry(
+                  label: 'Shipments',
+                  route: AppRoutes.settingsShipments,
+                ),
                 _SettingsEntry(
                   label: 'Transfer Orders',
-                  route: AppRoutes.transferOrders,
+                  route: AppRoutes.settingsTransferOrders,
                 ),
               ],
             ),
@@ -262,19 +255,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               items: <_SettingsEntry>[
                 _SettingsEntry(
                   label: 'Retainer Invoices',
-                  route: AppRoutes.salesRetainerInvoices,
+                  route: AppRoutes.settingsRetainerInvoices,
                 ),
                 _SettingsEntry(
                   label: 'Sales Orders',
-                  route: AppRoutes.salesOrders,
+                  route: AppRoutes.settingsSalesOrders,
                 ),
                 _SettingsEntry(
                   label: 'Delivery Challans',
-                  route: AppRoutes.salesDeliveryChallans,
+                  route: AppRoutes.settingsDeliveryChallans,
                 ),
                 _SettingsEntry(
                   label: 'Invoices',
-                  route: AppRoutes.salesInvoices,
+                  route: AppRoutes.settingsInvoices,
                 ),
                 _SettingsEntry(
                   label: 'Payments Received',
@@ -286,7 +279,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingsEntry(
                   label: 'Credit Notes',
-                  route: AppRoutes.salesCreditNotes,
+                  route: AppRoutes.settingsCreditNotes,
                 ),
               ],
             ),
@@ -301,9 +294,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               items: <_SettingsEntry>[
                 _SettingsEntry(
                   label: 'Purchase Orders',
-                  route: AppRoutes.purchaseOrders,
+                  route: AppRoutes.settingsPurchaseOrders,
                 ),
-                _SettingsEntry(label: 'Purchase Receives'),
+                _SettingsEntry(
+                  label: 'Purchase Receives',
+                  route: AppRoutes.settingsPurchaseReceives,
+                ),
                 _SettingsEntry(label: 'Bills', route: AppRoutes.bills),
                 _SettingsEntry(
                   label: 'Payments Made',
@@ -479,7 +475,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         AppTheme.space16,
       ),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.backgroundColor,
         border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
       ),
       child: Center(
@@ -596,12 +592,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       margin: const EdgeInsets.only(bottom: AppTheme.space32),
       padding: const EdgeInsets.all(AppTheme.space20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.backgroundColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.borderLight),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppTheme.textPrimary.withValues(alpha: 0.04),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -653,7 +649,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return Container(
       padding: const EdgeInsets.all(AppTheme.space16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.backgroundColor,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.borderLight),
       ),
@@ -732,7 +728,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppTheme.space32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.backgroundColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.borderLight),
       ),
@@ -780,12 +776,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     .map((block) {
                       final items = block.title == 'Organization'
                           ? block.items
-                              .where((entry) => entry.label != 'Branches')
-                              .toList()
+                                .where((entry) => entry.label != 'Branches')
+                                .toList()
                           : block.title == 'Users & Roles'
                           ? block.items
-                              .where((entry) => entry.label != 'Roles')
-                              .toList()
+                                .where((entry) => entry.label != 'Roles')
+                                .toList()
                           : block.items;
                       if (items.isEmpty) return null;
                       return _SettingsBlock(
@@ -924,8 +920,8 @@ bool _isBranchScopedSettingsUser(User? user) {
 
 String? _resolveBranchProfileRoute(User? user) {
   if (!_isBranchScopedSettingsUser(user)) return null;
-  final branchId = ((user?.activeTenantType ?? '').trim().toUpperCase() ==
-              'BRANCH'
+  final branchId =
+      ((user?.activeTenantType ?? '').trim().toUpperCase() == 'BRANCH'
           ? user?.activeTenantId?.trim()
           : null) ??
       user?.defaultBusinessBranchId?.trim() ??

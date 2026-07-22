@@ -81,10 +81,7 @@ class _SalesEWayBillCreateScreenState
             _row([
               _labeledField(
                 'Document#',
-                CustomTextField(
-                  controller: documentNumberCtrl,
-                  height: 36,
-                ),
+                CustomTextField(controller: documentNumberCtrl, height: 36),
               ),
               _labeledField(
                 'Document Date',
@@ -100,17 +97,11 @@ class _SalesEWayBillCreateScreenState
             _row([
               _labeledField(
                 'Transporter ID',
-                CustomTextField(
-                  controller: transIdCtrl,
-                  height: 32,
-                ),
+                CustomTextField(controller: transIdCtrl, height: 32),
               ),
               _labeledField(
                 'Vehicle Number',
-                CustomTextField(
-                  controller: vehicleNoCtrl,
-                  height: 32,
-                ),
+                CustomTextField(controller: vehicleNoCtrl, height: 32),
               ),
             ]),
           ]),

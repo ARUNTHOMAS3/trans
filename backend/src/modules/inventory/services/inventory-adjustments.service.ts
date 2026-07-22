@@ -525,12 +525,11 @@ export class InventoryAdjustmentsService {
         .select("qty, reserved_qty, warehouse_id")
         .eq("entity_id", entityId)
         .eq("product_id", productId);
-
-      if (normalizedWarehouseId) {
+    if (normalizedWarehouseId) {
         fallbackQuery = fallbackQuery.eq("warehouse_id", normalizedWarehouseId);
       }
 
-      const firstAttempt = await fallbackQuery;
+    const firstAttempt = await fallbackQuery;
       if (!firstAttempt.error) {
         layerRows = firstAttempt.data ?? [];
       } else if (this.isMissingColumnError(firstAttempt.error)) {
@@ -552,7 +551,6 @@ export class InventoryAdjustmentsService {
       } else {
         this.handleStorageError(firstAttempt.error);
       }
-    }
 
     const currentStock = (layerRows ?? []).reduce((sum, row: any) => {
       const qty = this.parseNumber(row?.qty, 0);
@@ -763,9 +761,8 @@ export class InventoryAdjustmentsService {
           );
           layerId = this.normalizeUuid((inserted as any)?.id);
         }
-      }
 
-      let transactionQuery = this.client
+        let transactionQuery = this.client
         .from("batch_transactions")
         .select("id, qty_in, qty_out")
         .eq("entity_id", entityId)
@@ -794,7 +791,7 @@ export class InventoryAdjustmentsService {
         this.handleStorageError(transactionReadError);
       }
 
-      const existingTransaction = (existingTransactions?.[0] ?? null) as
+        const existingTransaction = (existingTransactions?.[0] ?? null) as
         | { id?: string; qty_in?: number | string; qty_out?: number | string }
         | null;
 
@@ -855,7 +852,7 @@ export class InventoryAdjustmentsService {
     }
   }
 
-  private composeBatchStockKey(batchId: string, binId?: string | null) {
+        private composeBatchStockKey(batchId: string, binId?: string | null) {
     return `${batchId}::${binId ?? ""}`;
   }
 
@@ -997,8 +994,7 @@ export class InventoryAdjustmentsService {
         activeBinIds.add(binId);
       }
     }
-
-    return {
+      return {
       activeBinIds,
       layers: (layerRows ?? []).map((row: any) => ({
         batchId: this.normalizeUuid(row?.batch_id),
@@ -1057,7 +1053,6 @@ export class InventoryAdjustmentsService {
         }>,
       };
     }
-
     const snapshot = await this.loadBatchBinSnapshot(
       entityId,
       warehouseId,
@@ -1647,7 +1642,7 @@ export class InventoryAdjustmentsService {
         this.handleStorageError(safeItemBatchesError);
       }
     }
-    const rawItemBatches = safeItemBatches ?? [];
+     const rawItemBatches = safeItemBatches ?? [];
     const batchIdsForHydration = rawItemBatches
       .map((row: any) => String(row?.batch_id ?? "").trim())
       .filter((id: string) => id.length > 0);

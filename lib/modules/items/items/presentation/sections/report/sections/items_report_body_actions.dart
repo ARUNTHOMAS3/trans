@@ -13,25 +13,41 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
   bool get _canViewItems {
     final user = ref.watch(authUserProvider);
     return user != null &&
-        CapabilityService.canUserAction(user, 'items.item.view', action: 'view');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.view',
+          action: 'view',
+        );
   }
 
   bool get _canCreateItems {
     final user = ref.watch(authUserProvider);
     return user != null &&
-        CapabilityService.canUserAction(user, 'items.item.create', action: 'create');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.create',
+          action: 'create',
+        );
   }
 
   bool get _canEditItems {
     final user = ref.watch(authUserProvider);
     return user != null &&
-        CapabilityService.canUserAction(user, 'items.item.edit', action: 'edit');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.edit',
+          action: 'edit',
+        );
   }
 
   bool get _canDeleteItems {
     final user = ref.watch(authUserProvider);
     return user != null &&
-        CapabilityService.canUserAction(user, 'items.item.delete', action: 'delete');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.delete',
+          action: 'delete',
+        );
   }
 
   // -----------------------------------------------------------
@@ -150,7 +166,10 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
         _selectedIds.clear();
       });
     }
-    _showActionSnack(context, '$deleted item${deleted == 1 ? '' : 's'} deleted successfully');
+    _showActionSnack(
+      context,
+      '$deleted item${deleted == 1 ? '' : 's'} deleted successfully',
+    );
   }
 
   Future<void> _handleMarkAsActive(BuildContext context) async {
@@ -535,14 +554,18 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                 hideInsteadOfDisable: true,
               ),
               _SelectionOverflowChip(
-                onSelected: (action) => _handleSelectionOverflow(context, action),
-              ).withAnyModulePermission(
-                const [
-                  ModulePermissionCheck(moduleKey: 'items.item.edit', action: 'edit'),
-                  ModulePermissionCheck(moduleKey: 'items.item.delete', action: 'delete'),
-                ],
-                hideInsteadOfDisable: true,
-              ),
+                onSelected: (action) =>
+                    _handleSelectionOverflow(context, action),
+              ).withAnyModulePermission(const [
+                ModulePermissionCheck(
+                  moduleKey: 'items.item.edit',
+                  action: 'edit',
+                ),
+                ModulePermissionCheck(
+                  moduleKey: 'items.item.delete',
+                  action: 'delete',
+                ),
+              ], hideInsteadOfDisable: true),
             ],
             const SizedBox(width: 12),
             TextButton(

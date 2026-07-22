@@ -2,7 +2,7 @@
 // Repository pattern for Payments - Online-first with offline fallback (PRD Section 12.2)
 
 import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/data/models/sales_payment_model.dart';
 

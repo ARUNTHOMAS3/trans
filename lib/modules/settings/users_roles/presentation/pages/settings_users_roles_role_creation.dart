@@ -6,7 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/auth/permission_resolver.dart';
 import 'package:zerpai_erp/modules/auth/widgets/permission_wrapper.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
@@ -73,7 +73,9 @@ class _SettingsUsersRolesRoleCreationState
       final payload = Map<String, dynamic>.from(
         response.data as Map<String, dynamic>? ?? const {},
       );
-      ref.read(roleCreationProvider.notifier).hydrateFromRole(
+      ref
+          .read(roleCreationProvider.notifier)
+          .hydrateFromRole(
             roleId: (payload['id'] ?? widget.roleId)?.toString(),
             isDefaultRole: payload['is_default'] == true,
             roleName: (payload['label'] ?? '').toString(),
@@ -118,8 +120,9 @@ class _SettingsUsersRolesRoleCreationState
         'org_id': _orgId,
         'label': state.roleName.trim(),
         'description': state.description.trim(),
-        'permissions':
-            ref.read(roleCreationProvider.notifier).toApiPermissionsPayload(),
+        'permissions': ref
+            .read(roleCreationProvider.notifier)
+            .toApiPermissionsPayload(),
       };
 
       if ((widget.roleId ?? '').isEmpty) {
@@ -189,10 +192,7 @@ class _SettingsUsersRolesRoleCreationState
               ),
               child: Text(
                 _loadError!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.errorRed,
-                ),
+                style: const TextStyle(fontSize: 12, color: AppTheme.errorRed),
               ),
             ),
           Expanded(
@@ -220,7 +220,6 @@ class _SettingsUsersRolesRoleCreationState
       ),
     );
   }
-
 
   Widget _buildStickyHeader(
     BuildContext context,
@@ -348,8 +347,7 @@ class _SettingsUsersRolesRoleCreationState
                 ..selection = TextSelection.collapsed(
                   offset: state.description.length,
                 ),
-              onChanged:
-                  state.isDefaultRole ? (_) {} : notifier.setDescription,
+              onChanged: state.isDefaultRole ? (_) {} : notifier.setDescription,
               maxLines: 4,
               hintText: 'Max. 500 characters',
               enabled: !state.isDefaultRole,
@@ -491,11 +489,17 @@ class _SettingsUsersRolesRoleCreationState
             'Full',
             readOnly
                 ? null
-                : () => notifier.selectAllReportsColumn('full_access', cats, true),
+                : () => notifier.selectAllReportsColumn(
+                    'full_access',
+                    cats,
+                    true,
+                  ),
           ),
           _reportHeaderCell(
             'View',
-            readOnly ? null : () => notifier.selectAllReportsColumn('view', cats, true),
+            readOnly
+                ? null
+                : () => notifier.selectAllReportsColumn('view', cats, true),
           ),
           _reportHeaderCell(
             'Export',
@@ -511,7 +515,9 @@ class _SettingsUsersRolesRoleCreationState
           ),
           _reportHeaderCell(
             'Share',
-            readOnly ? null : () => notifier.selectAllReportsColumn('share', cats, true),
+            readOnly
+                ? null
+                : () => notifier.selectAllReportsColumn('share', cats, true),
           ),
         ],
       ),
@@ -551,8 +557,7 @@ class _SettingsUsersRolesRoleCreationState
         children: [
           ZButton.primary(
             label: 'Proceed',
-            onPressed:
-                state.isDefaultRole || state.roleName.isEmpty || _loading
+            onPressed: state.isDefaultRole || state.roleName.isEmpty || _loading
                 ? null
                 : _saveRole,
           ).withModulePermission(
@@ -794,21 +799,21 @@ class _PermissionRowState extends State<_PermissionRow> {
                   widget.readOnly
                       ? null
                       : () => widget.notifier.togglePermission(
-                    widget.row.key,
-                    'full',
-                    widget.row.actions,
-                    subRows: widget.row.subRows,
-                  ),
+                          widget.row.key,
+                          'full',
+                          widget.row.actions,
+                          subRows: widget.row.subRows,
+                        ),
                 ),
                 _checkCell(
                   activeActions.contains('view'),
                   widget.readOnly
                       ? null
                       : () => widget.notifier.togglePermission(
-                    widget.row.key,
-                    'view',
-                    widget.row.actions,
-                  ),
+                          widget.row.key,
+                          'view',
+                          widget.row.actions,
+                        ),
                 ),
                 widget.row.actions.contains('create')
                     ? _checkCell(
@@ -816,10 +821,10 @@ class _PermissionRowState extends State<_PermissionRow> {
                         widget.readOnly
                             ? null
                             : () => widget.notifier.togglePermission(
-                          widget.row.key,
-                          'create',
-                          widget.row.actions,
-                        ),
+                                widget.row.key,
+                                'create',
+                                widget.row.actions,
+                              ),
                       )
                     : const SizedBox(width: 60),
                 widget.row.actions.contains('edit')
@@ -828,10 +833,10 @@ class _PermissionRowState extends State<_PermissionRow> {
                         widget.readOnly
                             ? null
                             : () => widget.notifier.togglePermission(
-                          widget.row.key,
-                          'edit',
-                          widget.row.actions,
-                        ),
+                                widget.row.key,
+                                'edit',
+                                widget.row.actions,
+                              ),
                       )
                     : const SizedBox(width: 60),
                 widget.row.actions.contains('delete')
@@ -840,10 +845,10 @@ class _PermissionRowState extends State<_PermissionRow> {
                         widget.readOnly
                             ? null
                             : () => widget.notifier.togglePermission(
-                          widget.row.key,
-                          'delete',
-                          widget.row.actions,
-                        ),
+                                widget.row.key,
+                                'delete',
+                                widget.row.actions,
+                              ),
                       )
                     : const SizedBox(width: 60),
                 widget.row.actions.contains('approve')
@@ -852,10 +857,10 @@ class _PermissionRowState extends State<_PermissionRow> {
                         widget.readOnly
                             ? null
                             : () => widget.notifier.togglePermission(
-                          widget.row.key,
-                          'approve',
-                          widget.row.actions,
-                        ),
+                                widget.row.key,
+                                'approve',
+                                widget.row.actions,
+                              ),
                       )
                     : const SizedBox(width: 60),
                 SizedBox(
@@ -864,7 +869,9 @@ class _PermissionRowState extends State<_PermissionRow> {
                       ? CompositedTransformTarget(
                           link: _layerLink,
                           child: InkWell(
-                            onTap: widget.readOnly ? null : () => _showFlyout(context),
+                            onTap: widget.readOnly
+                                ? null
+                                : () => _showFlyout(context),
                             child: Padding(
                               padding: const EdgeInsets.only(left: 8),
                               child: Text(
@@ -1009,12 +1016,12 @@ class _SettingsCheckboxRow extends StatelessWidget {
                                 onTap: readOnly
                                     ? null
                                     : () => notifier.toggleAdvancedOverride(
-                                  row.key,
-                                  override,
-                                  !(state.advancedOverrides[row
-                                          .key]?[override] ??
-                                      false),
-                                ),
+                                        row.key,
+                                        override,
+                                        !(state.advancedOverrides[row
+                                                .key]?[override] ??
+                                            false),
+                                      ),
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -1078,11 +1085,14 @@ class _ReportRow extends StatelessWidget {
             active.contains('full_access'),
             readOnly
                 ? null
-                : () => notifier.toggleReportPermission(category, 'full_access'),
+                : () =>
+                      notifier.toggleReportPermission(category, 'full_access'),
           ),
           _checkCell(
             active.contains('view'),
-            readOnly ? null : () => notifier.toggleReportPermission(category, 'view'),
+            readOnly
+                ? null
+                : () => notifier.toggleReportPermission(category, 'view'),
           ),
           _checkCell(
             active.contains('export'),

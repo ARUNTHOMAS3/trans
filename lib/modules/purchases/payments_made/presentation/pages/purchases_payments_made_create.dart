@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,9 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/modules/purchases/payments_made/presentation/widgets/tax_preferences_popover.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart'
     hide PaymentMade;
 import 'package:zerpai_erp/shared/utils/org_scope_resolver.dart';
@@ -25,7 +29,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/providers/purchases_payments_made_provider.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/models/purchases_payments_made_model.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
-
+import 'package:zerpai_erp/shared/utils/web_safe_platform_file.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 class PaymentsMadeTdsRateItem {
@@ -143,6 +147,14 @@ class CreatePaymentMadePage extends ConsumerStatefulWidget {
 }
 
 class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
+  PaymentNumberPreferences _paymentPreferences = const PaymentNumberPreferences(
+    autoGenerate: true,
+    autoPrefix: 'PAY-',
+    nextNumber: '98',
+    manualPrefix: '',
+    manualPaymentNumber: '',
+    restartFiscalYear: false,
+  );
   final _paymentNumberController = TextEditingController(text: '98');
   final _paymentAmountController = TextEditingController();
   final _paymentReferenceController = TextEditingController();
@@ -151,7 +163,9 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   final _descriptionOfSupplyController = TextEditingController();
 
   final LayerLink _uploadDropdownLink = LayerLink();
+  final LayerLink _fileBadgeLink = LayerLink();
   OverlayEntry? _uploadDropdownOverlayEntry;
+  OverlayEntry? _fileBadgeOverlayEntry;
   bool _isUploadDropdownOpen = false;
   List<PlatformFile> _uploadedFiles = [];
 
@@ -160,6 +174,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   bool _isSaving = false;
   bool _isLoadingExistingPayment = false;
   String? _editingPaymentDbId;
+  String? _paymentStatus;
 
   Vendor? _selectedVendor;
   final Map<String, TextEditingController> _billPaymentControllers = {};
@@ -179,6 +194,9 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
   String _sourceOfSupply = '[KL] - Kerala';
   String _destinationOfSupply = '[KL] - Kerala';
+  String? _location;
+  String? _transferToAccountId;
+  final _erhjController = TextEditingController();
   bool _reverseCharge = false;
   String? _selectedTdsTax;
   TaxItem? _selectedTax;
@@ -283,6 +301,43 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     }
 
     return options;
+  }
+
+  PaidThroughItem? _findPaidThroughItemById(
+    List<PaidThroughItem> options,
+    String? id,
+  ) {
+    if (id == null || id.isEmpty) return null;
+    for (final option in options) {
+      if (!option.isHeader && option.id == id) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  bool _isVendorAdvancePaymentType(
+    String? rawPaymentType,
+    List<dynamic> allocations,
+    Map<String, dynamic>? taxRow,
+  ) {
+    final normalized = (rawPaymentType ?? '')
+        .trim()
+        .toUpperCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
+
+    if (normalized == 'VENDOR_ADVANCE' || normalized.contains('ADVANCE')) {
+      return true;
+    }
+
+    // Vendor advance records typically have no bill allocations but do carry
+    // tax/supply metadata used by the advance edit form.
+    if (allocations.isEmpty && taxRow != null) {
+      return true;
+    }
+
+    return false;
   }
 
   @override
@@ -470,8 +525,13 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
     setState(() {
       _editingPaymentDbId = (master['id'] ?? '').toString();
+      _paymentStatus = (master['status'] ?? '').toString();
       _selectedVendor = matchedVendor;
-      _isBillPayment = paymentType != 'VENDOR_ADVANCE';
+      _isBillPayment = !_isVendorAdvancePaymentType(
+        paymentType,
+        allocations,
+        taxRow,
+      );
       _paymentTransactionSeries =
           (master['transaction_series_id'] ?? _paymentTransactionSeries)
               .toString();
@@ -563,7 +623,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
       _uploadedFiles = attachments.map((raw) {
         final file = Map<String, dynamic>.from(raw as Map);
-        return PlatformFile(
+        return WebSafePlatformFile(
           name: (file['file_name'] ?? '').toString(),
           size: int.tryParse((file['file_size'] ?? '0').toString()) ?? 0,
           path: file['file_path']?.toString(),
@@ -586,16 +646,28 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         return ConfigurePaymentNumberPreferencesDialog(
           currentLocation: _paymentLocation,
           currentSeries: _paymentTransactionSeries,
+          initialPreferences: _paymentPreferences,
         );
       },
     );
 
     if (result == null) return;
 
-    final prefix = (result['prefix'] as String? ?? '').trim();
+    final autoGenerate = result['autoGenerate'] as bool? ?? true;
+    final prefix = autoGenerate
+        ? (result['autoPrefix'] as String? ?? '').trim()
+        : (result['manualPrefix'] as String? ?? '').trim();
     final nextNumber = (result['nextNumber'] as String? ?? '').trim();
 
     setState(() {
+      _paymentPreferences = PaymentNumberPreferences(
+        autoGenerate: autoGenerate,
+        autoPrefix: result['autoPrefix'] as String? ?? 'PAY-',
+        nextNumber: result['nextNumber'] as String? ?? '98',
+        manualPrefix: result['manualPrefix'] as String? ?? '',
+        manualPaymentNumber: result['nextNumber'] as String? ?? '',
+        restartFiscalYear: result['restartFiscalYear'] as bool? ?? false,
+      );
       _paymentNumberController.text = '$prefix$nextNumber';
     });
   }
@@ -639,6 +711,18 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     super.dispose();
   }
 
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'PAID':
+        return const Color(0xFF1DCC6B);
+      case 'VOID':
+        return AppTheme.errorRed;
+      case 'DRAFT':
+      default:
+        return Colors.blueGrey.shade300;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -670,9 +754,12 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               vendor: _selectedVendor!,
               onClose: () => setState(() => _showVendorDetailsPanel = false),
             ),
-          if (!_showVendorDetailsPanel && _selectedVendor != null)
+          if (!_showVendorDetailsPanel &&
+              _selectedVendor != null &&
+              !_isEditMode &&
+              !_isBillPayment)
             Positioned(
-              top: 55,
+              top: 80,
               right: 0,
               child: AnimatedOpacity(
                 opacity: _isFormAtTop ? 1.0 : 0.0,
@@ -705,6 +792,48 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   }
 
   Widget _buildHeader() {
+    if (_isEditMode) {
+      return Container(
+        height: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Row(
+              children: [
+                Text(
+                  'Edit Payment',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(
+                LucideIcons.x,
+                size: 22,
+                color: AppTheme.textSecondary,
+              ),
+              onPressed: () {
+                final state = GoRouterState.of(context);
+                context.goNamed(
+                  AppRoutes.paymentsMade,
+                  pathParameters: state.pathParameters,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       height: 48,
       color: const Color(0xFFF9FAFB),
@@ -737,8 +866,11 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 padding: const EdgeInsets.only(right: 56, bottom: 4),
                 child: IconButton(
                   onPressed: () {
-                    final orgId = resolveOrgSystemId(context);
-                    context.go('/$orgId${AppRoutes.paymentsMadeReport}');
+                    final state = GoRouterState.of(context);
+                    context.goNamed(
+                      AppRoutes.paymentsMade,
+                      pathParameters: state.pathParameters,
+                    );
                   },
                   icon: const Icon(
                     LucideIcons.x,
@@ -774,7 +906,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,
-                fontFamily: 'Inter',
               ),
             ),
           )
@@ -788,7 +919,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.primaryBlue,
-                fontFamily: 'Inter',
               ),
             ),
           );
@@ -889,12 +1019,96 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       _pendingDepositToAccountId = null;
     }
 
+    _location ??= _paymentLocation;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_isEditMode && !_isBillPayment) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            color: const Color(0xFFFFF7ED),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  LucideIcons.alertTriangle,
+                  color: Color(0xFFF59E0B),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'This transaction is categorized in Bandhan Bank. Hence, some fields cannot be modified.',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {},
+                  child: const Text(
+                    'Uncategorize now >',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         Container(
           color: const Color(0xFFF9FAFB),
-          padding: const EdgeInsets.fromLTRB(56, 16, 220, 16),
+          padding: const EdgeInsets.fromLTRB(56, 16, 40, 16),
+          child: _buildVendorHeaderSection(vendorState),
+        ),
+        if (_isBillPayment)
+          const Divider(height: 1, color: AppTheme.borderColor),
+        Opacity(
+          opacity: _selectedVendor == null ? 0.35 : 1.0,
+          child: IgnorePointer(
+            ignoring: _selectedVendor == null,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(56, 24, 220, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _isBillPayment
+                    ? _buildBillPaymentFields(
+                        context,
+                        paidThroughOptions,
+                        taxOptions,
+                        tdsOptions,
+                        vendorBills,
+                      )
+                    : _isEditMode
+                    ? _buildVendorAdvanceEditFields(
+                        context,
+                        paidThroughOptions,
+                        taxOptions,
+                        tdsOptions,
+                      )
+                    : _buildVendorAdvanceFields(
+                        context,
+                        paidThroughOptions,
+                        taxOptions,
+                        tdsOptions,
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVendorHeaderSection(VendorState vendorState) {
+    return Stack(
+      children: [
+        Padding(
+          padding: EdgeInsets.only(
+            right: _isEditMode && !_isBillPayment ? 260 : 180,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -908,6 +1122,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     FormDropdown<Vendor>(
                       value: _selectedVendor,
                       items: vendorState.vendors,
+                      enabled: !_isEditMode,
                       onChanged: (val) {
                         setState(() {
                           _selectedVendor = val;
@@ -965,7 +1180,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                               style: TextStyle(
                                 fontSize: 11,
                                 color: subTextColor,
-                                fontFamily: 'Inter',
                               ),
                             ),
                           );
@@ -981,7 +1195,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                               style: TextStyle(
                                 fontSize: 11,
                                 color: subTextColor,
-                                fontFamily: 'Inter',
                               ),
                             ),
                           );
@@ -1005,7 +1218,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: subTextColor,
-                                  fontFamily: 'Inter',
                                 ),
                               ),
                             ),
@@ -1034,7 +1246,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: avatarTextColor,
-                                    fontFamily: 'Inter',
                                   ),
                                 ),
                               ),
@@ -1054,7 +1265,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600,
                                               color: textColor,
-                                              fontFamily: 'Inter',
                                             ),
                                           ),
                                         ),
@@ -1069,7 +1279,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                               color: textColor.withValues(
                                                 alpha: 0.5,
                                               ),
-                                              fontFamily: 'Inter',
                                             ),
                                           ),
                                           Text(
@@ -1077,7 +1286,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: subTextColor,
-                                              fontFamily: 'Inter',
                                             ),
                                           ),
                                         ],
@@ -1103,33 +1311,50 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     ),
                     if (!_isBillPayment && _selectedVendor != null) ...[
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Text(
-                            'GST Treatment: ',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                              fontFamily: 'Inter',
-                            ),
+                      IgnorePointer(
+                        ignoring: _isEditMode,
+                        child: TaxPreferencesPopover(
+                          initialGstTreatment:
+                              _selectedVendor!.gstTreatment ??
+                              'Unregistered Business',
+                          onUpdate: (val) {
+                            setState(() {
+                              try {
+                                _selectedVendor = _selectedVendor!.copyWith(
+                                  gstTreatment: val,
+                                );
+                              } catch (_) {}
+                            });
+                          },
+                          child: Row(
+                            children: [
+                              const Text(
+                                'GST Treatment: ',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                _selectedVendor!.gstTreatment ??
+                                    'Unregistered Business',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (!_isEditMode) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  LucideIcons.edit3,
+                                  size: 13,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ],
+                            ],
                           ),
-                          Text(
-                            _selectedVendor!.gstTreatment ??
-                                'Unregistered Business',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            LucideIcons.edit3,
-                            size: 13,
-                            color: AppTheme.primaryBlue,
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ],
@@ -1150,6 +1375,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           child: FormDropdown<String>(
                             value: _sourceOfSupply,
                             items: _statesOptions,
+                            enabled: !_isEditMode,
                             onChanged: (val) {
                               if (val == null) return;
                               setState(() => _sourceOfSupply = val);
@@ -1165,9 +1391,29 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           child: FormDropdown<String>(
                             value: _destinationOfSupply,
                             items: _statesOptions,
+                            enabled: !_isEditMode,
                             onChanged: (val) {
                               if (val == null) return;
                               setState(() => _destinationOfSupply = val);
+                            },
+                            height: 36,
+                            showSearch: true,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildFormRow(
+                          label: 'Location',
+                          required: false,
+                          child: FormDropdown<String>(
+                            value: _location,
+                            items: const [
+                              'ZABNIX PRIVATE LIMITED',
+                              'Primary Location',
+                              'Secondary Location',
+                            ],
+                            enabled: !_isEditMode,
+                            onChanged: (val) {
+                              setState(() => _location = val);
                             },
                             height: 36,
                             showSearch: true,
@@ -1181,36 +1427,298 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             ],
           ),
         ),
-        if (_isBillPayment)
-          const Divider(height: 1, color: AppTheme.borderColor),
-        Opacity(
-          opacity: _selectedVendor == null ? 0.35 : 1.0,
-          child: IgnorePointer(
-            ignoring: _selectedVendor == null,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(56, 24, 220, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: _isBillPayment
-                    ? _buildBillPaymentFields(
-                        context,
-                        paidThroughOptions,
-                        taxOptions,
-                        tdsOptions,
-                        vendorBills,
-                      )
-                    : _buildVendorAdvanceFields(
-                        context,
-                        paidThroughOptions,
-                        taxOptions,
-                        tdsOptions,
-                      ),
+      ],
+    );
+  }
+
+  List<Widget> _buildVendorAdvanceEditFields(
+    BuildContext context,
+    List<PaidThroughItem> paidThroughOptions,
+    List<TaxItem> taxOptions,
+    List<String> tdsOptions,
+  ) {
+    return [
+      _buildFormRow(
+        label: 'Location',
+        required: false,
+        child: FormDropdown<String>(
+          value: _location,
+          items: const [
+            'ZABNIX PRIVATE LIMITED',
+            'Primary Location',
+            'Secondary Location',
+          ],
+          onChanged: (val) {
+            setState(() => _location = val);
+          },
+          height: 36,
+          showSearch: true,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Payment #',
+        required: true,
+        child: SizedBox(
+          width: 472,
+          child: CustomTextField(
+            controller: _paymentNumberController,
+            height: 36,
+            suffixSeparator: false,
+            suffixWidget: ZTooltip(
+              message:
+                  'Click here to configure auto-generation of payment numbers.',
+              direction: ZTooltipDirection.bottom,
+              child: InkWell(
+                onTap: _showPreferencesDialog,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(
+                    LucideIcons.settings,
+                    size: 14,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ],
-    );
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Description of Supply',
+        required: false,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CustomTextField(
+              controller: _descriptionOfSupplyController,
+              maxLines: 3,
+              height: 58,
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Will be displayed on the Payment Voucher',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Payment Made',
+        required: true,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    border: Border.all(color: AppTheme.borderColor),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      bottomLeft: Radius.circular(4),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'INR',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: CustomTextField(
+                    controller: _paymentAmountController,
+                    height: 36,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                    ],
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(4),
+                      bottomRight: Radius.circular(4),
+                    ),
+                    showLeftBorder: false,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Unused Amount: ₹${_paymentAmountController.text.trim().isEmpty ? '0.00' : _paymentAmountController.text.trim()}*',
+              style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+      _buildFormRow(
+        label: 'Reverse Charge',
+        required: false,
+        child: Row(
+          children: [
+            Checkbox(
+              value: _reverseCharge,
+              onChanged: (val) {
+                setState(() {
+                  _reverseCharge = val ?? false;
+                });
+              },
+              activeColor: AppTheme.primaryBlue,
+            ),
+            const Text(
+              'This transaction is applicable for reverse charge',
+              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'TDS',
+        required: false,
+        child: FormDropdown<String>(
+          value: _selectedTdsTax,
+          items: tdsOptions,
+          onChanged: (val) {
+            setState(() => _selectedTdsTax = val);
+          },
+          hint: 'Select a Tax',
+          height: 36,
+          showSearch: false,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Payment Date',
+        required: true,
+        child: Container(
+          key: _paymentDateKey,
+          child: CustomTextField(
+            controller: _paymentDateController,
+            readOnly: true,
+            height: 36,
+            onTap: () async {
+              final picked = await ZerpaiDatePicker.show(
+                context,
+                initialDate: _paymentDateVal,
+                targetKey: _paymentDateKey,
+              );
+              if (picked == null) return;
+              setState(() {
+                _paymentDateVal = picked;
+                _paymentDateController.text = DateFormat(
+                  'dd-MM-yyyy',
+                ).format(picked);
+              });
+            },
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Payment Mode',
+        required: false,
+        child: FormDropdown<String>(
+          value: _paymentMode,
+          items: _paymentModeOptions,
+          onChanged: (val) {
+            if (val == null) return;
+            setState(() => _paymentMode = val);
+          },
+          height: 36,
+          showSearch: true,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Paid Through',
+        required: true,
+        child: FormDropdown<PaidThroughItem>(
+          value: _paymentPaidFrom,
+          items: paidThroughOptions,
+          onChanged: (val) {
+            if (val == null) return;
+            setState(() => _paymentPaidFrom = val);
+          },
+          displayStringForValue: (v) => v.label,
+          searchStringForValue: (v) => v.label,
+          height: 36,
+          showSearch: true,
+          isItemEnabled: (item) => !item.isHeader,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Transfer To',
+        required: false,
+        child: FormDropdown<PaidThroughItem>(
+          value: _findPaidThroughItemById(
+            paidThroughOptions,
+            _transferToAccountId,
+          ),
+          items: paidThroughOptions,
+          onChanged: (val) {
+            if (val == null) return;
+            setState(() => _transferToAccountId = val.id);
+          },
+          displayStringForValue: (v) => v.label,
+          searchStringForValue: (v) => v.label,
+          hint: 'Select a bank account',
+          height: 36,
+          showSearch: true,
+          isItemEnabled: (item) => !item.isHeader,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Deposit To',
+        required: false,
+        child: FormDropdown<PaidThroughItem>(
+          value: _depositTo,
+          items: paidThroughOptions,
+          onChanged: (val) {
+            if (val == null) return;
+            setState(() => _depositTo = val);
+          },
+          displayStringForValue: (v) => v.label,
+          searchStringForValue: (v) => v.label,
+          height: 36,
+          showSearch: true,
+          isItemEnabled: (item) => !item.isHeader,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'Reference#',
+        required: false,
+        child: CustomTextField(
+          controller: _paymentReferenceController,
+          height: 36,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'erhj',
+        required: true,
+        child: CustomTextField(controller: _erhjController, height: 36),
+      ),
+      const SizedBox(height: 16),
+      _buildNotesSection(isEditMode: true),
+      const SizedBox(height: 24),
+      _buildAttachmentsSection(),
+    ];
   }
 
   List<Widget> _buildBillPaymentFields(
@@ -1297,7 +1805,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textSecondary,
-                  fontFamily: 'Inter',
                 ),
               ),
             ),
@@ -1305,6 +1812,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               child: CustomTextField(
                 controller: _paymentAmountController,
                 height: 36,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(4),
                   bottomRight: Radius.circular(4),
@@ -1381,7 +1892,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppTheme.textPrimary,
-                      fontFamily: 'Inter',
                     ),
                   );
                 },
@@ -1475,7 +1985,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
-                        fontFamily: 'Inter',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1525,7 +2034,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary,
-                    fontFamily: 'Inter',
                   ),
                 ),
               );
@@ -1559,7 +2067,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
-                        fontFamily: 'Inter',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1590,36 +2097,45 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       ),
       const SizedBox(height: 12),
 
-      Align(
-        alignment: Alignment.centerRight,
-        child: Padding(
-          padding: const EdgeInsets.only(right: 24),
-          child: GestureDetector(
-            onTap: () {
-              // Clear applied amount
-            },
-            child: const Text(
-              'Clear Applied Amount',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.primaryBlue,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Inter',
+      if (widget.paymentId == null) ...[
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 24),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  for (final controller in _billPaymentControllers.values) {
+                    controller.text = '';
+                  }
+                });
+                _recalculateTotalAllocated();
+              },
+              child: const Text(
+                'Clear Applied Amount',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.primaryBlue,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
         ),
-      ),
 
-      // Bills Table
-      _buildBillsTable(),
-      const SizedBox(height: 16),
-      _buildTotalRow(),
-      const SizedBox(height: 16),
-      const Divider(height: 1, color: AppTheme.borderColor),
-      const SizedBox(height: 24),
-      Align(alignment: Alignment.centerRight, child: _buildPeachSummaryCard()),
-      const SizedBox(height: 24),
+        // Bills Table
+        _buildBillsTable(),
+        const SizedBox(height: 16),
+        _buildTotalRow(),
+        const SizedBox(height: 16),
+        const Divider(height: 1, color: AppTheme.borderColor),
+        const SizedBox(height: 24),
+        Align(
+          alignment: Alignment.centerRight,
+          child: _buildPeachSummaryCard(),
+        ),
+        const SizedBox(height: 24),
+      ],
       _buildNotesSection(),
       const SizedBox(height: 24),
       _buildAttachmentsSection(),
@@ -1701,11 +2217,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             const SizedBox(height: 4),
             const Text(
               'Will be displayed on the Payment Voucher',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppTheme.textSecondary,
-                fontFamily: 'Inter',
-              ),
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -1736,7 +2248,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textSecondary,
-                  fontFamily: 'Inter',
                 ),
               ),
             ),
@@ -1744,6 +2255,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               child: CustomTextField(
                 controller: _paymentAmountController,
                 height: 36,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(4),
                   bottomRight: Radius.circular(4),
@@ -1754,6 +2269,16 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           ],
         ),
       ),
+      if (_isEditMode) ...[
+        const SizedBox(height: 4),
+        _buildFormRow(
+          label: '',
+          child: const Text(
+            'Unused Amount: ₹10,000.00*',
+            style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+          ),
+        ),
+      ],
       const SizedBox(height: 8),
 
       // Row 8 â€” Integrations Banner
@@ -1783,11 +2308,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             ),
             const Text(
               'This transaction is applicable for reverse charge',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppTheme.textPrimary,
-                fontFamily: 'Inter',
-              ),
+              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
           ],
         ),
@@ -1825,7 +2346,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.textSecondary,
-                      fontFamily: 'Inter',
                     ),
                   ),
                 );
@@ -1853,7 +2373,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontWeight: isSelected
                               ? FontWeight.w500
                               : FontWeight.normal,
-                          fontFamily: 'Inter',
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1876,7 +2395,49 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         const SizedBox(height: 16),
       ],
 
-      // Row 10 â€” TDS Dropdown
+      _buildFormRow(
+        label: 'Transfer To',
+        required: false,
+        child: FormDropdown<PaidThroughItem>(
+          value: paidThroughOptions.isNotEmpty
+              ? paidThroughOptions.firstWhere(
+                  (e) => e.id == _transferToAccountId,
+                  orElse: () => paidThroughOptions.first,
+                )
+              : null,
+          items: paidThroughOptions,
+          onChanged: (val) {
+            if (val != null) {
+              setState(() => _transferToAccountId = val.id);
+            }
+          },
+          displayStringForValue: (v) => v.label,
+          searchStringForValue: (v) => v.label,
+          hint: 'Select a bank account',
+          height: 36,
+          showSearch: true,
+        ),
+      ),
+      const SizedBox(height: 16),
+
+      // Row 15 — Reference#
+      _buildFormRow(
+        label: 'Reference#',
+        required: false,
+        child: CustomTextField(
+          controller: _paymentReferenceController,
+          height: 36,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFormRow(
+        label: 'erhj',
+        required: true,
+        child: CustomTextField(controller: _erhjController, height: 36),
+      ),
+      const SizedBox(height: 24),
+
+      // Row 10 — TDS Dropdown
       _buildFormRow(
         label: 'TDS',
         required: false,
@@ -1966,7 +2527,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
-                        fontFamily: 'Inter',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2016,7 +2576,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary,
-                    fontFamily: 'Inter',
                   ),
                 ),
               );
@@ -2050,7 +2609,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
-                        fontFamily: 'Inter',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2100,7 +2658,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary,
-                    fontFamily: 'Inter',
                   ),
                 ),
               );
@@ -2134,7 +2691,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
-                        fontFamily: 'Inter',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2192,11 +2748,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           Expanded(
             child: RichText(
               text: const TextSpan(
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF92400E),
-                  fontFamily: 'Inter',
-                ),
+                style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
                 children: [
                   TextSpan(
                     text:
@@ -2258,7 +2810,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: labelColor,
-                  fontFamily: 'Inter',
+
                   decoration: label == 'Description of Supply'
                       ? TextDecoration.underline
                       : null,
@@ -2481,7 +3033,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                 paymentDateText,
                                 style: const TextStyle(
                                   fontSize: 13,
-                                  fontFamily: 'Inter',
+
                                   color: AppTheme.textPrimary,
                                 ),
                               ),
@@ -2522,7 +3074,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                             textStyle: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              fontFamily: 'Inter',
                             ),
                             hintText: '0.00',
                           ),
@@ -2555,7 +3106,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
                                 color: AppTheme.primaryBlue,
-                                fontFamily: 'Inter',
                               ),
                             ),
                           ),
@@ -2602,7 +3152,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -2621,7 +3170,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -2640,7 +3188,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -2654,12 +3201,11 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         vertical: 12,
                       ),
                       child: Text(
-                        'Location',
+                        'Warehouse',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -2678,7 +3224,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -2697,7 +3242,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -2720,16 +3264,15 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.grey.shade600,
-                                fontFamily: 'Inter',
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Icon(
-                            LucideIcons.helpCircle,
-                            size: 13,
-                            color: Colors.grey.shade500,
+                          const ZTooltip(
+                            message:
+                                'The most recent of the Bill Date or Payment Date will be set here.',
+                            direction: ZTooltipDirection.top,
                           ),
                         ],
                       ),
@@ -2746,7 +3289,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -2757,11 +3299,12 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           ),
           const Divider(height: 1, color: AppTheme.borderColor),
           if (billsState.isLoading)
-            Container(
-              height: 180,
-              color: Colors.white,
-              alignment: Alignment.center,
-              child: const CircularProgressIndicator(),
+            const Skeletonizer(
+              enabled: true,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                child: ZTableSkeleton(rows: 3, columns: 6),
+              ),
             )
           else if (vendorBills.isEmpty)
             Container(
@@ -2774,7 +3317,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textPrimary,
-                  fontFamily: 'Inter',
                 ),
               ),
             )
@@ -2808,7 +3350,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppTheme.textPrimary,
-              fontFamily: 'Inter',
             ),
           ),
           const SizedBox(width: 48),
@@ -2818,7 +3359,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary,
-              fontFamily: 'Inter',
             ),
           ),
         ],
@@ -2863,14 +3403,16 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (isExcess) ...[
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  size: 14,
-                  color: Color(0xFFD97706),
-                ),
-                const SizedBox(width: 4),
-              ],
+              SizedBox(
+                width: 18,
+                child: isExcess
+                    ? const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 14,
+                        color: Color(0xFFD97706),
+                      )
+                    : null,
+              ),
               Flexible(
                 child: Text(
                   label,
@@ -2879,7 +3421,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF92400E),
-                    fontFamily: 'Inter',
                   ),
                 ),
               ),
@@ -2893,37 +3434,22 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             fontSize: 12,
             fontWeight: isExcess ? FontWeight.w600 : FontWeight.w500,
             color: const Color(0xFF92400E),
-            fontFamily: 'Inter',
           ),
         ),
       ],
     );
   }
 
-  Widget _buildNotesSection() {
+  Widget _buildNotesSection({bool isEditMode = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: const TextSpan(
-            style: TextStyle(fontSize: 13, fontFamily: 'Inter'),
-            children: [
-              TextSpan(
-                text: 'Notes ',
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              TextSpan(
-                text: '(Internal use. ',
-                style: TextStyle(color: Color(0xFFEF4444)),
-              ),
-              TextSpan(
-                text: 'Not visible to vendor)',
-                style: TextStyle(color: AppTheme.textSecondary),
-              ),
-            ],
+        Text(
+          isEditMode ? 'Notes (Internal use. Not visible to vendor)' : 'Notes',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -2949,7 +3475,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: AppTheme.textPrimary,
-            fontFamily: 'Inter',
           ),
         ),
         const SizedBox(height: 8),
@@ -2972,7 +3497,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: _toggleUploadDropdown,
+                    onTap: _pickAttachmentFiles,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(4),
                       bottomLeft: Radius.circular(4),
@@ -2993,7 +3518,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                               fontSize: 13,
                               color: Colors.grey.shade700,
                               fontWeight: FontWeight.w500,
-                              fontFamily: 'Inter',
                             ),
                           ),
                         ],
@@ -3036,77 +3560,54 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   ),
                 ),
               ),
+              if (_uploadedFiles.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                CompositedTransformTarget(
+                  link: _fileBadgeLink,
+                  child: Material(
+                    color: AppTheme.infoBlue,
+                    borderRadius: BorderRadius.circular(4),
+                    child: InkWell(
+                      onTap: _toggleFileBadgeOverlay,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              LucideIcons.paperclip,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${_uploadedFiles.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         const SizedBox(height: 4),
         const Text(
           'You can upload a maximum of 5 files, 10MB each',
-          style: TextStyle(
-            fontSize: 11,
-            color: Color(0xFF6B7280),
-            fontFamily: 'Inter',
-          ),
+          style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
         ),
-        if (_uploadedFiles.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          // List of files
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _uploadedFiles.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final file = entry.value;
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppTheme.borderColor),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      LucideIcons.fileText,
-                      size: 14,
-                      color: AppTheme.textSecondary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      file.name,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textPrimary,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _removeAttachmentFile(idx),
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: 14,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
         const SizedBox(height: 32),
         RichText(
           text: const TextSpan(
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF6B7280),
-              fontFamily: 'Inter',
-            ),
+            style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
             children: [
               TextSpan(
                 text: 'Additional Fields: ',
@@ -3120,7 +3621,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     'Start adding custom fields for your payments made by going to ',
               ),
               TextSpan(
-                text: 'Settings âž” Purchases âž” Payments Made.',
+                text: 'Settings → Purchases → Payments Made.',
                 style: TextStyle(fontStyle: FontStyle.italic),
               ),
             ],
@@ -3136,6 +3637,122 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     } else {
       _openUploadDropdown();
     }
+  }
+
+  void _toggleFileBadgeOverlay() {
+    if (_fileBadgeOverlayEntry != null) {
+      _closeFileBadgeOverlay();
+    } else {
+      _openFileBadgeOverlay();
+    }
+  }
+
+  void _openFileBadgeOverlay() {
+    _closeFileBadgeOverlay();
+    _fileBadgeOverlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeFileBadgeOverlay,
+              behavior: HitTestBehavior.translucent,
+              child: const ColoredBox(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _fileBadgeLink,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 40),
+            child: Material(
+              elevation: 12,
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.transparent,
+              child: Container(
+                width: 320,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _uploadedFiles
+                        .asMap()
+                        .entries
+                        .map(
+                          (e) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(color: AppTheme.borderColor),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  LucideIcons.file,
+                                  size: 16,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    e.value.name,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                InkWell(
+                                  onTap: () {
+                                    _removeAttachmentFile(e.key);
+                                    if (_uploadedFiles.isEmpty) {
+                                      _closeFileBadgeOverlay();
+                                    } else {
+                                      _fileBadgeOverlayEntry?.markNeedsBuild();
+                                    }
+                                  },
+                                  child: const Icon(
+                                    LucideIcons.trash2,
+                                    size: 16,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_fileBadgeOverlayEntry!);
+  }
+
+  void _closeFileBadgeOverlay() {
+    _fileBadgeOverlayEntry?.remove();
+    _fileBadgeOverlayEntry = null;
   }
 
   void _openUploadDropdown() {
@@ -3426,6 +4043,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   }
 
   Widget _buildBottomActionsBar(BuildContext context) {
+    final bool useEditFooter = _isEditMode && !_isBillPayment;
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFFF9FAFB),
@@ -3434,37 +4052,38 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 16),
       child: Row(
         children: [
-          Opacity(
-            opacity: _selectedVendor == null ? 0.5 : 1.0,
-            child: IgnorePointer(
-              ignoring: _selectedVendor == null,
-              child: OutlinedButton(
-                onPressed: () => _savePayment('draft'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.textPrimary,
-                  backgroundColor: Colors.white,
-                  side: const BorderSide(color: AppTheme.borderColor),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+          if (!useEditFooter) ...[
+            Opacity(
+              opacity: _selectedVendor == null ? 0.5 : 1.0,
+              child: IgnorePointer(
+                ignoring: _selectedVendor == null,
+                child: OutlinedButton(
+                  onPressed: () => _savePayment('draft'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: AppTheme.borderColor),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                child: const Text(
-                  'Save as Draft',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textBody,
-                    fontFamily: 'Inter',
+                  child: const Text(
+                    'Save as Draft',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textBody,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
+          ],
           Opacity(
             opacity: _selectedVendor == null ? 0.5 : 1.0,
             child: IgnorePointer(
@@ -3483,13 +4102,12 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-                child: const Text(
-                  'Save as Paid',
-                  style: TextStyle(
+                child: Text(
+                  useEditFooter ? 'Save' : 'Save as Paid',
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    fontFamily: 'Inter',
                   ),
                 ),
               ),
@@ -3498,8 +4116,11 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           const SizedBox(width: 12),
           OutlinedButton(
             onPressed: () {
-              final orgId = resolveOrgSystemId(context);
-              context.go('/$orgId${AppRoutes.paymentsMadeReport}');
+              final state = GoRouterState.of(context);
+              context.goNamed(
+                AppRoutes.paymentsMade,
+                pathParameters: state.pathParameters,
+              );
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.textPrimary,
@@ -3516,7 +4137,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.textBody,
-                fontFamily: 'Inter',
               ),
             ),
           ),
@@ -3587,7 +4207,6 @@ class _UploadDropdownMenuState extends State<_UploadDropdownMenu> {
               fontSize: 13,
               fontWeight: FontWeight.normal,
               color: isHovered ? Colors.white : AppTheme.textPrimary,
-              fontFamily: 'Inter',
             ),
           ),
         ),
@@ -3788,7 +4407,6 @@ class _ConfigurePaymentModeDialogState
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF1F2937),
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -3857,7 +4475,6 @@ class _ConfigurePaymentModeDialogState
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.white,
-                                        fontFamily: 'Inter',
                                       ),
                                     ),
                                   ),
@@ -3871,7 +4488,6 @@ class _ConfigurePaymentModeDialogState
                                         fontSize: 12,
                                         fontWeight: FontWeight.w400,
                                         color: Color(0xFF6B7280),
-                                        fontFamily: 'Inter',
                                       ),
                                     ),
                                   ),
@@ -3901,7 +4517,6 @@ class _ConfigurePaymentModeDialogState
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: AppTheme.primaryBlue,
-                              fontFamily: 'Inter',
                             ),
                           ),
                         ),
@@ -3938,7 +4553,6 @@ class _ConfigurePaymentModeDialogState
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),
@@ -3962,7 +4576,6 @@ class _ConfigurePaymentModeDialogState
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          fontFamily: 'Inter',
                         ),
                       ),
                     ),

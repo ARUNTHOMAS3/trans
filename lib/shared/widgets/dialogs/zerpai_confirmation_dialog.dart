@@ -96,8 +96,7 @@ Future<bool> showZerpaiConfirmationDialog(
                     alignment: WrapAlignment.end,
                     children: [
                       ElevatedButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(true),
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: confirmBackground,
                           foregroundColor: Colors.white,
@@ -119,8 +118,7 @@ Future<bool> showZerpaiConfirmationDialog(
                         ),
                       ),
                       OutlinedButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(false),
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.textPrimary,
                           side: const BorderSide(color: AppTheme.borderColor),

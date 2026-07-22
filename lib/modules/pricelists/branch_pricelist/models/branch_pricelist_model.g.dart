@@ -27,8 +27,9 @@ BranchPriceList _$BranchPriceListFromJson(Map<String, dynamic> json) =>
           ? null
           : DateTime.parse(json['end_date'] as String),
       itemRates: (json['item_rates'] as List<dynamic>?)
-          ?.map((e) =>
-              BranchPriceListItemRate.fromJson(e as Map<String, dynamic>))
+          ?.map(
+            (e) => BranchPriceListItemRate.fromJson(e as Map<String, dynamic>),
+          )
           .toList(),
       associatedBranches: (json['associated_branches'] as List<dynamic>?)
           ?.map((e) => e as String)
@@ -64,46 +65,47 @@ Map<String, dynamic> _$BranchPriceListToJson(BranchPriceList instance) =>
     };
 
 BranchPriceListItemRate _$BranchPriceListItemRateFromJson(
-        Map<String, dynamic> json) =>
-    BranchPriceListItemRate(
-      itemId: json['item_id'] as String,
-      itemName: json['item_name'] as String?,
-      sku: json['sku'] as String?,
-      salesRate: (json['sales_rate'] as num?)?.toDouble(),
-      customRate: (json['custom_rate'] as num?)?.toDouble(),
-      discountPercentage: (json['discount_percentage'] as num?)?.toDouble(),
-      volumeRanges: (json['volume_ranges'] as List<dynamic>?)
-          ?.map((e) =>
-              BranchPriceListVolumeRange.fromJson(e as Map<String, dynamic>))
-          .toList(),
-    );
+  Map<String, dynamic> json,
+) => BranchPriceListItemRate(
+  itemId: json['item_id'] as String,
+  itemName: json['item_name'] as String?,
+  sku: json['sku'] as String?,
+  salesRate: (json['sales_rate'] as num?)?.toDouble(),
+  customRate: (json['custom_rate'] as num?)?.toDouble(),
+  discountPercentage: (json['discount_percentage'] as num?)?.toDouble(),
+  volumeRanges: (json['volume_ranges'] as List<dynamic>?)
+      ?.map(
+        (e) => BranchPriceListVolumeRange.fromJson(e as Map<String, dynamic>),
+      )
+      .toList(),
+);
 
 Map<String, dynamic> _$BranchPriceListItemRateToJson(
-        BranchPriceListItemRate instance) =>
-    <String, dynamic>{
-      'item_id': instance.itemId,
-      'item_name': instance.itemName,
-      'sku': instance.sku,
-      'sales_rate': instance.salesRate,
-      'custom_rate': instance.customRate,
-      'discount_percentage': instance.discountPercentage,
-      'volume_ranges': instance.volumeRanges?.map((e) => e.toJson()).toList(),
-    };
+  BranchPriceListItemRate instance,
+) => <String, dynamic>{
+  'item_id': instance.itemId,
+  'item_name': instance.itemName,
+  'sku': instance.sku,
+  'sales_rate': instance.salesRate,
+  'custom_rate': instance.customRate,
+  'discount_percentage': instance.discountPercentage,
+  'volume_ranges': instance.volumeRanges?.map((e) => e.toJson()).toList(),
+};
 
 BranchPriceListVolumeRange _$BranchPriceListVolumeRangeFromJson(
-        Map<String, dynamic> json) =>
-    BranchPriceListVolumeRange(
-      startQuantity: (json['start_quantity'] as num).toDouble(),
-      endQuantity: (json['end_quantity'] as num?)?.toDouble(),
-      customRate: (json['custom_rate'] as num).toDouble(),
-      discountPercentage: (json['discount_percentage'] as num?)?.toDouble(),
-    );
+  Map<String, dynamic> json,
+) => BranchPriceListVolumeRange(
+  startQuantity: (json['start_quantity'] as num).toDouble(),
+  endQuantity: (json['end_quantity'] as num?)?.toDouble(),
+  customRate: (json['custom_rate'] as num).toDouble(),
+  discountPercentage: (json['discount_percentage'] as num?)?.toDouble(),
+);
 
 Map<String, dynamic> _$BranchPriceListVolumeRangeToJson(
-        BranchPriceListVolumeRange instance) =>
-    <String, dynamic>{
-      'start_quantity': instance.startQuantity,
-      'end_quantity': instance.endQuantity,
-      'custom_rate': instance.customRate,
-      'discount_percentage': instance.discountPercentage,
-    };
+  BranchPriceListVolumeRange instance,
+) => <String, dynamic>{
+  'start_quantity': instance.startQuantity,
+  'end_quantity': instance.endQuantity,
+  'custom_rate': instance.customRate,
+  'discount_percentage': instance.discountPercentage,
+};

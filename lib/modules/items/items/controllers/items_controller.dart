@@ -695,12 +695,7 @@ class ItemsController extends StateNotifier<ItemsState> {
           .toList();
 
       final reps = repsRaw
-          .map(
-            (r) => {
-              ...r,
-              'name': r['name'] ?? r['rep_name'] ?? 'Unknown',
-            },
-          )
+          .map((r) => {...r, 'name': r['name'] ?? r['rep_name'] ?? 'Unknown'})
           .toList();
 
       final contents = contentsRaw
@@ -759,10 +754,7 @@ class ItemsController extends StateNotifier<ItemsState> {
           .map(
             (pt) => {
               ...pt,
-              'name':
-                  pt['name'] ??
-                  pt['product_type_name'] ??
-                  'Unknown',
+              'name': pt['name'] ?? pt['product_type_name'] ?? 'Unknown',
             },
           )
           .toList();
@@ -771,11 +763,13 @@ class ItemsController extends StateNotifier<ItemsState> {
           .map(
             (pack) => {
               ...pack,
-              'pack_name':
-                  (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
+              'pack_name': (pack['pack_name'] ?? pack['name'] ?? '')
+                  .toString()
+                  .trim(),
               'unit_pack': pack['unit_pack'],
-              'name':
-                  (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
+              'name': (pack['pack_name'] ?? pack['name'] ?? '')
+                  .toString()
+                  .trim(),
             },
           )
           .where((pack) => (pack['pack_name'] ?? '').toString().isNotEmpty)
@@ -1389,7 +1383,12 @@ class ItemsController extends StateNotifier<ItemsState> {
       () => _lookupsService.syncManufacturers(items),
     );
     final manufacturers = results
-        .map((m) => {...m, 'name': m['name'] ?? m['manufacturer_name'] ?? 'Unknown'})
+        .map(
+          (m) => {
+            ...m,
+            'name': m['name'] ?? m['manufacturer_name'] ?? 'Unknown',
+          },
+        )
         .toList();
     state = state.copyWith(manufacturers: manufacturers, error: null);
     return manufacturers;
@@ -1463,7 +1462,12 @@ class ItemsController extends StateNotifier<ItemsState> {
       () => _lookupsService.syncVendors(items),
     );
     final vendors = results
-        .map((v) => {...v, 'name': v['display_name'] ?? v['vendor_name'] ?? 'Unknown'})
+        .map(
+          (v) => {
+            ...v,
+            'name': v['display_name'] ?? v['vendor_name'] ?? 'Unknown',
+          },
+        )
         .toList();
     state = state.copyWith(vendors: vendors, error: null);
     return vendors;
@@ -1477,10 +1481,11 @@ class ItemsController extends StateNotifier<ItemsState> {
       () => _lookupsService.syncStorageLocations(items),
     );
     final storageLocations = results.map((s) {
-      final name = [s['name'], s['display_text'], s['location_name']].firstWhere(
-        (val) => val != null && val.toString().trim().isNotEmpty,
-        orElse: () => 'Unknown',
-      );
+      final name = [s['name'], s['display_text'], s['location_name']]
+          .firstWhere(
+            (val) => val != null && val.toString().trim().isNotEmpty,
+            orElse: () => 'Unknown',
+          );
       return {...s, 'name': name};
     }).toList();
     state = state.copyWith(storageLocations: storageLocations, error: null);
@@ -1556,7 +1561,11 @@ class ItemsController extends StateNotifier<ItemsState> {
     final created = await _lookupsService.createRack(name);
     final normalized = {
       ...created,
-      'name': created['name'] ?? created['rack_code'] ?? created['rack_name'] ?? name,
+      'name':
+          created['name'] ??
+          created['rack_code'] ??
+          created['rack_name'] ??
+          name,
     };
 
     final currentMap = <String, Map<String, dynamic>>{
@@ -1615,7 +1624,11 @@ class ItemsController extends StateNotifier<ItemsState> {
     final created = await _lookupsService.createContent(name);
     final normalized = {
       ...created,
-      'name': created['name'] ?? created['content_name'] ?? created['item_content'] ?? name,
+      'name':
+          created['name'] ??
+          created['content_name'] ??
+          created['item_content'] ??
+          name,
     };
 
     final currentMap = <String, Map<String, dynamic>>{
@@ -1680,7 +1693,9 @@ class ItemsController extends StateNotifier<ItemsState> {
     if (id.isNotEmpty) {
       currentMap[id] = normalized;
       state = state.copyWith(
-        strengths: currentMap.values.where((e) => (e['id'] ?? '').toString().isNotEmpty).toList(),
+        strengths: currentMap.values
+            .where((e) => (e['id'] ?? '').toString().isNotEmpty)
+            .toList(),
         error: null,
       );
     }
@@ -1709,7 +1724,11 @@ class ItemsController extends StateNotifier<ItemsState> {
     final created = await _lookupsService.createBuyingRule(name);
     final normalized = {
       ...created,
-      'name': created['name'] ?? created['buying_rule'] ?? created['rule_name'] ?? name,
+      'name':
+          created['name'] ??
+          created['buying_rule'] ??
+          created['rule_name'] ??
+          name,
     };
 
     final currentMap = <String, Map<String, dynamic>>{
@@ -1751,7 +1770,11 @@ class ItemsController extends StateNotifier<ItemsState> {
     final created = await _lookupsService.createDrugSchedule(name);
     final normalized = {
       ...created,
-      'name': created['name'] ?? created['schedule_name'] ?? created['shedule_name'] ?? name,
+      'name':
+          created['name'] ??
+          created['schedule_name'] ??
+          created['shedule_name'] ??
+          name,
     };
 
     final currentMap = <String, Map<String, dynamic>>{
@@ -2257,7 +2280,9 @@ class ItemsController extends StateNotifier<ItemsState> {
     return mapped;
   }
 
-  Future<List<Map<String, dynamic>>> searchProductPackSizes(String query) async {
+  Future<List<Map<String, dynamic>>> searchProductPackSizes(
+    String query,
+  ) async {
     final results = await _lookupsService.searchLookups(
       'product-pack-sizes',
       query,
@@ -2266,11 +2291,11 @@ class ItemsController extends StateNotifier<ItemsState> {
         .map(
           (pack) => {
             ...pack,
-            'pack_name':
-                (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
+            'pack_name': (pack['pack_name'] ?? pack['name'] ?? '')
+                .toString()
+                .trim(),
             'unit_pack': pack['unit_pack'],
-            'name':
-                (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
+            'name': (pack['pack_name'] ?? pack['name'] ?? '').toString().trim(),
           },
         )
         .where((pack) => (pack['pack_name'] ?? '').toString().isNotEmpty)
@@ -2297,15 +2322,13 @@ class ItemsController extends StateNotifier<ItemsState> {
     );
     final normalized = {
       ...created,
-      'pack_name':
-          (created['pack_name'] ?? created['name'] ?? packName)
-              .toString()
-              .trim(),
+      'pack_name': (created['pack_name'] ?? created['name'] ?? packName)
+          .toString()
+          .trim(),
       'unit_pack': created['unit_pack'] ?? unitPack,
-      'name':
-          (created['pack_name'] ?? created['name'] ?? packName)
-              .toString()
-              .trim(),
+      'name': (created['pack_name'] ?? created['name'] ?? packName)
+          .toString()
+          .trim(),
     };
 
     final currentMap = <String, Map<String, dynamic>>{

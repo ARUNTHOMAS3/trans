@@ -191,7 +191,10 @@ class _LinkVendorToCustomerDialogState
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
-                        child: const Text('Cancel', style: TextStyle(fontSize: 14)),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontSize: 14),
+                        ),
                       ),
                     ],
                   ),

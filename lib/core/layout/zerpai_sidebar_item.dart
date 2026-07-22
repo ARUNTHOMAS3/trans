@@ -28,6 +28,7 @@ class ZerpaiSidebarItem extends StatefulWidget {
 
   /// Text/icon color — white on dark pane, near-black on light pane.
   static Color itemFg = Colors.white;
+
   /// Muted variant for inactive labels and arrows.
   static Color itemFgMuted = Colors.white70;
 
@@ -108,7 +109,9 @@ class _ExpandedView extends StatelessWidget {
     // On active items the bg is accent-colored so text is always white.
     // On inactive items use the theme foreground color.
     final Color fg = widget.isActive ? Colors.white : ZerpaiSidebarItem.itemFg;
-    final Color fgMuted = widget.isActive ? Colors.white70 : ZerpaiSidebarItem.itemFgMuted;
+    final Color fgMuted = widget.isActive
+        ? Colors.white70
+        : ZerpaiSidebarItem.itemFgMuted;
 
     return Row(
       children: [

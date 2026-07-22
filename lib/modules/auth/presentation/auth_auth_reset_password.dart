@@ -171,7 +171,8 @@ class _AuthResetPasswordPageState extends State<AuthResetPasswordPage> {
 
       if (!mounted) return;
       setState(() {
-        _message = 'Your password has been updated. Sign in with the new password.';
+        _message =
+            'Your password has been updated. Sign in with the new password.';
       });
     } on AuthException catch (error) {
       if (!mounted) return;
@@ -282,8 +283,9 @@ class _AuthResetPasswordPageState extends State<AuthResetPasswordPage> {
                               Expanded(
                                 child: ZButton.primary(
                                   label: 'Send Reset Link',
-                                  onPressed:
-                                      _isResending ? null : _resendResetLink,
+                                  onPressed: _isResending
+                                      ? null
+                                      : _resendResetLink,
                                   loading: _isResending,
                                   icon: LucideIcons.send,
                                 ),
@@ -372,8 +374,9 @@ class _AuthResetPasswordPageState extends State<AuthResetPasswordPage> {
                           Expanded(
                             child: ZButton.primary(
                               label: 'Update Password',
-                              onPressed:
-                                  (!_recoveryReady || _isLoading) ? null : _submit,
+                              onPressed: (!_recoveryReady || _isLoading)
+                                  ? null
+                                  : _submit,
                               loading: _isLoading,
                               icon: LucideIcons.check,
                             ),

@@ -78,7 +78,8 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
                     FileUploadButton(
                       files: drugLicense20Docs,
                       height: _inputHeight,
-                      onFilesChanged: (updated) => _state(() => drugLicense20Docs = updated),
+                      onFilesChanged: (updated) =>
+                          _state(() => drugLicense20Docs = updated),
                     ),
                   ],
                 ),
@@ -108,7 +109,8 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
                     FileUploadButton(
                       files: drugLicense21Docs,
                       height: _inputHeight,
-                      onFilesChanged: (updated) => _state(() => drugLicense21Docs = updated),
+                      onFilesChanged: (updated) =>
+                          _state(() => drugLicense21Docs = updated),
                     ),
                   ],
                 ),
@@ -142,7 +144,8 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
                     FileUploadButton(
                       files: drugLicense20BDocs,
                       height: _inputHeight,
-                      onFilesChanged: (updated) => _state(() => drugLicense20BDocs = updated),
+                      onFilesChanged: (updated) =>
+                          _state(() => drugLicense20BDocs = updated),
                     ),
                   ],
                 ),
@@ -172,7 +175,8 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
                     FileUploadButton(
                       files: drugLicense21BDocs,
                       height: _inputHeight,
-                      onFilesChanged: (updated) => _state(() => drugLicense21BDocs = updated),
+                      onFilesChanged: (updated) =>
+                          _state(() => drugLicense21BDocs = updated),
                     ),
                   ],
                 ),
@@ -230,7 +234,8 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
                   FileUploadButton(
                     files: fssaiDocs,
                     height: _inputHeight,
-                    onFilesChanged: (updated) => _state(() => fssaiDocs = updated),
+                    onFilesChanged: (updated) =>
+                        _state(() => fssaiDocs = updated),
                   ),
                 ],
               ),
@@ -302,7 +307,8 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
                   FileUploadButton(
                     files: msmeDocs,
                     height: _inputHeight,
-                    onFilesChanged: (updated) => _state(() => msmeDocs = updated),
+                    onFilesChanged: (updated) =>
+                        _state(() => msmeDocs = updated),
                   ),
                 ],
               ),
@@ -312,6 +318,4 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
       ),
     );
   }
-
 }
-

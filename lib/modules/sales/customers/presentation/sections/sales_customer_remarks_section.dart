@@ -39,4 +39,3 @@ extension _RemarksSection on _SalesCustomerCreateScreenState {
     );
   }
 }
-

@@ -29,12 +29,13 @@ class ExpenseAttachmentModel {
       expenseId: (json['expense_id'] ?? json['expenseId'] ?? '').toString(),
       fileName: (json['file_name'] ?? json['fileName'] ?? '').toString(),
       fileUrl: (json['file_url'] ?? json['fileUrl'] ?? '').toString(),
-      fileSize: (json['file_size'] as num?)?.toInt() ??
+      fileSize:
+          (json['file_size'] as num?)?.toInt() ??
           int.tryParse((json['file_size'] ?? '0').toString()) ??
           0,
       fileType: (json['file_type'] ?? json['fileType'])?.toString(),
-      originalFileName:
-          (json['original_file_name'] ?? json['originalFileName'])?.toString(),
+      originalFileName: (json['original_file_name'] ?? json['originalFileName'])
+          ?.toString(),
       uploadedBy: (json['uploaded_by'] ?? json['uploadedBy'])?.toString(),
       remarks: (json['remarks'] ?? '').toString().isEmpty
           ? null
@@ -44,11 +45,11 @@ class ExpenseAttachmentModel {
   }
 
   Map<String, dynamic> toAttachmentRequestJson() => <String, dynamic>{
-        'file_name': fileName,
-        'original_file_name': originalFileName,
-        'file_url': fileUrl,
-        'file_type': fileType,
-        'file_size': fileSize,
-        'remarks': remarks,
-      };
+    'file_name': fileName,
+    'original_file_name': originalFileName,
+    'file_url': fileUrl,
+    'file_type': fileType,
+    'file_size': fileSize,
+    'remarks': remarks,
+  };
 }

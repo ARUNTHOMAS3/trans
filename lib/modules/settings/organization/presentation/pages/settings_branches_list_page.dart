@@ -349,11 +349,12 @@ class _SettingsBranchesListPageState
           ? (warehousesRes.data as List)
                 .whereType<Map<String, dynamic>>()
                 .map(
-                  (warehouse) => ((warehouse['source_branch_id'] ??
-                              warehouse['branch_id']) ??
-                          '')
-                      .toString()
-                      .trim(),
+                  (warehouse) =>
+                      ((warehouse['source_branch_id'] ??
+                                  warehouse['branch_id']) ??
+                              '')
+                          .toString()
+                          .trim(),
                 )
                 .where((branchId) => branchId.isNotEmpty)
                 .toSet()
@@ -1585,9 +1586,9 @@ class _SettingsBranchesListPageState
                     padding: const EdgeInsets.fromLTRB(20, 16, 18, 16),
                     child: Row(
                       children: [
-                          Expanded(
-                            child: Text(
-                              'Enable Bin Locations',
+                        Expanded(
+                          child: Text(
+                            'Enable Bin Locations',
                             style: AppTheme.pageTitle.copyWith(fontSize: 16),
                           ),
                         ),
@@ -1658,50 +1659,50 @@ class _SettingsBranchesListPageState
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
                     child: Row(
                       children: [
-                          ElevatedButton(
-                            onPressed: () async {
-                              if (!branch.hasLinkedWarehouse) {
-                                Navigator.of(dialogContext).pop();
-                                if (!mounted) return;
-                                ZerpaiToast.error(
-                                  context,
-                                  'No warehouse linked to branch "${branch.name}". Create/link a warehouse for this branch before managing zones.',
-                                );
-                                return;
-                              }
+                        ElevatedButton(
+                          onPressed: () async {
+                            if (!branch.hasLinkedWarehouse) {
                               Navigator.of(dialogContext).pop();
                               if (!mounted) return;
-                              try {
-                                await BinLocationsService.instance
-                                    .ensureDefaultZones(
-                                      orgId: _currentOrgId,
-                                      branchId: branch.id,
-                                      branchName: branch.name,
-                                    );
-                                if (!mounted) return;
-                                final orgSystemId =
-                                    GoRouterState.of(
-                                      context,
-                                    ).pathParameters['orgSystemId'] ??
-                                    '';
-                                context.goNamed(
-                                  AppRoutes.settingsZones,
-                                  pathParameters: {'orgSystemId': orgSystemId},
-                                  queryParameters: {
-                                    'branchId': branch.id,
-                                    'branchName': branch.name,
-                                  },
-                                );
-                              } catch (e) {
-                                if (!mounted) return;
-                                ZerpaiToast.error(
-                                  context,
-                                  e.toString().replaceFirst('Exception: ', ''),
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: accentColor,
+                              ZerpaiToast.error(
+                                context,
+                                'No warehouse linked to branch "${branch.name}". Create/link a warehouse for this branch before managing zones.',
+                              );
+                              return;
+                            }
+                            Navigator.of(dialogContext).pop();
+                            if (!mounted) return;
+                            try {
+                              await BinLocationsService.instance
+                                  .ensureDefaultZones(
+                                    orgId: _currentOrgId,
+                                    branchId: branch.id,
+                                    branchName: branch.name,
+                                  );
+                              if (!mounted) return;
+                              final orgSystemId =
+                                  GoRouterState.of(
+                                    context,
+                                  ).pathParameters['orgSystemId'] ??
+                                  '';
+                              context.goNamed(
+                                AppRoutes.settingsZones,
+                                pathParameters: {'orgSystemId': orgSystemId},
+                                queryParameters: {
+                                  'branchId': branch.id,
+                                  'branchName': branch.name,
+                                },
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              ZerpaiToast.error(
+                                context,
+                                e.toString().replaceFirst('Exception: ', ''),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accentColor,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(

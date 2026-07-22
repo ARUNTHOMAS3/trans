@@ -21,13 +21,13 @@ class ColumnConfig {
   bool isPinned;
 
   ColumnConfig copy() => ColumnConfig(
-        id: id,
-        label: label,
-        isVisible: isVisible,
-        orderIndex: orderIndex,
-        isLocked: isLocked,
-        isPinned: isPinned,
-      );
+    id: id,
+    label: label,
+    isVisible: isVisible,
+    orderIndex: orderIndex,
+    isLocked: isLocked,
+    isPinned: isPinned,
+  );
 }
 
 class ColumnCustomizerDialog extends StatefulWidget {
@@ -81,9 +81,11 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
     final displayedItems = _searchQuery.isEmpty
         ? _items
         : _items
-            .where((c) =>
-                c.label.toLowerCase().contains(_searchQuery.toLowerCase()))
-            .toList();
+              .where(
+                (c) =>
+                    c.label.toLowerCase().contains(_searchQuery.toLowerCase()),
+              )
+              .toList();
 
     final pinnedItems = displayedItems.where((c) => c.isPinned).toList();
     final unpinnedItems = displayedItems.where((c) => !c.isPinned).toList();
@@ -108,15 +110,22 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
           children: [
             Row(
               children: [
-                const Icon(LucideIcons.sliders,
-                    size: 20, color: AppTheme.textPrimary),
+                const Icon(
+                  LucideIcons.sliders,
+                  size: 20,
+                  color: AppTheme.textPrimary,
+                ),
                 const SizedBox(width: 12),
-                Text('Customize Columns',
-                    style: AppTheme.sectionHeader.copyWith(fontSize: 16)),
+                Text(
+                  'Customize Columns',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 16),
+                ),
                 const Spacer(),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.bgDisabled,
                     borderRadius: BorderRadius.circular(12),
@@ -129,8 +138,11 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                 const SizedBox(width: 12),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(LucideIcons.x,
-                      size: 20, color: AppTheme.errorRed),
+                  icon: const Icon(
+                    LucideIcons.x,
+                    size: 20,
+                    color: AppTheme.errorRed,
+                  ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -143,10 +155,15 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
               style: AppTheme.bodyText,
               decoration: InputDecoration(
                 hintText: 'Search',
-                hintStyle:
-                    const TextStyle(color: AppTheme.textMuted, fontSize: 14),
-                prefixIcon: const Icon(LucideIcons.search,
-                    size: 16, color: AppTheme.textSecondary),
+                hintStyle: const TextStyle(
+                  color: AppTheme.textMuted,
+                  fontSize: 14,
+                ),
+                prefixIcon: const Icon(
+                  LucideIcons.search,
+                  size: 16,
+                  color: AppTheme.textSecondary,
+                ),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -172,7 +189,10 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                     children: [
                       // Pinned section
                       if (pinnedItems.isNotEmpty) ...[
-                        _SectionLabel(label: 'Pinned', count: pinnedItems.length),
+                        _SectionLabel(
+                          label: 'Pinned',
+                          count: pinnedItems.length,
+                        ),
                         ReorderableListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -204,7 +224,8 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                               onToggleVisible: col.isLocked
                                   ? null
                                   : () => setState(
-                                      () => col.isVisible = !col.isVisible),
+                                      () => col.isVisible = !col.isVisible,
+                                    ),
                               onTogglePin: () => _togglePin(col),
                             );
                           },
@@ -214,7 +235,10 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
 
                       // Unpinned section
                       if (pinnedItems.isNotEmpty && unpinnedItems.isNotEmpty)
-                        _SectionLabel(label: 'Columns', count: unpinnedItems.length),
+                        _SectionLabel(
+                          label: 'Columns',
+                          count: unpinnedItems.length,
+                        ),
                       ReorderableListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -228,7 +252,8 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                             unpinnedItems.insert(newIndex, item);
                             for (int i = 0; i < unpinnedItems.length; i++) {
                               final idx = _items.indexOf(unpinnedItems[i]);
-                              if (idx != -1) _items[idx].orderIndex = pinnedItems.length + i;
+                              if (idx != -1)
+                                _items[idx].orderIndex = pinnedItems.length + i;
                             }
                             _sortItems();
                             for (int i = 0; i < _items.length; i++) {
@@ -244,8 +269,9 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                             index: index,
                             onToggleVisible: col.isLocked
                                 ? null
-                                : () =>
-                                    setState(() => col.isVisible = !col.isVisible),
+                                : () => setState(
+                                    () => col.isVisible = !col.isVisible,
+                                  ),
                             onTogglePin: () => _togglePin(col),
                           );
                         },
@@ -374,14 +400,20 @@ class _ColumnItemState extends State<_ColumnItem> {
                     index: widget.index,
                     child: const MouseRegion(
                       cursor: SystemMouseCursors.grab,
-                      child: Icon(LucideIcons.gripVertical,
-                          size: 14, color: AppTheme.textMuted),
+                      child: Icon(
+                        LucideIcons.gripVertical,
+                        size: 14,
+                        color: AppTheme.textMuted,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   if (col.isLocked)
-                    const Icon(LucideIcons.lock,
-                        size: 16, color: AppTheme.textSecondary)
+                    const Icon(
+                      LucideIcons.lock,
+                      size: 16,
+                      color: AppTheme.textSecondary,
+                    )
                   else
                     SizedBox(
                       height: 18,
@@ -393,9 +425,12 @@ class _ColumnItemState extends State<_ColumnItem> {
                             : (v) => widget.onToggleVisible!(),
                         activeColor: AppTheme.primaryBlue,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                         side: const BorderSide(
-                            color: AppTheme.borderColor, width: 1.5),
+                          color: AppTheme.borderColor,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   const SizedBox(width: 12),

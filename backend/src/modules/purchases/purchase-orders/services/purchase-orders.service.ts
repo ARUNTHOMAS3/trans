@@ -162,6 +162,10 @@ export class PurchaseOrdersService {
       .eq("entity_id", entityId);
 
     const poExpectedItemsMap = new Map<string, Array<{ product_id: string; expected: number }>>();
+    const poExpectedItemsMap = new Map<
+      string,
+      Array<{ product_id: string; expected: number }>
+    >();
     for (const item of allPoItems ?? []) {
       if (item.is_header) continue;
       const qty = parseFloat(item.quantity?.toString() ?? "0");
@@ -171,6 +175,11 @@ export class PurchaseOrdersService {
       const list = poExpectedItemsMap.get(item.purchase_order_id) ?? [];
       list.push({ product_id: item.product_id, expected });
       poExpectedItemsMap.set(item.purchase_order_id, list);
+      const expectedItems = poExpectedItemsMap.get(item.purchase_order_id) ?? [];
+      if (item.product_id) {
+        expectedItems.push({ product_id: item.product_id, expected });
+        poExpectedItemsMap.set(item.purchase_order_id, expectedItems);
+      }
     }
 
     // 2. Get receives and receive items
@@ -228,7 +237,6 @@ export class PurchaseOrdersService {
     for (const ri of allReceiveItems) {
       const poId = receiveToPoMap.get(ri.purchase_receive_id);
       if (!poId) continue;
-      
       const batchQty = batchQtyMap.get(ri.id);
       const qty = batchQty !== undefined ? batchQty : parseFloat(ri.received?.toString() ?? "0");
       const prodId = ri.item_id;
@@ -277,6 +285,7 @@ export class PurchaseOrdersService {
     }
 
     return rows.map((row) => {
+      
       // Calculate billed total
       let billed = 0;
       if (row.order_number) {
@@ -288,6 +297,7 @@ export class PurchaseOrdersService {
 
       // Determine statuses
       let receive_status = "none";
+
       const expectedItems = poExpectedItemsMap.get(row.id) ?? [];
       const receivedMap = poReceivedItemsMap.get(row.id) ?? new Map<string, number>();
       const recIds = poToReceiveIdsMap.get(row.id) ?? [];

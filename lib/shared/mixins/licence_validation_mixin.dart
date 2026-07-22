@@ -90,10 +90,18 @@ mixin LicenceValidationMixin<W extends StatefulWidget> on State<W> {
 
   /// Call in [initState] to wire up focus-based validation.
   void initLicenceValidation() {
-    drugLicense20Focus.addListener(() => _onLicenceFocusChange('drugLicense20'));
-    drugLicense21Focus.addListener(() => _onLicenceFocusChange('drugLicense21'));
-    drugLicense20BFocus.addListener(() => _onLicenceFocusChange('drugLicense20B'));
-    drugLicense21BFocus.addListener(() => _onLicenceFocusChange('drugLicense21B'));
+    drugLicense20Focus.addListener(
+      () => _onLicenceFocusChange('drugLicense20'),
+    );
+    drugLicense21Focus.addListener(
+      () => _onLicenceFocusChange('drugLicense21'),
+    );
+    drugLicense20BFocus.addListener(
+      () => _onLicenceFocusChange('drugLicense20B'),
+    );
+    drugLicense21BFocus.addListener(
+      () => _onLicenceFocusChange('drugLicense21B'),
+    );
     fssaiFocus.addListener(() => _onLicenceFocusChange('fssai'));
     msmeFocus.addListener(() => _onLicenceFocusChange('msme'));
   }
@@ -181,13 +189,20 @@ mixin LicenceValidationMixin<W extends StatefulWidget> on State<W> {
 
   FocusNode _focusNodeFor(String field) {
     switch (field) {
-      case 'drugLicense20':  return drugLicense20Focus;
-      case 'drugLicense21':  return drugLicense21Focus;
-      case 'drugLicense20B': return drugLicense20BFocus;
-      case 'drugLicense21B': return drugLicense21BFocus;
-      case 'fssai':          return fssaiFocus;
-      case 'msme':           return msmeFocus;
-      default:               return FocusNode();
+      case 'drugLicense20':
+        return drugLicense20Focus;
+      case 'drugLicense21':
+        return drugLicense21Focus;
+      case 'drugLicense20B':
+        return drugLicense20BFocus;
+      case 'drugLicense21B':
+        return drugLicense21BFocus;
+      case 'fssai':
+        return fssaiFocus;
+      case 'msme':
+        return msmeFocus;
+      default:
+        return FocusNode();
     }
   }
 
@@ -197,26 +212,42 @@ mixin LicenceValidationMixin<W extends StatefulWidget> on State<W> {
       switch (field) {
         case 'drugLicense20':
           if (isDrugRegistered &&
-              (drugLicenceType == 'Retail' || drugLicenceType == 'Wholesale and Retail')) {
-            drugLicense20Error = getLicenceErrorMessage(field, drugLicense20Ctrl.text);
+              (drugLicenceType == 'Retail' ||
+                  drugLicenceType == 'Wholesale and Retail')) {
+            drugLicense20Error = getLicenceErrorMessage(
+              field,
+              drugLicense20Ctrl.text,
+            );
           }
           break;
         case 'drugLicense21':
           if (isDrugRegistered &&
-              (drugLicenceType == 'Retail' || drugLicenceType == 'Wholesale and Retail')) {
-            drugLicense21Error = getLicenceErrorMessage(field, drugLicense21Ctrl.text);
+              (drugLicenceType == 'Retail' ||
+                  drugLicenceType == 'Wholesale and Retail')) {
+            drugLicense21Error = getLicenceErrorMessage(
+              field,
+              drugLicense21Ctrl.text,
+            );
           }
           break;
         case 'drugLicense20B':
           if (isDrugRegistered &&
-              (drugLicenceType == 'Wholesale' || drugLicenceType == 'Wholesale and Retail')) {
-            drugLicense20BError = getLicenceErrorMessage(field, drugLicense20BCtrl.text);
+              (drugLicenceType == 'Wholesale' ||
+                  drugLicenceType == 'Wholesale and Retail')) {
+            drugLicense20BError = getLicenceErrorMessage(
+              field,
+              drugLicense20BCtrl.text,
+            );
           }
           break;
         case 'drugLicense21B':
           if (isDrugRegistered &&
-              (drugLicenceType == 'Wholesale' || drugLicenceType == 'Wholesale and Retail')) {
-            drugLicense21BError = getLicenceErrorMessage(field, drugLicense21BCtrl.text);
+              (drugLicenceType == 'Wholesale' ||
+                  drugLicenceType == 'Wholesale and Retail')) {
+            drugLicense21BError = getLicenceErrorMessage(
+              field,
+              drugLicense21BCtrl.text,
+            );
           }
           break;
         case 'fssai':

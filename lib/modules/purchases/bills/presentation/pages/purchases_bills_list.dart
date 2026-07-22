@@ -1,5 +1,11 @@
 // ignore_for_file: unused_import, unused_field
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart'
+    show PaymentNumberPreferences, ConfigurePaymentNumberPreferencesDialog;
+import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create.dart'
+    show PaidThroughItem, ConfigurePaymentModeDialog;
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
@@ -2572,6 +2578,9 @@ class _PurchasesBillsListScreenState
         case 'balance_due':
           cmp = a.total.compareTo(b.total);
           break;
+        case 'status':
+          cmp = a.status.compareTo(b.status);
+          break;
         default:
           cmp = 0;
       }
@@ -3385,20 +3394,87 @@ class _PurchasesBillsListScreenState
     );
   }
 
+  String? _mapColIdToSortField(String colId) {
+    switch (colId) {
+      case 'bill_date':
+      case 'date':
+        return 'bill_date';
+      case 'bill_number':
+      case 'bill_no':
+      case 'bill':
+        return 'bill_number';
+      case 'vendor_name':
+      case 'vendor':
+        return 'vendor_name';
+      case 'total':
+      case 'amount':
+        return 'total';
+      case 'due_date':
+        return 'due_date';
+      case 'balance_due':
+        return 'balance_due';
+      case 'created_at':
+        return 'created_at';
+      case 'updated_at':
+        return 'updated_at';
+      case 'status':
+        return 'status';
+      default:
+        return colId;
+    }
+  }
+
+  void _onHeaderCellTap(String colId) {
+    final sortField = _mapColIdToSortField(colId);
+    if (sortField == null) return;
+    setState(() {
+      if (_sortField == sortField) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortField = sortField;
+        _sortAscending = true;
+      }
+    });
+  }
+
   Widget _buildHeaderCell(
     String text,
     String colId, {
     double? width,
     TextAlign? align,
   }) {
+    final sortField = _mapColIdToSortField(colId);
+    final isSorted = sortField != null && _sortField == sortField;
     return SizedBox(
       width: width,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: Text(
-          text,
-          style: AppTheme.metaHelper.copyWith(fontWeight: FontWeight.bold),
-          textAlign: align,
+      child: InkWell(
+        onTap: sortField != null ? () => _onHeaderCellTap(colId) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  text,
+                  style: AppTheme.metaHelper.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: align,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isSorted) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  _sortAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                  size: 12,
+                  color: AppTheme.primaryBlue,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -6089,15 +6165,53 @@ class _PurchasesBillPaymentFormState
     extends ConsumerState<_PurchasesBillPaymentForm> {
   late final TextEditingController amountCtrl;
   late final TextEditingController paymentNumberCtrl;
+  late final TextEditingController paymentDateCtrl;
+  late final TextEditingController paymentReceivedOnCtrl;
   late final TextEditingController referenceCtrl;
   late final TextEditingController notesCtrl;
-  late final TextEditingController bankChargesCtrl;
-  late final TextEditingController paymentReceivedOnCtrl;
 
   DateTime paymentDate = DateTime.now();
   String paymentMode = 'Cash';
-  String? paidFrom = 'Petty Cash';
-  bool _isTaxDeducted = false;
+  List<String> _paymentModeOptions = List<String>.from(_defaultPaymentModes);
+  PaidThroughItem? _paymentPaidFrom;
+  String transactionSeries = 'Default Transaction Series';
+  String? selectedLocation;
+  bool showPartnerBankBanner = true;
+  List<PlatformFile> attachedFiles = [];
+
+  final GlobalKey _paymentDateKey = GlobalKey();
+  final GlobalKey _attachmentBadgeKey = GlobalKey();
+  final GlobalKey _uploadButtonKey = GlobalKey();
+
+  static const List<String> _defaultPaymentModes = [
+    'Bank Remittance',
+    'Bank Transfer',
+    'Card',
+    'Cash',
+    'Cheque',
+    'Credit Card',
+    'Debit Card',
+  ];
+
+  String? _pendingPaidThroughAccountId;
+
+  // Upload overlay state
+  final LayerLink _uploadLink = LayerLink();
+  final LayerLink _attachmentBadgeLink = LayerLink();
+  OverlayEntry? _uploadOverlay;
+  OverlayEntry? _attachmentListOverlay;
+  bool _isUploadButtonHovered = false;
+  static const int _maxUploadFiles = 5;
+  static const int _maxUploadFileSizeBytes = 10 * 1024 * 1024;
+
+  PaymentNumberPreferences _paymentPreferences = const PaymentNumberPreferences(
+    autoGenerate: true,
+    autoPrefix: 'PAY-',
+    nextNumber: '98',
+    manualPrefix: '',
+    manualPaymentNumber: '',
+    restartFiscalYear: false,
+  );
 
   @override
   void initState() {
@@ -6105,93 +6219,268 @@ class _PurchasesBillPaymentFormState
     amountCtrl = TextEditingController(
       text: widget.bill.total.toStringAsFixed(2),
     );
+    final initPrefix = _paymentPreferences.autoGenerate 
+        ? _paymentPreferences.autoPrefix 
+        : _paymentPreferences.manualPrefix;
+    final initNext = _paymentPreferences.autoGenerate 
+        ? _paymentPreferences.nextNumber 
+        : _paymentPreferences.manualPaymentNumber;
     paymentNumberCtrl = TextEditingController(
-      text: 'PAY-${DateFormat('yyyyMMdd-HHmm').format(DateTime.now())}',
+      text: '$initPrefix$initNext',
     );
+    paymentDateCtrl = TextEditingController(
+      text: DateFormat('dd-MM-yyyy').format(DateTime.now()),
+    );
+    paymentReceivedOnCtrl = TextEditingController();
     referenceCtrl = TextEditingController();
     notesCtrl = TextEditingController();
-    bankChargesCtrl = TextEditingController();
-    paymentReceivedOnCtrl = TextEditingController();
     paymentDate = DateTime.now();
+    selectedLocation = widget.bill.warehouseName ?? 'ZABNIX PRIVATE LIMITED';
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadPaymentModes();
+    });
   }
 
   @override
   void dispose() {
     amountCtrl.dispose();
     paymentNumberCtrl.dispose();
+    paymentDateCtrl.dispose();
+    paymentReceivedOnCtrl.dispose();
     referenceCtrl.dispose();
     notesCtrl.dispose();
-    bankChargesCtrl.dispose();
-    paymentReceivedOnCtrl.dispose();
+    _uploadOverlay?.remove();
+    _uploadOverlay = null;
+    _attachmentListOverlay?.remove();
+    _attachmentListOverlay = null;
     super.dispose();
   }
 
-  Widget _dualFieldRow(Widget leftField, Widget rightField) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(flex: 5, child: leftField),
-        const SizedBox(width: 32),
-        Expanded(flex: 5, child: rightField),
-      ],
+  Future<void> _loadPaymentModes() async {
+    try {
+      final entityId = ref.read(entityProvider).entityId;
+      if (entityId != null && entityId.isNotEmpty) {
+        final supabase = Supabase.instance.client;
+        var response = await supabase
+            .from('payment_made_payment_mode')
+            .select('name, is_default')
+            .eq('entity_id', entityId)
+            .eq('is_deleted', false)
+            .order('name');
+
+        if (response.isEmpty) {
+          final List<Map<String, dynamic>> seedRows = _defaultPaymentModes
+              .map(
+                (mode) => {
+                  'entity_id': entityId,
+                  'name': mode,
+                  'is_default': mode.toLowerCase() == 'cash',
+                  'is_deleted': false,
+                },
+              )
+              .toList();
+
+          await supabase.from('payment_made_payment_mode').insert(seedRows);
+
+          response = await supabase
+              .from('payment_made_payment_mode')
+              .select('name, is_default')
+              .eq('entity_id', entityId)
+              .eq('is_deleted', false)
+              .order('name');
+        }
+
+        if (response.isNotEmpty) {
+          final List<String> loadedModes = List<String>.from(
+            response.map((e) => e['name'] as String),
+          );
+          if (mounted) {
+            setState(() {
+              _paymentModeOptions = loadedModes;
+              final hasDefault = response.any((e) => e['is_default'] == true);
+              if (hasDefault) {
+                final defaultModeRow = response.firstWhere(
+                  (e) => e['is_default'] == true,
+                );
+                paymentMode = defaultModeRow['name'] as String;
+              } else if (!_paymentModeOptions.contains(paymentMode) &&
+                  _paymentModeOptions.isNotEmpty) {
+                paymentMode = _paymentModeOptions.first;
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to load payment modes: $e');
+    }
+  }
+
+  Future<void> _showConfigurePaymentModeDialog() async {
+    final entityId = ref.read(entityProvider).entityId ?? '';
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => ConfigurePaymentModeDialog(
+        entityId: entityId,
+        initialModes: _paymentModeOptions,
+        onSave: (result) {
+          if (result.isEmpty) return;
+          setState(() {
+            _paymentModeOptions = result;
+            if (!_paymentModeOptions.contains(paymentMode)) {
+              paymentMode = _paymentModeOptions.first;
+            }
+          });
+        },
+      ),
     );
   }
 
-  Widget _labeledField(
-    String label,
-    Widget child, {
-    bool required = false,
-    String? subLabel,
-  }) {
+  List<PaidThroughItem> _buildPaidThroughOptions(List<AccountNode> roots) {
+    final List<PaidThroughItem> options = [];
+
+    final List<AccountNode> allAccounts = [];
+    void flatten(List<AccountNode> nodes) {
+      for (final node in nodes) {
+        allAccounts.add(node);
+        if (node.children.isNotEmpty) {
+          flatten(node.children);
+        }
+      }
+    }
+
+    flatten(roots);
+
+    final Map<String, AccountNode> accountMap = {
+      for (final acc in allAccounts) acc.id: acc,
+    };
+
+    final Set<String> parentIds = {};
+    for (final acc in allAccounts) {
+      if (acc.parentId != null && acc.parentId!.isNotEmpty) {
+        parentIds.add(acc.parentId!);
+      }
+    }
+
+    final Set<String> processedIds = {};
+
+    for (final parentId in parentIds) {
+      final parentNode = accountMap[parentId];
+      if (parentNode == null) continue;
+
+      options.add(
+        PaidThroughItem(parentNode.systemAccountName, isHeader: true),
+      );
+      processedIds.add(parentId);
+
+      final children = allAccounts
+          .where((acc) => acc.parentId == parentId)
+          .toList();
+      for (final child in children) {
+        options.add(
+          PaidThroughItem(
+            child.systemAccountName,
+            id: child.id,
+            isBullet: true,
+          ),
+        );
+        processedIds.add(child.id);
+      }
+    }
+
+    for (final acc in allAccounts) {
+      if (processedIds.contains(acc.id)) continue;
+
+      final String nameLower = acc.systemAccountName.toLowerCase();
+      if (nameLower == 'assets' ||
+          nameLower == 'liabilities' ||
+          nameLower == 'income' ||
+          nameLower == 'expenses' ||
+          nameLower == 'equity') {
+        continue;
+      }
+
+      options.add(
+        PaidThroughItem(
+          acc.systemAccountName,
+          id: acc.id,
+          isHeader: false,
+          isBullet: false,
+        ),
+      );
+    }
+    return options;
+  }
+
+  Future<void> _showPreferencesDialog() async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return ConfigurePaymentNumberPreferencesDialog(
+          currentLocation: selectedLocation ?? 'ZABNIX PRIVATE LIMITED',
+          currentSeries: transactionSeries,
+          initialPreferences: _paymentPreferences,
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    final autoGenerate = result['autoGenerate'] as bool? ?? true;
+    final prefix = autoGenerate
+        ? (result['autoPrefix'] as String? ?? '').trim()
+        : (result['manualPrefix'] as String? ?? '').trim();
+    final nextNumber = (result['nextNumber'] as String? ?? '').trim();
+
+    setState(() {
+      _paymentPreferences = PaymentNumberPreferences(
+        autoGenerate: autoGenerate,
+        autoPrefix: result['autoPrefix'] as String? ?? 'PAY-',
+        nextNumber: result['nextNumber'] as String? ?? '98',
+        manualPrefix: result['manualPrefix'] as String? ?? '',
+        manualPaymentNumber: result['nextNumber'] as String? ?? '',
+        restartFiscalYear: result['restartFiscalYear'] as bool? ?? false,
+      );
+      paymentNumberCtrl.text = '$prefix$nextNumber';
+    });
+  }
+
+  Widget _buildFieldLabel(String label, {bool required = false, String? suffixText}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: SharedFieldLayout(
-        label: label,
-        required: required,
-        labelColor: required ? AppTheme.errorRed : AppTheme.textSecondary,
-        labelWidth: 180,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text.rich(
+        TextSpan(
           children: [
-            child,
-            if (subLabel != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                subLabel,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.primaryBlue,
+            TextSpan(
+              text: label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: required ? AppTheme.errorRed : AppTheme.textSecondary,
+              ),
+            ),
+            if (required)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.errorRed,
                 ),
               ),
-            ],
+            if (suffixText != null)
+              TextSpan(
+                text: ' $suffixText',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildVendorDetailsCard() {
-    return Container(
-      margin: const EdgeInsets.only(right: 32),
-      decoration: BoxDecoration(
-        color: const Color(0xFF4C556D),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            "${widget.bill.vendorName}'s Details",
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(width: 24),
-          const Icon(LucideIcons.chevronRight, color: Colors.white, size: 16),
-        ],
       ),
     );
   }
@@ -6204,6 +6493,37 @@ class _PurchasesBillPaymentFormState
       orElse: () => <String>[],
     );
     final titleText = 'Payment for ${widget.bill.billNumber ?? widget.bill.id}';
+    final accountsState = ref.watch(chartOfAccountsProvider);
+    final paidThroughOptions = _buildPaidThroughOptions(accountsState.roots);
+
+    if (_paymentPaidFrom == null && paidThroughOptions.isNotEmpty) {
+      if (_pendingPaidThroughAccountId != null &&
+          _pendingPaidThroughAccountId!.isNotEmpty) {
+        for (final option in paidThroughOptions) {
+          if (!option.isHeader &&
+              (option.id == _pendingPaidThroughAccountId ||
+                  option.label == _pendingPaidThroughAccountId)) {
+            _paymentPaidFrom = option;
+            break;
+          }
+        }
+      }
+      _paymentPaidFrom ??= paidThroughOptions.firstWhere(
+        (e) => e.label == 'Petty Cash' && !e.isHeader,
+        orElse: () => paidThroughOptions.firstWhere(
+          (e) => !e.isHeader,
+          orElse: () => paidThroughOptions.first,
+        ),
+      );
+      _pendingPaidThroughAccountId = null;
+    }
+
+    final List<String> locationOptions = [
+      if (widget.bill.warehouseName != null) widget.bill.warehouseName!,
+      'ZABNIX PRIVATE LIMITED',
+      'Central Logistics Hub',
+      ...warehouseNames.where((n) => n != widget.bill.warehouseName),
+    ].toSet().toList();
 
     return Container(
       color: Colors.white,
@@ -6212,7 +6532,7 @@ class _PurchasesBillPaymentFormState
         children: [
           // Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(32, 24, 32, 0),
+            padding: const EdgeInsets.fromLTRB(32, 24, 32, 16),
             child: Text(
               titleText,
               style: const TextStyle(
@@ -6222,196 +6542,487 @@ class _PurchasesBillPaymentFormState
               ),
             ),
           ),
-          // Scrollable Form Fields
+
+          // Main Form Scroll Area
           Expanded(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Grey Top Section
-                  Container(
-                    color: AppTheme.bgLight,
-                    padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 6,
-                          child: Column(
-                            children: [
-                              _labeledField(
-                                'Vendor Name',
-                                FormDropdown<String>(
-                                  value: widget.bill.vendorId,
-                                  height: 36,
-                                  items: [widget.bill.vendorId],
-                                  hint: 'Select a vendor',
-                                  displayStringForValue: (id) =>
-                                      widget.bill.vendorName,
-                                  onChanged: (_) {},
-                                ),
-                                required: true,
-                              ),
-                              _labeledField(
-                                'Payment #',
-                                CustomTextField(
-                                  controller: paymentNumberCtrl,
-                                  height: 36,
-                                ),
-                                required: true,
-                              ),
-                              _labeledField(
-                                'Transaction Series',
-                                FormDropdown<String>(
-                                  value: 'Default Transaction Series',
-                                  height: 36,
-                                  items: const ['Default Transaction Series'],
-                                  onChanged: (_) {},
-                                ),
-                                required: true,
-                              ),
-                              _labeledField(
-                                'Location',
-                                FormDropdown<String>(
-                                  value: widget.bill.warehouseName ?? (warehouseNames.isNotEmpty ? warehouseNames.first : '-'),
-                                  height: 36,
-                                  items: [
-                                    if (widget.bill.warehouseName != null) widget.bill.warehouseName!,
-                                    ...warehouseNames.where((name) => name != widget.bill.warehouseName),
-                                    if (widget.bill.warehouseName == null && warehouseNames.isEmpty) '-',
-                                  ],
-                                  onChanged: (_) {},
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 4,
-                          child: Align(
-                            alignment: Alignment.topRight,
-                            child: _buildVendorDetailsCard(),
-                          ),
-                        ),
-                      ],
+                  // Location
+                  _buildFieldLabel('Location'),
+                  SizedBox(
+                    width: 420,
+                    child: FormDropdown<String>(
+                      value: selectedLocation ?? locationOptions.first,
+                      height: 36,
+                      items: locationOptions,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => selectedLocation = val);
+                        }
+                      },
                     ),
                   ),
-                  // White Bottom Section
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _dualFieldRow(
-                          _labeledField(
-                            'Amount Paid (INR)',
-                            CustomTextField(
-                              controller: amountCtrl,
-                              height: 36,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.right,
-                            ),
-                            required: true,
-                            subLabel: 'PAN: ABACS3075R',
+                  const SizedBox(height: 20),
+
+                  // Payment Made *(INR)
+                  _buildFieldLabel('Payment Made', required: true, suffixText: '(INR)'),
+                  SizedBox(
+                    width: 420,
+                    child: CustomTextField(
+                      controller: amountCtrl,
+                      height: 36,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Partner Bank Banner
+                  if (showPartnerBankBanner) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        border: Border.all(color: const Color(0xFFFEF3C7)),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.lightbulb,
+                            size: 16,
+                            color: Color(0xFFF59E0B),
                           ),
-                          _labeledField(
-                            'Bank Charges (if any)',
-                            CustomTextField(
-                              controller: bankChargesCtrl,
-                              height: 36,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  const TextSpan(
+                                    text: 'Initiate payments for your bills directly from Zoho Inventory by integrating with one of our partner banks. ',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  WidgetSpan(
+                                    child: InkWell(
+                                      onTap: () {},
+                                      child: const Text(
+                                        'Set Up Now',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF2563EB),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
+                          InkWell(
+                            onTap: () => setState(() => showPartnerBankBanner = false),
+                            child: const Icon(
+                              LucideIcons.x,
+                              size: 16,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Payment Mode
+                  _buildFieldLabel('Payment Mode'),
+                  SizedBox(
+                    width: 420,
+                    child: FormDropdown<String>(
+                      value: paymentMode,
+                      height: 36,
+                      items: _paymentModeOptions,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => paymentMode = val);
+                        }
+                      },
+                      showSettings: true,
+                      settingsLabel: 'Configure Payment Mode',
+                      settingsIcon: Icons.add_circle_outline,
+                      onSettingsTap: _showConfigurePaymentModeDialog,
+                      itemBuilder: (item, isSelected, isHovered) {
+                        final Color textColor = isHovered
+                            ? Colors.white
+                            : (isSelected ? const Color(0xFF111827) : AppTheme.textPrimary);
+
+                        return Container(
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          color: Colors.transparent,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: textColor,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w500
+                                        : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: isHovered ? Colors.white : const Color(0xFF1D4ED8),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 3-Column Row 1: Payment Date*, Transaction Series, Payment #*
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Payment Date', required: true),
+                            Container(
+                              key: _paymentDateKey,
+                              child: CustomTextField(
+                                controller: paymentDateCtrl,
+                                readOnly: true,
+                                height: 36,
+                                suffixWidget: const Icon(
+                                  LucideIcons.calendar,
+                                  size: 15,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                onTap: () async {
+                                  final picked = await ZerpaiDatePicker.show(
+                                    context,
+                                    initialDate: paymentDate,
+                                    targetKey: _paymentDateKey,
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      paymentDate = picked;
+                                      paymentDateCtrl.text =
+                                          DateFormat('dd-MM-yyyy').format(picked);
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        _labeledField(
-                          'Tax deducted?',
-                          ZerpaiRadioGroup<bool>(
-                            options: const [false, true],
-                            current: _isTaxDeducted,
-                            onChanged: (val) =>
-                                setState(() => _isTaxDeducted = val),
-                            labelBuilder: (val) => val
-                                ? 'Yes, TDS (Income Tax)'
-                                : 'No Tax deducted',
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        const Divider(color: AppTheme.borderLight),
-                        const SizedBox(height: 24),
-                        _dualFieldRow(
-                          _labeledField(
-                            'Payment Date',
-                            ZDatePickerField(
-                              selectedDate: paymentDate,
-                              onDateSelected: (d) =>
-                                  setState(() => paymentDate = d),
-                            ),
-                            required: true,
-                          ),
-                          _labeledField(
-                            'Payment Mode',
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Transaction Series'),
                             FormDropdown<String>(
-                              value: paymentMode,
+                              value: transactionSeries,
                               height: 36,
                               items: const [
-                                'Cash',
-                                'Check',
-                                'Credit Card',
-                                'Bank Transfer',
-                                'Other',
+                                'Default Transaction Series',
+                                'Custom Transaction Series',
                               ],
-                              onChanged: (v) =>
-                                  setState(() => paymentMode = v!),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() => transactionSeries = val);
+                                }
+                              },
                             ),
-                          ),
+                          ],
                         ),
-                        _dualFieldRow(
-                          _labeledField(
-                            'Payment Made On',
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Payment #', required: true),
+                            CustomTextField(
+                              controller: paymentNumberCtrl,
+                              height: 36,
+                              suffixSeparator: false,
+                              suffixWidget: ZTooltip(
+                                message:
+                                    'Click here to configure auto-generation of payment numbers.',
+                                direction: ZTooltipDirection.bottom,
+                                child: InkWell(
+                                  onTap: _showPreferencesDialog,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 4),
+                                    child: Icon(
+                                      LucideIcons.settings,
+                                      size: 14,
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 3-Column Row 2: Payment Made on, Paid Through*, Reference#
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Payment Made on'),
                             CustomTextField(
                               controller: paymentReceivedOnCtrl,
                               height: 36,
                               hintText: 'dd-MM-yyyy',
                             ),
-                          ),
-                          _labeledField(
-                            'Paid From',
-                            FormDropdown<String>(
-                              value: paidFrom,
-                              height: 36,
-                              items: const [
-                                'Petty Cash',
-                                'Undeposited Funds',
-                                'Bank Account',
-                              ],
-                              onChanged: (v) => setState(() => paidFrom = v),
-                            ),
-                            required: true,
-                          ),
+                          ],
                         ),
-                        _dualFieldRow(
-                          _labeledField(
-                            'Reference#',
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                             _buildFieldLabel('Paid Through', required: true),
+                            FormDropdown<PaidThroughItem>(
+                              value: _paymentPaidFrom,
+                              items: paidThroughOptions,
+                              onChanged: (val) {
+                                if (val == null) return;
+                                setState(() => _paymentPaidFrom = val);
+                              },
+                              displayStringForValue: (v) => v.label,
+                              searchStringForValue: (v) => v.label,
+                              height: 36,
+                              showSearch: true,
+                              isItemEnabled: (item) => !item.isHeader,
+                              itemBuilder: (item, isSelected, isHovered) {
+                                if (item.isHeader) {
+                                  return Container(
+                                    height: 36,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    color: Colors.transparent,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      item.label,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                // Child item (indented)
+                                final Color textColor = isHovered
+                                    ? Colors.white
+                                    : (isSelected
+                                          ? const Color(0xFF111827)
+                                          : (item.isBullet
+                                                ? AppTheme.textSecondary
+                                                : AppTheme.textPrimary));
+                                final String displayLabel = item.isBullet
+                                    ? '\u2022 ${item.label}'
+                                    : item.label;
+
+                                return Container(
+                                  height: 36,
+                                  padding: const EdgeInsets.only(left: 24, right: 12),
+                                  color: Colors.transparent,
+                                  alignment: Alignment.centerLeft,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          displayLabel,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: textColor,
+                                            fontWeight: isSelected
+                                                ? FontWeight.w500
+                                                : FontWeight.normal,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Icon(
+                                          Icons.check,
+                                          size: 16,
+                                          color: isHovered ? Colors.white : const Color(0xFF1D4ED8),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Reference#'),
                             CustomTextField(
                               controller: referenceCtrl,
                               height: 36,
                             ),
-                          ),
-                          _labeledField(
-                            'Notes',
-                            CustomTextField(controller: notesCtrl, maxLines: 3),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Notes
+                  _buildFieldLabel('Notes'),
+                  CustomTextField(
+                    controller: notesCtrl,
+                    maxLines: 3,
+                    height: 72,
+                  ),
+                  const SizedBox(height: 24),
+
+                  const Divider(color: AppTheme.borderColor),
+                  const SizedBox(height: 16),
+
+                  // Attachments Section
+                  _buildFieldLabel('Attachments'),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      CompositedTransformTarget(
+                        link: _uploadLink,
+                        child: MouseRegion(
+                          key: _uploadButtonKey,
+                          onEnter: (_) => setState(() => _isUploadButtonHovered = true),
+                          onExit: (_) => setState(() => _isUploadButtonHovered = false),
+                          child: Container(
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: (_isUploadButtonHovered || _uploadOverlay != null)
+                                    ? const Color(0xFF3B82F6)
+                                    : const Color(0xFFD1D5DB),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: _pickFiles,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(4),
+                                    bottomLeft: Radius.circular(4),
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 12),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          LucideIcons.upload,
+                                          size: 14,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Upload File',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: Color(0xFF374151),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const VerticalDivider(
+                                  width: 1,
+                                  color: Color(0xFFE5E7EB),
+                                  thickness: 1,
+                                  indent: 6,
+                                  endIndent: 6,
+                                ),
+                                InkWell(
+                                  onTap: _toggleUploadOverlay,
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(4),
+                                    bottomRight: Radius.circular(4),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Icon(
+                                      _uploadOverlay != null
+                                          ? LucideIcons.chevronUp
+                                          : LucideIcons.chevronDown,
+                                      size: 16,
+                                      color: const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 8),
+                      if (attachedFiles.isNotEmpty) _buildAttachmentBadge(),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'You can upload a maximum of 5 files, 10MB each',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
-          // Footer
+
+          // Footer Actions
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(top: BorderSide(color: AppTheme.borderColor)),
@@ -6422,13 +7033,13 @@ class _PurchasesBillPaymentFormState
                 OutlinedButton(
                   onPressed: widget.onCancel,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textSecondary,
+                    foregroundColor: AppTheme.textPrimary,
                     side: const BorderSide(color: AppTheme.borderColor),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    minimumSize: const Size(0, 32),
-                    fixedSize: const Size.fromHeight(32),
+                    minimumSize: const Size(0, 34),
+                    fixedSize: const Size.fromHeight(34),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                   child: const Text('Save as Draft'),
@@ -6443,8 +7054,8 @@ class _PurchasesBillPaymentFormState
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    minimumSize: const Size(0, 32),
-                    fixedSize: const Size.fromHeight(32),
+                    minimumSize: const Size(0, 34),
+                    fixedSize: const Size.fromHeight(34),
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                   ),
                   child: const Text('Save as Paid'),
@@ -6453,13 +7064,13 @@ class _PurchasesBillPaymentFormState
                 OutlinedButton(
                   onPressed: widget.onCancel,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textSecondary,
+                    foregroundColor: AppTheme.textPrimary,
                     side: const BorderSide(color: AppTheme.borderColor),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    minimumSize: const Size(0, 32),
-                    fixedSize: const Size.fromHeight(32),
+                    minimumSize: const Size(0, 34),
+                    fixedSize: const Size.fromHeight(34),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                   child: const Text('Cancel'),
@@ -6491,6 +7102,347 @@ class _PurchasesBillPaymentFormState
         ZerpaiToast.error(context, 'Failed to record payment: $e');
       }
     }
+  }
+
+  // ── File Upload Methods ─────────────────────────────────────────────────
+
+  Future<void> _pickFiles() async {
+    if (attachedFiles.length >= _maxUploadFiles) {
+      ZerpaiToast.error(
+        context,
+        'Maximum $_maxUploadFiles files allowed.',
+      );
+      return;
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withData: true,
+    );
+    if (result == null) return;
+
+    final files = result.files;
+    if (attachedFiles.length + files.length > _maxUploadFiles) {
+      ZerpaiToast.error(
+        context,
+        'You can upload a maximum of $_maxUploadFiles files.',
+      );
+      return;
+    }
+    for (final file in files) {
+      if (file.size > _maxUploadFileSizeBytes) {
+        ZerpaiToast.error(context, '${file.name} exceeds 10MB limit.');
+        return;
+      }
+    }
+    setState(() {
+      attachedFiles.addAll(files);
+    });
+  }
+
+  Widget _buildAttachmentBadge() {
+    return CompositedTransformTarget(
+      link: _attachmentBadgeLink,
+      child: InkWell(
+        key: _attachmentBadgeKey,
+        onTap: _toggleAttachmentListOverlay,
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF3B82F6),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.paperclip, size: 14, color: Colors.white),
+              const SizedBox(width: 4),
+              Text(
+                '${attachedFiles.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toggleAttachmentListOverlay() {
+    if (_attachmentListOverlay != null) {
+      _attachmentListOverlay?.remove();
+      _attachmentListOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    bool showAbove = false;
+    final badgeContext = _attachmentBadgeKey.currentContext;
+    if (badgeContext != null) {
+      final RenderBox? renderBox = badgeContext.findRenderObject() as RenderBox?;
+      if (renderBox != null) {
+        final position = renderBox.localToGlobal(Offset.zero);
+        final screenSize = MediaQuery.of(context).size;
+        final spaceBelow = screenSize.height - position.dy - renderBox.size.height;
+        if (spaceBelow < 210) {
+          showAbove = true;
+        }
+      }
+    }
+
+    _attachmentListOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _attachmentListOverlay?.remove();
+                _attachmentListOverlay = null;
+                setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _attachmentBadgeLink,
+            showWhenUnlinked: false,
+            targetAnchor: showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+            followerAnchor: showAbove ? Alignment.bottomLeft : Alignment.topLeft,
+            offset: showAbove ? const Offset(0, -4) : const Offset(0, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 300,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: attachedFiles
+                          .map((file) => _buildAttachmentListItem(file))
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_attachmentListOverlay!);
+    setState(() {});
+  }
+
+  Widget _buildAttachmentListItem(PlatformFile file) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setItemState) {
+        return MouseRegion(
+          onEnter: (_) => setItemState(() => isHovered = true),
+          onExit: (_) => setItemState(() => isHovered = false),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.file,
+                  size: 16,
+                  color: isHovered ? Colors.white : const Color(0xFF3B82F6),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        file.name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isHovered
+                              ? Colors.white
+                              : const Color(0xFF374151),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'File Size: ${(file.size / 1024).toStringAsFixed(2)} KB',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isHovered
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isHovered)
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        attachedFiles.remove(file);
+                        if (attachedFiles.isEmpty) {
+                          _attachmentListOverlay?.remove();
+                          _attachmentListOverlay = null;
+                        }
+                      });
+                      _attachmentListOverlay?.markNeedsBuild();
+                    },
+                    child: const Icon(
+                      LucideIcons.trash,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _toggleUploadOverlay() {
+    if (_uploadOverlay != null) {
+      _uploadOverlay?.remove();
+      _uploadOverlay = null;
+      if (mounted) setState(() {});
+      return;
+    }
+
+    bool showAbove = false;
+    final uploadContext = _uploadButtonKey.currentContext;
+    if (uploadContext != null) {
+      final RenderBox? renderBox = uploadContext.findRenderObject() as RenderBox?;
+      if (renderBox != null) {
+        final position = renderBox.localToGlobal(Offset.zero);
+        final screenSize = MediaQuery.of(context).size;
+        final spaceBelow = screenSize.height - position.dy - renderBox.size.height;
+        if (spaceBelow < 120) {
+          showAbove = true;
+        }
+      }
+    }
+
+    _uploadOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _uploadOverlay?.remove();
+                _uploadOverlay = null;
+                if (mounted) setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _uploadLink,
+            showWhenUnlinked: false,
+            targetAnchor: showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+            followerAnchor: showAbove ? Alignment.bottomLeft : Alignment.topLeft,
+            offset: showAbove ? const Offset(0, -8) : const Offset(0, 8),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 240,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 4),
+                    _buildUploadItem('Attach From Desktop'),
+                    _buildUploadItem('Attach From Documents'),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_uploadOverlay!);
+    if (mounted) setState(() {});
+  }
+
+  Widget _buildUploadItem(String label) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setOverlayState) {
+        return MouseRegion(
+          onEnter: (_) => setOverlayState(() => isHovered = true),
+          onExit: (_) => setOverlayState(() => isHovered = false),
+          child: GestureDetector(
+            onTap: () async {
+              _uploadOverlay?.remove();
+              _uploadOverlay = null;
+              if (mounted) setState(() {});
+              await _pickFiles();
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: isHovered
+                    ? const Color(0xFF3B82F6)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isHovered ? FontWeight.w600 : FontWeight.w500,
+                  color: isHovered
+                      ? Colors.white
+                      : const Color(0xFF374151),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

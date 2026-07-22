@@ -10,7 +10,9 @@ abstract class SalesReturnRepository {
   Future<String> getNextRmaNumber({String prefix});
   Future<SalesReturn> createSalesReturn(CreateSalesReturnPayload payload);
   Future<SalesReturnReceive> createReceive(
-      String salesReturnId, CreateReceivePayload payload);
+    String salesReturnId,
+    CreateReceivePayload payload,
+  );
   Future<List<SalesReturnReceive>> getReceives(String salesReturnId);
   Future<void> deleteReceive(String salesReturnId, String receiveId);
 }

@@ -21,10 +21,12 @@ class SettingsUsersUserOverview extends ConsumerStatefulWidget {
   final String? selectedUserId;
 
   @override
-  ConsumerState<SettingsUsersUserOverview> createState() => _SettingsUsersUserOverviewState();
+  ConsumerState<SettingsUsersUserOverview> createState() =>
+      _SettingsUsersUserOverviewState();
 }
 
-class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOverview> {
+class _SettingsUsersUserOverviewState
+    extends ConsumerState<SettingsUsersUserOverview> {
   final ApiClient _apiClient = ApiClient();
   bool _loading = true;
   List<SettingsUserRecord> _users = [];
@@ -77,18 +79,16 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
             queryParameters: {'org_id': currentSettingsOrgId(ref)},
           ),
       ]);
-      final users =
-          (responses[0].data as List)
-              .map((e) => SettingsUserRecord.fromJson(e))
-              .toList();
+      final users = (responses[0].data as List)
+          .map((e) => SettingsUserRecord.fromJson(e))
+          .toList();
       final roles = _isBranchScopedUser
           ? const <SettingsRoleRecord>[]
           : (responses[1].data as List<dynamic>? ?? const [])
                 .whereType<Map>()
                 .map(
-                  (e) => SettingsRoleRecord.fromJson(
-                    Map<String, dynamic>.from(e),
-                  ),
+                  (e) =>
+                      SettingsRoleRecord.fromJson(Map<String, dynamic>.from(e)),
                 )
                 .toList();
       final pending = <String, String?>{
@@ -148,7 +148,10 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
   void _updateSelectedUser() {
     if (widget.selectedUserId != null) {
       setState(() {
-        _selectedUser = _users.firstWhere((u) => u.id == widget.selectedUserId, orElse: () => _users.first);
+        _selectedUser = _users.firstWhere(
+          (u) => u.id == widget.selectedUserId,
+          orElse: () => _users.first,
+        );
       });
     } else {
       setState(() => _selectedUser = null);
@@ -330,8 +333,8 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
         ),
         Expanded(
           child: _selectedUser == null
-            ? const Center(child: Text('Select a user to view details'))
-            : _buildDetailView(),
+              ? const Center(child: Text('Select a user to view details'))
+              : _buildDetailView(),
         ),
       ],
     );
@@ -347,9 +350,18 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
         children: [
           ZTableHelpers.buildHeaderRow(
             children: const [
-              Expanded(flex: 4, child: Text('NAME', style: ZTableHelpers.headerTextStyle)),
-              Expanded(flex: 3, child: Text('ROLE', style: ZTableHelpers.headerTextStyle)),
-              Expanded(flex: 2, child: Text('STATUS', style: ZTableHelpers.headerTextStyle)),
+              Expanded(
+                flex: 4,
+                child: Text('NAME', style: ZTableHelpers.headerTextStyle),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text('ROLE', style: ZTableHelpers.headerTextStyle),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text('STATUS', style: ZTableHelpers.headerTextStyle),
+              ),
             ],
           ),
           for (int i = 0; i < _users.length; i++)
@@ -361,7 +373,9 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
 
   Widget _buildRbacTable() {
     if (_roles.isEmpty) {
-      return const Center(child: Text('No roles available. Create roles first.'));
+      return const Center(
+        child: Text('No roles available. Create roles first.'),
+      );
     }
     return Container(
       decoration: BoxDecoration(
@@ -372,11 +386,26 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
         children: [
           ZTableHelpers.buildHeaderRow(
             children: const [
-              Expanded(flex: 3, child: Text('USER', style: ZTableHelpers.headerTextStyle)),
-              Expanded(flex: 3, child: Text('EMAIL', style: ZTableHelpers.headerTextStyle)),
-              Expanded(flex: 3, child: Text('ROLE', style: ZTableHelpers.headerTextStyle)),
-              Expanded(flex: 1, child: Text('STATUS', style: ZTableHelpers.headerTextStyle)),
-              Expanded(flex: 2, child: Text('ACTION', style: ZTableHelpers.headerTextStyle)),
+              Expanded(
+                flex: 3,
+                child: Text('USER', style: ZTableHelpers.headerTextStyle),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text('EMAIL', style: ZTableHelpers.headerTextStyle),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text('ROLE', style: ZTableHelpers.headerTextStyle),
+              ),
+              Expanded(
+                flex: 1,
+                child: Text('STATUS', style: ZTableHelpers.headerTextStyle),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text('ACTION', style: ZTableHelpers.headerTextStyle),
+              ),
             ],
           ),
           Expanded(
@@ -394,7 +423,13 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
                   isLast: index == _users.length - 1,
                   child: Row(
                     children: [
-                      Expanded(flex: 3, child: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          user.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                       Expanded(flex: 3, child: Text(user.email)),
                       Expanded(
                         flex: 3,
@@ -407,7 +442,9 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
                           onChanged: saving
                               ? (_) {}
                               : (value) {
-                                  setState(() => _pendingRoleByUserId[user.id] = value);
+                                  setState(
+                                    () => _pendingRoleByUserId[user.id] = value,
+                                  );
                                 },
                         ),
                       ),
@@ -456,13 +493,19 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
               children: [
                 ZTableHelpers.buildAvatar(user.name),
                 const SizedBox(width: 12),
-                Text(user.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                Text(
+                  user.name,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
               ],
             ),
           ),
           Expanded(
             flex: 3,
-            child: Text(user.roleLabel, style: const TextStyle(color: AppTheme.primaryBlue)),
+            child: Text(
+              user.roleLabel,
+              style: const TextStyle(color: AppTheme.primaryBlue),
+            ),
           ),
           Expanded(
             flex: 2,
@@ -495,15 +538,30 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: const Color(0xFFE9ECEF),
-                  child: Text(user.name[0].toUpperCase(), style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    user.name[0].toUpperCase(),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      Text(user.email, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                      Text(
+                        user.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        user.email,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -526,7 +584,13 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
               CircleAvatar(
                 radius: 32,
                 backgroundColor: const Color(0xFFF0F4FF),
-                child: Text(user.name[0].toUpperCase(), style: const TextStyle(fontSize: 24, color: Color(0xFF0088FF))),
+                child: Text(
+                  user.name[0].toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    color: Color(0xFF0088FF),
+                  ),
+                ),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -534,9 +598,18 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(user.name, style: AppTheme.pageTitle),
-                    Text(user.email, style: const TextStyle(color: AppTheme.textSecondary)),
+                    Text(
+                      user.email,
+                      style: const TextStyle(color: AppTheme.textSecondary),
+                    ),
                     const SizedBox(height: 4),
-                    Text('Role: ${user.roleLabel}', style: const TextStyle(color: Color(0xFF0088FF), fontWeight: FontWeight.w500)),
+                    Text(
+                      'Role: ${user.roleLabel}',
+                      style: const TextStyle(
+                        color: Color(0xFF0088FF),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -560,7 +633,9 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: _activeTab == 'details' ? _buildMoreDetails(user) : _buildActivities(),
+            child: _activeTab == 'details'
+                ? _buildMoreDetails(user)
+                : _buildActivities(),
           ),
         ),
       ],
@@ -571,7 +646,9 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.borderLight))),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
       child: Row(
         children: [
           _buildTabItem('details', 'More Details'),
@@ -589,9 +666,20 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: isActive ? const Color(0xFF0088FF) : Colors.transparent, width: 2)),
+          border: Border(
+            bottom: BorderSide(
+              color: isActive ? const Color(0xFF0088FF) : Colors.transparent,
+              width: 2,
+            ),
+          ),
         ),
-        child: Text(label, style: TextStyle(color: isActive ? const Color(0xFF0088FF) : AppTheme.textSecondary, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? const Color(0xFF0088FF) : AppTheme.textSecondary,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }
@@ -605,16 +693,31 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('ACCESSIBLE LOCATIONS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF666666))),
+        const Text(
+          'ACCESSIBLE LOCATIONS',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF666666),
+          ),
+        ),
         const SizedBox(height: 16),
         Container(
-          decoration: BoxDecoration(border: Border.all(color: AppTheme.borderLight), borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.borderLight),
+            borderRadius: BorderRadius.circular(4),
+          ),
           child: Column(
             children: [
               ZTableHelpers.buildHeaderRow(
                 height: 36,
                 children: const [
-                  Expanded(child: Text('LOCATION NAME', style: ZTableHelpers.headerTextStyle)),
+                  Expanded(
+                    child: Text(
+                      'LOCATION NAME',
+                      style: ZTableHelpers.headerTextStyle,
+                    ),
+                  ),
                   Text('TYPE', style: ZTableHelpers.headerTextStyle),
                 ],
               ),
@@ -640,17 +743,24 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
               else
                 const SizedBox.shrink(),
               for (final loc in locationsToDisplay)
-                  Container(
-                    height: 40,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(loc.name)),
-                        Text(loc.typeLabel, style: const TextStyle(color: AppTheme.textSecondary)),
-                      ],
+                Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFEEEEEE)),
                     ),
                   ),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(loc.name)),
+                      Text(
+                        loc.typeLabel,
+                        style: const TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -659,6 +769,8 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
   }
 
   Widget _buildActivities() {
-    return const Center(child: Text('Recent user activities will appear here.'));
+    return const Center(
+      child: Text('Recent user activities will appear here.'),
+    );
   }
 }

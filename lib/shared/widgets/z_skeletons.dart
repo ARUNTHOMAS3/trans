@@ -39,16 +39,19 @@ class ZFormSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: List.generate(rows, (index) => Padding(
-        padding: const EdgeInsets.only(bottom: AppTheme.space16),
-        child: Row(
-          children: [
-            const ZBone(width: 150, height: 20),
-            const SizedBox(width: AppTheme.space24),
-            Expanded(child: const ZBone(height: 36)),
-          ],
+      children: List.generate(
+        rows,
+        (index) => Padding(
+          padding: const EdgeInsets.only(bottom: AppTheme.space16),
+          child: Row(
+            children: [
+              const ZBone(width: 150, height: 20),
+              const SizedBox(width: AppTheme.space24),
+              Expanded(child: const ZBone(height: 36)),
+            ],
+          ),
         ),
-      )),
+      ),
     );
   }
 }
@@ -106,29 +109,38 @@ class ZTableSkeleton extends StatelessWidget {
           padding: const EdgeInsets.all(AppTheme.space16),
           color: AppTheme.bgDisabled,
           child: Row(
-            children: List.generate(columns, (index) => Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: const ZBone(height: 16),
+            children: List.generate(
+              columns,
+              (index) => Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: const ZBone(height: 16),
+                ),
               ),
-            )),
+            ),
           ),
         ),
         // Rows
-        ...List.generate(rows, (index) => Container(
-          padding: const EdgeInsets.all(AppTheme.space16),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-          ),
-          child: Row(
-            children: List.generate(columns, (index) => Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: const ZBone(height: 14),
+        ...List.generate(
+          rows,
+          (index) => Container(
+            padding: const EdgeInsets.all(AppTheme.space16),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            ),
+            child: Row(
+              children: List.generate(
+                columns,
+                (index) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: const ZBone(height: 14),
+                  ),
+                ),
               ),
-            )),
+            ),
           ),
-        )),
+        ),
       ],
     );
   }
@@ -274,7 +286,10 @@ class ZErrorPlaceholder extends StatelessWidget {
             Text(
               error.toString(),
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+              ),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: AppTheme.space24),

@@ -4,12 +4,16 @@ class AccountMetadata {
   final Map<String, String> typeDefinitions;
   final Map<String, List<String>> typeExamples;
   final List<String> zerpaiExpenseSupportedTypes;
+
   /// Type → allowed parent types. If a type is absent, same-type nesting applies.
   final Map<String, List<String>> parentTypeRelationships;
+
   /// Account types / system names for which "Make as sub-account" is hidden.
   final List<String> nonSubAccountableTypes;
+
   /// System account names whose parent is immutable (e.g. GST components).
   final List<String> systemLockedParents;
+
   /// Account types that can never appear as a parent in the dropdown.
   final List<String> restrictedParentTypes;
 
@@ -52,9 +56,7 @@ class AccountMetadata {
       nonSubAccountableTypes: List<String>.from(
         json['nonSubAccountableTypes'] ?? [],
       ),
-      systemLockedParents: List<String>.from(
-        json['systemLockedParents'] ?? [],
-      ),
+      systemLockedParents: List<String>.from(json['systemLockedParents'] ?? []),
       restrictedParentTypes: List<String>.from(
         json['restrictedParentTypes'] ?? [],
       ),

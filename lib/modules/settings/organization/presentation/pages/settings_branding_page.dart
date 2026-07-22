@@ -45,8 +45,14 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
               label: 'Branding',
               route: AppRoutes.settingsOrgBranding,
             ),
-            _BrandingNavEntry(label: 'Branches', route: AppRoutes.settingsBranches),
-            _BrandingNavEntry(label: 'Warehouses', route: AppRoutes.settingsWarehouses),
+            _BrandingNavEntry(
+              label: 'Branches',
+              route: AppRoutes.settingsBranches,
+            ),
+            _BrandingNavEntry(
+              label: 'Warehouses',
+              route: AppRoutes.settingsWarehouses,
+            ),
             _BrandingNavEntry(label: 'Approvals'),
             _BrandingNavEntry(label: 'Manage Subscription'),
           ],
@@ -118,10 +124,7 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
         _BrandingNavBlock(
           title: 'Inventory',
           items: <_BrandingNavEntry>[
-            _BrandingNavEntry(
-              label: 'Assemblies',
-              route: AppRoutes.assemblies,
-            ),
+            _BrandingNavEntry(label: 'Assemblies', route: AppRoutes.assemblies),
             _BrandingNavEntry(
               label: 'Inventory Adjustments',
               route: AppRoutes.inventoryAdjustments,
@@ -204,8 +207,9 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
           : <String, dynamic>{};
 
       setState(() {
-        _organizationName =
-            (data['name'] ?? user?.orgName ?? '').toString().trim();
+        _organizationName = (data['name'] ?? user?.orgName ?? '')
+            .toString()
+            .trim();
         final String logoUrl = (data['logo_url'] ?? '').toString().trim();
         _existingLogoUrl = logoUrl.isEmpty ? null : logoUrl;
 
@@ -218,8 +222,9 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
           } catch (_) {}
         }
 
-        final String themeMode =
-            (data['theme_mode'] ?? 'dark').toString().toLowerCase();
+        final String themeMode = (data['theme_mode'] ?? 'dark')
+            .toString()
+            .toLowerCase();
         _selectedAppearance = themeMode == 'light'
             ? _AppearanceMode.light
             : _AppearanceMode.dark;
@@ -229,7 +234,9 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
 
       // Apply to the live branding provider immediately so the sidebar
       // reflects the saved settings as soon as the page loads.
-      ref.read(appBrandingProvider.notifier).apply(
+      ref
+          .read(appBrandingProvider.notifier)
+          .apply(
             accentColor: _selectedAccentColor,
             isDarkPane: _selectedAppearance == _AppearanceMode.dark,
           );
@@ -514,7 +521,11 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
+                icon: const Icon(
+                  LucideIcons.x,
+                  size: 16,
+                  color: AppTheme.errorRed,
+                ),
                 label: const Text('Close Settings'),
               ),
             ],
@@ -610,7 +621,7 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
           vertical: AppTheme.space10,
         ),
         decoration: BoxDecoration(
-          color: isActive ? activeColor: AppTheme.primaryBlue,
+          color: isActive ? activeColor : AppTheme.primaryBlue,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -633,13 +644,15 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const ZFormSkeleton(rows: 20);
+      return const SingleChildScrollView(
+        padding: EdgeInsets.all(AppTheme.space32),
+        child: ZFormSkeleton(rows: 20),
+      );
     }
     return _buildBodyContent();
   }
 
   Widget _buildBodyContent() {
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -659,10 +672,7 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
                   // ── Logo ──────────────────────────────────────────
                   Text('Organization Logo', style: AppTheme.sectionHeader),
                   const SizedBox(height: AppTheme.space16),
-                  Container(
-                    color: Colors.white,
-                    child: _buildLogoSection(),
-                  ),
+                  Container(color: Colors.white, child: _buildLogoSection()),
                   const SizedBox(height: AppTheme.space28),
 
                   // ── Appearance ────────────────────────────────────
@@ -725,9 +735,7 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
             children: [
               ElevatedButton(
                 onPressed: _isSaving ? null : _saveBranding,
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                ),
+                style: ElevatedButton.styleFrom(foregroundColor: Colors.white),
                 child: _isSaving
                     ? const SizedBox(
                         width: 16,
@@ -810,7 +818,11 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
       imageChild = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(LucideIcons.upload, color: AppTheme.textSecondary, size: 20),
+          const Icon(
+            LucideIcons.upload,
+            color: AppTheme.textSecondary,
+            size: 20,
+          ),
           const SizedBox(height: AppTheme.space8),
           Text(
             'Click to upload logo',
@@ -823,93 +835,93 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            SizedBox(
-              width: 250,
-              height: 96,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _DashedBorderPainter(
-                        color: AppTheme.borderColor,
-                        radius: 6,
-                      ),
-                      child: InkWell(
-                        onTap: _isUploadingLogo ? null : _pickLogo,
-                        borderRadius: BorderRadius.circular(6),
-                        child: Center(child: imageChild),
-                      ),
-                    ),
+        SizedBox(
+          width: 250,
+          height: 96,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _DashedBorderPainter(
+                    color: AppTheme.borderColor,
+                    radius: 6,
                   ),
-                  if (hasLogo && !_isUploadingLogo)
-                    Positioned(
-                      right: 6,
-                      bottom: 6,
-                      child: GestureDetector(
-                        onTap: _removeLogo,
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: const Icon(
-                            LucideIcons.trash2,
-                            size: 13,
-                            color: AppTheme.errorRed,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                  child: InkWell(
+                    onTap: _isUploadingLogo ? null : _pickLogo,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Center(child: imageChild),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: AppTheme.space20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'This logo will be displayed in transaction PDFs and email notifications.',
-                    style: AppTheme.bodyText,
-                  ),
-                  const SizedBox(height: AppTheme.space8),
-                  Text(
-                    'Preferred image dimensions: 240 × 240 pixels @ 72 DPI',
-                    style: AppTheme.captionText.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    'Supported files: jpg, jpeg, png, gif, bmp',
-                    style: AppTheme.captionText.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    'Maximum file size: 1 MB',
-                    style: AppTheme.captionText.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  if (hasLogo && !_isUploadingLogo) ...[
-                    const SizedBox(height: AppTheme.space10),
-                    GestureDetector(
-                      onTap: _removeLogo,
-                      child: Text(
-                        'Remove Logo',
-                        style: AppTheme.bodyText.copyWith(
-                          color: AppTheme.primaryBlue,
-                          decoration: TextDecoration.underline,
-                          decorationColor: AppTheme.primaryBlue,
-                        ),
+              if (hasLogo && !_isUploadingLogo)
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: GestureDetector(
+                    onTap: _removeLogo,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: const Icon(
+                        LucideIcons.trash2,
+                        size: 13,
+                        color: AppTheme.errorRed,
                       ),
                     ),
-                  ],
-                ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppTheme.space20),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This logo will be displayed in transaction PDFs and email notifications.',
+                style: AppTheme.bodyText,
               ),
-            ),
+              const SizedBox(height: AppTheme.space8),
+              Text(
+                'Preferred image dimensions: 240 × 240 pixels @ 72 DPI',
+                style: AppTheme.captionText.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              Text(
+                'Supported files: jpg, jpeg, png, gif, bmp',
+                style: AppTheme.captionText.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              Text(
+                'Maximum file size: 1 MB',
+                style: AppTheme.captionText.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              if (hasLogo && !_isUploadingLogo) ...[
+                const SizedBox(height: AppTheme.space10),
+                GestureDetector(
+                  onTap: _removeLogo,
+                  child: Text(
+                    'Remove Logo',
+                    style: AppTheme.bodyText.copyWith(
+                      color: AppTheme.primaryBlue,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1047,9 +1059,7 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
           color: color,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected
-                ? Colors.white
-                : Colors.transparent,
+            color: isSelected ? Colors.white : Colors.transparent,
             width: 2,
           ),
           boxShadow: isSelected
@@ -1108,9 +1118,7 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(8),
-          border: isCustom
-              ? Border.all(color: Colors.white, width: 2)
-              : null,
+          border: isCustom ? Border.all(color: Colors.white, width: 2) : null,
           boxShadow: isCustom
               ? [
                   BoxShadow(
@@ -1142,11 +1150,7 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            LucideIcons.info,
-            size: 16,
-            color: AppTheme.primaryBlue,
-          ),
+          const Icon(LucideIcons.info, size: 16, color: AppTheme.primaryBlue),
           const SizedBox(width: AppTheme.space10),
           Expanded(
             child: Text(
@@ -1183,7 +1187,9 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
               Expanded(
                 child: Text(
                   "I'd like to keep Zerpai branding for this organization",
-                  style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.w500),
+                  style: AppTheme.bodyText.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               const SizedBox(width: AppTheme.space16),
@@ -1287,7 +1293,10 @@ class _CustomColorDialogState extends State<_CustomColorDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: Text('Custom Accent Color', style: AppTheme.sectionHeader),
+                    child: Text(
+                      'Custom Accent Color',
+                      style: AppTheme.sectionHeader,
+                    ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),

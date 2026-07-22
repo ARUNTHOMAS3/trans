@@ -20,10 +20,7 @@ class PurchaseRequestItemSelection {
 class PurchaseRequestsItemsDialog extends StatelessWidget {
   final ValueChanged<List<PurchaseRequestItemSelection>> onItemsSelected;
 
-  const PurchaseRequestsItemsDialog({
-    super.key,
-    required this.onItemsSelected,
-  });
+  const PurchaseRequestsItemsDialog({super.key, required this.onItemsSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -36,10 +33,7 @@ class PurchaseRequestsItemsDialog extends StatelessWidget {
         child: Text(
           'Purchase request item sourcing is not wired in this repo slice yet. '
           'This merge keeps the entry point safe without blocking purchase order create.',
-          style: TextStyle(
-            color: AppTheme.textSecondary,
-            height: 1.4,
-          ),
+          style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
         ),
       ),
       actions: [

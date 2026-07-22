@@ -52,15 +52,14 @@ class _SettingsUsersUserCreationState
   void initState() {
     super.initState();
     Future.microtask(() async {
-      final userData = await ref.read(userAccessProvider.notifier).init(
-            currentSettingsOrgId(ref),
-            userId: widget.userId,
-          );
+      final userData = await ref
+          .read(userAccessProvider.notifier)
+          .init(currentSettingsOrgId(ref), userId: widget.userId);
 
       if (!mounted || userData == null) return;
 
-      _nameController.text =
-          (userData['name'] ?? userData['full_name'] ?? '').toString();
+      _nameController.text = (userData['name'] ?? userData['full_name'] ?? '')
+          .toString();
       _emailController.text = (userData['email'] ?? '').toString();
       _selectedRoleId = (userData['role'] ?? '').toString();
       if (mounted) setState(() {});
@@ -188,72 +187,77 @@ class _SettingsUsersUserCreationState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                  const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ZBone(width: 14, height: 14),
-                      SizedBox(width: 6),
-                      ZBone(width: 96, height: 14),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const ZBone(width: 180, height: 30),
-                  const SizedBox(height: 8),
-                  const ZBone(width: 420, height: 16),
-                  const SizedBox(height: 32),
-                  const ZFormSkeleton(rows: 3),
-                  const SizedBox(height: 32),
-                  Row(
-                    children: [
-                      const ZBone(width: 140, height: 24),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(height: 1, color: AppTheme.borderLight),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Row(
-                    children: [
-                      ZBone(width: 110, height: 34),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Row(
-                    children: [
-                      Expanded(child: ZBone(height: 36)),
-                      SizedBox(width: 8),
-                      Expanded(child: ZBone(height: 36)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    constraints: const BoxConstraints(minHeight: 450, maxHeight: 600),
-                    decoration: BoxDecoration(
-                      color: _kSurfaceContainerLow,
-                      borderRadius: const BorderRadius.all(_kRadiusXl),
-                      border: Border.all(
-                        color: _kOutlineVariant.withValues(alpha: 0.15),
-                      ),
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ZBone(width: 14, height: 14),
+                    SizedBox(width: 6),
+                    ZBone(width: 96, height: 14),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const ZBone(width: 180, height: 30),
+                const SizedBox(height: 8),
+                const ZBone(width: 420, height: 16),
+                const SizedBox(height: 32),
+                const ZFormSkeleton(rows: 3),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    const ZBone(width: 140, height: 24),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Container(height: 1, color: AppTheme.borderLight),
                     ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: Padding(
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Row(children: [ZBone(width: 110, height: 34)]),
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    Expanded(child: ZBone(height: 36)),
+                    SizedBox(width: 8),
+                    Expanded(child: ZBone(height: 36)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  constraints: const BoxConstraints(
+                    minHeight: 450,
+                    maxHeight: 600,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _kSurfaceContainerLow,
+                    borderRadius: const BorderRadius.all(_kRadiusXl),
+                    border: Border.all(
+                      color: _kOutlineVariant.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Padding(
                           padding: EdgeInsets.all(16),
                           child: ZListSkeleton(itemCount: 7),
-                        )),
-                        SizedBox(
-                          width: 48,
-                          child: Center(child: ZBone(width: 32, height: 32, borderRadius: 16)),
                         ),
-                        Expanded(child: Padding(
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Center(
+                          child: ZBone(width: 32, height: 32, borderRadius: 16),
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
                           padding: EdgeInsets.all(16),
                           child: ZListSkeleton(itemCount: 6),
-                        )),
-                      ],
-                    ),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
               ],
             ),
           ),
@@ -285,8 +289,7 @@ class _SettingsUsersUserCreationState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.arrowLeft,
-              size: 14, color: AppTheme.primaryBlue),
+          Icon(LucideIcons.arrowLeft, size: 14, color: AppTheme.primaryBlue),
           const SizedBox(width: 6),
           Text(
             'Back to Users',
@@ -358,8 +361,7 @@ class _SettingsUsersUserCreationState
         _buildFormRow(
           'Role',
           FormDropdown<SettingsRoleRecord>(
-            value: state.roles
-                .firstWhereOrNull((r) => r.id == _selectedRoleId),
+            value: state.roles.firstWhereOrNull((r) => r.id == _selectedRoleId),
             items: state.roles,
             displayStringForValue: (r) => r.label,
             onChanged: (v) => setState(() => _selectedRoleId = v?.id),
@@ -476,9 +478,7 @@ class _SettingsUsersUserCreationState
 
   Widget _buildTabBar() {
     return Row(
-      children: [
-        _buildTab('Locations', LucideIcons.mapPin, active: true),
-      ],
+      children: [_buildTab('Locations', LucideIcons.mapPin, active: true)],
     );
   }
 
@@ -517,8 +517,7 @@ class _SettingsUsersUserCreationState
 
   // ─── Defaults row ────────────────────────────────────────────────────────────
 
-  Widget _buildDefaultsRow(
-      UserAccessState state, UserAccessNotifier notifier) {
+  Widget _buildDefaultsRow(UserAccessState state, UserAccessNotifier notifier) {
     final selectedBranches = state.branches
         .where((b) => state.selectedBranchIds.contains(b.id))
         .toList();
@@ -536,8 +535,9 @@ class _SettingsUsersUserCreationState
           style: TextStyle(fontSize: 12.5, color: Color(0xFF444444)),
         ),
         _InlineDropdownTrigger<SettingsLocationRecord>(
-          value: state.branches
-              .firstWhereOrNull((b) => b.id == state.defaultBranchId),
+          value: state.branches.firstWhereOrNull(
+            (b) => b.id == state.defaultBranchId,
+          ),
           items: selectedBranches,
           displayString: (b) => b.name,
           hint: 'None',
@@ -549,8 +549,9 @@ class _SettingsUsersUserCreationState
           style: TextStyle(fontSize: 12.5, color: Color(0xFF444444)),
         ),
         _InlineDropdownTrigger<SettingsLocationRecord>(
-          value: state.warehouses
-              .firstWhereOrNull((w) => w.id == state.defaultWarehouseId),
+          value: state.warehouses.firstWhereOrNull(
+            (w) => w.id == state.defaultWarehouseId,
+          ),
           items: selectedWarehouses,
           displayString: (w) => w.name,
           hint: 'None',
@@ -604,7 +605,8 @@ class _SettingsUsersUserCreationState
   Widget _buildTreePanel(UserAccessState state, UserAccessNotifier notifier) {
     final query = _locationSearchController.text.trim().toLowerCase();
     final allLocs = [...state.branches, ...state.warehouses];
-    final allSelected = allLocs.isNotEmpty &&
+    final allSelected =
+        allLocs.isNotEmpty &&
         allLocs.every((l) => state.selectedBranchIds.contains(l.id));
 
     return Container(
@@ -621,19 +623,26 @@ class _SettingsUsersUserCreationState
             ),
             child: Row(
               children: [
-                const Icon(LucideIcons.search,
-                    size: 14, color: _kOnSurfaceVariant),
+                const Icon(
+                  LucideIcons.search,
+                  size: 14,
+                  color: _kOnSurfaceVariant,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: TextField(
                     controller: _locationSearchController,
                     onChanged: (v) => setState(() {}),
                     style: const TextStyle(
-                        fontSize: 13, color: AppTheme.textPrimary),
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                    ),
                     decoration: const InputDecoration(
                       hintText: 'Type to search locations...',
-                      hintStyle:
-                          TextStyle(fontSize: 13, color: _kOnSurfaceVariant),
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        color: _kOnSurfaceVariant,
+                      ),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -646,9 +655,11 @@ class _SettingsUsersUserCreationState
                       notifier.toggleAll(false);
                     } else {
                       final ids = allLocs
-                          .where((l) =>
-                              query.isEmpty ||
-                              l.name.toLowerCase().contains(query))
+                          .where(
+                            (l) =>
+                                query.isEmpty ||
+                                l.name.toLowerCase().contains(query),
+                          )
                           .map((l) => l.id)
                           .toList();
                       notifier.selectVisible(ids);
@@ -671,9 +682,11 @@ class _SettingsUsersUserCreationState
                               notifier.toggleAll(false);
                             } else {
                               final ids = allLocs
-                                  .where((l) =>
-                                      query.isEmpty ||
-                                      l.name.toLowerCase().contains(query))
+                                  .where(
+                                    (l) =>
+                                        query.isEmpty ||
+                                        l.name.toLowerCase().contains(query),
+                                  )
                                   .map((l) => l.id)
                                   .toList();
                               notifier.selectVisible(ids);
@@ -682,11 +695,14 @@ class _SettingsUsersUserCreationState
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text('Select All',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary)),
+                      const Text(
+                        'Select All',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -702,14 +718,16 @@ class _SettingsUsersUserCreationState
                     child: ZListSkeleton(itemCount: 7),
                   )
                 : state.branches.isEmpty && state.warehouses.isEmpty
-                    ? _buildEmptyState('No locations found.')
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 12),
-                        child: Column(
-                          children: _buildNestedTree(state, notifier, null, 0),
-                        ),
-                      ),
+                ? _buildEmptyState('No locations found.')
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    child: Column(
+                      children: _buildNestedTree(state, notifier, null, 0),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -721,11 +739,16 @@ class _SettingsUsersUserCreationState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.mapPinOff,
-              size: 32, color: _kOnSurfaceVariant.withValues(alpha: 0.3)),
+          Icon(
+            LucideIcons.mapPinOff,
+            size: 32,
+            color: _kOnSurfaceVariant.withValues(alpha: 0.3),
+          ),
           const SizedBox(height: 12),
-          Text(message,
-              style: const TextStyle(fontSize: 13, color: _kOnSurfaceVariant)),
+          Text(
+            message,
+            style: const TextStyle(fontSize: 13, color: _kOnSurfaceVariant),
+          ),
         ],
       ),
     );
@@ -734,7 +757,9 @@ class _SettingsUsersUserCreationState
   // ─── Bridge column (center) ──────────────────────────────────────────────────
 
   Widget _buildBridgeColumn(
-      UserAccessState state, UserAccessNotifier notifier) {
+    UserAccessState state,
+    UserAccessNotifier notifier,
+  ) {
     return Container(
       width: 48,
       decoration: const BoxDecoration(
@@ -753,11 +778,17 @@ class _SettingsUsersUserCreationState
             border: Border.all(color: _kOutlineVariant.withValues(alpha: 0.5)),
             boxShadow: const [
               BoxShadow(
-                  color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 2))
+                color: Color(0x08000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
             ],
           ),
-          child: const Icon(LucideIcons.arrowRight,
-              color: AppTheme.primaryBlue, size: 14),
+          child: const Icon(
+            LucideIcons.arrowRight,
+            color: AppTheme.primaryBlue,
+            size: 14,
+          ),
         ),
       ),
     );
@@ -768,12 +799,13 @@ class _SettingsUsersUserCreationState
   bool _locationsGroupExpanded = true;
 
   Widget _buildAssociatedValuesPanel(
-      UserAccessState state, UserAccessNotifier notifier) {
+    UserAccessState state,
+    UserAccessNotifier notifier,
+  ) {
     final selectedItems = <SettingsLocationRecord>[];
     for (final b in state.branches) {
       if (state.selectedBranchIds.contains(b.id)) selectedItems.add(b);
-      for (final w
-          in state.warehouses.where((w) => w.parentBranchId == b.id)) {
+      for (final w in state.warehouses.where((w) => w.parentBranchId == b.id)) {
         if (state.selectedBranchIds.contains(w.id)) selectedItems.add(w);
       }
     }
@@ -801,7 +833,9 @@ class _SettingsUsersUserCreationState
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: const BoxDecoration(
-                      color: AppTheme.primaryBlue, shape: BoxShape.circle),
+                    color: AppTheme.primaryBlue,
+                    shape: BoxShape.circle,
+                  ),
                   child: const Icon(Icons.check, size: 12, color: Colors.white),
                 ),
                 const SizedBox(width: 10),
@@ -817,8 +851,10 @@ class _SettingsUsersUserCreationState
                 const Spacer(),
                 if (selectedItems.isNotEmpty)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.errorRed.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -843,19 +879,24 @@ class _SettingsUsersUserCreationState
                     child: Text(
                       'No entries added yet.',
                       style: TextStyle(
-                          fontSize: 12,
-                          color: _kOnSurfaceVariant.withValues(alpha: 0.5)),
+                        fontSize: 12,
+                        color: _kOnSurfaceVariant.withValues(alpha: 0.5),
+                      ),
                     ),
                   )
                 : ListView(
                     padding: EdgeInsets.zero,
                     children: [
                       InkWell(
-                        onTap: () => setState(() =>
-                            _locationsGroupExpanded = !_locationsGroupExpanded),
+                        onTap: () => setState(
+                          () => _locationsGroupExpanded =
+                              !_locationsGroupExpanded,
+                        ),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           color: _kSurfaceContainerLow.withValues(alpha: 0.3),
                           child: Row(
                             children: [
@@ -867,14 +908,21 @@ class _SettingsUsersUserCreationState
                                 color: _kOnSurfaceVariant,
                               ),
                               const SizedBox(width: 8),
-                              const Text('Locations',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600)),
+                              const Text(
+                                'Locations',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               const Spacer(),
-                              Text('${selectedItems.length}',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: _kOnSurfaceVariant)),
+                              Text(
+                                '${selectedItems.length}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: _kOnSurfaceVariant,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -885,32 +933,42 @@ class _SettingsUsersUserCreationState
                           final loc = entry.value;
                           return Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                             decoration: const BoxDecoration(
                               border: Border(
-                                  bottom: BorderSide(color: Color(0xFFF5F5F5))),
+                                bottom: BorderSide(color: Color(0xFFF5F5F5)),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                Text('$idx.',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: _kOnSurfaceVariant,
-                                        fontWeight: FontWeight.w500)),
+                                Text(
+                                  '$idx.',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _kOnSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     loc.name,
                                     style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.textPrimary),
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimary,
+                                    ),
                                   ),
                                 ),
                                 IconButton(
                                   onPressed: () =>
                                       notifier.toggleBranch(loc.id),
-                                  icon: const Icon(LucideIcons.x,
-                                      size: 14, color: AppTheme.errorRed),
+                                  icon: const Icon(
+                                    LucideIcons.x,
+                                    size: 14,
+                                    color: AppTheme.errorRed,
+                                  ),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   visualDensity: VisualDensity.compact,
@@ -939,26 +997,37 @@ class _SettingsUsersUserCreationState
     final allLocations = [...state.branches, ...state.warehouses];
 
     // Find children for this parentId
-    final children =
-        allLocations.where((l) => l.parentBranchId == parentId).toList();
+    final children = allLocations
+        .where((l) => l.parentBranchId == parentId)
+        .toList();
 
-    // If we're at root (parentId == null) and there's a disconnect in the tree 
-    // (warehouses pointing to a branch that doesn't exist in data), 
+    // If we're at root (parentId == null) and there's a disconnect in the tree
+    // (warehouses pointing to a branch that doesn't exist in data),
     // we should still show them eventually. But for now, standard tree logic.
 
     final widgets = <Widget>[];
     for (final child in children) {
       final matchesQuery =
           query.isEmpty || child.name.toLowerCase().contains(query);
-      
+
       // Check if any sub-items match query
-      final subChildren = _buildNestedTree(state, notifier, child.id, depth + 1);
+      final subChildren = _buildNestedTree(
+        state,
+        notifier,
+        child.id,
+        depth + 1,
+      );
       final hasMatchingDescendants = subChildren.isNotEmpty;
 
       if (matchesQuery || hasMatchingDescendants) {
         widgets.add(
-          _buildTreeRow(child, state, notifier,
-              depth: depth, isExpanded: subChildren.isNotEmpty),
+          _buildTreeRow(
+            child,
+            state,
+            notifier,
+            depth: depth,
+            isExpanded: subChildren.isNotEmpty,
+          ),
         );
         if (subChildren.isNotEmpty) {
           widgets.add(
@@ -967,7 +1036,8 @@ class _SettingsUsersUserCreationState
               child: Container(
                 decoration: const BoxDecoration(
                   border: Border(
-                      left: BorderSide(color: Color(0xFFEEEEEE), width: 1)),
+                    left: BorderSide(color: Color(0xFFEEEEEE), width: 1),
+                  ),
                 ),
                 child: Column(children: subChildren),
               ),
@@ -987,8 +1057,10 @@ class _SettingsUsersUserCreationState
     bool isExpanded = false,
   }) {
     final isSelected = state.selectedBranchIds.contains(loc.id);
-    final hasChildren = [...state.branches, ...state.warehouses]
-        .any((l) => l.parentBranchId == loc.id);
+    final hasChildren = [
+      ...state.branches,
+      ...state.warehouses,
+    ].any((l) => l.parentBranchId == loc.id);
 
     return InkWell(
       onTap: () => notifier.toggleBranch(loc.id),
@@ -1033,7 +1105,9 @@ class _SettingsUsersUserCreationState
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimary,
+                    color: isSelected
+                        ? AppTheme.primaryBlue
+                        : AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -1046,8 +1120,10 @@ class _SettingsUsersUserCreationState
                   color: _kSurfaceContainerHigh,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text('WH',
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'WH',
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                ),
               ),
           ],
         ),
@@ -1098,7 +1174,9 @@ class _SettingsUsersUserCreationState
           ),
           const SizedBox(width: AppTheme.space12),
           OutlinedButton(
-            onPressed: _saving ? null : () => context.go(AppRoutes.settingsUsers),
+            onPressed: _saving
+                ? null
+                : () => context.go(AppRoutes.settingsUsers),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.textSecondary,
               side: const BorderSide(color: AppTheme.borderLight),
@@ -1166,8 +1244,7 @@ class _InlineDropdownTrigger<T> extends StatefulWidget {
       _InlineDropdownTriggerState<T>();
 }
 
-class _InlineDropdownTriggerState<T>
-    extends State<_InlineDropdownTrigger<T>> {
+class _InlineDropdownTriggerState<T> extends State<_InlineDropdownTrigger<T>> {
   final _key = GlobalKey();
   OverlayEntry? _overlayEntry;
 
@@ -1228,8 +1305,7 @@ class _InlineDropdownTriggerState<T>
             ),
           ),
           const SizedBox(width: 2),
-          const Icon(Icons.arrow_drop_down,
-              size: 16, color: Color(0xFF555555)),
+          const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF555555)),
         ],
       ),
     );
@@ -1282,19 +1358,22 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>> {
   @override
   Widget build(BuildContext context) {
     final filtered = widget.items
-        .where((item) =>
-            _query.isEmpty ||
-            widget.displayString(item).toLowerCase().contains(_query))
+        .where(
+          (item) =>
+              _query.isEmpty ||
+              widget.displayString(item).toLowerCase().contains(_query),
+        )
         .toList();
 
     const dropdownWidth = 260.0;
     const itemHeight = 36.0;
     const searchBarHeight = 38.0;
     const maxListHeight = 200.0;
-    final listHeight = (filtered.isEmpty
-            ? 44.0
-            : (filtered.length * itemHeight).clamp(0.0, maxListHeight))
-        .toDouble();
+    final listHeight =
+        (filtered.isEmpty
+                ? 44.0
+                : (filtered.length * itemHeight).clamp(0.0, maxListHeight))
+            .toDouble();
     final totalHeight = searchBarHeight + listHeight;
 
     return Stack(
@@ -1333,27 +1412,35 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>> {
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
                       border: Border.all(
-                          color: AppTheme.primaryBlue, width: 1.5),
+                        color: AppTheme.primaryBlue,
+                        width: 1.5,
+                      ),
                       borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(6)),
+                        top: Radius.circular(6),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(LucideIcons.search,
-                            size: 13, color: _kOnSurfaceVariant),
+                        const Icon(
+                          LucideIcons.search,
+                          size: 13,
+                          color: _kOnSurfaceVariant,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: TextField(
                             controller: _searchController,
                             autofocus: true,
                             style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textPrimary),
+                              fontSize: 13,
+                              color: AppTheme.textPrimary,
+                            ),
                             decoration: const InputDecoration(
                               hintText: 'Search',
                               hintStyle: TextStyle(
-                                  fontSize: 13,
-                                  color: _kOnSurfaceVariant),
+                                fontSize: 13,
+                                color: _kOnSurfaceVariant,
+                              ),
                               border: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
@@ -1382,8 +1469,7 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>> {
                             itemExtent: itemHeight,
                             itemBuilder: (_, i) {
                               final item = filtered[i];
-                              final isSelected =
-                                  item == widget.selectedValue;
+                              final isSelected = item == widget.selectedValue;
                               return InkWell(
                                 onTap: () => widget.onSelected(item),
                                 child: Container(
@@ -1391,7 +1477,8 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>> {
                                       ? AppTheme.primaryBlue
                                       : Colors.white,
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
+                                    horizontal: 12,
+                                  ),
                                   alignment: Alignment.centerLeft,
                                   child: Row(
                                     children: [
@@ -1410,9 +1497,11 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>> {
                                         ),
                                       ),
                                       if (isSelected)
-                                        const Icon(Icons.check,
-                                            size: 14,
-                                            color: Colors.white),
+                                        const Icon(
+                                          Icons.check,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
                                     ],
                                   ),
                                 ),

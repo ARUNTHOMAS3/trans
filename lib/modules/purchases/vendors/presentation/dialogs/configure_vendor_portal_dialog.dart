@@ -294,8 +294,9 @@ class _ConfigureVendorPortalDialogState
                                           alignment: Alignment.centerLeft,
                                           child: InkWell(
                                             onTap: () {},
-                                            borderRadius:
-                                                BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                             child: const Padding(
                                               padding: EdgeInsets.symmetric(
                                                 vertical: 2,

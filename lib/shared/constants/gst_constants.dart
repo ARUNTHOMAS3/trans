@@ -26,13 +26,7 @@ const List<String> kGstRegistrationTypes = [
 ];
 
 /// Salutation options for contact persons and customer/vendor profiles.
-const List<String> kSalutationOptions = [
-  'Mr.',
-  'Mrs.',
-  'Ms.',
-  'Dr.',
-  'Prof.',
-];
+const List<String> kSalutationOptions = ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.'];
 
 /// Drug licence type display options for the dropdown.
 const List<String> kDrugLicenceTypeOptions = [

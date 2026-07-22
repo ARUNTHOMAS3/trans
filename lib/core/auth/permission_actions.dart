@@ -12,4 +12,3 @@ class PermissionActions {
   static const reopen = 'reopen';
   static const override = 'override';
 }
-

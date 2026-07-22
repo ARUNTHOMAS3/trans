@@ -14,7 +14,5 @@ final warehousesProvider = FutureProvider<List<Warehouse>>((ref) async {
   final repository = ref.watch(warehouseRepositoryProvider);
   ref.watch(entityProvider); // Watch entity changes to trigger rebuild
 
-  return repository.getWarehouses(
-    forceRefresh: true,
-  );
+  return repository.getWarehouses(forceRefresh: true);
 });

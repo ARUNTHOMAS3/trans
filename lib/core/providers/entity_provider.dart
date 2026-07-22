@@ -8,13 +8,7 @@ class EntityState {
   final String? orgId;
   final String? branchId;
 
-  EntityState({
-    this.entityId,
-    this.name,
-    this.type,
-    this.orgId,
-    this.branchId,
-  });
+  EntityState({this.entityId, this.name, this.type, this.orgId, this.branchId});
 
   factory EntityState.empty() => EntityState();
 
@@ -91,6 +85,8 @@ class EntityNotifier extends StateNotifier<EntityState> {
   }
 }
 
-final entityProvider = StateNotifierProvider<EntityNotifier, EntityState>((ref) {
+final entityProvider = StateNotifierProvider<EntityNotifier, EntityState>((
+  ref,
+) {
   return EntityNotifier();
 });

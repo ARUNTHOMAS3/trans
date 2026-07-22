@@ -194,11 +194,7 @@ class _RecurringExpenseOverviewSelectionRibbonState
               highlightColor: Colors.transparent,
               child: const Padding(
                 padding: EdgeInsets.only(left: 8, right: 2),
-                child: Icon(
-                  LucideIcons.x,
-                  color: AppTheme.errorRed,
-                  size: 19,
-                ),
+                child: Icon(LucideIcons.x, color: AppTheme.errorRed, size: 19),
               ),
             ),
           ],

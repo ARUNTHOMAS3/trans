@@ -712,10 +712,9 @@ class _SettingsBranchCreatePageState
   }
 
   String _buildTransactionModulePrefixSeed(String? rawLabel) {
-    final words = _displayTransactionModuleLabel(rawLabel)
-        .split(RegExp(r'[^A-Za-z0-9]+'))
-        .where((part) => part.isNotEmpty)
-        .toList();
+    final words = _displayTransactionModuleLabel(
+      rawLabel,
+    ).split(RegExp(r'[^A-Za-z0-9]+')).where((part) => part.isNotEmpty).toList();
     if (words.isEmpty) return '';
     return words.map((part) => part[0]).join().toUpperCase();
   }
@@ -778,9 +777,7 @@ class _SettingsBranchCreatePageState
             : '$fiscalStartYear';
       }
       if (normalized.contains('fiscal_year_end')) {
-        return normalized.contains('short')
-            ? fiscalEndShort
-            : '$fiscalEndYear';
+        return normalized.contains('short') ? fiscalEndShort : '$fiscalEndYear';
       }
       if (normalized.contains('fiscal_year')) {
         return normalized.contains('short')
@@ -791,9 +788,7 @@ class _SettingsBranchCreatePageState
       if (normalized.contains('month')) return month;
       if (normalized.contains('day') || normalized.contains('date')) return day;
       if (normalized.contains('year')) {
-        return normalized.contains('short')
-            ? calendarYearShort
-            : '${now.year}';
+        return normalized.contains('short') ? calendarYearShort : '${now.year}';
       }
 
       return token;
@@ -4301,7 +4296,9 @@ class _SettingsBranchCreatePageState
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.successGreen,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
@@ -4608,7 +4605,9 @@ class _SettingsBranchCreatePageState
                               Navigator.pop(ctx);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.successGreen,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(
@@ -5941,7 +5940,9 @@ class _SettingsBranchCreatePageState
                                         ? null
                                         : () => saveType(setS, ctx),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF10B981),
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       padding: const EdgeInsets.symmetric(

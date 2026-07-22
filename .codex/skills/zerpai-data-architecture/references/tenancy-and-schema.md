@@ -30,4 +30,6 @@
 - Use `current schema.md` and `PRD/prd_schema.md` as the reference snapshots for field names and table existence.
 - Do not reintroduce deprecated `items`-table thinking when the PRD now centers on `products`.
 - For new lookups or master tables, follow the PRD naming convention rather than inventing inconsistent names.
-- Settings-owned tables that are not yet renamed must still start with `settings_`; all renamed tables follow the standard module naming convention.
+- Settings-owned backend work must use the canonical table names in `current schema.md`.
+- Do not add a blanket `settings_` prefix for new Settings-related tables.
+- If a new table is unavoidable, name it by owning domain and purpose, matching the existing schema style.

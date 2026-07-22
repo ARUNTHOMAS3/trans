@@ -21,7 +21,6 @@ import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
-
 // ─── Sidebar nav ──────────────────────────────────────────────────────────────
 
 class _NavSection {
@@ -296,9 +295,8 @@ class _SettingsWarehousesListPageState
           .toList();
       final List<String> branchIds = rawWarehouses
           .map(
-            (warehouse) => (warehouse['source_branch_id'] ?? '')
-                .toString()
-                .trim(),
+            (warehouse) =>
+                (warehouse['source_branch_id'] ?? '').toString().trim(),
           )
           .where((id) => id.isNotEmpty)
           .toList();
@@ -331,8 +329,7 @@ class _SettingsWarehousesListPageState
                 summaries[parsed.sourceBranchId]?.isEnabled ?? false,
             associatedZoneCount:
                 summaries[parsed.sourceBranchId]?.zoneCount ?? 0,
-            associatedBinCount:
-                summaries[parsed.sourceBranchId]?.binCount ?? 0,
+            associatedBinCount: summaries[parsed.sourceBranchId]?.binCount ?? 0,
           );
         }).toList();
         _isLoading = false;
@@ -658,10 +655,7 @@ class _SettingsWarehousesListPageState
         ElevatedButton.icon(
           onPressed: () => context.goNamed(
             AppRoutes.settingsWarehouseCreate,
-            pathParameters: {
-              'orgSystemId':
-                  resolveOrgSystemId(context),
-            },
+            pathParameters: {'orgSystemId': resolveOrgSystemId(context)},
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: accentColor,
@@ -796,7 +790,10 @@ class _SettingsWarehousesListPageState
                   if (warehouse.isDefault) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(4),
@@ -850,7 +847,8 @@ class _SettingsWarehousesListPageState
                             'orgSystemId':
                                 GoRouterState.of(
                                   context,
-                                ).pathParameters['orgSystemId'] ?? resolveOrgSystemId(context),
+                                ).pathParameters['orgSystemId'] ??
+                                resolveOrgSystemId(context),
                           },
                           queryParameters: {
                             'warehouseId': warehouse.id,
@@ -956,8 +954,7 @@ class _SettingsWarehousesListPageState
             context.goNamed(
               AppRoutes.settingsWarehouseEdit,
               pathParameters: {
-                'orgSystemId':
-                    resolveOrgSystemId(context),
+                'orgSystemId': resolveOrgSystemId(context),
                 'id': warehouse.id,
               },
             );
@@ -1091,10 +1088,7 @@ class _SettingsWarehousesListPageState
         if (!mounted) return;
         context.goNamed(
           AppRoutes.settingsZones,
-          pathParameters: {
-            'orgSystemId':
-                resolveOrgSystemId(context),
-          },
+          pathParameters: {'orgSystemId': resolveOrgSystemId(context)},
           queryParameters: {
             'warehouseId': warehouse.id,
             'warehouseName': warehouse.name,

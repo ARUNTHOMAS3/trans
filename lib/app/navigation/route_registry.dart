@@ -14,4 +14,3 @@ class RouteRegistry {
     return map;
   }
 }
-

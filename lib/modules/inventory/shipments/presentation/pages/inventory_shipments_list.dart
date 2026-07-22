@@ -20,6 +20,7 @@ import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import '../../../../../core/providers/entity_provider.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
@@ -29,17 +30,28 @@ const _shipmentFilterOptions = <FavoriteFilterOption>[
   FavoriteFilterOption(label: 'Shipped', value: 'shipped'),
   FavoriteFilterOption(label: 'In Transit', value: 'in_transit'),
   FavoriteFilterOption(label: 'Out For Delivery', value: 'out_for_delivery'),
-  FavoriteFilterOption(label: 'Failed Delivery Attempt', value: 'failed_delivery_attempt'),
+  FavoriteFilterOption(
+    label: 'Failed Delivery Attempt',
+    value: 'failed_delivery_attempt',
+  ),
   FavoriteFilterOption(label: 'Customs Clearance', value: 'customs_clearance'),
   FavoriteFilterOption(label: 'Ready For Pickup', value: 'ready_for_pickup'),
   FavoriteFilterOption(label: 'Delayed', value: 'delayed'),
   FavoriteFilterOption(label: 'Delivered', value: 'delivered'),
   FavoriteFilterOption(label: 'Delivered to PO', value: 'delivered_to_po'),
-  FavoriteFilterOption(label: 'White Glove Delivery', value: 'white_glove_delivery'),
-  FavoriteFilterOption(label: 'Delivered from Pickup Point', value: 'delivered_from_pickup_point'),
+  FavoriteFilterOption(
+    label: 'White Glove Delivery',
+    value: 'white_glove_delivery',
+  ),
+  FavoriteFilterOption(
+    label: 'Delivered from Pickup Point',
+    value: 'delivered_from_pickup_point',
+  ),
 ];
 
-final shipmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final shipmentsProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
   print('[shipmentsProvider] Started');
   final supabase = Supabase.instance.client;
   final entityState = ref.watch(entityProvider);
@@ -48,34 +60,39 @@ final shipmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async
     print('[shipmentsProvider] Missing entity scope; returning empty list');
     return [];
   }
-  
+
   try {
     print('[shipmentsProvider] Querying Supabase with entityId: $entityId');
     final response = await supabase
         .from('inventory_shipments')
-        .select('*, customers(display_name, place_of_supply), inventory_shipment_sales_orders(sales_orders(id, sale_number, sale_date, status)), inventory_shipment_packages(inventory_packages(id, package_number, created_at, inventory_package_items(quantity, products(product_name))))')
+        .select(
+          '*, customers(display_name, place_of_supply), inventory_shipment_sales_orders(sales_orders(id, sale_number, sale_date, status)), inventory_shipment_packages(inventory_packages(id, package_number, created_at, inventory_package_items(quantity, products(product_name))))',
+        )
         .eq('entity_id', entityId)
         .order('created_at', ascending: false);
-        
+
     print('[shipmentsProvider] Response length: ${response.length}');
     if (response.isNotEmpty) {
-      print('[shipmentsProvider] First shipment entity_id: ${response[0]['entity_id']}');
+      print(
+        '[shipmentsProvider] First shipment entity_id: ${response[0]['entity_id']}',
+      );
     }
-    
+
     final list = List<Map<String, dynamic>>.from(response);
-    
+
     // Extract items from packages
     for (var s in list) {
       final items = <Map<String, dynamic>>[];
       final packages = s['inventory_shipment_packages'] as List?;
       if (packages != null) {
         for (var pkg in packages) {
-          final pkgItems = pkg['inventory_packages']?['inventory_package_items'] as List?;
+          final pkgItems =
+              pkg['inventory_packages']?['inventory_package_items'] as List?;
           if (pkgItems != null) {
             for (var item in pkgItems) {
               items.add({
                 'name': item['products']?['product_name'] ?? 'Unknown Product',
-                'description': '', 
+                'description': '',
                 'quantity': item['quantity'] ?? 0.0,
                 'unit': 'pcs',
               });
@@ -85,7 +102,7 @@ final shipmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async
       }
       s['items'] = items;
     }
-    
+
     return list;
   } catch (e) {
     print('[shipmentsProvider] Error: $e');
@@ -98,10 +115,12 @@ class InventoryShipmentsListScreen extends ConsumerStatefulWidget {
   const InventoryShipmentsListScreen({super.key, this.id});
 
   @override
-  ConsumerState<InventoryShipmentsListScreen> createState() => _InventoryShipmentsListScreenState();
+  ConsumerState<InventoryShipmentsListScreen> createState() =>
+      _InventoryShipmentsListScreenState();
 }
 
-class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipmentsListScreen> {
+class _InventoryShipmentsListScreenState
+    extends ConsumerState<InventoryShipmentsListScreen> {
   String? _activeShipmentId;
   final Set<String> _selectedIds = {};
   String _sortField = 'created_at';
@@ -109,7 +128,15 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
   bool _shouldWrapText = false;
   FavoriteFilterOption _activeOption = _shipmentFilterOptions.first;
   Set<String> _visibleColumns = {
-    'date', 'shipment_number', 'customer_name', 'sales_order#', 'package#', 'carrier', 'tracking#', 'status', 'shipping_rate'
+    'date',
+    'shipment_number',
+    'customer_name',
+    'sales_order#',
+    'package#',
+    'carrier',
+    'tracking#',
+    'status',
+    'shipping_rate',
   };
 
   void _showCustomColumnsDialog() {
@@ -132,7 +159,10 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
             return AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
-              title: const Text('Customize Columns', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              title: const Text(
+                'Customize Columns',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
               content: SizedBox(
                 width: 300,
                 child: ListView(
@@ -193,7 +223,10 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
     final supabase = Supabase.instance.client;
     try {
       for (final id in ids) {
-        await supabase.from('inventory_shipments').update({'is_delete': true}).eq('id', id);
+        await supabase
+            .from('inventory_shipments')
+            .update({'is_delete': true})
+            .eq('id', id);
       }
       ZerpaiToast.success(context, 'Shipments deleted successfully!');
       ref.invalidate(shipmentsProvider);
@@ -233,7 +266,8 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
             final filterVal = _activeOption.value.toLowerCase();
             if (filterVal == 'all') {
               return true;
-            } else if (filterVal.startsWith('delivered') || filterVal == 'white_glove_delivery') {
+            } else if (filterVal.startsWith('delivered') ||
+                filterVal == 'white_glove_delivery') {
               return isDelivered;
             } else {
               return !isDelivered;
@@ -271,7 +305,9 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
     );
   }
 
-  List<Map<String, dynamic>> _getSortedList(List<Map<String, dynamic>> shipments) {
+  List<Map<String, dynamic>> _getSortedList(
+    List<Map<String, dynamic>> shipments,
+  ) {
     final list = List<Map<String, dynamic>>.from(shipments);
     list.sort((a, b) {
       int cmp;
@@ -280,13 +316,17 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
           cmp = (a['date'] ?? '').compareTo(b['date'] ?? '');
           break;
         case 'shipment_number':
-          cmp = (a['shipment_number'] ?? '').compareTo(b['shipment_number'] ?? '');
+          cmp = (a['shipment_number'] ?? '').compareTo(
+            b['shipment_number'] ?? '',
+          );
           break;
         case 'carrier':
           cmp = (a['carrier'] ?? '').compareTo(b['carrier'] ?? '');
           break;
         case 'tracking_number':
-          cmp = (a['tracking_number'] ?? '').compareTo(b['tracking_number'] ?? '');
+          cmp = (a['tracking_number'] ?? '').compareTo(
+            b['tracking_number'] ?? '',
+          );
           break;
         case 'created_at':
           cmp = (a['created_at'] ?? '').compareTo(b['created_at'] ?? '');
@@ -405,24 +445,38 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
           Text(label),
           if (isSelected) ...[
             const SizedBox(width: 4),
-            Icon(_sortAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown, size: 12),
+            Icon(
+              _sortAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+              size: 12,
+            ),
           ],
         ],
       ),
     );
   }
 
-
-
-  Widget _buildCheckboxWidget(bool isSelected, {bool isPartially = false, VoidCallback? onTap}) {
+  Widget _buildCheckboxWidget(
+    bool isSelected, {
+    bool isPartially = false,
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       child: isSelected || isPartially
           ? Container(
               width: 18,
               height: 18,
-              decoration: BoxDecoration(color: AppTheme.primaryBlue, borderRadius: BorderRadius.circular(3)),
-              child: Center(child: Icon(isPartially ? LucideIcons.minus : LucideIcons.check, size: 14, color: Colors.white)),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Center(
+                child: Icon(
+                  isPartially ? LucideIcons.minus : LucideIcons.check,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
             )
           : Container(
               width: 18,
@@ -459,7 +513,7 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
-        
+
         // Define metrics for each column
         final Map<String, ({double min, double flex})> metrics = {
           'date': (min: 200.0, flex: 2.0),
@@ -508,20 +562,24 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                       children: [
                         ZTableHeaderMenu(
                           wrapText: _shouldWrapText,
-                          onWrapChange: (v) => setState(() => _shouldWrapText = v),
+                          onWrapChange: (v) =>
+                              setState(() => _shouldWrapText = v),
                           onCustomize: () {
                             _showCustomColumnsDialog();
                           },
                         ),
                         const SizedBox(width: 8),
                         _buildCheckboxWidget(
-                          shipments.isNotEmpty && _selectedIds.length == shipments.length,
+                          shipments.isNotEmpty &&
+                              _selectedIds.length == shipments.length,
                           onTap: () {
                             setState(() {
                               if (_selectedIds.length == shipments.length) {
                                 _selectedIds.clear();
                               } else {
-                                _selectedIds.addAll(shipments.map((s) => s['id'] as String));
+                                _selectedIds.addAll(
+                                  shipments.map((s) => s['id'] as String),
+                                );
                               }
                             });
                           },
@@ -533,32 +591,80 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                   ),
                 ),
               if (_visibleColumns.contains('shipment_number'))
-                DataColumn(label: SizedBox(width: columnWidths['shipment_number']!, child: const Text('SHIPMENT ORDER#'))),
+                DataColumn(
+                  label: SizedBox(
+                    width: columnWidths['shipment_number']!,
+                    child: const Text('SHIPMENT ORDER#'),
+                  ),
+                ),
               if (_visibleColumns.contains('customer_name'))
-                DataColumn(label: SizedBox(width: columnWidths['customer_name']!, child: const Text('CUSTOMER NAME'))),
+                DataColumn(
+                  label: SizedBox(
+                    width: columnWidths['customer_name']!,
+                    child: const Text('CUSTOMER NAME'),
+                  ),
+                ),
               if (_visibleColumns.contains('sales_order#'))
-                DataColumn(label: SizedBox(width: columnWidths['sales_order#']!, child: const Text('SALES ORDER#'))),
+                DataColumn(
+                  label: SizedBox(
+                    width: columnWidths['sales_order#']!,
+                    child: const Text('SALES ORDER#'),
+                  ),
+                ),
               if (_visibleColumns.contains('package#'))
-                DataColumn(label: SizedBox(width: columnWidths['package#']!, child: const Text('PACKAGE#'))),
+                DataColumn(
+                  label: SizedBox(
+                    width: columnWidths['package#']!,
+                    child: const Text('PACKAGE#'),
+                  ),
+                ),
               if (_visibleColumns.contains('carrier'))
-                DataColumn(label: SizedBox(width: columnWidths['carrier']!, child: const Text('CARRIER'))),
+                DataColumn(
+                  label: SizedBox(
+                    width: columnWidths['carrier']!,
+                    child: const Text('CARRIER'),
+                  ),
+                ),
               if (_visibleColumns.contains('tracking#'))
-                DataColumn(label: SizedBox(width: columnWidths['tracking#']!, child: const Text('TRACKING#'))),
+                DataColumn(
+                  label: SizedBox(
+                    width: columnWidths['tracking#']!,
+                    child: const Text('TRACKING#'),
+                  ),
+                ),
               if (_visibleColumns.contains('status'))
-                DataColumn(label: SizedBox(width: columnWidths['status']!, child: const Text('STATUS'))),
+                DataColumn(
+                  label: SizedBox(
+                    width: columnWidths['status']!,
+                    child: const Text('STATUS'),
+                  ),
+                ),
               if (_visibleColumns.contains('shipping_rate'))
-                DataColumn(label: SizedBox(width: columnWidths['shipping_rate']!, child: const Text('SHIPPING RATE'))),
+                DataColumn(
+                  label: SizedBox(
+                    width: columnWidths['shipping_rate']!,
+                    child: const Text('SHIPPING RATE'),
+                  ),
+                ),
             ],
             rows: shipments.map((s) {
-              final soList = (s['inventory_shipment_sales_orders'] as List?)
-                  ?.map((e) => e['sales_orders']?['sale_number'] as String?)
-                  .where((e) => e != null)
-                  .join(', ') ?? '';
-                  
-              final pkgList = (s['inventory_shipment_packages'] as List?)
-                  ?.map((e) => e['inventory_packages']?['package_number'] as String?)
-                  .where((e) => e != null)
-                  .join(', ') ?? '';
+              final soList =
+                  (s['inventory_shipment_sales_orders'] as List?)
+                      ?.map((e) => e['sales_orders']?['sale_number'] as String?)
+                      .where((e) => e != null)
+                      .join(', ') ??
+                  '';
+
+              final pkgList =
+                  (s['inventory_shipment_packages'] as List?)
+                      ?.map(
+                        (e) =>
+                            e['inventory_packages']?['package_number']
+                                as String?,
+                      )
+                      .where((e) => e != null)
+                      .join(', ') ??
+                  '';
 
               final isSelected = _selectedIds.contains(s['id']);
 
@@ -580,7 +686,9 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                         width: columnWidths['date']!,
                         child: Row(
                           children: [
-                            const SizedBox(width: 28), // Space for ZTableHeaderMenu
+                            const SizedBox(
+                              width: 28,
+                            ), // Space for ZTableHeaderMenu
                             const SizedBox(width: 8),
                             _buildCheckboxWidget(
                               isSelected,
@@ -595,7 +703,13 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                               },
                             ),
                             const SizedBox(width: 8),
-                            Text(s['date'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(s['date'])) : ''),
+                            Text(
+                              s['date'] != null
+                                  ? DateFormat(
+                                      'dd-MM-yyyy',
+                                    ).format(DateTime.parse(s['date']))
+                                  : '',
+                            ),
                           ],
                         ),
                       ),
@@ -618,15 +732,40 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                       ),
                     ),
                   if (_visibleColumns.contains('customer_name'))
-                    DataCell(SizedBox(width: columnWidths['customer_name']!, child: Text(s['customers']?['display_name'] ?? ''))),
+                    DataCell(
+                      SizedBox(
+                        width: columnWidths['customer_name']!,
+                        child: Text(s['customers']?['display_name'] ?? ''),
+                      ),
+                    ),
                   if (_visibleColumns.contains('sales_order#'))
-                    DataCell(SizedBox(width: columnWidths['sales_order#']!, child: Text(soList))),
+                    DataCell(
+                      SizedBox(
+                        width: columnWidths['sales_order#']!,
+                        child: Text(soList),
+                      ),
+                    ),
                   if (_visibleColumns.contains('package#'))
-                    DataCell(SizedBox(width: columnWidths['package#']!, child: Text(pkgList))),
+                    DataCell(
+                      SizedBox(
+                        width: columnWidths['package#']!,
+                        child: Text(pkgList),
+                      ),
+                    ),
                   if (_visibleColumns.contains('carrier'))
-                    DataCell(SizedBox(width: columnWidths['carrier']!, child: Text(s['carrier'] ?? ''))),
+                    DataCell(
+                      SizedBox(
+                        width: columnWidths['carrier']!,
+                        child: Text(s['carrier'] ?? ''),
+                      ),
+                    ),
                   if (_visibleColumns.contains('tracking#'))
-                    DataCell(SizedBox(width: columnWidths['tracking#']!, child: Text(s['tracking_number'] ?? ''))),
+                    DataCell(
+                      SizedBox(
+                        width: columnWidths['tracking#']!,
+                        child: Text(s['tracking_number'] ?? ''),
+                      ),
+                    ),
                   if (_visibleColumns.contains('status'))
                     DataCell(
                       SizedBox(
@@ -634,14 +773,21 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                         child: Text(
                           s['is_delivered'] == true ? 'DELIVERED' : 'SHIPPED',
                           style: TextStyle(
-                            color: s['is_delivered'] == true ? Colors.green : Colors.blue,
+                            color: s['is_delivered'] == true
+                                ? Colors.green
+                                : Colors.blue,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
                   if (_visibleColumns.contains('shipping_rate'))
-                    DataCell(SizedBox(width: columnWidths['shipping_rate']!, child: Text('₹${s['shipping_charges'] ?? '0.00'}'))),
+                    DataCell(
+                      SizedBox(
+                        width: columnWidths['shipping_rate']!,
+                        child: Text('₹${s['shipping_charges'] ?? '0.00'}'),
+                      ),
+                    ),
                 ],
               );
             }).toList(),
@@ -651,20 +797,27 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
     );
   }
 
-  Widget _buildSplitView(List<Map<String, dynamic>> filteredShipments, List<Map<String, dynamic>> allShipments) {
-    final selectedIndex = allShipments.indexWhere((s) => s['id'] == _activeShipmentId);
+  Widget _buildSplitView(
+    List<Map<String, dynamic>> filteredShipments,
+    List<Map<String, dynamic>> allShipments,
+  ) {
+    final selectedIndex = allShipments.indexWhere(
+      (s) => s['id'] == _activeShipmentId,
+    );
     if (selectedIndex == -1) {
       return const Center(child: Text('Shipment not found'));
     }
     final selected = allShipments[selectedIndex];
-    
+
     return Row(
       children: [
         SizedBox(
           width: 360,
           child: Column(
             children: [
-              _selectedIds.isNotEmpty ? _buildCompactSelectionBar() : _buildCompactHeader(),
+              _selectedIds.isNotEmpty
+                  ? _buildCompactSelectionBar()
+                  : _buildCompactHeader(),
               const Divider(height: 1, color: AppTheme.borderColor),
               Expanded(child: _buildCompactList(filteredShipments)),
             ],
@@ -720,19 +873,31 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                   height: 32,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(LucideIcons.plus, size: 16, color: Colors.white),
+                    icon: const Icon(
+                      LucideIcons.plus,
+                      size: 16,
+                      color: Colors.white,
+                    ),
                     onPressed: () {
                       context.go('/inventory/shipments/create');
                     },
                   ),
                 ),
-                Container(width: 1, height: 20, color: Colors.white.withValues(alpha: 0.3)),
+                Container(
+                  width: 1,
+                  height: 20,
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
                 SizedBox(
                   width: 32,
                   height: 32,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(LucideIcons.chevronDown, size: 14, color: Colors.white),
+                    icon: const Icon(
+                      LucideIcons.chevronDown,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                     onPressed: () {},
                   ),
                 ),
@@ -752,7 +917,11 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
               height: 32,
               child: IconButton(
                 padding: EdgeInsets.zero,
-                icon: const Icon(LucideIcons.moreHorizontal, size: 16, color: AppTheme.textSecondary),
+                icon: const Icon(
+                  LucideIcons.moreHorizontal,
+                  size: 16,
+                  color: AppTheme.textSecondary,
+                ),
                 onPressed: () {},
               ),
             ),
@@ -768,7 +937,7 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
       itemBuilder: (context, index) {
         final s = shipments[index];
         final isActive = s['id'] == _activeShipmentId;
-        
+
         return InkWell(
           onTap: () {
             setState(() {
@@ -779,7 +948,9 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isActive ? AppTheme.bgLight : Colors.white,
-              border: const Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              border: const Border(
+                bottom: BorderSide(color: AppTheme.borderColor),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -809,7 +980,10 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                     const Spacer(),
                     Text(
                       s['date'] ?? '',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -818,7 +992,10 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                   padding: const EdgeInsets.only(left: 26),
                   child: Text(
                     s['customers']?['display_name'] ?? '',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -828,7 +1005,9 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                     s['is_delivered'] == true ? 'DELIVERED' : 'SHIPPED',
                     style: TextStyle(
                       fontSize: 12,
-                      color: s['is_delivered'] == true ? Colors.green : Colors.blue,
+                      color: s['is_delivered'] == true
+                          ? Colors.green
+                          : Colors.blue,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -851,48 +1030,84 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
       ),
       child: Row(
         children: [
-          _buildCheckboxWidget(true, onTap: () => setState(() => _selectedIds.clear())),
+          _buildCheckboxWidget(
+            true,
+            onTap: () => setState(() => _selectedIds.clear()),
+          ),
           const SizedBox(width: 16),
           // Download Button
           OutlinedButton(
             onPressed: () async {
               if (_selectedIds.isEmpty) {
-                ZerpaiToast.error(context, 'Please select at least one shipment.');
+                ZerpaiToast.error(
+                  context,
+                  'Please select at least one shipment.',
+                );
                 return;
               }
               final shipmentId = _selectedIds.first;
-              final shipment = shipments.firstWhere((s) => s['id'] == shipmentId);
+              final shipment = shipments.firstWhere(
+                (s) => s['id'] == shipmentId,
+              );
               final orgSettings = ref.read(orgSettingsProvider).asData?.value;
-              final pdfBytes = await _generateShipmentPdf(shipment, orgSettings);
-              await Printing.sharePdf(bytes: pdfBytes, filename: 'shipment_${shipment['shipment_number']}.pdf');
+              final pdfBytes = await _generateShipmentPdf(
+                shipment,
+                orgSettings,
+              );
+              await Printing.sharePdf(
+                bytes: pdfBytes,
+                filename: 'shipment_${shipment['shipment_number']}.pdf',
+              );
             },
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppTheme.borderColor),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
-            child: const Icon(LucideIcons.fileText, size: 16, color: AppTheme.textPrimary),
+            child: const Icon(
+              LucideIcons.fileText,
+              size: 16,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const SizedBox(width: 8),
           // Print Button
           OutlinedButton(
             onPressed: () async {
               if (_selectedIds.isEmpty) {
-                ZerpaiToast.error(context, 'Please select at least one shipment.');
+                ZerpaiToast.error(
+                  context,
+                  'Please select at least one shipment.',
+                );
                 return;
               }
               final shipmentId = _selectedIds.first;
-              final shipment = shipments.firstWhere((s) => s['id'] == shipmentId);
+              final shipment = shipments.firstWhere(
+                (s) => s['id'] == shipmentId,
+              );
               final orgSettings = ref.read(orgSettingsProvider).asData?.value;
-              final pdfBytes = await _generateShipmentPdf(shipment, orgSettings);
-              await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdfBytes);
+              final pdfBytes = await _generateShipmentPdf(
+                shipment,
+                orgSettings,
+              );
+              await Printing.layoutPdf(
+                onLayout: (PdfPageFormat format) async => pdfBytes,
+              );
             },
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppTheme.borderColor),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
-            child: const Icon(LucideIcons.printer, size: 16, color: AppTheme.textPrimary),
+            child: const Icon(
+              LucideIcons.printer,
+              size: 16,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const SizedBox(width: 16),
           // Delete Button
@@ -908,7 +1123,11 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
             ),
             child: Text(
               '${_selectedIds.length} Selected',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimary),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppTheme.textPrimary,
+              ),
             ),
           ),
           const Spacer(),
@@ -936,27 +1155,43 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
       ),
       child: Row(
         children: [
-          _buildCheckboxWidget(true, onTap: () => setState(() => _selectedIds.clear())),
+          _buildCheckboxWidget(
+            true,
+            onTap: () => setState(() => _selectedIds.clear()),
+          ),
           const SizedBox(width: 16),
           MenuAnchor(
             builder: (context, controller, child) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   border: Border.all(color: AppTheme.borderColor),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: InkWell(
-                  onTap: () => controller.isOpen ? controller.close() : controller.open(),
+                  onTap: () => controller.isOpen
+                      ? controller.close()
+                      : controller.open(),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Bulk Actions',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                       SizedBox(width: 4),
-                      Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.textSecondary),
+                      Icon(
+                        LucideIcons.chevronDown,
+                        size: 14,
+                        color: AppTheme.textSecondary,
+                      ),
                     ],
                   ),
                 ),
@@ -980,7 +1215,11 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
             ),
             child: Text(
               '${_selectedIds.length} Selected',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimary),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppTheme.textPrimary,
+              ),
             ),
           ),
           const Spacer(),
@@ -1021,7 +1260,7 @@ class _EmptyShipmentsView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildToolbar(context),
-          
+
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
             child: Column(
@@ -1099,7 +1338,11 @@ class _EmptyShipmentsView extends StatelessWidget {
                         color: AppTheme.primaryBlue,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(LucideIcons.check, size: 10, color: Colors.white),
+                      child: const Icon(
+                        LucideIcons.check,
+                        size: 10,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -1160,31 +1403,71 @@ class _EmptyShipmentsView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildNode('Sales Order Confirmed', LucideIcons.fileText, iconColor: const Color(0xFF0088FF), bgColor: const Color(0xFFEFF6FF)),
+            _buildNode(
+              'Sales Order Confirmed',
+              LucideIcons.fileText,
+              iconColor: const Color(0xFF0088FF),
+              bgColor: const Color(0xFFEFF6FF),
+            ),
             _buildArrow(),
-            _buildNode('Packages Created', LucideIcons.package, iconColor: const Color(0xFF0088FF), bgColor: const Color(0xFFEFF6FF)),
+            _buildNode(
+              'Packages Created',
+              LucideIcons.package,
+              iconColor: const Color(0xFF0088FF),
+              bgColor: const Color(0xFFEFF6FF),
+            ),
             _buildArrow(),
-            _buildNode('Create Shipment', LucideIcons.filePlus, iconColor: const Color(0xFF7C3AED), bgColor: const Color(0xFFFAF5FF)),
+            _buildNode(
+              'Create Shipment',
+              LucideIcons.filePlus,
+              iconColor: const Color(0xFF7C3AED),
+              bgColor: const Color(0xFFFAF5FF),
+            ),
             _buildArrow(),
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildNode('Via Carrier', LucideIcons.truck, iconColor: const Color(0xFF0088FF), bgColor: const Color(0xFFEFF6FF)),
+                _buildNode(
+                  'Via Carrier',
+                  LucideIcons.truck,
+                  iconColor: const Color(0xFF0088FF),
+                  bgColor: const Color(0xFFEFF6FF),
+                ),
                 const SizedBox(height: 24),
-                _buildNode('Manually', LucideIcons.clipboardList, iconColor: const Color(0xFF0088FF), bgColor: const Color(0xFFEFF6FF)),
+                _buildNode(
+                  'Manually',
+                  LucideIcons.clipboardList,
+                  iconColor: const Color(0xFF0088FF),
+                  bgColor: const Color(0xFFEFF6FF),
+                ),
               ],
             ),
             _buildArrow(),
-            _buildNode('Shipped', LucideIcons.truck, iconColor: const Color(0xFF28A745), bgColor: const Color(0xFFECFDF5)),
+            _buildNode(
+              'Shipped',
+              LucideIcons.truck,
+              iconColor: const Color(0xFF28A745),
+              bgColor: const Color(0xFFECFDF5),
+            ),
             _buildArrow(),
-            _buildNode('Delivered', LucideIcons.packageCheck, iconColor: const Color(0xFF28A745), bgColor: const Color(0xFFECFDF5)),
+            _buildNode(
+              'Delivered',
+              LucideIcons.packageCheck,
+              iconColor: const Color(0xFF28A745),
+              bgColor: const Color(0xFFECFDF5),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNode(String text, IconData icon, {required Color iconColor, required Color bgColor}) {
+  Widget _buildNode(
+    String text,
+    IconData icon, {
+    required Color iconColor,
+    required Color bgColor,
+  }) {
     return Container(
       width: 170,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -1236,7 +1519,11 @@ class _EmptyShipmentsView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(height: 1, width: 24, color: const Color(0xFFE5E7EB)),
-          const Icon(LucideIcons.chevronRight, size: 14, color: Color(0xFFD1D5DB)),
+          const Icon(
+            LucideIcons.chevronRight,
+            size: 14,
+            color: Color(0xFFD1D5DB),
+          ),
         ],
       ),
     );
@@ -1250,7 +1537,8 @@ class _ShipmentDetailPanel extends ConsumerStatefulWidget {
   const _ShipmentDetailPanel({required this.shipment, required this.onClose});
 
   @override
-  ConsumerState<_ShipmentDetailPanel> createState() => _ShipmentDetailPanelState();
+  ConsumerState<_ShipmentDetailPanel> createState() =>
+      _ShipmentDetailPanelState();
 }
 
 class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
@@ -1269,7 +1557,10 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
 
     final supabase = Supabase.instance.client;
     try {
-      await supabase.from('inventory_shipments').update({'is_delete': true}).eq('id', id);
+      await supabase
+          .from('inventory_shipments')
+          .update({'is_delete': true})
+          .eq('id', id);
       ZerpaiToast.success(context, 'Shipment deleted successfully!');
       ref.invalidate(shipmentsProvider);
     } catch (e) {
@@ -1281,7 +1572,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
   Widget build(BuildContext context) {
     final s = widget.shipment;
     final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
-    
+
     return Container(
       color: Colors.white,
       child: Column(
@@ -1297,17 +1588,24 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               children: [
                 Text(
                   s['shipment_number'] ?? '',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
+                  icon: const Icon(
+                    LucideIcons.x,
+                    size: 18,
+                    color: AppTheme.errorRed,
+                  ),
                   onPressed: widget.onClose,
                 ),
               ],
             ),
           ),
-          
+
           // Action Toolbar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -1333,9 +1631,9 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               ],
             ),
           ),
-          
+
           _buildDetailTabs(s),
-          
+
           // Content Scrollable
           Expanded(
             child: SingleChildScrollView(
@@ -1346,11 +1644,18 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                   // Shipment Details Section
                   Row(
                     children: [
-                      const Icon(LucideIcons.truck, size: 16, color: AppTheme.textSecondary),
+                      const Icon(
+                        LucideIcons.truck,
+                        size: 16,
+                        color: AppTheme.textSecondary,
+                      ),
                       const SizedBox(width: 8),
                       const Text(
                         'Shipment Details',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
@@ -1368,11 +1673,19 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildDetailItem('Date of Shipment', s['date'] ?? ''),
+                              _buildDetailItem(
+                                'Date of Shipment',
+                                s['date'] ?? '',
+                              ),
                               const SizedBox(height: 12),
                               _buildDetailItem('Carrier', s['carrier'] ?? ''),
                               const SizedBox(height: 12),
-                              _buildDetailItem('Tracking Status', s['is_delivered'] == true ? 'Delivered' : 'Shipped'),
+                              _buildDetailItem(
+                                'Tracking Status',
+                                s['is_delivered'] == true
+                                    ? 'Delivered'
+                                    : 'Shipped',
+                              ),
                             ],
                           ),
                         ),
@@ -1381,14 +1694,17 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                                _buildDetailItem(
-                                  'Shipment Notes',
-                                  s['notes'] != null && s['notes'].toString().isNotEmpty ? s['notes'] : 'Add Notes',
-                                  isLink: true,
-                                  onTap: () {
-                                    _showEditNotesDialog(s);
-                                  },
-                                ),
+                              _buildDetailItem(
+                                'Shipment Notes',
+                                s['notes'] != null &&
+                                        s['notes'].toString().isNotEmpty
+                                    ? s['notes']
+                                    : 'Add Notes',
+                                isLink: true,
+                                onTap: () {
+                                  _showEditNotesDialog(s);
+                                },
+                              ),
                             ],
                           ),
                         ),
@@ -1396,7 +1712,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Document Preview
                   Center(
                     child: Container(
@@ -1420,8 +1736,12 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                               top: 0,
                               left: 0,
                               child: _PdfCornerRibbon(
-                                label: s['is_delivered'] == true ? 'Delivered' : 'Shipped',
-                                color: s['is_delivered'] == true ? AppTheme.successGreen : AppTheme.primaryBlue,
+                                label: s['is_delivered'] == true
+                                    ? 'Delivered'
+                                    : 'Shipped',
+                                color: s['is_delivered'] == true
+                                    ? AppTheme.successGreen
+                                    : AppTheme.primaryBlue,
                               ),
                             ),
                             Padding(
@@ -1431,134 +1751,292 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                                 children: [
                                   // Document Header
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 40), // Push logo below the diagonal ribbon
-                                          _buildPdfLogo(orgSettings),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            orgSettings?.name.trim().isNotEmpty == true
-                                                ? orgSettings!.name.trim().toUpperCase()
-                                                : 'YOUR COMPANY NAME',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                          ),
-                                          if (orgSettings?.paymentStubAddress?.trim().isNotEmpty == true)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                _formatAddress(orgSettings!.paymentStubAddress),
-                                                style: const TextStyle(fontSize: 10, height: 1.5),
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const SizedBox(
+                                              height: 40,
+                                            ), // Push logo below the diagonal ribbon
+                                            _buildPdfLogo(orgSettings),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              orgSettings?.name
+                                                          .trim()
+                                                          .isNotEmpty ==
+                                                      true
+                                                  ? orgSettings!.name
+                                                        .trim()
+                                                        .toUpperCase()
+                                                  : 'YOUR COMPANY NAME',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
                                               ),
                                             ),
-                                        ],
-                                      ),
+                                            if (orgSettings?.paymentStubAddress
+                                                    ?.trim()
+                                                    .isNotEmpty ==
+                                                true)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 4,
+                                                ),
+                                                child: Text(
+                                                  _formatAddress(
+                                                    orgSettings!
+                                                        .paymentStubAddress,
+                                                  ),
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    height: 1.5,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ),
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         children: [
                                           const Text(
                                             'SHIPMENT ORDER',
-                                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             'Shipment Order# ${s['shipment_number'] ?? ''}',
-                                            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                                            style: const TextStyle(
+                                              color: AppTheme.textSecondary,
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ],
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 24),
-                                  
+
                                   // Addresses
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          const Text('Ship To', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                                          const Text(
+                                            'Ship To',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondary,
+                                              fontSize: 12,
+                                            ),
+                                          ),
                                           const SizedBox(height: 4),
-                                          Text(s['customers']?['display_name'] ?? 'CUS-1', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                          Text(
+                                            s['customers']?['display_name'] ??
+                                                'CUS-1',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         children: [
-                                          _buildPreviewRow('Sales Order#:', (s['inventory_shipment_sales_orders'] as List?)
-                                              ?.map((e) => e['sales_orders']?['sale_number'] as String?)
-                                              .where((e) => e != null)
-                                              .join(', ') ?? ''),
+                                          _buildPreviewRow(
+                                            'Sales Order#:',
+                                            (s['inventory_shipment_sales_orders']
+                                                        as List?)
+                                                    ?.map(
+                                                      (e) =>
+                                                          e['sales_orders']?['sale_number']
+                                                              as String?,
+                                                    )
+                                                    .where((e) => e != null)
+                                                    .join(', ') ??
+                                                '',
+                                          ),
                                           const SizedBox(height: 4),
-                                          _buildPreviewRow('Order Date:', (s['inventory_shipment_sales_orders'] as List?)
-                                              ?.map((e) => e['sales_orders']?['sale_date'] as String?)
-                                              .where((e) => e != null)
-                                              .map((e) => DateFormat('dd-MM-yyyy').format(DateTime.parse(e!)))
-                                              .join(', ') ?? ''),
+                                          _buildPreviewRow(
+                                            'Order Date:',
+                                            (s['inventory_shipment_sales_orders']
+                                                        as List?)
+                                                    ?.map(
+                                                      (e) =>
+                                                          e['sales_orders']?['sale_date']
+                                                              as String?,
+                                                    )
+                                                    .where((e) => e != null)
+                                                    .map(
+                                                      (e) =>
+                                                          DateFormat(
+                                                            'dd-MM-yyyy',
+                                                          ).format(
+                                                            DateTime.parse(e!),
+                                                          ),
+                                                    )
+                                                    .join(', ') ??
+                                                '',
+                                          ),
                                         ],
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 24),
-                                  
+
                                   Text(
                                     'Place of Supply: ${_getPlaceOfSupply(s['customers'])}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   const SizedBox(height: 8),
-                                  
+
                                   // Items Table
                                   Container(
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: AppTheme.borderColor),
+                                      border: Border.all(
+                                        color: AppTheme.borderColor,
+                                      ),
                                     ),
                                     child: Column(
                                       children: [
                                         // Table Header
                                         Container(
                                           color: const Color(0xFF374151),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
                                           child: const Row(
                                             children: [
-                                              SizedBox(width: 30, child: Text('#', style: TextStyle(color: Colors.white, fontSize: 12))),
-                                              Expanded(child: Text('Item & Description', style: TextStyle(color: Colors.white, fontSize: 12))),
-                                              SizedBox(width: 50, child: Text('Qty', style: TextStyle(color: Colors.white, fontSize: 12), textAlign: TextAlign.end)),
+                                              SizedBox(
+                                                width: 30,
+                                                child: Text(
+                                                  '#',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  'Item & Description',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                              SizedBox(
+                                                width: 50,
+                                                child: Text(
+                                                  'Qty',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                  ),
+                                                  textAlign: TextAlign.end,
+                                                ),
+                                              ),
                                             ],
                                           ),
                                         ),
                                         // Table Rows
-                                        ...List.generate((s['items'] as List? ?? []).length, (index) {
+                                        ...List.generate((s['items'] as List? ?? []).length, (
+                                          index,
+                                        ) {
                                           final item = s['items'][index];
                                           return Column(
                                             children: [
                                               Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8,
+                                                    ),
                                                 child: Row(
                                                   children: [
-                                                    SizedBox(width: 30, child: Text('${index + 1}', style: const TextStyle(fontSize: 12))),
+                                                    SizedBox(
+                                                      width: 30,
+                                                      child: Text(
+                                                        '${index + 1}',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ),
                                                     Expanded(
                                                       child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
                                                         children: [
-                                                          Text(item['name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                                          if (item['description']?.toString().isNotEmpty == true)
-                                                            Text(item['description'].toString(), style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                                                          Text(
+                                                            item['name'] ?? '',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 12,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                          ),
+                                                          if (item['description']
+                                                                  ?.toString()
+                                                                  .isNotEmpty ==
+                                                              true)
+                                                            Text(
+                                                              item['description']
+                                                                  .toString(),
+                                                              style: const TextStyle(
+                                                                fontSize: 11,
+                                                                color: AppTheme
+                                                                    .textSecondary,
+                                                              ),
+                                                            ),
                                                         ],
                                                       ),
                                                     ),
-                                                    SizedBox(width: 50, child: Text('${item['quantity']}\n${item['unit']}', style: const TextStyle(fontSize: 12), textAlign: TextAlign.end)),
+                                                    SizedBox(
+                                                      width: 50,
+                                                      child: Text(
+                                                        '${item['quantity']}\n${item['unit']}',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                        ),
+                                                        textAlign:
+                                                            TextAlign.end,
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               ),
-                                              if (index < (s['items'] as List).length - 1)
-                                                const Divider(height: 1, color: AppTheme.borderColor),
+                                              if (index <
+                                                  (s['items'] as List).length -
+                                                      1)
+                                                const Divider(
+                                                  height: 1,
+                                                  color: AppTheme.borderColor,
+                                                ),
                                             ],
                                           );
                                         }),
@@ -1603,7 +2081,9 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               decoration: BoxDecoration(
                 color: isHovered ? Colors.white : Colors.transparent,
                 border: Border.all(
-                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  color: isHovered
+                      ? const Color(0xFFD3D9E3)
+                      : Colors.transparent,
                   width: 1,
                 ),
                 borderRadius: BorderRadius.circular(4),
@@ -1622,7 +2102,11 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                   ),
                   if (hasDropdown) ...[
                     const SizedBox(width: 4),
-                    const Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.textPrimary),
+                    const Icon(
+                      LucideIcons.chevronDown,
+                      size: 12,
+                      color: AppTheme.textPrimary,
+                    ),
                   ],
                 ],
               ),
@@ -1632,8 +2116,6 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
       },
     );
   }
-
-
 
   Widget _buildDivider() {
     return Container(
@@ -1812,7 +2294,11 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
           children: [
             const Text('Edit Shipment Notes'),
             IconButton(
-              icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
+              icon: const Icon(
+                LucideIcons.x,
+                size: 18,
+                color: AppTheme.errorRed,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
           ],
@@ -1833,10 +2319,11 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
             onPressed: () async {
               final supabase = Supabase.instance.client;
               try {
-                await supabase.from('inventory_shipments').update({
-                  'notes': controller.text,
-                }).eq('id', shipment['id']);
-                
+                await supabase
+                    .from('inventory_shipments')
+                    .update({'notes': controller.text})
+                    .eq('id', shipment['id']);
+
                 ZerpaiToast.success(context, 'Notes updated successfully!');
                 ref.invalidate(shipmentsProvider);
                 Navigator.pop(context);
@@ -1844,7 +2331,9 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                 ZerpaiToast.error(context, 'Error updating notes: $e');
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.successGreen),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.successGreen,
+            ),
             child: const Text('Update', style: TextStyle(color: Colors.white)),
           ),
           OutlinedButton(
@@ -1859,6 +2348,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
   void _showMarkAsDeliveredDialog(Map<String, dynamic> shipment) {
     DateTime selectedDate = DateTime.now();
     TimeOfDay selectedTime = TimeOfDay.now();
+    final deliveredDateKey = GlobalKey();
 
     showDialog(
       context: context,
@@ -1870,7 +2360,11 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
             children: [
               const Text('Mark as Delivered'),
               IconButton(
-                icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
+                icon: const Icon(
+                  LucideIcons.x,
+                  size: 18,
+                  color: AppTheme.errorRed,
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -1881,26 +2375,34 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Delivered On', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const Text(
+                  'Delivered On',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     // Date Picker
                     Expanded(
                       child: InkWell(
+                        key: deliveredDateKey,
                         onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
+                          final picked = await ZerpaiDatePicker.show(
+                            context,
                             initialDate: selectedDate,
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2100),
+                            targetKey: deliveredDateKey,
                           );
                           if (picked != null) {
                             setState(() => selectedDate = picked);
                           }
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             border: Border.all(color: AppTheme.borderColor),
                             borderRadius: BorderRadius.circular(4),
@@ -1908,8 +2410,14 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(DateFormat('yyyy-MM-dd').format(selectedDate)),
-                              const Icon(LucideIcons.calendar, size: 16, color: AppTheme.textSecondary),
+                              Text(
+                                DateFormat('yyyy-MM-dd').format(selectedDate),
+                              ),
+                              const Icon(
+                                LucideIcons.calendar,
+                                size: 16,
+                                color: AppTheme.textSecondary,
+                              ),
                             ],
                           ),
                         ),
@@ -1929,7 +2437,10 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                           }
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             border: Border.all(color: AppTheme.borderColor),
                             borderRadius: BorderRadius.circular(4),
@@ -1938,7 +2449,11 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(selectedTime.format(context)),
-                              const Icon(LucideIcons.chevronDown, size: 16, color: AppTheme.textSecondary),
+                              const Icon(
+                                LucideIcons.chevronDown,
+                                size: 16,
+                                color: AppTheme.textSecondary,
+                              ),
                             ],
                           ),
                         ),
@@ -1960,13 +2475,16 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                   selectedTime.hour,
                   selectedTime.minute,
                 );
-                
+
                 try {
-                  await supabase.from('inventory_shipments').update({
-                    'is_delivered': true,
-                    'delivered_date': combinedDateTime.toIso8601String(),
-                  }).eq('id', shipment['id']);
-                  
+                  await supabase
+                      .from('inventory_shipments')
+                      .update({
+                        'is_delivered': true,
+                        'delivered_date': combinedDateTime.toIso8601String(),
+                      })
+                      .eq('id', shipment['id']);
+
                   ZerpaiToast.success(context, 'Shipment marked as delivered!');
                   ref.invalidate(shipmentsProvider);
                   Navigator.pop(context);
@@ -1974,8 +2492,13 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                   ZerpaiToast.error(context, 'Error updating status: $e');
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.successGreen),
-              child: const Text('Update', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.successGreen,
+              ),
+              child: const Text(
+                'Update',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
             OutlinedButton(
               onPressed: () => Navigator.pop(context),
@@ -2030,7 +2553,9 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                   Padding(
                     padding: const EdgeInsets.only(right: 16),
                     child: Icon(
-                      _isTabsExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
+                      _isTabsExpanded
+                          ? LucideIcons.chevronDown
+                          : LucideIcons.chevronRight,
                       size: 16,
                       color: AppTheme.textSecondary,
                     ),
@@ -2042,20 +2567,34 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
           if (_isTabsExpanded)
             Container(
               width: double.infinity,
-              child: _activeTab == 0 
-                ? (packages.isNotEmpty ? _buildPackagesTable(packages) : _buildEmptyState('No packages found')) 
-                : (salesOrders.isNotEmpty ? _buildSalesOrdersTable(salesOrders) : _buildEmptyState('No sales orders found')),
+              child: _activeTab == 0
+                  ? (packages.isNotEmpty
+                        ? _buildPackagesTable(packages)
+                        : _buildEmptyState('No packages found'))
+                  : (salesOrders.isNotEmpty
+                        ? _buildSalesOrdersTable(salesOrders)
+                        : _buildEmptyState('No sales orders found')),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildDropdownOption(String label, int count, bool isActive, VoidCallback onTap) {
+  Widget _buildDropdownOption(
+    String label,
+    int count,
+    bool isActive,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.only(top: 12, bottom: 10, left: 16, right: 16),
+        padding: const EdgeInsets.only(
+          top: 12,
+          bottom: 10,
+          left: 16,
+          right: 16,
+        ),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -2116,9 +2655,39 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
           color: const Color(0xFFF9FAFB),
           child: const Row(
             children: [
-              Expanded(flex: 3, child: Text('Package#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Total Quantity', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Package#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Total Quantity',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -2126,10 +2695,15 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
           final p = packages[index];
           final pkg = p['inventory_packages'];
           final items = pkg?['inventory_package_items'] as List? ?? [];
-          final totalQty = items.fold(0.0, (sum, item) => sum + (item['quantity'] ?? 0.0));
+          final totalQty = items.fold(
+            0.0,
+            (sum, item) => sum + (item['quantity'] ?? 0.0),
+          );
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF3F4F6)))),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -2149,8 +2723,24 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                     ),
                   ),
                 ),
-                Expanded(flex: 3, child: Text(pkg?['created_at'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(pkg['created_at'])) : '', style: const TextStyle(fontSize: 13))),
-                Expanded(flex: 3, child: Text(totalQty.toString(), style: const TextStyle(fontSize: 13))),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    pkg?['created_at'] != null
+                        ? DateFormat(
+                            'dd-MM-yyyy',
+                          ).format(DateTime.parse(pkg['created_at']))
+                        : '',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    totalQty.toString(),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
               ],
             ),
           );
@@ -2167,10 +2757,50 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
           color: const Color(0xFFF9FAFB),
           child: const Row(
             children: [
-              Expanded(flex: 3, child: Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Sales Order#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Shipment Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Sales Order#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Shipment Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -2179,10 +2809,22 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
           final order = so['sales_orders'];
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF3F4F6)))),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+            ),
             child: Row(
               children: [
-                Expanded(flex: 3, child: Text(order?['sale_date'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(order['sale_date'])) : '', style: const TextStyle(fontSize: 13))),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    order?['sale_date'] != null
+                        ? DateFormat(
+                            'dd-MM-yyyy',
+                          ).format(DateTime.parse(order['sale_date']))
+                        : '',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
                 Expanded(
                   flex: 3,
                   child: InkWell(
@@ -2200,8 +2842,24 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
                     ),
                   ),
                 ),
-                Expanded(flex: 3, child: Text(order?['status'] ?? '', style: const TextStyle(fontSize: 13))),
-                Expanded(flex: 3, child: Text(order?['shipment_date'] != null ? DateFormat('dd-MM-yyyy').format(DateTime.parse(order['shipment_date'])) : '', style: const TextStyle(fontSize: 13))),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    order?['status'] ?? '',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    order?['shipment_date'] != null
+                        ? DateFormat(
+                            'dd-MM-yyyy',
+                          ).format(DateTime.parse(order['shipment_date']))
+                        : '',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
               ],
             ),
           );
@@ -2210,12 +2868,20 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
     );
   }
 
-  Widget _buildDetailItem(String label, String value, {bool isLink = false, VoidCallback? onTap}) {
+  Widget _buildDetailItem(
+    String label,
+    String value, {
+    bool isLink = false,
+    VoidCallback? onTap,
+  }) {
     return Row(
       children: [
         SizedBox(
           width: 150,
-          child: Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+          child: Text(
+            label,
+            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+          ),
         ),
         InkWell(
           onTap: onTap,
@@ -2225,7 +2891,9 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
               fontSize: 13,
               color: isLink ? AppTheme.primaryBlue : AppTheme.textPrimary,
               fontWeight: isLink ? FontWeight.bold : FontWeight.normal,
-              decoration: isLink ? TextDecoration.underline : TextDecoration.none,
+              decoration: isLink
+                  ? TextDecoration.underline
+                  : TextDecoration.none,
             ),
           ),
         ),
@@ -2237,13 +2905,18 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+        ),
         const SizedBox(width: 8),
-        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }
-
 
   String _getPlaceOfSupply(Map<String, dynamic>? customer) {
     final pos = customer?['place_of_supply']?.toString();
@@ -2349,7 +3022,12 @@ class _PdfCornerRibbon extends StatelessWidget {
                     colors: [
                       color,
                       HSLColor.fromColor(color)
-                          .withLightness((HSLColor.fromColor(color).lightness * 0.85).clamp(0.0, 1.0))
+                          .withLightness(
+                            (HSLColor.fromColor(color).lightness * 0.85).clamp(
+                              0.0,
+                              1.0,
+                            ),
+                          )
                           .toColor(),
                     ],
                   ),
@@ -2365,7 +3043,11 @@ class _PdfCornerRibbon extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.8,
                     shadows: [
-                      Shadow(color: Colors.black45, offset: Offset(0, 1), blurRadius: 2),
+                      Shadow(
+                        color: Colors.black45,
+                        offset: Offset(0, 1),
+                        blurRadius: 2,
+                      ),
                     ],
                   ),
                 ),
@@ -2376,8 +3058,6 @@ class _PdfCornerRibbon extends StatelessWidget {
       ),
     );
   }
-
-
 }
 
 String _formatAddress(String? addressStr) {
@@ -2386,7 +3066,8 @@ String _formatAddress(String? addressStr) {
     final data = jsonDecode(addressStr);
     if (data is Map<String, dynamic>) {
       final lines = <String>[];
-      if (data['attention'] != null && data['attention'].toString().isNotEmpty) {
+      if (data['attention'] != null &&
+          data['attention'].toString().isNotEmpty) {
         lines.add(data['attention'].toString());
       }
       if (data['street1'] != null && data['street1'].toString().isNotEmpty) {
@@ -2399,7 +3080,8 @@ String _formatAddress(String? addressStr) {
       if (data['city'] != null && data['city'].toString().isNotEmpty) {
         cityStateZip.add(data['city'].toString());
       }
-      if (data['state_name'] != null && data['state_name'].toString().isNotEmpty) {
+      if (data['state_name'] != null &&
+          data['state_name'].toString().isNotEmpty) {
         cityStateZip.add(data['state_name'].toString());
       }
       if (data['pincode'] != null && data['pincode'].toString().isNotEmpty) {
@@ -2417,137 +3099,240 @@ String _formatAddress(String? addressStr) {
   return addressStr;
 }
 
-  Future<Uint8List> _generateShipmentPdf(Map<String, dynamic> shipment, OrgSettings? orgSettings) async {
-    final doc = pw.Document();
-    
-    // Attempt to load company logo
-    pw.MemoryImage? logoImage;
-    if (orgSettings?.logoUrl != null && orgSettings!.logoUrl!.trim().isNotEmpty) {
-      try {
-        final res = await Dio().get<List<int>>(
-          orgSettings.logoUrl!,
-          options: Options(responseType: ResponseType.bytes),
-        );
-        if (res.data != null) {
-          logoImage = pw.MemoryImage(Uint8List.fromList(res.data!));
-        }
-      } catch (_) {}
-    }
+Future<Uint8List> _generateShipmentPdf(
+  Map<String, dynamic> shipment,
+  OrgSettings? orgSettings,
+) async {
+  final doc = pw.Document();
 
-    /* final dateStr = shipment['date_of_shipment'] != null
+  // Attempt to load company logo
+  pw.MemoryImage? logoImage;
+  if (orgSettings?.logoUrl != null && orgSettings!.logoUrl!.trim().isNotEmpty) {
+    try {
+      final res = await Dio().get<List<int>>(
+        orgSettings.logoUrl!,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (res.data != null) {
+        logoImage = pw.MemoryImage(Uint8List.fromList(res.data!));
+      }
+    } catch (_) {}
+  }
+
+  /* final dateStr = shipment['date_of_shipment'] != null
         ? DateFormat('dd-MM-yyyy').format(DateTime.parse(shipment['date_of_shipment']))
         : '-'; */
 
-    doc.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(36),
-        build: (pw.Context ctx) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Header
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      if (logoImage != null)
-                        pw.Container(
-                          width: 130,
-                          height: 56,
-                          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
-                        )
-                      else
-                        pw.Container(
-                          width: 130,
-                          height: 56,
-                          color: const PdfColor.fromInt(0xFF101820),
-                          child: pw.Center(
-                            child: pw.Text('LOGO', style: pw.TextStyle(color: PdfColors.white, fontSize: 12)),
-                          ),
-                        ),
-                      pw.SizedBox(height: 10),
-                      pw.Text(
-                        orgSettings?.name.trim().toUpperCase() ?? 'YOUR COMPANY',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
-                      ),
-                      if (orgSettings?.paymentStubAddress?.trim().isNotEmpty == true)
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.only(top: 3),
+  doc.addPage(
+    pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(36),
+      build: (pw.Context ctx) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Header
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    if (logoImage != null)
+                      pw.Container(
+                        width: 130,
+                        height: 56,
+                        child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                      )
+                    else
+                      pw.Container(
+                        width: 130,
+                        height: 56,
+                        color: const PdfColor.fromInt(0xFF101820),
+                        child: pw.Center(
                           child: pw.Text(
-                            _formatAddress(orgSettings!.paymentStubAddress!.trim()),
-                            style: const pw.TextStyle(fontSize: 9, lineSpacing: 2),
+                            'LOGO',
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
-                    ],
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text('SHIPMENT ORDER', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
-                      pw.Text('Shipment Order# ${shipment['shipment_number'] ?? '-'}', style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700)),
-                    ],
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 30),
-              
-              // Details
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('Ship To:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.grey600)),
-                      pw.Text(shipment['customers']?['display_name'] ?? 'Walk-in Customer', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-                    ],
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text('Sales Order#: ${(shipment['inventory_shipment_sales_orders'] as List?)?.map((e) => e['sales_orders']?['sale_number'] as String?).where((e) => e != null).join(', ') ?? ''}', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Text('Order Date: ${(shipment['inventory_shipment_sales_orders'] as List?)?.map((e) => e['sales_orders']?['sale_date'] as String?).where((e) => e != null).map((e) => DateFormat('dd-MM-yyyy').format(DateTime.parse(e!))).join(', ') ?? ''}', style: const pw.TextStyle(fontSize: 10)),
-                    ],
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 20),
+                      ),
+                    pw.SizedBox(height: 10),
+                    pw.Text(
+                      orgSettings?.name.trim().toUpperCase() ?? 'YOUR COMPANY',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (orgSettings?.paymentStubAddress?.trim().isNotEmpty ==
+                        true)
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(top: 3),
+                        child: pw.Text(
+                          _formatAddress(
+                            orgSettings!.paymentStubAddress!.trim(),
+                          ),
+                          style: const pw.TextStyle(
+                            fontSize: 9,
+                            lineSpacing: 2,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      'SHIPMENT ORDER',
+                      style: pw.TextStyle(
+                        fontSize: 24,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.black,
+                      ),
+                    ),
+                    pw.Text(
+                      'Shipment Order# ${shipment['shipment_number'] ?? '-'}',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 30),
 
-              // Items Table
-              pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey300),
-                children: [
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF323B4B)),
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('#', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Item & Description', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Qty', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.right)),
-                    ],
-                  ),
-                  ...List.generate((shipment['items'] as List).length, (index) {
-                    final item = (shipment['items'] as List)[index];
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${index + 1}', style: const pw.TextStyle(fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(item['name'] ?? '', style: const pw.TextStyle(fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${item['quantity']}', style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.right)),
-                      ],
-                    );
-                  }),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
+            // Details
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Ship To:',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 10,
+                        color: PdfColors.grey600,
+                      ),
+                    ),
+                    pw.Text(
+                      shipment['customers']?['display_name'] ??
+                          'Walk-in Customer',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      'Sales Order#: ${(shipment['inventory_shipment_sales_orders'] as List?)?.map((e) => e['sales_orders']?['sale_number'] as String?).where((e) => e != null).join(', ') ?? ''}',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                    pw.Text(
+                      'Order Date: ${(shipment['inventory_shipment_sales_orders'] as List?)?.map((e) => e['sales_orders']?['sale_date'] as String?).where((e) => e != null).map((e) => DateFormat('dd-MM-yyyy').format(DateTime.parse(e!))).join(', ') ?? ''}',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 20),
 
-    return doc.save();
-  }
+            // Items Table
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey300),
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColor.fromInt(0xFF323B4B),
+                  ),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        '#',
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Item & Description',
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Qty',
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+                ...List.generate((shipment['items'] as List).length, (index) {
+                  final item = (shipment['items'] as List)[index];
+                  return pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(
+                          '${index + 1}',
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(
+                          item['name'] ?? '',
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(
+                          '${item['quantity']}',
+                          style: const pw.TextStyle(fontSize: 10),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
+  return doc.save();
+}
 
 class _CornerFoldPainter extends CustomPainter {
   final Color color;
@@ -2556,7 +3341,9 @@ class _CornerFoldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final darkColor = HSLColor.fromColor(color)
-        .withLightness((HSLColor.fromColor(color).lightness * 0.45).clamp(0.0, 1.0))
+        .withLightness(
+          (HSLColor.fromColor(color).lightness * 0.45).clamp(0.0, 1.0),
+        )
         .toColor();
 
     final paint = Paint()..color = darkColor;

@@ -54,8 +54,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     if (filterValue != null) {
       queryParameters['filter'] = filterValue;
     }
-    final orgSystemId =
-        resolveOrgSystemId(context);
+    final orgSystemId = resolveOrgSystemId(context);
     context.goNamed(
       AppRoutes.itemsReport,
       pathParameters: {'orgSystemId': orgSystemId},
@@ -446,7 +445,11 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     final user = ref.read(authUserProvider);
     final canViewItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.view', action: 'view');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.view',
+          action: 'view',
+        );
     if (!canViewItems) {
       return;
     }
@@ -474,8 +477,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     );
 
     if (item.id != null) {
-      final orgSystemId =
-          resolveOrgSystemId(context);
+      final orgSystemId = resolveOrgSystemId(context);
       context.goNamed(
         AppRoutes.itemsDetail,
         pathParameters: {'orgSystemId': orgSystemId, 'id': item.id!},
@@ -489,7 +491,11 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     final user = ref.watch(authUserProvider);
     final canViewItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.view', action: 'view');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.view',
+          action: 'view',
+        );
 
     if (!canViewItems) {
       return ZerpaiLayout(
@@ -522,7 +528,11 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     final user = ref.read(authUserProvider);
     final canEditItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.edit', action: 'edit');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.edit',
+          action: 'edit',
+        );
     if (!canEditItems) {
       return 0;
     }
@@ -545,7 +555,11 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     final user = ref.read(authUserProvider);
     final canEditItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.edit', action: 'edit');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.edit',
+          action: 'edit',
+        );
     if (!canEditItems) {
       return 0;
     }
@@ -568,7 +582,11 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     final user = ref.read(authUserProvider);
     final canDeleteItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.delete', action: 'delete');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.delete',
+          action: 'delete',
+        );
     if (!canDeleteItems) return 0;
 
     final controller = ref.read(itemsControllerProvider.notifier);

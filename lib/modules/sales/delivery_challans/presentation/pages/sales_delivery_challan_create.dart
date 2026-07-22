@@ -182,10 +182,7 @@ class _SalesChallanCreateScreenState
             _row([
               _labeledField(
                 'Challan#',
-                CustomTextField(
-                  controller: challanNumberCtrl,
-                  height: 36,
-                ),
+                CustomTextField(controller: challanNumberCtrl, height: 36),
               ),
               _labeledField(
                 'Challan Date',
@@ -203,15 +200,15 @@ class _SalesChallanCreateScreenState
                   value: challanType,
                   height: 32,
                   items: const ['Job Work', 'Supply on Approval', 'Others'],
-                  onChanged: (v) => setState(() => challanType = v!),
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() => challanType = v);
+                  },
                 ),
               ),
               _labeledField(
                 'Reference#',
-                CustomTextField(
-                  controller: referenceCtrl,
-                  height: 32,
-                ),
+                CustomTextField(controller: referenceCtrl, height: 32),
               ),
             ]),
           ],
@@ -272,7 +269,10 @@ class _SalesChallanCreateScreenState
                         displayStringForValue: (id) => productList
                             .firstWhere((p) => p.id == id)
                             .productName,
-                        onChanged: (v) => setState(() => row.itemId = v!),
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() => row.itemId = v);
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),

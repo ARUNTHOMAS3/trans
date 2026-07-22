@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart';
@@ -36,7 +35,7 @@ class EditQuantityDialog extends ConsumerStatefulWidget {
   final String itemName;
   final String productId;
   final double currentUnreceivedAllocated;
-  
+
   // Initial selection if any
   final String? initialPurchaseReceiveId;
   final String? initialPurchaseReceiveNumber;
@@ -82,11 +81,7 @@ class _SplitRow {
   String? receiveItemId;
   final double initialQty;
 
-  _SplitRow({
-    this.selectedReceive,
-    this.initialQty = 0.0,
-    this.receiveItemId,
-  }) {
+  _SplitRow({this.selectedReceive, this.initialQty = 0.0, this.receiveItemId}) {
     qtyCtrl.text = initialQty % 1 == 0
         ? initialQty.toInt().toString()
         : initialQty.toString();
@@ -98,7 +93,9 @@ class _SplitRow {
 }
 
 class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
-  final TextEditingController _unreceivedCtrl = TextEditingController(text: '0');
+  final TextEditingController _unreceivedCtrl = TextEditingController(
+    text: '0',
+  );
   final List<_SplitRow> _splits = [];
   double _totalQty = 0.0;
   bool _isLoading = true;
@@ -136,7 +133,9 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
       String? rxNum = widget.initialPurchaseReceiveNumber;
 
       // 1. Resolve PO ID/number from purchase receive number if provided and poId is empty
-      if (rxNum != null && rxNum.isNotEmpty && (_poId == null || _poId!.isEmpty)) {
+      if (rxNum != null &&
+          rxNum.isNotEmpty &&
+          (_poId == null || _poId!.isEmpty)) {
         try {
           final supabase = Supabase.instance.client;
           final rxData = await supabase
@@ -147,7 +146,8 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
               .maybeSingle();
           if (rxData != null) {
             _poId = rxData['purchase_order_id']?.toString();
-            final resolvedPoNum = rxData['purchase_order_number']?.toString() ?? '';
+            final resolvedPoNum =
+                rxData['purchase_order_number']?.toString() ?? '';
             if (resolvedPoNum.isNotEmpty) {
               poNum = resolvedPoNum;
             }
@@ -193,10 +193,19 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
 
       // Find initial rxItem if we have initial rx info
       Map<String, dynamic>? initialRxItem;
-      if (widget.initialPurchaseReceiveId != null || (widget.initialPurchaseReceiveNumber != null && widget.initialPurchaseReceiveNumber!.isNotEmpty)) {
+      if (widget.initialPurchaseReceiveId != null ||
+          (widget.initialPurchaseReceiveNumber != null &&
+              widget.initialPurchaseReceiveNumber!.isNotEmpty)) {
         final rx = poReceives.firstWhere(
-          (r) => (widget.initialPurchaseReceiveId != null && r['id']?.toString() == widget.initialPurchaseReceiveId) ||
-                 (widget.initialPurchaseReceiveNumber != null && r[widget.isReceiveMode ? 'bill_number' : 'purchase_receive_number']?.toString() == widget.initialPurchaseReceiveNumber),
+          (r) =>
+              (widget.initialPurchaseReceiveId != null &&
+                  r['id']?.toString() == widget.initialPurchaseReceiveId) ||
+              (widget.initialPurchaseReceiveNumber != null &&
+                  r[widget.isReceiveMode
+                              ? 'bill_number'
+                              : 'purchase_receive_number']
+                          ?.toString() ==
+                      widget.initialPurchaseReceiveNumber),
           orElse: () => <String, dynamic>{},
         );
         if (rx.isNotEmpty) {
@@ -211,23 +220,74 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
           );
           if (initialRxItem == null) {
             initialRxItem = rxItems.firstWhere(
-              (item) => (widget.isReceiveMode ? item['product_id'] : item['item_id']) == widget.productId &&
-                  (((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['quantity_to_receive'])?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001 ||
-                   ((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['ordered'])?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001) &&
-                  (item['description']?.toString() ?? '').trim() == (widget.description ?? '').trim(),
+              (item) =>
+                  (widget.isReceiveMode
+                          ? item['product_id']
+                          : item['item_id']) ==
+                      widget.productId &&
+                  (((double.tryParse(
+                                        (widget.isReceiveMode
+                                                    ? item['quantity']
+                                                    : item['quantity_to_receive'])
+                                                ?.toString() ??
+                                            '',
+                                      ) ??
+                                      0.0) -
+                                  widget.initialPurchaseReceiveQty)
+                              .abs() <
+                          0.001 ||
+                      ((double.tryParse(
+                                        (widget.isReceiveMode
+                                                    ? item['quantity']
+                                                    : item['ordered'])
+                                                ?.toString() ??
+                                            '',
+                                      ) ??
+                                      0.0) -
+                                  widget.initialPurchaseReceiveQty)
+                              .abs() <
+                          0.001) &&
+                  (item['description']?.toString() ?? '').trim() ==
+                      (widget.description ?? '').trim(),
               orElse: () => null,
             );
           }
           if (initialRxItem == null) {
             initialRxItem = rxItems.firstWhere(
-              (item) => (widget.isReceiveMode ? item['product_id'] : item['item_id']) == widget.productId &&
-                  (((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['quantity_to_receive'])?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001 ||
-                   ((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['ordered'])?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001),
+              (item) =>
+                  (widget.isReceiveMode
+                          ? item['product_id']
+                          : item['item_id']) ==
+                      widget.productId &&
+                  (((double.tryParse(
+                                        (widget.isReceiveMode
+                                                    ? item['quantity']
+                                                    : item['quantity_to_receive'])
+                                                ?.toString() ??
+                                            '',
+                                      ) ??
+                                      0.0) -
+                                  widget.initialPurchaseReceiveQty)
+                              .abs() <
+                          0.001 ||
+                      ((double.tryParse(
+                                        (widget.isReceiveMode
+                                                    ? item['quantity']
+                                                    : item['ordered'])
+                                                ?.toString() ??
+                                            '',
+                                      ) ??
+                                      0.0) -
+                                  widget.initialPurchaseReceiveQty)
+                              .abs() <
+                          0.001),
               orElse: () => null,
             );
           }
           initialRxItem ??= rxItems.firstWhere(
-            (item) => (widget.isReceiveMode ? item['product_id'] : item['item_id']) == widget.productId,
+            (item) =>
+                (widget.isReceiveMode ? item['product_id'] : item['item_id']) ==
+                widget.productId,
             orElse: () => null,
           );
         }
@@ -236,19 +296,32 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
       // Resolve poItem with description/quantity mapping, falling back to first match
       PurchaseOrderItem? poItem;
       if (initialRxItem != null) {
-        final rxOrdered = double.tryParse((widget.isReceiveMode ? initialRxItem['quantity'] : initialRxItem['ordered'])?.toString() ?? '') ?? 0.0;
+        final rxOrdered =
+            double.tryParse(
+              (widget.isReceiveMode
+                          ? initialRxItem['quantity']
+                          : initialRxItem['ordered'])
+                      ?.toString() ??
+                  '',
+            ) ??
+            0.0;
         final rxDesc = initialRxItem['description']?.toString() ?? '';
-        poItem = po.items.where((i) =>
-          !i.isHeader &&
-          i.productId == widget.productId &&
-          (i.quantity - rxOrdered).abs() < 0.001 &&
-          (i.description ?? '').trim() == rxDesc.trim()
-        ).firstOrNull;
+        poItem = po.items
+            .where(
+              (i) =>
+                  !i.isHeader &&
+                  i.productId == widget.productId &&
+                  (i.quantity - rxOrdered).abs() < 0.001 &&
+                  (i.description ?? '').trim() == rxDesc.trim(),
+            )
+            .firstOrNull;
       }
-      poItem ??= po.items.where((i) => !i.isHeader && i.productId == widget.productId).firstOrNull;
+      poItem ??= po.items
+          .where((i) => !i.isHeader && i.productId == widget.productId)
+          .firstOrNull;
       _resolvedPoItem = poItem;
       final orderedQty = poItem?.quantity ?? 0.0;
- 
+
       double initialUnreceivedQty = 0.0;
       if (widget.isReceiveMode) {
         // In receive mode, initialUnreceivedQty is the unbilled quantity: orderedQty - totalBilled
@@ -257,41 +330,61 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
           final billItems = bill['bill_items'] as List<dynamic>? ?? [];
           for (final billItem in billItems) {
             if (billItem['product_id'] == widget.productId) {
-              totalBilled += double.tryParse(billItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+              totalBilled +=
+                  double.tryParse(billItem['quantity']?.toString() ?? '0.0') ??
+                  0.0;
             }
           }
         }
-        initialUnreceivedQty = (orderedQty - totalBilled) > 0 ? (orderedQty - totalBilled) : 0.0;
+        initialUnreceivedQty = (orderedQty - totalBilled) > 0
+            ? (orderedQty - totalBilled)
+            : 0.0;
       } else {
         // Sum received quantity for this product/poItem across all received receives (excluding FOC)
         double totalReceived = 0.0;
         for (final rx in poReceives) {
           if (rx['status']?.toString().toLowerCase() == 'received') {
-            final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
+            final rxItems =
+                rx['purchase_receive_items'] as List<dynamic>? ?? [];
             for (final rxItem in rxItems) {
               // Match receive items that belong to the resolved poItem
-              final rxItemOrdered = double.tryParse(rxItem['ordered']?.toString() ?? '') ?? 0.0;
+              final rxItemOrdered =
+                  double.tryParse(rxItem['ordered']?.toString() ?? '') ?? 0.0;
               final rxItemDesc = rxItem['description']?.toString() ?? '';
-              final isMatch = rxItem['item_id'] == widget.productId &&
+              final isMatch =
+                  rxItem['item_id'] == widget.productId &&
                   (poItem == null ||
                       (((rxItemOrdered - poItem.quantity).abs() < 0.001) &&
-                          rxItemDesc.trim() == (poItem.description ?? '').trim()));
-              
+                          rxItemDesc.trim() ==
+                              (poItem.description ?? '').trim()));
+
               if (isMatch) {
-                final batches = rxItem['purchase_receive_item_batches'] as List<dynamic>? ?? [];
+                final batches =
+                    rxItem['purchase_receive_item_batches'] as List<dynamic>? ??
+                    [];
                 if (batches.isNotEmpty) {
                   for (final b in batches) {
-                    totalReceived += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+                    totalReceived +=
+                        double.tryParse(b['quantity']?.toString() ?? '0.0') ??
+                        0.0;
                   }
                 } else {
-                  final qty = double.tryParse(rxItem['quantity_to_receive']?.toString() ?? rxItem['received']?.toString() ?? '0.0') ?? 0.0;
+                  final qty =
+                      double.tryParse(
+                        rxItem['quantity_to_receive']?.toString() ??
+                            rxItem['received']?.toString() ??
+                            '0.0',
+                      ) ??
+                      0.0;
                   totalReceived += qty;
                 }
               }
             }
           }
         }
-        initialUnreceivedQty = (orderedQty - totalReceived) > 0 ? (orderedQty - totalReceived) : 0.0;
+        initialUnreceivedQty = (orderedQty - totalReceived) > 0
+            ? (orderedQty - totalReceived)
+            : 0.0;
       }
 
       if (mounted) {
@@ -301,60 +394,142 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
               ? widget.currentUnreceivedAllocated.toInt().toString()
               : widget.currentUnreceivedAllocated.toString();
           _poReceives = poReceives;
-          
+
           _splits.clear();
-          if (widget.initialPurchaseReceiveId != null || (widget.initialPurchaseReceiveNumber != null && widget.initialPurchaseReceiveNumber!.isNotEmpty)) {
+          if (widget.initialPurchaseReceiveId != null ||
+              (widget.initialPurchaseReceiveNumber != null &&
+                  widget.initialPurchaseReceiveNumber!.isNotEmpty)) {
             // Find full rx/bill object
             final rx = _poReceives.firstWhere(
-              (r) => (widget.initialPurchaseReceiveId != null && r['id']?.toString() == widget.initialPurchaseReceiveId) ||
-                     (widget.initialPurchaseReceiveNumber != null && r[widget.isReceiveMode ? 'bill_number' : 'purchase_receive_number']?.toString() == widget.initialPurchaseReceiveNumber),
+              (r) =>
+                  (widget.initialPurchaseReceiveId != null &&
+                      r['id']?.toString() == widget.initialPurchaseReceiveId) ||
+                  (widget.initialPurchaseReceiveNumber != null &&
+                      r[widget.isReceiveMode
+                                  ? 'bill_number'
+                                  : 'purchase_receive_number']
+                              ?.toString() ==
+                          widget.initialPurchaseReceiveNumber),
               orElse: () => {
                 'id': widget.initialPurchaseReceiveId,
-                widget.isReceiveMode ? 'bill_number' : 'purchase_receive_number': widget.initialPurchaseReceiveNumber,
+                widget.isReceiveMode
+                        ? 'bill_number'
+                        : 'purchase_receive_number':
+                    widget.initialPurchaseReceiveNumber,
               },
             );
-            
+
             final rxItems = widget.isReceiveMode
                 ? (rx['bill_items'] as List<dynamic>? ?? [])
                 : (rx['purchase_receive_items'] as List<dynamic>? ?? []);
             dynamic rxItem;
             if (widget.initialPurchaseReceiveItemId != null) {
               rxItem = rxItems.firstWhere(
-                (item) => item['id']?.toString() == widget.initialPurchaseReceiveItemId,
+                (item) =>
+                    item['id']?.toString() ==
+                    widget.initialPurchaseReceiveItemId,
                 orElse: () => null,
               );
             }
             if (rxItem == null && _resolvedPoItem != null) {
               rxItem = rxItems.firstWhere(
-                (item) => (widget.isReceiveMode ? item['product_id'] : item['item_id']) == widget.productId &&
-                    ((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['ordered'])?.toString() ?? '') ?? 0.0) - _resolvedPoItem!.quantity).abs() < 0.001 &&
-                    (item['description']?.toString() ?? '').trim() == (_resolvedPoItem!.description ?? '').trim(),
+                (item) =>
+                    (widget.isReceiveMode
+                            ? item['product_id']
+                            : item['item_id']) ==
+                        widget.productId &&
+                    ((double.tryParse(
+                                      (widget.isReceiveMode
+                                                  ? item['quantity']
+                                                  : item['ordered'])
+                                              ?.toString() ??
+                                          '',
+                                    ) ??
+                                    0.0) -
+                                _resolvedPoItem!.quantity)
+                            .abs() <
+                        0.001 &&
+                    (item['description']?.toString() ?? '').trim() ==
+                        (_resolvedPoItem!.description ?? '').trim(),
                 orElse: () => null,
               );
             }
             if (rxItem == null) {
               rxItem = rxItems.firstWhere(
-                (item) => (widget.isReceiveMode ? item['product_id'] : item['item_id']) == widget.productId &&
-                    (((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['quantity_to_receive'])?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001 ||
-                     ((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['ordered'])?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001) &&
-                    (item['description']?.toString() ?? '').trim() == (widget.description ?? '').trim(),
+                (item) =>
+                    (widget.isReceiveMode
+                            ? item['product_id']
+                            : item['item_id']) ==
+                        widget.productId &&
+                    (((double.tryParse(
+                                          (widget.isReceiveMode
+                                                      ? item['quantity']
+                                                      : item['quantity_to_receive'])
+                                                  ?.toString() ??
+                                              '',
+                                        ) ??
+                                        0.0) -
+                                    widget.initialPurchaseReceiveQty)
+                                .abs() <
+                            0.001 ||
+                        ((double.tryParse(
+                                          (widget.isReceiveMode
+                                                      ? item['quantity']
+                                                      : item['ordered'])
+                                                  ?.toString() ??
+                                              '',
+                                        ) ??
+                                        0.0) -
+                                    widget.initialPurchaseReceiveQty)
+                                .abs() <
+                            0.001) &&
+                    (item['description']?.toString() ?? '').trim() ==
+                        (widget.description ?? '').trim(),
                 orElse: () => null,
               );
             }
             if (rxItem == null) {
               rxItem = rxItems.firstWhere(
-                (item) => (widget.isReceiveMode ? item['product_id'] : item['item_id']) == widget.productId &&
-                    (((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['quantity_to_receive'])?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001 ||
-                     ((double.tryParse((widget.isReceiveMode ? item['quantity'] : item['ordered'])?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001),
+                (item) =>
+                    (widget.isReceiveMode
+                            ? item['product_id']
+                            : item['item_id']) ==
+                        widget.productId &&
+                    (((double.tryParse(
+                                          (widget.isReceiveMode
+                                                      ? item['quantity']
+                                                      : item['quantity_to_receive'])
+                                                  ?.toString() ??
+                                              '',
+                                        ) ??
+                                        0.0) -
+                                    widget.initialPurchaseReceiveQty)
+                                .abs() <
+                            0.001 ||
+                        ((double.tryParse(
+                                          (widget.isReceiveMode
+                                                      ? item['quantity']
+                                                      : item['ordered'])
+                                                  ?.toString() ??
+                                              '',
+                                        ) ??
+                                        0.0) -
+                                    widget.initialPurchaseReceiveQty)
+                                .abs() <
+                            0.001),
                 orElse: () => null,
               );
             }
             rxItem ??= rxItems.firstWhere(
-              (item) => (widget.isReceiveMode ? item['product_id'] : item['item_id']) == widget.productId,
+              (item) =>
+                  (widget.isReceiveMode
+                      ? item['product_id']
+                      : item['item_id']) ==
+                  widget.productId,
               orElse: () => null,
             );
             final rxItemId = rxItem?['id']?.toString() ?? '';
- 
+
             final row = _SplitRow(
               selectedReceive: rx,
               initialQty: widget.initialPurchaseReceiveQty,
@@ -363,10 +538,15 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
             row.qtyCtrl.addListener(_updateTotal);
             _splits.add(row);
             if (rxItemId.isNotEmpty) {
-              _fetchDetailsForSelectedReceive(row, rx, widget.productId, isInitial: true);
+              _fetchDetailsForSelectedReceive(
+                row,
+                rx,
+                widget.productId,
+                isInitial: true,
+              );
             }
           }
-          
+
           _isLoading = false;
         });
         _updateTotal();
@@ -381,7 +561,10 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
     }
   }
 
-  Future<PurchaseOrder?> _fetchPoByNumber(String poNum, String productId) async {
+  Future<PurchaseOrder?> _fetchPoByNumber(
+    String poNum,
+    String productId,
+  ) async {
     try {
       final repository = ref.read(purchaseOrderRepositoryProvider);
       final vendorId = widget.vendorId;
@@ -389,18 +572,29 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
         final allOrders = await repository.getPurchaseOrders(
           vendorId: vendorId,
         );
-        
-        final parts = poNum.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+
+        final parts = poNum
+            .split(',')
+            .map((p) => p.trim())
+            .where((p) => p.isNotEmpty)
+            .toList();
         for (final part in parts) {
-          final match = allOrders.where((o) =>
-            o.orderNumber == part ||
-            (o.referenceNumber != null && o.referenceNumber!.trim().toLowerCase() == part.toLowerCase())
-          ).firstOrNull;
-          
+          final match = allOrders
+              .where(
+                (o) =>
+                    o.orderNumber == part ||
+                    (o.referenceNumber != null &&
+                        o.referenceNumber!.trim().toLowerCase() ==
+                            part.toLowerCase()),
+              )
+              .firstOrNull;
+
           if (match != null) {
             final detailed = await repository.getPurchaseOrder(match.id!);
             if (detailed != null) {
-              final hasProduct = detailed.items.any((i) => !i.isHeader && i.productId == productId);
+              final hasProduct = detailed.items.any(
+                (i) => !i.isHeader && i.productId == productId,
+              );
               if (hasProduct) {
                 return detailed;
               }
@@ -419,13 +613,15 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
       final supabase = Supabase.instance.client;
       final response = await supabase
           .from('purchase_receives')
-          .select('id, purchase_receive_number, received_date, status, purchase_order_id, purchase_order_number, bill_no, purchase_receive_items(id, item_id, quantity_to_receive, ordered, description, purchase_receive_item_batches(quantity, foc_qty))')
+          .select(
+            'id, purchase_receive_number, received_date, status, purchase_order_id, purchase_order_number, bill_no, purchase_receive_items(id, item_id, quantity_to_receive, ordered, description, purchase_receive_item_batches(quantity, foc_qty))',
+          )
           .eq('purchase_order_id', poId)
           .eq('is_delete', false)
           .order('created_at', ascending: true);
-      if (response != null) {
-        return (response as List<dynamic>).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      }
+      return (response as List<dynamic>)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
     } catch (e) {
       debugPrint('Error fetching PO receives: $e');
     }
@@ -437,19 +633,21 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
       final supabase = Supabase.instance.client;
       final response = await supabase
           .from('bills')
-          .select('id, bill_number, order_number, status, bill_items(id, product_id, quantity, description, rate, bill_item_batches(quantity))')
+          .select(
+            'id, bill_number, order_number, status, bill_items(id, product_id, quantity, description, rate, bill_item_batches(quantity))',
+          )
           .or('order_number.ilike.%${poNum.trim()}%')
           .neq('status', 'void')
           .order('created_at', ascending: true);
-      if (response != null) {
-        final list = (response as List<dynamic>).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-        final normalizedPoNum = poNum.trim().toLowerCase();
-        return list.where((b) {
-          final orderNumStr = (b['order_number'] ?? '').toString().toLowerCase();
-          final parts = orderNumStr.split(',').map((p) => p.trim()).toList();
-          return parts.contains(normalizedPoNum);
-        }).toList();
-      }
+      final list = (response as List<dynamic>)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final normalizedPoNum = poNum.trim().toLowerCase();
+      return list.where((b) {
+        final orderNumStr = (b['order_number'] ?? '').toString().toLowerCase();
+        final parts = orderNumStr.split(',').map((p) => p.trim()).toList();
+        return parts.contains(normalizedPoNum);
+      }).toList();
     } catch (e) {
       debugPrint('Error fetching PO bills: $e');
     }
@@ -492,7 +690,8 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
       );
       if (rxItem == null) return;
       final String rxItemId = rxItem['id']?.toString() ?? '';
-      final double totalRxQty = double.tryParse(rxItem['quantity']?.toString() ?? '0.0') ?? 0.0;
+      final double totalRxQty =
+          double.tryParse(rxItem['quantity']?.toString() ?? '0.0') ?? 0.0;
 
       setState(() {
         row.isLoadingBilled = true;
@@ -505,44 +704,55 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
         final billNoStr = rx['bill_number']?.toString() ?? '';
         final response = await supabase
             .from('purchase_receives')
-            .select('id, status, purchase_receive_items(item_id, quantity_to_receive, purchase_receive_item_batches(quantity))')
+            .select(
+              'id, status, purchase_receive_items(item_id, quantity_to_receive, purchase_receive_item_batches(quantity))',
+            )
             .eq('purchase_order_id', _poId ?? '')
             .eq('bill_no', billNoStr)
             .eq('is_delete', false);
 
         double totalReceivedOther = 0.0;
-        if (response != null && response is List) {
-          for (final rxDoc in response) {
-            final rxDocId = rxDoc['id']?.toString();
-            if (widget.billId != null && rxDocId != null && rxDocId.toLowerCase() == widget.billId!.toLowerCase()) {
-              continue;
-            }
-            if (rxDoc['status']?.toString().toLowerCase() != 'received') {
-              continue;
-            }
-            final itemsList = rxDoc['purchase_receive_items'] as List<dynamic>? ?? [];
-            for (final item in itemsList) {
-              if (item['item_id']?.toString() == productId) {
-                double itemQty = 0.0;
-                final batches = item['purchase_receive_item_batches'] as List<dynamic>? ?? [];
-                if (batches.isNotEmpty) {
-                  for (final b in batches) {
-                    itemQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
-                  }
-                } else {
-                  itemQty = double.tryParse(item['quantity_to_receive']?.toString() ?? '0.0') ?? 0.0;
+        for (final rxDoc in response) {
+          final rxDocId = rxDoc['id']?.toString();
+          if (widget.billId != null &&
+              rxDocId != null &&
+              rxDocId.toLowerCase() == widget.billId!.toLowerCase()) {
+            continue;
+          }
+          if (rxDoc['status']?.toString().toLowerCase() != 'received') {
+            continue;
+          }
+          final itemsList =
+              rxDoc['purchase_receive_items'] as List<dynamic>? ?? [];
+          for (final item in itemsList) {
+            if (item['item_id']?.toString() == productId) {
+              double itemQty = 0.0;
+              final batches =
+                  item['purchase_receive_item_batches'] as List<dynamic>? ??
+                  [];
+              if (batches.isNotEmpty) {
+                for (final b in batches) {
+                  itemQty +=
+                      double.tryParse(b['quantity']?.toString() ?? '0.0') ??
+                      0.0;
                 }
-                totalReceivedOther += itemQty;
+              } else {
+                itemQty =
+                    double.tryParse(
+                      item['quantity_to_receive']?.toString() ?? '0.0',
+                    ) ??
+                    0.0;
               }
+              totalReceivedOther += itemQty;
             }
           }
         }
-
+      
         if (mounted) {
           setState(() {
             row.rxTotalQty = totalRxQty;
             row.billedOther = totalReceivedOther;
-            
+
             final double valToSet = isInitial ? row.initialQty : 0.0;
             row.qtyCtrl.text = valToSet % 1 == 0
                 ? valToSet.toInt().toString()
@@ -568,7 +778,7 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
     }
 
     final rxItems = rx['purchase_receive_items'] as List<dynamic>? ?? [];
-    
+
     dynamic rxItem;
     if (row.receiveItemId != null && row.receiveItemId!.isNotEmpty) {
       rxItem = rxItems.firstWhere(
@@ -576,12 +786,17 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
         orElse: () => null,
       );
     }
-    
+
     if (rxItem == null && _resolvedPoItem != null) {
       rxItem = rxItems.firstWhere(
-        (item) => item['item_id'] == productId &&
-            ((double.tryParse(item['ordered']?.toString() ?? '') ?? 0.0) - _resolvedPoItem!.quantity).abs() < 0.001 &&
-            (item['description']?.toString() ?? '').trim() == (_resolvedPoItem!.description ?? '').trim(),
+        (item) =>
+            item['item_id'] == productId &&
+            ((double.tryParse(item['ordered']?.toString() ?? '') ?? 0.0) -
+                        _resolvedPoItem!.quantity)
+                    .abs() <
+                0.001 &&
+            (item['description']?.toString() ?? '').trim() ==
+                (_resolvedPoItem!.description ?? '').trim(),
         orElse: () => null,
       );
     }
@@ -589,12 +804,16 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
     // Quantity-based fallback using initialPurchaseReceiveQty
     if (rxItem == null && widget.initialPurchaseReceiveQty > 0) {
       rxItem = rxItems.firstWhere(
-        (item) => item['item_id'] == productId &&
-            ((double.tryParse(item['ordered']?.toString() ?? '') ?? 0.0) - widget.initialPurchaseReceiveQty).abs() < 0.001,
+        (item) =>
+            item['item_id'] == productId &&
+            ((double.tryParse(item['ordered']?.toString() ?? '') ?? 0.0) -
+                        widget.initialPurchaseReceiveQty)
+                    .abs() <
+                0.001,
         orElse: () => null,
       );
     }
-    
+
     rxItem ??= rxItems.firstWhere(
       (item) => item['item_id'] == productId,
       orElse: () => null,
@@ -603,15 +822,19 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
     if (rxItem == null) return;
 
     final String rxItemId = rxItem['id']?.toString() ?? '';
-    
-    final batches = rxItem['purchase_receive_item_batches'] as List<dynamic>? ?? [];
+
+    final batches =
+        rxItem['purchase_receive_item_batches'] as List<dynamic>? ?? [];
     double totalRxQty = 0.0;
     if (batches.isNotEmpty) {
       for (final b in batches) {
-        totalRxQty += double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
+        totalRxQty +=
+            double.tryParse(b['quantity']?.toString() ?? '0.0') ?? 0.0;
       }
     } else {
-      totalRxQty = double.tryParse(rxItem['quantity_to_receive']?.toString() ?? '0') ?? 0.0;
+      totalRxQty =
+          double.tryParse(rxItem['quantity_to_receive']?.toString() ?? '0') ??
+          0.0;
     }
 
     setState(() {
@@ -630,23 +853,24 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
 
       double totalBilledOther = 0.0;
       double totalBilledCurrent = 0.0;
-      if (response != null && response is List) {
-        for (final item in response) {
-          final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
-          final itemBillId = item['bill_id']?.toString();
-          if (widget.billId != null && itemBillId != null && itemBillId.toLowerCase() == widget.billId!.toLowerCase()) {
-            totalBilledCurrent += qty;
-          } else {
-            totalBilledOther += qty;
-          }
+      for (final item in response) {
+        final qty =
+            double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
+        final itemBillId = item['bill_id']?.toString();
+        if (widget.billId != null &&
+            itemBillId != null &&
+            itemBillId.toLowerCase() == widget.billId!.toLowerCase()) {
+          totalBilledCurrent += qty;
+        } else {
+          totalBilledOther += qty;
         }
       }
-
+    
       if (mounted) {
         setState(() {
           row.rxTotalQty = totalRxQty;
           row.billedOther = totalBilledOther;
-          
+
           final double valToSet = isInitial ? row.initialQty : 0.0;
           row.qtyCtrl.text = valToSet % 1 == 0
               ? valToSet.toInt().toString()
@@ -688,13 +912,17 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
     _updateTotal();
   }
 
-  List<Map<String, dynamic>> _getAvailableReceivesForIndex(int index, List<_SplitRow> splits) {
+  List<Map<String, dynamic>> _getAvailableReceivesForIndex(
+    int index,
+    List<_SplitRow> splits,
+  ) {
     if (_isLoading) {
       return [
         {
           'id': 'dummy',
-          widget.isReceiveMode ? 'bill_number' : 'purchase_receive_number': widget.isReceiveMode ? 'BILL-XXXXX' : 'PR-XXXXX'
-        }
+          widget.isReceiveMode ? 'bill_number' : 'purchase_receive_number':
+              widget.isReceiveMode ? 'BILL-XXXXX' : 'PR-XXXXX',
+        },
       ];
     }
     final selectedIds = <String>{};
@@ -723,11 +951,15 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
             _SplitRow(
               selectedReceive: {
                 'id': 'dummy',
-                widget.isReceiveMode ? 'bill_number' : 'purchase_receive_number': widget.isReceiveMode ? 'BILL-XXXXX' : 'PR-XXXXX'
+                widget.isReceiveMode
+                    ? 'bill_number'
+                    : 'purchase_receive_number': widget.isReceiveMode
+                    ? 'BILL-XXXXX'
+                    : 'PR-XXXXX',
               },
               initialQty: 0,
               receiveItemId: 'dummy',
-            )
+            ),
           ]
         : _splits;
 
@@ -735,7 +967,12 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       alignment: Alignment.topCenter,
-      insetPadding: const EdgeInsets.only(top: 0, left: 40, right: 40, bottom: 24),
+      insetPadding: const EdgeInsets.only(
+        top: 0,
+        left: 40,
+        right: 40,
+        bottom: 24,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 600),
         child: SingleChildScrollView(
@@ -745,7 +982,10 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -758,7 +998,11 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(LucideIcons.x, color: Color(0xFFEF4444), size: 20),
+                      icon: const Icon(
+                        LucideIcons.x,
+                        color: Color(0xFFEF4444),
+                        size: 20,
+                      ),
                       onPressed: () => Navigator.pop(context),
                       splashRadius: 20,
                     ),
@@ -789,7 +1033,10 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                     // Table header
                     Container(
                       color: headerBg,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -816,13 +1063,18 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
 
                     // Row 1: Unreceived Quantity / Unbilled Quantity
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
                             child: Text(
-                              widget.isReceiveMode ? 'Unbilled Quantity' : 'Unreceived Quantity',
+                              widget.isReceiveMode
+                                  ? 'Unbilled Quantity'
+                                  : 'Unreceived Quantity',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: textPrimary,
@@ -834,7 +1086,10 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                             width: 120,
                             child: CustomTextField(
                               controller: _unreceivedCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               textAlign: TextAlign.right,
                               height: 32,
                             ),
@@ -850,7 +1105,8 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: displaySplits.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1, color: borderCol),
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1, color: borderCol),
                         itemBuilder: (context, index) {
                           final row = displaySplits[index];
                           return Padding(
@@ -865,12 +1121,21 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                                       child: FormDropdown<Map<String, dynamic>>(
                                         height: 32,
                                         value: row.selectedReceive,
-                                        items: _getAvailableReceivesForIndex(index, displaySplits),
-                                        hint: widget.isReceiveMode ? 'Select Bill' : 'Select Receive',
+                                        items: _getAvailableReceivesForIndex(
+                                          index,
+                                          displaySplits,
+                                        ),
+                                        hint: widget.isReceiveMode
+                                            ? 'Select Bill'
+                                            : 'Select Receive',
                                         displayStringForValue: (rx) {
                                           return widget.isReceiveMode
-                                              ? (rx['bill_number']?.toString() ?? '')
-                                              : (rx['purchase_receive_number']?.toString() ?? '');
+                                              ? (rx['bill_number']
+                                                        ?.toString() ??
+                                                    '')
+                                              : (rx['purchase_receive_number']
+                                                        ?.toString() ??
+                                                    '');
                                         },
                                         onChanged: (val) {
                                           if (val != null) {
@@ -879,50 +1144,75 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                                               row.qtyCtrl.text = '0';
                                               row.receiveItemId = null;
                                             });
-                                            _fetchDetailsForSelectedReceive(row, val, widget.productId);
+                                            _fetchDetailsForSelectedReceive(
+                                              row,
+                                              val,
+                                              widget.productId,
+                                            );
                                           }
                                         },
                                       ),
                                     ),
                                     const SizedBox(width: 16),
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         if (row.selectedReceive != null)
                                           Padding(
-                                            padding: const EdgeInsets.only(bottom: 6),
+                                            padding: const EdgeInsets.only(
+                                              bottom: 6,
+                                            ),
                                             child: Builder(
                                               builder: (context) {
-                                                final currentQty = double.tryParse(row.qtyCtrl.text) ?? 0.0;
-                                                final maxQty = row.rxTotalQty - row.billedOther;
-                                                final bool isFilled = currentQty >= maxQty;
+                                                final currentQty =
+                                                    double.tryParse(
+                                                      row.qtyCtrl.text,
+                                                    ) ??
+                                                    0.0;
+                                                final maxQty =
+                                                    row.rxTotalQty -
+                                                    row.billedOther;
+                                                final bool isFilled =
+                                                    currentQty >= maxQty;
                                                 return InkWell(
                                                   onTap: isFilled
                                                       ? null
                                                       : () {
-                                                          row.qtyCtrl.text = maxQty.toInt().toString();
+                                                          row.qtyCtrl.text =
+                                                              maxQty
+                                                                  .toInt()
+                                                                  .toString();
                                                           _updateTotal();
                                                         },
                                                   child: Text(
                                                     'Auto-fill Total Qty',
                                                     style: TextStyle(
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       color: isFilled
-                                                          ? const Color(0xFF0088FF).withOpacity(0.4)
-                                                          : const Color(0xFF0088FF),
+                                                          ? const Color(
+                                                              0xFF0088FF,
+                                                            ).withOpacity(0.4)
+                                                          : const Color(
+                                                              0xFF0088FF,
+                                                            ),
                                                     ),
                                                   ),
                                                 );
-                                              }
+                                              },
                                             ),
                                           ),
                                         SizedBox(
                                           width: 120,
                                           child: CustomTextField(
                                             controller: row.qtyCtrl,
-                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            keyboardType:
+                                                const TextInputType.numberWithOptions(
+                                                  decimal: true,
+                                                ),
                                             textAlign: TextAlign.right,
                                             height: 32,
                                           ),
@@ -934,7 +1224,11 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                                       height: 32,
                                       child: Center(
                                         child: IconButton(
-                                          icon: const Icon(LucideIcons.x, color: Color(0xFFEF4444), size: 18),
+                                          icon: const Icon(
+                                            LucideIcons.x,
+                                            color: Color(0xFFEF4444),
+                                            size: 18,
+                                          ),
                                           onPressed: () => _removeRow(index),
                                           splashRadius: 20,
                                           padding: EdgeInsets.zero,
@@ -947,7 +1241,8 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                                 if (row.selectedReceive != null) ...[
                                   const SizedBox(height: 8),
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Expanded(
                                         child: row.isLoadingBilled
@@ -955,13 +1250,21 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                                                 height: 12,
                                                 width: 12,
                                                 child: Align(
-                                                  alignment: Alignment.centerLeft,
-                                                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 1.5,
+                                                      ),
                                                 ),
                                               )
                                             : Text(
                                                 'Quantity: ${row.rxTotalQty % 1 == 0 ? row.rxTotalQty.toInt().toString() : row.rxTotalQty.toString()}',
-                                                style: const TextStyle(fontSize: 12, color: textSecondary, fontFamily: 'Inter'),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: textSecondary,
+                                                  fontFamily: 'Inter',
+                                                ),
                                               ),
                                       ),
                                       const SizedBox(width: 16),
@@ -969,14 +1272,20 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                                         SizedBox(
                                           width: 220,
                                           child: Padding(
-                                            padding: const EdgeInsets.only(right: 40),
+                                            padding: const EdgeInsets.only(
+                                              right: 40,
+                                            ),
                                             child: Text(
                                               widget.isReceiveMode
                                                   ? 'Received: ${row.billedQty % 1 == 0 ? row.billedQty.toInt().toString() : row.billedQty.toString()} | Unreceived: ${row.unbilledQty % 1 == 0 ? row.unbilledQty.toInt().toString() : row.unbilledQty.toString()}'
                                                   : 'Billed: ${row.billedQty % 1 == 0 ? row.billedQty.toInt().toString() : row.billedQty.toString()} | Unbilled: ${row.unbilledQty % 1 == 0 ? row.unbilledQty.toInt().toString() : row.unbilledQty.toString()}',
                                               textAlign: TextAlign.right,
                                               maxLines: 1,
-                                              style: const TextStyle(fontSize: 12, color: textSecondary, fontFamily: 'Inter'),
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: textSecondary,
+                                                fontFamily: 'Inter',
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -992,7 +1301,10 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
 
                     // Add Row Button Row
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1000,7 +1312,11 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                             onTap: _addNewRow,
                             child: const Row(
                               children: [
-                                Icon(LucideIcons.plus, color: Color(0xFF0088FF), size: 16),
+                                Icon(
+                                  LucideIcons.plus,
+                                  color: Color(0xFF0088FF),
+                                  size: 16,
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'New Row',
@@ -1029,7 +1345,10 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                     // Total container
                     Container(
                       color: headerBg,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1064,16 +1383,24 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF22A95E),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                               elevation: 0,
                             ),
-                             onPressed: () {
+                            onPressed: () {
                               if (_isLoading) return;
 
-                              final unreceivedVal = double.tryParse(_unreceivedCtrl.text) ?? 0.0;
+                              final unreceivedVal =
+                                  double.tryParse(_unreceivedCtrl.text) ?? 0.0;
                               if (unreceivedVal > _initialUnreceivedQty) {
-                                final limitLabel = widget.isReceiveMode ? 'unbilled' : 'unreceived';
+                                final limitLabel = widget.isReceiveMode
+                                    ? 'unbilled'
+                                    : 'unreceived';
                                 ZerpaiToast.error(
                                   context,
                                   'Value cannot exceed maximum available $limitLabel quantity (${_initialUnreceivedQty % 1 == 0 ? _initialUnreceivedQty.toInt().toString() : _initialUnreceivedQty.toString()})',
@@ -1085,25 +1412,35 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                               final list = <ReceiveSplitAllocation>[];
                               for (final row in _splits) {
                                 if (row.selectedReceive != null) {
-                                  final qty = double.tryParse(row.qtyCtrl.text) ?? 0.0;
+                                  final qty =
+                                      double.tryParse(row.qtyCtrl.text) ?? 0.0;
                                   if (qty > 0) {
-                                    final maxQty = row.rxTotalQty - row.billedOther;
+                                    final maxQty =
+                                        row.rxTotalQty - row.billedOther;
                                     if (qty > maxQty) {
                                       final rxNum = widget.isReceiveMode
-                                          ? (row.selectedReceive!['bill_number']?.toString() ?? '')
-                                          : (row.selectedReceive!['purchase_receive_number']?.toString() ?? '');
-                                      final sourceLabel = widget.isReceiveMode ? 'bill' : 'receive';
+                                          ? (row.selectedReceive!['bill_number']
+                                                    ?.toString() ??
+                                                '')
+                                          : (row.selectedReceive!['purchase_receive_number']
+                                                    ?.toString() ??
+                                                '');
+                                      final sourceLabel = widget.isReceiveMode
+                                          ? 'bill'
+                                          : 'receive';
                                       ZerpaiToast.error(
                                         context,
                                         'Quantity for $sourceLabel $rxNum cannot exceed available quantity (${maxQty % 1 == 0 ? maxQty.toInt().toString() : maxQty.toString()})',
                                       );
                                       return;
                                     }
-                                    list.add(ReceiveSplitAllocation(
-                                      receive: row.selectedReceive!,
-                                      quantity: qty,
-                                      receiveItemId: row.receiveItemId ?? '',
-                                    ));
+                                    list.add(
+                                      ReceiveSplitAllocation(
+                                        receive: row.selectedReceive!,
+                                        quantity: qty,
+                                        receiveItemId: row.receiveItemId ?? '',
+                                      ),
+                                    );
                                   }
                                 }
                               }
@@ -1117,7 +1454,10 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                             },
                             child: const Text(
                               'Update',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -1125,13 +1465,21 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                           OutlinedButton(
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: borderCol),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
                             onPressed: () => Navigator.pop(context),
                             child: const Text(
                               'Cancel',
-                              style: TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                color: textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],

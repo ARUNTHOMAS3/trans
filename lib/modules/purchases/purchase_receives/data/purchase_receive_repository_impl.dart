@@ -1,5 +1,5 @@
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import '../models/purchases_purchase_receives_model.dart';
 import 'purchase_receive_repository.dart';
@@ -48,7 +48,9 @@ class PurchaseReceiveRepositoryImpl implements PurchaseReceiveRepository {
     try {
       final response = await _apiClient.get(
         '${ApiEndpoints.purchaseReceives}/$id',
-        queryParameters: {'t': DateTime.now().millisecondsSinceEpoch.toString()},
+        queryParameters: {
+          't': DateTime.now().millisecondsSinceEpoch.toString(),
+        },
       );
       return PurchaseReceive.fromJson(response.data);
     } catch (e) {

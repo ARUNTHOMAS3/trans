@@ -99,7 +99,9 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                   return InkWell(
                     onTap: () {
                       if (item.id != null) {
-                        final qp = _buildDetailQueryParameters(_tabsForItem(item));
+                        final qp = _buildDetailQueryParameters(
+                          _tabsForItem(item),
+                        );
                         context.goNamed(
                           AppRoutes.itemsDetail,
                           pathParameters: {
@@ -140,7 +142,9 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                                   }
                                 });
                               },
-                              side: const BorderSide(color: AppTheme.borderColor),
+                              side: const BorderSide(
+                                color: AppTheme.borderColor,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(3),
                               ),
@@ -240,10 +244,18 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
     final user = ref.watch(authUserProvider);
     final canCreateItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.create', action: 'create');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.create',
+          action: 'create',
+        );
     final canViewItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.view', action: 'view');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.view',
+          action: 'view',
+        );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -327,7 +339,11 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
     final user = ref.watch(authUserProvider);
     final canEditItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.edit', action: 'edit');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.edit',
+          action: 'edit',
+        );
 
     final bool allSelected = _selectedItemIds.length == totalItems;
 
@@ -378,7 +394,10 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 ),
                 onSelected: (value) {
                   if (value == 'bulk-update') {
-                    showBulkUpdateDialog(context, selectedIds: _selectedItemIds);
+                    showBulkUpdateDialog(
+                      context,
+                      selectedIds: _selectedItemIds,
+                    );
                   }
                 },
                 itemBuilder: (context) => [
@@ -510,13 +529,25 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
     final user = ref.watch(authUserProvider);
     final canEditItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.edit', action: 'edit');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.edit',
+          action: 'edit',
+        );
     final canDeleteItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.delete', action: 'delete');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.delete',
+          action: 'delete',
+        );
     final canCreateAssemblies =
         user != null &&
-        CapabilityService.canUserAction(user, 'inventory.assembly.create', action: 'create');
+        CapabilityService.canUserAction(
+          user,
+          'inventory.assembly.create',
+          action: 'create',
+        );
     final canMutateItems = canEditItems || canDeleteItems;
 
     return Container(
@@ -623,7 +654,9 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
               tooltip: 'Edit',
             ),
           if (canEditItems) const SizedBox(width: 8),
-          if (canCreateAssemblies && item.type != 'service' && item.isTrackInventory) ...[
+          if (canCreateAssemblies &&
+              item.type != 'service' &&
+              item.isTrackInventory) ...[
             ElevatedButton(
               onPressed: () {
                 final warehousesAsync = ref.read(
@@ -669,7 +702,9 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 if (canEditItems)
                   _buildHoverMenuItem(
                     value: 'toggle-active',
-                    label: item.isActive ? 'Mark as Inactive' : 'Mark as Active',
+                    label: item.isActive
+                        ? 'Mark as Inactive'
+                        : 'Mark as Active',
                   ),
                 if (canDeleteItems)
                   _buildHoverMenuItem(value: 'delete', label: 'Delete'),
@@ -692,7 +727,10 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                   children: const [
                     Text(
                       'More',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                     Icon(Icons.arrow_drop_down, size: 18),
                   ],
@@ -712,7 +750,11 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 );
               }
             },
-            icon: const Icon(Icons.close, size: 20, color: AppTheme.textSecondary),
+            icon: const Icon(
+              Icons.close,
+              size: 20,
+              color: AppTheme.textSecondary,
+            ),
           ),
         ],
       ),
@@ -723,10 +765,18 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
     final user = ref.read(authUserProvider);
     final canEditItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.edit', action: 'edit');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.edit',
+          action: 'edit',
+        );
     final canDeleteItems =
         user != null &&
-        CapabilityService.canUserAction(user, 'items.item.delete', action: 'delete');
+        CapabilityService.canUserAction(
+          user,
+          'items.item.delete',
+          action: 'delete',
+        );
 
     switch (action) {
       case 'clone':
@@ -817,7 +867,10 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
               isSearching
                   ? 'Found $loadedItems result${loadedItems == 1 ? '' : 's'}'
                   : 'Showing $loadedItems of $totalItems',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
             ),
           ),
           if (onLoadMore != null)

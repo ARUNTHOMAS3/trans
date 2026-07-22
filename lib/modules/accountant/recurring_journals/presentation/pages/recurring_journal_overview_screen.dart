@@ -205,8 +205,9 @@ class _RecurringJournalOverviewScreenState
                         Expanded(
                           child: RecurringJournalDetailPanel(
                             journal: selectedJournal,
-                            onClose: () =>
-                                context.go(AppRoutes.accountantRecurringJournals),
+                            onClose: () => context.go(
+                              AppRoutes.accountantRecurringJournals,
+                            ),
                             onEdit: () => context.go(
                               AppRoutes.accountantRecurringJournalsCreate,
                               extra: selectedJournal,
@@ -222,4 +223,3 @@ class _RecurringJournalOverviewScreenState
     );
   }
 }
-

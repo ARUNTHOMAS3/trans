@@ -112,14 +112,17 @@ class PhoneInputField extends StatelessWidget {
             enabled: enabled,
             focusNode: focusNode,
             onChanged: onChanged,
-            validator: validator ?? (effectivePrefix == '+91'
-                ? (val) {
-                    if (val != null && val.isNotEmpty) {
-                      if (val.length != 10) return 'Must be exactly 10 digits';
-                    }
-                    return null;
-                  }
-                : null),
+            validator:
+                validator ??
+                (effectivePrefix == '+91'
+                    ? (val) {
+                        if (val != null && val.isNotEmpty) {
+                          if (val.length != 10)
+                            return 'Must be exactly 10 digits';
+                        }
+                        return null;
+                      }
+                    : null),
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(maxDigits),
@@ -172,8 +175,7 @@ class _PrefixListRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 color: textColor,
-                fontWeight:
-                    isSelected ? FontWeight.w500 : FontWeight.normal,
+                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

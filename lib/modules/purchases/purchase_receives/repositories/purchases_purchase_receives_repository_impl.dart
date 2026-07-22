@@ -1,6 +1,6 @@
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 import '../models/purchases_purchase_receives_model.dart';
 import 'purchases_purchase_receives_repository.dart';

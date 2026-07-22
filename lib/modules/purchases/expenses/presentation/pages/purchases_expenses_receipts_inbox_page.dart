@@ -39,8 +39,7 @@ class _ExpensesReceiptsInboxPageState extends State<ExpensesReceiptsInboxPage> {
   @override
   Widget build(BuildContext context) {
     final orgId =
-        GoRouterState.of(context).pathParameters['orgSystemId'] ??
-            '6000000000';
+        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
 
     return ZerpaiLayout(
       pageTitle: '',
@@ -57,11 +56,7 @@ class _ExpensesReceiptsInboxPageState extends State<ExpensesReceiptsInboxPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _tabItem(
-                    'Receipts Inbox',
-                    isActive: true,
-                    onTap: () {},
-                  ),
+                  _tabItem('Receipts Inbox', isActive: true, onTap: () {}),
                   const SizedBox(width: 28),
                   _tabItem(
                     'Expenses',
@@ -313,11 +308,7 @@ class _FeatureCard extends StatelessWidget {
               color: AppTheme.bgLight,
               borderRadius: BorderRadius.circular(30),
             ),
-            child: Icon(
-              icon,
-              size: 28,
-              color: AppTheme.primaryBlue,
-            ),
+            child: Icon(icon, size: 28, color: AppTheme.primaryBlue),
           ),
           const SizedBox(height: 18),
           Text(
@@ -344,4 +335,3 @@ class _FeatureCard extends StatelessWidget {
     );
   }
 }
-

@@ -504,8 +504,30 @@ class SalesOrderTableSkeleton extends StatelessWidget {
     );
   }
 
-  static const List<double> _headerWidths = [90, 100, 90, 120, 80, 70, 70, 70, 70, 80];
-  static const List<double> _cellWidths   = [80, 90, 70, 110, 60, 55, 55, 55, 55, 75];
+  static const List<double> _headerWidths = [
+    90,
+    100,
+    90,
+    120,
+    80,
+    70,
+    70,
+    70,
+    70,
+    80,
+  ];
+  static const List<double> _cellWidths = [
+    80,
+    90,
+    70,
+    110,
+    60,
+    55,
+    55,
+    55,
+    55,
+    75,
+  ];
 }
 
 /// Skeleton matching the sales order selection list (narrow 360px panel):
@@ -658,7 +680,10 @@ class CustomerDetailSkeleton extends StatelessWidget {
               const Divider(height: 1, color: AppTheme.borderColor),
               // Tab bar
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 child: Wrap(
                   spacing: 28,
                   runSpacing: 12,
@@ -695,7 +720,8 @@ class CustomerDetailSkeleton extends StatelessWidget {
                                 SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Skeleton(width: 180, height: 18),
                                       SizedBox(height: 10),
@@ -717,9 +743,15 @@ class CustomerDetailSkeleton extends StatelessWidget {
                                 padding: EdgeInsets.only(bottom: 18),
                                 child: Row(
                                   children: [
-                                    Expanded(child: Skeleton(height: 14, width: 140)),
+                                    Expanded(
+                                      child: Skeleton(height: 14, width: 140),
+                                    ),
                                     SizedBox(width: 16),
-                                    Skeleton(width: 14, height: 14, borderRadius: 7),
+                                    Skeleton(
+                                      width: 14,
+                                      height: 14,
+                                      borderRadius: 7,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -729,7 +761,9 @@ class CustomerDetailSkeleton extends StatelessWidget {
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF0FDF4),
-                                border: Border.all(color: const Color(0xFFDCFCE7)),
+                                border: Border.all(
+                                  color: const Color(0xFFDCFCE7),
+                                ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: const Column(
@@ -739,16 +773,26 @@ class CustomerDetailSkeleton extends StatelessWidget {
                                   SizedBox(height: 8),
                                   Skeleton(width: 180, height: 14),
                                   SizedBox(height: 14),
-                                  Skeleton(width: 110, height: 32, borderRadius: 4),
+                                  Skeleton(
+                                    width: 110,
+                                    height: 32,
+                                    borderRadius: 4,
+                                  ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 18),
                             const Row(
                               children: [
-                                Expanded(child: Skeleton(height: 14, width: 120)),
+                                Expanded(
+                                  child: Skeleton(height: 14, width: 120),
+                                ),
                                 SizedBox(width: 16),
-                                Skeleton(width: 14, height: 14, borderRadius: 7),
+                                Skeleton(
+                                  width: 14,
+                                  height: 14,
+                                  borderRadius: 7,
+                                ),
                               ],
                             ),
                           ],
@@ -765,7 +809,8 @@ class CustomerDetailSkeleton extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Skeleton(width: 150, height: 14),
                                       SizedBox(height: 8),
@@ -776,7 +821,8 @@ class CustomerDetailSkeleton extends StatelessWidget {
                                 SizedBox(width: 24),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Skeleton(width: 80, height: 14),
                                       SizedBox(height: 8),
@@ -794,7 +840,9 @@ class CustomerDetailSkeleton extends StatelessWidget {
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: const Column(
@@ -834,10 +882,7 @@ class CustomerDetailSkeleton extends StatelessWidget {
                                 Skeleton(width: 72, height: 14),
                                 SizedBox(width: 16),
                                 Expanded(
-                                  child: Skeleton(
-                                    height: 120,
-                                    borderRadius: 4,
-                                  ),
+                                  child: Skeleton(height: 120, borderRadius: 4),
                                 ),
                               ],
                             ),
@@ -1059,7 +1104,10 @@ class SalesOrderDetailSkeleton extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Skeleton(width: i == 2 ? 80 : 60, height: i == 2 ? 18 : 13),
+                              Skeleton(
+                                width: i == 2 ? 80 : 60,
+                                height: i == 2 ? 18 : 13,
+                              ),
                               Skeleton(width: 60, height: i == 2 ? 18 : 13),
                             ],
                           ),
@@ -1233,27 +1281,31 @@ class CreditNoteTableSkeleton extends StatelessWidget {
   static const List<int> _flex = [8, 11, 11, 11, 16, 11, 8, 9, 9, 10, 10];
 
   static List<Widget> _headerCells() => _flex
-      .map((f) => Expanded(
-            flex: f,
-            child: const Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: Skeleton(height: 12),
-            ),
-          ))
+      .map(
+        (f) => Expanded(
+          flex: f,
+          child: const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: Skeleton(height: 12),
+          ),
+        ),
+      )
       .toList();
 
   static List<Widget> _dataCells(int rowIndex) => _flex
-      .map((f) => Expanded(
-            flex: f,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: FractionallySizedBox(
-                widthFactor: rowIndex.isEven ? 0.85 : 0.65,
-                alignment: Alignment.centerLeft,
-                child: const Skeleton(height: 13),
-              ),
+      .map(
+        (f) => Expanded(
+          flex: f,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FractionallySizedBox(
+              widthFactor: rowIndex.isEven ? 0.85 : 0.65,
+              alignment: Alignment.centerLeft,
+              child: const Skeleton(height: 13),
             ),
-          ))
+          ),
+        ),
+      )
       .toList();
 
   @override
@@ -1455,40 +1507,43 @@ class VendorCreditAddSkeleton extends StatelessWidget {
             ),
           ),
           // Two skeleton item rows
-          ...List.generate(2, (i) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              border: Border(
-                left: BorderSide(color: AppTheme.borderLight),
-                right: BorderSide(color: AppTheme.borderLight),
-                bottom: BorderSide(color: AppTheme.borderLight),
+          ...List.generate(
+            2,
+            (i) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                border: Border(
+                  left: BorderSide(color: AppTheme.borderLight),
+                  right: BorderSide(color: AppTheme.borderLight),
+                  bottom: BorderSide(color: AppTheme.borderLight),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 40),
+                  Expanded(
+                    flex: 14,
+                    child: FractionallySizedBox(
+                      widthFactor: i == 0 ? 0.7 : 0.5,
+                      alignment: Alignment.centerLeft,
+                      child: const Skeleton(height: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 6, child: Skeleton(height: 14)),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 4, child: Skeleton(height: 14)),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 4, child: Skeleton(height: 14)),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 4, child: Skeleton(height: 14)),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 4, child: Skeleton(height: 14)),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                const SizedBox(width: 40),
-                Expanded(
-                  flex: 14,
-                  child: FractionallySizedBox(
-                    widthFactor: i == 0 ? 0.7 : 0.5,
-                    alignment: Alignment.centerLeft,
-                    child: const Skeleton(height: 14),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(flex: 6, child: Skeleton(height: 14)),
-                const SizedBox(width: 12),
-                Expanded(flex: 4, child: Skeleton(height: 14)),
-                const SizedBox(width: 12),
-                Expanded(flex: 4, child: Skeleton(height: 14)),
-                const SizedBox(width: 12),
-                Expanded(flex: 4, child: Skeleton(height: 14)),
-                const SizedBox(width: 12),
-                Expanded(flex: 4, child: Skeleton(height: 14)),
-              ],
-            ),
-          )),
+          ),
           // Table bottom cap
           Container(
             height: 8,
@@ -1521,7 +1576,10 @@ class VendorCreditAddSkeleton extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Skeleton(width: i == 2 ? 70.0 : 55.0, height: i == 2 ? 18.0 : 13.0),
+                        Skeleton(
+                          width: i == 2 ? 70.0 : 55.0,
+                          height: i == 2 ? 18.0 : 13.0,
+                        ),
                         Skeleton(width: 65, height: i == 2 ? 18.0 : 13.0),
                       ],
                     ),

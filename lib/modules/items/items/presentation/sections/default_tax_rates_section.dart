@@ -225,7 +225,10 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
               )
             : Text(
                 label,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSubtle),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSubtle,
+                ),
               );
 
         if (narrow) {

@@ -68,7 +68,6 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
     });
   }
 
-
   Future<void> _syncVendorNumberPreferences() async {
     try {
       final lookupsService = LookupsApiService();
@@ -88,7 +87,11 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
         });
       }
     } catch (e) {
-      AppLogger.error('Error syncing vendor number preferences', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error syncing vendor number preferences',
+        error: e,
+        module: 'purchases',
+      );
       if (mounted) {
         _state(() {
           _vendorNumberPrefixCtrl.text = 'VEN-';
@@ -121,7 +124,11 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
         });
       }
     } catch (e) {
-      AppLogger.error('Error applying vendor number preferences', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error applying vendor number preferences',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -271,4 +278,3 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
     _attachedFilesOverlayEntry = null;
   }
 }
-

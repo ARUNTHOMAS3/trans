@@ -41,16 +41,21 @@ class StockTransfer {
     return StockTransfer(
       id: json['id'],
       transferNumber: json['transfer_no'] ?? json['transfer_number'],
-      fromWarehouseId: json['source_warehouse_id'] ?? json['from_warehouse_id'] ?? '',
-      fromWarehouseName: json['source_warehouse_name'] ?? json['from_warehouse_name'] ?? '',
-      toWarehouseId: json['destination_warehouse_id'] ?? json['to_warehouse_id'] ?? '',
-      toWarehouseName: json['destination_warehouse_name'] ?? json['to_warehouse_name'] ?? '',
+      fromWarehouseId:
+          json['source_warehouse_id'] ?? json['from_warehouse_id'] ?? '',
+      fromWarehouseName:
+          json['source_warehouse_name'] ?? json['from_warehouse_name'] ?? '',
+      toWarehouseId:
+          json['destination_warehouse_id'] ?? json['to_warehouse_id'] ?? '',
+      toWarehouseName:
+          json['destination_warehouse_name'] ?? json['to_warehouse_name'] ?? '',
       transferDate: DateTime.parse(json['transfer_date']),
       expectedDeliveryDate: json['expected_delivery_date'] != null
           ? DateTime.parse(json['expected_delivery_date'])
           : null,
       status: json['status'] ?? 'draft',
-      items: (json['items'] as List?)
+      items:
+          (json['items'] as List?)
               ?.map((item) => StockTransferItem.fromJson(item))
               .toList() ??
           [],
@@ -120,24 +125,49 @@ class StockTransferItem {
       productCode: json['product_code'],
       productName: json['product_name'],
       hsnSac: json['hsn_sac']?.toString(),
-      quantity: double.tryParse((json['qty_requested'] ?? json['quantity'] ?? 0).toString()) ?? 0.0,
-      transferredQuantity: double.tryParse((json['qty_transferred'] ?? json['transferred_quantity'] ?? 0).toString()) ?? 0.0,
-      receivedQuantity: double.tryParse((json['qty_received'] ?? json['received_quantity'] ?? 0).toString()) ?? 0.0,
-      rate: double.tryParse((json['rate'] ?? json['purchase_rate'] ?? 0).toString()),
+      quantity:
+          double.tryParse(
+            (json['qty_requested'] ?? json['quantity'] ?? 0).toString(),
+          ) ??
+          0.0,
+      transferredQuantity:
+          double.tryParse(
+            (json['qty_transferred'] ?? json['transferred_quantity'] ?? 0)
+                .toString(),
+          ) ??
+          0.0,
+      receivedQuantity:
+          double.tryParse(
+            (json['qty_received'] ?? json['received_quantity'] ?? 0).toString(),
+          ) ??
+          0.0,
+      rate: double.tryParse(
+        (json['rate'] ?? json['purchase_rate'] ?? 0).toString(),
+      ),
       uom: json['unit'] ?? json['uom'],
       batchNumber: json['batch_number'],
       expiryDate: json['expiry_date'] != null
           ? DateTime.tryParse(json['expiry_date'])
           : null,
       notes: json['notes'],
-      sourceBatches: (json['source_batches'] as List?)
+      sourceBatches:
+          (json['source_batches'] as List?)
               ?.whereType<Map>()
-              .map((row) => TransferOrderSourceBatch.fromJson(Map<String, dynamic>.from(row)))
+              .map(
+                (row) => TransferOrderSourceBatch.fromJson(
+                  Map<String, dynamic>.from(row),
+                ),
+              )
               .toList() ??
           const [],
-      destinationBatches: (json['destination_batches'] as List?)
+      destinationBatches:
+          (json['destination_batches'] as List?)
               ?.whereType<Map>()
-              .map((row) => TransferOrderDestinationBatch.fromJson(Map<String, dynamic>.from(row)))
+              .map(
+                (row) => TransferOrderDestinationBatch.fromJson(
+                  Map<String, dynamic>.from(row),
+                ),
+              )
               .toList() ??
           const [],
     );
@@ -222,7 +252,8 @@ class TransferOrderDestinationBatch {
     return TransferOrderDestinationBatch(
       sourceBatchId: (json['source_batch_id'] ?? '').toString(),
       destinationBatchId: (json['destination_batch_id'] ?? '').toString(),
-      destinationWarehouseId: (json['destination_warehouse_id'] ?? '').toString(),
+      destinationWarehouseId: (json['destination_warehouse_id'] ?? '')
+          .toString(),
       destinationBinId: (json['destination_bin_id'] ?? '').toString(),
       qty: double.tryParse((json['qty'] ?? 0).toString()) ?? 0,
     );

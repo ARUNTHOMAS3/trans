@@ -131,26 +131,27 @@ class _AccountantTransactionLockingScreenState
     if (lock != null) {
       showDialog(
         context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Unlock Module'),
-              content: Text('Are you sure you want to unlock $moduleName transactions?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await ref
-                        .read(transactionLockProvider.notifier)
-                        .unlockModule(moduleName);
-                  },
-                  child: const Text('Unlock'),
-                ),
-              ],
+        builder: (context) => AlertDialog(
+          title: const Text('Unlock Module'),
+          content: Text(
+            'Are you sure you want to unlock $moduleName transactions?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await ref
+                    .read(transactionLockProvider.notifier)
+                    .unlockModule(moduleName);
+              },
+              child: const Text('Unlock'),
+            ),
+          ],
+        ),
       );
       return;
     }
@@ -425,7 +426,12 @@ class _AccountantTransactionLockingScreenState
       builder: (context) => _LockAllDialog(
         onConfirm: (date, reason) async {
           final notifier = ref.read(transactionLockProvider.notifier);
-          for (final module in ['Sales', 'Purchases', 'Banking', 'Accountant']) {
+          for (final module in [
+            'Sales',
+            'Purchases',
+            'Banking',
+            'Accountant',
+          ]) {
             await notifier.lockModule(
               moduleName: module,
               lockDate: date,
@@ -526,8 +532,9 @@ class _LockAllDialogState extends ConsumerState<_LockAllDialog> {
                         if (date != null) {
                           setState(() {
                             _selectedDate = date;
-                            _dateController.text =
-                                DateFormat('dd/MM/yyyy').format(date);
+                            _dateController.text = DateFormat(
+                              'dd/MM/yyyy',
+                            ).format(date);
                           });
                         }
                       },
@@ -539,13 +546,15 @@ class _LockAllDialogState extends ConsumerState<_LockAllDialog> {
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: AppTheme.borderColor),
+                          borderSide: const BorderSide(
+                            color: AppTheme.borderColor,
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: AppTheme.borderColor),
+                          borderSide: const BorderSide(
+                            color: AppTheme.borderColor,
+                          ),
                         ),
                       ),
                       style: const TextStyle(fontSize: 14),
@@ -568,13 +577,15 @@ class _LockAllDialogState extends ConsumerState<_LockAllDialog> {
                       contentPadding: const EdgeInsets.all(12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            const BorderSide(color: AppTheme.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            const BorderSide(color: AppTheme.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                     ),
                     style: const TextStyle(fontSize: 14),
@@ -595,7 +606,9 @@ class _LockAllDialogState extends ConsumerState<_LockAllDialog> {
                             if (_reasonController.text.trim().isEmpty) return;
                             setState(() => _isLoading = true);
                             await widget.onConfirm(
-                                _selectedDate, _reasonController.text.trim());
+                              _selectedDate,
+                              _reasonController.text.trim(),
+                            );
                             if (mounted) Navigator.pop(context);
                           },
                     label: _isLoading ? 'Locking...' : 'Lock All',
@@ -829,4 +842,3 @@ class _LockModuleDialogState extends ConsumerState<_LockModuleDialog> {
     super.dispose();
   }
 }
-

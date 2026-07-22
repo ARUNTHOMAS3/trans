@@ -24,7 +24,11 @@ class StockAdjustmentPage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(LucideIcons.packageOpen, size: 40, color: AppTheme.textSecondary),
+          const Icon(
+            LucideIcons.packageOpen,
+            size: 40,
+            color: AppTheme.textSecondary,
+          ),
           const SizedBox(height: 12),
           const Text(
             'Stock adjustment',

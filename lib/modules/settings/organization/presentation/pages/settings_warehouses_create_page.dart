@@ -22,7 +22,6 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/phone_input_field.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 
-
 // ─── Sidebar nav ──────────────────────────────────────────────────────────────
 
 class _NavSection {
@@ -274,8 +273,9 @@ class _SettingsWarehouseCreatePageState
 
   String _formatGeneratedWarehouseCode() {
     final prefix = _warehouseCodePrefix.trim();
-    final nextNumber =
-        _warehouseCodeNextNumber < 1 ? 1 : _warehouseCodeNextNumber;
+    final nextNumber = _warehouseCodeNextNumber < 1
+        ? 1
+        : _warehouseCodeNextNumber;
     return '$prefix${nextNumber.toString().padLeft(5, '0')}';
   }
 
@@ -386,7 +386,9 @@ class _SettingsWarehouseCreatePageState
                                   groupValue: isAutoGenerate,
                                   onChanged: (value) {
                                     if (value != null) {
-                                      setDialogState(() => isAutoGenerate = value);
+                                      setDialogState(
+                                        () => isAutoGenerate = value,
+                                      );
                                     }
                                   },
                                   child: const Radio<bool>(
@@ -518,7 +520,9 @@ class _SettingsWarehouseCreatePageState
                                   groupValue: isAutoGenerate,
                                   onChanged: (value) {
                                     if (value != null) {
-                                      setDialogState(() => isAutoGenerate = value);
+                                      setDialogState(
+                                        () => isAutoGenerate = value,
+                                      );
                                     }
                                   },
                                   child: const Radio<bool>(
@@ -557,8 +561,9 @@ class _SettingsWarehouseCreatePageState
                                   _warehouseCodePrefix = nextPrefix.isEmpty
                                       ? 'WH-'
                                       : nextPrefix;
-                                  _warehouseCodeNextNumber =
-                                      parsedNext < 1 ? 1 : parsedNext;
+                                  _warehouseCodeNextNumber = parsedNext < 1
+                                      ? 1
+                                      : parsedNext;
                                   _syncWarehouseCodeFromPreferences();
                                 }
                               });
@@ -630,7 +635,9 @@ class _SettingsWarehouseCreatePageState
     if (cleaned.length == 12 && cleaned.startsWith('91')) {
       return cleaned.substring(2);
     }
-    return cleaned.length > 10 ? cleaned.substring(cleaned.length - 10) : cleaned;
+    return cleaned.length > 10
+        ? cleaned.substring(cleaned.length - 10)
+        : cleaned;
   }
 
   Future<void> _loadOrgAndBranches() async {
@@ -695,7 +702,9 @@ class _SettingsWarehouseCreatePageState
     } catch (_) {}
   }
 
-  Future<List<_StateOption>> _fetchStatesForCountryName(String countryName) async {
+  Future<List<_StateOption>> _fetchStatesForCountryName(
+    String countryName,
+  ) async {
     final String normalizedCountryName = countryName.trim().toLowerCase();
     if (normalizedCountryName.isEmpty) {
       return <_StateOption>[];
@@ -884,11 +893,16 @@ class _SettingsWarehouseCreatePageState
         _warehouseCodeCtrl.text = (d['warehouse_code'] ?? '').toString();
         _hydrateWarehouseCodePreferences(_warehouseCodeCtrl.text);
         _attentionCtrl.text = (d['attention'] ?? '').toString();
-        _streetCtrl.text = (d['street'] ?? d['address_street_1'] ?? '').toString();
-        _street2Ctrl.text = (d['place'] ?? d['address_street_2'] ?? '').toString();
+        _streetCtrl.text = (d['street'] ?? d['address_street_1'] ?? '')
+            .toString();
+        _street2Ctrl.text = (d['place'] ?? d['address_street_2'] ?? '')
+            .toString();
         _cityCtrl.text = (d['city'] ?? '').toString();
         _pincodeCtrl.text = (d['pincode'] ?? '').toString();
-        _phoneCtrl.text = (d['phone'] ?? '').toString().replaceAll(RegExp(r'^\+91\s*'), '');
+        _phoneCtrl.text = (d['phone'] ?? '').toString().replaceAll(
+          RegExp(r'^\+91\s*'),
+          '',
+        );
         final stateVal = (d['state'] ?? '').toString();
         final parentId = d['branch_id']?.toString();
         final districtId = d['district_id']?.toString();
@@ -897,9 +911,15 @@ class _SettingsWarehouseCreatePageState
         final wardId = d['ward_id']?.toString();
         setState(() {
           _selectedState = stateVal.isNotEmpty ? stateVal : null;
-          _selectedDistrictId = districtId?.isNotEmpty == true ? districtId : null;
-          _selectedLocalBodyId = localBodyId?.isNotEmpty == true ? localBodyId : null;
-          _selectedAssemblyId = assemblyId?.isNotEmpty == true ? assemblyId : null;
+          _selectedDistrictId = districtId?.isNotEmpty == true
+              ? districtId
+              : null;
+          _selectedLocalBodyId = localBodyId?.isNotEmpty == true
+              ? localBodyId
+              : null;
+          _selectedAssemblyId = assemblyId?.isNotEmpty == true
+              ? assemblyId
+              : null;
           _selectedWardId = wardId?.isNotEmpty == true ? wardId : null;
           if (parentId != null && parentId.isNotEmpty)
             _parentBranchId = parentId;
@@ -911,25 +931,25 @@ class _SettingsWarehouseCreatePageState
             await _loadAssembliesForSelectedDistrict();
             if (_selectedLocalBodyId != null &&
                 _selectedLocalBodyId!.isNotEmpty) {
-            _LocalBodyOption? matchedLocalBody;
-            for (final localBody in _allLocalBodyOptions) {
-              if (localBody.id == _selectedLocalBodyId) {
-                matchedLocalBody = localBody;
-                break;
+              _LocalBodyOption? matchedLocalBody;
+              for (final localBody in _allLocalBodyOptions) {
+                if (localBody.id == _selectedLocalBodyId) {
+                  matchedLocalBody = localBody;
+                  break;
+                }
               }
-            }
-            if (matchedLocalBody != null) {
-              setState(() {
-                _selectedLocalBodyType = matchedLocalBody!.bodyType;
-                _localBodyOptions = _allLocalBodyOptions
-                    .where(
-                      (localBody) =>
-                          localBody.bodyType.toLowerCase() ==
-                          matchedLocalBody!.bodyType.toLowerCase(),
-                    )
-                    .toList();
-              });
-            }
+              if (matchedLocalBody != null) {
+                setState(() {
+                  _selectedLocalBodyType = matchedLocalBody!.bodyType;
+                  _localBodyOptions = _allLocalBodyOptions
+                      .where(
+                        (localBody) =>
+                            localBody.bodyType.toLowerCase() ==
+                            matchedLocalBody!.bodyType.toLowerCase(),
+                      )
+                      .toList();
+                });
+              }
               await _loadWardsForSelectedLocalBody();
             }
           }
@@ -1391,388 +1411,402 @@ class _SettingsWarehouseCreatePageState
               child: Opacity(
                 opacity: _isDefaultWarehouse ? 0.55 : 1.0,
                 child: Container(
-              color: Colors.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ZerpaiFormRow(
-                    label: 'Warehouse name',
-                    required: true,
-                    child: TextFormField(
-                      controller: _nameCtrl,
-                      decoration: _dec('e.g. Central Warehouse'),
-                      onChanged: (_) {
-                        if (_showValidationErrors && mounted) {
-                          setState(() {});
-                        }
-                      },
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Warehouse name is required'
-                          : null,
-                    ),
-                  ),
-                  ZerpaiFormRow(
-                    label: 'Warehouse code',
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _warehouseCodeCtrl,
-                            readOnly: !_warehouseCodeManualOverride,
-                            decoration: _dec('e.g. WH-00001').copyWith(
-                              suffixIcon: _warehouseCodeManualOverride
-                                  ? null
-                                  : const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 6,
-                                      ),
-                                      child: Text(
-                                        'Auto',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTheme.primaryBlueDark,
-                                        ),
-                                      ),
-                                    ),
-                              filled: true,
-                              fillColor: _warehouseCodeManualOverride
-                                  ? Colors.white
-                                  : AppTheme.bgLight,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ZTooltip(
-                          message:
-                              'Configure the warehouse code prefix and next number, or switch to manual entry.',
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
-                            onTap: _showWarehouseCodePreferencesDialog,
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: AppTheme.borderLight,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                LucideIcons.settings,
-                                size: 16,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ZerpaiFormRow(
-                    label: 'Associated branch',
-                    child: FormDropdown<String>(
-                      items: _branches.map((b) => b.id).toList(),
-                      value: _parentBranchId,
-                      hint: 'Select associated branch',
-                      displayStringForValue: (id) => _branches
-                          .firstWhere(
-                            (b) => b.id == id,
-                            orElse: () => _BranchOption(id: id, name: id),
-                          )
-                          .name,
-                      errorText: _parentBranchError,
-                      onChanged: (v) => setState(() {
-                        _parentBranchId = v;
-                        _parentBranchError = null;
-                      }),
-                    ),
-                  ),
-                  ZerpaiFormRow(
-                    label: 'Address',
-                    required: true,
-                    highlightRequiredLabel: true,
+                  color: Colors.white,
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextFormField(
-                          controller: _attentionCtrl,
-                          decoration: _dec('Attention'),
-                        ),
-                        const SizedBox(height: AppTheme.space8),
-                        TextFormField(
-                          controller: _streetCtrl,
-                          decoration: _dec('Street'),
-                          validator: (value) =>
-                              (value == null || value.trim().isEmpty)
-                              ? 'Street is required'
+                    children: [
+                      ZerpaiFormRow(
+                        label: 'Warehouse name',
+                        required: true,
+                        child: TextFormField(
+                          controller: _nameCtrl,
+                          decoration: _dec('e.g. Central Warehouse'),
+                          onChanged: (_) {
+                            if (_showValidationErrors && mounted) {
+                              setState(() {});
+                            }
+                          },
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Warehouse name is required'
                               : null,
                         ),
-                        const SizedBox(height: AppTheme.space8),
-                        TextFormField(
-                          controller: _street2Ctrl,
-                          decoration: _dec('Place'),
-                        ),
-                        const SizedBox(height: AppTheme.space8),
-                        Row(
+                      ),
+                      ZerpaiFormRow(
+                        label: 'Warehouse code',
+                        child: Row(
                           children: [
                             Expanded(
                               child: TextFormField(
-                                controller: _cityCtrl,
-                                decoration: _dec('City'),
-                                validator: (value) =>
-                                    (value == null || value.trim().isEmpty)
-                                    ? 'City is required'
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(width: AppTheme.space8),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _pincodeCtrl,
-                                decoration: _dec('Pin code'),
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(6),
-                                ],
-                                validator: (value) =>
-                                    (value == null || value.trim().isEmpty)
-                                    ? 'Pin code is required'
-                                    : null,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppTheme.space8),
-                        _buildStaticField(_orgCountry),
-                        const SizedBox(height: AppTheme.space8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FormDropdown<String>(
-                                items: _stateOptions,
-                                value: _selectedState,
-                                hint: 'State / Union territory',
-                                displayStringForValue: (v) => v,
-                                errorText: _showValidationErrors &&
-                                        (_selectedState == null ||
-                                            _selectedState!.trim().isEmpty)
-                                    ? 'State is required'
-                                    : null,
-                                onChanged: (v) async {
-                                  setState(() {
-                                    _selectedState = v;
-                                    _selectedDistrictId = null;
-                                    _selectedLocalBodyType = null;
-                                    _selectedLocalBodyId = null;
-                                    _selectedAssemblyId = null;
-                                    _selectedWardId = null;
-                                    _districtOptions = [];
-                                    _allLocalBodyOptions = [];
-                                    _localBodyOptions = [];
-                                    _assemblyOptions = [];
-                                    _wardOptions = [];
-                                  });
-                                  if ((v ?? '').trim().toLowerCase() ==
-                                      'kerala') {
-                                    await _loadDistrictsForSelectedState();
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: AppTheme.space8),
-                            Expanded(
-                              child: PhoneInputField(
-                                controller: _phoneCtrl,
-                                selectedPrefix: _phonePrefix,
-                                onPrefixChanged: (v) =>
-                                    setState(() => _phonePrefix = v ?? '+91'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_showMainAddressLsgdFields) ...[
-                          const SizedBox(height: AppTheme.space8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FormDropdown<String>(
-                                  items: _districtOptions
-                                      .map((district) => district.id)
-                                      .toList(),
-                                  value: _selectedDistrictId,
-                                  hint: 'Select district',
-                                  displayStringForValue: (value) =>
-                                      _districtOptions
-                                          .firstWhere(
-                                            (district) => district.id == value,
-                                            orElse: () => _DistrictOption(
-                                              id: value,
-                                              name: value,
+                                controller: _warehouseCodeCtrl,
+                                readOnly: !_warehouseCodeManualOverride,
+                                decoration: _dec('e.g. WH-00001').copyWith(
+                                  suffixIcon: _warehouseCodeManualOverride
+                                      ? null
+                                      : const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 6,
+                                          ),
+                                          child: Text(
+                                            'Auto',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppTheme.primaryBlueDark,
                                             ),
-                                          )
-                                          .name,
-                                  errorText: _showValidationErrors &&
-                                          (_selectedDistrictId == null ||
-                                              _selectedDistrictId!
-                                                  .trim()
-                                                  .isEmpty)
-                                      ? 'District is required'
-                                      : null,
-                                  onChanged: (value) async {
-                                    setState(() {
-                                      _selectedDistrictId = value;
-                                      _selectedLocalBodyType = null;
-                                      _selectedLocalBodyId = null;
-                                      _selectedAssemblyId = null;
-                                      _selectedWardId = null;
-                                      _allLocalBodyOptions = [];
-                                      _localBodyOptions = [];
-                                      _assemblyOptions = [];
-                                      _wardOptions = [];
-                                    });
-                                    if (value != null && value.isNotEmpty) {
-                                      await _loadLocalBodiesForSelectedDistrict(
-                                        value,
-                                      );
-                                      await _loadAssembliesForSelectedDistrict();
-                                    }
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: AppTheme.space8),
-                              Expanded(
-                                child: FormDropdown<String>(
-                                  items: _availableLocalBodyTypeOptions,
-                                  value: _selectedLocalBodyType,
-                                  hint: 'Select local body type',
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _selectedLocalBodyType = value;
-                                      _selectedLocalBodyId = null;
-                                      _selectedWardId = null;
-                                      _localBodyOptions =
-                                          value == null || value.isEmpty
-                                          ? _allLocalBodyOptions
-                                          : _allLocalBodyOptions
-                                                .where(
-                                                  (localBody) =>
-                                                      localBody.bodyType
-                                                          .toLowerCase() ==
-                                                      value.toLowerCase(),
-                                                )
-                                                .toList();
-                                      _wardOptions = [];
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppTheme.space8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FormDropdown<String>(
-                                  items: _localBodyOptions
-                                      .map((localBody) => localBody.id)
-                                      .toList(),
-                                  value: _selectedLocalBodyId,
-                                  hint: 'Select local body name',
-                                  displayStringForValue: (value) =>
-                                      _localBodyOptions
-                                          .firstWhere(
-                                            (localBody) =>
-                                                localBody.id == value,
-                                            orElse: () => _LocalBodyOption(
-                                              id: value,
-                                              name: value,
-                                              bodyType: '',
-                                            ),
-                                          )
-                                          .name,
-                                  errorText: _showValidationErrors &&
-                                          (_selectedLocalBodyId == null ||
-                                              _selectedLocalBodyId!
-                                                  .trim()
-                                                  .isEmpty)
-                                      ? 'Local body is required'
-                                      : null,
-                                  onChanged: (value) async {
-                                    setState(() {
-                                      _selectedLocalBodyId = value;
-                                      _selectedWardId = null;
-                                      _wardOptions = [];
-                                    });
-                                    if (value != null && value.isNotEmpty) {
-                                      await _loadWardsForSelectedLocalBody();
-                                    }
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: AppTheme.space8),
-                              Expanded(
-                                child: FormDropdown<String>(
-                                  items: _wardOptions
-                                      .map((ward) => ward.id)
-                                      .toList(),
-                                  value: _selectedWardId,
-                                  hint: 'Select ward',
-                                  displayStringForValue: (value) => _wardOptions
-                                      .firstWhere(
-                                        (ward) => ward.id == value,
-                                        orElse: () => _WardOption(
-                                          id: value,
-                                          name: value,
-                                          displayName: value,
+                                          ),
                                         ),
-                                      )
-                                      .displayName,
-                                  errorText: _showValidationErrors &&
-                                          (_selectedWardId == null ||
-                                              _selectedWardId!.trim().isEmpty)
-                                      ? 'Ward is required'
-                                      : null,
-                                  onChanged: (value) =>
-                                      setState(() => _selectedWardId = value),
+                                  filled: true,
+                                  fillColor: _warehouseCodeManualOverride
+                                      ? Colors.white
+                                      : AppTheme.bgLight,
                                 ),
                               ),
+                            ),
+                            const SizedBox(width: 8),
+                            ZTooltip(
+                              message:
+                                  'Configure the warehouse code prefix and next number, or switch to manual entry.',
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(6),
+                                onTap: _showWarehouseCodePreferencesDialog,
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: AppTheme.borderLight,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    LucideIcons.settings,
+                                    size: 16,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ZerpaiFormRow(
+                        label: 'Associated branch',
+                        child: FormDropdown<String>(
+                          items: _branches.map((b) => b.id).toList(),
+                          value: _parentBranchId,
+                          hint: 'Select associated branch',
+                          displayStringForValue: (id) => _branches
+                              .firstWhere(
+                                (b) => b.id == id,
+                                orElse: () => _BranchOption(id: id, name: id),
+                              )
+                              .name,
+                          errorText: _parentBranchError,
+                          onChanged: (v) => setState(() {
+                            _parentBranchId = v;
+                            _parentBranchError = null;
+                          }),
+                        ),
+                      ),
+                      ZerpaiFormRow(
+                        label: 'Address',
+                        required: true,
+                        highlightRequiredLabel: true,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _attentionCtrl,
+                              decoration: _dec('Attention'),
+                            ),
+                            const SizedBox(height: AppTheme.space8),
+                            TextFormField(
+                              controller: _streetCtrl,
+                              decoration: _dec('Street'),
+                              validator: (value) =>
+                                  (value == null || value.trim().isEmpty)
+                                  ? 'Street is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: AppTheme.space8),
+                            TextFormField(
+                              controller: _street2Ctrl,
+                              decoration: _dec('Place'),
+                            ),
+                            const SizedBox(height: AppTheme.space8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _cityCtrl,
+                                    decoration: _dec('City'),
+                                    validator: (value) =>
+                                        (value == null || value.trim().isEmpty)
+                                        ? 'City is required'
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: AppTheme.space8),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _pincodeCtrl,
+                                    decoration: _dec('Pin code'),
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(6),
+                                    ],
+                                    validator: (value) =>
+                                        (value == null || value.trim().isEmpty)
+                                        ? 'Pin code is required'
+                                        : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppTheme.space8),
+                            _buildStaticField(_orgCountry),
+                            const SizedBox(height: AppTheme.space8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FormDropdown<String>(
+                                    items: _stateOptions,
+                                    value: _selectedState,
+                                    hint: 'State / Union territory',
+                                    displayStringForValue: (v) => v,
+                                    errorText:
+                                        _showValidationErrors &&
+                                            (_selectedState == null ||
+                                                _selectedState!.trim().isEmpty)
+                                        ? 'State is required'
+                                        : null,
+                                    onChanged: (v) async {
+                                      setState(() {
+                                        _selectedState = v;
+                                        _selectedDistrictId = null;
+                                        _selectedLocalBodyType = null;
+                                        _selectedLocalBodyId = null;
+                                        _selectedAssemblyId = null;
+                                        _selectedWardId = null;
+                                        _districtOptions = [];
+                                        _allLocalBodyOptions = [];
+                                        _localBodyOptions = [];
+                                        _assemblyOptions = [];
+                                        _wardOptions = [];
+                                      });
+                                      if ((v ?? '').trim().toLowerCase() ==
+                                          'kerala') {
+                                        await _loadDistrictsForSelectedState();
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: AppTheme.space8),
+                                Expanded(
+                                  child: PhoneInputField(
+                                    controller: _phoneCtrl,
+                                    selectedPrefix: _phonePrefix,
+                                    onPrefixChanged: (v) => setState(
+                                      () => _phonePrefix = v ?? '+91',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_showMainAddressLsgdFields) ...[
+                              const SizedBox(height: AppTheme.space8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: FormDropdown<String>(
+                                      items: _districtOptions
+                                          .map((district) => district.id)
+                                          .toList(),
+                                      value: _selectedDistrictId,
+                                      hint: 'Select district',
+                                      displayStringForValue: (value) =>
+                                          _districtOptions
+                                              .firstWhere(
+                                                (district) =>
+                                                    district.id == value,
+                                                orElse: () => _DistrictOption(
+                                                  id: value,
+                                                  name: value,
+                                                ),
+                                              )
+                                              .name,
+                                      errorText:
+                                          _showValidationErrors &&
+                                              (_selectedDistrictId == null ||
+                                                  _selectedDistrictId!
+                                                      .trim()
+                                                      .isEmpty)
+                                          ? 'District is required'
+                                          : null,
+                                      onChanged: (value) async {
+                                        setState(() {
+                                          _selectedDistrictId = value;
+                                          _selectedLocalBodyType = null;
+                                          _selectedLocalBodyId = null;
+                                          _selectedAssemblyId = null;
+                                          _selectedWardId = null;
+                                          _allLocalBodyOptions = [];
+                                          _localBodyOptions = [];
+                                          _assemblyOptions = [];
+                                          _wardOptions = [];
+                                        });
+                                        if (value != null && value.isNotEmpty) {
+                                          await _loadLocalBodiesForSelectedDistrict(
+                                            value,
+                                          );
+                                          await _loadAssembliesForSelectedDistrict();
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppTheme.space8),
+                                  Expanded(
+                                    child: FormDropdown<String>(
+                                      items: _availableLocalBodyTypeOptions,
+                                      value: _selectedLocalBodyType,
+                                      hint: 'Select local body type',
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _selectedLocalBodyType = value;
+                                          _selectedLocalBodyId = null;
+                                          _selectedWardId = null;
+                                          _localBodyOptions =
+                                              value == null || value.isEmpty
+                                              ? _allLocalBodyOptions
+                                              : _allLocalBodyOptions
+                                                    .where(
+                                                      (localBody) =>
+                                                          localBody.bodyType
+                                                              .toLowerCase() ==
+                                                          value.toLowerCase(),
+                                                    )
+                                                    .toList();
+                                          _wardOptions = [];
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppTheme.space8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: FormDropdown<String>(
+                                      items: _localBodyOptions
+                                          .map((localBody) => localBody.id)
+                                          .toList(),
+                                      value: _selectedLocalBodyId,
+                                      hint: 'Select local body name',
+                                      displayStringForValue: (value) =>
+                                          _localBodyOptions
+                                              .firstWhere(
+                                                (localBody) =>
+                                                    localBody.id == value,
+                                                orElse: () => _LocalBodyOption(
+                                                  id: value,
+                                                  name: value,
+                                                  bodyType: '',
+                                                ),
+                                              )
+                                              .name,
+                                      errorText:
+                                          _showValidationErrors &&
+                                              (_selectedLocalBodyId == null ||
+                                                  _selectedLocalBodyId!
+                                                      .trim()
+                                                      .isEmpty)
+                                          ? 'Local body is required'
+                                          : null,
+                                      onChanged: (value) async {
+                                        setState(() {
+                                          _selectedLocalBodyId = value;
+                                          _selectedWardId = null;
+                                          _wardOptions = [];
+                                        });
+                                        if (value != null && value.isNotEmpty) {
+                                          await _loadWardsForSelectedLocalBody();
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppTheme.space8),
+                                  Expanded(
+                                    child: FormDropdown<String>(
+                                      items: _wardOptions
+                                          .map((ward) => ward.id)
+                                          .toList(),
+                                      value: _selectedWardId,
+                                      hint: 'Select ward',
+                                      displayStringForValue: (value) =>
+                                          _wardOptions
+                                              .firstWhere(
+                                                (ward) => ward.id == value,
+                                                orElse: () => _WardOption(
+                                                  id: value,
+                                                  name: value,
+                                                  displayName: value,
+                                                ),
+                                              )
+                                              .displayName,
+                                      errorText:
+                                          _showValidationErrors &&
+                                              (_selectedWardId == null ||
+                                                  _selectedWardId!
+                                                      .trim()
+                                                      .isEmpty)
+                                          ? 'Ward is required'
+                                          : null,
+                                      onChanged: (value) => setState(
+                                        () => _selectedWardId = value,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppTheme.space8),
+                              FormDropdown<String>(
+                                items: _assemblyOptions
+                                    .map((assembly) => assembly.id)
+                                    .toList(),
+                                value: _selectedAssemblyId,
+                                hint: 'Select assembly',
+                                displayStringForValue: (value) =>
+                                    _assemblyOptions
+                                        .firstWhere(
+                                          (assembly) => assembly.id == value,
+                                          orElse: () => _AssemblyOption(
+                                            id: value,
+                                            name: value,
+                                          ),
+                                        )
+                                        .name,
+                                errorText:
+                                    _showValidationErrors &&
+                                        (_selectedAssemblyId == null ||
+                                            _selectedAssemblyId!.trim().isEmpty)
+                                    ? 'Assembly is required'
+                                    : null,
+                                onChanged: (value) =>
+                                    setState(() => _selectedAssemblyId = value),
+                              ),
                             ],
-                          ),
-                          const SizedBox(height: AppTheme.space8),
-                          FormDropdown<String>(
-                            items: _assemblyOptions
-                                .map((assembly) => assembly.id)
-                                .toList(),
-                            value: _selectedAssemblyId,
-                            hint: 'Select assembly',
-                            displayStringForValue: (value) => _assemblyOptions
-                                .firstWhere(
-                                  (assembly) => assembly.id == value,
-                                  orElse: () =>
-                                      _AssemblyOption(id: value, name: value),
-                                )
-                                .name,
-                            errorText: _showValidationErrors &&
-                                    (_selectedAssemblyId == null ||
-                                        _selectedAssemblyId!.trim().isEmpty)
-                                ? 'Assembly is required'
-                                : null,
-                            onChanged: (value) =>
-                                setState(() => _selectedAssemblyId = value),
-                          ),
-                        ],
-                      ],
-                    ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
               ),
             ),
           ],
@@ -1808,8 +1842,9 @@ class _SettingsWarehouseCreatePageState
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : const Text(
@@ -1877,10 +1912,9 @@ class _SettingsWarehouseCreatePageState
   Widget _buildStaticField(String value) {
     return InputDecorator(
       isEmpty: value.trim().isEmpty,
-      decoration: _dec('').copyWith(
-        hintText: null,
-        fillColor: AppTheme.bgLight,
-      ),
+      decoration: _dec(
+        '',
+      ).copyWith(hintText: null, fillColor: AppTheme.bgLight),
       child: Text(
         value,
         style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),

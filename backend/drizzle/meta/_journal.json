@@ -183,6 +183,13 @@
       "when": 1781695488019,
       "tag": "0025_bored_shatterstar",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1784540918581,
+      "tag": "0026_adorable_titanium_man",
+      "breakpoints": true
     }
   ]
 }

@@ -79,7 +79,9 @@ const List<WorkflowNotificationPolicy> workflowNotificationPolicies =
       ),
     ];
 
-WorkflowNotificationPolicy? resolveWorkflowNotificationPolicy(String eventType) {
+WorkflowNotificationPolicy? resolveWorkflowNotificationPolicy(
+  String eventType,
+) {
   for (final policy in workflowNotificationPolicies) {
     if (policy.eventType == eventType) return policy;
   }

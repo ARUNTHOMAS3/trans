@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../repositories/user_management_repository.dart';
 import '../models/user_profile_model.dart';
@@ -99,16 +99,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
-                          children: List.generate(4, (_) => const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Label placeholder'),
-                                Text('Value placeholder'),
-                              ],
+                          children: List.generate(
+                            4,
+                            (_) => const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Label placeholder'),
+                                  Text('Value placeholder'),
+                                ],
+                              ),
                             ),
-                          )),
+                          ),
                         ),
                       ),
                     ),
@@ -184,9 +188,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: _getRoleColor(_profile!).withValues(
-                                alpha: 0.1,
-                              ),
+                              color: _getRoleColor(
+                                _profile!,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(

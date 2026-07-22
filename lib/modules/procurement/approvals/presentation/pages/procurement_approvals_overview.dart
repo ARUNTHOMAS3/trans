@@ -154,33 +154,41 @@ class _ProcurementApprovalsOverviewPageState
     try {
       final res = await Supabase.instance.client
           .from('purchase_request_approval')
-          .select('id, status, rejection_reason, notes, created_at, '
-              'purchase_requests!inner('
-              'request_number, expected_date, '
-              'users!assignee_id(full_name), '
-              'purchase_request_items('
-              'required_qty, estimated_rate, estimated_amount, '
-              'products!inner(product_name)'
-              ')'
-              ')')
+          .select(
+            'id, status, rejection_reason, notes, created_at, '
+            'purchase_requests!inner('
+            'request_number, expected_date, '
+            'users!assignee_id(full_name), '
+            'purchase_request_items('
+            'required_qty, estimated_rate, estimated_amount, '
+            'products!inner(product_name)'
+            ')'
+            ')',
+          )
           .order('created_at', ascending: false);
 
       final approvals = (res as List<dynamic>).map((row) {
         final m = row as Map<String, dynamic>;
         final pr = m['purchase_requests'] as Map<String, dynamic>;
         final assigneeName =
-            (pr['users'] as Map<String, dynamic>?)?['full_name'] as String? ?? '—';
+            (pr['users'] as Map<String, dynamic>?)?['full_name'] as String? ??
+            '—';
 
         final rawItems = (pr['purchase_request_items'] as List<dynamic>?) ?? [];
         final total = rawItems.fold<double>(
           0,
-          (s, i) => s + ((i as Map<String, dynamic>)['estimated_amount'] as num? ?? 0).toDouble(),
+          (s, i) =>
+              s +
+              ((i as Map<String, dynamic>)['estimated_amount'] as num? ?? 0)
+                  .toDouble(),
         );
 
         final approvalItems = rawItems.map((item) {
           final im = item as Map<String, dynamic>;
           final productName =
-              (im['products'] as Map<String, dynamic>?)?['product_name'] as String? ?? '—';
+              (im['products'] as Map<String, dynamic>?)?['product_name']
+                  as String? ??
+              '—';
           return _ApprovalItem(
             name: productName,
             category: '',
@@ -202,7 +210,8 @@ class _ProcurementApprovalsOverviewPageState
         };
 
         final createdAt =
-            DateTime.tryParse(m['created_at'] as String? ?? '') ?? DateTime.now();
+            DateTime.tryParse(m['created_at'] as String? ?? '') ??
+            DateTime.now();
         final submittedOn =
             '${createdAt.day.toString().padLeft(2, '0')}-'
             '${createdAt.month.toString().padLeft(2, '0')}-'
@@ -212,7 +221,8 @@ class _ProcurementApprovalsOverviewPageState
         String expectedDate = '—';
         if (expectedDateRaw != null && expectedDateRaw.isNotEmpty) {
           final parts = expectedDateRaw.split('-');
-          if (parts.length == 3) expectedDate = '${parts[2]}-${parts[1]}-${parts[0]}';
+          if (parts.length == 3)
+            expectedDate = '${parts[2]}-${parts[1]}-${parts[0]}';
         }
 
         return _ApprovalDetail(
@@ -238,12 +248,18 @@ class _ProcurementApprovalsOverviewPageState
         _approvals = approvals;
         _isLoading = false;
         if (widget.initialRef != null) {
-          final idx = _approvals.indexWhere((a) => a.referenceNumber == widget.initialRef);
+          final idx = _approvals.indexWhere(
+            (a) => a.referenceNumber == widget.initialRef,
+          );
           if (idx >= 0) _selectedIndex = idx;
         }
       });
     } catch (e) {
-      AppLogger.error('Failed to load approvals', error: e, module: 'ApprovalsOverview');
+      AppLogger.error(
+        'Failed to load approvals',
+        error: e,
+        module: 'ApprovalsOverview',
+      );
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -268,13 +284,24 @@ class _ProcurementApprovalsOverviewPageState
       final supabase = Supabase.instance.client;
       supabase
           .from('purchase_request_approval')
-          .update({'status': 'APPROVED', 'approved_at': DateTime.now().toIso8601String()})
+          .update({
+            'status': 'APPROVED',
+            'approved_at': DateTime.now().toIso8601String(),
+          })
           .eq('id', selected.approvalId)
-          .then((_) => supabase
-              .from('purchase_requests')
-              .update({'status': 'APPROVED'})
-              .eq('request_number', selected.referenceNumber))
-          .catchError((e) => AppLogger.error('Failed to approve PR', error: e, module: 'ApprovalsOverview'));
+          .then(
+            (_) => supabase
+                .from('purchase_requests')
+                .update({'status': 'APPROVED'})
+                .eq('request_number', selected.referenceNumber),
+          )
+          .catchError(
+            (e) => AppLogger.error(
+              'Failed to approve PR',
+              error: e,
+              module: 'ApprovalsOverview',
+            ),
+          );
     }
     setState(() {
       _isApproved = true;
@@ -302,7 +329,13 @@ class _ProcurementApprovalsOverviewPageState
             'rejected_at': DateTime.now().toIso8601String(),
           })
           .eq('id', selected.approvalId)
-          .catchError((e) => AppLogger.error('Failed to reject PR', error: e, module: 'ApprovalsOverview'));
+          .catchError(
+            (e) => AppLogger.error(
+              'Failed to reject PR',
+              error: e,
+              module: 'ApprovalsOverview',
+            ),
+          );
     }
     setState(() {
       _isRejected = true;
@@ -313,10 +346,8 @@ class _ProcurementApprovalsOverviewPageState
 
   void _showApprovalFlow(BuildContext context, _ApprovalDetail approval) {
     _approvalFlowOverlay = OverlayEntry(
-      builder: (_) => _ApprovalFlowPanel(
-        approval: approval,
-        onClose: _hideApprovalFlow,
-      ),
+      builder: (_) =>
+          _ApprovalFlowPanel(approval: approval, onClose: _hideApprovalFlow),
     );
     Overlay.of(context).insert(_approvalFlowOverlay!);
   }
@@ -327,14 +358,14 @@ class _ProcurementApprovalsOverviewPageState
   }
 
   List<_ApprovalDetail> get _filtered => switch (_statusFilter) {
-        _StatusFilter.all => _approvals,
-        _StatusFilter.pending =>
-          _approvals.where((a) => a.status == _ApprovalStatus.pending).toList(),
-        _StatusFilter.approved =>
-          _approvals.where((a) => a.status == _ApprovalStatus.approved).toList(),
-        _StatusFilter.rejected =>
-          _approvals.where((a) => a.status == _ApprovalStatus.rejected).toList(),
-      };
+    _StatusFilter.all => _approvals,
+    _StatusFilter.pending =>
+      _approvals.where((a) => a.status == _ApprovalStatus.pending).toList(),
+    _StatusFilter.approved =>
+      _approvals.where((a) => a.status == _ApprovalStatus.approved).toList(),
+    _StatusFilter.rejected =>
+      _approvals.where((a) => a.status == _ApprovalStatus.rejected).toList(),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -376,7 +407,10 @@ class _ProcurementApprovalsOverviewPageState
                       separatorBuilder: (_, __) =>
                           const Divider(height: 1, color: AppTheme.borderColor),
                       itemBuilder: (_, __) => const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -384,7 +418,11 @@ class _ProcurementApprovalsOverviewPageState
                               children: [
                                 Skeleton(width: 90, height: 13),
                                 Spacer(),
-                                Skeleton(width: 60, height: 22, borderRadius: 4),
+                                Skeleton(
+                                  width: 60,
+                                  height: 22,
+                                  borderRadius: 4,
+                                ),
                               ],
                             ),
                             SizedBox(height: 8),
@@ -439,7 +477,10 @@ class _ProcurementApprovalsOverviewPageState
     }
 
     final filtered = _filtered;
-    final safeIndex = _selectedIndex.clamp(0, (filtered.length - 1).clamp(0, 9999));
+    final safeIndex = _selectedIndex.clamp(
+      0,
+      (filtered.length - 1).clamp(0, 9999),
+    );
     final selected = filtered.isEmpty ? null : filtered[safeIndex];
 
     return ZerpaiLayout(
@@ -478,14 +519,19 @@ class _ProcurementApprovalsOverviewPageState
             ),
           ),
           const VerticalDivider(
-              width: 1, thickness: 1, color: AppTheme.borderColor),
+            width: 1,
+            thickness: 1,
+            color: AppTheme.borderColor,
+          ),
           Expanded(
             child: selected == null
                 ? const Center(
                     child: Text(
                       'No approvals found.',
                       style: TextStyle(
-                          fontSize: 14, color: AppTheme.textSecondary),
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   )
                 : _DetailPanel(
@@ -504,8 +550,7 @@ class _ProcurementApprovalsOverviewPageState
                     }),
                     isProcessed: _isProcessed,
                     onConfirmProcessed: () => _confirmProcessed(context),
-                    onUndoProcessed: () =>
-                        setState(() => _isProcessed = false),
+                    onUndoProcessed: () => setState(() => _isProcessed = false),
                     isApproved: _isApproved,
                     onConfirmApproved: () => _confirmApproved(context),
                     isRejected: _isRejected,
@@ -569,8 +614,10 @@ class _LeftPanel extends StatelessWidget {
 // ── Left panel header ─────────────────────────────────────────────────────────
 
 class _LeftPanelHeader extends StatefulWidget {
-  const _LeftPanelHeader(
-      {required this.statusFilter, required this.onFilterChanged});
+  const _LeftPanelHeader({
+    required this.statusFilter,
+    required this.onFilterChanged,
+  });
 
   final _StatusFilter statusFilter;
   final ValueChanged<_StatusFilter> onFilterChanged;
@@ -592,11 +639,11 @@ class _LeftPanelHeaderState extends State<_LeftPanelHeader> {
   }
 
   String get _label => switch (widget.statusFilter) {
-        _StatusFilter.all => 'All Approvals',
-        _StatusFilter.pending => 'Pending',
-        _StatusFilter.approved => 'Approved',
-        _StatusFilter.rejected => 'Rejected',
-      };
+    _StatusFilter.all => 'All Approvals',
+    _StatusFilter.pending => 'Pending',
+    _StatusFilter.approved => 'Approved',
+    _StatusFilter.rejected => 'Rejected',
+  };
 
   void _toggle(BuildContext context) {
     if (_overlay != null) {
@@ -661,8 +708,7 @@ class _LeftPanelHeaderState extends State<_LeftPanelHeader> {
                 border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
                 borderRadius: BorderRadius.circular(8),
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -695,8 +741,7 @@ class _LeftPanelHeaderState extends State<_LeftPanelHeader> {
 // ── Status filter dropdown ────────────────────────────────────────────────────
 
 class _StatusFilterDropdown extends StatelessWidget {
-  const _StatusFilterDropdown(
-      {required this.selected, required this.onSelect});
+  const _StatusFilterDropdown({required this.selected, required this.onSelect});
 
   final _StatusFilter selected;
   final ValueChanged<_StatusFilter> onSelect;
@@ -732,11 +777,13 @@ class _StatusFilterDropdown extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: _options
-                .map((opt) => _StatusFilterOption(
-                      label: opt.$2,
-                      isSelected: selected == opt.$1,
-                      onTap: () => onSelect(opt.$1),
-                    ))
+                .map(
+                  (opt) => _StatusFilterOption(
+                    label: opt.$2,
+                    isSelected: selected == opt.$1,
+                    onTap: () => onSelect(opt.$1),
+                  ),
+                )
                 .toList(),
           ),
         ),
@@ -777,17 +824,17 @@ class _StatusFilterOptionState extends State<_StatusFilterOption> {
           color: (!widget.isSelected && _hovered)
               ? AppTheme.infoBlue
               : Colors.transparent,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: widget.isSelected
               ? Container(
                   decoration: BoxDecoration(
-                    border: Border.all(
-                        color: AppTheme.primaryBlue, width: 1.5),
+                    border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 6),
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   child: Text(
                     widget.label,
                     style: const TextStyle(
@@ -802,8 +849,7 @@ class _StatusFilterOptionState extends State<_StatusFilterOption> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
-                    color:
-                        _hovered ? Colors.white : AppTheme.textPrimary,
+                    color: _hovered ? Colors.white : AppTheme.textPrimary,
                   ),
                 ),
         ),
@@ -833,22 +879,22 @@ class _ApprovalListTileState extends State<_ApprovalListTile> {
   bool _hovered = false;
 
   String _entityLabel(_EntityType t) => switch (t) {
-        _EntityType.purchaseRequest => 'Purchase Request',
-        _EntityType.purchaseOrder => 'Purchase Order',
-        _EntityType.bill => 'Bill',
-      };
+    _EntityType.purchaseRequest => 'Purchase Request',
+    _EntityType.purchaseOrder => 'Purchase Order',
+    _EntityType.bill => 'Bill',
+  };
 
   String _statusLabel(_ApprovalStatus s) => switch (s) {
-        _ApprovalStatus.approved => 'APPROVED',
-        _ApprovalStatus.pending => 'PENDING',
-        _ApprovalStatus.rejected => 'REJECTED',
-      };
+    _ApprovalStatus.approved => 'APPROVED',
+    _ApprovalStatus.pending => 'PENDING',
+    _ApprovalStatus.rejected => 'REJECTED',
+  };
 
   Color _statusColor(_ApprovalStatus s) => switch (s) {
-        _ApprovalStatus.approved => AppTheme.successTextDark,
-        _ApprovalStatus.pending => AppTheme.warningTextDark,
-        _ApprovalStatus.rejected => AppTheme.errorTextDark,
-      };
+    _ApprovalStatus.approved => AppTheme.successTextDark,
+    _ApprovalStatus.pending => AppTheme.warningTextDark,
+    _ApprovalStatus.rejected => AppTheme.errorTextDark,
+  };
 
   String _fmt(double v) {
     final parts = v.toStringAsFixed(2).split('.');
@@ -874,8 +920,8 @@ class _ApprovalListTileState extends State<_ApprovalListTile> {
     final bg = widget.isSelected
         ? AppTheme.primaryBlue.withValues(alpha: 0.06)
         : _hovered
-            ? AppTheme.bgDisabled
-            : Colors.white;
+        ? AppTheme.bgDisabled
+        : Colors.white;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -925,14 +971,17 @@ class _ApprovalListTileState extends State<_ApprovalListTile> {
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 5),
-                    child: Text('•',
-                        style: TextStyle(
-                            fontSize: 12, color: AppTheme.textMuted)),
+                    child: Text(
+                      '•',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
                   ),
                   Text(
                     a.submittedOn,
                     style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textMuted),
+                      fontSize: 12,
+                      color: AppTheme.textMuted,
+                    ),
                   ),
                   const Spacer(),
                   Text(
@@ -950,7 +999,9 @@ class _ApprovalListTileState extends State<_ApprovalListTile> {
               Text(
                 _entityLabel(a.entityType),
                 style: const TextStyle(
-                    fontSize: 12, color: AppTheme.textSecondary),
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ],
           ),
@@ -997,8 +1048,10 @@ class _DetailPanel extends StatelessWidget {
   final String rejectReason;
   final ValueChanged<String> onConfirmReject;
 
-  static const _labelStyle =
-      TextStyle(fontSize: 13, color: AppTheme.textSecondary);
+  static const _labelStyle = TextStyle(
+    fontSize: 13,
+    color: AppTheme.textSecondary,
+  );
 
   String _fmt(double v) {
     final parts = v.toStringAsFixed(2).split('.');
@@ -1095,7 +1148,9 @@ class _DetailPanel extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEDE9FE),
                         borderRadius: BorderRadius.circular(20),
@@ -1136,7 +1191,9 @@ class _DetailPanel extends StatelessWidget {
                 Text(
                   approval.reason ?? '-',
                   style: const TextStyle(
-                      fontSize: 13, color: AppTheme.textBody),
+                    fontSize: 13,
+                    color: AppTheme.textBody,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 // Notes
@@ -1145,7 +1202,9 @@ class _DetailPanel extends StatelessWidget {
                 Text(
                   approval.notes ?? '-',
                   style: const TextStyle(
-                      fontSize: 13, color: AppTheme.textBody),
+                    fontSize: 13,
+                    color: AppTheme.textBody,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 // Delivery Address
@@ -1167,7 +1226,9 @@ class _DetailPanel extends StatelessWidget {
                 Text(
                   approval.referenceNumber,
                   style: const TextStyle(
-                      fontSize: 13, color: AppTheme.textBody),
+                    fontSize: 13,
+                    color: AppTheme.textBody,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 // Documents
@@ -1179,16 +1240,20 @@ class _DetailPanel extends StatelessWidget {
                       cursor: SystemMouseCursors.click,
                       child: GestureDetector(
                         onTap: () {},
-                        child: const Icon(LucideIcons.plus,
-                            size: 14, color: AppTheme.primaryBlue),
+                        child: const Icon(
+                          LucideIcons.plus,
+                          size: 14,
+                          color: AppTheme.primaryBlue,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text('-',
-                    style: TextStyle(
-                        fontSize: 13, color: AppTheme.textBody)),
+                const Text(
+                  '-',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textBody),
+                ),
                 const SizedBox(height: 28),
                 // Items
                 _ItemsSection(items: approval.items),
@@ -1260,11 +1325,16 @@ class _DetailHeader extends StatelessWidget {
                 foregroundColor: AppTheme.textBody,
                 side: const BorderSide(color: AppTheme.borderColor),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 9),
+                  horizontal: 16,
+                  vertical: 9,
+                ),
                 textStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
               child: const Text('Undo Processed'),
             )
@@ -1273,18 +1343,23 @@ class _DetailHeader extends StatelessWidget {
               onPressed: () => showDialog(
                 context: context,
                 barrierColor: Colors.black.withValues(alpha: 0.45),
-                builder: (_) => _MarkAsProcessedDialog(
-                    onConfirm: onConfirmProcessed),
+                builder: (_) =>
+                    _MarkAsProcessedDialog(onConfirm: onConfirmProcessed),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textBody,
                 side: const BorderSide(color: AppTheme.borderColor),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 9),
+                  horizontal: 16,
+                  vertical: 9,
+                ),
                 textStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
               child: const Text('Mark As Processed'),
             )
@@ -1299,9 +1374,17 @@ class _DetailHeader extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.errorRed,
                   side: const BorderSide(color: AppTheme.errorRed),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 9,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
                 child: const Text('Reject'),
               ),
@@ -1311,19 +1394,23 @@ class _DetailHeader extends StatelessWidget {
               onPressed: () => showDialog(
                 context: context,
                 barrierColor: Colors.black.withValues(alpha: 0.45),
-                builder: (_) =>
-                    _ApproveDialog(onConfirm: onConfirmApproved),
+                builder: (_) => _ApproveDialog(onConfirm: onConfirmApproved),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.successGreen,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 9),
+                  horizontal: 16,
+                  vertical: 9,
+                ),
                 textStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
               child: const Text('Approve'),
             ),
@@ -1337,10 +1424,7 @@ class _DetailHeader extends StatelessWidget {
             onConfirmReject: onConfirmReject,
           ),
           const SizedBox(width: 8),
-          _IconBtn(
-            icon: LucideIcons.x,
-            onTap: () => context.pop(),
-          ),
+          _IconBtn(icon: LucideIcons.x, onTap: () => context.pop()),
         ],
       ),
     );
@@ -1377,8 +1461,7 @@ class _IconBtnState extends State<_IconBtn> {
             border: Border.all(color: AppTheme.borderColor),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Icon(widget.icon,
-              size: 16, color: AppTheme.errorRed),
+          child: Icon(widget.icon, size: 16, color: AppTheme.errorRed),
         ),
       ),
     );
@@ -1489,8 +1572,11 @@ class _MoreMenuButtonState extends State<_MoreMenuButton> {
               border: Border.all(color: AppTheme.borderColor),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Icon(LucideIcons.moreHorizontal,
-                size: 16, color: AppTheme.textSecondary),
+            child: const Icon(
+              LucideIcons.moreHorizontal,
+              size: 16,
+              color: AppTheme.textSecondary,
+            ),
           ),
         ),
       ),
@@ -1556,11 +1642,9 @@ class _MoreMenuPanel extends StatelessWidget {
                     onClose();
                     showDialog(
                       context: pageContext,
-                      barrierColor:
-                          Colors.black.withValues(alpha: 0.45),
-                      builder: (_) => _MarkOnHoldDialog(
-                        onConfirm: onConfirmOnHold,
-                      ),
+                      barrierColor: Colors.black.withValues(alpha: 0.45),
+                      builder: (_) =>
+                          _MarkOnHoldDialog(onConfirm: onConfirmOnHold),
                     );
                   },
                 ),
@@ -1571,30 +1655,27 @@ class _MoreMenuPanel extends StatelessWidget {
                     onClose();
                     showDialog(
                       context: pageContext,
-                      barrierColor:
-                          Colors.black.withValues(alpha: 0.45),
-                      builder: (_) => _RejectDialog(
-                        onConfirm: onConfirmReject,
-                      ),
+                      barrierColor: Colors.black.withValues(alpha: 0.45),
+                      builder: (_) => _RejectDialog(onConfirm: onConfirmReject),
                     );
                   },
                 ),
-              const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Color(0xFFE5E7EB)),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
               _MoreMenuItem(
-                  icon: LucideIcons.fileText,
-                  label: 'PDF',
-                  onTap: onClose),
+                icon: LucideIcons.fileText,
+                label: 'PDF',
+                onTap: onClose,
+              ),
               _MoreMenuItem(
-                  icon: LucideIcons.printer,
-                  label: 'Print',
-                  onTap: onClose),
+                icon: LucideIcons.printer,
+                label: 'Print',
+                onTap: onClose,
+              ),
               _MoreMenuItem(
-                  icon: LucideIcons.upload,
-                  label: 'Export',
-                  onTap: onClose),
+                icon: LucideIcons.upload,
+                label: 'Export',
+                onTap: onClose,
+              ),
             ],
           ),
         ),
@@ -1604,8 +1685,7 @@ class _MoreMenuPanel extends StatelessWidget {
 }
 
 class _MoreMenuItem extends StatefulWidget {
-  const _MoreMenuItem(
-      {this.icon, required this.label, required this.onTap});
+  const _MoreMenuItem({this.icon, required this.label, required this.onTap});
 
   final IconData? icon;
   final String label;
@@ -1630,26 +1710,24 @@ class _MoreMenuItemState extends State<_MoreMenuItem> {
           duration: const Duration(milliseconds: 80),
           color: _hovered ? AppTheme.infoBlue : Colors.transparent,
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon,
-                    size: 14,
-                    color: _hovered
-                        ? Colors.white
-                        : AppTheme.textSecondary),
+                Icon(
+                  widget.icon,
+                  size: 14,
+                  color: _hovered ? Colors.white : AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 10),
               ] else
                 const SizedBox(width: 24),
               Text(
                 widget.label,
                 style: TextStyle(
-                    fontSize: 13,
-                    color: _hovered
-                        ? Colors.white
-                        : AppTheme.textPrimary),
+                  fontSize: 13,
+                  color: _hovered ? Colors.white : AppTheme.textPrimary,
+                ),
               ),
             ],
           ),
@@ -1724,8 +1802,7 @@ class _ProcessingSummaryCard extends StatelessWidget {
 }
 
 class _ProcessingStatusItem extends StatelessWidget {
-  const _ProcessingStatusItem(
-      {required this.label, required this.value});
+  const _ProcessingStatusItem({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1743,8 +1820,7 @@ class _ProcessingStatusItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Center(
-            child: Icon(LucideIcons.clock,
-                size: 15, color: Color(0xFFE65100)),
+            child: Icon(LucideIcons.clock, size: 15, color: Color(0xFFE65100)),
           ),
         ),
         const SizedBox(width: 10),
@@ -1800,8 +1876,7 @@ class _ItemsSection extends StatelessWidget {
               bottom: BorderSide(color: AppTheme.borderColor, width: 1),
             ),
           ),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1823,7 +1898,9 @@ class _ItemsSection extends StatelessWidget {
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.successGreen,
                         borderRadius: BorderRadius.circular(10),
@@ -1846,9 +1923,10 @@ class _ItemsSection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (items.isEmpty)
-          const Text('-',
-              style:
-                  TextStyle(fontSize: 13, color: AppTheme.textBody))
+          const Text(
+            '-',
+            style: TextStyle(fontSize: 13, color: AppTheme.textBody),
+          )
         else
           ...items.map((item) => _ItemCard(item: item)),
       ],
@@ -1904,8 +1982,11 @@ class _ItemCard extends StatelessWidget {
                 border: Border.all(color: AppTheme.borderColor),
               ),
               child: const Center(
-                child: Icon(LucideIcons.image,
-                    size: 22, color: AppTheme.textMuted),
+                child: Icon(
+                  LucideIcons.image,
+                  size: 22,
+                  color: AppTheme.textMuted,
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -1917,7 +1998,9 @@ class _ItemCard extends StatelessWidget {
                   const Text(
                     'Item Details',
                     style: TextStyle(
-                        fontSize: 12, color: AppTheme.textSecondary),
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1931,13 +2014,12 @@ class _ItemCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   _InfoChip(label: 'Category: ', value: item.category),
                   const SizedBox(height: 5),
-                  _InfoChip(
-                      label: 'Description: ',
-                      value: item.description),
+                  _InfoChip(label: 'Description: ', value: item.description),
                   const SizedBox(height: 5),
                   _InfoChip(
-                      label: 'Preferred Vendor: ',
-                      value: item.preferredVendor),
+                    label: 'Preferred Vendor: ',
+                    value: item.preferredVendor,
+                  ),
                 ],
               ),
             ),
@@ -1946,21 +2028,25 @@ class _ItemCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Quantity',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary)),
+                const Text(
+                  'Quantity',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   '${item.quantity} ${item.unit}',
                   style: const TextStyle(
-                      fontSize: 13, color: AppTheme.textBody),
+                    fontSize: 13,
+                    color: AppTheme.textBody,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '1 ${item.unit} = ${_fmt(item.unitPrice)}',
                   style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textMuted),
+                    fontSize: 11,
+                    color: AppTheme.textMuted,
+                  ),
                 ),
               ],
             ),
@@ -1969,15 +2055,17 @@ class _ItemCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Discount',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary)),
+                const Text(
+                  'Discount',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   _fmt(item.discount),
                   style: const TextStyle(
-                      fontSize: 13, color: AppTheme.textBody),
+                    fontSize: 13,
+                    color: AppTheme.textBody,
+                  ),
                 ),
               ],
             ),
@@ -1988,8 +2076,7 @@ class _ItemCard extends StatelessWidget {
               children: [
                 const Text(
                   'Estimated\nAmount',
-                  style: TextStyle(
-                      fontSize: 12, color: Color(0xFFE65100)),
+                  style: TextStyle(fontSize: 12, color: Color(0xFFE65100)),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2009,12 +2096,14 @@ class _ItemCard extends StatelessWidget {
               height: 28,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                border:
-                    Border.all(color: AppTheme.primaryBlue, width: 1.5),
+                border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(LucideIcons.plus,
-                  size: 14, color: AppTheme.primaryBlue),
+              child: const Icon(
+                LucideIcons.plus,
+                size: 14,
+                color: AppTheme.primaryBlue,
+              ),
             ),
           ],
         ),
@@ -2032,8 +2121,7 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(6),
@@ -2044,7 +2132,9 @@ class _InfoChip extends StatelessWidget {
             TextSpan(
               text: label,
               style: const TextStyle(
-                  fontSize: 12, color: AppTheme.textSecondary),
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
             ),
             TextSpan(
               text: value,
@@ -2086,8 +2176,11 @@ class _OnHoldBanner extends StatelessWidget {
               color: const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Icon(LucideIcons.hourglass,
-                size: 15, color: Color(0xFFD97706)),
+            child: const Icon(
+              LucideIcons.hourglass,
+              size: 15,
+              color: Color(0xFFD97706),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2095,8 +2188,7 @@ class _OnHoldBanner extends StatelessWidget {
               text: TextSpan(
                 children: [
                   const TextSpan(
-                    text:
-                        'This purchase request has been put on hold.',
+                    text: 'This purchase request has been put on hold.',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2149,8 +2241,7 @@ class _MarkOnHoldDialogState extends State<_MarkOnHoldDialog> {
       backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SizedBox(
         width: 560,
         child: Column(
@@ -2183,9 +2274,11 @@ class _MarkOnHoldDialogState extends State<_MarkOnHoldDialog> {
                           color: AppTheme.bgDisabled,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(LucideIcons.x,
-                            size: 16,
-                            color: AppTheme.errorRed),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: AppTheme.errorRed,
+                        ),
                       ),
                     ),
                   ),
@@ -2200,30 +2293,35 @@ class _MarkOnHoldDialogState extends State<_MarkOnHoldDialog> {
                 children: [
                   const Text(
                     'Please specify the reason for marking the request as on hold.',
-                    style: TextStyle(
-                        fontSize: 14, color: AppTheme.textBody),
+                    style: TextStyle(fontSize: 14, color: AppTheme.textBody),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _controller,
                     maxLines: 6,
                     style: const TextStyle(
-                        fontSize: 14, color: AppTheme.textPrimary),
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                    ),
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.borderColor),
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.borderColor),
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.primaryBlue, width: 1.5),
+                          color: AppTheme.primaryBlue,
+                          width: 1.5,
+                        ),
                       ),
                       contentPadding: const EdgeInsets.all(14),
                     ),
@@ -2231,10 +2329,7 @@ class _MarkOnHoldDialogState extends State<_MarkOnHoldDialog> {
                 ],
               ),
             ),
-            const Divider(
-                height: 1,
-                thickness: 1,
-                color: AppTheme.borderColor),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             // Actions
             Padding(
               padding: const EdgeInsets.all(16),
@@ -2250,12 +2345,16 @@ class _MarkOnHoldDialogState extends State<_MarkOnHoldDialog> {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     child: const Text('Confirm'),
                   ),
@@ -2264,15 +2363,18 @@ class _MarkOnHoldDialogState extends State<_MarkOnHoldDialog> {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textBody,
-                      side: const BorderSide(
-                          color: AppTheme.borderColor),
+                      side: const BorderSide(color: AppTheme.borderColor),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -2301,8 +2403,7 @@ class _MarkAsProcessedDialog extends StatelessWidget {
       backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SizedBox(
         width: 560,
         child: Column(
@@ -2314,8 +2415,11 @@ class _MarkAsProcessedDialog extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 22, 16, 16),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.alertTriangle,
-                      size: 20, color: Color(0xFFD97706)),
+                  const Icon(
+                    LucideIcons.alertTriangle,
+                    size: 20,
+                    color: Color(0xFFD97706),
+                  ),
                   const SizedBox(width: 10),
                   const Text(
                     'Mark As Processed',
@@ -2338,9 +2442,11 @@ class _MarkAsProcessedDialog extends StatelessWidget {
                           color: AppTheme.bgDisabled,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(LucideIcons.x,
-                            size: 16,
-                            color: AppTheme.errorRed),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: AppTheme.errorRed,
+                        ),
                       ),
                     ),
                   ),
@@ -2352,14 +2458,10 @@ class _MarkAsProcessedDialog extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: Text(
                 'Are you sure you want to mark this purchase request as processed?',
-                style: TextStyle(
-                    fontSize: 14, color: AppTheme.textBody),
+                style: TextStyle(fontSize: 14, color: AppTheme.textBody),
               ),
             ),
-            const Divider(
-                height: 1,
-                thickness: 1,
-                color: AppTheme.borderColor),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             // Actions
             Padding(
               padding: const EdgeInsets.all(16),
@@ -2375,12 +2477,16 @@ class _MarkAsProcessedDialog extends StatelessWidget {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 14),
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     child: const Text('Mark As Processed'),
                   ),
@@ -2389,15 +2495,18 @@ class _MarkAsProcessedDialog extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textBody,
-                      side: const BorderSide(
-                          color: AppTheme.borderColor),
+                      side: const BorderSide(color: AppTheme.borderColor),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 14),
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -2426,8 +2535,7 @@ class _ApproveDialog extends StatelessWidget {
       backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SizedBox(
         width: 560,
         child: Column(
@@ -2439,8 +2547,11 @@ class _ApproveDialog extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 22, 16, 16),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.alertTriangle,
-                      size: 20, color: Color(0xFFD97706)),
+                  const Icon(
+                    LucideIcons.alertTriangle,
+                    size: 20,
+                    color: Color(0xFFD97706),
+                  ),
                   const SizedBox(width: 10),
                   const Text(
                     'Approve Purchase Request',
@@ -2463,9 +2574,11 @@ class _ApproveDialog extends StatelessWidget {
                           color: AppTheme.bgDisabled,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(LucideIcons.x,
-                            size: 16,
-                            color: AppTheme.errorRed),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: AppTheme.errorRed,
+                        ),
                       ),
                     ),
                   ),
@@ -2477,14 +2590,10 @@ class _ApproveDialog extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: Text(
                 'Are you sure you want to approve this purchase request?',
-                style: TextStyle(
-                    fontSize: 14, color: AppTheme.textBody),
+                style: TextStyle(fontSize: 14, color: AppTheme.textBody),
               ),
             ),
-            const Divider(
-                height: 1,
-                thickness: 1,
-                color: AppTheme.borderColor),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             // Actions
             Padding(
               padding: const EdgeInsets.all(16),
@@ -2500,12 +2609,16 @@ class _ApproveDialog extends StatelessWidget {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     child: const Text('Approve'),
                   ),
@@ -2514,15 +2627,18 @@ class _ApproveDialog extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textBody,
-                      side: const BorderSide(
-                          color: AppTheme.borderColor),
+                      side: const BorderSide(color: AppTheme.borderColor),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -2564,8 +2680,7 @@ class _RejectDialogState extends State<_RejectDialog> {
       backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SizedBox(
         width: 560,
         child: Column(
@@ -2598,9 +2713,11 @@ class _RejectDialogState extends State<_RejectDialog> {
                           color: AppTheme.bgDisabled,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(LucideIcons.x,
-                            size: 16,
-                            color: AppTheme.errorRed),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: AppTheme.errorRed,
+                        ),
                       ),
                     ),
                   ),
@@ -2615,8 +2732,7 @@ class _RejectDialogState extends State<_RejectDialog> {
                 children: [
                   const Text(
                     'Please specify the reason for rejecting this request.',
-                    style: TextStyle(
-                        fontSize: 14, color: AppTheme.textBody),
+                    style: TextStyle(fontSize: 14, color: AppTheme.textBody),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -2624,22 +2740,28 @@ class _RejectDialogState extends State<_RejectDialog> {
                     maxLines: 5,
                     autofocus: true,
                     style: const TextStyle(
-                        fontSize: 14, color: AppTheme.textPrimary),
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                    ),
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.borderColor),
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.borderColor),
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.primaryBlue, width: 1.5),
+                          color: AppTheme.primaryBlue,
+                          width: 1.5,
+                        ),
                       ),
                       contentPadding: const EdgeInsets.all(14),
                     ),
@@ -2647,10 +2769,7 @@ class _RejectDialogState extends State<_RejectDialog> {
                 ],
               ),
             ),
-            const Divider(
-                height: 1,
-                thickness: 1,
-                color: AppTheme.borderColor),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             // Actions
             Padding(
               padding: const EdgeInsets.all(16),
@@ -2666,12 +2785,16 @@ class _RejectDialogState extends State<_RejectDialog> {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     child: const Text('Confirm'),
                   ),
@@ -2680,15 +2803,18 @@ class _RejectDialogState extends State<_RejectDialog> {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textBody,
-                      side: const BorderSide(
-                          color: AppTheme.borderColor),
+                      side: const BorderSide(color: AppTheme.borderColor),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -2727,8 +2853,11 @@ class _RejectedBanner extends StatelessWidget {
               color: const Color(0xFFFECACA),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Icon(LucideIcons.thumbsDown,
-                size: 14, color: Color(0xFFDC2626)),
+            child: const Icon(
+              LucideIcons.thumbsDown,
+              size: 14,
+              color: Color(0xFFDC2626),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2736,8 +2865,7 @@ class _RejectedBanner extends StatelessWidget {
               text: TextSpan(
                 children: [
                   const TextSpan(
-                    text:
-                        'This purchase request has been rejected.',
+                    text: 'This purchase request has been rejected.',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2772,8 +2900,7 @@ class _UndoProcessedDialog extends StatefulWidget {
   final VoidCallback onConfirm;
 
   @override
-  State<_UndoProcessedDialog> createState() =>
-      _UndoProcessedDialogState();
+  State<_UndoProcessedDialog> createState() => _UndoProcessedDialogState();
 }
 
 class _UndoProcessedDialogState extends State<_UndoProcessedDialog> {
@@ -2791,8 +2918,7 @@ class _UndoProcessedDialogState extends State<_UndoProcessedDialog> {
       backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SizedBox(
         width: 560,
         child: Column(
@@ -2825,9 +2951,11 @@ class _UndoProcessedDialogState extends State<_UndoProcessedDialog> {
                           color: AppTheme.bgDisabled,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(LucideIcons.x,
-                            size: 16,
-                            color: AppTheme.errorRed),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: AppTheme.errorRed,
+                        ),
                       ),
                     ),
                   ),
@@ -2842,30 +2970,35 @@ class _UndoProcessedDialogState extends State<_UndoProcessedDialog> {
                 children: [
                   const Text(
                     'Specify a reason for reverting the Mark as Processed status. Once you undo, the status of the purchase request will be reverted to Approved.',
-                    style: TextStyle(
-                        fontSize: 14, color: AppTheme.textBody),
+                    style: TextStyle(fontSize: 14, color: AppTheme.textBody),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _controller,
                     maxLines: 5,
                     style: const TextStyle(
-                        fontSize: 14, color: AppTheme.textPrimary),
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                    ),
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.borderColor),
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.borderColor),
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                            color: AppTheme.primaryBlue, width: 1.5),
+                          color: AppTheme.primaryBlue,
+                          width: 1.5,
+                        ),
                       ),
                       contentPadding: const EdgeInsets.all(14),
                     ),
@@ -2873,10 +3006,7 @@ class _UndoProcessedDialogState extends State<_UndoProcessedDialog> {
                 ],
               ),
             ),
-            const Divider(
-                height: 1,
-                thickness: 1,
-                color: AppTheme.borderColor),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             // Actions
             Padding(
               padding: const EdgeInsets.all(16),
@@ -2892,12 +3022,16 @@ class _UndoProcessedDialogState extends State<_UndoProcessedDialog> {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     child: const Text('Confirm'),
                   ),
@@ -2906,15 +3040,18 @@ class _UndoProcessedDialogState extends State<_UndoProcessedDialog> {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textBody,
-                      side: const BorderSide(
-                          color: AppTheme.borderColor),
+                      side: const BorderSide(color: AppTheme.borderColor),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -2951,7 +3088,9 @@ class _ActionToast extends StatelessWidget {
                 color: Colors.transparent,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 13),
+                    horizontal: 18,
+                    vertical: 13,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.successGreen,
                     borderRadius: BorderRadius.circular(12),
@@ -2974,8 +3113,11 @@ class _ActionToast extends StatelessWidget {
                           color: Colors.white.withValues(alpha: 0.25),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(LucideIcons.check,
-                            size: 16, color: Colors.white),
+                        child: const Icon(
+                          LucideIcons.check,
+                          size: 16,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Text(
@@ -3003,8 +3145,7 @@ class _ActionToast extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ApprovalFlowPanel extends StatelessWidget {
-  const _ApprovalFlowPanel(
-      {required this.approval, required this.onClose});
+  const _ApprovalFlowPanel({required this.approval, required this.onClose});
 
   final _ApprovalDetail approval;
   final VoidCallback onClose;
@@ -3017,8 +3158,7 @@ class _ApprovalFlowPanel extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onClose,
-            child: ColoredBox(
-                color: Colors.black.withValues(alpha: 0.45)),
+            child: ColoredBox(color: Colors.black.withValues(alpha: 0.45)),
           ),
         ),
         Positioned(
@@ -3035,7 +3175,9 @@ class _ApprovalFlowPanel extends StatelessWidget {
                 // Header
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 16),
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
                   child: Row(
                     children: [
                       const Text(
@@ -3059,9 +3201,11 @@ class _ApprovalFlowPanel extends StatelessWidget {
                               color: AppTheme.bgDisabled,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(LucideIcons.x,
-                                size: 16,
-                                color: AppTheme.errorRed),
+                            child: const Icon(
+                              LucideIcons.x,
+                              size: 16,
+                              color: AppTheme.errorRed,
+                            ),
                           ),
                         ),
                       ),
@@ -3069,9 +3213,10 @@ class _ApprovalFlowPanel extends StatelessWidget {
                   ),
                 ),
                 const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: AppTheme.borderColor),
+                  height: 1,
+                  thickness: 1,
+                  color: AppTheme.borderColor,
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
@@ -3093,16 +3238,16 @@ class _ApprovalFlowCard extends StatelessWidget {
   final _ApprovalDetail approval;
 
   Color _statusColor(_ApprovalStatus s) => switch (s) {
-        _ApprovalStatus.approved => AppTheme.successGreen,
-        _ApprovalStatus.rejected => AppTheme.errorTextDark,
-        _ApprovalStatus.pending => AppTheme.warningTextDark,
-      };
+    _ApprovalStatus.approved => AppTheme.successGreen,
+    _ApprovalStatus.rejected => AppTheme.errorTextDark,
+    _ApprovalStatus.pending => AppTheme.warningTextDark,
+  };
 
   String _statusLabel(_ApprovalStatus s) => switch (s) {
-        _ApprovalStatus.approved => 'APPROVED',
-        _ApprovalStatus.rejected => 'REJECTED',
-        _ApprovalStatus.pending => 'PENDING',
-      };
+    _ApprovalStatus.approved => 'APPROVED',
+    _ApprovalStatus.rejected => 'REJECTED',
+    _ApprovalStatus.pending => 'PENDING',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -3115,7 +3260,9 @@ class _ApprovalFlowCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
-            color: statusColor.withValues(alpha: 0.35), width: 1.5),
+          color: statusColor.withValues(alpha: 0.35),
+          width: 1.5,
+        ),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -3124,8 +3271,7 @@ class _ApprovalFlowCard extends StatelessWidget {
         children: [
           // Status badge
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
             decoration: BoxDecoration(
               border: Border.all(color: statusColor, width: 1.2),
               borderRadius: BorderRadius.circular(20),
@@ -3152,8 +3298,7 @@ class _ApprovalFlowCard extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: AppTheme.successGreen.withValues(alpha: 0.12),
-                  border: Border.all(
-                      color: AppTheme.successGreen, width: 1.5),
+                  border: Border.all(color: AppTheme.successGreen, width: 1.5),
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -3182,8 +3327,9 @@ class _ApprovalFlowCard extends StatelessWidget {
                     const Text(
                       'zabnixprivatelimited@gmail.com',
                       style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondary),
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -3202,11 +3348,9 @@ class _ApprovalFlowCard extends StatelessWidget {
                 _DateRow(label: 'Submitted On:', date: approval.submittedOn),
                 const SizedBox(height: 6),
                 if (approval.status == _ApprovalStatus.approved)
-                  _DateRow(
-                      label: 'Approved On:', date: approval.submittedOn),
+                  _DateRow(label: 'Approved On:', date: approval.submittedOn),
                 if (approval.status == _ApprovalStatus.rejected)
-                  _DateRow(
-                      label: 'Rejected On:', date: approval.submittedOn),
+                  _DateRow(label: 'Rejected On:', date: approval.submittedOn),
               ],
             ),
           ),
@@ -3229,8 +3373,7 @@ class _DateRow extends StatelessWidget {
         children: [
           TextSpan(
             text: '$label ',
-            style: const TextStyle(
-                fontSize: 13, color: AppTheme.textSecondary),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
           TextSpan(
             text: date,

@@ -156,13 +156,15 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     final List<_FlatModuleNode> list = [];
     void addNode(_AuditFilterNode node, String path) {
       final currentPath = path.isEmpty ? node.title : '$path › ${node.title}';
-      list.add(_FlatModuleNode(
-        key: node.key,
-        title: node.title,
-        displayPath: currentPath,
-        tables: node.allTables,
-        icon: node.icon,
-      ));
+      list.add(
+        _FlatModuleNode(
+          key: node.key,
+          title: node.title,
+          displayPath: currentPath,
+          tables: node.allTables,
+          icon: node.icon,
+        ),
+      );
       for (final child in node.children) {
         addNode(child, currentPath);
       }
@@ -178,7 +180,9 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     final flatModules = _buildFlatModuleList();
     final String query = _moduleSearchController.text.toLowerCase().trim();
     final filteredModules = flatModules
-        .where((m) => query.isEmpty || m.displayPath.toLowerCase().contains(query))
+        .where(
+          (m) => query.isEmpty || m.displayPath.toLowerCase().contains(query),
+        )
         .toList();
 
     return SafeArea(
@@ -192,9 +196,16 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             ),
             child: Row(
               children: [
-                const Icon(LucideIcons.slidersHorizontal, size: 20, color: AppTheme.textPrimary),
+                const Icon(
+                  LucideIcons.slidersHorizontal,
+                  size: 20,
+                  color: AppTheme.textPrimary,
+                ),
                 const SizedBox(width: AppTheme.space10),
-                Text('Filters', style: AppTheme.sectionHeader.copyWith(fontSize: 18)),
+                Text(
+                  'Filters',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 18),
+                ),
                 const Spacer(),
                 TextButton(
                   onPressed: () {
@@ -215,7 +226,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             child: ListView(
               padding: const EdgeInsets.all(AppTheme.space20),
               children: [
-                Text('Module / Table', style: AppTheme.sectionHeader.copyWith(fontSize: 14)),
+                Text(
+                  'Module / Table',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 14),
+                ),
                 const SizedBox(height: AppTheme.space10),
                 CustomTextField(
                   controller: _moduleSearchController,
@@ -256,9 +270,9 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                             ),
                             color: isSelected
                                 ? ref
-                                    .watch(appBrandingProvider)
-                                    .accentColor
-                                    .withValues(alpha: 0.1)
+                                      .watch(appBrandingProvider)
+                                      .accentColor
+                                      .withValues(alpha: 0.1)
                                 : Colors.transparent,
                             child: Row(
                               children: [
@@ -266,7 +280,9 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                                   node.icon,
                                   size: 16,
                                   color: isSelected
-                                      ? ref.watch(appBrandingProvider).accentColor
+                                      ? ref
+                                            .watch(appBrandingProvider)
+                                            .accentColor
                                       : AppTheme.textSecondary,
                                 ),
                                 const SizedBox(width: AppTheme.space10),
@@ -275,9 +291,13 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                                     node.displayPath,
                                     style: AppTheme.bodyText.copyWith(
                                       fontSize: 12.5,
-                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
                                       color: isSelected
-                                          ? ref.watch(appBrandingProvider).accentColor
+                                          ? ref
+                                                .watch(appBrandingProvider)
+                                                .accentColor
                                           : AppTheme.textPrimary,
                                     ),
                                   ),
@@ -286,7 +306,9 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                                   Icon(
                                     LucideIcons.check,
                                     size: 16,
-                                    color: ref.watch(appBrandingProvider).accentColor,
+                                    color: ref
+                                        .watch(appBrandingProvider)
+                                        .accentColor,
                                   ),
                               ],
                             ),
@@ -297,7 +319,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                   ),
                 ),
                 const SizedBox(height: AppTheme.space20),
-                Text('Actions', style: AppTheme.sectionHeader.copyWith(fontSize: 14)),
+                Text(
+                  'Actions',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 14),
+                ),
                 const SizedBox(height: AppTheme.space10),
                 Wrap(
                   spacing: AppTheme.space8,
@@ -337,7 +362,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: AppTheme.space20),
-                Text('Date Range', style: AppTheme.sectionHeader.copyWith(fontSize: 14)),
+                Text(
+                  'Date Range',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 14),
+                ),
                 const SizedBox(height: AppTheme.space10),
                 Row(
                   children: [
@@ -365,7 +393,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                   ],
                 ),
                 const SizedBox(height: AppTheme.space20),
-                Text('Advanced Filters', style: AppTheme.sectionHeader.copyWith(fontSize: 14)),
+                Text(
+                  'Advanced Filters',
+                  style: AppTheme.sectionHeader.copyWith(fontSize: 14),
+                ),
                 const SizedBox(height: AppTheme.space10),
                 CustomTextField(
                   controller: _requestIdController,
@@ -397,7 +428,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               ),
               child: const Text(
                 'Apply Filters',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -502,7 +536,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               _isTimelineView = !_isTimelineView;
             });
           },
-          icon: Icon(_isTimelineView ? LucideIcons.table : LucideIcons.history, size: 16),
+          icon: Icon(
+            _isTimelineView ? LucideIcons.table : LucideIcons.history,
+            size: 16,
+          ),
           label: Text(_isTimelineView ? 'Table View' : 'Timeline View'),
         ),
         ElevatedButton.icon(
@@ -718,7 +755,9 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
       );
     }
 
-    final Widget mainContent = _isTimelineView ? _buildTimelineSection() : _buildTableSection();
+    final Widget mainContent = _isTimelineView
+        ? _buildTimelineSection()
+        : _buildTableSection();
 
     if (isCompact) {
       return Column(
@@ -801,7 +840,8 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               controller: _tableVerticalScrollController,
               padding: const EdgeInsets.all(AppTheme.space16),
               itemCount: _logs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: AppTheme.space12),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: AppTheme.space12),
               itemBuilder: (context, index) => _buildTimelineCard(_logs[index]),
             ),
           ),
@@ -812,7 +852,8 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   }
 
   Widget _buildTimelineCard(Map<String, dynamic> log) {
-    final bool isSelected = _selectedLog != null && _selectedLog!['id'] == log['id'];
+    final bool isSelected =
+        _selectedLog != null && _selectedLog!['id'] == log['id'];
     final String action = (log['action']?.toString() ?? '').toUpperCase();
     final meta = _resolveMeta(log);
     final String createdAt = _formatTimestamp(log['created_at']?.toString());
@@ -820,11 +861,27 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     final List<String> changeDescriptions = _describeAuditChanges(log);
     final String businessHeadline = _buildBusinessHeadline(log);
 
-    final (Color themeColor, IconData iconData, Color bgLight) = switch (action) {
-      'INSERT' => (AppTheme.accentGreen, LucideIcons.plusCircle, AppTheme.successBg),
+    final (
+      Color themeColor,
+      IconData iconData,
+      Color bgLight,
+    ) = switch (action) {
+      'INSERT' => (
+        AppTheme.accentGreen,
+        LucideIcons.plusCircle,
+        AppTheme.successBg,
+      ),
       'UPDATE' => (AppTheme.primaryBlue, LucideIcons.pencil, AppTheme.infoBg),
-      'DELETE' => (AppTheme.errorRed, LucideIcons.trash2, AppTheme.errorBgBorder),
-      _ => (AppTheme.textSecondary, LucideIcons.activity, AppTheme.selectionInactiveBg),
+      'DELETE' => (
+        AppTheme.errorRed,
+        LucideIcons.trash2,
+        AppTheme.errorBgBorder,
+      ),
+      _ => (
+        AppTheme.textSecondary,
+        LucideIcons.activity,
+        AppTheme.selectionInactiveBg,
+      ),
     };
 
     final formattedChanges = changeDescriptions.map((desc) {
@@ -872,7 +929,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: bgLight,
                     borderRadius: BorderRadius.circular(999),
@@ -926,11 +986,17 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             const SizedBox(height: AppTheme.space8),
             Row(
               children: [
-                const Icon(LucideIcons.user, size: 13, color: AppTheme.textSecondary),
+                const Icon(
+                  LucideIcons.user,
+                  size: 13,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'By: ',
-                  style: AppTheme.captionText.copyWith(color: AppTheme.textSecondary),
+                  style: AppTheme.captionText.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
                 Text(
                   actor,
@@ -962,7 +1028,11 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                         children: [
                           const Padding(
                             padding: EdgeInsets.only(top: 6),
-                            child: Icon(Icons.circle, size: 5, color: AppTheme.textSecondary),
+                            child: Icon(
+                              Icons.circle,
+                              size: 5,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
                           const SizedBox(width: AppTheme.space8),
                           Expanded(
@@ -988,7 +1058,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   }
 
   String _buildBusinessHeadline(Map<String, dynamic> log) {
-    final String action = _stringValue(log['action'], fallback: 'activity').toUpperCase();
+    final String action = _stringValue(
+      log['action'],
+      fallback: 'activity',
+    ).toUpperCase();
     final meta = _resolveMeta(log);
     final String recordName = _resolveAuditRecordName(log);
 
@@ -1190,9 +1263,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
           vertical: AppTheme.space6,
         ),
         decoration: BoxDecoration(
-          color: isArchived
-              ? AppTheme.warningBg
-              : AppTheme.selectionInactiveBg,
+          color: isArchived ? AppTheme.warningBg : AppTheme.selectionInactiveBg,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
@@ -1583,7 +1654,6 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
       ? null
       : _findNodeByKey(_moduleTree, _selectedNodeKey!);
 
-
   Future<void> _pickDate({required bool isFromDate}) async {
     final DateTime now = DateTime.now();
     final DateTime initialDate = (isFromDate ? _fromDate : _toDate) ?? now;
@@ -1677,7 +1747,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               .toList();
       final int total = (payload['total'] as num?)?.toInt() ?? items.length;
 
-      if (allowScopeFallback && requestedScope != 'all' && items.isEmpty && total == 0) {
+      if (allowScopeFallback &&
+          requestedScope != 'all' &&
+          items.isEmpty &&
+          total == 0) {
         final fallbackResponse = await repo.getAuditLogs(
           page: _page,
           pageSize: _pageSize,
@@ -1767,7 +1840,6 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     if (data is Map<String, dynamic>) return data;
     return response;
   }
-
 
   String _formatTimestamp(String? value) {
     final DateTime? parsed = value == null ? null : DateTime.tryParse(value);
@@ -1996,7 +2068,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             'TDS',
             'TCS',
             'EWAY',
-            'FPKEY'
+            'FPKEY',
           }.contains(upper)) {
             return upper;
           }
@@ -2273,19 +2345,13 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             key: 'accountant-recurring-journals',
             title: 'Recurring Journals',
             icon: LucideIcons.repeat2,
-            tables: [
-              'recurring_journals',
-              'recurring_journal_items',
-            ],
+            tables: ['recurring_journals', 'recurring_journal_items'],
           ),
           _AuditFilterNode(
             key: 'accountant-templates',
             title: 'Journal Templates',
             icon: LucideIcons.folderOpen,
-            tables: [
-              'journal_templates',
-              'journal_template_items',
-            ],
+            tables: ['journal_templates', 'journal_template_items'],
           ),
           _AuditFilterNode(
             key: 'accountant-settings',
@@ -2392,4 +2458,3 @@ class _FlatModuleNode {
     required this.icon,
   });
 }
-

@@ -125,19 +125,27 @@ class PriceList extends Equatable {
   }
 
   /// Calculates the price for an item based on this price list
-  double calculatePrice(String itemId, double baseRate, {double quantity = 1, String? productName}) {
+  double calculatePrice(
+    String itemId,
+    double baseRate, {
+    double quantity = 1,
+    String? productName,
+  }) {
     double rate = baseRate;
 
     if (priceListType == 'all_items') {
-      final percentage = percentageValue ??
+      final percentage =
+          percentageValue ??
           double.tryParse(
             RegExp(r'(\d+\.?\d*)').firstMatch(details ?? '')?.group(0) ?? '0',
           ) ??
           0.0;
-      final isMarkup = (percentageType?.toLowerCase().contains('markup') ?? false) ||
+      final isMarkup =
+          (percentageType?.toLowerCase().contains('markup') ?? false) ||
           (details?.toLowerCase().contains('markup') ?? false) ||
           pricingScheme == 'markup';
-      final isMarkdown = (percentageType?.toLowerCase().contains('markdown') ?? false) ||
+      final isMarkdown =
+          (percentageType?.toLowerCase().contains('markdown') ?? false) ||
           (details?.toLowerCase().contains('markdown') ?? false) ||
           pricingScheme == 'markdown';
       if (isMarkup) {
@@ -150,8 +158,11 @@ class PriceList extends Equatable {
         (r) =>
             r.itemId == itemId ||
             r.itemId == productName ||
-            (r.itemName != null && productName != null && r.itemName!.toLowerCase() == productName.toLowerCase()) ||
-            (r.itemName != null && r.itemName!.toLowerCase() == itemId.toLowerCase()),
+            (r.itemName != null &&
+                productName != null &&
+                r.itemName!.toLowerCase() == productName.toLowerCase()) ||
+            (r.itemName != null &&
+                r.itemName!.toLowerCase() == itemId.toLowerCase()),
         orElse: () => const PriceListItemRate(itemId: ''),
       );
       if (override != null && override.itemId.isNotEmpty) {
@@ -203,7 +214,9 @@ class PriceList extends Equatable {
               r.itemName!.toLowerCase() == itemId.toLowerCase()),
       orElse: () => const PriceListItemRate(itemId: ''),
     );
-    if (override.itemId.isNotEmpty && override.discountPercentage != null && override.discountPercentage! > 0) {
+    if (override.itemId.isNotEmpty &&
+        override.discountPercentage != null &&
+        override.discountPercentage! > 0) {
       return override.discountPercentage;
     }
     return null;

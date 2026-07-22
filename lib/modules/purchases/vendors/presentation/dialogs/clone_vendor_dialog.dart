@@ -48,10 +48,7 @@ class _CloneVendorDialogState extends State<CloneVendorDialog> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _radioRow('Customer'),
-                      _radioRow('Vendor'),
-                    ],
+                    children: [_radioRow('Customer'), _radioRow('Vendor')],
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -137,10 +134,7 @@ class _CloneVendorDialogState extends State<CloneVendorDialog> {
             const SizedBox(width: 8),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF1F2937),
-              ),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF1F2937)),
             ),
           ],
         ),

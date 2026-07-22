@@ -57,7 +57,8 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                             const SizedBox(height: 4),
                             _contactInfoRow(LucideIcons.phone, customer.phone!),
                           ],
-                          if ((customer.mobilePhone?.trim().isNotEmpty ?? false)) ...[
+                          if ((customer.mobilePhone?.trim().isNotEmpty ??
+                              false)) ...[
                             const SizedBox(height: 2),
                             _contactInfoRow(
                               LucideIcons.smartphone,
@@ -136,7 +137,9 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                       ),
                       _detailRow(
                         'Portal Status',
-                        (customer.enablePortal ?? false) ? 'Enabled' : 'Disabled',
+                        (customer.enablePortal ?? false)
+                            ? 'Enabled'
+                            : 'Disabled',
                         isStatus: true,
                       ),
                     ],
@@ -285,20 +288,14 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                 ),
                 const SizedBox(height: 16),
-                _receivablesTable(
-                  customer,
-                  currencyLookup: currencyLookup,
-                ),
+                _receivablesTable(customer, currencyLookup: currencyLookup),
                 const SizedBox(height: 24),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Transaction counters are not available in the current customer payload.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF6B7280),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                     ),
                   ],
                 ),
@@ -810,15 +807,15 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                         currencyCode: currencyCode,
                       ),
                     ),
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF2563EB),
+                    ),
                   ),
                 ),
                 Expanded(
                   child: Text(
-                    _currencyAmount(
-                      0,
-                      currencyCode: currencyCode,
-                    ),
+                    _currencyAmount(0, currencyCode: currencyCode),
                     textAlign: TextAlign.right,
                     style: const TextStyle(fontSize: 13),
                   ),
@@ -872,16 +869,18 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      DateFormat('dd-MM-yyyy')
-                                          .format(activity.createdAt!),
+                                      DateFormat(
+                                        'dd-MM-yyyy',
+                                      ).format(activity.createdAt!),
                                       style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     Text(
-                                      DateFormat('hh:mm a')
-                                          .format(activity.createdAt!),
+                                      DateFormat(
+                                        'hh:mm a',
+                                      ).format(activity.createdAt!),
                                       style: const TextStyle(
                                         fontSize: 10,
                                         color: Color(0xFF6B7280),
@@ -999,18 +998,11 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
   Widget _contactInfoRow(IconData icon, String value) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 14,
-          color: const Color(0xFF6B7280),
-        ),
+        Icon(icon, size: 14, color: const Color(0xFF6B7280)),
         const SizedBox(width: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 13,
-            color: Color(0xFF374151),
-          ),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
         ),
       ],
     );
@@ -1071,14 +1063,13 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
           contact.firstName,
           contact.lastName,
         ].where((part) => part != null && part.trim().isNotEmpty).join(' ');
-        final secondaryText =
-            (contact.email?.trim().isNotEmpty ?? false)
-                ? contact.email!
-                : (contact.mobilePhone?.trim().isNotEmpty ?? false)
-                ? contact.mobilePhone!
-                : (contact.workPhone?.trim().isNotEmpty ?? false)
-                ? contact.workPhone!
-                : 'No contact details';
+        final secondaryText = (contact.email?.trim().isNotEmpty ?? false)
+            ? contact.email!
+            : (contact.mobilePhone?.trim().isNotEmpty ?? false)
+            ? contact.mobilePhone!
+            : (contact.workPhone?.trim().isNotEmpty ?? false)
+            ? contact.workPhone!
+            : 'No contact details';
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -1135,8 +1126,9 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
     String? currencyCode,
     String? emptyLabel,
   }) {
-    final code =
-        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : 'INR';
+    final code = currencyCode?.trim().isNotEmpty == true
+        ? currencyCode!.trim()
+        : 'INR';
     final value = amount ?? 0;
     if (amount == null && emptyLabel != null) {
       return emptyLabel;
@@ -1209,4 +1201,3 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
     ).hasMatch(value);
   }
 }
-

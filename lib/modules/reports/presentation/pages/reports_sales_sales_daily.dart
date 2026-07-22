@@ -76,8 +76,7 @@ class _DailySalesTable extends StatelessWidget {
     }
 
     // Sort by date descending
-    final sortedKeys = dailyStats.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
+    final sortedKeys = dailyStats.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,10 +88,7 @@ class _DailySalesTable extends StatelessWidget {
         const SizedBox(height: 24),
         Table(
           border: TableBorder(
-            horizontalInside: BorderSide(
-              color: Colors.grey.shade200,
-              width: 1,
-            ),
+            horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
             bottom: BorderSide(color: Colors.grey.shade200, width: 1),
           ),
           columnWidths: const {
@@ -189,9 +185,7 @@ class _DailySalesTable extends StatelessWidget {
                   padding: const EdgeInsets.all(12.0),
                   child: Text(
                     sales.length.toString(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Padding(
@@ -199,9 +193,7 @@ class _DailySalesTable extends StatelessWidget {
                   child: Text(
                     '₹${sales.fold<double>(0, (p, s) => p + s.total).toStringAsFixed(2)}',
                     textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ],

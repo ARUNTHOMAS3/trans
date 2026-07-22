@@ -20,7 +20,7 @@ Use this skill as the first pass when a task can drift away from Zerpai-specific
    - Preserve the shared `ZerpaiDatePicker` rule for reusable date inputs instead of introducing raw `showDatePicker(...)` usages by default.
    - Preserve the global settings rules: real DB-backed data first, DB-backed defaults for master lookups, explicit empty/error states, centralized shared styling, and clear separation of warehouse/storage/accounting/physical concerns.
    - Preserve the multi-tenancy rule: all business-owned tables must use `entity_id uuid NOT NULL REFERENCES organisation_branch_master(id)` as the single canonical tenant scope column; global lookup tables must NOT have `entity_id`; access resolved context via `@Tenant()` or `@Tenant('entityId')` decorator in controllers.
-   - Preserve the settings schema naming rule: any new database table created for the global settings system must start with `settings_`.
+   - Preserve the settings schema naming rule: use canonical table names from `current schema.md`; do not add a blanket `settings_` prefix for Settings-related tables.
    - Preserve the deep-linking rule: new modules and major internal sub-screens must expose deep-linkable GoRouter routes so refresh, direct URLs, and browser navigation preserve working context.
    - Preserve centralized control styling for save/create buttons, cancel/secondary buttons, upload affordances, and border/divider treatments instead of allowing screen-local color drift.
    - Prefer minimal, verifiable changes over broad rewrites.

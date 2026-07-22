@@ -2,9 +2,17 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/shared/widgets/settings_page_header.dart';
+import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
+import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import '../../data/models/print_template.dart';
 import '../../data/repositories/print_template_repository.dart';
@@ -152,127 +160,135 @@ class _PrintTemplatesPageState extends ConsumerState<PrintTemplatesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final currentPath = GoRouterState.of(context).uri.path;
+    final orgName = ref.watch(authUserProvider)?.orgName;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Print Templates'),
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
-      ),
+      backgroundColor: AppTheme.backgroundColor,
       body: Column(
         children: [
-          // Filters and Search
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
+          SettingsPageHeader(
+            orgName: orgName,
+            searchItems: const <SettingsSearchItem>[],
+          ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Search Bar
-                TextField(
+                SettingsNavigationSidebar(currentPath: currentPath),
+                Expanded(child: _buildTemplatesContent()),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTemplatesContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+          child: Text('Print Templates', style: AppTheme.pageTitle),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search templates...',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: Icon(LucideIcons.search),
+                    filled: true,
+                    fillColor: AppTheme.inputFill,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(color: AppTheme.borderLight),
                     ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                      _applyFilters();
-                    });
-                  },
-                ),
-                SizedBox(height: 16),
-
-                // Type Filter
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedType,
-                  decoration: InputDecoration(
-                    labelText: 'Filter by Type',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    DropdownMenuItem(value: 'all', child: Text('All Types')),
-                    ...TemplateType.all.map(
-                      (type) => DropdownMenuItem(
-                        value: type,
-                        child: Text(_formatTemplateType(type)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(color: AppTheme.borderLight),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(
+                        color: AppTheme.primaryBlue,
+                        width: 1.5,
                       ),
                     ),
-                  ],
+                  ),
                   onChanged: (value) {
-                    setState(() {
-                      _selectedType = value!;
-                      _applyFilters();
-                    });
+                    _searchQuery = value;
+                    _applyFilters();
                   },
                 ),
-              ],
-            ),
-          ),
-
-          // Action Button
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _showTemplateEditor(),
-                  icon: Icon(Icons.add),
-                  label: Text('New Template'),
+              ),
+              const SizedBox(width: 16),
+              SizedBox(
+                width: 220,
+                child: FormDropdown<String>(
+                  value: _selectedType,
+                  hint: 'Filter by type',
+                  items: <String>['all', ...TemplateType.all],
+                  displayStringForValue: _formatTemplateType,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    _selectedType = value;
+                    _applyFilters();
+                  },
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 16),
+              ZButton.primary(
+                label: 'New Template',
+                icon: LucideIcons.plus,
+                onPressed: () => _showTemplateEditor(),
+              ),
+            ],
           ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: _isLoading
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: ZListSkeleton(itemCount: 5),
+                )
+              : _filteredTemplates.isEmpty
+              ? _buildEmptyTemplatesState()
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  itemCount: _filteredTemplates.length,
+                  itemBuilder: (context, index) =>
+                      _buildTemplateCard(_filteredTemplates[index]),
+                ),
+        ),
+      ],
+    );
+  }
 
-          SizedBox(height: 16),
-
-          // Templates List
-          Expanded(
-            child: _isLoading
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: ZListSkeleton(itemCount: 5),
-                  )
-                : _filteredTemplates.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.picture_as_pdf_outlined,
-                          size: 64,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'No templates found',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          _searchQuery.isEmpty && _selectedType == 'all'
-                              ? 'Create your first print template'
-                              : 'No templates match your filters',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredTemplates.length,
-                    itemBuilder: (context, index) {
-                      final template = _filteredTemplates[index];
-                      return _buildTemplateCard(template);
-                    },
-                  ),
+  Widget _buildEmptyTemplatesState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.picture_as_pdf_outlined,
+            size: 56,
+            color: AppTheme.textSecondary,
+          ),
+          const SizedBox(height: 16),
+          Text('No templates found', style: AppTheme.sectionHeader),
+          const SizedBox(height: 8),
+          Text(
+            _searchQuery.isEmpty && _selectedType == 'all'
+                ? 'Create your first print template'
+                : 'No templates match your filters',
+            style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
           ),
         ],
       ),

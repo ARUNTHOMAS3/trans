@@ -42,7 +42,11 @@ class ColumnVisibilityManager extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      AppLogger.warning('Error loading column visibility', error: e, module: 'items');
+      AppLogger.warning(
+        'Error loading column visibility',
+        error: e,
+        module: 'items',
+      );
       // Fall back to defaults
       _visibleColumns = Set.from(_defaultVisibleColumns);
     }
@@ -55,7 +59,11 @@ class ColumnVisibilityManager extends ChangeNotifier {
       final encoded = jsonEncode(_visibleColumns.toList());
       await prefs.setString(_storageKey, encoded);
     } catch (e) {
-      AppLogger.warning('Error saving column visibility', error: e, module: 'items');
+      AppLogger.warning(
+        'Error saving column visibility',
+        error: e,
+        module: 'items',
+      );
     }
   }
 

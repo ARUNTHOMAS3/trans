@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Body, Param } from "@nestjs/common";
 import { TransactionLockingService } from "./transaction-locking.service";
 import { Tenant } from "../../common/decorators/tenant.decorator";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
@@ -10,6 +10,33 @@ export class TransactionLockingController {
   @Get()
   async findAll(@Tenant() tenant: TenantContext) {
     return this.service.findAll(tenant);
+  }
+
+  @Get("configurations")
+  async findConfigurations(@Tenant() tenant: TenantContext) {
+    return this.service.findConfigurations(tenant);
+  }
+
+  @Post("configurations")
+  async createConfiguration(@Tenant() tenant: TenantContext, @Body() data: any) {
+    return this.service.createConfiguration(tenant, data);
+  }
+
+  @Patch("configurations/:id")
+  async updateConfiguration(
+    @Tenant() tenant: TenantContext,
+    @Param("id") id: string,
+    @Body() data: any,
+  ) {
+    return this.service.updateConfiguration(tenant, id, data);
+  }
+
+  @Delete("configurations/:id")
+  async deleteConfiguration(
+    @Tenant() tenant: TenantContext,
+    @Param("id") id: string,
+  ) {
+    return this.service.deleteConfiguration(tenant, id);
   }
 
   @Post()

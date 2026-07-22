@@ -131,9 +131,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
               // Role Selection
               FormDropdown<String>(
                 value: _selectedRole,
-                items: _roles
-                    .map((role) => role['value']!)
-                    .toList(),
+                items: _roles.map((role) => role['value']!).toList(),
                 hint: 'Select role',
                 errorText: _roleError,
                 displayStringForValue: (value) {

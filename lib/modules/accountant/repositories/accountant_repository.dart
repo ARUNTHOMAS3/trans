@@ -2,7 +2,7 @@
 // Enhanced repository for Chart of Accounts with offline support (PRD Section 12.2)
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/services/hive_service.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
@@ -27,7 +27,9 @@ class AccountantRepository {
       final List<AccountNode> rawAccounts = (response.data as List)
           .map((e) => AccountNode.fromJson(e))
           .toList();
-      final List<AccountNode> accounts = _systemStartupAccounts(rawAccounts);
+      final List<AccountNode> accounts = _systemStartupAccounts(
+        _ensureTree(rawAccounts),
+      );
 
       // Cache to Hive for offline access
       await _hiveService.saveAccounts(accounts);

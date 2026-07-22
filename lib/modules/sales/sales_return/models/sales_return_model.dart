@@ -26,18 +26,19 @@ class CreateReceiveBatchPayload {
   });
 
   Map<String, dynamic> toJson() => {
-        'batch_id': batchId,
-        if (layerId != null && layerId!.isNotEmpty) 'layer_id': layerId,
-        'warehouse_id': warehouseId,
-        'bin_id': binId,
-        'quantity': quantity,
-        'foc_quantity': focQuantity,
-        if (purchaseRate != null) 'purchase_rate': purchaseRate,
-        if (mrp != null) 'mrp': mrp,
-        if (expiryDate != null && expiryDate!.isNotEmpty) 'expiry_date': expiryDate,
-        if (mfgDate != null && mfgDate!.isNotEmpty) 'manufacture_date': mfgDate,
-        if (mfgBatchNo != null && mfgBatchNo!.isNotEmpty) 'manufacture_batch_no': mfgBatchNo,
-      };
+    'batch_id': batchId,
+    if (layerId != null && layerId!.isNotEmpty) 'layer_id': layerId,
+    'warehouse_id': warehouseId,
+    'bin_id': binId,
+    'quantity': quantity,
+    'foc_quantity': focQuantity,
+    if (purchaseRate != null) 'purchase_rate': purchaseRate,
+    if (mrp != null) 'mrp': mrp,
+    if (expiryDate != null && expiryDate!.isNotEmpty) 'expiry_date': expiryDate,
+    if (mfgDate != null && mfgDate!.isNotEmpty) 'manufacture_date': mfgDate,
+    if (mfgBatchNo != null && mfgBatchNo!.isNotEmpty)
+      'manufacture_batch_no': mfgBatchNo,
+  };
 }
 
 class CreateReceiveItemPayload {
@@ -60,14 +61,14 @@ class CreateReceiveItemPayload {
   });
 
   Map<String, dynamic> toJson() => {
-        'product_id': productId,
-        if (salesReturnItemId != null) 'sales_return_item_id': salesReturnItemId,
-        'receiving_qty': receivingQty,
-        'return_qty': returnQty,
-        'already_received_qty': alreadyReceivedQty,
-        if (remarks != null) 'remarks': remarks,
-        'batches': batches.map((b) => b.toJson()).toList(),
-      };
+    'product_id': productId,
+    if (salesReturnItemId != null) 'sales_return_item_id': salesReturnItemId,
+    'receiving_qty': receivingQty,
+    'return_qty': returnQty,
+    'already_received_qty': alreadyReceivedQty,
+    if (remarks != null) 'remarks': remarks,
+    'batches': batches.map((b) => b.toJson()).toList(),
+  };
 }
 
 class CreateReceivePayload {
@@ -84,11 +85,11 @@ class CreateReceivePayload {
   });
 
   Map<String, dynamic> toJson() => {
-        'receive_date': receiveDate,
-        if (warehouseId != null) 'warehouse_id': warehouseId,
-        if (notes != null && notes!.isNotEmpty) 'notes': notes,
-        'items': items.map((i) => i.toJson()).toList(),
-      };
+    'receive_date': receiveDate,
+    if (warehouseId != null) 'warehouse_id': warehouseId,
+    if (notes != null && notes!.isNotEmpty) 'notes': notes,
+    'items': items.map((i) => i.toJson()).toList(),
+  };
 }
 
 class SalesReturnReceive {
@@ -178,15 +179,15 @@ class SalesReturnItem {
   }) : receivableQty = receivableQty ?? returnQty;
 
   Map<String, dynamic> toJson() => {
-        'product_id': productId,
-        if (salesInvoiceItemId != null) 'sales_invoice_item_id': salesInvoiceItemId,
-        'invoiced_qty': invoicedQty,
-        'already_returned_qty': alreadyReturnedQty,
-        'return_qty': returnQty,
-        'receivable_qty': receivableQty,
-        'credit_only_qty': creditOnlyQty,
-        if (remarks != null) 'remarks': remarks,
-      };
+    'product_id': productId,
+    if (salesInvoiceItemId != null) 'sales_invoice_item_id': salesInvoiceItemId,
+    'invoiced_qty': invoicedQty,
+    'already_returned_qty': alreadyReturnedQty,
+    'return_qty': returnQty,
+    'receivable_qty': receivableQty,
+    'credit_only_qty': creditOnlyQty,
+    if (remarks != null) 'remarks': remarks,
+  };
 }
 
 class CreateSalesReturnPayload {
@@ -215,18 +216,18 @@ class CreateSalesReturnPayload {
   });
 
   Map<String, dynamic> toJson() => {
-        'customer_id': customerId,
-        'rma_number': rmaNumber,
-        'return_date': returnDate,
-        if (warehouseId != null) 'warehouse_id': warehouseId,
-        if (reason != null) 'reason': reason,
-        if (referenceNumber != null) 'reference_number': referenceNumber,
-        if (containsCreditOnlyGoods != null)
-          'contains_credit_only_goods': containsCreditOnlyGoods,
-        'status': status,
-        if (notes != null) 'notes': notes,
-        'items': items.map((i) => i.toJson()).toList(),
-      };
+    'customer_id': customerId,
+    'rma_number': rmaNumber,
+    'return_date': returnDate,
+    if (warehouseId != null) 'warehouse_id': warehouseId,
+    if (reason != null) 'reason': reason,
+    if (referenceNumber != null) 'reference_number': referenceNumber,
+    if (containsCreditOnlyGoods != null)
+      'contains_credit_only_goods': containsCreditOnlyGoods,
+    'status': status,
+    if (notes != null) 'notes': notes,
+    'items': items.map((i) => i.toJson()).toList(),
+  };
 }
 
 class SalesReturn {

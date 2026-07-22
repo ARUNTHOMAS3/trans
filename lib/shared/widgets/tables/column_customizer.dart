@@ -26,14 +26,18 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
   @override
   void initState() {
     super.initState();
-    _items = widget.columns.map((c) => ColumnConfig(
-      id: c.id,
-      label: c.label,
-      isVisible: c.isVisible,
-      orderIndex: c.orderIndex,
-      isLocked: c.isLocked,
-      isPinned: c.isPinned,
-    )).toList();
+    _items = widget.columns
+        .map(
+          (c) => ColumnConfig(
+            id: c.id,
+            label: c.label,
+            isVisible: c.isVisible,
+            orderIndex: c.orderIndex,
+            isLocked: c.isLocked,
+            isPinned: c.isPinned,
+          ),
+        )
+        .toList();
     _items.sort((a, b) {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
@@ -46,7 +50,7 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
       if (newIndex > oldIndex) newIndex -= 1;
       final item = _items.removeAt(oldIndex);
       _items.insert(newIndex, item);
-      
+
       // Update orderIndex for all items
       for (int i = 0; i < _items.length; i++) {
         _items[i].orderIndex = i;
@@ -63,7 +67,9 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
     // However, ReorderableListView doesn't play well with filtered lists easily if we want to preserve global order.
     // For now, let's just filter the display. If search is active, we might disable reordering or handle it carefully.
     final displayedItems = _items
-        .where((c) => c.label.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (c) => c.label.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
         .toList();
 
     return Dialog(
@@ -86,12 +92,22 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.sliders, size: 20, color: AppTheme.textPrimary),
+                  const Icon(
+                    LucideIcons.sliders,
+                    size: 20,
+                    color: AppTheme.textPrimary,
+                  ),
                   const SizedBox(width: 12),
-                  Text('Customize Columns', style: AppTheme.sectionHeader.copyWith(fontSize: 16)),
+                  Text(
+                    'Customize Columns',
+                    style: AppTheme.sectionHeader.copyWith(fontSize: 16),
+                  ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.bgDisabled,
                       borderRadius: BorderRadius.circular(12),
@@ -104,7 +120,11 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                   const SizedBox(width: 12),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(LucideIcons.x, size: 20, color: AppTheme.errorRed),
+                    icon: const Icon(
+                      LucideIcons.x,
+                      size: 20,
+                      color: AppTheme.errorRed,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -114,7 +134,7 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
             const SizedBox(height: 16),
             const Divider(color: AppTheme.borderLight, height: 1, thickness: 1),
             const SizedBox(height: 16),
-            
+
             // Search Bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -188,44 +208,71 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF9FAFB),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: AppTheme.borderColor.withValues(alpha: 0.5),
+                ),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
                 child: Row(
                   children: [
                     ReorderableDragStartListener(
                       index: index,
                       child: const MouseRegion(
                         cursor: SystemMouseCursors.grab,
-                        child: Icon(LucideIcons.gripVertical, size: 14, color: AppTheme.textMuted),
+                        child: Icon(
+                          LucideIcons.gripVertical,
+                          size: 14,
+                          color: AppTheme.textMuted,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     if (col.isLocked)
-                      const Icon(LucideIcons.lock, size: 16, color: AppTheme.textSecondary)
+                      const Icon(
+                        LucideIcons.lock,
+                        size: 16,
+                        color: AppTheme.textSecondary,
+                      )
                     else
                       SizedBox(
                         height: 18,
                         width: 18,
                         child: Checkbox(
                           value: col.isVisible,
-                          onChanged: (v) => setState(() => col.isVisible = v ?? false),
+                          onChanged: (v) =>
+                              setState(() => col.isVisible = v ?? false),
                           activeColor: AppTheme.primaryBlue,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          side: const BorderSide(
+                            color: AppTheme.borderColor,
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: InkWell(
-                        onTap: col.isLocked ? null : () => setState(() => col.isVisible = !col.isVisible),
+                        onTap: col.isLocked
+                            ? null
+                            : () => setState(
+                                () => col.isVisible = !col.isVisible,
+                              ),
                         child: Text(
                           col.label,
                           style: AppTheme.bodyText.copyWith(
                             fontSize: 13,
-                            color: col.isVisible ? AppTheme.textPrimary : AppTheme.textSecondary,
-                            fontWeight: col.isVisible ? FontWeight.w500 : FontWeight.normal,
+                            color: col.isVisible
+                                ? AppTheme.textPrimary
+                                : AppTheme.textSecondary,
+                            fontWeight: col.isVisible
+                                ? FontWeight.w500
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -237,11 +284,15 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                         ignoring: !(isHovered || col.isPinned),
                         child: IconButton(
                           icon: Transform.rotate(
-                            angle: col.isPinned ? 0 : -0.785, // Tilt unpinned pin by -45 degrees
+                            angle: col.isPinned
+                                ? 0
+                                : -0.785, // Tilt unpinned pin by -45 degrees
                             child: Icon(
                               LucideIcons.pin,
                               size: 14,
-                              color: col.isPinned ? AppTheme.primaryBlue : AppTheme.textMuted,
+                              color: col.isPinned
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.textMuted,
                             ),
                           ),
                           onPressed: () {

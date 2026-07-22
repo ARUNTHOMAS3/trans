@@ -435,20 +435,20 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       data: (batches) {
         final effectiveBatches = _mergeLocalBatchDrafts(batches);
         return SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildBatchFiltersRow(item, effectiveBatches),
-            const SizedBox(height: 16),
-            if (_selectedBatchRefs.isNotEmpty) ...[
-              _buildBatchBulkActionsBar(),
-              const SizedBox(height: 12),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildBatchFiltersRow(item, effectiveBatches),
+              const SizedBox(height: 16),
+              if (_selectedBatchRefs.isNotEmpty) ...[
+                _buildBatchBulkActionsBar(),
+                const SizedBox(height: 12),
+              ],
+              _buildBatchTable(effectiveBatches),
             ],
-            _buildBatchTable(effectiveBatches),
-          ],
-        ),
-      );
+          ),
+        );
       },
     );
   }
@@ -1167,7 +1167,8 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   Widget _buildAssemblyUsageDropdown(Item item) {
     final usageLabels = {'associatedItems': 'Associated Items'};
     return _buildTransactionMenuButton(
-      label: 'Usage: ${usageLabels[_assemblyUsageFilter] ?? 'Associated Items'}',
+      label:
+          'Usage: ${usageLabels[_assemblyUsageFilter] ?? 'Associated Items'}',
       currentValue: _assemblyUsageFilter,
       items: usageLabels,
       onSelected: (value) => _setAssemblyUsageFilter(value, _tabsForItem(item)),
@@ -1368,41 +1369,39 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
-            children: columns
-                .map((column) {
-                  final value = _columnValueForTransaction(
-                    item,
-                    tx,
-                    column.key,
-                    typeKey,
-                  );
-                  final isStatus = column.key == 'status';
-                  final isDocNo = column.key == 'documentNumber';
-                  final textStyle = TextStyle(
-                    fontSize: 13,
-                    color: isStatus
-                        ? statusColor
-                        : (isDocNo
-                              ? AppTheme.primaryBlueDark
-                              : AppTheme.textPrimary),
-                  );
-                  final displayValue = value.trim().isEmpty ? '-' : value;
-                  return Expanded(
-                    flex: column.flex,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        displayValue,
-                        style: textStyle,
-                        textAlign: column.align,
-                        maxLines: isDocNo ? 2 : 1,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: isDocNo,
-                      ),
-                    ),
-                  );
-                })
-                .toList(),
+            children: columns.map((column) {
+              final value = _columnValueForTransaction(
+                item,
+                tx,
+                column.key,
+                typeKey,
+              );
+              final isStatus = column.key == 'status';
+              final isDocNo = column.key == 'documentNumber';
+              final textStyle = TextStyle(
+                fontSize: 13,
+                color: isStatus
+                    ? statusColor
+                    : (isDocNo
+                          ? AppTheme.primaryBlueDark
+                          : AppTheme.textPrimary),
+              );
+              final displayValue = value.trim().isEmpty ? '-' : value;
+              return Expanded(
+                flex: column.flex,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    displayValue,
+                    style: textStyle,
+                    textAlign: column.align,
+                    maxLines: isDocNo ? 2 : 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: isDocNo,
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ),
@@ -1608,7 +1607,12 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         };
       case 'creditnotes':
       case 'vendorcredits':
-        return {'all': 'All', 'open': 'Open', 'closed': 'Closed', 'void': 'Void'};
+        return {
+          'all': 'All',
+          'open': 'Open',
+          'closed': 'Closed',
+          'void': 'Void',
+        };
       case 'purchaseorders':
         return {
           'all': 'All',
@@ -1622,7 +1626,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           'dropshipped': 'Dropshipped',
         };
       case 'transferorders':
-        return {'all': 'All', 'inTransit': 'In Transit', 'transferred': 'Transferred'};
+        return {
+          'all': 'All',
+          'inTransit': 'In Transit',
+          'transferred': 'Transferred',
+        };
       case 'inventoryadjustments':
         return {'all': 'All', 'adjusted': 'Adjusted', 'draft': 'Draft'};
       default:
@@ -1637,7 +1645,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       flex: 2,
       sortable: true,
     );
-    const statusCol = _TransactionColumn(key: 'status', label: 'STATUS', flex: 2);
+    const statusCol = _TransactionColumn(
+      key: 'status',
+      label: 'STATUS',
+      flex: 2,
+    );
     const journalCol = _TransactionColumn(
       key: 'journalAccount',
       label: 'JOURNAL ACCOUNT',
@@ -1647,16 +1659,34 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       case 'salesorders':
         return const [
           dateCol,
-          _TransactionColumn(key: 'documentNumber', label: 'SALES ORDER#', flex: 2),
-          _TransactionColumn(key: 'customerName', label: 'CUSTOMER NAME', flex: 3),
+          _TransactionColumn(
+            key: 'documentNumber',
+            label: 'SALES ORDER#',
+            flex: 2,
+          ),
+          _TransactionColumn(
+            key: 'customerName',
+            label: 'CUSTOMER NAME',
+            flex: 3,
+          ),
           _TransactionColumn(
             key: 'quantitySold',
             label: 'QUANTITY SOLD',
             flex: 2,
             align: TextAlign.right,
           ),
-          _TransactionColumn(key: 'price', label: 'PRICE', flex: 2, align: TextAlign.right),
-          _TransactionColumn(key: 'total', label: 'TOTAL', flex: 2, align: TextAlign.right),
+          _TransactionColumn(
+            key: 'price',
+            label: 'PRICE',
+            flex: 2,
+            align: TextAlign.right,
+          ),
+          _TransactionColumn(
+            key: 'total',
+            label: 'TOTAL',
+            flex: 2,
+            align: TextAlign.right,
+          ),
           journalCol,
           statusCol,
         ];
@@ -1664,15 +1694,29 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         return const [
           dateCol,
           _TransactionColumn(key: 'documentNumber', label: 'INVOICE#', flex: 2),
-          _TransactionColumn(key: 'customerName', label: 'CUSTOMER NAME', flex: 3),
+          _TransactionColumn(
+            key: 'customerName',
+            label: 'CUSTOMER NAME',
+            flex: 3,
+          ),
           _TransactionColumn(
             key: 'quantitySold',
             label: 'QUANTITY SOLD',
             flex: 2,
             align: TextAlign.right,
           ),
-          _TransactionColumn(key: 'price', label: 'PRICE', flex: 2, align: TextAlign.right),
-          _TransactionColumn(key: 'total', label: 'TOTAL', flex: 2, align: TextAlign.right),
+          _TransactionColumn(
+            key: 'price',
+            label: 'PRICE',
+            flex: 2,
+            align: TextAlign.right,
+          ),
+          _TransactionColumn(
+            key: 'total',
+            label: 'TOTAL',
+            flex: 2,
+            align: TextAlign.right,
+          ),
           journalCol,
           statusCol,
         ];
@@ -1684,15 +1728,29 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             label: 'DELIVERY CHALLAN#',
             flex: 2,
           ),
-          _TransactionColumn(key: 'customerName', label: 'CUSTOMER NAME', flex: 3),
+          _TransactionColumn(
+            key: 'customerName',
+            label: 'CUSTOMER NAME',
+            flex: 3,
+          ),
           _TransactionColumn(
             key: 'quantitySold',
             label: 'QUANTITY SOLD',
             flex: 2,
             align: TextAlign.right,
           ),
-          _TransactionColumn(key: 'price', label: 'PRICE', flex: 2, align: TextAlign.right),
-          _TransactionColumn(key: 'total', label: 'TOTAL', flex: 2, align: TextAlign.right),
+          _TransactionColumn(
+            key: 'price',
+            label: 'PRICE',
+            flex: 2,
+            align: TextAlign.right,
+          ),
+          _TransactionColumn(
+            key: 'total',
+            label: 'TOTAL',
+            flex: 2,
+            align: TextAlign.right,
+          ),
           journalCol,
           statusCol,
         ];
@@ -1711,8 +1769,18 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             flex: 2,
             align: TextAlign.right,
           ),
-          _TransactionColumn(key: 'price', label: 'PRICE', flex: 2, align: TextAlign.right),
-          _TransactionColumn(key: 'total', label: 'TOTAL', flex: 2, align: TextAlign.right),
+          _TransactionColumn(
+            key: 'price',
+            label: 'PRICE',
+            flex: 2,
+            align: TextAlign.right,
+          ),
+          _TransactionColumn(
+            key: 'total',
+            label: 'TOTAL',
+            flex: 2,
+            align: TextAlign.right,
+          ),
           journalCol,
           statusCol,
         ];
@@ -1727,8 +1795,18 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             flex: 2,
             align: TextAlign.right,
           ),
-          _TransactionColumn(key: 'price', label: 'PRICE', flex: 2, align: TextAlign.right),
-          _TransactionColumn(key: 'total', label: 'TOTAL', flex: 2, align: TextAlign.right),
+          _TransactionColumn(
+            key: 'price',
+            label: 'PRICE',
+            flex: 2,
+            align: TextAlign.right,
+          ),
+          _TransactionColumn(
+            key: 'total',
+            label: 'TOTAL',
+            flex: 2,
+            align: TextAlign.right,
+          ),
           journalCol,
           statusCol,
         ];
@@ -1763,7 +1841,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         return const [
           dateCol,
           _TransactionColumn(key: 'transactionSubType', label: 'TYPE', flex: 2),
-          _TransactionColumn(key: 'locationName', label: 'LOCATION NAME', flex: 3),
+          _TransactionColumn(
+            key: 'locationName',
+            label: 'LOCATION NAME',
+            flex: 3,
+          ),
           _TransactionColumn(key: 'reason', label: 'REASON', flex: 2),
           _TransactionColumn(
             key: 'quantitySold',
@@ -1783,7 +1865,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       default:
         return const [
           dateCol,
-          _TransactionColumn(key: 'documentNumber', label: 'DOCUMENT#', flex: 2),
+          _TransactionColumn(
+            key: 'documentNumber',
+            label: 'DOCUMENT#',
+            flex: 2,
+          ),
           _TransactionColumn(key: 'customerName', label: 'PARTY NAME', flex: 3),
           _TransactionColumn(
             key: 'quantitySold',
@@ -1791,8 +1877,18 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             flex: 2,
             align: TextAlign.right,
           ),
-          _TransactionColumn(key: 'price', label: 'PRICE', flex: 2, align: TextAlign.right),
-          _TransactionColumn(key: 'total', label: 'TOTAL', flex: 2, align: TextAlign.right),
+          _TransactionColumn(
+            key: 'price',
+            label: 'PRICE',
+            flex: 2,
+            align: TextAlign.right,
+          ),
+          _TransactionColumn(
+            key: 'total',
+            label: 'TOTAL',
+            flex: 2,
+            align: TextAlign.right,
+          ),
           journalCol,
           statusCol,
         ];
@@ -1844,11 +1940,19 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     }
   }
 
-  String _resolveJournalAccountName(Item item, TransactionData tx, String typeKey) {
+  String _resolveJournalAccountName(
+    Item item,
+    TransactionData tx,
+    String typeKey,
+  ) {
     final mapped = switch (typeKey) {
-      'salesorders' || 'invoices' || 'deliverychallans' || 'creditnotes' =>
-        item.salesAccountName,
-      'purchaseorders' || 'bills' || 'vendorcredits' => item.purchaseAccountName,
+      'salesorders' ||
+      'invoices' ||
+      'deliverychallans' ||
+      'creditnotes' => item.salesAccountName,
+      'purchaseorders' ||
+      'bills' ||
+      'vendorcredits' => item.purchaseAccountName,
       'inventoryadjustments' || 'transferorders' => item.inventoryAccountName,
       _ => null,
     };
@@ -2487,8 +2591,8 @@ extension _ItemDetailStock on _ItemDetailScreenState {
 
     final updated = BatchData(
       batchReference: updatedRef,
-      manufacturerBatch: (result['manufacturerBatch'] ?? batch.manufacturerBatch)
-          .toString(),
+      manufacturerBatch:
+          (result['manufacturerBatch'] ?? batch.manufacturerBatch).toString(),
       unitPack: (result['unitPack'] ?? batch.unitPack).toString(),
       manufacturedDate: (result['manufacturedDate'] ?? batch.manufacturedDate)
           .toString(),
@@ -2984,8 +3088,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   ) async {
     if (!mounted || item.id == null) return;
     final id = item.id!;
-    final orgSystemId =
-        resolveOrgSystemId(context);
+    final orgSystemId = resolveOrgSystemId(context);
     context.goNamed(
       AppRoutes.itemsOpeningStock,
       pathParameters: {'orgSystemId': orgSystemId, 'id': id},

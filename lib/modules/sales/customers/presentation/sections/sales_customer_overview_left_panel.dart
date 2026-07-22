@@ -96,10 +96,7 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
                 return InkWell(
                   onTap: () => context.goNamed(
                     AppRoutes.salesCustomersDetail,
-                    pathParameters: {
-                      'orgSystemId': _orgSystemId,
-                      'id': c.id,
-                    },
+                    pathParameters: {'orgSystemId': _orgSystemId, 'id': c.id},
                   ),
 
                   child: Container(
@@ -212,4 +209,3 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
     );
   }
 }
-

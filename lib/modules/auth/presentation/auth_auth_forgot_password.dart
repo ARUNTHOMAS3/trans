@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -92,8 +91,7 @@ class _AuthForgotPasswordPageState
                       const SizedBox(height: 16),
                       Text(
                         'Reset Password',
-                        style:
-                            AppTheme.textPrimaryStyle(28, FontWeight.w700),
+                        style: AppTheme.textPrimaryStyle(28, FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
                       Text(

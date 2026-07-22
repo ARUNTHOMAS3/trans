@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 import '../models/sales_return_model.dart';
 import '../repositories/sales_return_repository.dart';
@@ -15,7 +15,9 @@ class SalesReturnNotifier extends StateNotifier<AsyncValue<SalesReturn?>> {
 
   SalesReturnNotifier(this._repository) : super(const AsyncValue.data(null));
 
-  Future<SalesReturn?> createSalesReturn(CreateSalesReturnPayload payload) async {
+  Future<SalesReturn?> createSalesReturn(
+    CreateSalesReturnPayload payload,
+  ) async {
     state = const AsyncValue.loading();
     try {
       final result = await _repository.createSalesReturn(payload);
@@ -38,14 +40,14 @@ class SalesReturnNotifier extends StateNotifier<AsyncValue<SalesReturn?>> {
 
 final salesReturnProvider =
     StateNotifierProvider<SalesReturnNotifier, AsyncValue<SalesReturn?>>(
-  (ref) => SalesReturnNotifier(ref.watch(salesReturnRepositoryProvider)),
-);
+      (ref) => SalesReturnNotifier(ref.watch(salesReturnRepositoryProvider)),
+    );
 
 final salesReturnsListProvider =
     FutureProvider.family<List<SalesReturn>, String?>((ref, status) async {
-  final repo = ref.watch(salesReturnRepositoryProvider);
-  return repo.getSalesReturns(status: status);
-});
+      final repo = ref.watch(salesReturnRepositoryProvider);
+      return repo.getSalesReturns(status: status);
+    });
 
 class SalesReturnReceiveStatusNotifier
     extends StateNotifier<Map<String, String>> {
@@ -62,31 +64,33 @@ class SalesReturnReceiveStatusNotifier
   }
 }
 
-final salesReturnReceiveStatusProvider = StateNotifierProvider<
-    SalesReturnReceiveStatusNotifier, Map<String, String>>(
-  (ref) => SalesReturnReceiveStatusNotifier(),
-);
+final salesReturnReceiveStatusProvider =
+    StateNotifierProvider<
+      SalesReturnReceiveStatusNotifier,
+      Map<String, String>
+    >((ref) => SalesReturnReceiveStatusNotifier());
 
 final salesReturnReceivesProvider =
-    FutureProvider.family<List<SalesReturnReceive>, String>(
-  (ref, salesReturnId) async {
-    final repo = ref.watch(salesReturnRepositoryProvider);
-    return repo.getReceives(salesReturnId);
-  },
-);
+    FutureProvider.family<List<SalesReturnReceive>, String>((
+      ref,
+      salesReturnId,
+    ) async {
+      final repo = ref.watch(salesReturnRepositoryProvider);
+      return repo.getReceives(salesReturnId);
+    });
 
 final createSalesReturnReceiveProvider =
     Provider<Future<SalesReturnReceive> Function(String, CreateReceivePayload)>(
-  (ref) {
-    final repo = ref.read(salesReturnRepositoryProvider);
-    return (salesReturnId, payload) => repo.createReceive(salesReturnId, payload);
-  },
-);
+      (ref) {
+        final repo = ref.read(salesReturnRepositoryProvider);
+        return (salesReturnId, payload) =>
+            repo.createReceive(salesReturnId, payload);
+      },
+    );
 
 final deleteSalesReturnReceiveProvider =
-    Provider<Future<void> Function(String, String)>(
-  (ref) {
-    final repo = ref.read(salesReturnRepositoryProvider);
-    return (salesReturnId, receiveId) => repo.deleteReceive(salesReturnId, receiveId);
-  },
-);
+    Provider<Future<void> Function(String, String)>((ref) {
+      final repo = ref.read(salesReturnRepositoryProvider);
+      return (salesReturnId, receiveId) =>
+          repo.deleteReceive(salesReturnId, receiveId);
+    });

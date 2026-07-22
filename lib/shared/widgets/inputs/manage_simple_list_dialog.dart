@@ -7,14 +7,16 @@ class ManageSimpleListDialog extends StatefulWidget {
   final String title;
   final String singularLabel;
   final String headerLabel;
-  final List<dynamic> items; // Can be List<String> or List<Map<String, dynamic>>
+  final List<dynamic>
+  items; // Can be List<String> or List<Map<String, dynamic>>
   final String? selectedId;
   final String labelKey;
   final ValueChanged<dynamic> onSelect;
   final Future<List<Map<String, dynamic>>> Function(List<Map<String, dynamic>>)?
   onSave;
   final Future<Map<String, dynamic>> Function(String name)? onCreateOne;
-  final ValueChanged<List<String>>? onListChanged; // Deprecated but kept for compat
+  final ValueChanged<List<String>>?
+  onListChanged; // Deprecated but kept for compat
   final Future<String?> Function(Map<String, dynamic> item)? onDeleteCheck;
 
   const ManageSimpleListDialog({
@@ -166,7 +168,11 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
           }
         }
       } catch (e) {
-        AppLogger.error('Save error in ManageSimpleListDialog', error: e, module: 'items');
+        AppLogger.error(
+          'Save error in ManageSimpleListDialog',
+          error: e,
+          module: 'items',
+        );
         setState(() {
           _errorMessage = ZerpaiBuilders.parseErrorMessage(
             e,
@@ -384,7 +390,10 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
                 ),
                 focusedBorder: const OutlineInputBorder(
                   borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: AppTheme.primaryBlueDark, width: 1.5),
+                  borderSide: BorderSide(
+                    color: AppTheme.primaryBlueDark,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),

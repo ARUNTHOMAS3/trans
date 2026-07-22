@@ -63,4 +63,3 @@ extension _MiscSections on _PurchasesVendorsVendorCreateScreenState {
     );
   }
 }
-

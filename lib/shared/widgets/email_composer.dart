@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 
-
 class EmailComposerScreen extends StatefulWidget {
   final String title;
   final String initialFrom;
@@ -12,7 +11,14 @@ class EmailComposerScreen extends StatefulWidget {
   final String attachmentName;
   final String? attachmentLabel;
   final VoidCallback? onCancel;
-  final Function(String from, String to, String subject, String body, bool attachPdf) onSend;
+  final Function(
+    String from,
+    String to,
+    String subject,
+    String body,
+    bool attachPdf,
+  )
+  onSend;
 
   const EmailComposerScreen({
     super.key,
@@ -84,10 +90,10 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
               _buildField('From', _fromCtrl, readOnly: true),
               _buildField('Send To', _toCtrl),
               _buildField('Subject', _subjectCtrl),
-              
+
               // Toolbar (Visual only for now to match screenshot)
               _buildToolbar(),
-              
+
               // Body
               Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -107,7 +113,7 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                   ),
                 ),
               ),
-              
+
               // Attachments Footer
               Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -122,7 +128,10 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                     Text(widget.attachmentLabel ?? 'Attach Sales Order PDF'),
                     const SizedBox(width: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(4),
@@ -130,7 +139,11 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(LucideIcons.fileText, size: 16, color: Colors.red),
+                          const Icon(
+                            LucideIcons.fileText,
+                            size: 16,
+                            color: Colors.red,
+                          ),
                           const SizedBox(width: 8),
                           Text(widget.attachmentName),
                         ],
@@ -139,9 +152,9 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                   ],
                 ),
               ),
-              
+
               const Divider(height: 1),
-              
+
               // Action Buttons
               Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -151,8 +164,13 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF22A95E),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                       onPressed: () {
                         widget.onSend(
@@ -168,8 +186,13 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                     const SizedBox(width: 12),
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                       onPressed: widget.onCancel ?? () => context.pop(),
                       child: const Text('Cancel'),
@@ -184,7 +207,11 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController ctrl, {bool readOnly = false}) {
+  Widget _buildField(
+    String label,
+    TextEditingController ctrl, {
+    bool readOnly = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
@@ -193,7 +220,10 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4B5563),
+              ),
             ),
           ),
           Expanded(
@@ -208,9 +238,7 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
-              style: TextStyle(
-                color: readOnly ? Colors.grey : Colors.black,
-              ),
+              style: TextStyle(color: readOnly ? Colors.grey : Colors.black),
             ),
           ),
         ],

@@ -258,7 +258,10 @@ class _PicklistSelectBatchesDialogState
           decoration: InputDecoration(
             isDense: false,
             hintText: hint,
-            hintStyle: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            hintStyle: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 13,
+            ),
             filled: true,
             fillColor: readOnly ? AppTheme.bgLight : AppTheme.backgroundColor,
             contentPadding: const EdgeInsets.symmetric(
@@ -316,7 +319,10 @@ class _PicklistSelectBatchesDialogState
             decoration: InputDecoration(
               isDense: false,
               hintText: '',
-              hintStyle: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              hintStyle: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 13,
+              ),
               filled: true,
               fillColor: readOnly ? AppTheme.bgLight : AppTheme.backgroundColor,
               contentPadding: const EdgeInsets.symmetric(
@@ -409,7 +415,10 @@ class _PicklistSelectBatchesDialogState
               decoration: InputDecoration(
                 isDense: false,
                 hintText: '0',
-                hintStyle: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                hintStyle: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 13,
+                ),
                 filled: false,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -488,7 +497,11 @@ class _PicklistSelectBatchesDialogState
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.home, size: 16, color: AppTheme.textSecondary),
+                  const Icon(
+                    LucideIcons.home,
+                    size: 16,
+                    color: AppTheme.textSecondary,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Location : ${widget.warehouseName.toUpperCase()}',
@@ -536,7 +549,10 @@ class _PicklistSelectBatchesDialogState
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text('|', style: TextStyle(color: AppTheme.textSecondary)),
+                  const Text(
+                    '|',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Quantity to be added : ${_quantityToBeAdded.toInt()}',
@@ -609,7 +625,10 @@ class _PicklistSelectBatchesDialogState
                   const SizedBox(width: 8),
                   Text(
                     'Overwrite the line item with ${_totalQuantityOnlyOut.toInt()} quantities',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
                 ],
               ),
@@ -657,7 +676,7 @@ class _PicklistSelectBatchesDialogState
                   final row = _rows[index];
                   final isRowHovered = _hoveredBatchRows.contains(index);
                   return Column(
-                     children: [
+                    children: [
                       MouseRegion(
                         onEnter: (_) =>
                             setState(() => _hoveredBatchRows.add(index)),
@@ -682,26 +701,42 @@ class _PicklistSelectBatchesDialogState
                                     child: Consumer(
                                       builder: (context, ref, _) {
                                         final binsAsync = ref.watch(
-                                          binsLookupProvider(widget.warehouseId),
+                                          binsLookupProvider(
+                                            widget.warehouseId,
+                                          ),
                                         );
                                         final binCodes = (binsAsync.value ?? [])
-                                            .map((b) => (b['bin_code'] ?? '').toString())
+                                            .map(
+                                              (b) => (b['bin_code'] ?? '')
+                                                  .toString(),
+                                            )
                                             .where((c) => c.isNotEmpty)
                                             .toList();
                                         return _BinHoverBox(
-                                          isEnabled: row.binLocationCtrl.text.isNotEmpty,
+                                          isEnabled: row
+                                              .binLocationCtrl
+                                              .text
+                                              .isNotEmpty,
                                           message: row.binLocationCtrl.text,
                                           child: FormDropdown<String>(
                                             height: _batchDropdownHeight,
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: AppTheme.borderLight),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            border: Border.all(
+                                              color: AppTheme.borderLight,
+                                            ),
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
                                               vertical: 8,
                                             ),
-                                            value: binCodes.contains(
-                                                    row.binLocationCtrl.text.trim())
-                                                ? row.binLocationCtrl.text.trim()
+                                            value:
+                                                binCodes.contains(
+                                                  row.binLocationCtrl.text
+                                                      .trim(),
+                                                )
+                                                ? row.binLocationCtrl.text
+                                                      .trim()
                                                 : null,
                                             items: binCodes,
                                             hint: binsAsync.isLoading
@@ -714,31 +749,42 @@ class _PicklistSelectBatchesDialogState
                                             itemEstimatedHeight: 64,
                                             displayStringForValue: (v) => v,
                                             searchStringForValue: (v) => v,
-                                            itemBuilder: (item, isSelected, isHovered) =>
-                                                Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 8,
-                                              ),
-                                              color: isHovered
-                                                  ? AppTheme.infoBlue
-                                                  : (isSelected
-                                                      ? const Color(0xFFF3F4F6)
-                                                      : Colors.transparent),
-                                              child: Text(
-                                                item,
-                                                softWrap: true,
-                                                style: TextStyle(
-                                                  fontSize: 13,
+                                            itemBuilder:
+                                                (
+                                                  item,
+                                                  isSelected,
+                                                  isHovered,
+                                                ) => Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8,
+                                                      ),
                                                   color: isHovered
-                                                      ? Colors.white
-                                                      : const Color(0xFF1F2937),
+                                                      ? AppTheme.infoBlue
+                                                      : (isSelected
+                                                            ? const Color(
+                                                                0xFFF3F4F6,
+                                                              )
+                                                            : Colors
+                                                                  .transparent),
+                                                  child: Text(
+                                                    item,
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: isHovered
+                                                          ? Colors.white
+                                                          : const Color(
+                                                              0xFF1F2937,
+                                                            ),
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
                                             onChanged: (val) {
                                               setState(() {
-                                                row.binLocationCtrl.text = val ?? '';
+                                                row.binLocationCtrl.text =
+                                                    val ?? '';
                                               });
                                             },
                                           ),
@@ -785,19 +831,17 @@ class _PicklistSelectBatchesDialogState
                                               fillColor: Colors.white,
                                               contentPadding:
                                                   const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 10,
-                                              ),
-                                              enabledBorder:
-                                                  OutlineInputBorder(
+                                                    horizontal: 10,
+                                                    vertical: 10,
+                                                  ),
+                                              enabledBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(6),
                                                 borderSide: const BorderSide(
                                                   color: AppTheme.borderLight,
                                                 ),
                                               ),
-                                              focusedBorder:
-                                                  OutlineInputBorder(
+                                              focusedBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(6),
                                                 borderSide: const BorderSide(
@@ -820,7 +864,9 @@ class _PicklistSelectBatchesDialogState
                                           borderRadius: BorderRadius.circular(
                                             6,
                                           ),
-                                          border: Border.all(color: AppTheme.borderLight),
+                                          border: Border.all(
+                                            color: AppTheme.borderLight,
+                                          ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
                                             vertical: 8,
@@ -1068,7 +1114,10 @@ class _PicklistSelectBatchesDialogState
                   const Spacer(),
                   Text(
                     'Batches added: ${_rows.length}/100',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
                 ],
               ),

@@ -109,10 +109,11 @@ class _ProcurementRequestedItemsPageState
     final base = List<_RequestedItem>.from(_kItems);
     base.sort((a, b) {
       final cmp = switch (_sortField) {
-        _RiSortField.itemName     => a.itemName.compareTo(b.itemName),
+        _RiSortField.itemName => a.itemName.compareTo(b.itemName),
         _RiSortField.expectedDate => a.expectedDate.compareTo(b.expectedDate),
-        _RiSortField.remainingQty =>
-          a.remainingQuantity.compareTo(b.remainingQuantity),
+        _RiSortField.remainingQty => a.remainingQuantity.compareTo(
+          b.remainingQuantity,
+        ),
         _RiSortField.requestNo => a.requestNumber.compareTo(b.requestNumber),
       };
       return _sortDir == _RiSortDir.ascending ? cmp : -cmp;
@@ -268,7 +269,7 @@ class _RiSelectionBar extends StatefulWidget {
 
 class _RiSelectionBarState extends State<_RiSelectionBar> {
   final _createLink = LayerLink();
-  final _createKey  = GlobalKey();
+  final _createKey = GlobalKey();
   OverlayEntry? _overlay;
 
   @override
@@ -348,11 +349,16 @@ class _RiSelectionBarState extends State<_RiSelectionBar> {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 textStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -370,8 +376,7 @@ class _RiSelectionBarState extends State<_RiSelectionBar> {
             borderRadius: BorderRadius.circular(6),
             child: const Padding(
               padding: EdgeInsets.all(6),
-              child: Icon(LucideIcons.x,
-                  size: 18, color: AppTheme.errorRed),
+              child: Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
             ),
           ),
         ],
@@ -418,7 +423,7 @@ class _RiCreateDropdownState extends State<_RiCreateDropdown> {
             return MouseRegion(
               cursor: SystemMouseCursors.click,
               onEnter: (_) => setState(() => _hovered = item),
-              onExit:  (_) => setState(() => _hovered = null),
+              onExit: (_) => setState(() => _hovered = null),
               child: GestureDetector(
                 onTap: () => widget.onSelect(item),
                 child: AnimatedContainer(
@@ -426,14 +431,14 @@ class _RiCreateDropdownState extends State<_RiCreateDropdown> {
                   width: double.infinity,
                   color: isHovered ? AppTheme.primaryBlue : Colors.white,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   child: Text(
                     item,
                     style: TextStyle(
                       fontSize: 14,
-                      color: isHovered
-                          ? Colors.white
-                          : AppTheme.textPrimary,
+                      color: isHovered ? Colors.white : AppTheme.textPrimary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -463,7 +468,7 @@ class _RiTabBar extends StatefulWidget {
 
 class _RiTabBarState extends State<_RiTabBar> {
   final _dotsLink = LayerLink();
-  final _dotsKey  = GlobalKey();
+  final _dotsKey = GlobalKey();
   OverlayEntry? _overlay;
 
   @override
@@ -545,8 +550,7 @@ class _RiTabBarState extends State<_RiTabBar> {
             key: _dotsKey,
             onTap: () => _toggle(context),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: _overlay != null
                     ? AppTheme.primaryBlue.withValues(alpha: 0.1)
@@ -587,8 +591,8 @@ class _RiTabDropdownState extends State<_RiTabDropdown> {
   _RiTabFilter? _hovered;
 
   static const _kItems = [
-    (_RiTabFilter.open,      'Open'),
-    (_RiTabFilter.onHold,    'On Hold'),
+    (_RiTabFilter.open, 'Open'),
+    (_RiTabFilter.onHold, 'On Hold'),
     (_RiTabFilter.processed, 'Processed'),
   ];
 
@@ -628,13 +632,13 @@ class _RiTabDropdownState extends State<_RiTabDropdown> {
             ),
             ..._kItems.map((entry) {
               final (filter, label) = entry;
-              final isActive  = filter == widget.active;
+              final isActive = filter == widget.active;
               final isHovered = _hovered == filter;
 
               return MouseRegion(
                 cursor: SystemMouseCursors.click,
                 onEnter: (_) => setState(() => _hovered = filter),
-                onExit:  (_) => setState(() => _hovered = null),
+                onExit: (_) => setState(() => _hovered = null),
                 child: GestureDetector(
                   onTap: () => widget.onSelect(filter),
                   child: AnimatedContainer(
@@ -642,10 +646,12 @@ class _RiTabDropdownState extends State<_RiTabDropdown> {
                     color: isHovered
                         ? AppTheme.primaryBlue
                         : isActive
-                            ? const Color(0xFFF0F4FF)
-                            : Colors.white,
+                        ? const Color(0xFFF0F4FF)
+                        : Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 11),
+                      horizontal: 16,
+                      vertical: 11,
+                    ),
                     child: SizedBox(
                       width: double.infinity,
                       child: Text(
@@ -655,8 +661,8 @@ class _RiTabDropdownState extends State<_RiTabDropdown> {
                           color: isHovered
                               ? Colors.white
                               : isActive
-                                  ? AppTheme.primaryBlue
-                                  : AppTheme.textPrimary,
+                              ? AppTheme.primaryBlue
+                              : AppTheme.textPrimary,
                           fontWeight: isActive || isHovered
                               ? FontWeight.w600
                               : FontWeight.w400,
@@ -793,8 +799,8 @@ class _TableHeader extends StatelessWidget {
     final isActive = sortField == field;
     final icon = isActive
         ? (sortDir == _RiSortDir.ascending
-            ? LucideIcons.arrowUp
-            : LucideIcons.arrowDown)
+              ? LucideIcons.arrowUp
+              : LucideIcons.arrowDown)
         : LucideIcons.chevronsUpDown;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -841,15 +847,14 @@ class _TableHeader extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(flex: 4, child: _col('ITEM NAME', _RiSortField.itemName)),
           Expanded(
-              flex: 2,
-              child: _col('EXPECTED DATE', _RiSortField.expectedDate)),
-          const Expanded(
             flex: 2,
-            child: Text('QUANTITY', style: _style),
+            child: _col('EXPECTED DATE', _RiSortField.expectedDate),
           ),
+          const Expanded(flex: 2, child: Text('QUANTITY', style: _style)),
           Expanded(
-              flex: 2,
-              child: _col('REMAINING QUANTITY', _RiSortField.remainingQty)),
+            flex: 2,
+            child: _col('REMAINING QUANTITY', _RiSortField.remainingQty),
+          ),
           Expanded(flex: 2, child: _col('REQUEST#', _RiSortField.requestNo)),
         ],
       ),
@@ -880,8 +885,8 @@ class _TableRowState extends State<_TableRow> {
     final bg = widget.isSelected
         ? AppTheme.primaryBlue.withValues(alpha: 0.06)
         : _hovered
-            ? AppTheme.bgHover
-            : Colors.white;
+        ? AppTheme.bgHover
+        : Colors.white;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -1081,10 +1086,10 @@ class _MoreDropdownPanel extends StatelessWidget {
   final VoidCallback onRefresh;
 
   static const _kSortItems = [
-    (_RiSortField.itemName,     'Item Name'),
+    (_RiSortField.itemName, 'Item Name'),
     (_RiSortField.expectedDate, 'Expected Date'),
     (_RiSortField.remainingQty, 'Remaining Quantity'),
-    (_RiSortField.requestNo,    'Request#'),
+    (_RiSortField.requestNo, 'Request#'),
   ];
 
   @override
@@ -1188,16 +1193,15 @@ class _RiSortMenuItemState extends State<_RiSortMenuItem> {
           color: _hovered
               ? AppTheme.infoBlue
               : widget.isActive
-                  ? AppTheme.bgHover
-                  : Colors.white,
+              ? AppTheme.bgHover
+              : Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Text(
             widget.label,
             style: TextStyle(
               fontSize: 13,
               color: _hovered ? Colors.white : AppTheme.textBody,
-              fontWeight:
-                  widget.isActive ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
         ),

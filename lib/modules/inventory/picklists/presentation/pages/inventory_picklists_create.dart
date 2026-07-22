@@ -6707,4 +6707,3 @@ class _BinHoverBoxState extends State<_BinHoverBox> {
     );
   }
 }
-

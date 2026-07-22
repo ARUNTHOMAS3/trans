@@ -38,11 +38,7 @@ class CapabilityService {
     );
   }
 
-  bool can(
-    String permissionKey, {
-    String? branchId,
-    String? warehouseId,
-  }) {
+  bool can(String permissionKey, {String? branchId, String? warehouseId}) {
     return PermissionResolver.hasPermission(
       PermissionResolutionInput(
         user: user,
@@ -71,7 +67,11 @@ class CapabilityService {
     }
 
     // Phase-safe fallback for legacy module keys while migration is in progress.
-    return PermissionService.hasModuleAction(user, permissionKey, action: 'view');
+    return PermissionService.hasModuleAction(
+      user,
+      permissionKey,
+      action: 'view',
+    );
   }
 
   static bool canUserAction(

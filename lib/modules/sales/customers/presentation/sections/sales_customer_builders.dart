@@ -392,30 +392,32 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
           const SizedBox(width: 12),
           OutlinedButton(
             onPressed: () {
-                if (_isEditMode && _editingCustomerId != null) {
-                  context.goNamed(
-                    AppRoutes.salesCustomersDetail,
-                    pathParameters: {
-                      'orgSystemId':
-                          GoRouterState.of(context)
-                              .pathParameters['orgSystemId'] ??
-                          '',
-                      'id': _editingCustomerId!,
-                    },
-                  );
-                } else if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                } else {
-                  context.goNamed(
-                    AppRoutes.salesCustomers,
-                    pathParameters: {
-                      'orgSystemId':
-                          GoRouterState.of(context)
-                              .pathParameters['orgSystemId'] ??
-                          '',
-                    },
-                  );
-                }
+              if (_isEditMode && _editingCustomerId != null) {
+                context.goNamed(
+                  AppRoutes.salesCustomersDetail,
+                  pathParameters: {
+                    'orgSystemId':
+                        GoRouterState.of(
+                          context,
+                        ).pathParameters['orgSystemId'] ??
+                        '',
+                    'id': _editingCustomerId!,
+                  },
+                );
+              } else if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.goNamed(
+                  AppRoutes.salesCustomers,
+                  pathParameters: {
+                    'orgSystemId':
+                        GoRouterState.of(
+                          context,
+                        ).pathParameters['orgSystemId'] ??
+                        '',
+                  },
+                );
+              }
             },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -696,4 +698,3 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
     );
   }
 }
-

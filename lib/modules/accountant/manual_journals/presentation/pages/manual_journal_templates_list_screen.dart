@@ -233,4 +233,3 @@ class _PaginatedTemplatesListState extends State<_PaginatedTemplatesList> {
     );
   }
 }
-

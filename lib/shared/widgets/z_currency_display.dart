@@ -30,16 +30,14 @@ class ZCurrencyDisplay extends StatelessWidget {
       children: [
         Text(
           symbol,
-          style: style?.copyWith(
+          style:
+              style?.copyWith(
                 fontFamily: 'Roboto', // Ensures the symbol renders correctly
               ) ??
               const TextStyle(fontFamily: 'Roboto'),
         ),
         const SizedBox(width: 4),
-        Text(
-          amount.toStringAsFixed(decimals),
-          style: style,
-        ),
+        Text(amount.toStringAsFixed(decimals), style: style),
       ],
     );
   }

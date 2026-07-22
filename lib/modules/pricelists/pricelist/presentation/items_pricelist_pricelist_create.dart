@@ -142,7 +142,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
 
       if (p.percentageType != null && p.percentageType!.isNotEmpty) {
         final type = p.percentageType!;
-        _percentageType = type[0].toUpperCase() + type.substring(1).toLowerCase();
+        _percentageType =
+            type[0].toUpperCase() + type.substring(1).toLowerCase();
       } else {
         final details = p.details ?? '';
         if (details.contains('Markdown') || details.contains('markdown')) {
@@ -159,22 +160,23 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           _volumeRangeCounts[itemId] = ranges.length;
           for (var i = 0; i < ranges.length; i++) {
             final v = ranges[i];
-            _volumeStartControllerFor(itemId, i).text =
-                v.startQuantity.toString();
+            _volumeStartControllerFor(itemId, i).text = v.startQuantity
+                .toString();
             _volumeEndControllerFor(itemId, i).text =
                 v.endQuantity?.toString() ?? '';
             _volumeRateControllerFor(itemId, i).text = v.customRate.toString();
             if (_isDiscountEnabled && v.discountPercentage != null) {
-              _discountControllerFor(_volumeDiscountKey(itemId, i)).text =
-                  v.discountPercentage!.toString();
+              _discountControllerFor(_volumeDiscountKey(itemId, i)).text = v
+                  .discountPercentage!
+                  .toString();
             }
           }
         } else {
           _customRateControllerFor(itemId).text =
               rate.customRate?.toString() ?? '';
           if (_isDiscountEnabled && rate.discountPercentage != null) {
-            _discountControllerFor(itemId).text =
-                rate.discountPercentage!.toString();
+            _discountControllerFor(itemId).text = rate.discountPercentage!
+                .toString();
           }
         }
       }
@@ -338,7 +340,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                 selected: _priceListType == 'individual_items',
                 title: 'Individual Items',
                 subtitle: 'Customize the rate of each item',
-                onTap: () => setState(() => _priceListType = 'individual_items'),
+                onTap: () =>
+                    setState(() => _priceListType = 'individual_items'),
               ),
             ],
           ),
@@ -1379,7 +1382,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
     return SizedBox(
       height: headerHeight,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_isBulkUpdateMode) _buildBulkSelectionHeader(visibleItems),
           Expanded(flex: 5, child: _buildItemDetailsHeader()),
@@ -1641,7 +1644,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_isBulkUpdateMode) _buildBulkSelectionCell(item, index),
           Expanded(flex: 5, child: _buildItemNameCell(item)),
@@ -1686,54 +1689,44 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               : const BorderSide(color: AppTheme.borderLight),
         ),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_isBulkUpdateMode)
-              _buildBulkSelectionCell(item, index, alignTop: true),
-            Expanded(flex: 5, child: _buildItemNameCell(item, alignTop: true)),
-            _buildTableDivider(),
-            Expanded(
-              flex: 2,
-              child: _buildBaseRateCell(baseRate, alignTop: true),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_isBulkUpdateMode)
+            _buildBulkSelectionCell(item, index, alignTop: true),
+          Expanded(flex: 5, child: _buildItemNameCell(item, alignTop: true)),
+          _buildTableDivider(),
+          Expanded(
+            flex: 2,
+            child: _buildBaseRateCell(baseRate, alignTop: true),
+          ),
+          _buildTableDivider(),
+          Expanded(
+            flex: rangeColumnsFlex,
+            child: Column(
+              children: [
+                for (var rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++)
+                  _buildVolumeRangeLine(itemId, rangeIndex),
+                _buildAddRangeLine(itemId),
+              ],
             ),
-            _buildTableDivider(),
-            Expanded(
-              flex: rangeColumnsFlex,
-              child: Column(
-                children: [
-                  for (
-                    var rangeIndex = 0;
-                    rangeIndex < rangeCount;
-                    rangeIndex++
-                  )
-                    _buildVolumeRangeLine(itemId, rangeIndex),
-                  _buildAddRangeLine(itemId),
-                ],
-              ),
+          ),
+          _buildTableDivider(),
+          SizedBox(
+            width: _bulkRatesRemoveWidth,
+            child: Column(
+              children: [
+                for (var rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++)
+                  _buildVolumeRangeCloseLine(
+                    itemId,
+                    rangeIndex,
+                    showClose: rangeIndex > 0,
+                  ),
+                const SizedBox(height: _bulkRatesAddRangeHeight),
+              ],
             ),
-            _buildTableDivider(),
-            SizedBox(
-              width: _bulkRatesRemoveWidth,
-              child: Column(
-                children: [
-                  for (
-                    var rangeIndex = 0;
-                    rangeIndex < rangeCount;
-                    rangeIndex++
-                  )
-                    _buildVolumeRangeCloseLine(
-                      itemId,
-                      rangeIndex,
-                      showClose: rangeIndex > 0,
-                    ),
-                  const SizedBox(height: _bulkRatesAddRangeHeight),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1801,7 +1794,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             flex: 2,
@@ -2242,7 +2235,9 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           : null;
 
       final isEdit = widget.priceList != null || widget.priceListId != null;
-      final existingId = isEdit ? (widget.priceList?.id ?? widget.priceListId ?? '') : '';
+      final existingId = isEdit
+          ? (widget.priceList?.id ?? widget.priceListId ?? '')
+          : '';
 
       final priceList = PriceList(
         id: existingId,

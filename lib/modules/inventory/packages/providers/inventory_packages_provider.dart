@@ -4,10 +4,12 @@ import '../data/inventory_package_repository.dart';
 import '../data/inventory_package_repository_impl.dart';
 import '../models/inventory_package_model.dart';
 
-final inventoryPackageRepositoryProvider = Provider<InventoryPackageRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return InventoryPackageRepositoryImpl(apiClient);
-});
+final inventoryPackageRepositoryProvider = Provider<InventoryPackageRepository>(
+  (ref) {
+    final apiClient = ref.watch(apiClientProvider);
+    return InventoryPackageRepositoryImpl(apiClient);
+  },
+);
 
 class InventoryPackagesState {
   final bool isLoading;
@@ -112,17 +114,24 @@ class InventoryPackagesNotifier extends StateNotifier<InventoryPackagesState> {
 }
 
 final inventoryPackagesProvider =
-    StateNotifierProvider<InventoryPackagesNotifier, InventoryPackagesState>((ref) {
-  final repository = ref.watch(inventoryPackageRepositoryProvider);
-  return InventoryPackagesNotifier(repository);
-});
+    StateNotifierProvider<InventoryPackagesNotifier, InventoryPackagesState>((
+      ref,
+    ) {
+      final repository = ref.watch(inventoryPackageRepositoryProvider);
+      return InventoryPackagesNotifier(repository);
+    });
 
-final nextPackageNumberProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final nextPackageNumberProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
   final repository = ref.watch(inventoryPackageRepositoryProvider);
   return repository.getNextNumber();
 });
 
-final packageByIdProvider = FutureProvider.family<InventoryPackage?, String>((ref, id) async {
+final packageByIdProvider = FutureProvider.family<InventoryPackage?, String>((
+  ref,
+  id,
+) async {
   final repository = ref.watch(inventoryPackageRepositoryProvider);
   return repository.getPackage(id);
 });

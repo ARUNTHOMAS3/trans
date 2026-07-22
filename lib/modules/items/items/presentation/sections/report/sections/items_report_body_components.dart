@@ -140,7 +140,11 @@ class _SelectionOverflowChip extends StatelessWidget {
           ),
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Icon(Icons.more_horiz, size: 18, color: AppTheme.textPrimary),
+            child: Icon(
+              Icons.more_horiz,
+              size: 18,
+              color: AppTheme.textPrimary,
+            ),
           ),
         ),
       ),

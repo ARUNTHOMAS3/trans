@@ -1,5 +1,5 @@
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import '../models/inventory_picklist_model.dart';

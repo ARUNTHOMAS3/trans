@@ -48,19 +48,23 @@ class RecentHistoryNotifier extends StateNotifier<List<RecentItem>> {
   Future<void> _loadHistory() async {
     final box = await Hive.openBox(_boxName);
     final List<dynamic> raw = box.get('items', defaultValue: []);
-    state = raw.map((e) => RecentItem.fromJson(Map<String, dynamic>.from(e))).toList();
+    state = raw
+        .map((e) => RecentItem.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   Future<void> addItem(RecentItem item) async {
     // Remove existing if duplicate
-    final filtered = state.where((e) => e.id != item.id || e.type != item.type).toList();
-    
+    final filtered = state
+        .where((e) => e.id != item.id || e.type != item.type)
+        .toList();
+
     // Add to top and limit
     final updated = [item, ...filtered];
     if (updated.length > _maxItems) {
       updated.removeRange(_maxItems, updated.length);
     }
-    
+
     state = updated;
     final box = await Hive.openBox(_boxName);
     await box.put('items', state.map((e) => e.toJson()).toList());
@@ -73,6 +77,7 @@ class RecentHistoryNotifier extends StateNotifier<List<RecentItem>> {
   }
 }
 
-final recentHistoryProvider = StateNotifierProvider<RecentHistoryNotifier, List<RecentItem>>((ref) {
-  return RecentHistoryNotifier();
-});
+final recentHistoryProvider =
+    StateNotifierProvider<RecentHistoryNotifier, List<RecentItem>>((ref) {
+      return RecentHistoryNotifier();
+    });

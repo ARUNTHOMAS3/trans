@@ -117,393 +117,473 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final double fieldHeight = widget.height ?? 32.0;
-    final bool isMultiline =
-        (widget.maxLines == null || widget.maxLines! > 1) || fieldHeight > 60;
-    final bool hasError = widget.errorText != null;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double fieldHeight = widget.height ?? 32.0;
+        final bool isMultiline =
+            (widget.maxLines == null || widget.maxLines! > 1) ||
+            fieldHeight > 60;
+        final bool hasError = widget.errorText != null;
 
-    _effectiveFocusNode.canRequestFocus = widget.enabled;
+        _effectiveFocusNode.canRequestFocus = widget.enabled;
 
-    /// Border color logic
-    Color borderColor;
-    if (hasError) {
-      borderColor = AppTheme.errorRed;
-    } else if (!widget.enabled) {
-      borderColor = AppTheme.borderColor;
-    } else if (_effectiveFocusNode.hasFocus) {
-      borderColor = AppTheme.primaryBlueDark;
-    } else if (_isHovered || widget.isHovered) {
-      borderColor = AppTheme.infoBlue;
-    } else {
-      borderColor = AppTheme.borderColor;
-    }
+        /// Border color logic
+        Color borderColor;
+        if (hasError) {
+          borderColor = AppTheme.errorRed;
+        } else if (!widget.enabled) {
+          borderColor = AppTheme.borderColor;
+        } else if (_effectiveFocusNode.hasFocus) {
+          borderColor = AppTheme.primaryBlueDark;
+        } else if (_isHovered || widget.isHovered) {
+          borderColor = AppTheme.infoBlue;
+        } else {
+          borderColor = AppTheme.borderColor;
+        }
 
-    final bool shouldShowBorder =
-        !widget.hideBorderDefault ||
-        _effectiveFocusNode.hasFocus ||
-        _isHovered ||
-        widget.isHovered ||
-        hasError;
-    final Color effectiveBorderColor = shouldShowBorder
-        ? borderColor
-        : Colors.transparent;
+        final bool shouldShowBorder =
+            !widget.hideBorderDefault ||
+            _effectiveFocusNode.hasFocus ||
+            _isHovered ||
+            widget.isHovered ||
+            hasError;
+        final Color effectiveBorderColor = shouldShowBorder
+            ? borderColor
+            : Colors.transparent;
 
-    List<TextInputFormatter> formatters = List.from(
-      widget.inputFormatters ?? [],
-    );
+        List<TextInputFormatter> formatters = List.from(
+          widget.inputFormatters ?? [],
+        );
 
-    if (widget.keyboardType == TextInputType.number ||
-        widget.keyboardType ==
-            const TextInputType.numberWithOptions(decimal: true)) {
-      formatters.add(
-        NumericOnlyFormatter(
-          allowDecimal:
+        if (widget.keyboardType == TextInputType.number ||
+            widget.keyboardType ==
+                const TextInputType.numberWithOptions(decimal: true)) {
+          formatters.add(
+            NumericOnlyFormatter(
+              allowDecimal:
+                  widget.keyboardType ==
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+          );
+        }
+
+        ContentCase effectiveCase = widget.contentCase ?? ContentCase.none;
+
+        if (widget.contentCase == null) {
+          if (widget.keyboardType == TextInputType.number ||
               widget.keyboardType ==
-              const TextInputType.numberWithOptions(decimal: true),
-        ),
-      );
-    }
+                  const TextInputType.numberWithOptions(decimal: true) ||
+              widget.keyboardType == TextInputType.emailAddress ||
+              widget.keyboardType == TextInputType.phone ||
+              widget.keyboardType == TextInputType.url) {
+            effectiveCase = ContentCase.none;
+          } else if (widget.maxLines == null ||
+              widget.maxLines! > 1 ||
+              fieldHeight > 60) {
+            effectiveCase = ContentCase.sentence;
+          } else {
+            effectiveCase = ContentCase.uppercase;
+          }
+        }
 
-    ContentCase effectiveCase = widget.contentCase ?? ContentCase.none;
+        if (widget.forceUppercase == true) {
+          effectiveCase = ContentCase.uppercase;
+        } else if (widget.forceUppercase == false &&
+            widget.contentCase == null) {
+          if (effectiveCase == ContentCase.uppercase) {
+            effectiveCase = ContentCase.none;
+          }
+        }
 
-    if (widget.contentCase == null) {
-      if (widget.keyboardType == TextInputType.number ||
-          widget.keyboardType ==
-              const TextInputType.numberWithOptions(decimal: true) ||
-          widget.keyboardType == TextInputType.emailAddress ||
-          widget.keyboardType == TextInputType.phone ||
-          widget.keyboardType == TextInputType.url) {
-        effectiveCase = ContentCase.none;
-      } else if (widget.maxLines == null ||
-          widget.maxLines! > 1 ||
-          fieldHeight > 60) {
-        effectiveCase = ContentCase.sentence;
-      } else {
-        effectiveCase = ContentCase.uppercase;
-      }
-    }
+        if (effectiveCase == ContentCase.uppercase) {
+          formatters.add(UpperCaseTextFormatter());
+        } else if (effectiveCase == ContentCase.sentence) {
+          formatters.add(SentenceCaseTextFormatter());
+        }
 
-    if (widget.forceUppercase == true) {
-      effectiveCase = ContentCase.uppercase;
-    } else if (widget.forceUppercase == false && widget.contentCase == null) {
-      if (effectiveCase == ContentCase.uppercase) {
-        effectiveCase = ContentCase.none;
-      }
-    }
+        final bool heightIsTight =
+            constraints.hasBoundedHeight &&
+            constraints.maxHeight <= fieldHeight + 16;
+        final bool canShowExternalError = hasError && !heightIsTight;
 
-    if (effectiveCase == ContentCase.uppercase) {
-      formatters.add(UpperCaseTextFormatter());
-    } else if (effectiveCase == ContentCase.sentence) {
-      formatters.add(SentenceCaseTextFormatter());
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (widget.label != null) ...[
-          Text(
-            widget.label!,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.textBody,
-            ),
-          ),
-          const SizedBox(height: 6),
-        ],
-        if (widget.resizable)
-          _ResizableFieldWrapper(
-            minHeight: widget.minHeight ?? widget.height ?? 38.0,
-            onHeightChanged: widget.onHeightChanged,
-            child: MouseRegion(
-              onEnter: (_) => setState(() => _isHovered = true),
-              onExit: (_) => setState(() => _isHovered = false),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 120),
-              decoration: BoxDecoration(
-                color:
-                    widget.fillColor ??
-                    (widget.enabled ? Colors.white : const Color(0xFFF3F4F6)),
-                borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
-                border: widget.border ??
-                    ((widget.showLeftBorder && widget.showRightBorder)
-                        ? Border.all(color: effectiveBorderColor, width: 1)
-                        : Border(
-                            top: BorderSide(color: effectiveBorderColor, width: 1),
-                            bottom: BorderSide(color: effectiveBorderColor, width: 1),
-                            left: widget.showLeftBorder
-                                ? BorderSide(color: effectiveBorderColor, width: 1)
-                                : BorderSide.none,
-                            right: widget.showRightBorder
-                                ? BorderSide(color: effectiveBorderColor, width: 1)
-                                : BorderSide.none,
-                          )),
-              ),
-              padding:
-                  widget.padding ??
-                  EdgeInsets.only(
-                    left:
-                        (widget.prefixWidget != null ||
-                                widget.prefixIcon != null) &&
-                            widget.prefixBox
-                        ? 0
-                        : 10,
-                    right: 10,
-                  ),
-              alignment: isMultiline ? Alignment.topLeft : Alignment.centerLeft,
-              child: Row(
-                crossAxisAlignment: isMultiline
-                    ? CrossAxisAlignment.start
-                    : CrossAxisAlignment.center,
-                children: [
-                  if (widget.prefixWidget != null ||
-                      widget.prefixIcon != null) ...[
-                    if (widget.prefixBox)
-                      Container(
-                        height: fieldHeight,
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            right: BorderSide(color: AppTheme.borderColor),
-                          ),
-                          color: Colors.transparent,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        margin: const EdgeInsets.only(right: 10),
-                        alignment: Alignment.center,
-                        child: widget.prefixWidget ??
-                            Icon(
-                              widget.prefixIcon,
-                              size: 18,
-                              color: widget.enabled
-                                  ? AppTheme.textSecondary
-                                  : AppTheme.textMuted,
-                            ),
-                      )
-                    else ...[
-                      widget.prefixWidget ??
-                          Icon(
-                            widget.prefixIcon,
-                            size: 18,
-                            color: widget.enabled
-                                ? AppTheme.textSecondary
-                                : AppTheme.textMuted,
-                          ),
-                      const SizedBox(width: 8),
-                    ],
-                  ],
-                  Expanded(
-                    child: TextFormField(
-                      focusNode: _effectiveFocusNode,
-                      controller: widget.controller,
-                      autofocus: widget.autoFocus,
-                      enabled: widget.enabled,
-                      keyboardType: widget.keyboardType,
-                      readOnly: widget.readOnly,
-                      onChanged: widget.onChanged,
-                      onFieldSubmitted: widget.onSubmitted,
-                      validator: widget.validator,
-                      textAlign: widget.textAlign,
-                      obscureText: widget.obscureText,
-                      autofillHints: widget.autofillHints,
-                      inputFormatters: formatters,
-                      maxLines: isMultiline ? widget.maxLines : 1,
-                      textCapitalization: effectiveCase == ContentCase.uppercase
-                          ? TextCapitalization.characters
-                          : (effectiveCase == ContentCase.sentence
-                              ? TextCapitalization.sentences
-                              : TextCapitalization.none),
-                      style: widget.textStyle ??
-                          TextStyle(
-                            fontSize: 13,
-                            color: widget.enabled
-                                ? AppTheme.textPrimary
-                                : AppTheme.textMuted,
-                          ),
-                      decoration: InputDecoration(
-                        filled: false,
-                        hoverColor: Colors.transparent,
-                        isDense: true,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        focusedErrorBorder: InputBorder.none,
-                        hintText: widget.hintText,
-                        hintStyle: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                        ),
-                        errorStyle: const TextStyle(
-                          height: 0,
-                          fontSize: 0,
-                        ),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onTap: widget.onTap,
-                    ),
-                  ),
-                  if (widget.suffixWidget != null) ...[
-                    if (widget.suffixSeparator)
-                      Container(
-                        width: 1,
-                        height: double.infinity,
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        color: AppTheme.borderColor,
-                      ),
-                    const SizedBox(width: 8),
-                    widget.suffixWidget!,
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (!widget.resizable)
-          SizedBox(
-            height: fieldHeight,
-            child: MouseRegion(
-              onEnter: (_) => setState(() => _isHovered = true),
-              onExit: (_) => setState(() => _isHovered = false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                decoration: BoxDecoration(
-                  color: widget.fillColor ??
-                      (widget.enabled ? Colors.white : const Color(0xFFF3F4F6)),
-                  borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
-                  border: widget.border ??
-                      ((widget.showLeftBorder && widget.showRightBorder)
-                          ? Border.all(color: effectiveBorderColor, width: 1)
-                          : Border(
-                              top: BorderSide(color: effectiveBorderColor, width: 1),
-                              bottom: BorderSide(color: effectiveBorderColor, width: 1),
-                              left: widget.showLeftBorder
-                                  ? BorderSide(color: effectiveBorderColor, width: 1)
-                                  : BorderSide.none,
-                              right: widget.showRightBorder
-                                  ? BorderSide(color: effectiveBorderColor, width: 1)
-                                  : BorderSide.none,
-                            )),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.label != null) ...[
+              Text(
+                widget.label!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textBody,
                 ),
-                padding: widget.padding ??
-                    EdgeInsets.only(
-                      left: (widget.prefixWidget != null ||
-                                  widget.prefixIcon != null) &&
-                              widget.prefixBox
-                          ? 0
-                          : 10,
-                      right: 10,
+              ),
+              const SizedBox(height: 6),
+            ],
+            if (widget.resizable)
+              _ResizableFieldWrapper(
+                minHeight: widget.minHeight ?? widget.height ?? 38.0,
+                onHeightChanged: widget.onHeightChanged,
+                child: MouseRegion(
+                  onEnter: (_) => setState(() => _isHovered = true),
+                  onExit: (_) => setState(() => _isHovered = false),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    decoration: BoxDecoration(
+                      color:
+                          widget.fillColor ??
+                          (widget.enabled
+                              ? Colors.white
+                              : const Color(0xFFF3F4F6)),
+                      borderRadius:
+                          widget.borderRadius ?? BorderRadius.circular(4),
+                      border:
+                          widget.border ??
+                          ((widget.showLeftBorder && widget.showRightBorder)
+                              ? Border.all(
+                                  color: effectiveBorderColor,
+                                  width: 1,
+                                )
+                              : Border(
+                                  top: BorderSide(
+                                    color: effectiveBorderColor,
+                                    width: 1,
+                                  ),
+                                  bottom: BorderSide(
+                                    color: effectiveBorderColor,
+                                    width: 1,
+                                  ),
+                                  left: widget.showLeftBorder
+                                      ? BorderSide(
+                                          color: effectiveBorderColor,
+                                          width: 1,
+                                        )
+                                      : BorderSide.none,
+                                  right: widget.showRightBorder
+                                      ? BorderSide(
+                                          color: effectiveBorderColor,
+                                          width: 1,
+                                        )
+                                      : BorderSide.none,
+                                )),
                     ),
-                alignment: isMultiline ? Alignment.topLeft : Alignment.centerLeft,
-                child: Row(
-                  crossAxisAlignment: isMultiline
-                      ? CrossAxisAlignment.start
-                      : CrossAxisAlignment.center,
-                  children: [
-                    if (widget.prefixWidget != null ||
-                        widget.prefixIcon != null) ...[
-                      if (widget.prefixBox)
-                        Container(
-                          height: fieldHeight,
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              right: BorderSide(color: AppTheme.borderColor),
-                            ),
-                            color: Colors.transparent,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          margin: const EdgeInsets.only(right: 10),
-                          alignment: Alignment.center,
-                          child: widget.prefixWidget ??
-                              Icon(widget.prefixIcon, size: 18,
+                    padding:
+                        widget.padding ??
+                        EdgeInsets.only(
+                          left:
+                              (widget.prefixWidget != null ||
+                                      widget.prefixIcon != null) &&
+                                  widget.prefixBox
+                              ? 0
+                              : 10,
+                          right: 10,
+                        ),
+                    alignment: isMultiline
+                        ? Alignment.topLeft
+                        : Alignment.centerLeft,
+                    child: Row(
+                      crossAxisAlignment: isMultiline
+                          ? CrossAxisAlignment.start
+                          : CrossAxisAlignment.center,
+                      children: [
+                        if (widget.prefixWidget != null ||
+                            widget.prefixIcon != null) ...[
+                          if (widget.prefixBox)
+                            Container(
+                              height: fieldHeight,
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(
+                                    color: AppTheme.borderColor,
+                                  ),
+                                ),
+                                color: Colors.transparent,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              margin: const EdgeInsets.only(right: 10),
+                              alignment: Alignment.center,
+                              child:
+                                  widget.prefixWidget ??
+                                  Icon(
+                                    widget.prefixIcon,
+                                    size: 18,
+                                    color: widget.enabled
+                                        ? AppTheme.textSecondary
+                                        : AppTheme.textMuted,
+                                  ),
+                            )
+                          else ...[
+                            widget.prefixWidget ??
+                                Icon(
+                                  widget.prefixIcon,
+                                  size: 18,
                                   color: widget.enabled
                                       ? AppTheme.textSecondary
-                                      : AppTheme.textMuted),
-                        )
-                      else ...[
-                        widget.prefixWidget ??
-                            Icon(widget.prefixIcon, size: 18,
-                                color: widget.enabled
-                                    ? AppTheme.textSecondary
-                                    : AppTheme.textMuted),
-                        const SizedBox(width: 8),
-                      ],
-                    ],
-                    Expanded(
-                      child: TextFormField(
-                        focusNode: _effectiveFocusNode,
-                        controller: widget.controller,
-                        autofocus: widget.autoFocus,
-                        enabled: widget.enabled,
-                        keyboardType: widget.keyboardType,
-                        readOnly: widget.readOnly,
-                        onChanged: widget.onChanged,
-                        onFieldSubmitted: widget.onSubmitted,
-                        validator: widget.validator,
-                        textAlign: widget.textAlign,
-                        obscureText: widget.obscureText,
-                        autofillHints: widget.autofillHints,
-                        inputFormatters: formatters,
-                        maxLines: isMultiline ? widget.maxLines : 1,
-                        textCapitalization: effectiveCase == ContentCase.uppercase
-                            ? TextCapitalization.characters
-                            : (effectiveCase == ContentCase.sentence
-                                ? TextCapitalization.sentences
-                                : TextCapitalization.none),
-                        style: widget.textStyle ??
-                            TextStyle(
-                              fontSize: 13,
-                              color: widget.enabled
-                                  ? AppTheme.textPrimary
-                                  : AppTheme.textMuted,
+                                      : AppTheme.textMuted,
+                                ),
+                            const SizedBox(width: 8),
+                          ],
+                        ],
+                        Expanded(
+                          child: TextFormField(
+                            focusNode: _effectiveFocusNode,
+                            controller: widget.controller,
+                            autofocus: widget.autoFocus,
+                            enabled: widget.enabled,
+                            keyboardType: widget.keyboardType,
+                            readOnly: widget.readOnly,
+                            onChanged: widget.onChanged,
+                            onFieldSubmitted: widget.onSubmitted,
+                            validator: widget.validator,
+                            textAlign: widget.textAlign,
+                            obscureText: widget.obscureText,
+                            autofillHints: widget.autofillHints,
+                            inputFormatters: formatters,
+                            maxLines: isMultiline ? widget.maxLines : 1,
+                            textCapitalization:
+                                effectiveCase == ContentCase.uppercase
+                                ? TextCapitalization.characters
+                                : (effectiveCase == ContentCase.sentence
+                                      ? TextCapitalization.sentences
+                                      : TextCapitalization.none),
+                            style:
+                                widget.textStyle ??
+                                TextStyle(
+                                  fontSize: 13,
+                                  color: widget.enabled
+                                      ? AppTheme.textPrimary
+                                      : AppTheme.textMuted,
+                                ),
+                            decoration: InputDecoration(
+                              filled: false,
+                              hoverColor: Colors.transparent,
+                              isDense: true,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
+                              hintText: widget.hintText,
+                              hintStyle: const TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textMuted,
+                              ),
+                              errorStyle: const TextStyle(
+                                height: 0,
+                                fontSize: 0,
+                              ),
+                              contentPadding: EdgeInsets.zero,
                             ),
-                        decoration: InputDecoration(
-                          filled: false,
-                          hoverColor: Colors.transparent,
-                          isDense: true,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          hintText: widget.hintText,
-                          hintStyle: const TextStyle(
-                              fontSize: 13, color: AppTheme.textMuted),
-                          errorStyle:
-                              const TextStyle(height: 0, fontSize: 0),
-                          contentPadding: EdgeInsets.zero,
+                            onTap: widget.onTap,
+                          ),
                         ),
-                        onTap: widget.onTap,
-                      ),
+                        if (widget.suffixWidget != null) ...[
+                          if (widget.suffixSeparator)
+                            Container(
+                              width: 1,
+                              height: double.infinity,
+                              margin: const EdgeInsets.symmetric(vertical: 8),
+                              color: AppTheme.borderColor,
+                            ),
+                          const SizedBox(width: 8),
+                          widget.suffixWidget!,
+                        ],
+                      ],
                     ),
-                    if (widget.suffixWidget != null) ...[
-                      if (widget.suffixSeparator)
-                        Container(
-                          width: 1,
-                          height: double.infinity,
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          color: AppTheme.borderColor,
-                        ),
-                      const SizedBox(width: 8),
-                      widget.suffixWidget!,
-                    ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-        if (hasError) ...[
-          const SizedBox(height: 4),
-          Text(
-            widget.errorText!,
-            style: const TextStyle(
-              color: AppTheme.errorRed,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ],
+            if (!widget.resizable)
+              SizedBox(
+                height: fieldHeight,
+                child: MouseRegion(
+                  onEnter: (_) => setState(() => _isHovered = true),
+                  onExit: (_) => setState(() => _isHovered = false),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    decoration: BoxDecoration(
+                      color:
+                          widget.fillColor ??
+                          (widget.enabled
+                              ? Colors.white
+                              : const Color(0xFFF3F4F6)),
+                      borderRadius:
+                          widget.borderRadius ?? BorderRadius.circular(4),
+                      border:
+                          widget.border ??
+                          ((widget.showLeftBorder && widget.showRightBorder)
+                              ? Border.all(
+                                  color: effectiveBorderColor,
+                                  width: 1,
+                                )
+                              : Border(
+                                  top: BorderSide(
+                                    color: effectiveBorderColor,
+                                    width: 1,
+                                  ),
+                                  bottom: BorderSide(
+                                    color: effectiveBorderColor,
+                                    width: 1,
+                                  ),
+                                  left: widget.showLeftBorder
+                                      ? BorderSide(
+                                          color: effectiveBorderColor,
+                                          width: 1,
+                                        )
+                                      : BorderSide.none,
+                                  right: widget.showRightBorder
+                                      ? BorderSide(
+                                          color: effectiveBorderColor,
+                                          width: 1,
+                                        )
+                                      : BorderSide.none,
+                                )),
+                    ),
+                    padding:
+                        widget.padding ??
+                        EdgeInsets.only(
+                          left:
+                              (widget.prefixWidget != null ||
+                                      widget.prefixIcon != null) &&
+                                  widget.prefixBox
+                              ? 0
+                              : 10,
+                          right: 10,
+                        ),
+                    alignment: isMultiline
+                        ? Alignment.topLeft
+                        : Alignment.centerLeft,
+                    child: Row(
+                      crossAxisAlignment: isMultiline
+                          ? CrossAxisAlignment.start
+                          : CrossAxisAlignment.center,
+                      children: [
+                        if (widget.prefixWidget != null ||
+                            widget.prefixIcon != null) ...[
+                          if (widget.prefixBox)
+                            Container(
+                              height: fieldHeight,
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(
+                                    color: AppTheme.borderColor,
+                                  ),
+                                ),
+                                color: Colors.transparent,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              margin: const EdgeInsets.only(right: 10),
+                              alignment: Alignment.center,
+                              child:
+                                  widget.prefixWidget ??
+                                  Icon(
+                                    widget.prefixIcon,
+                                    size: 18,
+                                    color: widget.enabled
+                                        ? AppTheme.textSecondary
+                                        : AppTheme.textMuted,
+                                  ),
+                            )
+                          else ...[
+                            widget.prefixWidget ??
+                                Icon(
+                                  widget.prefixIcon,
+                                  size: 18,
+                                  color: widget.enabled
+                                      ? AppTheme.textSecondary
+                                      : AppTheme.textMuted,
+                                ),
+                            const SizedBox(width: 8),
+                          ],
+                        ],
+                        Expanded(
+                          child: TextFormField(
+                            focusNode: _effectiveFocusNode,
+                            controller: widget.controller,
+                            autofocus: widget.autoFocus,
+                            enabled: widget.enabled,
+                            keyboardType: widget.keyboardType,
+                            readOnly: widget.readOnly,
+                            onChanged: widget.onChanged,
+                            onFieldSubmitted: widget.onSubmitted,
+                            validator: widget.validator,
+                            textAlign: widget.textAlign,
+                            obscureText: widget.obscureText,
+                            autofillHints: widget.autofillHints,
+                            inputFormatters: formatters,
+                            maxLines: isMultiline ? widget.maxLines : 1,
+                            textCapitalization:
+                                effectiveCase == ContentCase.uppercase
+                                ? TextCapitalization.characters
+                                : (effectiveCase == ContentCase.sentence
+                                      ? TextCapitalization.sentences
+                                      : TextCapitalization.none),
+                            style:
+                                widget.textStyle ??
+                                TextStyle(
+                                  fontSize: 13,
+                                  color: widget.enabled
+                                      ? AppTheme.textPrimary
+                                      : AppTheme.textMuted,
+                                ),
+                            decoration: InputDecoration(
+                              filled: false,
+                              hoverColor: Colors.transparent,
+                              isDense: true,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
+                              hintText: widget.hintText,
+                              hintStyle: const TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textMuted,
+                              ),
+                              errorStyle: const TextStyle(
+                                height: 0,
+                                fontSize: 0,
+                              ),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onTap: widget.onTap,
+                          ),
+                        ),
+                        if (widget.suffixWidget != null) ...[
+                          if (widget.suffixSeparator)
+                            Container(
+                              width: 1,
+                              height: double.infinity,
+                              margin: const EdgeInsets.symmetric(vertical: 8),
+                              color: AppTheme.borderColor,
+                            ),
+                          const SizedBox(width: 8),
+                          widget.suffixWidget!,
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (canShowExternalError) ...[
+              const SizedBox(height: 4),
+              Text(
+                widget.errorText!,
+                style: const TextStyle(
+                  color: AppTheme.errorRed,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -597,8 +677,7 @@ class SentenceCaseTextFormatter extends TextInputFormatter {
 
       if (char == '.' || char == '!' || char == '?') {
         capitalizeNext = true;
-      } else if (char.trim().isNotEmpty && !capitalizeNext) {
-      }
+      } else if (char.trim().isNotEmpty && !capitalizeNext) {}
     }
 
     return TextEditingValue(text: newText, selection: newValue.selection);

@@ -52,7 +52,9 @@ class Stock {
       warehouseId: json['warehouse_id'],
       warehouseName: json['warehouse_name'],
       quantityOnHand: double.parse(json['quantity_on_hand'].toString()),
-      reservedQuantity: double.parse((json['reserved_quantity'] ?? 0).toString()),
+      reservedQuantity: double.parse(
+        (json['reserved_quantity'] ?? 0).toString(),
+      ),
       availableQuantity: double.parse(json['available_quantity'].toString()),
       reorderLevel: double.parse(json['reorder_level'].toString()),
       minStockLevel: json['min_stock_level'] != null

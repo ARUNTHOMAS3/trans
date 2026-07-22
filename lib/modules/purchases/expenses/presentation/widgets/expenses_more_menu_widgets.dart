@@ -43,7 +43,8 @@ class ExpensesMoreSubMenuItem extends StatefulWidget {
   });
 
   @override
-  State<ExpensesMoreSubMenuItem> createState() => _ExpensesMoreSubMenuItemState();
+  State<ExpensesMoreSubMenuItem> createState() =>
+      _ExpensesMoreSubMenuItemState();
 }
 
 class _ExpensesMoreSubMenuItemState extends State<ExpensesMoreSubMenuItem> {
@@ -51,8 +52,8 @@ class _ExpensesMoreSubMenuItemState extends State<ExpensesMoreSubMenuItem> {
 
   @override
   Widget build(BuildContext context) {
-    final showIndicator = widget.rightIcon != null &&
-        (widget.isSelected || _hovered);
+    final showIndicator =
+        widget.rightIcon != null && (widget.isSelected || _hovered);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -134,9 +135,7 @@ class _ExpensesMoreMenuItemState extends State<ExpensesMoreMenuItem> {
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          color: isHighlighted
-              ? AppTheme.primaryBlueDark
-              : Colors.transparent,
+          color: isHighlighted ? AppTheme.primaryBlueDark : Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [

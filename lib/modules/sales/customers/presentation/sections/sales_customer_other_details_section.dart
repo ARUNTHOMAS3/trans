@@ -54,7 +54,10 @@ extension _OtherDetailsSection on _SalesCustomerCreateScreenState {
                     onTap: _openGstinPrefillDialog,
                     child: const Text(
                       'Get Taxpayer details',
-                      style: TextStyle(fontSize: 12, color: AppTheme.primaryBlueDark),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.primaryBlueDark,
+                      ),
                     ),
                   ),
                 ],
@@ -403,4 +406,3 @@ extension _OtherDetailsSection on _SalesCustomerCreateScreenState {
     );
   }
 }
-

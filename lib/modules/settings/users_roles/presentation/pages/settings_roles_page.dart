@@ -72,21 +72,14 @@ class _SettingsRolesPageState extends ConsumerState<SettingsRolesPage> {
   void _showNewRoleInfo() {
     context.goNamed(
       AppRoutes.settingsRoleCreate,
-      pathParameters: {
-        'orgSystemId':
-            resolveOrgSystemId(context),
-      },
+      pathParameters: {'orgSystemId': resolveOrgSystemId(context)},
     );
   }
 
   void _openRoleEdit(String id) {
     context.goNamed(
       AppRoutes.settingsRoleEdit,
-      pathParameters: {
-        'orgSystemId':
-            resolveOrgSystemId(context),
-        'id': id,
-      },
+      pathParameters: {'orgSystemId': resolveOrgSystemId(context), 'id': id},
     );
   }
 
@@ -124,10 +117,7 @@ class _SettingsRolesPageState extends ConsumerState<SettingsRolesPage> {
 
   Future<void> _deleteRole(SettingsRoleRecord role) async {
     if (role.isDefault) {
-      ZerpaiToast.error(
-        context,
-        'Default roles cannot be deleted.',
-      );
+      ZerpaiToast.error(context, 'Default roles cannot be deleted.');
       return;
     }
     try {
@@ -310,8 +300,9 @@ class _SettingsRolesPageState extends ConsumerState<SettingsRolesPage> {
                                   decoration: BoxDecoration(
                                     color: AppTheme.bgLight,
                                     borderRadius: BorderRadius.circular(4),
-                                    border:
-                                        Border.all(color: AppTheme.borderLight),
+                                    border: Border.all(
+                                      color: AppTheme.borderLight,
+                                    ),
                                   ),
                                   child: Text(
                                     'DEFAULT',
@@ -376,10 +367,7 @@ class _SettingsRolesPageState extends ConsumerState<SettingsRolesPage> {
                       ],
                     ),
                   ),
-                ).withModulePermission(
-                  'settings.roles.view',
-                  action: 'view',
-                ),
+                ).withModulePermission('settings.roles.view', action: 'view'),
               );
             },
           ),

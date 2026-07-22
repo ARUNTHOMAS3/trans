@@ -11,9 +11,7 @@ class ZTableHelpers {
       height: height,
       color: AppTheme.tableHeaderBg,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: children,
-      ),
+      child: Row(children: children),
     );
   }
 
@@ -32,8 +30,8 @@ class ZTableHelpers {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.selectionActiveBg : Colors.white,
-          border: isLast 
-              ? null 
+          border: isLast
+              ? null
               : const Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
         ),
         child: child,
@@ -48,10 +46,7 @@ class ZTableHelpers {
       backgroundColor: const Color(0xFFF0F4FF),
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
-        style: TextStyle(
-          fontSize: radius * 0.8,
-          color: AppTheme.primaryBlue,
-        ),
+        style: TextStyle(fontSize: radius * 0.8, color: AppTheme.primaryBlue),
       ),
     );
   }

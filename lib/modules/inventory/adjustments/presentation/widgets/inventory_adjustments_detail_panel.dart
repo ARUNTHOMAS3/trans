@@ -287,8 +287,7 @@ class _InventoryAdjustmentsDetailPanelState
           style: menuItemStyle,
           onPressed: () {
             final orgId =
-                GoRouterState.of(context).pathParameters['orgSystemId'] ??
-                '';
+                GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
             context.go(
               '/$orgId/inventory/adjustments/create?clone=true&adjustmentId=${adj.id}&from=inventory_adjustments&returnAdjustmentId=${adj.id}',
               extra: <String, dynamic>{
@@ -852,8 +851,8 @@ class _InventoryAdjustmentsDetailPanelState
     final approvedAt = adj.approvedAt != null
         ? DateFormat('dd-MM-yyyy').format(adj.approvedAt!)
         : submittedAt;
-    final statusLabel = normalizeTransactionStatus(adj.status) ==
-            TransactionStatuses.approved
+    final statusLabel =
+        normalizeTransactionStatus(adj.status) == TransactionStatuses.approved
         ? 'Approved'
         : _statusLabel(adj.status);
 
@@ -2416,7 +2415,8 @@ class _InventoryAdjustmentsDetailPanelState
     if (preferred.isNotEmpty) return preferred;
     final fallback = (adj.approvedBy ?? '').trim();
     if (fallback.isEmpty || _isUuid(fallback)) {
-      if (normalizeTransactionStatus(adj.status) == TransactionStatuses.approved) {
+      if (normalizeTransactionStatus(adj.status) ==
+          TransactionStatuses.approved) {
         return _actorLabel();
       }
       return '-';
@@ -2437,7 +2437,8 @@ class _InventoryAdjustmentsDetailPanelState
     if (approver != '-' && approverEmail.isNotEmpty) {
       return _formatNameAndEmail(approver, approverEmail);
     }
-    if (normalizeTransactionStatus(adj.status) == TransactionStatuses.approved) {
+    if (normalizeTransactionStatus(adj.status) ==
+        TransactionStatuses.approved) {
       return _formatNameAndEmail(
         _actorLabel(),
         (adj.adjustedByEmail ?? '').trim(),

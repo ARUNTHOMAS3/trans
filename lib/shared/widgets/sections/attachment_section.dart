@@ -32,7 +32,10 @@ class AttachmentSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: TextStyle(fontSize: titleFontSize, color: AppTheme.textPrimary),
+          style: TextStyle(
+            fontSize: titleFontSize,
+            color: AppTheme.textPrimary,
+          ),
         ),
         const SizedBox(height: 8),
         FileUploadButton(

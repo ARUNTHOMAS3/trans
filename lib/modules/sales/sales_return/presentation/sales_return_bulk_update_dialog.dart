@@ -30,11 +30,7 @@ class _SalesReturnBulkUpdateDialogState
     'Customer Notes',
   ];
 
-  static const _statusOptions = <String>[
-    'Draft',
-    'Approved',
-    'Declined',
-  ];
+  static const _statusOptions = <String>['Draft', 'Approved', 'Declined'];
 
   final _valueController = TextEditingController();
   final _valueFocusNode = FocusNode();
@@ -110,10 +106,7 @@ class _SalesReturnBulkUpdateDialogState
                 children: [
                   const Text(
                     'Choose a field from the dropdown and update with new information.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textPrimary,
-                    ),
+                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -133,26 +126,30 @@ class _SalesReturnBulkUpdateDialogState
                           displayStringForValue: (v) => v,
                           itemBuilder: (val, isSelected, isHovered) =>
                               Container(
-                            height: 36,
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            alignment: Alignment.centerLeft,
-                            color: isHovered ? AppTheme.primaryBlue : Colors.white,
-                            child: Text(
-                              val,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
+                                height: 36,
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                                alignment: Alignment.centerLeft,
                                 color: isHovered
-                                    ? Colors.white
-                                    : AppTheme.textPrimary,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
+                                    ? AppTheme.primaryBlue
+                                    : Colors.white,
+                                child: Text(
+                                  val,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isHovered
+                                        ? Colors.white
+                                        : AppTheme.textPrimary,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
                           onChanged: (value) {
                             setState(() {
                               _selectedField = value;
@@ -181,77 +178,82 @@ class _SalesReturnBulkUpdateDialogState
                                 displayStringForValue: (v) => v,
                                 itemBuilder: (val, isSelected, isHovered) =>
                                     Container(
-                                  height: 36,
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14),
-                                  alignment: Alignment.centerLeft,
-                                  color: isHovered
-                                      ? AppTheme.primaryBlue
-                                      : Colors.white,
-                                  child: Text(
-                                    val,
-                                    style: TextStyle(
-                                      fontSize: 13,
+                                      height: 36,
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                      ),
+                                      alignment: Alignment.centerLeft,
                                       color: isHovered
-                                          ? Colors.white
-                                          : AppTheme.textPrimary,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w600
-                                          : FontWeight.w400,
+                                          ? AppTheme.primaryBlue
+                                          : Colors.white,
+                                      child: Text(
+                                        val,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: isHovered
+                                              ? Colors.white
+                                              : AppTheme.textPrimary,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.w400,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
                                 onChanged: (val) =>
                                     setState(() => _selectedStatus = val),
                               )
                             : _isTextAreaField
-                                ? TextField(
-                                    controller: _valueController,
-                                    focusNode: _valueFocusNode,
-                                    autofocus: true,
-                                    maxLines: 5,
-                                    minLines: 5,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: AppTheme.backgroundColor,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 10),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                        borderSide: const BorderSide(
-                                            color: AppTheme.borderColor),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                        borderSide: const BorderSide(
-                                            color: AppTheme.borderColor),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                        borderSide: const BorderSide(
-                                            color: AppTheme.primaryBlue),
-                                      ),
-                                    ),
-                                  )
-                                : CustomTextField(
-                                    controller: _valueController,
-                                    focusNode: _valueFocusNode,
-                                    autoFocus: _selectedField != null,
-                                    height: 36,
-                                    hintText: '',
-                                    fillColor: AppTheme.backgroundColor,
+                            ? TextField(
+                                controller: _valueController,
+                                focusNode: _valueFocusNode,
+                                autofocus: true,
+                                maxLines: 5,
+                                minLines: 5,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: AppTheme.backgroundColor,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(4),
-                                    textStyle: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.textPrimary,
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.borderColor,
                                     ),
                                   ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.borderColor,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : CustomTextField(
+                                controller: _valueController,
+                                focusNode: _valueFocusNode,
+                                autoFocus: _selectedField != null,
+                                height: 36,
+                                hintText: '',
+                                fillColor: AppTheme.backgroundColor,
+                                borderRadius: BorderRadius.circular(4),
+                                textStyle: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
                       ),
                     ],
                   ),
@@ -330,10 +332,9 @@ class _BulkDialogBtnState extends State<_BulkDialogBtn> {
     final background = widget.primary
         ? AppTheme.accentGreen
         : _hovered
-            ? AppTheme.bgLight
-            : AppTheme.backgroundColor;
-    final textColor =
-        widget.primary ? Colors.white : AppTheme.textPrimary;
+        ? AppTheme.bgLight
+        : AppTheme.backgroundColor;
+    final textColor = widget.primary ? Colors.white : AppTheme.textPrimary;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -342,8 +343,7 @@ class _BulkDialogBtnState extends State<_BulkDialogBtn> {
         onTap: widget.onTap,
         child: Container(
           height: 34,
-          padding: EdgeInsets.symmetric(
-              horizontal: widget.primary ? 14 : 12),
+          padding: EdgeInsets.symmetric(horizontal: widget.primary ? 14 : 12),
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(4),

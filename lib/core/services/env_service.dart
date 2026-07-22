@@ -1,32 +1,32 @@
 // PATH: lib/core/services/env_service.dart
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
-/// Environment variable service for type-safe access to .env values
+/// Build-time configuration service for public client settings.
+/// Runtime dotenv loading is intentionally unsupported for Flutter Web.
 class EnvService {
-  static Future<void> initialize() async {
-    await dotenv.load(fileName: '.env');
-  }
+  static Future<void> initialize() async {}
 
   // Supabase Configuration
   static String get supabaseUrl {
-    final url = dotenv.env['SUPABASE_URL'];
-    if (url == null || url.isEmpty) {
-      throw Exception('SUPABASE_URL not found in .env file');
+    const url = String.fromEnvironment('SUPABASE_URL');
+    if (url.isEmpty) {
+      throw Exception('SUPABASE_URL was not supplied via --dart-define');
     }
     return url;
   }
 
   static String get supabaseAnonKey {
-    final key = dotenv.env['SUPABASE_ANON_KEY'];
-    if (key == null || key.isEmpty) {
-      throw Exception('SUPABASE_ANON_KEY not found in .env file');
+    const key = String.fromEnvironment('SUPABASE_ANON_KEY');
+    if (key.isEmpty) {
+      throw Exception('SUPABASE_ANON_KEY was not supplied via --dart-define');
     }
     return key;
   }
 
   // Application Environment
-  static String get environment => dotenv.env['ENVIRONMENT'] ?? 'development';
+  static String get environment => const String.fromEnvironment(
+        'ENVIRONMENT',
+        defaultValue: 'development',
+      );
   static bool get isDevelopment => environment == 'development';
   static bool get isProduction => environment == 'production';
 

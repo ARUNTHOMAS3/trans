@@ -240,8 +240,9 @@ class AppTheme {
 
   static TextStyle get buttonText => _baseTextStyle(
     fontSize: 14,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
     color: Colors.white,
+    height: 1.0,
   );
 
   static TextStyle get linkText => _baseTextStyle(

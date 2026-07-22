@@ -21,7 +21,10 @@ class _MergeVendorsDialogState extends ConsumerState<MergeVendorsDialog> {
 
   void _onMerge() {
     if (_selectedVendor == null) {
-      ZerpaiToast.error(context, 'Please select a vendor profile to merge with');
+      ZerpaiToast.error(
+        context,
+        'Please select a vendor profile to merge with',
+      );
       return;
     }
     Navigator.of(context).pop(_selectedVendor);
@@ -97,16 +100,9 @@ class _MergeVendorsDialogState extends ConsumerState<MergeVendorsDialog> {
                           ),
                           children: [
                             const TextSpan(
-                              text: "Select a vendor profile with whom you'd like to merge ",
+                              text:
+                                  "Select a vendor profile with whom you'd like to merge ",
                             ),
-                            TextSpan(
-                              text: widget.currentVendor.displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1F2937),
-                              ),
-                            ),
-                            const TextSpan(text: ". Once merged, the transactions of "),
                             TextSpan(
                               text: widget.currentVendor.displayName,
                               style: const TextStyle(
@@ -115,7 +111,18 @@ class _MergeVendorsDialogState extends ConsumerState<MergeVendorsDialog> {
                               ),
                             ),
                             const TextSpan(
-                              text: " will be transferred, and this vendor record will be marked as inactive.",
+                              text: ". Once merged, the transactions of ",
+                            ),
+                            TextSpan(
+                              text: widget.currentVendor.displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            const TextSpan(
+                              text:
+                                  " will be transferred, and this vendor record will be marked as inactive.",
                             ),
                           ],
                         ),
@@ -126,7 +133,8 @@ class _MergeVendorsDialogState extends ConsumerState<MergeVendorsDialog> {
                         items: mergeableVendors,
                         hint: 'Select Vendor',
                         isLoading: vendorsState.isLoading,
-                        onChanged: (vendor) => setState(() => _selectedVendor = vendor),
+                        onChanged: (vendor) =>
+                            setState(() => _selectedVendor = vendor),
                         displayStringForValue: (v) => v.displayName,
                         height: 42,
                       ),
@@ -176,7 +184,10 @@ class _MergeVendorsDialogState extends ConsumerState<MergeVendorsDialog> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
-                        child: const Text('Cancel', style: TextStyle(fontSize: 14)),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontSize: 14),
+                        ),
                       ),
                     ],
                   ),

@@ -89,6 +89,13 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
   Timer? _hideTimer;
 
   @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _removeFloatingMenu();
+    super.dispose();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _autoCollapseForSettings();

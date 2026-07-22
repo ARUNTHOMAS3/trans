@@ -54,16 +54,63 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
   void initState() {
     super.initState();
     final init = widget.initialAddress;
-    _companyNameCtrl.text = (init['companyName'] ?? init['company_name'] ?? '').toString();
-    _attentionCtrl.text = (init['attention'] ?? init['billingAttention'] ?? init['shippingAttention'] ?? '').toString();
-    _street1Ctrl.text = (init['street1'] ?? init['addressStreet'] ?? init['address_street'] ?? init['street'] ?? init['billingAddressStreet'] ?? init['shippingAddressStreet'] ?? '').toString();
-    _street2Ctrl.text = (init['street2'] ?? init['addressPlace'] ?? init['address_place'] ?? init['place'] ?? init['billingAddressPlace'] ?? init['shippingAddressPlace'] ?? '').toString();
-    _cityCtrl.text = (init['city'] ?? init['billingAddressCity'] ?? init['shippingAddressCity'] ?? init['billingCity'] ?? init['shippingCity'] ?? '').toString();
-    _pinCtrl.text = (init['zip'] ?? init['pincode'] ?? init['billingAddressZip'] ?? init['shippingAddressZip'] ?? init['billingPincode'] ?? init['shippingPincode'] ?? '').toString();
-    _faxCtrl.text = (init['fax'] ?? init['billingFax'] ?? init['shippingFax'] ?? '').toString();
+    _companyNameCtrl.text = (init['companyName'] ?? init['company_name'] ?? '')
+        .toString();
+    _attentionCtrl.text =
+        (init['attention'] ??
+                init['billingAttention'] ??
+                init['shippingAttention'] ??
+                '')
+            .toString();
+    _street1Ctrl.text =
+        (init['street1'] ??
+                init['addressStreet'] ??
+                init['address_street'] ??
+                init['street'] ??
+                init['billingAddressStreet'] ??
+                init['shippingAddressStreet'] ??
+                '')
+            .toString();
+    _street2Ctrl.text =
+        (init['street2'] ??
+                init['addressPlace'] ??
+                init['address_place'] ??
+                init['place'] ??
+                init['billingAddressPlace'] ??
+                init['shippingAddressPlace'] ??
+                '')
+            .toString();
+    _cityCtrl.text =
+        (init['city'] ??
+                init['billingAddressCity'] ??
+                init['shippingAddressCity'] ??
+                init['billingCity'] ??
+                init['shippingCity'] ??
+                '')
+            .toString();
+    _pinCtrl.text =
+        (init['zip'] ??
+                init['pincode'] ??
+                init['billingAddressZip'] ??
+                init['shippingAddressZip'] ??
+                init['billingPincode'] ??
+                init['shippingPincode'] ??
+                '')
+            .toString();
+    _faxCtrl.text =
+        (init['fax'] ?? init['billingFax'] ?? init['shippingFax'] ?? '')
+            .toString();
 
     // Parse phone and phoneCode
-    final rawPhone = (init['phone'] ?? init['billingAddressPhone'] ?? init['shippingAddressPhone'] ?? init['billingPhone'] ?? init['shippingPhone'] ?? '').toString().trim();
+    final rawPhone =
+        (init['phone'] ??
+                init['billingAddressPhone'] ??
+                init['shippingAddressPhone'] ??
+                init['billingPhone'] ??
+                init['shippingPhone'] ??
+                '')
+            .toString()
+            .trim();
     String parsedPhone = rawPhone;
     for (final code in _phoneCodes) {
       if (rawPhone.startsWith(code)) {
@@ -91,7 +138,11 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
   InputDecoration _inputDec({String? hint, bool multiline = false}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF), fontFamily: 'Inter'),
+      hintStyle: const TextStyle(
+        fontSize: 13,
+        color: Color(0xFF9CA3AF),
+        fontFamily: 'Inter',
+      ),
       isDense: true,
       contentPadding: EdgeInsets.symmetric(
         horizontal: 10,
@@ -127,11 +178,7 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
     ),
   );
 
-  Widget _dropdownItemBuilder(
-    String label,
-    bool isSelected,
-    bool isHovered,
-  ) {
+  Widget _dropdownItemBuilder(String label, bool isSelected, bool isHovered) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -248,15 +295,36 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                               countriesProvider(null),
                             );
                             final countries = countriesAsync.value ?? [];
-                            if (_selectedCountry == null && countries.isNotEmpty) {
-                              final initialCountryId = widget.initialAddress['country'] ?? widget.initialAddress['country_id'] ?? widget.initialAddress['countryRegion'] ?? widget.initialAddress['country_region'] ?? widget.initialAddress['billingAddressCountry'] ?? widget.initialAddress['shippingAddressCountry'] ?? widget.initialAddress['billingCountryRegion'] ?? widget.initialAddress['shippingCountryRegion'];
-                              if (initialCountryId != null && initialCountryId.toString().isNotEmpty) {
-                                final initialStr = initialCountryId.toString().toLowerCase();
+                            if (_selectedCountry == null &&
+                                countries.isNotEmpty) {
+                              final initialCountryId =
+                                  widget.initialAddress['country'] ??
+                                  widget.initialAddress['country_id'] ??
+                                  widget.initialAddress['countryRegion'] ??
+                                  widget.initialAddress['country_region'] ??
+                                  widget
+                                      .initialAddress['billingAddressCountry'] ??
+                                  widget
+                                      .initialAddress['shippingAddressCountry'] ??
+                                  widget
+                                      .initialAddress['billingCountryRegion'] ??
+                                  widget
+                                      .initialAddress['shippingCountryRegion'];
+                              if (initialCountryId != null &&
+                                  initialCountryId.toString().isNotEmpty) {
+                                final initialStr = initialCountryId
+                                    .toString()
+                                    .toLowerCase();
                                 final found = countries.firstWhere(
-                                  (c) => c['id'] == initialCountryId ||
+                                  (c) =>
+                                      c['id'] == initialCountryId ||
                                       c['shortCode'] == initialCountryId ||
-                                      c['name']?.toString().toLowerCase() == initialStr ||
-                                      c['shortCode']?.toString().toLowerCase() == initialStr,
+                                      c['name']?.toString().toLowerCase() ==
+                                          initialStr ||
+                                      c['shortCode']
+                                              ?.toString()
+                                              .toLowerCase() ==
+                                          initialStr,
                                   orElse: () => <String, String>{},
                                 );
                                 if (found.isNotEmpty) {
@@ -345,15 +413,38 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                                         statesProvider(countryId),
                                       );
                                       final states = statesAsync.value ?? [];
-                                      if (_selectedState == null && states.isNotEmpty) {
-                                        final initialStateId = widget.initialAddress['state'] ?? widget.initialAddress['state_id'] ?? widget.initialAddress['billingAddressState'] ?? widget.initialAddress['shippingAddressState'] ?? widget.initialAddress['billingState'] ?? widget.initialAddress['shippingState'];
-                                        if (initialStateId != null && initialStateId.toString().isNotEmpty) {
-                                          final initialStr = initialStateId.toString().toLowerCase();
+                                      if (_selectedState == null &&
+                                          states.isNotEmpty) {
+                                        final initialStateId =
+                                            widget.initialAddress['state'] ??
+                                            widget.initialAddress['state_id'] ??
+                                            widget
+                                                .initialAddress['billingAddressState'] ??
+                                            widget
+                                                .initialAddress['shippingAddressState'] ??
+                                            widget
+                                                .initialAddress['billingState'] ??
+                                            widget
+                                                .initialAddress['shippingState'];
+                                        if (initialStateId != null &&
+                                            initialStateId
+                                                .toString()
+                                                .isNotEmpty) {
+                                          final initialStr = initialStateId
+                                              .toString()
+                                              .toLowerCase();
                                           final found = states.firstWhere(
-                                            (s) => s['id'] == initialStateId ||
+                                            (s) =>
+                                                s['id'] == initialStateId ||
                                                 s['code'] == initialStateId ||
-                                                s['name']?.toString().toLowerCase() == initialStr ||
-                                                s['code']?.toString().toLowerCase() == initialStr,
+                                                s['name']
+                                                        ?.toString()
+                                                        .toLowerCase() ==
+                                                    initialStr ||
+                                                s['code']
+                                                        ?.toString()
+                                                        .toLowerCase() ==
+                                                    initialStr,
                                             orElse: () => <String, String>{},
                                           );
                                           if (found.isNotEmpty) {
@@ -454,8 +545,10 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                                                   ),
                                                 )
                                                 .toList(),
-                                            onChanged: (v) =>
-                                                setState(() => _phoneCode = v!),
+                                            onChanged: (v) {
+                                              if (v == null) return;
+                                              setState(() => _phoneCode = v);
+                                            },
                                           ),
                                         ),
                                       ),
@@ -470,8 +563,11 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                                           ),
                                           keyboardType: TextInputType.phone,
                                           inputFormatters: [
-                                            FilteringTextInputFormatter.digitsOnly,
-                                            LengthLimitingTextInputFormatter(10),
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                            LengthLimitingTextInputFormatter(
+                                              10,
+                                            ),
                                           ],
                                           decoration: _inputDec(),
                                         ),
@@ -505,7 +601,10 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                         const SizedBox(height: 16),
                         RichText(
                           text: TextSpan(
-                            style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'Inter',
+                            ),
                             children: [
                               const TextSpan(
                                 text: 'Note: ',
@@ -553,7 +652,8 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                             'street2': _street2Ctrl.text.trim(),
                             'city': _cityCtrl.text.trim(),
                             'zip': _pinCtrl.text.trim(),
-                            'phone': '$_phoneCode ${_phoneCtrl.text.trim()}'.trim(),
+                            'phone': '$_phoneCode ${_phoneCtrl.text.trim()}'
+                                .trim(),
                             'phoneCode': _phoneCode,
                             'fax': _faxCtrl.text.trim(),
                             'country': _selectedCountry?['id'],

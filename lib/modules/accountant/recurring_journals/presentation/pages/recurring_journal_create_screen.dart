@@ -9,7 +9,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart' as di;
-import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journal_create_screen.dart';
+import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/pages/manual_journal_create_screen.dart';
 import '../../models/recurring_journal_model.dart';
 import '../../../manual_journals/models/manual_journal_model.dart';
 import '../../providers/recurring_journal_provider.dart';
@@ -85,10 +85,12 @@ class _RecurringJournalCreateScreenState
       });
     });
 
-    if (widget.initialJournal != null) {
-      _hydrateFromJournal(widget.initialJournal!);
-    } else if (widget.initialManualJournal != null) {
-      _hydrateFromManualJournal(widget.initialManualJournal!);
+    final initialJournal = widget.initialJournal;
+    final initialManualJournal = widget.initialManualJournal;
+    if (initialJournal != null) {
+      _hydrateFromJournal(initialJournal);
+    } else if (initialManualJournal != null) {
+      _hydrateFromManualJournal(initialManualJournal);
     } else {
       _addRow();
       _addRow();
@@ -382,7 +384,9 @@ class _RecurringJournalCreateScreenState
         currency: selectedCurrency,
         reportingMethod: reportingMethod,
         items: journalItems,
-        status: status ?? (widget.initialJournal?.status ?? RecurringJournalStatus.active),
+        status:
+            status ??
+            (widget.initialJournal?.status ?? RecurringJournalStatus.active),
         createdAt: widget.initialJournal?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -547,7 +551,10 @@ class _RecurringJournalCreateScreenState
                   child: di.FormDropdown<String>(
                     value: customFrequencyUnit,
                     items: const ['Day(s)', 'Week(s)', 'Month(s)', 'Year(s)'],
-                    onChanged: (v) => setState(() => customFrequencyUnit = v!),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() => customFrequencyUnit = v);
+                    },
                   ),
                 ),
               ],
@@ -595,8 +602,8 @@ class _RecurringJournalCreateScreenState
               Checkbox(
                 value: neverExpires,
                 onChanged: (v) => setState(() {
-                  neverExpires = v!;
-                  if (v) {
+                  neverExpires = v ?? false;
+                  if (neverExpires) {
                     endDate = null;
                     endDateCtrl.text = 'dd/MM/yyyy';
                   }
@@ -670,7 +677,10 @@ class _RecurringJournalCreateScreenState
                 child: di.FormDropdown<String>(
                   value: selectedCurrency,
                   items: const ['INR- Indian Rupee'],
-                  onChanged: (v) => setState(() => selectedCurrency = v!),
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() => selectedCurrency = v);
+                  },
                 ),
               ),
             ],
@@ -907,62 +917,68 @@ class _RecurringJournalCreateScreenState
                       dropdown.AccountTreeDropdown(
                         value: row.accountId,
                         nodes: mappedNodes,
-                        height: _isGstAccount(row.accountName) ? 40.0 : row.rowHeight - 2,
+                        height: _isGstAccount(row.accountName)
+                            ? 40.0
+                            : row.rowHeight - 2,
                         borderRadius: BorderRadius.zero,
                         border: Border.all(color: Colors.transparent),
                         onSearch: (q) async {
                           final results = await ref
                               .read(accountantRepositoryProvider)
                               .searchAccounts(q);
-                          return results.where((e) {
-                            final name = e.name.toLowerCase().trim();
-                            final type = e.accountType.toLowerCase().trim();
+                          return results
+                              .where((e) {
+                                final name = e.name.toLowerCase().trim();
+                                final type = e.accountType.toLowerCase().trim();
 
-                            // Always hide Dimension Adjustments
-                            if (name == 'dimension adjustments' ||
-                                name == 'dimension adjustment') {
-                              return false;
-                            }
+                                // Always hide Dimension Adjustments
+                                if (name == 'dimension adjustments' ||
+                                    name == 'dimension adjustment') {
+                                  return false;
+                                }
 
-                            // Always hide Stock/Inventory
-                            if (name.contains('stock') ||
-                                name.contains('inventory') ||
-                                type.contains('stock') ||
-                                type.contains('inventory')) {
-                              return false;
-                            }
+                                // Always hide Stock/Inventory
+                                if (name.contains('stock') ||
+                                    name.contains('inventory') ||
+                                    type.contains('stock') ||
+                                    type.contains('inventory')) {
+                                  return false;
+                                }
 
-                            // Hide AP/AR for non-accrual_only
-                            if (reportingMethod != 'accrual_only') {
-                              if (name == 'accounts payable' ||
-                                  name == 'account payable' ||
-                                  name == 'accounts receivable' ||
-                                  name == 'account receivable') {
-                                return false;
-                              }
-                            }
-                            return true;
-                          }).map((e) => shared.AccountNode(
-                                    id: e.id,
-                                    name: e.name,
-                                    children: e.children
-                                        .map(
-                                          (c) => shared.AccountNode(
-                                            id: c.id,
-                                            name: c.name,
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                )
-                                .toList();
+                                // Hide AP/AR for non-accrual_only
+                                if (reportingMethod != 'accrual_only') {
+                                  if (name == 'accounts payable' ||
+                                      name == 'account payable' ||
+                                      name == 'accounts receivable' ||
+                                      name == 'account receivable') {
+                                    return false;
+                                  }
+                                }
+                                return true;
+                              })
+                              .map(
+                                (e) => shared.AccountNode(
+                                  id: e.id,
+                                  name: e.name,
+                                  children: e.children
+                                      .map(
+                                        (c) => shared.AccountNode(
+                                          id: c.id,
+                                          name: c.name,
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              )
+                              .toList();
                         },
                         onChanged: (id) {
                           setState(() {
                             row.accountId = id;
                             row.accountName = _findName(mappedNodes, id);
-                            row.rowHeight =
-                                _isGstAccount(row.accountName) ? 75.0 : 48.0;
+                            row.rowHeight = _isGstAccount(row.accountName)
+                                ? 75.0
+                                : 48.0;
                           });
                         },
                         hint: 'Select an account',
@@ -992,7 +1008,8 @@ class _RecurringJournalCreateScreenState
                   flex: 3,
                   child: contactsAsync.when(
                     data: (contacts) => di.FormDropdown<Map<String, dynamic>>(
-                      value: contacts
+                      value:
+                          contacts
                               .where(
                                 (c) =>
                                     c['id'] == row.contactId &&
@@ -1391,20 +1408,19 @@ class _RecurringJournalCreateScreenState
     }
 
     shared.AccountNode mapNode(coa.AccountNode account, int level) {
-      final prefix = level > 0 ? '• ' : '';
-
-      final activeChildren = account.children
-          .where((c) => c.isActive && !c.isDeleted && !_isAccountHidden(c))
-          .toList()
-        ..sort(
-          (a, b) => _getAccountDisplayName(a)
-              .toLowerCase()
-              .compareTo(_getAccountDisplayName(b).toLowerCase()),
-        );
+      final activeChildren =
+          account.children
+              .where((c) => c.isActive && !c.isDeleted && !_isAccountHidden(c))
+              .toList()
+            ..sort(
+              (a, b) => _getAccountDisplayName(a).toLowerCase().compareTo(
+                _getAccountDisplayName(b).toLowerCase(),
+              ),
+            );
 
       return shared.AccountNode(
         id: account.id,
-        name: '$prefix${_getAccountDisplayName(account)}',
+        name: _getAccountDisplayName(account),
         selectable: true,
         children: activeChildren.map((c) => mapNode(c, level + 1)).toList(),
       );
@@ -1413,7 +1429,10 @@ class _RecurringJournalCreateScreenState
     // Grouping only by account type now
     final groupedByType = <String, List<shared.AccountNode>>{};
     final typeToGroup =
-        <String, String>{}; // To preserve accounting order (Assets types first, etc.)
+        <
+          String,
+          String
+        >{}; // To preserve accounting order (Assets types first, etc.)
 
     final activeRoots = roots
         .where((n) => n.isActive && !n.isDeleted && !_isAccountHidden(n))
@@ -1421,7 +1440,9 @@ class _RecurringJournalCreateScreenState
 
     for (final root in activeRoots) {
       final isGroup = groupOrder.any(
-        (g) => g.toLowerCase() == _getAccountDisplayName(root).toLowerCase().trim(),
+        (g) =>
+            g.toLowerCase() ==
+            _getAccountDisplayName(root).toLowerCase().trim(),
       );
 
       if (isGroup) {
@@ -1649,5 +1670,3 @@ class _GstWarningWidgetState extends State<_GstWarningWidget> {
     );
   }
 }
-
-

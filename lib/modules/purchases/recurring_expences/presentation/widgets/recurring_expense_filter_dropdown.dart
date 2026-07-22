@@ -64,9 +64,7 @@ class _RecurringExpenseFilterDropdownState
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             decoration: BoxDecoration(
-              color: isOpen
-                  ? AppTheme.selectionInactiveBg
-                  : Colors.transparent,
+              color: isOpen ? AppTheme.selectionInactiveBg : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
             ),
             padding: EdgeInsets.symmetric(
@@ -88,7 +86,9 @@ class _RecurringExpenseFilterDropdownState
                 if (widget.showChevron) ...[
                   const SizedBox(width: 6),
                   Icon(
-                    isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isOpen
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     size: widget.isCompact ? 18 : 22,
                     color: AppTheme.primaryBlueDark,
                   ),
@@ -319,7 +319,6 @@ class _RecurringExpenseFilterMenuContentState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-
           // Scrollable categories
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 360),
@@ -359,7 +358,8 @@ class _RecurringExpenseFilterMenuContentState
                       count: defaultList.length,
                       isExpanded: _defaultFiltersExpanded,
                       onTap: () => setState(
-                        () => _defaultFiltersExpanded = !_defaultFiltersExpanded,
+                        () =>
+                            _defaultFiltersExpanded = !_defaultFiltersExpanded,
                       ),
                     ),
                     if (_defaultFiltersExpanded) ...[
@@ -482,7 +482,8 @@ class _RecurringFilterOptionRow extends StatefulWidget {
   });
 
   @override
-  State<_RecurringFilterOptionRow> createState() => _RecurringFilterOptionRowState();
+  State<_RecurringFilterOptionRow> createState() =>
+      _RecurringFilterOptionRowState();
 }
 
 class _RecurringFilterOptionRowState extends State<_RecurringFilterOptionRow> {
@@ -495,8 +496,8 @@ class _RecurringFilterOptionRowState extends State<_RecurringFilterOptionRow> {
     final starColor = _isHovered
         ? Colors.white
         : (widget.isStarred
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFD1D5DB));
+              ? const Color(0xFFF59E0B)
+              : const Color(0xFFD1D5DB));
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

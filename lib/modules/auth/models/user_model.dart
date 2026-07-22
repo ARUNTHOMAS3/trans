@@ -68,12 +68,17 @@ class User {
     return User(
       id: json['id'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      fullName: json['fullName'] as String? ?? json['full_name'] as String? ?? '',
+      fullName:
+          json['fullName'] as String? ?? json['full_name'] as String? ?? '',
       role: json['role'] as String? ?? '',
       orgId: json['orgId'] as String? ?? json['org_id'] as String? ?? '',
-      orgEntityId: json['orgEntityId'] as String? ?? json['org_entity_id'] as String?,
+      orgEntityId:
+          json['orgEntityId'] as String? ?? json['org_entity_id'] as String?,
       orgName: json['orgName'] as String? ?? json['org_name'] as String? ?? '',
-      orgSystemId: json['orgSystemId'] as String? ?? json['org_system_id'] as String? ?? '',
+      orgSystemId:
+          json['orgSystemId'] as String? ??
+          json['org_system_id'] as String? ??
+          '',
       routeSystemId:
           json['routeSystemId'] as String? ??
           json['route_system_id'] as String? ??
@@ -87,24 +92,25 @@ class User {
       isActive: json['isActive'] as bool? ?? true,
       createdAt: parseDate(json['createdAt'] ?? json['created_at']),
       updatedAt: parseDate(json['updatedAt'] ?? json['updated_at']),
-      phoneNumber: json['phoneNumber'] as String? ?? json['phone_number'] as String?,
+      phoneNumber:
+          json['phoneNumber'] as String? ?? json['phone_number'] as String?,
       department: json['department'] as String?,
       position: json['position'] as String?,
       avatarUrl: json['avatarUrl'] as String? ?? json['avatar_url'] as String?,
       accessibleBranchIds:
-          (json['accessibleBranchIds'] as List<dynamic>? ?? 
-           json['accessible_branch_ids'] as List<dynamic>? ?? 
-           const [])
+          (json['accessibleBranchIds'] as List<dynamic>? ??
+                  json['accessible_branch_ids'] as List<dynamic>? ??
+                  const [])
               .map((value) => value.toString())
               .toList(),
-      defaultBusinessBranchId: 
-          json['defaultBusinessBranchId'] as String? ?? 
+      defaultBusinessBranchId:
+          json['defaultBusinessBranchId'] as String? ??
           json['default_business_branch_id'] as String?,
       defaultBusinessBranchEntityId:
           json['defaultBusinessBranchEntityId'] as String? ??
           json['default_business_branch_entity_id'] as String?,
-      defaultWarehouseBranchId: 
-          json['defaultWarehouseBranchId'] as String? ?? 
+      defaultWarehouseBranchId:
+          json['defaultWarehouseBranchId'] as String? ??
           json['default_warehouse_branch_id'] as String?,
       permissions: json['permissions'] is Map
           ? Map<String, dynamic>.from(json['permissions'] as Map)

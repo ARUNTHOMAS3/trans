@@ -41,19 +41,25 @@ class PaymentRecievesState {
 
 class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
   PaymentRecievesNotifier()
-      : super(
-          PaymentRecievesState(
-            records: const [],
-            sortField: 'date',
-            sortAscending: false,
-            paymentModes: const ['Cash', 'Bank Transfer', 'Cheque', 'Credit Card', 'UPI'],
-            defaultPaymentMode: 'Cash',
-            selectedFilter: FavoriteFilterOption(
-              label: 'All Payments',
-              value: 'all',
-            ),
+    : super(
+        PaymentRecievesState(
+          records: const [],
+          sortField: 'date',
+          sortAscending: false,
+          paymentModes: const [
+            'Cash',
+            'Bank Transfer',
+            'Cheque',
+            'Credit Card',
+            'UPI',
+          ],
+          defaultPaymentMode: 'Cash',
+          selectedFilter: FavoriteFilterOption(
+            label: 'All Payments',
+            value: 'all',
           ),
-        );
+        ),
+      );
 
   final PaymentsReceivedApiService _api = PaymentsReceivedApiService();
   bool _loaded = false;
@@ -180,7 +186,9 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
   }
 
   Future<void> deleteSelected() async {
-    final toDelete = state.records.where((record) => record.isSelected).toList();
+    final toDelete = state.records
+        .where((record) => record.isSelected)
+        .toList();
     for (final r in toDelete) {
       if (r.id != null) {
         try {
@@ -188,7 +196,9 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
         } catch (_) {}
       }
     }
-    final updatedList = state.records.where((record) => !record.isSelected).toList();
+    final updatedList = state.records
+        .where((record) => !record.isSelected)
+        .toList();
     state = state.copyWith(records: updatedList);
   }
 
@@ -219,7 +229,9 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
         await _api.updatePayment(record.id!, {'is_delete': true});
       }
     } catch (_) {}
-    final updatedList = state.records.where((record) => record.paymentNo != paymentNo).toList();
+    final updatedList = state.records
+        .where((record) => record.paymentNo != paymentNo)
+        .toList();
     state = state.copyWith(records: updatedList);
   }
 
@@ -237,7 +249,8 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
   void removeAttachment(String paymentNo, String name) {
     final updatedList = state.records.map((record) {
       if (record.paymentNo == paymentNo) {
-        final newAttachments = List<String>.from(record.attachments)..remove(name);
+        final newAttachments = List<String>.from(record.attachments)
+          ..remove(name);
         return record.copyWith(attachments: newAttachments);
       }
       return record;
@@ -256,9 +269,7 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
     final updatedList = state.records.map((record) {
       if (record.paymentNo == paymentNo) {
         final newUnused = record.unusedAmount - amount;
-        return record.copyWith(
-          unusedAmount: newUnused < 0 ? 0.0 : newUnused,
-        );
+        return record.copyWith(unusedAmount: newUnused < 0 ? 0.0 : newUnused);
       }
       return record;
     }).toList();
@@ -266,7 +277,9 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
   }
 
   void upsertRecord(PaymentRecord record) {
-    final index = state.records.indexWhere((r) => r.paymentNo == record.paymentNo);
+    final index = state.records.indexWhere(
+      (r) => r.paymentNo == record.paymentNo,
+    );
     final updatedList = List<PaymentRecord>.from(state.records);
     if (index >= 0) {
       updatedList[index] = record;
@@ -279,12 +292,12 @@ class PaymentRecievesNotifier extends StateNotifier<PaymentRecievesState> {
 
 final paymentRecievesProvider =
     StateNotifierProvider<PaymentRecievesNotifier, PaymentRecievesState>((ref) {
-  return PaymentRecievesNotifier();
-});
+      return PaymentRecievesNotifier();
+    });
 
 /// Customers that have invoices in `invoice_master`, loaded from the backend.
 /// Sources the "Customer Name" dropdown on the invoice-payment create page.
 final invoicePaymentCustomersProvider =
     FutureProvider<List<InvoiceCustomerOption>>((ref) async {
-  return PaymentsReceivedApiService().getInvoiceCustomers();
-});
+      return PaymentsReceivedApiService().getInvoiceCustomers();
+    });

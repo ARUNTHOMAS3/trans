@@ -132,7 +132,11 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
           ),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close, size: 20, color: AppTheme.textSecondary),
+            icon: const Icon(
+              Icons.close,
+              size: 20,
+              color: AppTheme.textSecondary,
+            ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),

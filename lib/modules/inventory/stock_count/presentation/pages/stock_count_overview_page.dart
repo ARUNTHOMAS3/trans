@@ -253,11 +253,8 @@ class _StockCountOverviewPageState
     }
   }
 
-  Widget _warningTriangleIcon(double size) => SvgPicture.string(
-        _triangleAlertSvg,
-        width: size,
-        height: size,
-      );
+  Widget _warningTriangleIcon(double size) =>
+      SvgPicture.string(_triangleAlertSvg, width: size, height: size);
 
   Future<void> _showBatchNumbersDialog(
     BuildContext context, {
@@ -303,8 +300,9 @@ class _StockCountOverviewPageState
           ..clear()
           ..addAll(activeReasons);
         if (_reasonOptions.isNotEmpty) {
-          final validReasonNames =
-              _reasonOptions.map((reason) => reason.name).toSet();
+          final validReasonNames = _reasonOptions
+              .map((reason) => reason.name)
+              .toSet();
           _adjustmentReasons.removeWhere(
             (_, reasonName) => !validReasonNames.contains(reasonName),
           );
@@ -355,11 +353,9 @@ class _StockCountOverviewPageState
         data: payload,
       );
 
-      await ref.read(stockCountsProvider.notifier).updateCount(
-        count.copyWith(
-          status: StockCountStatus.completed,
-        ),
-      );
+      await ref
+          .read(stockCountsProvider.notifier)
+          .updateCount(count.copyWith(status: StockCountStatus.completed));
 
       if (!mounted) return;
 
@@ -368,9 +364,7 @@ class _StockCountOverviewPageState
         _isApprovingMode = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Stock count approved successfully'),
-        ),
+        const SnackBar(content: Text('Stock count approved successfully')),
       );
       context.go('/$orgId/inventory/stock-counts');
     } catch (error) {
@@ -489,12 +483,12 @@ class _StockCountOverviewPageState
         color: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header title row
                   Row(
@@ -845,7 +839,7 @@ class _StockCountOverviewPageState
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 20),
 
@@ -1015,76 +1009,74 @@ class _StockCountOverviewPageState
                     ),
                   ),
                   const SizedBox(height: 12),
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          width: 620,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 16,
-                            horizontal: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _buildOverviewMetric(
-                                  title: 'Accuracy',
-                                  value: accuracyDisplay,
-                                  icon: LucideIcons.arrowUpDown,
-                                  iconColor: const Color(0xFF2563EB),
-                                  iconBg: const Color(0xFFEFF6FF),
-                                  showInfo: true,
-                                ),
-                              ),
-                              Container(
-                                width: 1,
-                                height: 44,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                color: const Color(0xFFE5E7EB),
-                              ),
-                              Expanded(
-                                child: _buildOverviewMetric(
-                                  title: 'Matched',
-                                  value: matchedStr,
-                                  icon: LucideIcons.checkCircle,
-                                  iconColor: const Color(0xFF10B981),
-                                  iconBg: const Color(0xFFECFDF5),
-                                ),
-                              ),
-                              Container(
-                                width: 1,
-                                height: 44,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                color: const Color(0xFFE5E7EB),
-                              ),
-                              Expanded(
-                                child: _buildOverviewMetric(
-                                  title: 'Unmatched',
-                                  value: unmatchedStr,
-                                  icon: LucideIcons.xCircle,
-                                  iconColor: const Color(0xFFEF4444),
-                                  iconBg: const Color(0xFFFEF2F2),
-                                ),
-                              ),
-                            ],
-                          ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 620,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 16,
                         ),
-                        if (count.status == StockCountStatus.completed) ...[
-                          const SizedBox(width: 16),
-                          _buildTopAdjustmentReasonBox(),
-                        ],
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildOverviewMetric(
+                                title: 'Accuracy',
+                                value: accuracyDisplay,
+                                icon: LucideIcons.arrowUpDown,
+                                iconColor: const Color(0xFF2563EB),
+                                iconBg: const Color(0xFFEFF6FF),
+                                showInfo: true,
+                              ),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 44,
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              color: const Color(0xFFE5E7EB),
+                            ),
+                            Expanded(
+                              child: _buildOverviewMetric(
+                                title: 'Matched',
+                                value: matchedStr,
+                                icon: LucideIcons.checkCircle,
+                                iconColor: const Color(0xFF10B981),
+                                iconBg: const Color(0xFFECFDF5),
+                              ),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 44,
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              color: const Color(0xFFE5E7EB),
+                            ),
+                            Expanded(
+                              child: _buildOverviewMetric(
+                                title: 'Unmatched',
+                                value: unmatchedStr,
+                                icon: LucideIcons.xCircle,
+                                iconColor: const Color(0xFFEF4444),
+                                iconBg: const Color(0xFFFEF2F2),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (count.status == StockCountStatus.completed) ...[
+                        const SizedBox(width: 16),
+                        _buildTopAdjustmentReasonBox(),
                       ],
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -1686,7 +1678,8 @@ class _StockCountOverviewPageState
                                                           as bool? ??
                                                       false;
                                                   final batches =
-                                                      (item['batches'] as List? ??
+                                                      (item['batches']
+                                                                  as List? ??
                                                               const [])
                                                           .whereType<Map>()
                                                           .toList();
@@ -2250,7 +2243,7 @@ class _StockCountOverviewPageState
           ),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
@@ -2478,17 +2471,18 @@ class _StockCountOverviewPageState
     final recurringKey = count.recurringName?.trim().isNotEmpty == true
         ? count.recurringName!.trim()
         : count.stockCountNum.trim();
-    final generatedCounts = ref
-        .watch(stockCountsProvider)
-        .counts
-        .where(
-          (generatedCount) =>
-              !generatedCount.isRecurring &&
-              (generatedCount.recurringName?.trim() ?? '') == recurringKey,
-        )
-        .where(_matchesRecurringOverviewStatusFilter)
-        .toList()
-      ..sort((a, b) => b.countDate.compareTo(a.countDate));
+    final generatedCounts =
+        ref
+            .watch(stockCountsProvider)
+            .counts
+            .where(
+              (generatedCount) =>
+                  !generatedCount.isRecurring &&
+                  (generatedCount.recurringName?.trim() ?? '') == recurringKey,
+            )
+            .where(_matchesRecurringOverviewStatusFilter)
+            .toList()
+          ..sort((a, b) => b.countDate.compareTo(a.countDate));
 
     final nextCountLabel = count.nextCountDate != null
         ? df.format(count.nextCountDate!)
@@ -2496,7 +2490,7 @@ class _StockCountOverviewPageState
     final recurringPeriod = _describeRecurringPeriod(count);
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 360,
@@ -2708,9 +2702,10 @@ class _StockCountOverviewPageState
                                       _countRecurringOverviewCountedItems(
                                         generatedCount,
                                       );
-                                  final statusText = _recurringOverviewStatusText(
-                                    generatedCount.status,
-                                  );
+                                  final statusText =
+                                      _recurringOverviewStatusText(
+                                        generatedCount.status,
+                                      );
                                   final statusColor =
                                       _recurringOverviewStatusColor(
                                         generatedCount.status,
@@ -2769,9 +2764,7 @@ class _StockCountOverviewPageState
                                                     const Icon(
                                                       LucideIcons.clipboardList,
                                                       size: 13,
-                                                      color: Color(
-                                                        0xFF9CA3AF,
-                                                      ),
+                                                      color: Color(0xFF9CA3AF),
                                                     ),
                                                     const SizedBox(width: 6),
                                                     RichText(
@@ -2899,91 +2892,89 @@ class _StockCountOverviewPageState
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFFEBEAF2))),
                 ),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 18,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 18,
+                        ),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            right: BorderSide(color: Color(0xFFEBEAF2)),
                           ),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              right: BorderSide(color: Color(0xFFEBEAF2)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: const Color(0xFFD1D5DB),
+                                ),
+                              ),
+                              child: const Icon(
+                                LucideIcons.image,
+                                size: 18,
+                                color: Color(0xFFD1D5DB),
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 38,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(
-                                    color: const Color(0xFFD1D5DB),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '${item['name'] ?? '-'}',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF111827),
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                                child: const Icon(
-                                  LucideIcons.image,
-                                  size: 18,
-                                  color: Color(0xFFD1D5DB),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      '${item['name'] ?? '-'}',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Color(0xFF111827),
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    unit,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF6B7280),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      unit,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 18,
+                        ),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            right: BorderSide(color: Color(0xFFEBEAF2)),
+                          ),
+                        ),
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          sku.isEmpty ? '-' : sku,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF111827),
                           ),
                         ),
                       ),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 18,
-                          ),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              right: BorderSide(color: Color(0xFFEBEAF2)),
-                            ),
-                          ),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            sku.isEmpty ? '-' : sku,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
             },
@@ -3862,7 +3853,7 @@ class _StockCountOverviewPageState
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
               onTap: () {
@@ -4054,9 +4045,7 @@ class _StockCountOverviewPageState
             color: isSelected ? activeColor : const Color(0xFFD1D5DB),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
       ),
     );
@@ -4309,10 +4298,10 @@ class _StockCountOverviewPageState
                                 onPressed: _isSubmittingApproval
                                     ? null
                                     : () => _submitStockCountApproval(
-                                          context,
-                                          count,
-                                          orgId,
-                                        ),
+                                        context,
+                                        count,
+                                        orgId,
+                                      ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF10B981),
                                   foregroundColor: Colors.white,
@@ -4425,7 +4414,7 @@ class _StockCountOverviewPageState
         child: StatefulBuilder(
           builder: (context, setSidebarState) {
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header
                 Padding(

@@ -59,73 +59,30 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
   bool get _someSelected =>
       _selectedIndices.isNotEmpty && _selectedIndices.length < _rows.length;
   List<ColumnConfig> get _visibleColumns {
-    final columns = _columns
-        .where((c) => c.isVisible)
-        .map((c) => c.copy())
-        .toList()
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    final columns =
+        _columns.where((c) => c.isVisible).map((c) => c.copy()).toList()
+          ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
     return columns;
   }
 
   static List<ColumnConfig> _defaultColumns() => [
-        ColumnConfig(
-          id: 'date',
-          label: 'Date',
-          orderIndex: 0,
-          isLocked: true,
-        ),
-        ColumnConfig(
-          id: 'location',
-          label: 'Location',
-          orderIndex: 1,
-        ),
-        ColumnConfig(
-          id: 'creditNoteNumber',
-          label: 'Credit Note#',
-          orderIndex: 2,
-          isLocked: true,
-        ),
-        ColumnConfig(
-          id: 'referenceNumber',
-          label: 'Reference#',
-          orderIndex: 3,
-        ),
-        ColumnConfig(
-          id: 'customerName',
-          label: 'Customer Name',
-          orderIndex: 4,
-        ),
-        ColumnConfig(
-          id: 'invoiceNumber',
-          label: 'Invoice#',
-          orderIndex: 5,
-        ),
-        ColumnConfig(
-          id: 'status',
-          label: 'Status',
-          orderIndex: 6,
-        ),
-        ColumnConfig(
-          id: 'amount',
-          label: 'Amount',
-          orderIndex: 7,
-        ),
-        ColumnConfig(
-          id: 'balance',
-          label: 'Balance',
-          orderIndex: 8,
-        ),
-        ColumnConfig(
-          id: 'issueDate',
-          label: 'Issue Date',
-          orderIndex: 9,
-        ),
-        ColumnConfig(
-          id: 'salesPerson',
-          label: 'Sales Person',
-          orderIndex: 10,
-        ),
-      ];
+    ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
+    ColumnConfig(id: 'location', label: 'Location', orderIndex: 1),
+    ColumnConfig(
+      id: 'creditNoteNumber',
+      label: 'Credit Note#',
+      orderIndex: 2,
+      isLocked: true,
+    ),
+    ColumnConfig(id: 'referenceNumber', label: 'Reference#', orderIndex: 3),
+    ColumnConfig(id: 'customerName', label: 'Customer Name', orderIndex: 4),
+    ColumnConfig(id: 'invoiceNumber', label: 'Invoice#', orderIndex: 5),
+    ColumnConfig(id: 'status', label: 'Status', orderIndex: 6),
+    ColumnConfig(id: 'amount', label: 'Amount', orderIndex: 7),
+    ColumnConfig(id: 'balance', label: 'Balance', orderIndex: 8),
+    ColumnConfig(id: 'issueDate', label: 'Issue Date', orderIndex: 9),
+    ColumnConfig(id: 'salesPerson', label: 'Sales Person', orderIndex: 10),
+  ];
 
   void _toggleSelectAll(bool? value) {
     setState(() {
@@ -244,22 +201,22 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                                   child: ListView.separated(
                                     padding: EdgeInsets.zero,
                                     itemCount: _rows.length,
-                                    separatorBuilder: (_, __) =>
-                                        const Divider(
+                                    separatorBuilder: (_, __) => const Divider(
                                       height: 1,
                                       color: AppTheme.borderLight,
                                     ),
                                     itemBuilder: (context, index) =>
                                         _CnTableRow(
-                                      row: _rows[index],
-                                      selected: _selectedIndices
-                                          .contains(index),
-                                      hasSelection:
-                                          _selectedIndices.isNotEmpty,
-                                      onChanged: (v) =>
-                                          _toggleRow(index, v),
-                                      columns: _visibleColumns,
-                                    ),
+                                          row: _rows[index],
+                                          selected: _selectedIndices.contains(
+                                            index,
+                                          ),
+                                          hasSelection:
+                                              _selectedIndices.isNotEmpty,
+                                          onChanged: (v) =>
+                                              _toggleRow(index, v),
+                                          columns: _visibleColumns,
+                                        ),
                                   ),
                                 ),
                               ],
@@ -308,8 +265,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                           ),
                           const Divider(height: 1, color: AppTheme.borderLight),
                           InkWell(
-                            onTap: () =>
-                                setState(() => _dropdownOpen = false),
+                            onTap: () => setState(() => _dropdownOpen = false),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -459,10 +415,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
       child: Row(
         children: [
           // Bulk Update
-          _BulkActionButton(
-            label: 'Bulk Update',
-            onTap: _openBulkUpdateDialog,
-          ),
+          _BulkActionButton(label: 'Bulk Update', onTap: _openBulkUpdateDialog),
           const SizedBox(width: 8),
           // Download with chevron
           _BulkActionButton(
@@ -472,10 +425,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
           ),
           const SizedBox(width: 8),
           // Print
-          _BulkActionButton(
-            icon: LucideIcons.printer,
-            onTap: () {},
-          ),
+          _BulkActionButton(icon: LucideIcons.printer, onTap: () {}),
           // Separator
           Container(
             height: 24,
@@ -636,8 +586,8 @@ class _ViewFilterOptionState extends State<_ViewFilterOption> {
             color: widget.selected
                 ? AppTheme.primaryBlue
                 : _hovered
-                    ? AppTheme.primaryBlue.withValues(alpha: 0.06)
-                    : Colors.transparent,
+                ? AppTheme.primaryBlue.withValues(alpha: 0.06)
+                : Colors.transparent,
           ),
           child: Row(
             children: [
@@ -670,8 +620,9 @@ class _ViewFilterOptionState extends State<_ViewFilterOption> {
                   widget.label,
                   style: TextStyle(
                     fontSize: 13,
-                    color:
-                        widget.selected ? Colors.white : AppTheme.textPrimary,
+                    color: widget.selected
+                        ? Colors.white
+                        : AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -716,8 +667,8 @@ class _ColumnMenuOptionState extends State<_ColumnMenuOption> {
     final foreground = filled
         ? AppTheme.backgroundColor
         : widget.selected
-            ? AppTheme.primaryBlue
-            : AppTheme.textPrimary;
+        ? AppTheme.primaryBlue
+        : AppTheme.textPrimary;
     final iconColor = filled ? foreground : AppTheme.primaryBlue;
 
     return MouseRegion(
@@ -735,10 +686,7 @@ class _ColumnMenuOptionState extends State<_ColumnMenuOption> {
                 : AppTheme.backgroundColor,
             borderRadius: BorderRadius.circular(6),
             border: filled
-                ? Border.all(
-                    color: AppTheme.primaryBlueDark,
-                    width: 2,
-                  )
+                ? Border.all(color: AppTheme.primaryBlueDark, width: 2)
                 : null,
           ),
           child: Row(

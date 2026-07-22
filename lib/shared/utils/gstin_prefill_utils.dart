@@ -14,8 +14,9 @@ class GstinPrefillUtils {
 
   // Standard 15-character GSTIN pattern:
   // 2-digit state code + 10-char PAN + 1 entity number + 1 alpha + 1 check digit
-  static final RegExp _gstinRegex =
-      RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
+  static final RegExp _gstinRegex = RegExp(
+    r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$',
+  );
 
   /// Applies GSTIN lookup result fields to the provided controller map.
   ///
@@ -53,8 +54,8 @@ class GstinPrefillUtils {
       final prefillKey = entry.key;
       final controllerKey =
           keyMapping != null && keyMapping.containsKey(prefillKey)
-              ? keyMapping[prefillKey]!
-              : prefillKey;
+          ? keyMapping[prefillKey]!
+          : prefillKey;
 
       final controller = controllers[controllerKey];
       if (controller == null) continue;

@@ -50,8 +50,10 @@ class ManualJournalTemplateNotifier
     extends StateNotifier<ManualJournalTemplateState> {
   final ManualJournalRepository repository;
 
-  ManualJournalTemplateNotifier(this.repository, {required bool isAuthenticated})
-    : super(ManualJournalTemplateState()) {
+  ManualJournalTemplateNotifier(
+    this.repository, {
+    required bool isAuthenticated,
+  }) : super(ManualJournalTemplateState()) {
     if (isAuthenticated) fetchTemplates();
   }
 
@@ -119,5 +121,8 @@ final manualJournalTemplateProvider =
     >((ref) {
       final repository = ref.watch(manualJournalRepositoryProvider);
       final isAuthenticated = ref.watch(isAuthenticatedProvider);
-      return ManualJournalTemplateNotifier(repository, isAuthenticated: isAuthenticated);
+      return ManualJournalTemplateNotifier(
+        repository,
+        isAuthenticated: isAuthenticated,
+      );
     });

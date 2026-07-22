@@ -195,4 +195,3 @@ extension _AttributesSection on _SalesCustomerCreateScreenState {
     );
   }
 }
-

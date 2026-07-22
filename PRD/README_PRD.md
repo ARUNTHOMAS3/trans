@@ -203,7 +203,7 @@ These **cannot** be changed without major discussion:
 12. **Sidebar Module Map:** Locked navigation order and sub-modules for Items, Inventory, Sales, Purchases, Accountant, Accounts, Reports, Documents, and Audit Logs - Section 8.1
 13. **Layout Stability Rules (Golden Rules):** Mandatory for all UI layouts - Section 14.4.1
 14. **Schema Snapshot Compliance:** All forms must map to `PRD/prd_schema.md` - Section 12.3
-15. **Settings Table Naming:** Any new database table created specifically for the global settings system must start with `settings_`
+15. **Settings Table Naming:** Settings-related backend work must use canonical table names from `current schema.md`; no blanket `settings_` prefix
 15. **UI Case Standards:** Mandatory Title Case for destinations/actions and Sentence case for instructions - Section 14.3.1
 16. **Data Casing Policy:** Descriptive data must be stored exactly as entered; visual uppercase is allowed only in specific contexts (Tables/Identifiers) - Section 14.3.2
 17. **Mandatory Pagination:** All tables must implement server-side pagination with a default of 100 rows per page - Section 14.5.4

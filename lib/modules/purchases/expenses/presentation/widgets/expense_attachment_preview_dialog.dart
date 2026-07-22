@@ -266,24 +266,20 @@ class _ExpenseAttachmentPdfFrameState
           Positioned.fill(
             child: Container(
               color: const Color(0xFF2D2D2D),
-                alignment: Alignment.center,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const ZBone(
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      color: Color(0x33FFFFFF),
-                    ),
-                    const SizedBox(height: 14),
-                    const ZBone(
-                      width: 136,
-                      height: 12,
-                      color: Color(0x33FFFFFF),
-                    ),
-                  ],
-                ),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ZBone(
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    color: Color(0x33FFFFFF),
+                  ),
+                  const SizedBox(height: 14),
+                  const ZBone(width: 136, height: 12, color: Color(0x33FFFFFF)),
+                ],
+              ),
             ),
           ),
       ],

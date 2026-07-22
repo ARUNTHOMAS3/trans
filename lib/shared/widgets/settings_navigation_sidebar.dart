@@ -55,7 +55,10 @@ const List<SettingsNavigationSection> kSettingsNavigationSections =
                 label: 'Warehouses',
                 route: AppRoutes.settingsWarehouses,
               ),
-              SettingsNavigationEntry(label: 'Approvals'),
+              SettingsNavigationEntry(
+                label: 'Approvals',
+                route: AppRoutes.settingsApproval,
+              ),
               SettingsNavigationEntry(label: 'Manage Subscription'),
             ],
           ),
@@ -70,47 +73,85 @@ const List<SettingsNavigationSection> kSettingsNavigationSections =
                 label: 'Roles',
                 route: AppRoutes.settingsRoles,
               ),
-              SettingsNavigationEntry(label: 'User Preferences'),
             ],
           ),
           SettingsNavigationBlock(
             title: 'Taxes & Compliance',
             items: <SettingsNavigationEntry>[
-              SettingsNavigationEntry(label: 'Taxes'),
-              SettingsNavigationEntry(label: 'Direct Taxes'),
-              SettingsNavigationEntry(label: 'e-Way Bills'),
-              SettingsNavigationEntry(label: 'e-Invoicing'),
+              SettingsNavigationEntry(
+                label: 'Taxes',
+                route: AppRoutes.settingsTaxes,
+              ),
+              SettingsNavigationEntry(
+                label: 'Direct Taxes',
+                route: AppRoutes.settingsDirectTaxes,
+              ),
+              SettingsNavigationEntry(
+                label: 'e-Way Bills',
+                route: AppRoutes.settingsEwayBills,
+              ),
+              SettingsNavigationEntry(
+                label: 'e-Invoicing',
+                route: AppRoutes.settingsEinvoicing,
+              ),
               SettingsNavigationEntry(label: 'MSME Settings'),
             ],
           ),
           SettingsNavigationBlock(
             title: 'Setup & Configurations',
             items: <SettingsNavigationEntry>[
-              SettingsNavigationEntry(label: 'General'),
-              SettingsNavigationEntry(label: 'Currencies'),
-              SettingsNavigationEntry(label: 'Reminders'),
+              SettingsNavigationEntry(
+                label: 'General',
+                route: AppRoutes.settingsGeneral,
+              ),
+              SettingsNavigationEntry(
+                label: 'Currencies',
+                route: AppRoutes.settingsCurrencies,
+              ),
+              SettingsNavigationEntry(
+                label: 'Reminders',
+                route: AppRoutes.settingsReminders,
+              ),
               SettingsNavigationEntry(label: 'Customer Portal'),
             ],
           ),
           SettingsNavigationBlock(
             title: 'Customization',
             items: <SettingsNavigationEntry>[
-              SettingsNavigationEntry(label: 'Transaction Number Series'),
-              SettingsNavigationEntry(label: 'PDF Templates'),
-              SettingsNavigationEntry(label: 'Email Notifications'),
+              SettingsNavigationEntry(
+                label: 'Transaction Number Series',
+                route: AppRoutes.settingsTransactionNumberSeries,
+              ),
+              SettingsNavigationEntry(
+                label: 'PDF Templates',
+                route: AppRoutes.settingsPdfTemplates,
+              ),
+              SettingsNavigationEntry(
+                label: 'Email Notifications',
+                route: AppRoutes.settingsEmailNotifications,
+              ),
               SettingsNavigationEntry(label: 'SMS Notifications'),
-              SettingsNavigationEntry(label: 'Reporting Tags'),
+              SettingsNavigationEntry(
+                label: 'Reporting Tags',
+                route: AppRoutes.settingsReportingTags,
+              ),
               SettingsNavigationEntry(label: 'Web Tabs'),
             ],
           ),
           SettingsNavigationBlock(
             title: 'Automation',
             items: <SettingsNavigationEntry>[
-              SettingsNavigationEntry(label: 'Workflow Rules'),
-              SettingsNavigationEntry(label: 'Workflow Actions'),
+              SettingsNavigationEntry(
+                label: 'Workflow Rules',
+                route: AppRoutes.settingsWorkflowRules,
+              ),
+              SettingsNavigationEntry(
+                label: 'Workflow Actions',
+                route: AppRoutes.settingsWorkflowActions,
+              ),
               SettingsNavigationEntry(
                 label: 'Workflow Logs',
-                route: AppRoutes.auditLogs,
+                route: AppRoutes.settingsWorkflowLogs,
               ),
             ],
           ),
@@ -124,11 +165,11 @@ const List<SettingsNavigationSection> kSettingsNavigationSections =
             items: <SettingsNavigationEntry>[
               SettingsNavigationEntry(
                 label: 'Customers and Vendors',
-                route: AppRoutes.salesCustomers,
+                route: AppRoutes.settingsCustomersAndVendors,
               ),
               SettingsNavigationEntry(
                 label: 'Items',
-                route: AppRoutes.itemsReport,
+                route: AppRoutes.settingsItems,
               ),
             ],
           ),
@@ -153,11 +194,11 @@ const List<SettingsNavigationSection> kSettingsNavigationSections =
               ),
               SettingsNavigationEntry(
                 label: 'Shipments',
-                route: AppRoutes.shipments,
+                route: AppRoutes.settingsShipments,
               ),
               SettingsNavigationEntry(
                 label: 'Transfer Orders',
-                route: AppRoutes.transferOrders,
+                route: AppRoutes.settingsTransferOrders,
               ),
             ],
           ),
@@ -166,7 +207,11 @@ const List<SettingsNavigationSection> kSettingsNavigationSections =
     ];
 
 String normalizeSettingsSidebarPath(String path) {
-  return path.replaceFirst(RegExp(r'^/\d{10,20}'), '');
+  final parsedPath = Uri.tryParse(path)?.path;
+  final pathname = (parsedPath == null || parsedPath.isEmpty)
+      ? path.split('?').first.split('#').first
+      : parsedPath;
+  return pathname.replaceFirst(RegExp(r'^/\d{10,20}(?=/|$)'), '');
 }
 
 bool _isBranchScopedSettingsUser(User? user) {
@@ -181,8 +226,8 @@ bool _isBranchScopedSettingsUser(User? user) {
 
 String? _resolveBranchProfileRoute(User? user) {
   if (!_isBranchScopedSettingsUser(user)) return null;
-  final branchId = ((user?.activeTenantType ?? '').trim().toUpperCase() ==
-              'BRANCH'
+  final branchId =
+      ((user?.activeTenantType ?? '').trim().toUpperCase() == 'BRANCH'
           ? user?.activeTenantId?.trim()
           : null) ??
       user?.defaultBusinessBranchId?.trim() ??
@@ -194,10 +239,7 @@ String? _resolveBranchProfileRoute(User? user) {
 }
 
 class SettingsNavigationSidebar extends ConsumerStatefulWidget {
-  const SettingsNavigationSidebar({
-    super.key,
-    required this.currentPath,
-  });
+  const SettingsNavigationSidebar({super.key, required this.currentPath});
 
   final String currentPath;
 
@@ -208,19 +250,43 @@ class SettingsNavigationSidebar extends ConsumerStatefulWidget {
 
 class _SettingsNavigationSidebarState
     extends ConsumerState<SettingsNavigationSidebar> {
-  late final Set<String> _expandedBlocks;
+  String? _expandedBlockKey;
 
   @override
   void initState() {
     super.initState();
-    _expandedBlocks = <String>{'Organization'};
+    _expandedBlockKey =
+        _activeBlockKeyForCurrentPath() ??
+        _blockKey(
+          kSettingsNavigationSections.first.title,
+          kSettingsNavigationSections.first.blocks.first,
+        );
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsNavigationSidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentPath != widget.currentPath) {
+      final activeBlockKey = _activeBlockKeyForCurrentPath();
+      if (activeBlockKey != null) {
+        setState(() => _expandedBlockKey = activeBlockKey);
+      }
+    }
+  }
+
+  String _blockKey(String sectionTitle, SettingsNavigationBlock block) {
+    return '$sectionTitle::${block.title}';
+  }
+
+  String? _activeBlockKeyForCurrentPath() {
     for (final section in kSettingsNavigationSections) {
       for (final block in section.blocks) {
         if (block.items.any(_isEntryActive)) {
-          _expandedBlocks.add(block.title);
+          return _blockKey(section.title, block);
         }
       }
     }
+    return null;
   }
 
   bool _isEntryActive(SettingsNavigationEntry entry) {
@@ -239,14 +305,19 @@ class _SettingsNavigationSidebarState
   Widget build(BuildContext context) {
     final Color accentColor = ref.watch(appBrandingProvider).accentColor;
     final user = ref.watch(authUserProvider);
-    final canAccessRoles = user == null ||
-        CapabilityService.canUserAction(user, 'settings.roles.view', action: 'view');
+    final canAccessRoles =
+        user == null ||
+        CapabilityService.canUserAction(
+          user,
+          'settings.roles.view',
+          action: 'view',
+        );
     final sections = _visibleSections(canAccessRoles: canAccessRoles);
 
     return Container(
       width: 240,
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.backgroundColor,
         border: Border(right: BorderSide(color: AppTheme.borderLight)),
       ),
       child: ListView(
@@ -273,7 +344,7 @@ class _SettingsNavigationSidebarState
               ),
             ),
             for (final block in section.blocks)
-              _buildSidebarBlock(block, accentColor),
+              _buildSidebarBlock(section.title, block, accentColor),
             const SizedBox(height: AppTheme.space12),
           ],
         ],
@@ -282,12 +353,12 @@ class _SettingsNavigationSidebarState
   }
 
   Widget _buildSidebarBlock(
+    String sectionTitle,
     SettingsNavigationBlock block,
     Color accentColor,
   ) {
-    final bool hasActiveChild = block.items.any(_isEntryActive);
-    final bool isExpanded =
-        _expandedBlocks.contains(block.title) || hasActiveChild;
+    final blockKey = _blockKey(sectionTitle, block);
+    final bool isExpanded = _expandedBlockKey == blockKey;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppTheme.space4),
@@ -297,9 +368,9 @@ class _SettingsNavigationSidebarState
             onTap: () {
               setState(() {
                 if (isExpanded) {
-                  _expandedBlocks.remove(block.title);
+                  _expandedBlockKey = null;
                 } else {
-                  _expandedBlocks.add(block.title);
+                  _expandedBlockKey = blockKey;
                 }
               });
             },
@@ -380,7 +451,7 @@ class _SettingsNavigationSidebarState
           entry.label,
           style: AppTheme.bodyText.copyWith(
             fontSize: 13,
-            color: isActive ? Colors.white : AppTheme.textPrimary,
+            color: isActive ? AppTheme.backgroundColor : AppTheme.textPrimary,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
           ),
         ),
@@ -411,7 +482,9 @@ class _SettingsNavigationSidebarState
         blocks.add(SettingsNavigationBlock(title: block.title, items: items));
       }
       if (blocks.isEmpty) continue;
-      sections.add(SettingsNavigationSection(title: section.title, blocks: blocks));
+      sections.add(
+        SettingsNavigationSection(title: section.title, blocks: blocks),
+      );
     }
     return sections;
   }

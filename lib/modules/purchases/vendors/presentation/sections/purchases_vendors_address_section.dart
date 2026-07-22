@@ -314,4 +314,3 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
     );
   }
 }
-

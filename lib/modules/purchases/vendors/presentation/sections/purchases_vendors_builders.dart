@@ -37,9 +37,7 @@ extension _PurchasesVendorsBuilders
                   const Text(' *', style: TextStyle(color: Color(0xFFDC2626))),
                 if (showInfo) ...[
                   const SizedBox(width: 4),
-                  ZTooltip(
-                    message: tooltip ?? 'More info',
-                  ),
+                  ZTooltip(message: tooltip ?? 'More info'),
                 ],
               ],
             ),
@@ -126,7 +124,6 @@ extension _PurchasesVendorsBuilders
     );
   }
 
-
   Widget _buildCurrencyRow(
     CurrencyOption option,
     bool isSelected,
@@ -205,7 +202,11 @@ extension _PurchasesVendorsBuilders
                   'This payment term is in use and cannot be deleted.';
             }
           } catch (e) {
-            AppLogger.error('Error checking payment term usage', error: e, module: 'purchases');
+            AppLogger.error(
+              'Error checking payment term usage',
+              error: e,
+              module: 'purchases',
+            );
           }
           return null;
         },
@@ -213,4 +214,3 @@ extension _PurchasesVendorsBuilders
     );
   }
 }
-

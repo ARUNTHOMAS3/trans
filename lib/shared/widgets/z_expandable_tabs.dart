@@ -132,7 +132,9 @@ class _ZExpandableTabsState extends State<ZExpandableTabs> {
                   }),
                   const Spacer(),
                   Icon(
-                    _isExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
+                    _isExpanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
                     size: 16,
                     color: AppTheme.textSecondary,
                   ),

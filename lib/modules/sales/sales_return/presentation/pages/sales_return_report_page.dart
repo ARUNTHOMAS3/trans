@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/app/routing/app_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
@@ -24,8 +24,8 @@ class SalesReturnsReportPage extends ConsumerStatefulWidget {
       _SalesReturnsReportPageState();
 }
 
-class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage> {
-
+class _SalesReturnsReportPageState
+    extends ConsumerState<SalesReturnsReportPage> {
   static const _viewOptions = [
     'All',
     'Draft',
@@ -77,26 +77,37 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
   }
 
   static List<ColumnConfig> _defaultColumns() => [
-        ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
-        ColumnConfig(id: 'rmaNumber', label: 'RMA#', orderIndex: 1, isLocked: true),
-        ColumnConfig(id: 'salesOrderNumber', label: 'Sales Order#', orderIndex: 2),
-        ColumnConfig(id: 'customerName', label: 'Customer Name', orderIndex: 3),
-        ColumnConfig(id: 'status', label: 'Status', orderIndex: 4),
-        ColumnConfig(id: 'receiveStatus', label: 'Receive Status', orderIndex: 5),
-        ColumnConfig(id: 'refundStatus', label: 'Refund Status', orderIndex: 6),
-        ColumnConfig(id: 'returned', label: 'Returned', orderIndex: 7),
-        ColumnConfig(id: 'amountRefunded', label: 'Amount Refunded', orderIndex: 8),
-      ];
+    ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
+    ColumnConfig(id: 'rmaNumber', label: 'RMA#', orderIndex: 1, isLocked: true),
+    ColumnConfig(id: 'salesOrderNumber', label: 'Sales Order#', orderIndex: 2),
+    ColumnConfig(id: 'customerName', label: 'Customer Name', orderIndex: 3),
+    ColumnConfig(id: 'status', label: 'Status', orderIndex: 4),
+    ColumnConfig(id: 'receiveStatus', label: 'Receive Status', orderIndex: 5),
+    ColumnConfig(id: 'refundStatus', label: 'Refund Status', orderIndex: 6),
+    ColumnConfig(id: 'returned', label: 'Returned', orderIndex: 7),
+    ColumnConfig(id: 'amountRefunded', label: 'Amount Refunded', orderIndex: 8),
+  ];
 
-  List<ColumnConfig> get _visibleColumns => _columns
-      .where((c) => c.isVisible)
-      .map((c) => ColumnConfig(id: c.id, label: c.label, isVisible: c.isVisible, orderIndex: c.orderIndex, isLocked: c.isLocked))
-      .toList()
-    ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+  List<ColumnConfig> get _visibleColumns =>
+      _columns
+          .where((c) => c.isVisible)
+          .map(
+            (c) => ColumnConfig(
+              id: c.id,
+              label: c.label,
+              isVisible: c.isVisible,
+              orderIndex: c.orderIndex,
+              isLocked: c.isLocked,
+            ),
+          )
+          .toList()
+        ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
 
   double get _tableWidth {
     final colSum = _visibleColumns.fold(
-        0.0, (sum, c) => sum + (_colWidths[c.id] ?? 120));
+      0.0,
+      (sum, c) => sum + (_colWidths[c.id] ?? 120),
+    );
     return colSum + 92; // 16(pad) + 28(icon) + 32(checkbox) + 16(pad)
   }
 
@@ -106,8 +117,16 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
         try {
           final partsA = a.date.split('-');
           final partsB = b.date.split('-');
-          final dtA = DateTime(int.parse(partsA[2]), int.parse(partsA[1]), int.parse(partsA[0]));
-          final dtB = DateTime(int.parse(partsB[2]), int.parse(partsB[1]), int.parse(partsB[0]));
+          final dtA = DateTime(
+            int.parse(partsA[2]),
+            int.parse(partsA[1]),
+            int.parse(partsA[0]),
+          );
+          final dtB = DateTime(
+            int.parse(partsB[2]),
+            int.parse(partsB[1]),
+            int.parse(partsB[0]),
+          );
           return dtA.compareTo(dtB);
         } catch (_) {
           return a.date.compareTo(b.date);
@@ -129,8 +148,16 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
         final double qtyB = double.tryParse(b.returned) ?? 0.0;
         return qtyA.compareTo(qtyB);
       case 'amountRefunded':
-        final double amtA = double.tryParse(a.amountRefunded.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
-        final double amtB = double.tryParse(b.amountRefunded.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+        final double amtA =
+            double.tryParse(
+              a.amountRefunded.replaceAll(RegExp(r'[^0-9.]'), ''),
+            ) ??
+            0.0;
+        final double amtB =
+            double.tryParse(
+              b.amountRefunded.replaceAll(RegExp(r'[^0-9.]'), ''),
+            ) ??
+            0.0;
         return amtA.compareTo(amtB);
       default:
         return 0;
@@ -177,7 +204,11 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
   List<_SalesReturnRow> _filteredRows(List<_SalesReturnRow> rows) {
     final list = _selectedView == 'All'
         ? List<_SalesReturnRow>.from(rows)
-        : rows.where((r) => r.status.toLowerCase() == _selectedView.toLowerCase()).toList();
+        : rows
+              .where(
+                (r) => r.status.toLowerCase() == _selectedView.toLowerCase(),
+              )
+              .toList();
     list.sort((a, b) {
       final cmp = _compare(a, b, _sortColumn);
       return _sortAscending ? cmp : -cmp;
@@ -249,7 +280,8 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
   }
 
   void _showColumnMenu(BuildContext context) {
-    final box = _columnSettingsKey.currentContext?.findRenderObject() as RenderBox?;
+    final box =
+        _columnSettingsKey.currentContext?.findRenderObject() as RenderBox?;
     final screenWidth = MediaQuery.of(context).size.width;
     double menuTop = 148;
     double menuLeft = 14;
@@ -347,7 +379,17 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
           columns: _columns,
           onSave: (columns) {
             setState(() {
-              _columns = columns.map((c) => ColumnConfig(id: c.id, label: c.label, isVisible: c.isVisible, orderIndex: c.orderIndex, isLocked: c.isLocked)).toList();
+              _columns = columns
+                  .map(
+                    (c) => ColumnConfig(
+                      id: c.id,
+                      label: c.label,
+                      isVisible: c.isVisible,
+                      orderIndex: c.orderIndex,
+                      isLocked: c.isLocked,
+                    ),
+                  )
+                  .toList();
             });
             Navigator.of(dialogContext, rootNavigator: true).pop();
           },
@@ -394,7 +436,7 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
           child: Stack(
             children: [
               Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildToolbar(context),
                   const Divider(height: 1, color: AppTheme.borderLight),
@@ -402,13 +444,13 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
                     child: returnsAsync.isLoading
                         ? const _SalesReturnsReportSkeleton()
                         : returnsAsync.hasError
-                            ? Center(
-                                child: Text(
-                                  'Failed to load sales returns',
-                                  style: TextStyle(color: AppTheme.errorRed),
-                                ),
-                              )
-                            : _buildFullTable(visibleColumns, tableWidth, rows),
+                        ? Center(
+                            child: Text(
+                              'Failed to load sales returns',
+                              style: TextStyle(color: AppTheme.errorRed),
+                            ),
+                          )
+                        : _buildFullTable(visibleColumns, tableWidth, rows),
                   ),
                 ],
               ),
@@ -441,8 +483,10 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               GestureDetector(
-                                onTap: () => setState(() =>
-                                    _favoritesExpanded = !_favoritesExpanded),
+                                onTap: () => setState(
+                                  () =>
+                                      _favoritesExpanded = !_favoritesExpanded,
+                                ),
                                 child: _DropdownSectionHeader(
                                   label: 'FAVORITES',
                                   count: _starredViews.length,
@@ -450,23 +494,29 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
                                   expanded: _favoritesExpanded,
                                 ),
                               ),
-                              if (_favoritesExpanded && _starredViews.isNotEmpty)
+                              if (_favoritesExpanded &&
+                                  _starredViews.isNotEmpty)
                                 ..._viewOptions
                                     .where((opt) => _starredViews.contains(opt))
-                                    .map((opt) => _ViewFilterOption(
-                                          label: opt,
-                                          selected: opt == _selectedView,
-                                          starred: true,
-                                          onStarTap: () => setState(
-                                              () => _starredViews.remove(opt)),
-                                          onTap: () => setState(() {
-                                            _selectedView = opt;
-                                            _dropdownOpen = false;
-                                          }),
-                                        )),
+                                    .map(
+                                      (opt) => _ViewFilterOption(
+                                        label: opt,
+                                        selected: opt == _selectedView,
+                                        starred: true,
+                                        onStarTap: () => setState(
+                                          () => _starredViews.remove(opt),
+                                        ),
+                                        onTap: () => setState(() {
+                                          _selectedView = opt;
+                                          _dropdownOpen = false;
+                                        }),
+                                      ),
+                                    ),
                               GestureDetector(
-                                onTap: () => setState(() =>
-                                    _defaultFiltersExpanded = !_defaultFiltersExpanded),
+                                onTap: () => setState(
+                                  () => _defaultFiltersExpanded =
+                                      !_defaultFiltersExpanded,
+                                ),
                                 child: _DropdownSectionHeader(
                                   label: 'DEFAULT FILTERS',
                                   count: _viewOptions.length,
@@ -519,7 +569,9 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _selectedView == 'All' ? 'Sales Returns Report' : '$_selectedView Sales Returns',
+                  _selectedView == 'All'
+                      ? 'Sales Returns Report'
+                      : '$_selectedView Sales Returns',
                   style: AppTheme.pageTitle.copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -559,8 +611,11 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              child: const Icon(LucideIcons.moreHorizontal,
-                  size: 18, color: AppTheme.textPrimary),
+              child: const Icon(
+                LucideIcons.moreHorizontal,
+                size: 18,
+                color: AppTheme.textPrimary,
+              ),
             ),
           ),
         ],
@@ -568,90 +623,98 @@ class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage>
     );
   }
 
-  Widget _buildFullTable(List<ColumnConfig> visibleColumns, double tableWidth, List<_SalesReturnRow> rows) {
+  Widget _buildFullTable(
+    List<ColumnConfig> visibleColumns,
+    double tableWidth,
+    List<_SalesReturnRow> rows,
+  ) {
     final rowCount = rows.length;
-    final allSelected = _selectedIndices.isNotEmpty && _selectedIndices.length == rowCount;
-    final someSelected = _selectedIndices.isNotEmpty && _selectedIndices.length < rowCount;
+    final allSelected =
+        _selectedIndices.isNotEmpty && _selectedIndices.length == rowCount;
+    final someSelected =
+        _selectedIndices.isNotEmpty && _selectedIndices.length < rowCount;
     final hasSelection = _selectedIndices.isNotEmpty;
     return Scrollbar(
       controller: _hScrollController,
       thumbVisibility: true,
       trackVisibility: true,
       child: SingleChildScrollView(
-      controller: _hScrollController,
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minWidth: MediaQuery.of(context).size.width,
-        ),
-        child: SizedBox(
-          width: tableWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _TableHeader(
-                columns: visibleColumns,
-                colWidths: _colWidths,
-                columnMenuOpen: _columnMenuOpen,
-                onColumnMenuTap: () => _showColumnMenu(context),
-                textMode: _textMode,
-                sortColumn: _sortColumn,
-                sortAscending: _sortAscending,
-                onColumnResize: _onColumnResize,
-                onSort: (colId) => setState(() {
-                  if (_sortColumn == colId) {
-                    _sortAscending = !_sortAscending;
-                  } else {
-                    _sortColumn = colId;
-                    _sortAscending = true;
-                  }
-                }),
-                columnSettingsKey: _columnSettingsKey,
-                allSelected: allSelected,
-                someSelected: someSelected,
-                hasSelection: hasSelection,
-                onSelectAll: (v) => setState(() {
-                  if (v == true) {
-                    _selectedIndices.addAll(List.generate(rowCount, (i) => i));
-                  } else {
-                    _selectedIndices.clear();
-                  }
-                }),
-              ),
-              const Divider(height: 1, color: AppTheme.borderLight),
-              Expanded(
-                child: ListView.separated(
-                  padding: EdgeInsets.zero,
-                  itemCount: rows.length,
-                  separatorBuilder: (_, __) =>
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                  itemBuilder: (context, index) {
-                    final row = rows[index];
-                    return _TableRow(
-                      row: row,
-                      columns: visibleColumns,
-                      colWidths: _colWidths,
-                      textMode: _textMode,
-                      selected: _selectedIndices.contains(index),
-                      hasSelection: hasSelection,
-                      onChanged: (v) => _toggleRow(index, v),
-                      onTap: () {
-                        context.go(
-                          Uri(
-                            path: AppRoutes.salesReturnsOverview,
-                            queryParameters: {'rma': row.rmaNumber},
-                          ).toString(),
-                        );
-                      },
-                    );
-                  },
+        controller: _hScrollController,
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: MediaQuery.of(context).size.width,
+          ),
+          child: SizedBox(
+            width: tableWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _TableHeader(
+                  columns: visibleColumns,
+                  colWidths: _colWidths,
+                  columnMenuOpen: _columnMenuOpen,
+                  onColumnMenuTap: () => _showColumnMenu(context),
+                  textMode: _textMode,
+                  sortColumn: _sortColumn,
+                  sortAscending: _sortAscending,
+                  onColumnResize: _onColumnResize,
+                  onSort: (colId) => setState(() {
+                    if (_sortColumn == colId) {
+                      _sortAscending = !_sortAscending;
+                    } else {
+                      _sortColumn = colId;
+                      _sortAscending = true;
+                    }
+                  }),
+                  columnSettingsKey: _columnSettingsKey,
+                  allSelected: allSelected,
+                  someSelected: someSelected,
+                  hasSelection: hasSelection,
+                  onSelectAll: (v) => setState(() {
+                    if (v == true) {
+                      _selectedIndices.addAll(
+                        List.generate(rowCount, (i) => i),
+                      );
+                    } else {
+                      _selectedIndices.clear();
+                    }
+                  }),
                 ),
-              ),
-            ],
+                const Divider(height: 1, color: AppTheme.borderLight),
+                Expanded(
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    itemCount: rows.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      return _TableRow(
+                        row: row,
+                        columns: visibleColumns,
+                        colWidths: _colWidths,
+                        textMode: _textMode,
+                        selected: _selectedIndices.contains(index),
+                        hasSelection: hasSelection,
+                        onChanged: (v) => _toggleRow(index, v),
+                        onTap: () {
+                          context.go(
+                            Uri(
+                              path: AppRoutes.salesReturnsOverview,
+                              queryParameters: {'rma': row.rmaNumber},
+                            ).toString(),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 }
@@ -664,7 +727,7 @@ class _SalesReturnsReportSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Toolbar skeleton
         Container(
@@ -696,12 +759,18 @@ class _SalesReturnsReportSkeleton extends StatelessWidget {
           child: Row(
             children: [
               const SizedBox(width: 60),
-              ...List.generate(8, (i) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Skeleton(width: [80, 100, 120, 140, 80, 100, 80, 80][i].toDouble(), height: 13),
+              ...List.generate(
+                8,
+                (i) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Skeleton(
+                      width: [80, 100, 120, 140, 80, 100, 80, 80][i].toDouble(),
+                      height: 13,
+                    ),
+                  ),
                 ),
-              )),
+              ),
             ],
           ),
         ),
@@ -717,15 +786,27 @@ class _SalesReturnsReportSkeleton extends StatelessWidget {
               child: Row(
                 children: [
                   const SizedBox(width: 60),
-                  ...List.generate(8, (i) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Skeleton(
-                        width: [60.0, 90.0, 80.0, 140.0, 70.0, 80.0, 70.0, 70.0][i],
-                        height: 13,
+                  ...List.generate(
+                    8,
+                    (i) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Skeleton(
+                          width: [
+                            60.0,
+                            90.0,
+                            80.0,
+                            140.0,
+                            70.0,
+                            80.0,
+                            70.0,
+                            70.0,
+                          ][i],
+                          height: 13,
+                        ),
                       ),
                     ),
-                  )),
+                  ),
                 ],
               ),
             ),
@@ -814,9 +895,8 @@ class _TableHeader extends StatelessWidget {
       constraints: isWrap ? const BoxConstraints(minHeight: 40) : null,
       color: AppTheme.bgLight,
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: isWrap ? 10 : 0),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!hasSelection)
               SizedBox(
@@ -846,7 +926,10 @@ class _TableHeader extends StatelessWidget {
                   onChanged: (v) => onSelectAll(allSelected ? false : true),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   activeColor: AppTheme.primaryBlue,
-                  side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
+                  side: const BorderSide(
+                    color: AppTheme.borderLight,
+                    width: 1.5,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -863,7 +946,6 @@ class _TableHeader extends StatelessWidget {
               ),
           ],
         ),
-      ),
     );
   }
 }
@@ -1055,19 +1137,23 @@ class _TableRowState extends State<_TableRow> {
       case 'date':
         return _BodyText(widget.row.date, textMode: widget.textMode);
       case 'rmaNumber':
-        return _BodyText(widget.row.rmaNumber,
-            color: AppTheme.primaryBlueDark,
-            fontWeight: FontWeight.w600,
-            textMode: widget.textMode);
+        return _BodyText(
+          widget.row.rmaNumber,
+          color: AppTheme.primaryBlueDark,
+          fontWeight: FontWeight.w600,
+          textMode: widget.textMode,
+        );
       case 'salesOrderNumber':
         return const SizedBox.shrink();
       case 'customerName':
         return _BodyText(widget.row.customerName, textMode: widget.textMode);
       case 'status':
-        return _BodyText(widget.row.status,
-            color: AppTheme.primaryBlue,
-            fontWeight: FontWeight.w500,
-            textMode: widget.textMode);
+        return _BodyText(
+          widget.row.status,
+          color: AppTheme.primaryBlue,
+          fontWeight: FontWeight.w500,
+          textMode: widget.textMode,
+        );
       case 'receiveStatus':
         return _BodyText(
           widget.row.receiveStatus,
@@ -1107,10 +1193,14 @@ class _TableRowState extends State<_TableRow> {
               : _hovered
               ? AppTheme.primaryBlue.withValues(alpha: 0.03)
               : Colors.transparent,
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: isWrap ? 10 : 0),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: isWrap ? 10 : 0,
+          ),
           child: Row(
-            crossAxisAlignment:
-                isWrap ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+            crossAxisAlignment: isWrap
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.center,
             children: [
               if (!widget.hasSelection) const SizedBox(width: 28),
               SizedBox(
@@ -1124,7 +1214,10 @@ class _TableRowState extends State<_TableRow> {
                       onChanged: widget.onChanged,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       activeColor: AppTheme.primaryBlue,
-                      side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
+                      side: const BorderSide(
+                        color: AppTheme.borderLight,
+                        width: 1.5,
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
@@ -1142,7 +1235,6 @@ class _TableRowState extends State<_TableRow> {
     );
   }
 }
-
 
 class _BodyText extends StatelessWidget {
   const _BodyText(
@@ -1198,26 +1290,31 @@ class _DropdownSectionHeader extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textSecondary,
-                  letterSpacing: 0.4,
-                )),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textSecondary,
+                letterSpacing: 0.4,
+              ),
+            ),
           ),
           if (count > 0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                  color: countColor,
-                  borderRadius: BorderRadius.circular(10)),
-              child: Text('$count',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  )),
+                color: countColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ),
         ],
       ),
@@ -1259,8 +1356,8 @@ class _ViewFilterOptionState extends State<_ViewFilterOption> {
           color: widget.selected
               ? AppTheme.primaryBlue.withValues(alpha: 0.08)
               : _hovered
-                  ? const Color(0xFFF3F4F6)
-                  : Colors.transparent,
+              ? const Color(0xFFF3F4F6)
+              : Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(
             children: [
@@ -1269,8 +1366,9 @@ class _ViewFilterOptionState extends State<_ViewFilterOption> {
                   widget.label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        widget.selected ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: widget.selected
+                        ? FontWeight.w600
+                        : FontWeight.w400,
                     color: widget.selected
                         ? AppTheme.primaryBlueDark
                         : AppTheme.textPrimary,
@@ -1282,7 +1380,9 @@ class _ViewFilterOptionState extends State<_ViewFilterOption> {
                 child: Icon(
                   widget.starred ? LucideIcons.star : LucideIcons.star,
                   size: 14,
-                  color: widget.starred ? Colors.amber : const Color(0xFFD1D5DB),
+                  color: widget.starred
+                      ? Colors.amber
+                      : const Color(0xFFD1D5DB),
                 ),
               ),
             ],
@@ -1394,17 +1494,17 @@ class _SrMoreMenuState extends State<_SrMoreMenu> {
   ];
 
   BoxDecoration get _cardDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppTheme.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.textPrimary.withValues(alpha: 0.12),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(6),
+    border: Border.all(color: AppTheme.borderLight),
+    boxShadow: [
+      BoxShadow(
+        color: AppTheme.textPrimary.withValues(alpha: 0.12),
+        blurRadius: 14,
+        offset: const Offset(0, 6),
+      ),
+    ],
+  );
 
   Widget _menuItem({
     required String label,
@@ -1427,9 +1527,11 @@ class _SrMoreMenuState extends State<_SrMoreMenu> {
         ),
         child: Row(
           children: [
-            Icon(icon,
-                size: 15,
-                color: showActive ? Colors.white : AppTheme.textSecondary),
+            Icon(
+              icon,
+              size: 15,
+              color: showActive ? Colors.white : AppTheme.textSecondary,
+            ),
             const SizedBox(width: 9),
             Expanded(
               child: Text(
@@ -1442,9 +1544,11 @@ class _SrMoreMenuState extends State<_SrMoreMenu> {
               ),
             ),
             if (hasChevron)
-              Icon(LucideIcons.chevronRight,
-                  size: 14,
-                  color: showActive ? Colors.white : AppTheme.textSecondary),
+              Icon(
+                LucideIcons.chevronRight,
+                size: 14,
+                color: showActive ? Colors.white : AppTheme.textSecondary,
+              ),
           ],
         ),
       ),
@@ -1506,7 +1610,9 @@ class _SrMoreMenuState extends State<_SrMoreMenu> {
                         onTap: () {
                           Navigator.of(context).pop();
                           ZerpaiToast.success(
-                              context, 'Exporting Sales Return...');
+                            context,
+                            'Exporting Sales Return...',
+                          );
                         },
                       ),
                       _SubmenuItem(
@@ -1650,10 +1756,7 @@ class _SrSortOptionState extends State<_SrSortOption> {
 }
 
 class _SubmenuItem extends StatefulWidget {
-  const _SubmenuItem({
-    required this.label,
-    required this.onTap,
-  });
+  const _SubmenuItem({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;

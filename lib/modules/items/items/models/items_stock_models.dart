@@ -238,7 +238,8 @@ class TransactionData {
         status: json['status'] ?? '',
         documentType: json['documentType'] ?? json['type'] ?? '',
         reference: json['reference'],
-        journalAccountId: json['journalAccountId'] ?? json['journal_account_id'],
+        journalAccountId:
+            json['journalAccountId'] ?? json['journal_account_id'],
         journalAccountName:
             json['journalAccountName'] ??
             json['journal_account_name'] ??

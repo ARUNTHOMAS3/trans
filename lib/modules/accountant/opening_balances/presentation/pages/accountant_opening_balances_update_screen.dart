@@ -51,19 +51,21 @@ class _OpeningBalancesUpdateScreenState
         final initialDebit = openingState.debitBalances[account.id] ?? 0.0;
         final initialCredit = openingState.creditBalances[account.id] ?? 0.0;
 
-        _debitControllers[account.id] = TextEditingController(
-          text: initialDebit > 0 ? initialDebit.toStringAsFixed(2) : '',
-        )..addListener(() {
-            _calculateTotals();
-            _onFieldChanged();
-          });
+        _debitControllers[account.id] =
+            TextEditingController(
+              text: initialDebit > 0 ? initialDebit.toStringAsFixed(2) : '',
+            )..addListener(() {
+              _calculateTotals();
+              _onFieldChanged();
+            });
 
-        _creditControllers[account.id] = TextEditingController(
-          text: initialCredit > 0 ? initialCredit.toStringAsFixed(2) : '',
-        )..addListener(() {
-            _calculateTotals();
-            _onFieldChanged();
-          });
+        _creditControllers[account.id] =
+            TextEditingController(
+              text: initialCredit > 0 ? initialCredit.toStringAsFixed(2) : '',
+            )..addListener(() {
+              _calculateTotals();
+              _onFieldChanged();
+            });
       }
     }
   }
@@ -125,42 +127,42 @@ class _OpeningBalancesUpdateScreenState
           Expanded(
             child: leafAccounts.isEmpty
                 ? accountsState.isLoading
-                    ? Skeletonizer(
-                        enabled: true,
-                        ignoreContainers: true,
-                        child: ListView.builder(
-                          itemCount: 10,
-                          itemBuilder: (_, __) => const ListTile(
-                            title: Text('Account name placeholder'),
-                            trailing: SizedBox(width: 120, height: 36),
+                      ? Skeletonizer(
+                          enabled: true,
+                          ignoreContainers: true,
+                          child: ListView.builder(
+                            itemCount: 10,
+                            itemBuilder: (_, __) => const ListTile(
+                              title: Text('Account name placeholder'),
+                              trailing: SizedBox(width: 120, height: 36),
+                            ),
                           ),
-                        ),
-                      )
-                    : Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              LucideIcons.list,
-                              size: 48,
-                              color: AppTheme.textMuted,
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'No leaf accounts found.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                LucideIcons.list,
+                                size: 48,
+                                color: AppTheme.textMuted,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Ensure you have leaf accounts in your Chart of Accounts.',
-                              style: TextStyle(color: AppTheme.textMuted),
-                            ),
-                          ],
-                        ),
-                      )
+                              const SizedBox(height: 16),
+                              const Text(
+                                'No leaf accounts found.',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Ensure you have leaf accounts in your Chart of Accounts.',
+                                style: TextStyle(color: AppTheme.textMuted),
+                              ),
+                            ],
+                          ),
+                        )
                 : _buildEditTable(leafAccounts),
           ),
           _buildFooter(),
@@ -456,5 +458,3 @@ class _OpeningBalancesUpdateScreenState
     }
   }
 }
-
-

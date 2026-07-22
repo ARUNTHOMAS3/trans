@@ -26,7 +26,11 @@ class AssemblyListScreen extends StatelessWidget {
                 onPressed: () => context.pushNamed(
                   AppRoutes.assembliesCreate,
                   pathParameters: {
-                    'orgSystemId': GoRouterState.of(context).pathParameters['orgSystemId'] ?? '',
+                    'orgSystemId':
+                        GoRouterState.of(
+                          context,
+                        ).pathParameters['orgSystemId'] ??
+                        '',
                   },
                 ),
               ),

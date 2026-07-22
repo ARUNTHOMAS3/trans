@@ -71,7 +71,9 @@ class ZRowActions extends StatelessWidget {
             items.add(_buildItem(_ActionType.edit, LucideIcons.pencil, 'Edit'));
           }
           if (onDuplicate != null) {
-            items.add(_buildItem(_ActionType.duplicate, LucideIcons.copy, 'Duplicate'));
+            items.add(
+              _buildItem(_ActionType.duplicate, LucideIcons.copy, 'Duplicate'),
+            );
           }
 
           if (additionalActions != null) {

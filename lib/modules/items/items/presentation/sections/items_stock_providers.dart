@@ -37,18 +37,19 @@ final itemBatchesProvider =
     );
 
 // Provider for batch numbers shown in dropdowns.
-final itemBatchNumbersProvider = FutureProvider.family<List<String>, String>(
-  (ref, itemId) async {
-    final repository = ref.watch(itemRepositoryProvider);
-    final batches = await repository.getItemBatches(itemId);
-    return batches
-        .map((batch) => batch.batchReference.trim())
-        .where((batch) => batch.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-  },
-);
+final itemBatchNumbersProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  itemId,
+) async {
+  final repository = ref.watch(itemRepositoryProvider);
+  final batches = await repository.getItemBatches(itemId);
+  return batches
+      .map((batch) => batch.batchReference.trim())
+      .where((batch) => batch.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+});
 
 class ItemBatchesNotifier extends FamilyAsyncNotifier<List<BatchData>, String> {
   @override

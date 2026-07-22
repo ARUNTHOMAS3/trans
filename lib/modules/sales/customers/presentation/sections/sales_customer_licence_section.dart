@@ -318,7 +318,4 @@ extension _LicenceSection on _SalesCustomerCreateScreenState {
       ),
     );
   }
-
 }
-
-

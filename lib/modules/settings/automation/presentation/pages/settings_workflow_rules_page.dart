@@ -215,10 +215,18 @@ class SettingsWorkflowRulesPage extends ConsumerWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _MetricCard(_MetricCardData('Esc Hotspots', ops.escalationHotspots)),
-              _MetricCard(_MetricCardData('SLA Hotspots', ops.slaBreachHotspots)),
-              _MetricCard(_MetricCardData('Blocked Hotspots', ops.blockedHotspots)),
-              _MetricCard(_MetricCardData('Unstable Branches', ops.unstableBranches)),
+              _MetricCard(
+                _MetricCardData('Esc Hotspots', ops.escalationHotspots),
+              ),
+              _MetricCard(
+                _MetricCardData('SLA Hotspots', ops.slaBreachHotspots),
+              ),
+              _MetricCard(
+                _MetricCardData('Blocked Hotspots', ops.blockedHotspots),
+              ),
+              _MetricCard(
+                _MetricCardData('Unstable Branches', ops.unstableBranches),
+              ),
             ],
           ),
           const SizedBox(height: 20),

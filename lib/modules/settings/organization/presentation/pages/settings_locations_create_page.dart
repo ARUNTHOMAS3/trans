@@ -26,8 +26,6 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/phone_input_field.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
-
-
 // ─── Sidebar nav (mirrors settings_locations_page) ────────────────────────────
 
 class _NavSection {
@@ -170,7 +168,6 @@ class _SeriesModuleRow {
   }
 }
 
-
 class _AccountOption {
   final String id;
   final String name;
@@ -269,8 +266,7 @@ class _SettingsLocationsCreatePageState
   String? _selectedDefaultSeriesId;
   List<Map<String, String>> _gstRegistrationTypeOptions =
       <Map<String, String>>[];
-  List<Map<String, String>> _transactionModuleOptions =
-      <Map<String, String>>[];
+  List<Map<String, String>> _transactionModuleOptions = <Map<String, String>>[];
 
   List<Map<String, String>> _withLocationTransactionRows(
     List<Map<String, String>> modules,
@@ -621,9 +617,7 @@ class _SettingsLocationsCreatePageState
     setState(() => _isSaving = true);
     try {
       final user = ref.read(authUserProvider);
-      final String orgId = (user?.orgId.isNotEmpty == true)
-          ? user!.orgId
-          : '';
+      final String orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
 
       // Duplicate name check (same org, excluding self when editing)
       final nameCheck = await ref
@@ -1868,7 +1862,9 @@ class _SettingsLocationsCreatePageState
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.successGreen,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -2207,7 +2203,9 @@ class _SettingsLocationsCreatePageState
             }
 
             final compact = segments.isNotEmpty ? segments.first : name;
-            final prefix = compact.length >= 3 ? compact.substring(0, 3) : compact;
+            final prefix = compact.length >= 3
+                ? compact.substring(0, 3)
+                : compact;
             return prefix.toUpperCase();
           }
 
@@ -2381,7 +2379,9 @@ class _SettingsLocationsCreatePageState
                             ),
                             readOnly: true,
                             decoration: _dialogInputDecoration('').copyWith(
-                              hintText: _isBusiness ? 'No branch code' : 'No warehouse code',
+                              hintText: _isBusiness
+                                  ? 'No branch code'
+                                  : 'No warehouse code',
                               filled: true,
                               fillColor: AppTheme.bgLight,
                             ),
@@ -2643,9 +2643,12 @@ class _SettingsLocationsCreatePageState
                                       data: {
                                         'org_id': orgId,
                                         'name': name,
-                                        'code': seriesCodeCtrl.text.trim().isEmpty
+                                        'code':
+                                            seriesCodeCtrl.text.trim().isEmpty
                                             ? null
-                                            : seriesCodeCtrl.text.trim().toUpperCase(),
+                                            : seriesCodeCtrl.text
+                                                  .trim()
+                                                  .toUpperCase(),
                                         'branch_code': _isBusiness
                                             ? (generatedLocationCode.isEmpty
                                                   ? null
@@ -2703,7 +2706,9 @@ class _SettingsLocationsCreatePageState
                                   }
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.successGreen,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,

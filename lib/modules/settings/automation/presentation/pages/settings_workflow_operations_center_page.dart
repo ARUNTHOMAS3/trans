@@ -76,10 +76,8 @@ class _SettingsWorkflowOperationsCenterPageState
             runSpacing: 10,
             children: GovernanceIncidentStatus.values
                 .map(
-                  (status) => _MiniCard(
-                    status.label,
-                    statusPipeline[status] ?? 0,
-                  ),
+                  (status) =>
+                      _MiniCard(status.label, statusPipeline[status] ?? 0),
                 )
                 .toList(growable: false),
           ),
@@ -121,14 +119,16 @@ class _SettingsWorkflowOperationsCenterPageState
             ),
           ),
           const SizedBox(height: 8),
-          ...ranking.take(5).map(
-            (r) => Text(
-              'B ${r.branchId} • ${r.riskBand} • score ${r.score} • '
-              'sla ${(r.slaBreachRatio * 100).toStringAsFixed(0)}% • '
-              'esc ${r.escalationDensity.toStringAsFixed(2)}',
-              style: const TextStyle(color: AppTheme.textSecondary),
-            ),
-          ),
+          ...ranking
+              .take(5)
+              .map(
+                (r) => Text(
+                  'B ${r.branchId} • ${r.riskBand} • score ${r.score} • '
+                  'sla ${(r.slaBreachRatio * 100).toStringAsFixed(0)}% • '
+                  'esc ${r.escalationDensity.toStringAsFixed(2)}',
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+              ),
           const SizedBox(height: 16),
           Text(
             'Policy Friction Top 5',

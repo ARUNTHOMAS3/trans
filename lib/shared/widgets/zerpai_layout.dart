@@ -175,14 +175,16 @@ class ZerpaiLayout extends StatelessWidget {
                               children: [
                                 Padding(
                                   padding: titlePadding ?? EdgeInsets.zero,
-                                  child: titleWidget ?? Text(
-                                    pageTitle,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
+                                  child:
+                                      titleWidget ??
+                                      Text(
+                                        pageTitle,
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
                                 ),
                                 if (actions != null && actions!.isNotEmpty) ...[
                                   const SizedBox(height: 12),
@@ -199,16 +201,18 @@ class ZerpaiLayout extends StatelessWidget {
                                 Expanded(
                                   child: Padding(
                                     padding: titlePadding ?? EdgeInsets.zero,
-                                    child: titleWidget ?? Text(
-                                      pageTitle,
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    child:
+                                        titleWidget ??
+                                        Text(
+                                          pageTitle,
+                                          style: const TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                   ),
                                 ),
                                 if (actions != null && actions!.isNotEmpty) ...[
@@ -217,7 +221,8 @@ class ZerpaiLayout extends StatelessWidget {
                                     spacing: 12,
                                     runSpacing: 8,
                                     alignment: WrapAlignment.end,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     children: actions!,
                                   ),
                                 ],

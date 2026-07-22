@@ -215,10 +215,7 @@ class LicenseRegistrationSection extends StatelessWidget {
         ),
 
         // Fields shown only when registered
-        if (isRegistered) ...[
-          kZerpaiFormDivider,
-          ..._buildFields(),
-        ],
+        if (isRegistered) ...[kZerpaiFormDivider, ..._buildFields()],
       ],
     );
   }
@@ -237,9 +234,11 @@ class LicenseRegistrationSection extends StatelessWidget {
   // ── Drug fields ───────────────────────────────────────────────────────────────
 
   List<Widget> _buildDrugFields() {
-    final showRetail = drugLicenceType == 'Retail' ||
+    final showRetail =
+        drugLicenceType == 'Retail' ||
         drugLicenceType == 'Wholesale and Retail';
-    final showWholesale = drugLicenceType == 'Wholesale' ||
+    final showWholesale =
+        drugLicenceType == 'Wholesale' ||
         drugLicenceType == 'Wholesale and Retail';
 
     return [

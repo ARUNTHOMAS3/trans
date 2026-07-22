@@ -151,7 +151,6 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
     _currentCount = count;
     _items = count.items.map((it) => Map<String, dynamic>.from(it)).toList();
 
-
     // Ensure unit field exists (box vs other units)
     for (var it in _items) {
       if (it['unit'] == null) {
@@ -241,11 +240,12 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
         final binData = row['bin_master'] as Map<String, dynamic>?;
         final binCode = (binData?['bin_code'] ?? '').toString().trim();
         final divisionKey = 'bin::$binId';
-        productIdsByDivision.putIfAbsent(divisionKey, () => <String>{}).add(
-          productId,
-        );
-        labelsByDivision[divisionKey] =
-            binCode.isNotEmpty ? binCode : 'Unnamed Bin';
+        productIdsByDivision
+            .putIfAbsent(divisionKey, () => <String>{})
+            .add(productId);
+        labelsByDivision[divisionKey] = binCode.isNotEmpty
+            ? binCode
+            : 'Unnamed Bin';
       }
 
       for (final raw in stockRows as List<dynamic>) {
@@ -351,7 +351,7 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
       _binSearchController.clear();
       _binSearchQuery = '';
       _showSearch = false;
-      
+
       // Refresh the uncounted items snapshot so saved items now leave the list
       _initiallyUncountedItemNames.clear();
       for (var it in _items) {
@@ -414,7 +414,7 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
               constraints: const BoxConstraints(maxWidth: 660),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Title Header
                   Padding(
@@ -453,7 +453,7 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
                           'Some items in your stock count are uncounted. Do you want to mark them with a quantity of zero and submit?',
@@ -495,10 +495,13 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
                                     children: [
                                       TextSpan(
                                         text: 'NOTE: ',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                       TextSpan(
-                                        text: "Once you submit this stock count, you'll not be able to edit it.",
+                                        text:
+                                            "Once you submit this stock count, you'll not be able to edit it.",
                                       ),
                                     ],
                                   ),
@@ -543,7 +546,9 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
                               },
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF374151),
-                                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                                side: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(4),
                                 ),
@@ -582,8 +587,9 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
       item['batches'] ?? [],
     );
     final selectedBinId = _divisionBinId(_selectedDivision);
-    final selectedBinCode =
-        selectedBinId == null ? null : _binLabelsByDivision[_selectedDivision!];
+    final selectedBinCode = selectedBinId == null
+        ? null
+        : _binLabelsByDivision[_selectedDivision!];
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -598,8 +604,7 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
           selectedBinId: selectedBinId,
           selectedBinCode: selectedBinCode,
           systemQty: (item['systemQty'] as num? ?? 0).toInt(),
-          locationName:
-              _currentCount.location ?? 'ZABNIX PRIVATE LIMITED',
+          locationName: _currentCount.location ?? 'ZABNIX PRIVATE LIMITED',
           initialMarkZero: item['countedQty'] == 0.0,
         );
       },
@@ -702,24 +707,26 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
     final trackedBinItems = _items
         .where((it) => (it['track_bin_location'] as bool? ?? false) == true)
         .toList();
-    final binDivisionEntries = _binProductIdsByDivision.entries
-        .map((entry) {
-          final divisionItems = trackedBinItems
-              .where((item) {
-                final productId = item['product_id']?.toString().trim() ?? '';
-                return entry.value.contains(productId);
-              })
-              .map((item) => _buildDivisionDisplayItem(item, entry.key))
-              .toList();
-          return MapEntry(entry.key, divisionItems);
-        })
-        .where((entry) => entry.value.isNotEmpty)
-        .toList()
-      ..sort((a, b) {
-        final aLabel = _binLabelsByDivision[a.key] ?? a.key;
-        final bLabel = _binLabelsByDivision[b.key] ?? b.key;
-        return aLabel.compareTo(bLabel);
-      });
+    final binDivisionEntries =
+        _binProductIdsByDivision.entries
+            .map((entry) {
+              final divisionItems = trackedBinItems
+                  .where((item) {
+                    final productId =
+                        item['product_id']?.toString().trim() ?? '';
+                    return entry.value.contains(productId);
+                  })
+                  .map((item) => _buildDivisionDisplayItem(item, entry.key))
+                  .toList();
+              return MapEntry(entry.key, divisionItems);
+            })
+            .where((entry) => entry.value.isNotEmpty)
+            .toList()
+          ..sort((a, b) {
+            final aLabel = _binLabelsByDivision[a.key] ?? a.key;
+            final bLabel = _binLabelsByDivision[b.key] ?? b.key;
+            return aLabel.compareTo(bLabel);
+          });
 
     final nonBinUncounted = nonBinTracked
         .where((it) => it['countedQty'] == null)
@@ -740,9 +747,10 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
             (it) => (it['name'] as String).toLowerCase().contains(binSearch),
           );
       for (final entry in binDivisionEntries) {
-        final label =
-            (_binLabelsByDivision[entry.key] ?? entry.key).toLowerCase();
-        final matches = label.contains(binSearch) ||
+        final label = (_binLabelsByDivision[entry.key] ?? entry.key)
+            .toLowerCase();
+        final matches =
+            label.contains(binSearch) ||
             entry.value.any(
               (it) => (it['name'] as String).toLowerCase().contains(binSearch),
             );
@@ -757,9 +765,7 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
     // Filter divisions by tab (Uncounted Bins)
     if (_activeBinTab == 0) {
       if (nonBinUncounted == 0) showNonBin = false;
-      visibleBinKeys.removeWhere(
-        (key) => (binUncountedCounts[key] ?? 0) == 0,
-      );
+      visibleBinKeys.removeWhere((key) => (binUncountedCounts[key] ?? 0) == 0);
     }
 
     final uncountedBinsCount =
@@ -780,22 +786,19 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
       if (_selectedDivision == 'Non-Bin tracked Items') {
         divisionItems = nonBinTracked;
       } else {
-        divisionItems =
-            binDivisionEntries
-                .firstWhere(
-                  (entry) => entry.key == _selectedDivision,
-                  orElse: () => const MapEntry('', <Map<String, dynamic>>[]),
-                )
-                .value;
+        divisionItems = binDivisionEntries
+            .firstWhere(
+              (entry) => entry.key == _selectedDivision,
+              orElse: () => const MapEntry('', <Map<String, dynamic>>[]),
+            )
+            .value;
       }
     }
-    final selectedDivisionLabel =
-        _selectedDivision == null
-            ? null
-            : (_selectedDivision == 'Non-Bin tracked Items'
-                  ? _selectedDivision
-                  : _binLabelsByDivision[_selectedDivision!] ??
-                      _selectedDivision);
+    final selectedDivisionLabel = _selectedDivision == null
+        ? null
+        : (_selectedDivision == 'Non-Bin tracked Items'
+              ? _selectedDivision
+              : _binLabelsByDivision[_selectedDivision!] ?? _selectedDivision);
 
     // Filter logic on divisionItems (by search query)
     final query = _searchQuery.toLowerCase().trim();
@@ -806,7 +809,9 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
 
     // Tab split: Uncounted = initially uncounted items; All = everything
     final uncountedList = filteredItems
-        .where((it) => _initiallyUncountedItemNames.contains(it['name'] as String))
+        .where(
+          (it) => _initiallyUncountedItemNames.contains(it['name'] as String),
+        )
         .toList();
     final allList = filteredItems;
 
@@ -827,7 +832,7 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
         color: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Location and title row
             Padding(
@@ -1302,122 +1307,108 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
                   ),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Table Header
                     Container(
                       color: const Color(0xFFF9FAFB),
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            const Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  'ITEM DETAILS',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF4B5563),
-                                  ),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            flex: 3,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(
+                                'ITEM DETAILS',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF4B5563),
                                 ),
                               ),
                             ),
-                            Container(
-                              width: 0.5,
-                              color: const Color(0xFFDEE0E4),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    const Text(
-                                      'SYSTEM QUANTITY',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF4B5563),
-                                      ),
+                          ),
+                          Container(width: 0.5, color: const Color(0xFFDEE0E4)),
+                          Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    'SYSTEM QUANTITY',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF4B5563),
                                     ),
-                                    const SizedBox(width: 4),
-                                    ZTooltip(
-                                      message:
-                                          'System Quantity is the physical stock in Zoho Inventory that is available in hand when the stock count is initiated.',
-                                      child: const Icon(
-                                        LucideIcons.helpCircle,
-                                        size: 14,
-                                        color: Color(0xFF9CA3AF),
-                                      ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  ZTooltip(
+                                    message:
+                                        'System Quantity is the physical stock in Zoho Inventory that is available in hand when the stock count is initiated.',
+                                    child: const Icon(
+                                      LucideIcons.helpCircle,
+                                      size: 14,
+                                      color: Color(0xFF9CA3AF),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Container(
-                              width: 0.5,
-                              color: const Color(0xFFDEE0E4),
-                            ),
-                            const Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  'COUNTED SERIALS/BATCHES',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF4B5563),
                                   ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Container(width: 0.5, color: const Color(0xFFDEE0E4)),
+                          const Expanded(
+                            flex: 3,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(
+                                'COUNTED SERIALS/BATCHES',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF4B5563),
                                 ),
                               ),
                             ),
-                            Container(
-                              width: 0.5,
-                              color: const Color(0xFFDEE0E4),
-                            ),
-                            const Expanded(
-                              flex: 2,
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  'COUNTED QTY',
-                                  textAlign: TextAlign.right,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF4B5563),
-                                  ),
+                          ),
+                          Container(width: 0.5, color: const Color(0xFFDEE0E4)),
+                          const Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(
+                                'COUNTED QTY',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF4B5563),
                                 ),
                               ),
                             ),
-                            Container(
-                              width: 0.5,
-                              color: const Color(0xFFDEE0E4),
-                            ),
-                            const Expanded(
-                              flex: 2,
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  'DIFFERENCE',
-                                  textAlign: TextAlign.right,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF4B5563),
-                                  ),
+                          ),
+                          Container(width: 0.5, color: const Color(0xFFDEE0E4)),
+                          const Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(
+                                'DIFFERENCE',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF4B5563),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                     Divider(
@@ -1450,274 +1441,272 @@ class _StockCountPerformPageState extends ConsumerState<StockCountPerformPage> {
                           (it) => it['name'] == item['name'],
                         );
 
-                        return IntrinsicHeight(
-                          child: Row(
-                            children: [
-                              // Item details
-                              Expanded(
-                                flex: 3,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF3F4F6),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          LucideIcons.image,
-                                          size: 18,
-                                          color: Color(0xFF9CA3AF),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          item['name'] ?? '',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF2563EB),
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                        return Row(
+                          children: [
+                            // Item details
+                            Expanded(
+                              flex: 3,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
                                 ),
-                              ),
-                              Container(
-                                width: 0.5,
-                                color: const Color(0xFFDEE0E4),
-                              ),
-                              // System qty
-                              Expanded(
-                                flex: 2,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '$systemQty',
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF3F4F6),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Icon(
+                                        LucideIcons.image,
+                                        size: 18,
+                                        color: Color(0xFF9CA3AF),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        item['name'] ?? '',
                                         style: const TextStyle(
                                           fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          color: Color(0xFF1F2937),
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF2563EB),
                                         ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      const Text(
-                                        'pcs',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Container(
-                                width: 0.5,
-                                color: const Color(0xFFDEE0E4),
+                            ),
+                            Container(
+                              width: 0.5,
+                              color: const Color(0xFFDEE0E4),
+                            ),
+                            // System qty
+                            Expanded(
+                              flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '$systemQty',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    const Text(
+                                      'pcs',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              // Counted serials/batches link
-                              Expanded(
-                                flex: 3,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: (item['track_batches'] as bool? ?? true)
-                                        ? InkWell(
-                                            onTap: () =>
-                                                _openAddBatchesDialog(globalIndex),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  (item['batches'] as List? ?? [])
-                                                          .isEmpty
-                                                      ? '+ Add Batches'
-                                                      : '${(item['batches'] as List? ?? []).length} Batches',
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    color: Color(0xFF2563EB),
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
+                            ),
+                            Container(
+                              width: 0.5,
+                              color: const Color(0xFFDEE0E4),
+                            ),
+                            // Counted serials/batches link
+                            Expanded(
+                              flex: 3,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child:
+                                      (item['track_batches'] as bool? ?? true)
+                                      ? InkWell(
+                                          onTap: () => _openAddBatchesDialog(
+                                            globalIndex,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                (item['batches'] as List? ?? [])
+                                                        .isEmpty
+                                                    ? '+ Add Batches'
+                                                    : '${(item['batches'] as List? ?? []).length} Batches',
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Color(0xFF2563EB),
+                                                  fontWeight: FontWeight.w500,
                                                 ),
-                                                if ((item['batches'] as List? ?? [])
-                                                    .isNotEmpty) ...[
-                                                  const SizedBox(width: 6),
-                                                  const Icon(
-                                                    LucideIcons.pencil,
-                                                    size: 13,
-                                                    color: Color(0xFF2563EB),
-                                                  ),
-                                                ],
+                                              ),
+                                              if ((item['batches'] as List? ??
+                                                      [])
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(width: 6),
+                                                const Icon(
+                                                  LucideIcons.pencil,
+                                                  size: 13,
+                                                  color: Color(0xFF2563EB),
+                                                ),
                                               ],
-                                            ),
-                                          )
-                                        : const Text(
-                                            '-',
-                                            style: TextStyle(
+                                            ],
+                                          ),
+                                        )
+                                      : const Text(
+                                          '-',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF9CA3AF),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 0.5,
+                              color: const Color(0xFFDEE0E4),
+                            ),
+                            // Counted qty
+                            Expanded(
+                              flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                child: (item['track_batches'] as bool? ?? true)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            countedQty != null
+                                                ? countedQty.toStringAsFixed(0)
+                                                : '-',
+                                            textAlign: TextAlign.right,
+                                            style: const TextStyle(
                                               fontSize: 13,
-                                              color: Color(0xFF9CA3AF),
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF1F2937),
                                             ),
                                           ),
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                width: 0.5,
-                                color: const Color(0xFFDEE0E4),
-                              ),
-                              // Counted qty
-                              Expanded(
-                                flex: 2,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  child: (item['track_batches'] as bool? ?? true)
-                                      ? Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          crossAxisAlignment: CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              countedQty != null
-                                                  ? countedQty.toStringAsFixed(0)
-                                                  : '-',
-                                              textAlign: TextAlign.right,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: Color(0xFF1F2937),
+                                          if (countedQty != null)
+                                            const Text(
+                                              'pcs',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
                                               ),
                                             ),
-                                            if (countedQty != null)
-                                              const Text(
-                                                'pcs',
+                                        ],
+                                      )
+                                    : Align(
+                                        alignment: Alignment.centerRight,
+                                        child: _buildCountedQtyInput(
+                                          globalIndex,
+                                          item,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            Container(
+                              width: 0.5,
+                              color: const Color(0xFFDEE0E4),
+                            ),
+                            // Difference
+                            Expanded(
+                              flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                child: difference != null
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                '${difference.abs().toStringAsFixed(0)}',
                                                 style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Color(0xFF6B7280),
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: difference == 0
+                                                      ? const Color(0xFF1F2937)
+                                                      : (difference > 0
+                                                            ? const Color(
+                                                                0xFFEF4444,
+                                                              )
+                                                            : const Color(
+                                                                0xFFEF4444,
+                                                              )),
                                                 ),
                                               ),
-                                          ],
-                                        )
-                                      : Align(
-                                          alignment: Alignment.centerRight,
-                                          child: _buildCountedQtyInput(globalIndex, item),
-                                        ),
-                                ),
-                              ),
-                              Container(
-                                width: 0.5,
-                                color: const Color(0xFFDEE0E4),
-                              ),
-                              // Difference
-                              Expanded(
-                                flex: 2,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  child: difference != null
-                                      ? Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
-                                                Text(
-                                                  '${difference.abs().toStringAsFixed(0)}',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: difference == 0
-                                                        ? const Color(
-                                                            0xFF1F2937,
-                                                          )
-                                                        : (difference > 0
-                                                              ? const Color(
-                                                                  0xFFEF4444,
-                                                                )
-                                                              : const Color(
-                                                                  0xFFEF4444,
-                                                                )),
-                                                  ),
+                                              if (difference != 0) ...[
+                                                const SizedBox(width: 3),
+                                                Icon(
+                                                  difference > 0
+                                                      ? LucideIcons.arrowUp
+                                                      : LucideIcons.arrowDown,
+                                                  size: 14,
+                                                  color: difference > 0
+                                                      ? const Color(0xFFEF4444)
+                                                      : const Color(0xFFEF4444),
                                                 ),
-                                                if (difference != 0) ...[
-                                                  const SizedBox(width: 3),
-                                                  Icon(
-                                                    difference > 0
-                                                        ? LucideIcons.arrowUp
-                                                        : LucideIcons.arrowDown,
-                                                    size: 14,
-                                                    color: difference > 0
+                                              ],
+                                            ],
+                                          ),
+                                          Text(
+                                            'pcs',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: difference == 0
+                                                  ? const Color(0xFF1F2937)
+                                                  : (difference > 0
                                                         ? const Color(
                                                             0xFFEF4444,
                                                           )
                                                         : const Color(
                                                             0xFFEF4444,
-                                                          ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                            Text(
-                                              'pcs',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: difference == 0
-                                                    ? const Color(0xFF1F2937)
-                                                    : (difference > 0
-                                                          ? const Color(
-                                                              0xFFEF4444,
-                                                            )
-                                                          : const Color(
-                                                              0xFFEF4444,
-                                                            )),
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : const Align(
-                                          alignment: Alignment.centerRight,
-                                          child: Text(
-                                            '-',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: Color(0xFF1F2937),
+                                                          )),
                                             ),
                                           ),
+                                        ],
+                                      )
+                                    : const Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          '-',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF1F2937),
+                                          ),
                                         ),
-                                ),
+                                      ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         );
                       },
                     ),
@@ -2014,7 +2003,9 @@ class _AddBatchesDialogState extends State<_AddBatchesDialog> {
 
       var layersQuery = supabase
           .from('batch_stock_layers')
-          .select('batch_id, bin_id, qty, batch_master(batch_no), bin_master(bin_code)')
+          .select(
+            'batch_id, bin_id, qty, batch_master(batch_no), bin_master(bin_code)',
+          )
           .eq('product_id', widget.productId!);
       if (normalizedWarehouseId != null && normalizedWarehouseId.isNotEmpty) {
         layersQuery = layersQuery.eq('warehouse_id', normalizedWarehouseId);
@@ -2060,13 +2051,15 @@ class _AddBatchesDialogState extends State<_AddBatchesDialog> {
       }
       loaded.addAll(aggregated.values);
       loaded.sort((a, b) {
-        final batchCompare = (a['batchNo'] as String? ?? '')
-            .compareTo(b['batchNo'] as String? ?? '');
+        final batchCompare = (a['batchNo'] as String? ?? '').compareTo(
+          b['batchNo'] as String? ?? '',
+        );
         if (batchCompare != 0) {
           return batchCompare;
         }
-        return (a['binCode'] as String? ?? '')
-            .compareTo(b['binCode'] as String? ?? '');
+        return (a['binCode'] as String? ?? '').compareTo(
+          b['binCode'] as String? ?? '',
+        );
       });
 
       for (final row in _batches) {
@@ -2191,486 +2184,512 @@ class _AddBatchesDialogState extends State<_AddBatchesDialog> {
                 child: Padding(
                   padding: EdgeInsets.all(40),
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2A85FB)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF2A85FB),
+                    ),
                   ),
                 ),
               )
             : Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-            // ── Title bar ───────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 20, 16),
-              child: Row(
-                children: [
-                  const Text(
-                    'Add Batches',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827),
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(
-                      LucideIcons.x,
-                      size: 20,
-                      color: Color(0xFFEF4444),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-            // ── Location row (grey strip) ─────────────────────────
-            Container(
-              color: const Color(0xFFF9FAFB),
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.building2,
-                    size: 15,
-                    color: Color(0xFF6B7280),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Location :',
-                    style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    widget.locationName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-            // ── Item name (left) + Total Qty & checkbox (right) ─────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Left: item name
-                  Text(
-                    widget.itemName,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Right: qty + checkbox stacked
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Total Quantity : ${_totalQty.toStringAsFixed(0)} pcs',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: Checkbox(
-                              value: _markCountAsZero,
-                              onChanged: (val) {
-                                setState(() {
-                                  _markCountAsZero = val ?? false;
-                                  if (_markCountAsZero) {
-                                    _showZeroCountWarning = false;
-                                  }
-                                });
-                              },
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              side: const BorderSide(color: Color(0xFFD1D5DB)),
-                              activeColor: AppTheme.primaryBlueDark,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Mark Count Quantity as Zero',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Color(0xFF374151),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const ZTooltip(
-                            message:
-                                'Check this box to confirm that the quantity counted for this item is zero.',
-                            child: Icon(
-                              LucideIcons.helpCircle,
-                              size: 15,
-                              color: Color(0xFF9CA3AF),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
-            if (_showZeroCountWarning) ...[
-              Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  border: Border.all(color: const Color(0xFFFCA5A5)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '• ',
-                      style: TextStyle(
-                        color: Color(0xFFB91C1C),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'You are updating the counted quantity to zero for this item. Check the box Mark Count Quantity as Zero to update the counted quantity to zero.',
-                        style: TextStyle(
-                          color: Color(0xFFB91C1C),
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _showZeroCountWarning = false;
-                        });
-                      },
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: 16,
-                        color: Color(0xFFB91C1C),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
-            ],
-
-            // ── Column headers (grey background) ─────────────────────
-            Container(
-              color: const Color(0xFFF9FAFB),
-              padding: const EdgeInsets.fromLTRB(24, 10, 56, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: _shouldShowBinInput ? 4 : 5,
-                    child: Text(
-                      'BATCH REFERENCE#',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF9CA3AF),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                  if (_shouldShowBinInput) ...const [
-                    SizedBox(width: 8),
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        'BIN',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF9CA3AF),
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'QUANTITY',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF9CA3AF),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Batch input rows ─────────────────────────────────────
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 160),
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
-                  child: Column(
-                    children: [
-                      for (int i = 0; i < _batches.length; i++)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: _shouldShowBinInput ? 4 : 5,
-                                child: _buildBatchField(
-                                  controller: _batchNoControllers[i],
-                                  hint: 'Enter Batch#',
-                                  onChanged: (val) =>
-                                      _batches[i]['batchNo'] = val,
-                                ),
-                              ),
-                              if (_shouldShowBinInput) ...[
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 3,
-                                  child: _buildBatchField(
-                                    controller: _binCodeControllers[i],
-                                    hint: 'Enter Bin',
-                                    onChanged: (val) =>
-                                        _batches[i]['binCode'] = val,
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(width: 8),
-                              Expanded(
-                                flex: 2,
-                                child: _buildBatchField(
-                                  controller: _qtyControllers[i],
-                                  hint: 'Enter Qty',
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _batches[i]['qty'] =
-                                          double.tryParse(val) ?? 0;
-                                    });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              GestureDetector(
-                                onTap: () => _removeRow(i),
-                                child: const Padding(
-                                  padding: EdgeInsets.all(4),
-                                  child: Icon(
-                                    LucideIcons.xCircle,
-                                    size: 20,
-                                    color: Color(0xFFEF4444),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-            // ── + New Batch | Batches added: N ───────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: _addNewRow,
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
+                  // ── Title bar ───────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 20, 16),
+                    child: Row(
                       children: [
-                        Icon(
-                          LucideIcons.plus,
-                          size: 18,
-                          color: Color(0xFF2A85FB),
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'New Batch',
+                        const Text(
+                          'Add Batches',
                           style: TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF2A85FB),
-                            fontWeight: FontWeight.w500,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: const Icon(
+                            LucideIcons.x,
+                            size: 20,
+                            color: Color(0xFFEF4444),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    'Batches added: ${_batches.length}',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: Color(0xFF9CA3AF),
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+
+                  // ── Location row (grey strip) ─────────────────────────
+                  Container(
+                    color: const Color(0xFFF9FAFB),
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.building2,
+                          size: 15,
+                          color: Color(0xFF6B7280),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Location :',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.locationName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-            // ── Action buttons ───────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 50, 24, 22),
-              child: Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      // Synchronize controllers with batches state list
-                      for (int idx = 0; idx < _batches.length; idx++) {
-                        _batches[idx]['batchNo'] = _batchNoControllers[idx].text;
-                        _batches[idx]['binCode'] = widget.selectedBinCode ??
-                            _binCodeControllers[idx].text;
-                        _batches[idx]['bin_id'] = widget.selectedBinId ??
-                            _batches[idx]['bin_id'];
-                        _batches[idx]['qty'] = double.tryParse(_qtyControllers[idx].text) ?? 0.0;
-                      }
+                  // ── Item name (left) + Total Qty & checkbox (right) ─────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left: item name
+                        Text(
+                          widget.itemName,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const Spacer(),
+                        // Right: qty + checkbox stacked
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Total Quantity : ${_totalQty.toStringAsFixed(0)} pcs',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: Checkbox(
+                                    value: _markCountAsZero,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _markCountAsZero = val ?? false;
+                                        if (_markCountAsZero) {
+                                          _showZeroCountWarning = false;
+                                        }
+                                      });
+                                    },
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    side: const BorderSide(
+                                      color: Color(0xFFD1D5DB),
+                                    ),
+                                    activeColor: AppTheme.primaryBlueDark,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Mark Count Quantity as Zero',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const ZTooltip(
+                                  message:
+                                      'Check this box to confirm that the quantity counted for this item is zero.',
+                                  child: Icon(
+                                    LucideIcons.helpCircle,
+                                    size: 15,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  if (_showZeroCountWarning) ...[
+                    Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '• ',
+                            style: TextStyle(
+                              color: Color(0xFFB91C1C),
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Expanded(
+                            child: Text(
+                              'You are updating the counted quantity to zero for this item. Check the box Mark Count Quantity as Zero to update the counted quantity to zero.',
+                              style: TextStyle(
+                                color: Color(0xFFB91C1C),
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _showZeroCountWarning = false;
+                              });
+                            },
+                            child: const Icon(
+                              LucideIcons.x,
+                              size: 16,
+                              color: Color(0xFFB91C1C),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  ],
 
-                      final validBatches = _batches
-                          .where(
-                            (b) =>
-                                (b['batchNo'] as String).trim().isNotEmpty &&
-                                (b['qty'] as num) > 0,
-                          )
-                          .toList();
+                  // ── Column headers (grey background) ─────────────────────
+                  Container(
+                    color: const Color(0xFFF9FAFB),
+                    padding: const EdgeInsets.fromLTRB(24, 10, 56, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: _shouldShowBinInput ? 4 : 5,
+                          child: Text(
+                            'BATCH REFERENCE#',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF9CA3AF),
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        if (_shouldShowBinInput) ...const [
+                          SizedBox(width: 8),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              'BIN',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF9CA3AF),
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'QUANTITY',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF9CA3AF),
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                      if (validBatches.isEmpty && !_markCountAsZero) {
-                        setState(() {
-                          _showZeroCountWarning = true;
-                        });
-                        return;
-                      }
+                  // ── Batch input rows ─────────────────────────────────────
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 160),
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
+                        child: Column(
+                          children: [
+                            for (int i = 0; i < _batches.length; i++)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: _shouldShowBinInput ? 4 : 5,
+                                      child: _buildBatchField(
+                                        controller: _batchNoControllers[i],
+                                        hint: 'Enter Batch#',
+                                        onChanged: (val) =>
+                                            _batches[i]['batchNo'] = val,
+                                      ),
+                                    ),
+                                    if (_shouldShowBinInput) ...[
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 3,
+                                        child: _buildBatchField(
+                                          controller: _binCodeControllers[i],
+                                          hint: 'Enter Bin',
+                                          onChanged: (val) =>
+                                              _batches[i]['binCode'] = val,
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: _buildBatchField(
+                                        controller: _qtyControllers[i],
+                                        hint: 'Enter Qty',
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (val) {
+                                          setState(() {
+                                            _batches[i]['qty'] =
+                                                double.tryParse(val) ?? 0;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    GestureDetector(
+                                      onTap: () => _removeRow(i),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(4),
+                                        child: Icon(
+                                          LucideIcons.xCircle,
+                                          size: 20,
+                                          color: Color(0xFFEF4444),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-                      // Check if all validBatches have a matching batch name in the DB
-                      bool hasInvalidBatch = false;
-                      for (var b in validBatches) {
-                        final batchNo = b['batchNo'].toString().trim().toLowerCase();
-                        final binCode = (widget.selectedBinCode ?? b['binCode'])
-                            .toString()
-                            .trim()
-                            .toLowerCase();
-                        final selectedBinId = widget.selectedBinId;
+                  // ── + New Batch | Batches added: N ───────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: _addNewRow,
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                LucideIcons.plus,
+                                size: 18,
+                                color: Color(0xFF2A85FB),
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'New Batch',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF2A85FB),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          'Batches added: ${_batches.length}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-                        final matches = _dbBatches.where((dbB) {
-                          final batchMatch =
-                              dbB['batchNo'].toString().trim().toLowerCase() ==
-                                  batchNo;
-                          if (!batchMatch) {
-                            return false;
-                          }
-                          if (selectedBinId != null && selectedBinId.isNotEmpty) {
-                            return dbB['binId'].toString().trim() == selectedBinId;
-                          }
-                          if (!widget.trackBinLocation) {
-                            return true;
-                          }
-                          return dbB['binCode']
+                  // ── Action buttons ───────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 50, 24, 22),
+                    child: Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            // Synchronize controllers with batches state list
+                            for (int idx = 0; idx < _batches.length; idx++) {
+                              _batches[idx]['batchNo'] =
+                                  _batchNoControllers[idx].text;
+                              _batches[idx]['binCode'] =
+                                  widget.selectedBinCode ??
+                                  _binCodeControllers[idx].text;
+                              _batches[idx]['bin_id'] =
+                                  widget.selectedBinId ??
+                                  _batches[idx]['bin_id'];
+                              _batches[idx]['qty'] =
+                                  double.tryParse(_qtyControllers[idx].text) ??
+                                  0.0;
+                            }
+
+                            final validBatches = _batches
+                                .where(
+                                  (b) =>
+                                      (b['batchNo'] as String)
+                                          .trim()
+                                          .isNotEmpty &&
+                                      (b['qty'] as num) > 0,
+                                )
+                                .toList();
+
+                            if (validBatches.isEmpty && !_markCountAsZero) {
+                              setState(() {
+                                _showZeroCountWarning = true;
+                              });
+                              return;
+                            }
+
+                            // Check if all validBatches have a matching batch name in the DB
+                            bool hasInvalidBatch = false;
+                            for (var b in validBatches) {
+                              final batchNo = b['batchNo']
                                   .toString()
                                   .trim()
-                                  .toLowerCase() ==
-                              binCode;
-                        }).toList();
-                        final dbMatch = matches.isNotEmpty
-                            ? matches.first
-                            : <String, dynamic>{};
+                                  .toLowerCase();
+                              final binCode =
+                                  (widget.selectedBinCode ?? b['binCode'])
+                                      .toString()
+                                      .trim()
+                                      .toLowerCase();
+                              final selectedBinId = widget.selectedBinId;
 
-                        if (dbMatch.isEmpty) {
-                          hasInvalidBatch = true;
-                        } else {
-                          b['batch_id'] = dbMatch['id'];
-                          b['batch_no'] = dbMatch['batchNo'];
-                          b['bin_id'] = dbMatch['binId'];
-                          b['bin_code'] = dbMatch['binCode'];
-                        }
-                      }
+                              final matches = _dbBatches.where((dbB) {
+                                final batchMatch =
+                                    dbB['batchNo']
+                                        .toString()
+                                        .trim()
+                                        .toLowerCase() ==
+                                    batchNo;
+                                if (!batchMatch) {
+                                  return false;
+                                }
+                                if (selectedBinId != null &&
+                                    selectedBinId.isNotEmpty) {
+                                  return dbB['binId'].toString().trim() ==
+                                      selectedBinId;
+                                }
+                                if (!widget.trackBinLocation) {
+                                  return true;
+                                }
+                                return dbB['binCode']
+                                        .toString()
+                                        .trim()
+                                        .toLowerCase() ==
+                                    binCode;
+                              }).toList();
+                              final dbMatch = matches.isNotEmpty
+                                  ? matches.first
+                                  : <String, dynamic>{};
 
-                      Navigator.of(context).pop({
-                        'batches': validBatches,
-                        'markZero': _markCountAsZero,
-                        'hasInvalidBatch': hasInvalidBatch,
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF22A95E),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
+                              if (dbMatch.isEmpty) {
+                                hasInvalidBatch = true;
+                              } else {
+                                b['batch_id'] = dbMatch['id'];
+                                b['batch_no'] = dbMatch['batchNo'];
+                                b['bin_id'] = dbMatch['binId'];
+                                b['bin_code'] = dbMatch['binCode'];
+                              }
+                            }
+
+                            Navigator.of(context).pop({
+                              'batches': validBatches,
+                              'markZero': _markCountAsZero,
+                              'hasInvalidBatch': hasInvalidBatch,
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF22A95E),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                          ),
+                          child: const Text(
+                            'Save',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF374151),
+                            side: const BorderSide(color: Color(0xFFD1D5DB)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF374151),
-                      side: const BorderSide(color: Color(0xFFD1D5DB)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                    ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

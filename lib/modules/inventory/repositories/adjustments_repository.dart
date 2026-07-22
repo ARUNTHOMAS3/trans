@@ -2,7 +2,7 @@
 // Repository pattern for Inventory Adjustments - Online-first with offline fallback (PRD Section 12.2)
 
 import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import 'package:zerpai_erp/modules/inventory/models/inventory_adjustment_model.dart';
@@ -451,7 +451,11 @@ class AdjustmentsRepository {
                 : const <dynamic>[]);
       return rows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (e) {
-      AppLogger.warning('Batch suggestions fetch failed', error: e, module: 'adjustments');
+      AppLogger.warning(
+        'Batch suggestions fetch failed',
+        error: e,
+        module: 'adjustments',
+      );
       return [];
     }
   }
@@ -480,7 +484,11 @@ class AdjustmentsRepository {
           .whereType<Map<String, String>>()
           .toList();
     } catch (e) {
-      AppLogger.warning('Bin codes fetch failed', error: e, module: 'adjustments');
+      AppLogger.warning(
+        'Bin codes fetch failed',
+        error: e,
+        module: 'adjustments',
+      );
       return [];
     }
   }

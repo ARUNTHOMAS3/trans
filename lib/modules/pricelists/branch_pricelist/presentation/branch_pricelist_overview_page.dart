@@ -7,7 +7,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
-import '../../../../core/routing/app_router.dart';
+import '../../../../core/routing/app_routes.dart';
 import '../models/branch_pricelist_model.dart';
 import '../models/branch_pricelist_pagination.dart';
 import '../providers/branch_pricelist_provider.dart';
@@ -59,7 +59,9 @@ class _BranchPriceListOverviewScreenState
 
   @override
   Widget build(BuildContext context) {
-    final paginationAsync = ref.watch(filteredBranchPriceListPaginationProvider);
+    final paginationAsync = ref.watch(
+      filteredBranchPriceListPaginationProvider,
+    );
     final user = ref.watch(authUserProvider);
     final isRestrictedBranchAdmin =
         user?.role.trim().toLowerCase() == 'branch_admin' &&
@@ -70,7 +72,10 @@ class _BranchPriceListOverviewScreenState
         const SingleActivator(LogicalKeyboardKey.slash): () {
           _searchFocusNode.requestFocus();
         },
-        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () async {
+        const SingleActivator(
+          LogicalKeyboardKey.keyN,
+          control: true,
+        ): () async {
           if (isRestrictedBranchAdmin) {
             if (!context.mounted) return;
             ZerpaiToast.error(
@@ -107,13 +112,12 @@ class _BranchPriceListOverviewScreenState
                           .fetchBranchPriceLists();
                     },
                     child: paginationAsync.when(
-                      data: (pagination) =>
-                          _buildBody(
-                            context,
-                            ref,
-                            pagination,
-                            isRestrictedBranchAdmin,
-                          ),
+                      data: (pagination) => _buildBody(
+                        context,
+                        ref,
+                        pagination,
+                        isRestrictedBranchAdmin,
+                      ),
                       loading: () => _buildLoadingSkeleton(),
                       error: (error, stack) =>
                           _buildErrorState(context, ref, error),
@@ -143,8 +147,9 @@ class _BranchPriceListOverviewScreenState
     BuildContext context,
     bool isRestrictedBranchAdmin,
   ) {
-    final currentType =
-        ref.watch(branchPriceListFilterProvider).transactionType;
+    final currentType = ref
+        .watch(branchPriceListFilterProvider)
+        .transactionType;
 
     final menuItems = [
       ('all', 'All Branch Price Lists'),
@@ -153,7 +158,12 @@ class _BranchPriceListOverviewScreenState
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppTheme.space32, 20, AppTheme.space32, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.space32,
+        20,
+        AppTheme.space32,
+        0,
+      ),
       child: Row(
         children: [
           MenuAnchor(
@@ -220,8 +230,9 @@ class _BranchPriceListOverviewScreenState
               ),
               child: TextButton.icon(
                 onPressed: () async {
-                  final result =
-                      await context.push(AppRoutes.branchPriceListsCreate);
+                  final result = await context.push(
+                    AppRoutes.branchPriceListsCreate,
+                  );
                   if (result == true && context.mounted) {
                     ZerpaiToast.success(
                       context,
@@ -374,25 +385,31 @@ class _BranchPriceListOverviewScreenState
                         String detailsText = '-';
                         if (pl.priceListType == 'individual_items') {
                           detailsText = 'Per Item Rate';
-                        } else if (pl.percentageValue != null && pl.percentageType != null) {
+                        } else if (pl.percentageValue != null &&
+                            pl.percentageType != null) {
                           final pctType = pl.percentageType!.isEmpty
                               ? ''
-                              : (pl.percentageType![0].toUpperCase() + pl.percentageType!.substring(1).toLowerCase());
-                          detailsText = '${pl.percentageValue!.toStringAsFixed(0)}% $pctType';
+                              : (pl.percentageType![0].toUpperCase() +
+                                    pl.percentageType!
+                                        .substring(1)
+                                        .toLowerCase());
+                          detailsText =
+                              '${pl.percentageValue!.toStringAsFixed(0)}% $pctType';
                         } else {
                           detailsText = pl.details ?? '-';
                         }
                         final roundOffText =
                             (pl.roundOffPreference?.isNotEmpty ?? false)
-                                ? pl.roundOffPreference!
-                                : 'Never mind';
+                            ? pl.roundOffPreference!
+                            : 'Never mind';
 
                         return _BranchPriceListRow(
                           priceList: pl,
                           detailsText: detailsText,
                           roundOffText: roundOffText,
-                          pricingSchemeDisplay:
-                              _getPricingSchemeDisplay(pl.pricingScheme),
+                          pricingSchemeDisplay: _getPricingSchemeDisplay(
+                            pl.pricingScheme,
+                          ),
                           onTap: () {},
                           onAction: (action) =>
                               _handleAction(context, ref, action, pl),
@@ -409,10 +426,7 @@ class _BranchPriceListOverviewScreenState
     );
   }
 
-  Widget _buildEmptyState(
-    BuildContext context,
-    bool isRestrictedBranchAdmin,
-  ) {
+  Widget _buildEmptyState(BuildContext context, bool isRestrictedBranchAdmin) {
     return Center(
       child: Container(
         padding: const EdgeInsets.all(48),
@@ -437,9 +451,9 @@ class _BranchPriceListOverviewScreenState
             Text(
               'No Price Lists Yet',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -448,9 +462,9 @@ class _BranchPriceListOverviewScreenState
               'sales channel, contracts, or regions.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
-                    height: 1.6,
-                  ),
+                color: AppTheme.textSecondary,
+                height: 1.6,
+              ),
             ),
             const SizedBox(height: 32),
             if (!isRestrictedBranchAdmin)
@@ -579,8 +593,8 @@ class _BranchPriceListOverviewScreenState
             Icon(
               isActive
                   ? (sortState.ascending
-                      ? Icons.arrow_upward
-                      : Icons.arrow_downward)
+                        ? Icons.arrow_upward
+                        : Icons.arrow_downward)
                   : Icons.unfold_more,
               size: 14,
               color: isActive ? AppTheme.textSecondary : AppTheme.textMuted,
@@ -625,7 +639,9 @@ class _BranchPriceListOverviewScreenState
   ) async {
     switch (action) {
       case 'edit':
-        ref.read(recentHistoryProvider.notifier).addItem(
+        ref
+            .read(recentHistoryProvider.notifier)
+            .addItem(
               RecentItem(
                 id: priceList.id,
                 title: priceList.name,
@@ -702,8 +718,9 @@ class _BranchPriceListOverviewScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            style:
-                TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.textSecondary,
+            ),
             child: const Text('Cancel', style: TextStyle(fontSize: 13)),
           ),
           ElevatedButton(
@@ -722,8 +739,9 @@ class _BranchPriceListOverviewScreenState
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorRedDark,
               foregroundColor: Colors.white,
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
             ),
             child: const Text('Deactivate', style: TextStyle(fontSize: 13)),
           ),
@@ -762,8 +780,9 @@ class _BranchPriceListOverviewScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            style:
-                TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.textSecondary,
+            ),
             child: const Text('Cancel', style: TextStyle(fontSize: 13)),
           ),
           ElevatedButton(
@@ -771,9 +790,7 @@ class _BranchPriceListOverviewScreenState
               Navigator.of(dialogContext).pop();
               await ref
                   .read(branchPriceListNotifierProvider.notifier)
-                  .updateBranchPriceList(
-                    priceList.copyWith(status: 'active'),
-                  );
+                  .updateBranchPriceList(priceList.copyWith(status: 'active'));
               if (context.mounted) {
                 ZerpaiToast.success(
                   context,
@@ -782,8 +799,9 @@ class _BranchPriceListOverviewScreenState
               }
             },
             style: ElevatedButton.styleFrom(
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
             ),
             child: const Text('Activate', style: TextStyle(fontSize: 13)),
           ),
@@ -837,8 +855,9 @@ class _BranchPriceListOverviewScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            style:
-                TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.textSecondary,
+            ),
             child: const Text('Cancel', style: TextStyle(fontSize: 13)),
           ),
           ElevatedButton(
@@ -857,8 +876,9 @@ class _BranchPriceListOverviewScreenState
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorRedDark,
               foregroundColor: Colors.white,
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
             ),
             child: const Text('Delete', style: TextStyle(fontSize: 13)),
           ),
@@ -880,7 +900,8 @@ class _MoreSubmenuButton extends StatelessWidget {
   });
 
   static ButtonStyle _buttonStyle(Set<WidgetState> states) {
-    final active = states.contains(WidgetState.hovered) ||
+    final active =
+        states.contains(WidgetState.hovered) ||
         states.contains(WidgetState.focused);
     return ButtonStyle(
       backgroundColor: WidgetStatePropertyAll(
@@ -991,11 +1012,7 @@ class _MoreMenuItem extends StatefulWidget {
   final VoidCallback onTap;
   final IconData? icon;
 
-  const _MoreMenuItem({
-    required this.label,
-    required this.onTap,
-    this.icon,
-  });
+  const _MoreMenuItem({required this.label, required this.onTap, this.icon});
 
   @override
   State<_MoreMenuItem> createState() => _MoreMenuItemState();
@@ -1114,11 +1131,11 @@ class _BranchPriceListRowState extends State<_BranchPriceListRow> {
   }
 
   Widget _actionDivider() => Container(
-        width: 1,
-        height: 12,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        color: AppTheme.borderColor,
-      );
+    width: 1,
+    height: 12,
+    margin: const EdgeInsets.symmetric(horizontal: 6),
+    color: AppTheme.borderColor,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1167,8 +1184,9 @@ class _BranchPriceListRowState extends State<_BranchPriceListRow> {
                             ),
                             decoration: BoxDecoration(
                               color: AppTheme.infoBlue.withValues(alpha: 0.1),
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.space10),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.space10,
+                              ),
                               border: Border.all(
                                 color: AppTheme.infoBlue.withValues(alpha: 0.3),
                               ),
@@ -1193,8 +1211,9 @@ class _BranchPriceListRowState extends State<_BranchPriceListRow> {
                             ),
                             decoration: BoxDecoration(
                               color: AppTheme.borderColor,
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.space10),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.space10,
+                              ),
                             ),
                             child: const Text(
                               'INACTIVE',
@@ -1228,7 +1247,10 @@ class _BranchPriceListRowState extends State<_BranchPriceListRow> {
               // Seasonal Date
               Expanded(
                 flex: 14,
-                child: (pl.isSeasonalEnabled && pl.startDate != null && pl.endDate != null)
+                child:
+                    (pl.isSeasonalEnabled &&
+                        pl.startDate != null &&
+                        pl.endDate != null)
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,

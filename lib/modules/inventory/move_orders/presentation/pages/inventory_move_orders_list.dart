@@ -7,7 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/document/document_view_mode_switcher.dart';
 import 'package:zerpai_erp/shared/widgets/document/zerpai_document_view.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
@@ -175,11 +175,7 @@ String _resolveMoveOrderItemDisplayName(Map item) {
     item['product_code'],
   ];
   for (final candidate in candidates) {
-    final value = _displayText(
-      candidate,
-      fallback: '',
-      hideUuid: true,
-    );
+    final value = _displayText(candidate, fallback: '', hideUuid: true);
     if (value.isNotEmpty) {
       return value;
     }
@@ -1284,7 +1280,8 @@ class _MoveOrderDetailPanelState extends State<_MoveOrderDetailPanel> {
 
     Future<void> loadMissingProductsFromDetail() async {
       final items =
-          (detail['items'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
+          (detail['items'] as List?)?.whereType<Map>().toList() ??
+          const <Map>[];
       final missingIds = items
           .map((item) => (item['product_id'] ?? '').toString().trim())
           .where((id) => id.isNotEmpty && !productNameById.containsKey(id))
@@ -1313,7 +1310,11 @@ class _MoveOrderDetailPanelState extends State<_MoveOrderDetailPanel> {
       }
     }
 
-    await Future.wait(<Future<void>>[loadWarehouses(), loadUsers(), loadProducts()]);
+    await Future.wait(<Future<void>>[
+      loadWarehouses(),
+      loadUsers(),
+      loadProducts(),
+    ]);
     await loadMissingProductsFromDetail();
 
     if (!mounted) return;
@@ -1502,7 +1503,10 @@ class _MoveOrderDetailPanelState extends State<_MoveOrderDetailPanel> {
                             label: 'Moved Date',
                             value: _formatDateValue(completedAt),
                           ),
-                          OverviewEntry(label: 'Location Name', value: locationName),
+                          OverviewEntry(
+                            label: 'Location Name',
+                            value: locationName,
+                          ),
                           OverviewEntry(label: 'Status', value: status),
                           OverviewEntry(label: 'Assignee', value: assigneeName),
                           OverviewEntry(
@@ -1561,7 +1565,10 @@ class _MoveOrderDetailPanelState extends State<_MoveOrderDetailPanel> {
           setState(() => _showPdfView = true);
           return;
         }
-        ZerpaiToast.info(context, 'Switch to PDF View, then use browser Print.');
+        ZerpaiToast.info(
+          context,
+          'Switch to PDF View, then use browser Print.',
+        );
       },
       itemBuilder: (context) => const [
         PopupMenuItem<String>(
@@ -1607,7 +1614,11 @@ class _MoveOrderDetailPanelState extends State<_MoveOrderDetailPanel> {
               ),
             ),
             SizedBox(width: 4),
-            Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.textPrimary),
+            Icon(
+              LucideIcons.chevronDown,
+              size: 12,
+              color: AppTheme.textPrimary,
+            ),
           ],
         ),
       ),
@@ -1737,10 +1748,7 @@ class _MoveOrderDetailPanelState extends State<_MoveOrderDetailPanel> {
                 (items.indexOf(item) + 1).toString(),
                 width: 40,
               ),
-              ZerpaiDocumentDataCell(
-                _resolveItemDisplayName(item),
-                flex: 1,
-              ),
+              ZerpaiDocumentDataCell(_resolveItemDisplayName(item), flex: 1),
               ZerpaiDocumentDataCell(
                 _formatQuantity(item['qty']),
                 width: 180,

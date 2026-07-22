@@ -61,9 +61,8 @@ class _ItemTradeSetupReportPageState
   ];
 
   Map<String, double>? __columnWidths;
-  Map<String, double> get _columnWidths => __columnWidths ??= {
-    'ITEM NAME': 320.0,
-  };
+  Map<String, double> get _columnWidths =>
+      __columnWidths ??= {'ITEM NAME': 320.0};
 
   @override
   void initState() {
@@ -342,9 +341,8 @@ class _ItemTradeSetupReportPageState
                   const Spacer(),
                   // Green "+ New" Button
                   ElevatedButton.icon(
-                    onPressed: () => context.go(
-                      '/$_orgId${AppRoutes.itemTradeSetupCreate}',
-                    ),
+                    onPressed: () =>
+                        context.go('/$_orgId${AppRoutes.itemTradeSetupCreate}'),
                     icon: const Icon(
                       LucideIcons.plus,
                       size: 14,
@@ -468,8 +466,7 @@ class _ItemTradeSetupReportPageState
                                               child: InkWell(
                                                 onTap: _toggleSettingsOverlay,
                                                 hoverColor: Colors.transparent,
-                                                splashColor:
-                                                    Colors.transparent,
+                                                splashColor: Colors.transparent,
                                                 highlightColor:
                                                     Colors.transparent,
                                                 borderRadius:
@@ -508,10 +505,7 @@ class _ItemTradeSetupReportPageState
                                           ],
                                         ),
                                       ),
-                                      _thHeader(
-                                        'ITEM NAME',
-                                        'ITEM NAME',
-                                      ),
+                                      _thHeader('ITEM NAME', 'ITEM NAME'),
                                       const SizedBox(
                                         width: 60,
                                       ), // Actions space
@@ -553,97 +547,105 @@ class _ItemTradeSetupReportPageState
                                               height: 60,
                                               child: Row(
                                                 children: [
-                                                SizedBox(
-                                                  width: 84,
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .end,
-                                                    children: [
-                                                      _buildSelectionCheckbox(
-                                                        value: _selectedIds
-                                                            .contains(inv.id),
-                                                        onChanged: (_) {
-                                                          setState(() {
-                                                            if (_selectedIds
-                                                                .contains(
-                                                              inv.id,
-                                                            )) {
-                                                              _selectedIds
-                                                                  .remove(
-                                                                inv.id,
-                                                              );
-                                                            } else {
-                                                              _selectedIds.add(
-                                                                inv.id,
-                                                              );
-                                                            }
-                                                          });
-                                                        },
-                                                      ),
-                                                      const SizedBox(width: 20),
-                                                    ],
-                                                  ),
-                                                ),
-                                                _tdCell(
-                                                  Text(
-                                                    inv.customerName,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      color: Color(0xFF4B5563),
+                                                  SizedBox(
+                                                    width: 84,
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment.end,
+                                                      children: [
+                                                        _buildSelectionCheckbox(
+                                                          value: _selectedIds
+                                                              .contains(inv.id),
+                                                          onChanged: (_) {
+                                                            setState(() {
+                                                              if (_selectedIds
+                                                                  .contains(
+                                                                    inv.id,
+                                                                  )) {
+                                                                _selectedIds
+                                                                    .remove(
+                                                                      inv.id,
+                                                                    );
+                                                              } else {
+                                                                _selectedIds
+                                                                    .add(
+                                                                      inv.id,
+                                                                    );
+                                                              }
+                                                            });
+                                                          },
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 20,
+                                                        ),
+                                                      ],
                                                     ),
-                                                    maxLines:
-                                                        _clipText ? 1 : null,
-                                                    overflow: _clipText
-                                                        ? TextOverflow.ellipsis
-                                                        : TextOverflow.clip,
                                                   ),
-                                                  'ITEM NAME',
-                                                ),
-                                                // Actions
-                                                SizedBox(
-                                                  width: 60,
-                                                  child: Center(
-                                                    child: ZRowActions(
-                                                      key: ValueKey(
-                                                        'actions_${inv.id}',
+                                                  _tdCell(
+                                                    Text(
+                                                      inv.customerName,
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        color: Color(
+                                                          0xFF4B5563,
+                                                        ),
                                                       ),
-                                                      onEdit: () {
-                                                        context.go(
-                                                          '/$_orgId${AppRoutes.itemTradeSetupCreate}?id=${inv.id}',
-                                                        );
-                                                      },
-                                                      onDelete: () async {
-                                                        final ok = await showZerpaiConfirmationDialog(
-                                                          context,
-                                                          title:
-                                                              'Delete Item Trade Setup',
-                                                          message:
-                                                              'Delete ${inv.invoiceNo}? This cannot be undone.',
-                                                          confirmLabel: 'Delete',
-                                                          variant:
-                                                              ZerpaiConfirmationVariant
-                                                                  .danger,
-                                                        );
-                                                        if (ok && mounted) {
-                                                          ZerpaiToast.deleted(
-                                                            context,
-                                                            'Retainer invoice',
+                                                      maxLines: _clipText
+                                                          ? 1
+                                                          : null,
+                                                      overflow: _clipText
+                                                          ? TextOverflow
+                                                                .ellipsis
+                                                          : TextOverflow.clip,
+                                                    ),
+                                                    'ITEM NAME',
+                                                  ),
+                                                  // Actions
+                                                  SizedBox(
+                                                    width: 60,
+                                                    child: Center(
+                                                      child: ZRowActions(
+                                                        key: ValueKey(
+                                                          'actions_${inv.id}',
+                                                        ),
+                                                        onEdit: () {
+                                                          context.go(
+                                                            '/$_orgId${AppRoutes.itemTradeSetupCreate}?id=${inv.id}',
                                                           );
-                                                          ref
-                                                              .read(
-                                                                retainerInvoicesProvider
-                                                                    .notifier,
-                                                              )
-                                                              .deleteInvoice(
-                                                                inv.id,
-                                                              );
-                                                        }
-                                                      },
-                                                      additionalActions: const [],
+                                                        },
+                                                        onDelete: () async {
+                                                          final ok = await showZerpaiConfirmationDialog(
+                                                            context,
+                                                            title:
+                                                                'Delete Item Trade Setup',
+                                                            message:
+                                                                'Delete ${inv.invoiceNo}? This cannot be undone.',
+                                                            confirmLabel:
+                                                                'Delete',
+                                                            variant:
+                                                                ZerpaiConfirmationVariant
+                                                                    .danger,
+                                                          );
+                                                          if (ok && mounted) {
+                                                            ZerpaiToast.deleted(
+                                                              context,
+                                                              'Retainer invoice',
+                                                            );
+                                                            ref
+                                                                .read(
+                                                                  retainerInvoicesProvider
+                                                                      .notifier,
+                                                                )
+                                                                .deleteInvoice(
+                                                                  inv.id,
+                                                                );
+                                                          }
+                                                        },
+                                                        additionalActions:
+                                                            const [],
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
                                                 ],
                                               ),
                                             ),
@@ -655,7 +657,6 @@ class _ItemTradeSetupReportPageState
                                 ),
                               ],
                             ),
-
                           ],
                         ),
                       ),
@@ -666,8 +667,6 @@ class _ItemTradeSetupReportPageState
       ),
     );
   }
-
-
 
   Widget _buildSelectionCheckbox({
     required bool value,
@@ -682,10 +681,7 @@ class _ItemTradeSetupReportPageState
           checkboxTheme: CheckboxThemeData(
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            side: const BorderSide(
-              color: Color(0xFFC7CDD4),
-              width: 1.2,
-            ),
+            side: const BorderSide(color: Color(0xFFC7CDD4), width: 1.2),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(2),
             ),
@@ -701,7 +697,6 @@ class _ItemTradeSetupReportPageState
       ),
     );
   }
-
 
   Widget _thHeader(String label, String key) {
     final width = _columnWidths[key] ?? 120.0;
@@ -1837,9 +1832,7 @@ class _TableOptionsMenuState extends State<_TableOptionsMenu> {
           submenuIcon: const WidgetStatePropertyAll(
             Icon(LucideIcons.chevronRight, size: 14),
           ),
-          menuChildren: [
-            _buildSortSubmenuItem('Item Name'),
-          ],
+          menuChildren: [_buildSortSubmenuItem('Item Name')],
           child: const Text('Sort by', style: TextStyle(fontSize: 13)),
         ),
         MenuItemButton(
@@ -1932,4 +1925,3 @@ class _TableOptionsMenuState extends State<_TableOptionsMenu> {
     );
   }
 }
-

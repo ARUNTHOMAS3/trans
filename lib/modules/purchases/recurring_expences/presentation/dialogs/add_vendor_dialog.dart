@@ -67,8 +67,8 @@ class AddVendorDialog extends ConsumerStatefulWidget {
           opacity: anim1,
           child: SlideTransition(
             position: Tween<Offset>(
-               begin: const Offset(0, -0.1),
-               end: Offset.zero,
+              begin: const Offset(0, -0.1),
+              end: Offset.zero,
             ).animate(anim1),
             child: child,
           ),
@@ -623,7 +623,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                  height: _vendorDialogFieldHeight,
                   value: _selectedGstTreatment,
                   items: kRecurringExpenseExtendedGstTreatmentOptions,
                   hint: 'Select a GST treatment',
@@ -687,7 +687,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
             required: true,
             child: _fieldBox(
               FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                height: _vendorDialogFieldHeight,
                 value: _selectedSourceOfSupply,
                 items: _stateSources,
                 hint: 'Select a state',
@@ -740,7 +740,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                    height: _vendorDialogFieldHeight,
                     value: _selectedMsmeRegistrationType,
                     items: const ['Micro', 'Small', 'Medium'],
                     hint: 'Select the Registration Type',
@@ -779,7 +779,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
           label: 'Currency',
           child: _fieldBox(
             FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+              height: _vendorDialogFieldHeight,
               value: _selectedCurrency,
               items: _currencyOptions,
               hint: 'Select currency',
@@ -797,7 +797,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                   child: SizedBox(
                     height: _vendorDialogFieldHeight,
                     child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                      height: _vendorDialogFieldHeight,
                       value: _openingBalanceLocation,
                       items: _locationOptions,
                       hint: 'Location',
@@ -836,7 +836,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
           label: 'Payment Terms',
           child: _fieldBox(
             FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+              height: _vendorDialogFieldHeight,
               value: _paymentTerms,
               items: _paymentTermsOptions,
               hint: 'Select payment terms',
@@ -848,7 +848,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
           label: 'TDS',
           child: _fieldBox(
             FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+              height: _vendorDialogFieldHeight,
               value: _selectedTds,
               items: _tdsOptions,
               hint: 'Select a Tax',
@@ -861,7 +861,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
           required: true,
           child: _fieldBox(
             FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+              height: _vendorDialogFieldHeight,
               value: _selectedPriceList,
               items: _priceLists,
               hint: 'Select a Price List',
@@ -1061,7 +1061,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                   _addressField(
                     label: 'Country/Region',
                     child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                      height: _vendorDialogFieldHeight,
                       value: _billingCountry,
                       items: _countryOptions,
                       hint: 'Select',
@@ -1096,7 +1096,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                   _addressField(
                     label: 'State',
                     child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                      height: _vendorDialogFieldHeight,
                       value: _billingState,
                       items: _stateOptions,
                       hint: 'Select or type to add',
@@ -1191,7 +1191,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                   _addressField(
                     label: 'Country/Region',
                     child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                      height: _vendorDialogFieldHeight,
                       value: _shippingCountry,
                       items: _countryOptions,
                       hint: 'Select',
@@ -1226,7 +1226,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                   _addressField(
                     label: 'State',
                     child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                      height: _vendorDialogFieldHeight,
                       value: _shippingState,
                       items: _stateOptions,
                       hint: 'Select or type to add',
@@ -1694,7 +1694,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         _fieldRow(
           label: 'ADGF',
           child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+            height: _vendorDialogFieldHeight,
             value: _reportingTag1,
             items: const [],
             hint: 'None',
@@ -1704,7 +1704,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         _fieldRow(
           label: 'shedule',
           child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+            height: _vendorDialogFieldHeight,
             value: _reportingTag2,
             items: const [],
             hint: 'None',
@@ -1717,7 +1717,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
           child: Padding(
             padding: const EdgeInsets.only(top: 6),
             child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+              height: _vendorDialogFieldHeight,
               value: _reportingTag3,
               items: const [],
               hint: 'None',
@@ -1869,7 +1869,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                                 SizedBox(
                                   width: 120,
                                   child: FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                                    height: _vendorDialogFieldHeight,
                                     value: _salutation,
                                     // kSalutationOptions from gst_constants - Reusables Rule
                                     items: kSalutationOptions,
@@ -1920,7 +1920,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                               'Select a generated name or type a custom one.',
                           child: _fieldBox(
                             FormDropdown<String>(
-      height: _vendorDialogFieldHeight,
+                              height: _vendorDialogFieldHeight,
                               value: _selectedDisplayName,
                               items: _displayNameOptions,
                               hint: 'Select or type to add',
@@ -2067,7 +2067,8 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                               ? null
                               : () async {
                                   setState(() => _submitted = true);
-                                  if (!(_formKey.currentState?.validate() ?? false)) {
+                                  if (!(_formKey.currentState?.validate() ??
+                                      false)) {
                                     return;
                                   }
                                   if (_gstTreatmentError != null ||
@@ -2080,7 +2081,9 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                                       _selectedDisplayName!.trim().isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Please enter a Display Name'),
+                                        content: Text(
+                                          'Please enter a Display Name',
+                                        ),
                                       ),
                                     );
                                     return;
@@ -2091,61 +2094,112 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                                   });
 
                                   try {
-                                    final billingAddress = _billingStreet1Ctrl.text.trim().isNotEmpty ||
-                                            _billingStreet2Ctrl.text.trim().isNotEmpty ||
-                                            _billingCityCtrl.text.trim().isNotEmpty ||
+                                    final billingAddress =
+                                        _billingStreet1Ctrl.text
+                                                .trim()
+                                                .isNotEmpty ||
+                                            _billingStreet2Ctrl.text
+                                                .trim()
+                                                .isNotEmpty ||
+                                            _billingCityCtrl.text
+                                                .trim()
+                                                .isNotEmpty ||
                                             _billingState != null ||
-                                            _billingPinCtrl.text.trim().isNotEmpty ||
+                                            _billingPinCtrl.text
+                                                .trim()
+                                                .isNotEmpty ||
                                             _billingCountry != null
                                         ? {
-                                            'attention': _billingAttentionCtrl.text.trim(),
-                                            'street1': _billingStreet1Ctrl.text.trim(),
-                                            'street2': _billingStreet2Ctrl.text.trim(),
-                                            'city': _billingCityCtrl.text.trim(),
+                                            'attention': _billingAttentionCtrl
+                                                .text
+                                                .trim(),
+                                            'street1': _billingStreet1Ctrl.text
+                                                .trim(),
+                                            'street2': _billingStreet2Ctrl.text
+                                                .trim(),
+                                            'city': _billingCityCtrl.text
+                                                .trim(),
                                             'state': _billingState,
                                             'zip': _billingPinCtrl.text.trim(),
                                             'country': _billingCountry,
-                                            'phone': _billingPhoneCtrl.text.trim(),
+                                            'phone': _billingPhoneCtrl.text
+                                                .trim(),
                                             'fax': _billingFaxCtrl.text.trim(),
                                           }
                                         : null;
 
-                                    final shippingAddress = _shippingStreet1Ctrl.text.trim().isNotEmpty ||
-                                            _shippingStreet2Ctrl.text.trim().isNotEmpty ||
-                                            _shippingCityCtrl.text.trim().isNotEmpty ||
+                                    final shippingAddress =
+                                        _shippingStreet1Ctrl.text
+                                                .trim()
+                                                .isNotEmpty ||
+                                            _shippingStreet2Ctrl.text
+                                                .trim()
+                                                .isNotEmpty ||
+                                            _shippingCityCtrl.text
+                                                .trim()
+                                                .isNotEmpty ||
                                             _shippingState != null ||
-                                            _shippingPinCtrl.text.trim().isNotEmpty ||
+                                            _shippingPinCtrl.text
+                                                .trim()
+                                                .isNotEmpty ||
                                             _shippingCountry != null
                                         ? {
-                                            'attention': _shippingAttentionCtrl.text.trim(),
-                                            'street1': _shippingStreet1Ctrl.text.trim(),
-                                            'street2': _shippingStreet2Ctrl.text.trim(),
-                                            'city': _shippingCityCtrl.text.trim(),
+                                            'attention': _shippingAttentionCtrl
+                                                .text
+                                                .trim(),
+                                            'street1': _shippingStreet1Ctrl.text
+                                                .trim(),
+                                            'street2': _shippingStreet2Ctrl.text
+                                                .trim(),
+                                            'city': _shippingCityCtrl.text
+                                                .trim(),
                                             'state': _shippingState,
                                             'zip': _shippingPinCtrl.text.trim(),
                                             'country': _shippingCountry,
-                                            'phone': _shippingPhoneCtrl.text.trim(),
+                                            'phone': _shippingPhoneCtrl.text
+                                                .trim(),
                                             'fax': _shippingFaxCtrl.text.trim(),
                                           }
                                         : null;
 
-                                    final bankDetails = _bankForms.where((bank) {
-                                      return bank.accountNumberCtrl.text.trim().isNotEmpty ||
-                                          bank.bankNameCtrl.text.trim().isNotEmpty ||
-                                          bank.accountHolderCtrl.text.trim().isNotEmpty ||
-                                          bank.ifscCtrl.text.trim().isNotEmpty;
-                                    }).map((bank) {
-                                      return {
-                                        'holderName': bank.accountHolderCtrl.text.trim(),
-                                        'bankName': bank.bankNameCtrl.text.trim(),
-                                        'accountNumber': bank.accountNumberCtrl.text.trim(),
-                                        'ifsc': bank.ifscCtrl.text.trim(),
-                                      };
-                                    }).toList();
+                                    final bankDetails = _bankForms
+                                        .where((bank) {
+                                          return bank.accountNumberCtrl.text
+                                                  .trim()
+                                                  .isNotEmpty ||
+                                              bank.bankNameCtrl.text
+                                                  .trim()
+                                                  .isNotEmpty ||
+                                              bank.accountHolderCtrl.text
+                                                  .trim()
+                                                  .isNotEmpty ||
+                                              bank.ifscCtrl.text
+                                                  .trim()
+                                                  .isNotEmpty;
+                                        })
+                                        .map((bank) {
+                                          return {
+                                            'holderName': bank
+                                                .accountHolderCtrl
+                                                .text
+                                                .trim(),
+                                            'bankName': bank.bankNameCtrl.text
+                                                .trim(),
+                                            'accountNumber': bank
+                                                .accountNumberCtrl
+                                                .text
+                                                .trim(),
+                                            'ifsc': bank.ifscCtrl.text.trim(),
+                                          };
+                                        })
+                                        .toList();
 
                                     final vendorData = Vendor(
                                       id: '',
-                                      vendorNumber: _vendorNumberCtrl.text.trim().isNotEmpty
+                                      vendorNumber:
+                                          _vendorNumberCtrl.text
+                                              .trim()
+                                              .isNotEmpty
                                           ? _vendorNumberCtrl.text.trim()
                                           : null,
                                       displayName: _selectedDisplayName!.trim(),
@@ -2161,8 +2215,11 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                                       sourceOfSupply: _selectedSourceOfSupply,
                                       pan: _panCtrl.text.trim(),
                                       isMsmeRegistered: _isMsmeRegistered,
-                                      msmeRegistrationType: _selectedMsmeRegistrationType,
-                                      msmeRegistrationNumber: _msmeRegistrationNumberCtrl.text.trim(),
+                                      msmeRegistrationType:
+                                          _selectedMsmeRegistrationType,
+                                      msmeRegistrationNumber:
+                                          _msmeRegistrationNumberCtrl.text
+                                              .trim(),
                                       currency: _selectedCurrency,
                                       paymentTerms: _paymentTerms,
                                       remarks: _remarksCtrl.text.trim(),
@@ -2177,13 +2234,18 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
 
                                     if (!mounted) return;
 
-                                    final newVendorOption = RecurringExpenseVendorOption(
-                                      id: createdVendor.id,
-                                      displayName: createdVendor.displayName,
-                                      vendorNumber: createdVendor.vendorNumber,
-                                      gstTreatment: createdVendor.gstTreatment,
-                                      sourceOfSupply: createdVendor.sourceOfSupply,
-                                    );
+                                    final newVendorOption =
+                                        RecurringExpenseVendorOption(
+                                          id: createdVendor.id,
+                                          displayName:
+                                              createdVendor.displayName,
+                                          vendorNumber:
+                                              createdVendor.vendorNumber,
+                                          gstTreatment:
+                                              createdVendor.gstTreatment,
+                                          sourceOfSupply:
+                                              createdVendor.sourceOfSupply,
+                                        );
 
                                     Navigator.pop(context, newVendorOption);
                                   } catch (error) {

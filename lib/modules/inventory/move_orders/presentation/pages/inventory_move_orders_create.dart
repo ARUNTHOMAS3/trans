@@ -15,7 +15,7 @@ import 'package:zerpai_erp/modules/inventory/repositories/adjustments_repository
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/widgets/item_details_sidebar.dart';
 import 'package:zerpai_erp/modules/items/items/services/products_api_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
@@ -150,9 +150,7 @@ class _InventoryMoveOrdersCreateScreenState
           width: double.infinity,
           decoration: const BoxDecoration(
             color: Colors.white,
-            border: Border(
-              top: BorderSide(color: AppTheme.borderColor),
-            ),
+            border: Border(top: BorderSide(color: AppTheme.borderColor)),
           ),
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
           child: IgnorePointer(
@@ -455,7 +453,11 @@ class _InventoryMoveOrdersCreateScreenState
                   onTap: _openScanPanelForNewItem,
                   child: Row(
                     children: [
-                      Icon(LucideIcons.scanLine, size: 15, color: AppTheme.primaryBlue),
+                      Icon(
+                        LucideIcons.scanLine,
+                        size: 15,
+                        color: AppTheme.primaryBlue,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Scan Item',
@@ -501,7 +503,11 @@ class _InventoryMoveOrdersCreateScreenState
               onPressed: () {
                 setState(() => _rows.add(_newRow()));
               },
-              icon: Icon(LucideIcons.plusCircle, size: 14, color: AppTheme.primaryBlue),
+              icon: Icon(
+                LucideIcons.plusCircle,
+                size: 14,
+                color: AppTheme.primaryBlue,
+              ),
               label: Text(
                 'Add New Row',
                 style: AppTheme.metaHelper.copyWith(
@@ -781,9 +787,7 @@ class _InventoryMoveOrdersCreateScreenState
       child: Text(
         text,
         style: AppTheme.metaHelper.copyWith(
-          color: onTap == null
-              ? AppTheme.textDisabled
-              : AppTheme.primaryBlue,
+          color: onTap == null ? AppTheme.textDisabled : AppTheme.primaryBlue,
           fontSize: 13,
         ),
       ),
@@ -1998,7 +2002,9 @@ class _InventoryMoveOrdersCreateScreenState
 
   Future<void> _applyScanSelection() async {
     final sourceRequiresBatch = _scanSelectedItem?.trackBatches == true;
-    final normalizedSourceQty = _normalizeQtyInput(_scanSourceQtyController.text);
+    final normalizedSourceQty = _normalizeQtyInput(
+      _scanSourceQtyController.text,
+    );
     final normalizedDestinationQty = _normalizeQtyInput(
       _scanDestinationQtyController.text,
     );
@@ -2015,7 +2021,9 @@ class _InventoryMoveOrdersCreateScreenState
     final effectiveSourceLines = <_BinLine>[
       ..._scanSourceLines,
       if (pendingSourceLine != null &&
-          !_scanSourceLines.any((line) => line.binId == pendingSourceLine.binId))
+          !_scanSourceLines.any(
+            (line) => line.binId == pendingSourceLine.binId,
+          ))
         pendingSourceLine,
     ];
     final effectiveDestinationLines = <_BinLine>[
@@ -2065,7 +2073,7 @@ class _InventoryMoveOrdersCreateScreenState
     }
     if (hasDestinationRows &&
         (_totalBinQty(effectiveSourceLines) -
-                _totalBinQty(effectiveDestinationLines))
+                    _totalBinQty(effectiveDestinationLines))
                 .abs() >
             0.0001) {
       ZerpaiToast.error(
@@ -2127,9 +2135,7 @@ class _InventoryMoveOrdersCreateScreenState
         .where((id) => id.isNotEmpty)
         .toSet();
     if (sourceIds.isEmpty) return false;
-    return destinationBins.any(
-      (line) => sourceIds.contains(line.binId.trim()),
-    );
+    return destinationBins.any((line) => sourceIds.contains(line.binId.trim()));
   }
 
   String _formatQty(num value) {
@@ -2195,7 +2201,9 @@ class _InventoryMoveOrdersCreateScreenState
     required bool requireBatch,
     required String normalizedQty,
   }) {
-    final selectedBin = isSource ? _scanSelectedSourceBin : _scanSelectedDestinationBin;
+    final selectedBin = isSource
+        ? _scanSelectedSourceBin
+        : _scanSelectedDestinationBin;
     final selectedBatch = isSource
         ? _scanSelectedSourceBatch
         : _scanSelectedDestinationBatch;
@@ -2317,18 +2325,25 @@ class _InventoryMoveOrdersCreateScreenState
     return fallback;
   }
 
-  Future<dynamic> _createMoveOrderWithDuplicateRetry({int maxAttempts = 3}) async {
+  Future<dynamic> _createMoveOrderWithDuplicateRetry({
+    int maxAttempts = 3,
+  }) async {
     Object? lastError;
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        return await _apiClient.post('/move-orders', data: _buildMoveOrderPayload());
+        return await _apiClient.post(
+          '/move-orders',
+          data: _buildMoveOrderPayload(),
+        );
       } catch (error) {
         lastError = error;
         final lower = error.toString().toLowerCase();
         final isDuplicateNumber =
             lower.contains('inventory_move_orders_move_order_number_key') ||
             lower.contains('duplicate key value violates unique constraint');
-        if (!_autoGenerate || !isDuplicateNumber || attempt == maxAttempts - 1) {
+        if (!_autoGenerate ||
+            !isDuplicateNumber ||
+            attempt == maxAttempts - 1) {
           rethrow;
         }
         await _seedMoveOrderNumberFromDb();

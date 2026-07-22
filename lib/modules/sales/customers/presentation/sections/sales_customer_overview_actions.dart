@@ -118,8 +118,7 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
 
   Widget _popupItem(String text) {
     return MenuItemButton(
-      onPressed: () {
-      },
+      onPressed: () {},
       style: ZTableMoreMenu.menuItemButtonStyle(),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -260,8 +259,7 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
           child: const Text('Edit', style: TextStyle(fontSize: 13)),
         ),
         MenuItemButton(
-          onPressed: () {
-          },
+          onPressed: () {},
           child: const Text(
             'Delete',
             style: TextStyle(fontSize: 13, color: Colors.red),
@@ -271,6 +269,3 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
     );
   }
 }
-
-
-

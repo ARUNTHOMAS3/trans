@@ -14,7 +14,8 @@ class ReportsCenterScreen extends ConsumerStatefulWidget {
   const ReportsCenterScreen({super.key, this.initialSearchQuery});
 
   @override
-  ConsumerState<ReportsCenterScreen> createState() => _ReportsCenterScreenState();
+  ConsumerState<ReportsCenterScreen> createState() =>
+      _ReportsCenterScreenState();
 }
 
 class _ReportsCenterScreenState extends ConsumerState<ReportsCenterScreen> {
@@ -416,14 +417,18 @@ class _ReportsCenterScreenState extends ConsumerState<ReportsCenterScreen> {
       leading: Icon(
         icon,
         size: 18,
-        color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textSecondary,
+        color: isSelected
+            ? ref.watch(appBrandingProvider).accentColor
+            : AppTheme.textSecondary,
       ),
       title: Text(
         title,
         style: TextStyle(
           fontSize: 13,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textBody,
+          color: isSelected
+              ? ref.watch(appBrandingProvider).accentColor
+              : AppTheme.textBody,
         ),
       ),
       onTap: () => setState(() => _selectedCategory = title),
@@ -439,14 +444,18 @@ class _ReportsCenterScreenState extends ConsumerState<ReportsCenterScreen> {
       leading: Icon(
         LucideIcons.folder,
         size: 18,
-        color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textMuted,
+        color: isSelected
+            ? ref.watch(appBrandingProvider).accentColor
+            : AppTheme.textMuted,
       ),
       title: Text(
         title,
         style: TextStyle(
           fontSize: 13,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textBody,
+          color: isSelected
+              ? ref.watch(appBrandingProvider).accentColor
+              : AppTheme.textBody,
         ),
       ),
       onTap: () => setState(() => _selectedCategory = title),
@@ -547,9 +556,7 @@ class _ReportsCenterScreenState extends ConsumerState<ReportsCenterScreen> {
       return reports;
     }
     return reports.where((report) {
-      return report.values.any(
-        (value) => value.toLowerCase().contains(query),
-      );
+      return report.values.any((value) => value.toLowerCase().contains(query));
     }).toList();
   }
 
@@ -588,7 +595,10 @@ class _ReportsCenterScreenState extends ConsumerState<ReportsCenterScreen> {
     return InkWell(
       onTap: () {
         if (report['name'] == 'Account Transactions') {
-          context.push(AppRoutes.accountantTransactionsReport, extra: {'accountId': 'all'});
+          context.push(
+            AppRoutes.accountantTransactionsReport,
+            extra: {'accountId': 'all'},
+          );
         } else if (report['name'] == 'Daily Sales') {
           context.push(AppRoutes.reportDailySales);
         } else if (report['name'] == 'Profit and Loss') {
@@ -646,14 +656,20 @@ class _ReportsCenterScreenState extends ConsumerState<ReportsCenterScreen> {
               flex: 2,
               child: Text(
                 report['created_by']!,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSubtle),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSubtle,
+                ),
               ),
             ),
             Expanded(
               flex: 2,
               child: Text(
                 report['last_visited']!,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSubtle),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSubtle,
+                ),
               ),
             ),
           ],

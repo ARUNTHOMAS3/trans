@@ -109,15 +109,58 @@ class AccountTransactionsReportPage extends ConsumerWidget {
               loading: () => Skeletonizer(
                 enabled: true,
                 ignoreContainers: true,
-                child: _buildAccountTxContent(context, currencyFormat, dateFormat,
+                child: _buildAccountTxContent(
+                  context,
+                  currencyFormat,
+                  dateFormat,
                   startDate: startDate,
                   endDate: endDate,
                   transactions: [
-                    {'date': null, 'details': '—————————————', 'type': '————', 'reference': '——————', 'debit': 0, 'credit': 0, 'runningBalance': 0},
-                    {'date': null, 'details': '———————————', 'type': '————', 'reference': '——————', 'debit': 0, 'credit': 0, 'runningBalance': 0},
-                    {'date': null, 'details': '————————————', 'type': '————', 'reference': '——————', 'debit': 0, 'credit': 0, 'runningBalance': 0},
-                    {'date': null, 'details': '——————————', 'type': '————', 'reference': '——————', 'debit': 0, 'credit': 0, 'runningBalance': 0},
-                    {'date': null, 'details': '————————', 'type': '————', 'reference': '——————', 'debit': 0, 'credit': 0, 'runningBalance': 0},
+                    {
+                      'date': null,
+                      'details': '—————————————',
+                      'type': '————',
+                      'reference': '——————',
+                      'debit': 0,
+                      'credit': 0,
+                      'runningBalance': 0,
+                    },
+                    {
+                      'date': null,
+                      'details': '———————————',
+                      'type': '————',
+                      'reference': '——————',
+                      'debit': 0,
+                      'credit': 0,
+                      'runningBalance': 0,
+                    },
+                    {
+                      'date': null,
+                      'details': '————————————',
+                      'type': '————',
+                      'reference': '——————',
+                      'debit': 0,
+                      'credit': 0,
+                      'runningBalance': 0,
+                    },
+                    {
+                      'date': null,
+                      'details': '——————————',
+                      'type': '————',
+                      'reference': '——————',
+                      'debit': 0,
+                      'credit': 0,
+                      'runningBalance': 0,
+                    },
+                    {
+                      'date': null,
+                      'details': '————————',
+                      'type': '————',
+                      'reference': '——————',
+                      'debit': 0,
+                      'credit': 0,
+                      'runningBalance': 0,
+                    },
                   ],
                 ),
               ),
@@ -146,7 +189,9 @@ class AccountTransactionsReportPage extends ConsumerWidget {
                 ),
               ),
               data: (data) => _buildAccountTxContent(
-                context, currencyFormat, dateFormat,
+                context,
+                currencyFormat,
+                dateFormat,
                 startDate: startDate,
                 endDate: endDate,
                 transactions: List<Map<String, dynamic>>.from(
@@ -195,7 +240,9 @@ class AccountTransactionsReportPage extends ConsumerWidget {
     );
   }
 
-  (double, double, double) _computeTotals(List<Map<String, dynamic>> transactions) {
+  (double, double, double) _computeTotals(
+    List<Map<String, dynamic>> transactions,
+  ) {
     double totalDebit = 0.0;
     double totalCredit = 0.0;
     double closingBalance = 0.0;
@@ -276,12 +323,10 @@ class AccountTransactionsReportPage extends ConsumerWidget {
     BuildContext context,
     NumberFormat currencyFormat,
     DateFormat dateFormat,
-    List<Map<String, dynamic>> transactions,
-    {
+    List<Map<String, dynamic>> transactions, {
     required DateTime startDate,
     required DateTime endDate,
-    }
-  ) {
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,

@@ -1,4 +1,4 @@
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/pricelist_model.dart';
 
 abstract class PriceListRepository {
@@ -12,17 +12,23 @@ abstract class PriceListRepository {
 
 class PriceListRepositoryImpl implements PriceListRepository {
   PriceListRepositoryImpl({ApiClient? apiClient})
-      : _apiClient = apiClient ?? ApiClient();
+    : _apiClient = apiClient ?? ApiClient();
 
   final ApiClient _apiClient;
 
   List<Map<String, dynamic>> _extractRows(dynamic payload) {
     if (payload is List) {
-      return payload.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      return payload
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
     }
     if (payload is Map<String, dynamic> && payload['data'] is List) {
       final data = payload['data'] as List;
-      return data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      return data
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
     }
     return const <Map<String, dynamic>>[];
   }
@@ -35,7 +41,10 @@ class PriceListRepositoryImpl implements PriceListRepository {
   PriceList _mapPriceList(Map<String, dynamic> row) {
     return PriceList.fromJson({
       ...row,
-      'transaction_type': _asString(row['transaction_type'], 'sales').toLowerCase(),
+      'transaction_type': _asString(
+        row['transaction_type'],
+        'sales',
+      ).toLowerCase(),
       'created_at': row['created_at'] ?? DateTime.now().toIso8601String(),
       'updated_at': row['updated_at'] ?? DateTime.now().toIso8601String(),
     });
@@ -64,7 +73,8 @@ class PriceListRepositoryImpl implements PriceListRepository {
       'transaction_type': priceList.transactionType.toLowerCase(),
       'price_scope': 'SELF',
       'discount_enabled': priceList.isDiscountEnabled,
-      'item_rates': priceList.itemRates?.map((e) => e.toJson()).toList() ?? const [],
+      'item_rates':
+          priceList.itemRates?.map((e) => e.toJson()).toList() ?? const [],
       'percentage_type': pctType,
       'percentage_value': pctValue,
     };

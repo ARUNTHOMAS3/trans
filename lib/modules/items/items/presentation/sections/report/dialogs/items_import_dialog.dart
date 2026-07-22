@@ -40,7 +40,9 @@ Future<String?> showImportItemsDialog(BuildContext context) {
                               ),
                               decoration: const BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(color: AppTheme.borderColor),
+                                  bottom: BorderSide(
+                                    color: AppTheme.borderColor,
+                                  ),
                                 ),
                               ),
                               child: Row(

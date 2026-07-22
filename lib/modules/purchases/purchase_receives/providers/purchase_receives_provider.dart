@@ -97,7 +97,7 @@ class PurchaseReceivesNotifier
         stackTrace: st,
         module: 'purchases',
       );
-      
+
       String? errorMessage;
       if (e is DioException) {
         final responseData = e.response?.data;
@@ -114,20 +114,22 @@ class PurchaseReceivesNotifier
               errorMessage = 'Validation error on "$field"';
             }
           } else if (message is List) {
-            final list = message.map((item) {
-              if (item is Map) {
-                final field = item['field'];
-                final constraints = item['constraints'];
-                if (constraints is Map) {
-                  return '${field ?? ""}: ${constraints.values.join(", ")}';
-                }
-                return 'Validation error on "$field"';
-              }
-              return item.toString();
-            }).join('; ');
+            final list = message
+                .map((item) {
+                  if (item is Map) {
+                    final field = item['field'];
+                    final constraints = item['constraints'];
+                    if (constraints is Map) {
+                      return '${field ?? ""}: ${constraints.values.join(", ")}';
+                    }
+                    return 'Validation error on "$field"';
+                  }
+                  return item.toString();
+                })
+                .join('; ');
             if (list.isNotEmpty) errorMessage = list;
           }
-          
+
           if (errorMessage == null) {
             final meta = responseData['meta'];
             if (meta is Map) {
@@ -145,12 +147,13 @@ class PurchaseReceivesNotifier
           final payload = e.error;
           if (payload is Map) {
             final msg = payload['message'];
-            if (msg is String && msg.trim().isNotEmpty) errorMessage = msg.trim();
+            if (msg is String && msg.trim().isNotEmpty)
+              errorMessage = msg.trim();
           }
         }
         errorMessage ??= e.message?.trim();
       }
-      
+
       errorMessage ??= e.toString();
       if (errorMessage.startsWith('Exception: ')) {
         errorMessage = errorMessage.substring('Exception: '.length);
@@ -165,7 +168,9 @@ class PurchaseReceivesNotifier
       if (updated != null) {
         final currentState = state.valueOrNull;
         if (currentState != null) {
-          final updatedList = currentState.receives.map((r) => r.id == id ? updated : r).toList();
+          final updatedList = currentState.receives
+              .map((r) => r.id == id ? updated : r)
+              .toList();
           state = AsyncValue.data(currentState.copyWith(receives: updatedList));
         }
         return true;
@@ -211,7 +216,8 @@ final purchaseReceivesProvider =
       return PurchaseReceivesNotifier(repository);
     });
 
-final purchaseReceiveByIdProvider = FutureProvider.family<PurchaseReceive?, String>((ref, id) async {
-  final repository = ref.watch(purchaseReceiveRepositoryProvider);
-  return repository.getPurchaseReceive(id);
-});
+final purchaseReceiveByIdProvider =
+    FutureProvider.family<PurchaseReceive?, String>((ref, id) async {
+      final repository = ref.watch(purchaseReceiveRepositoryProvider);
+      return repository.getPurchaseReceive(id);
+    });

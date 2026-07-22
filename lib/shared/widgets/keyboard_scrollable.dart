@@ -48,17 +48,29 @@ class _KeyboardScrollableState extends State<KeyboardScrollable> {
       double? newOffset;
 
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        newOffset = (currentOffset + widget.scrollSpeed).clamp(minScroll, maxScroll);
+        newOffset = (currentOffset + widget.scrollSpeed).clamp(
+          minScroll,
+          maxScroll,
+        );
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        newOffset = (currentOffset - widget.scrollSpeed).clamp(minScroll, maxScroll);
+        newOffset = (currentOffset - widget.scrollSpeed).clamp(
+          minScroll,
+          maxScroll,
+        );
       } else if (event.logicalKey == LogicalKeyboardKey.pageDown) {
         // Scroll one page down
         final viewportHeight = _scrollController.position.viewportDimension;
-        newOffset = (currentOffset + viewportHeight).clamp(minScroll, maxScroll);
+        newOffset = (currentOffset + viewportHeight).clamp(
+          minScroll,
+          maxScroll,
+        );
       } else if (event.logicalKey == LogicalKeyboardKey.pageUp) {
         // Scroll one page up
         final viewportHeight = _scrollController.position.viewportDimension;
-        newOffset = (currentOffset - viewportHeight).clamp(minScroll, maxScroll);
+        newOffset = (currentOffset - viewportHeight).clamp(
+          minScroll,
+          maxScroll,
+        );
       } else if (event.logicalKey == LogicalKeyboardKey.home) {
         // Scroll to top
         newOffset = minScroll;

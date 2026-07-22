@@ -6,7 +6,7 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
   final PriceListService _service;
 
   PriceListNotifier(this._service, {required bool isAuthenticated})
-      : super(const AsyncValue.loading()) {
+    : super(const AsyncValue.loading()) {
     if (isAuthenticated) fetchPriceLists();
   }
 
@@ -55,11 +55,11 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
       state.whenData((priceLists) {
         state = AsyncValue.data(
           priceLists
-               .map(
-                 (pl) =>
-                     ids.contains(pl.id) ? pl.copyWith(status: 'active') : pl,
-               )
-               .toList(),
+              .map(
+                (pl) =>
+                    ids.contains(pl.id) ? pl.copyWith(status: 'active') : pl,
+              )
+              .toList(),
         );
       });
     } catch (e) {
@@ -77,11 +77,11 @@ class PriceListNotifier extends StateNotifier<AsyncValue<List<PriceList>>> {
       state.whenData((priceLists) {
         state = AsyncValue.data(
           priceLists
-               .map(
-                 (pl) =>
-                     ids.contains(pl.id) ? pl.copyWith(status: 'inactive') : pl,
-               )
-               .toList(),
+              .map(
+                (pl) =>
+                    ids.contains(pl.id) ? pl.copyWith(status: 'inactive') : pl,
+              )
+              .toList(),
         );
       });
     } catch (e) {

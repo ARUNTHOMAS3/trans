@@ -21,10 +21,8 @@ class ExpenseHistoryEntryModel {
   factory ExpenseHistoryEntryModel.fromJson(Map<String, dynamic> json) {
     return ExpenseHistoryEntryModel(
       id: (json['id'] ?? '').toString(),
-      actorName:
-          (json['actor_name'] ?? json['actorName'] ?? 'AUTO').toString(),
-      createdAt:
-          (json['created_at'] ?? json['createdAt'] ?? '').toString(),
+      actorName: (json['actor_name'] ?? json['actorName'] ?? 'AUTO').toString(),
+      createdAt: (json['created_at'] ?? json['createdAt'] ?? '').toString(),
       summary: (json['summary'] ?? '').toString(),
       action: (json['action'] ?? '').toString(),
       fieldChanges: (json['field_changes'] as List<dynamic>? ?? const [])

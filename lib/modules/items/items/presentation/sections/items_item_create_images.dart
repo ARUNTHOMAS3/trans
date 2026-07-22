@@ -155,7 +155,11 @@ extension _ItemCreateImages on _ItemCreateScreenState {
             ),
             child: Row(
               children: const [
-                Icon(Icons.check_circle, size: 14, color: AppTheme.successGreen),
+                Icon(
+                  Icons.check_circle,
+                  size: 14,
+                  color: AppTheme.successGreen,
+                ),
                 SizedBox(width: 6),
                 Text(
                   "Primary",
@@ -461,197 +465,202 @@ class _ImagePreviewState extends State<_ImagePreview> {
           },
           child: Stack(
             children: [
-          // Main image display
-          Center(
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: currentImage is String
-                  ? Image.network(currentImage, fit: BoxFit.contain)
-                  : Image.memory(
-                      (currentImage as PlatformFile).bytes!,
-                      fit: BoxFit.contain,
-                    ),
-            ),
-          ),
-
-          // Top bar with close button and counter
-          Positioned(
-            top: 24,
-            right: 24,
-            child: Row(
-              children: [
-                // Image counter
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${_currentIndex + 1} / ${widget.images.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Close button
-                Material(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(20),
-                  child: InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    borderRadius: BorderRadius.circular(20),
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Icon(Icons.close, color: Colors.white, size: 24),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Left navigation arrow
-          if (_currentIndex > 0)
-            Positioned(
-              left: 24,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Material(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(24),
-                  child: InkWell(
-                    onTap: _previousImage,
-                    borderRadius: BorderRadius.circular(24),
-                    child: const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Icon(
-                        Icons.chevron_left,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                  ),
+              // Main image display
+              Center(
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: currentImage is String
+                      ? Image.network(currentImage, fit: BoxFit.contain)
+                      : Image.memory(
+                          (currentImage as PlatformFile).bytes!,
+                          fit: BoxFit.contain,
+                        ),
                 ),
               ),
-            ),
 
-          // Right navigation arrow
-          if (_currentIndex < widget.images.length - 1)
-            Positioned(
-              right: 24,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Material(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(24),
-                  child: InkWell(
-                    onTap: _nextImage,
-                    borderRadius: BorderRadius.circular(24),
-                    child: const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Icon(
-                        Icons.chevron_right,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: 24,
-            child: Row(
-              children: [
-                Material(
-                  color: _currentIndex == 0
-                      ? const Color(0xFFE6F4EA)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: _currentIndex == 0
-                        ? null
-                        : () {
-                            widget.onSetPrimary(_currentIndex);
-                            setState(() => _currentIndex = 0);
-                          },
-                    child: Padding(
+              // Top bar with close button and counter
+              Positioned(
+                top: 24,
+                right: 24,
+                child: Row(
+                  children: [
+                    // Image counter
+                    Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 16,
                         vertical: 8,
                       ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Text(
-                        _currentIndex == 0 ? 'Primary' : 'Mark as Primary',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: _currentIndex == 0
-                              ? AppTheme.successGreen
-                              : AppTheme.primaryBlueDark,
+                        '${_currentIndex + 1} / ${widget.images.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Close button
+                    Material(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        onTap: () => Navigator.of(context).pop(),
+                        borderRadius: BorderRadius.circular(20),
+                        child: const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Left navigation arrow
+              if (_currentIndex > 0)
+                Positioned(
+                  left: 24,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(24),
+                      child: InkWell(
+                        onTap: _previousImage,
+                        borderRadius: BorderRadius.circular(24),
+                        child: const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Icon(
+                            Icons.chevron_left,
+                            color: Colors.white,
+                            size: 32,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: SizedBox(
-                    height: 44,
-                    child: Listener(
-                      onPointerSignal: _handleThumbnailPointerSignal,
-                      child: ListView.separated(
-                        controller: _thumbScrollController,
-                        scrollDirection: Axis.horizontal,
-                        itemCount: widget.images.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) {
-                          final active = i == _currentIndex;
-                          final img = widget.images[i];
-                          return InkWell(
-                            onTap: () => setState(() => _currentIndex = i),
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: active
-                                      ? AppTheme.primaryBlueDark
-                                      : AppTheme.borderColor,
-                                  width: active ? 2 : 1,
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(5),
-                                child: img is String
-                                    ? Image.network(img, fit: BoxFit.cover)
-                                    : Image.memory(
-                                        (img as PlatformFile).bytes!,
-                                        fit: BoxFit.cover,
-                                      ),
-                              ),
-                            ),
-                          );
-                        },
+
+              // Right navigation arrow
+              if (_currentIndex < widget.images.length - 1)
+                Positioned(
+                  right: 24,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(24),
+                      child: InkWell(
+                        onTap: _nextImage,
+                        borderRadius: BorderRadius.circular(24),
+                        child: const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Icon(
+                            Icons.chevron_right,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
+              Positioned(
+                left: 24,
+                right: 24,
+                bottom: 24,
+                child: Row(
+                  children: [
+                    Material(
+                      color: _currentIndex == 0
+                          ? const Color(0xFFE6F4EA)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: _currentIndex == 0
+                            ? null
+                            : () {
+                                widget.onSetPrimary(_currentIndex);
+                                setState(() => _currentIndex = 0);
+                              },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            _currentIndex == 0 ? 'Primary' : 'Mark as Primary',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _currentIndex == 0
+                                  ? AppTheme.successGreen
+                                  : AppTheme.primaryBlueDark,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 44,
+                        child: Listener(
+                          onPointerSignal: _handleThumbnailPointerSignal,
+                          child: ListView.separated(
+                            controller: _thumbScrollController,
+                            scrollDirection: Axis.horizontal,
+                            itemCount: widget.images.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (_, i) {
+                              final active = i == _currentIndex;
+                              final img = widget.images[i];
+                              return InkWell(
+                                onTap: () => setState(() => _currentIndex = i),
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: active
+                                          ? AppTheme.primaryBlueDark
+                                          : AppTheme.borderColor,
+                                      width: active ? 2 : 1,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(5),
+                                    child: img is String
+                                        ? Image.network(img, fit: BoxFit.cover)
+                                        : Image.memory(
+                                            (img as PlatformFile).bytes!,
+                                            fit: BoxFit.cover,
+                                          ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

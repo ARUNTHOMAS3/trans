@@ -346,7 +346,9 @@ class _ManagePackSizesDialogState extends State<ManagePackSizesDialog> {
     }
 
     final duplicateRowCount = _rows.where((candidate) {
-      final candidatePackName = candidate.packNameCtrl.text.trim().toLowerCase();
+      final candidatePackName = candidate.packNameCtrl.text
+          .trim()
+          .toLowerCase();
       final candidateUnitPack = candidate.unitPackCtrl.text.trim();
       return candidatePackName == packName.toLowerCase() &&
           candidateUnitPack == unitPack;

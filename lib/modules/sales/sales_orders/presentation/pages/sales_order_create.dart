@@ -72,6 +72,20 @@ const _kBg = Color(0xFFF9FAFB);
 const _kWhite = Colors.white;
 const _kDropdownHeight = 32.0;
 
+String _getGstTreatmentLabel(String? value) {
+  if (value == null) return '';
+  const map = {
+    'registered_business_regular': 'Registered Business - Regular',
+    'registered_business_composition': 'Registered Business - Composition',
+    'unregistered_business': 'Unregistered Business',
+    'consumer': 'Consumer',
+    'overseas': 'Overseas',
+    'special_economic_zone': 'Special Economic Zone (SEZ)',
+    'deemed_export': 'Deemed Export',
+  };
+  return map[value.trim()] ?? value;
+}
+
 class SalesOrderCreateScreen extends ConsumerStatefulWidget {
   final SalesOrder? initialOrder;
   final String? initialOrderId;
@@ -107,6 +121,7 @@ class _SalesOrderCreateScreenState
 
   String? _selectedCustomerId;
   SalesCustomer? _selectedCustomer;
+  String? _gstTreatment;
   AccountNode? _selectedPopupAccount;
   int? _hoveredRowIndex;
 
@@ -120,10 +135,11 @@ class _SalesOrderCreateScreenState
             .where((c) => c.id == _selectedCustomerId)
             .firstOrNull;
     final activeCustomer = _selectedCustomer ?? customerFromList;
+    final effectiveGst = _gstTreatment ?? activeCustomer?.gstTreatment;
     return activeCustomer != null &&
-        (activeCustomer.gstTreatment == null ||
-            activeCustomer.gstTreatment!.toLowerCase().contains('unregistered') ||
-            activeCustomer.gstTreatment! == 'Unregistered Business');
+        (effectiveGst == null ||
+            effectiveGst.toLowerCase().contains('unregistered') ||
+            effectiveGst == 'Unregistered Business');
   }
 
   late final TextEditingController salesOrderNumberCtrl;
@@ -227,17 +243,26 @@ class _SalesOrderCreateScreenState
 
   bool _isHydratingInitialOrder = false;
 
-  String? _normalizePlaceOfSupply(String? val) {
-    if (val == null) return null;
-    final lowercase = val.toLowerCase();
-    if (lowercase.contains('kerala') || lowercase.contains('[kl]') || lowercase == 'kl') {
-      return '[KL] - Kerala';
+  String? _normalizePlaceOfSupply(String? val, List<String> availableStates) {
+    if (val == null || val.trim().isEmpty) return null;
+    final cleanVal = val.trim().toLowerCase();
+    for (final state in availableStates) {
+      if (state.toLowerCase() == cleanVal) {
+        return state;
+      }
     }
-    if (lowercase.contains('tamil nadu') || lowercase.contains('[tn]') || lowercase == 'tn') {
-      return '[TN] - Tamil Nadu';
-    }
-    if (lowercase.contains('karnataka') || lowercase.contains('[ka]') || lowercase == 'ka') {
-      return '[KA] - Karnataka';
+    for (final state in availableStates) {
+      final match = RegExp(r'\[([^\]]+)\]\s*-\s*(.+)').firstMatch(state);
+      if (match != null) {
+        final code = match.group(1)?.toLowerCase() ?? '';
+        final name = match.group(2)?.toLowerCase() ?? '';
+        if (cleanVal.contains(code) || 
+            cleanVal.contains(name) || 
+            code == cleanVal || 
+            name == cleanVal) {
+          return state;
+        }
+      }
     }
     return null;
   }
@@ -382,6 +407,7 @@ class _SalesOrderCreateScreenState
   void _hydrateFromInitialOrder(SalesOrder order, {bool isClone = false}) {
     _selectedCustomerId = order.customerId;
     _selectedCustomer = order.customer;
+    _gstTreatment = order.gstTreatment;
     salesOrderNumberCtrl.text = isClone ? '' : order.saleNumber;
     referenceCtrl.text = isClone ? '' : (order.reference ?? '');
     notesCtrl.text = order.customerNotes ?? '';
@@ -393,6 +419,7 @@ class _SalesOrderCreateScreenState
     paymentTerms = order.paymentTerms;
     deliveryMethod = order.deliveryMethod;
     salesperson = order.salesperson;
+    placeOfSupply = order.placeOfSupply;
 
     final initialItems = order.items ?? const <SalesOrderItem>[];
     if (initialItems.isEmpty) {
@@ -721,8 +748,14 @@ class _SalesOrderCreateScreenState
     String discountType = '%',
     String? taxId,
     String? hsnCode,
+    String? warehouseId,
     bool isHeader = false,
   }) {
+    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
+    final defaultWh = warehouseList.firstWhere(
+      (w) => w.name == warehouse,
+      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+    );
     final row = SalesOrderItemRow(
       quantityCtrl: TextEditingController(text: quantity),
       rateCtrl: TextEditingController(text: rate),
@@ -734,6 +767,7 @@ class _SalesOrderCreateScreenState
       item: item,
       discountType: discountType,
       taxId: taxId,
+      warehouseId: warehouseId ?? (defaultWh.id.isNotEmpty ? defaultWh.id : null),
       isHeader: isHeader,
     );
     row.hsnCode = hsnCode ?? item?.hsnCode;
@@ -776,9 +810,9 @@ class _SalesOrderCreateScreenState
       item: item.item,
       discountType: item.discountType == 'value' ? 'Value' : item.discountType,
       taxId: item.taxId,
+      warehouseId: item.warehouseId,
     );
     row.hsnCode = item.hsnCode ?? item.item?.hsnCode;
-    row.warehouseId = item.warehouseId;
     return row;
   }
 
@@ -1111,9 +1145,9 @@ class _SalesOrderCreateScreenState
       productName: row.item?.productName,
     );
 
-    // Update rate if it changed
-    if (row.rateCtrl.text != newRate.toString()) {
-      row.rateCtrl.text = newRate.toString();
+    final formattedRate = newRate == 0 ? '0' : newRate.toStringAsFixed(2);
+    if (row.rateCtrl.text != formattedRate) {
+      row.rateCtrl.text = formattedRate;
     }
   }
 
@@ -1327,6 +1361,7 @@ class _SalesOrderCreateScreenState
     final priceListsAsync = _combinedPriceListsAsync;
     final currenciesAsync = ref.watch(currenciesProvider(null));
 
+
     ref.listen<AsyncValue<List<Warehouse>>>(warehousesProvider, (
       previous,
       next,
@@ -1470,6 +1505,14 @@ class _SalesOrderCreateScreenState
     AsyncValue<List<PriceList>> priceListsAsync,
     AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
+    final statesAsync = ref.watch(statesProvider('IN'));
+    final List<Map<String, dynamic>> rawStates = statesAsync.valueOrNull ?? [];
+    final List<String> statesList = rawStates.map((s) {
+      final code = s['code']?.toString() ?? '';
+      final name = s['name']?.toString() ?? '';
+      return '[$code] - $name';
+    }).toList();
+
     final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
     final defaultWh = warehouseList.isEmpty
         ? null
@@ -1501,12 +1544,14 @@ class _SalesOrderCreateScreenState
               customersAsync.when(
                 data: (customers) {
                   final SalesCustomer? selectedCustomerFromList =
-                      _selectedCustomerId == null
-                      ? _selectedCustomer
-                      : customers
-                                .where((c) => c.id == _selectedCustomerId)
-                                .firstOrNull ??
-                            _selectedCustomer;
+                      (_selectedCustomer != null && _selectedCustomer!.id == _selectedCustomerId)
+                          ? _selectedCustomer
+                          : (_selectedCustomerId == null
+                              ? _selectedCustomer
+                              : customers
+                                        .where((c) => c.id == _selectedCustomerId)
+                                        .firstOrNull ??
+                                    _selectedCustomer);
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1759,12 +1804,11 @@ class _SalesOrderCreateScreenState
                             value: _normalizePlaceOfSupply(
                               placeOfSupply ??
                               selectedCustomerFromList.placeOfSupply,
+                              statesList,
                             ),
-                            items: const [
-                              '[KL] - Kerala',
-                              '[TN] - Tamil Nadu',
-                              '[KA] - Karnataka',
-                            ], // Simplified options
+                            items: statesList.isEmpty 
+                                ? const ['[KL] - Kerala', '[TN] - Tamil Nadu', '[KA] - Karnataka'] 
+                                : statesList,
                             itemBuilder: (item, isSelected, isHovered) =>
                                 _dropdownItemBuilder(
                                   item,
@@ -2118,6 +2162,11 @@ class _SalesOrderCreateScreenState
                                 onChanged: (w) {
                                   setState(() {
                                     warehouse = w?.name;
+                                    if (w != null && w.id.isNotEmpty) {
+                                      for (var row in rows) {
+                                        row.warehouseId = w.id;
+                                      }
+                                    }
                                     final activeEntityId = (Hive.box('config').get('selected_entity_id') as String?)?.trim();
                                     final selectedBranchId = w?.entityId ?? w?.branchId ?? activeEntityId ?? '';
                                     final newPriceLists = _getCombinedPriceListsForBranch(selectedBranchId);
@@ -3285,6 +3334,16 @@ class _SalesOrderCreateScreenState
                                                   row.itemId = p.id!;
                                                   row.item = p;
                                                   row.hsnCode = p.hsnCode;
+                                                  if (row.warehouseId == null || row.warehouseId!.isEmpty) {
+                                                    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
+                                                    final selectedWh = warehouseList.firstWhere(
+                                                      (w) => w.name == warehouse,
+                                                      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+                                                    );
+                                                    if (selectedWh.id.isNotEmpty) {
+                                                      row.warehouseId = selectedWh.id;
+                                                    }
+                                                  }
                                                   row.accountId =
                                                       p.salesAccountId;
                                                   row.accountName =
@@ -3385,8 +3444,17 @@ class _SalesOrderCreateScreenState
                                           ),
                                         ),
                                         data: (stocks) {
+                                          final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
+                                          final rowWhObj = warehouseList.firstWhere(
+                                            (w) => w.id == row.warehouseId,
+                                            orElse: () => warehouseList.firstWhere(
+                                              (w) => w.name == warehouse,
+                                              orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+                                            ),
+                                          );
+                                          final currentWhName = rowWhObj.name;
                                           final stockRow = stocks
-                                              .where((s) => s.name == (warehouse ?? ''))
+                                              .where((s) => s.id == rowWhObj.id || s.name == currentWhName)
                                               .firstOrNull ??
                                               stocks.firstOrNull;
                                           double stockVal = 0.0;
@@ -3439,38 +3507,54 @@ class _SalesOrderCreateScreenState
                                         ),
                                         const SizedBox(width: 4),
                                         Flexible(
-                                          child: WarehouseHoverPopover(
-                                            warehouseName: warehouse ?? '',
-                                            selectedView: _selectedStockView,
-                                            selectedStockType: _selectedStockType,
-                                            productId: row.itemId,
-                                            onViewChanged: (v) {
-                                              setState(() {
-                                                _selectedStockView = v;
-                                              });
+                                          child: Consumer(
+                                            builder: (context, ref, _) {
+                                              final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
+                                              final rowWhObj = warehouseList.firstWhere(
+                                                (w) => w.id == row.warehouseId,
+                                                orElse: () => warehouseList.firstWhere(
+                                                  (w) => w.name == warehouse,
+                                                  orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+                                                ),
+                                              );
+                                              final currentWhName = rowWhObj.name;
+                                              return WarehouseHoverPopover(
+                                                warehouseName: currentWhName,
+                                                selectedView: _selectedStockView,
+                                                selectedStockType: _selectedStockType,
+                                                productId: row.itemId,
+                                                onViewChanged: (v) {
+                                                  setState(() {
+                                                    _selectedStockView = v;
+                                                  });
+                                                },
+                                                onStockTypeChanged: (t) {
+                                                  setState(() {
+                                                    _selectedStockType = t;
+                                                  });
+                                                },
+                                                onWarehouseChanged: (newName) {
+                                                  final matchWh = warehouseList.firstWhere(
+                                                    (w) => w.name == newName,
+                                                    orElse: () => Warehouse(id: '', name: ''),
+                                                  );
+                                                  setState(() {
+                                                    row.warehouseId = matchWh.id;
+                                                  });
+                                                },
+                                                child: Text(
+                                                  currentWhName.toUpperCase(),
+                                                  textAlign: TextAlign.left,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF2563EB),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                  maxLines: 2,
+                                                ),
+                                              );
                                             },
-                                            onStockTypeChanged: (t) {
-                                              setState(() {
-                                                _selectedStockType = t;
-                                              });
-                                            },
-                                            onWarehouseChanged: (newName) {
-                                              setState(() {
-                                                warehouse = newName;
-                                              });
-                                            },
-                                            child: Text(
-                                              (warehouse ?? '')
-                                                  .toUpperCase(),
-                                              textAlign: TextAlign.left,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Color(0xFF2563EB),
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 2,
-                                            ),
                                           ),
                                         ),
                                       ],
@@ -6067,10 +6151,18 @@ class _SalesOrderCreateScreenState
         ?.value
         .where((c) => c.id == _selectedCustomerId)
         .firstOrNull;
+    final statesAsync = ref.read(statesProvider('IN'));
+    final List<Map<String, dynamic>> rawStates = statesAsync.valueOrNull ?? [];
+    final List<String> statesList = rawStates.map((s) {
+      final code = s['code']?.toString() ?? '';
+      final name = s['name']?.toString() ?? '';
+      return '[$code] - $name';
+    }).toList();
     final effectivePlaceOfSupply = _normalizePlaceOfSupply(
       placeOfSupply ??
       _selectedCustomer?.placeOfSupply ??
       customerFromList?.placeOfSupply,
+      statesList,
     );
     if (effectivePlaceOfSupply == null) {
       ZerpaiToast.error(context, 'Please select Place of Supply');
@@ -6100,7 +6192,8 @@ class _SalesOrderCreateScreenState
         if (row.accountId == null || row.accountId!.isEmpty) {
           accountValid = false;
         }
-        if (activeCustomer?.gstTreatment == 'Registered Business - Regular') {
+        final effectiveGst = _gstTreatment ?? activeCustomer?.gstTreatment;
+        if (effectiveGst == 'Registered Business - Regular') {
           if (row.taxId == null || row.taxId!.isEmpty) {
             taxValid = false;
           }
@@ -6145,6 +6238,7 @@ class _SalesOrderCreateScreenState
             hsnCode: r.hsnCode,
             accountId: r.accountId,
             priceListId: r.priceListId,
+            warehouseId: r.warehouseId,
           ),
         )
         .toList();
@@ -6157,6 +6251,8 @@ class _SalesOrderCreateScreenState
         selectedWarehouseId = match.first.id;
       }
     }
+
+    final effectiveGstTreatment = _gstTreatment ?? activeCustomer?.gstTreatment;
 
     final order = SalesOrder(
       id: _editingOrderId ?? '',
@@ -6186,6 +6282,7 @@ class _SalesOrderCreateScreenState
       warehouseId: selectedWarehouseId,
       paymentTermId: paymentTerms,
       priceListId: priceListId,
+      gstTreatment: effectiveGstTreatment,
     );
 
     try {
@@ -6571,7 +6668,7 @@ class _SalesOrderCreateScreenState
         ? shippingStateMap['name']
         : c.shippingAddressStateId;
 
-    final gst = c.gstTreatment;
+    final gst = _gstTreatment ?? c.gstTreatment;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6631,7 +6728,7 @@ class _SalesOrderCreateScreenState
                 ),
                 if (gst != null && gst.isNotEmpty) ...[
                   Text(
-                    gst,
+                    _getGstTreatmentLabel(gst),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -7504,11 +7601,19 @@ class _SalesOrderCreateScreenState
                 initialGstin: _selectedCustomer?.gstin ?? '',
                 onUpdate: (newGst, newGstin, isPermanent) async {
                   setState(() {
-                    _selectedCustomer = _selectedCustomer?.copyWith(
-                      gstTreatment: newGst,
-                      gstin: newGstin,
-                    );
+                    _gstTreatment = newGst;
+                    if (isPermanent) {
+                      _selectedCustomer = _selectedCustomer?.copyWith(
+                        gstTreatment: newGst,
+                        gstin: newGstin,
+                      );
+                    } else {
+                      _selectedCustomer = _selectedCustomer?.copyWith(
+                        gstin: newGstin,
+                      );
+                    }
                   });
+                  _calculateTotals();
                   if (isPermanent && _selectedCustomer != null) {
                     try {
                       await ref.read(salesOrderControllerProvider.notifier).updateCustomer(
@@ -9885,8 +9990,46 @@ class _ConfigureTaxPreferencesDialogState
   @override
   void initState() {
     super.initState();
-    _selectedTreatment = widget.initialGst;
+    final normalized = widget.initialGst.trim();
+    if (normalized == 'registered_business_regular') {
+      _selectedTreatment = 'Registered Business - Regular';
+    } else if (normalized == 'registered_business_composition') {
+      _selectedTreatment = 'Registered Business - Composition';
+    } else if (normalized == 'unregistered_business') {
+      _selectedTreatment = 'Unregistered Business';
+    } else if (normalized == 'consumer') {
+      _selectedTreatment = 'Consumer';
+    } else if (normalized == 'overseas') {
+      _selectedTreatment = 'Overseas';
+    } else if (normalized == 'special_economic_zone' || normalized == 'sez') {
+      _selectedTreatment = 'Special Economic Zone (SEZ)';
+    } else if (normalized == 'deemed_export') {
+      _selectedTreatment = 'Deemed Export';
+    } else {
+      _selectedTreatment = widget.initialGst;
+    }
     _gstinCtrl = TextEditingController(text: widget.initialGstin);
+  }
+
+  String _mapGstLabelToDbValue(String label) {
+    switch (label) {
+      case 'Registered Business - Regular':
+        return 'registered_business_regular';
+      case 'Registered Business - Composition':
+        return 'registered_business_composition';
+      case 'Unregistered Business':
+        return 'unregistered_business';
+      case 'Consumer':
+        return 'consumer';
+      case 'Overseas':
+        return 'overseas';
+      case 'Special Economic Zone (SEZ)':
+        return 'special_economic_zone';
+      case 'Deemed Export':
+        return 'deemed_export';
+      default:
+        return label;
+    }
   }
 
   @override
@@ -10119,7 +10262,7 @@ class _ConfigureTaxPreferencesDialogState
                   children: [
                     ElevatedButton(
                       onPressed: () =>
-                          widget.onUpdate(_selectedTreatment, _gstinCtrl.text.trim(), _makePermanent),
+                          widget.onUpdate(_mapGstLabelToDbValue(_selectedTreatment), _gstinCtrl.text.trim(), _makePermanent),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF19A05E),
                         foregroundColor: Colors.white,

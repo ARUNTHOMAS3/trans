@@ -3,9 +3,9 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/modules/accountant/bulk_update/presentation/pages/accountant_bulk_update_screen.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_screen.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_update_screen.dart';
-import 'package:zerpai_erp/modules/accountant/presentation/accountant_settings_screen.dart';
+import 'package:zerpai_erp/modules/accountant/presentation/pages/accountant_settings_screen.dart';
 import 'package:zerpai_erp/modules/accountant/transaction_locking/presentation/pages/accountant_transaction_locking_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_account_transactions.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_account_transactions.dart';
 
 List<RouteBase> buildAccountantStandaloneRoutes({
   required bool Function(String moduleKey, {String action})
@@ -13,9 +13,7 @@ List<RouteBase> buildAccountantStandaloneRoutes({
 }) {
   String _resolveOrgHomeOrLogin(GoRouterState state) {
     final orgSystemId = (state.pathParameters['orgSystemId'] ?? '').trim();
-    return orgSystemId.isEmpty
-        ? AppRoutes.authLogin
-        : '/$orgSystemId/home';
+    return orgSystemId.isEmpty ? AppRoutes.authLogin : '/$orgSystemId/home';
   }
 
   return [

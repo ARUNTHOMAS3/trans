@@ -31,7 +31,7 @@ export class StandardResponseInterceptor<T> implements NestInterceptor<
     const request = context.switchToHttp().getRequest();
     const url: string = request?.originalUrl ?? request?.url ?? "";
 
-    if (url.includes("/health")) {
+    if (url.includes("/health") || url.includes("/telemetry/export")) {
       return next.handle() as Observable<StandardResponse<T>>;
     }
 

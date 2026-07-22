@@ -37,7 +37,8 @@ class AppDateFormatter {
 
   static String _applyDateSeparator(String pattern, String separator) {
     if (separator == '-') return pattern;
-    final isNumeric = !pattern.contains('MMM') &&
+    final isNumeric =
+        !pattern.contains('MMM') &&
         !pattern.contains('MMMM') &&
         !pattern.contains('EEE') &&
         !pattern.contains('EEEE');

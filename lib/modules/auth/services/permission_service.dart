@@ -18,16 +18,8 @@ class PermissionService {
   };
 
   /// Check exact module/action permission from the backend-delivered auth payload.
-  static bool hasModuleAction(
-    User user,
-    String moduleKey, {
-    String? action,
-  }) {
-    return _resolveModuleAction(
-      user,
-      moduleKey,
-      action: action,
-    );
+  static bool hasModuleAction(User user, String moduleKey, {String? action}) {
+    return _resolveModuleAction(user, moduleKey, action: action);
   }
 
   /// Check that all exact module/action permissions are granted.
@@ -36,11 +28,8 @@ class PermissionService {
     List<ModulePermissionCheck> checks,
   ) {
     return checks.every(
-      (check) => _resolveModuleAction(
-        user,
-        check.moduleKey,
-        action: check.action,
-      ),
+      (check) =>
+          _resolveModuleAction(user, check.moduleKey, action: check.action),
     );
   }
 
@@ -50,11 +39,8 @@ class PermissionService {
     List<ModulePermissionCheck> checks,
   ) {
     return checks.any(
-      (check) => _resolveModuleAction(
-        user,
-        check.moduleKey,
-        action: check.action,
-      ),
+      (check) =>
+          _resolveModuleAction(user, check.moduleKey, action: check.action),
     );
   }
 
@@ -102,8 +88,7 @@ class PermissionService {
       if (categories is Map) {
         final reportActions = categories[reportCategory];
         if (reportActions is List) {
-          final values =
-              reportActions.map((value) => value.toString()).toSet();
+          final values = reportActions.map((value) => value.toString()).toSet();
           if (values.contains('full_access')) {
             return true;
           }
@@ -134,14 +119,10 @@ class PermissionService {
     }
     return null;
   }
-
 }
 
 class ModulePermissionCheck {
-  const ModulePermissionCheck({
-    required this.moduleKey,
-    this.action,
-  });
+  const ModulePermissionCheck({required this.moduleKey, this.action});
 
   final String moduleKey;
   final String? action;

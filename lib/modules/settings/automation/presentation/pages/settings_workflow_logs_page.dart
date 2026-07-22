@@ -43,9 +43,9 @@ class _SettingsWorkflowLogsPageState
     final id = _transactionIdController.text.trim();
     final filtered = type.isNotEmpty && id.isNotEmpty
         ? store
-            .traceForTransaction(transactionType: type, transactionId: id)
-            .reversed
-            .toList(growable: false)
+              .traceForTransaction(transactionType: type, transactionId: id)
+              .reversed
+              .toList(growable: false)
         : timeline;
     final blockedReason = type.isNotEmpty && id.isNotEmpty
         ? store.latestBlockedReason(transactionType: type, transactionId: id)
@@ -53,8 +53,8 @@ class _SettingsWorkflowLogsPageState
     final incidentSummary = type.isNotEmpty && id.isNotEmpty
         ? store.incidentSummary(transactionType: type, transactionId: id)
         : null;
-    final statusPass = incidentSummary == null ||
-        incidentSummary.status == _statusFilter;
+    final statusPass =
+        incidentSummary == null || incidentSummary.status == _statusFilter;
     final evidencePack = type.isNotEmpty && id.isNotEmpty
         ? store.incidentEvidencePack(transactionType: type, transactionId: id)
         : null;
@@ -238,12 +238,14 @@ class _SettingsWorkflowLogsPageState
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                ...replay.take(8).map(
-                  (r) => Text(
-                    '${dateFmt.format(r.at)} • ${r.eventType} • ${r.detail}',
-                    style: const TextStyle(color: AppTheme.textSecondary),
-                  ),
-                ),
+                ...replay
+                    .take(8)
+                    .map(
+                      (r) => Text(
+                        '${dateFmt.format(r.at)} • ${r.eventType} • ${r.detail}',
+                        style: const TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    ),
               ],
               const SizedBox(height: 6),
               const Text(
@@ -281,10 +283,8 @@ class _SettingsWorkflowLogsPageState
                   )
                 : ListView.separated(
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const Divider(
-                      height: 1,
-                      color: AppTheme.borderColor,
-                    ),
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: AppTheme.borderColor),
                     itemBuilder: (context, index) {
                       final envelope = filtered[index];
                       final event = envelope.event;

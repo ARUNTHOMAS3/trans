@@ -55,7 +55,7 @@ class _RecurringExpenseDetailsWidgetState
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           height: 42,
@@ -123,12 +123,12 @@ class _RecurringExpenseDetailsWidgetState
   Widget _buildOverviewTab(double availableWidth) {
     final isCompact = availableWidth < 700;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(26, 18, 26, 0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isCompact)
                 Column(
@@ -214,51 +214,46 @@ class _RecurringExpenseDetailsWidgetState
                   ],
                 )
               else
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 200,
-                        child: _buildDetailGroup(
-                          label: 'Expense Account',
-                          value: widget.details.expenseAccount,
-                        ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 200,
+                      child: _buildDetailGroup(
+                        label: 'Expense Account',
+                        value: widget.details.expenseAccount,
                       ),
-                      const SizedBox(width: 56),
-                      SizedBox(
-                        width: 140,
-                        child: _buildDetailGroup(
-                          label: 'Paid Through',
-                          value: widget.details.paidThrough,
-                        ),
+                    ),
+                    const SizedBox(width: 56),
+                    SizedBox(
+                      width: 140,
+                      child: _buildDetailGroup(
+                        label: 'Paid Through',
+                        value: widget.details.paidThrough,
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
-                        child: Container(
-                          width: 2,
-                          color: AppTheme.warningOrange,
-                        ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      child: Container(width: 2, color: AppTheme.warningOrange),
+                    ),
+                    SizedBox(
+                      width: 220,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildInlineDetailRow(
+                            label: 'Start On',
+                            value: widget.details.startDate,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildInlineDetailRow(
+                            label: 'Ends On',
+                            value: _endValue(),
+                          ),
+                        ],
                       ),
-                      SizedBox(
-                        width: 220,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildInlineDetailRow(
-                              label: 'Start On',
-                              value: widget.details.startDate,
-                            ),
-                            const SizedBox(height: 14),
-                            _buildInlineDetailRow(
-                              label: 'Ends On',
-                              value: _endValue(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               const SizedBox(height: 24),
               const Divider(color: AppTheme.borderLight, height: 1),
@@ -408,7 +403,7 @@ class _RecurringExpenseDetailsWidgetState
       padding: const EdgeInsets.fromLTRB(26, 28, 26, 28),
       color: AppTheme.bgLight,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'HISTORY',
@@ -873,7 +868,7 @@ class _RecurringExpenseDetailsWidgetState
       data: (expenses) {
         if (expenses.isEmpty) {
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildExpensesTableHeader(),
               const SizedBox(height: 120),
@@ -891,7 +886,7 @@ class _RecurringExpenseDetailsWidgetState
         }
 
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildExpensesTableHeader(),
             const SizedBox(height: 8),

@@ -143,49 +143,61 @@ class _AdvancedVendorSearchDialogState
                                     ),
                                     child: PopupMenuButton<String>(
                                       padding: EdgeInsets.zero,
-                                      offset: const Offset(0, 34), // Displays on the bottom of selection list bar nicely
+                                      offset: const Offset(
+                                        0,
+                                        34,
+                                      ), // Displays on the bottom of selection list bar nicely
                                       constraints: const BoxConstraints(
                                         minWidth: 190,
                                         maxWidth: 190,
                                       ),
-                                      onSelected: (val) =>
-                                          setState(() => _selectedCategory = val),
-                                      itemBuilder: (ctx) => _categories
-                                          .map((c) {
-                                            bool isHovered = false;
-                                            return PopupMenuItem<String>(
-                                              value: c,
-                                              padding: EdgeInsets.zero,
-                                              height: 38,
-                                              child: StatefulBuilder(
-                                                builder: (ctx, setStateItem) {
-                                                  return MouseRegion(
-                                                    onEnter: (_) => setStateItem(() => isHovered = true),
-                                                    onExit: (_) => setStateItem(() => isHovered = false),
-                                                    child: Container(
-                                                      width: double.infinity,
-                                                      height: 38,
-                                                      alignment: Alignment.centerLeft,
-                                                      color: isHovered
-                                                          ? const Color(0xFF0052CC)
-                                                          : Colors.transparent,
-                                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                                      child: Text(
-                                                        c,
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          color: isHovered
-                                                              ? Colors.white
-                                                              : AppTheme.textBody,
-                                                        ),
+                                      onSelected: (val) => setState(
+                                        () => _selectedCategory = val,
+                                      ),
+                                      itemBuilder: (ctx) => _categories.map((
+                                        c,
+                                      ) {
+                                        bool isHovered = false;
+                                        return PopupMenuItem<String>(
+                                          value: c,
+                                          padding: EdgeInsets.zero,
+                                          height: 38,
+                                          child: StatefulBuilder(
+                                            builder: (ctx, setStateItem) {
+                                              return MouseRegion(
+                                                onEnter: (_) => setStateItem(
+                                                  () => isHovered = true,
+                                                ),
+                                                onExit: (_) => setStateItem(
+                                                  () => isHovered = false,
+                                                ),
+                                                child: Container(
+                                                  width: double.infinity,
+                                                  height: 38,
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  color: isHovered
+                                                      ? const Color(0xFF0052CC)
+                                                      : Colors.transparent,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 16,
                                                       ),
+                                                  child: Text(
+                                                    c,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: isHovered
+                                                          ? Colors.white
+                                                          : AppTheme.textBody,
                                                     ),
-                                                  );
-                                                },
-                                              ),
-                                            );
-                                          })
-                                          .toList(),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        );
+                                      }).toList(),
                                       child: Container(
                                         width: 190,
                                         height: 32,
@@ -232,17 +244,19 @@ class _AdvancedVendorSearchDialogState
                                       onSubmitted: (_) => _onSearch(),
                                       style: const TextStyle(fontSize: 14),
                                       decoration: InputDecoration(
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 8,
+                                            ),
                                         border: InputBorder.none,
                                         enabledBorder: InputBorder.none,
                                         focusedBorder: InputBorder.none,
                                         suffixIcon: _searchCtrl.text.isNotEmpty
                                             ? IconButton(
                                                 padding: EdgeInsets.zero,
-                                                constraints: const BoxConstraints(),
+                                                constraints:
+                                                    const BoxConstraints(),
                                                 icon: const Icon(
                                                   Icons.clear,
                                                   size: 16,
@@ -346,7 +360,9 @@ class _AdvancedVendorSearchDialogState
                                 itemBuilder: (ctx, index) {
                                   final v = _filteredVendors[index];
                                   return InkWell(
-                                    hoverColor: AppTheme.primaryBlue.withValues(alpha: 0.08),
+                                    hoverColor: AppTheme.primaryBlue.withValues(
+                                      alpha: 0.08,
+                                    ),
                                     onTap: () {
                                       widget.onSelect(v);
                                       Navigator.pop(context);
@@ -369,7 +385,8 @@ class _AdvancedVendorSearchDialogState
                                                   style: const TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w500,
-                                                    color: AppTheme.primaryBlueDark,
+                                                    color: AppTheme
+                                                        .primaryBlueDark,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 4),
@@ -378,7 +395,8 @@ class _AdvancedVendorSearchDialogState
                                                     v.vendorNumber!,
                                                     style: const TextStyle(
                                                       fontSize: 11,
-                                                      color: AppTheme.textSecondary,
+                                                      color: AppTheme
+                                                          .textSecondary,
                                                     ),
                                                   ),
                                               ],

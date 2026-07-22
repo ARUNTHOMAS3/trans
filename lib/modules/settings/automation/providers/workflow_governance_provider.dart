@@ -5,17 +5,21 @@ import 'package:zerpai_erp/core/workflow/governance_insights_model.dart';
 import 'package:zerpai_erp/core/workflow/governance_dashboard_service.dart';
 import 'package:zerpai_erp/core/workflow/workflow_runtime_store.dart';
 
-final workflowRuntimeStoreProvider = ChangeNotifierProvider<WorkflowRuntimeStore>(
-  (ref) => WorkflowRuntimeStore.instance,
+final workflowRuntimeStoreProvider =
+    ChangeNotifierProvider<WorkflowRuntimeStore>(
+      (ref) => WorkflowRuntimeStore.instance,
+    );
+
+final workflowDashboardSnapshotProvider = Provider<GovernanceDashboardSnapshot>(
+  (ref) {
+    final store = ref.watch(workflowRuntimeStoreProvider);
+    return store.dashboardSnapshot();
+  },
 );
 
-final workflowDashboardSnapshotProvider =
-    Provider<GovernanceDashboardSnapshot>((ref) {
-      final store = ref.watch(workflowRuntimeStoreProvider);
-      return store.dashboardSnapshot();
-    });
-
-final workflowEventTimelineProvider = Provider<List<DomainEventEnvelope>>((ref) {
+final workflowEventTimelineProvider = Provider<List<DomainEventEnvelope>>((
+  ref,
+) {
   final store = ref.watch(workflowRuntimeStoreProvider);
   final events = store.events;
   return events.reversed.toList(growable: false);
@@ -56,7 +60,9 @@ final workflowHeatmapProvider = Provider<List<GovernanceHeatmapCell>>((ref) {
   return store.branchGovernanceHeatmap();
 });
 
-final workflowForecastProvider = Provider<List<GovernanceForecastSignal>>((ref) {
+final workflowForecastProvider = Provider<List<GovernanceForecastSignal>>((
+  ref,
+) {
   final store = ref.watch(workflowRuntimeStoreProvider);
   return store.governanceForecastSignals();
 });
@@ -74,12 +80,11 @@ final workflowOperationsCenterProvider =
       return store.operationsCenterSnapshot();
     });
 
-final workflowIncidentAlertsProvider = Provider<List<GovernanceIncidentSummary>>((
-  ref,
-) {
-  final store = ref.watch(workflowRuntimeStoreProvider);
-  return store.incidentAlerts();
-});
+final workflowIncidentAlertsProvider =
+    Provider<List<GovernanceIncidentSummary>>((ref) {
+      final store = ref.watch(workflowRuntimeStoreProvider);
+      return store.incidentAlerts();
+    });
 
 final workflowIncidentStatusPipelineProvider =
     Provider<Map<GovernanceIncidentStatus, int>>((ref) {

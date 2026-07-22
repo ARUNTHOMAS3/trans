@@ -71,8 +71,7 @@ class TransactionSeriesDropdown extends StatefulWidget {
       _TransactionSeriesDropdownState();
 }
 
-class _TransactionSeriesDropdownState
-    extends State<TransactionSeriesDropdown> {
+class _TransactionSeriesDropdownState extends State<TransactionSeriesDropdown> {
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlay;
   bool _isOpen = false;
@@ -166,8 +165,10 @@ class _TransactionSeriesDropdownState
       return Offset(0, fieldSize.height + 4);
     }
 
-    final targetGlobal =
-        triggerBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final targetGlobal = triggerBox.localToGlobal(
+      Offset.zero,
+      ancestor: overlayBox,
+    );
 
     final spaceBelow =
         overlayBox.size.height - (targetGlobal.dy + fieldSize.height);
@@ -229,14 +230,17 @@ class _TransactionSeriesDropdownState
                   final query = _searchCtrl.text.toLowerCase().trim();
 
                   // Should "Default Transaction Series" appear?
-                  final showDefault = widget.includeDefaultOption &&
+                  final showDefault =
+                      widget.includeDefaultOption &&
                       'default transaction series'.contains(query);
 
                   // Filter user-created series
                   final filtered = widget.series
-                      .where((s) =>
-                          query.isEmpty ||
-                          s.name.toLowerCase().contains(query))
+                      .where(
+                        (s) =>
+                            query.isEmpty ||
+                            s.name.toLowerCase().contains(query),
+                      )
                       .toList();
 
                   return Column(
@@ -256,24 +260,32 @@ class _TransactionSeriesDropdownState
                               isDense: true,
                               hintText: 'Search',
                               hintStyle: const TextStyle(
-                                  fontSize: 13, color: AppTheme.textMuted),
-                              prefixIcon: const Icon(Icons.search,
-                                  size: 15, color: AppTheme.textMuted),
+                                fontSize: 13,
+                                color: AppTheme.textMuted,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                size: 15,
+                                color: AppTheme.textMuted,
+                              ),
                               contentPadding: EdgeInsets.zero,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
                                 borderSide: const BorderSide(
-                                    color: AppTheme.borderColor),
+                                  color: AppTheme.borderColor,
+                                ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
                                 borderSide: const BorderSide(
-                                    color: AppTheme.borderColor),
+                                  color: AppTheme.borderColor,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
                                 borderSide: BorderSide(
-                                    color: widget.accentColor),
+                                  color: widget.accentColor,
+                                ),
                               ),
                             ),
                           ),
@@ -308,12 +320,15 @@ class _TransactionSeriesDropdownState
                             if (!showDefault && filtered.isEmpty)
                               const Padding(
                                 padding: EdgeInsets.symmetric(
-                                    vertical: 16, horizontal: 12),
+                                  vertical: 16,
+                                  horizontal: 12,
+                                ),
                                 child: Text(
                                   'No results',
                                   style: TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.textMuted),
+                                    fontSize: 13,
+                                    color: AppTheme.textMuted,
+                                  ),
                                 ),
                               ),
                           ],
@@ -327,14 +342,21 @@ class _TransactionSeriesDropdownState
                           _close();
                           widget.onAddTap();
                         },
-                        hoverColor: AppTheme.primaryBlue.withValues(alpha: 0.08),
+                        hoverColor: AppTheme.primaryBlue.withValues(
+                          alpha: 0.08,
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: Row(
                             children: [
-                              Icon(LucideIcons.plusCircle,
-                                  size: 14, color: AppTheme.primaryBlue),
+                              Icon(
+                                LucideIcons.plusCircle,
+                                size: 14,
+                                color: AppTheme.primaryBlue,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Add Transaction Series',
@@ -369,8 +391,8 @@ class _TransactionSeriesDropdownState
     final rowColor = isDefault
         ? AppTheme.primaryBlue
         : isSelected
-            ? AppTheme.infoBg
-            : Colors.white;
+        ? AppTheme.infoBg
+        : Colors.white;
     return Material(
       color: rowColor,
       child: InkWell(
@@ -398,8 +420,8 @@ class _TransactionSeriesDropdownState
                       color: isDefault
                           ? Colors.white
                           : isSelected
-                              ? AppTheme.primaryBlueDark
-                              : AppTheme.textPrimary,
+                          ? AppTheme.primaryBlueDark
+                          : AppTheme.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -442,8 +464,8 @@ class _TransactionSeriesDropdownState
                   color: hasError
                       ? AppTheme.errorRed
                       : _isOpen
-                          ? widget.accentColor
-                          : AppTheme.borderColor,
+                      ? widget.accentColor
+                      : AppTheme.borderColor,
                 ),
               ),
               child: Row(
@@ -455,7 +477,9 @@ class _TransactionSeriesDropdownState
                         ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
                     size: 18,
-                    color: _isOpen ? widget.accentColor : AppTheme.textSecondary,
+                    color: _isOpen
+                        ? widget.accentColor
+                        : AppTheme.textSecondary,
                   ),
                 ],
               ),
@@ -486,11 +510,7 @@ class _TransactionSeriesDropdownState
       final id = widget.selectedIds.first;
       final label = id == TransactionSeriesOption.defaultSeries.id
           ? 'Default Transaction Series'
-          : widget.series
-                  .where((s) => s.id == id)
-                  .firstOrNull
-                  ?.name ??
-              id;
+          : widget.series.where((s) => s.id == id).firstOrNull?.name ?? id;
       return Text(
         label,
         style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
@@ -506,11 +526,7 @@ class _TransactionSeriesDropdownState
       children: widget.selectedIds.map((id) {
         final label = id == TransactionSeriesOption.defaultSeries.id
             ? 'Default Transaction Series'
-            : widget.series
-                    .where((s) => s.id == id)
-                    .firstOrNull
-                    ?.name ??
-                id;
+            : widget.series.where((s) => s.id == id).firstOrNull?.name ?? id;
         return _Chip(
           label: label,
           accentColor: widget.accentColor,

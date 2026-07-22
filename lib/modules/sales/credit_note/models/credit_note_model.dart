@@ -39,7 +39,8 @@ class CreditNoteItemModel {
   }
 
   String get formattedQty {
-    if (quantity == quantity.roundToDouble()) return quantity.toStringAsFixed(0);
+    if (quantity == quantity.roundToDouble())
+      return quantity.toStringAsFixed(0);
     return quantity.toStringAsFixed(2);
   }
 
@@ -119,8 +120,7 @@ class CreditNoteModel {
 
   String get formattedAmount => NumberFormat('#,##0.00').format(grandTotal);
 
-  double get computedSubTotal =>
-      items.fold(0.0, (sum, i) => sum + i.lineTotal);
+  double get computedSubTotal => items.fold(0.0, (sum, i) => sum + i.lineTotal);
 
   double get computedTaxTotal => grandTotal - computedSubTotal;
 }

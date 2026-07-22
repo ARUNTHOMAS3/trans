@@ -1,7 +1,7 @@
 // FILE: lib/modules/items/services/lookups_api_service.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/uqc_model.dart';
@@ -188,7 +188,6 @@ class LookupsApiService {
         return taxGroups;
       }
 
-
       return [];
     } catch (e) {
       return [];
@@ -197,7 +196,9 @@ class LookupsApiService {
 
   Future<List<Map<String, dynamic>>> getTaxGroupRates() async {
     try {
-      final response = await _apiClient.get('/products/lookups/tax-group-rates');
+      final response = await _apiClient.get(
+        '/products/lookups/tax-group-rates',
+      );
       if (response.statusCode == 200) {
         return List<Map<String, dynamic>>.from(response.data);
       }
@@ -545,6 +546,7 @@ class LookupsApiService {
     }
     throw Exception('Failed to create content');
   }
+
   Future<List<Map<String, dynamic>>> syncStrengths(
     List<Map<String, dynamic>> items,
   ) => _syncLookup('strengths', items);
@@ -562,6 +564,7 @@ class LookupsApiService {
     }
     throw Exception('Failed to create buying rule');
   }
+
   Future<List<Map<String, dynamic>>> syncDrugSchedules(
     List<Map<String, dynamic>> items,
   ) => _syncLookup('drug-schedules', items);
@@ -582,6 +585,7 @@ class LookupsApiService {
     }
     throw Exception('Failed to create product pack size');
   }
+
   Future<Map<String, dynamic>> createDrugSchedule(String name) async {
     final response = await _apiClient.post(
       '/products/lookups/drug-schedules',
@@ -687,7 +691,9 @@ class LookupsApiService {
 
   Future<List<Map<String, dynamic>>> getProductPackSizes() async {
     try {
-      final response = await _apiClient.get('/products/lookups/product-pack-sizes');
+      final response = await _apiClient.get(
+        '/products/lookups/product-pack-sizes',
+      );
       if (response.statusCode == 200) {
         return List<Map<String, dynamic>>.from(response.data);
       }
@@ -830,7 +836,8 @@ class LookupsApiService {
       final response = await _apiClient.get('shipment-preferences');
       final data = response.data;
       if (data is List) return data.cast<Map<String, dynamic>>();
-      if (data is Map && data['data'] is List) return (data['data'] as List).cast<Map<String, dynamic>>();
+      if (data is Map && data['data'] is List)
+        return (data['data'] as List).cast<Map<String, dynamic>>();
       return [];
     } catch (e) {
       final message = e.toString();
@@ -848,9 +855,14 @@ class LookupsApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> syncShipmentPreferences(List<Map<String, dynamic>> items) async {
+  Future<List<Map<String, dynamic>>> syncShipmentPreferences(
+    List<Map<String, dynamic>> items,
+  ) async {
     try {
-      final response = await _apiClient.post('shipment-preferences/sync', data: {'items': items});
+      final response = await _apiClient.post(
+        'shipment-preferences/sync',
+        data: {'items': items},
+      );
       final data = response.data;
       if (data is List) return data.cast<Map<String, dynamic>>();
       return items;

@@ -14,20 +14,20 @@ class Address {
   });
 
   factory Address.fromJson(Map<String, dynamic> json) => Address(
-        street: json['street'] as String? ?? '',
-        city: json['city'] as String? ?? '',
-        state: json['state'] as String? ?? '',
-        country: json['country'] as String? ?? '',
-        postalCode: json['postalCode'] as String? ?? '',
-      );
+    street: json['street'] as String? ?? '',
+    city: json['city'] as String? ?? '',
+    state: json['state'] as String? ?? '',
+    country: json['country'] as String? ?? '',
+    postalCode: json['postalCode'] as String? ?? '',
+  );
 
   Map<String, dynamic> toJson() => {
-        'street': street,
-        'city': city,
-        'state': state,
-        'country': country,
-        'postalCode': postalCode,
-      };
+    'street': street,
+    'city': city,
+    'state': state,
+    'country': country,
+    'postalCode': postalCode,
+  };
 }
 
 class Organization {
@@ -45,6 +45,7 @@ class Organization {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
+
   /// UUID referencing states.id — populated from the new state_id column added
   /// by the Smart-Tax SQL migration. Null when not yet configured.
   final String? stateId;
@@ -85,7 +86,13 @@ class Organization {
       website: json['website'] as String?,
       address: Address.fromJson(
         (json['address'] as Map<String, dynamic>?) ??
-            <String, dynamic>{'street': '', 'city': '', 'state': '', 'country': '', 'postalCode': ''},
+            <String, dynamic>{
+              'street': '',
+              'city': '',
+              'state': '',
+              'country': '',
+              'postalCode': '',
+            },
       ),
       currency: json['currency'] as String? ?? 'INR',
       timezone: json['timezone'] as String? ?? 'UTC',
@@ -97,20 +104,20 @@ class Organization {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'legalName': legalName,
-        'gstin': gstin,
-        'pan': pan,
-        'phone': phone,
-        'email': email,
-        'website': website,
-        'address': address.toJson(),
-        'currency': currency,
-        'timezone': timezone,
-        'isActive': isActive,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        'stateId': stateId,
-      };
+    'id': id,
+    'name': name,
+    'legalName': legalName,
+    'gstin': gstin,
+    'pan': pan,
+    'phone': phone,
+    'email': email,
+    'website': website,
+    'address': address.toJson(),
+    'currency': currency,
+    'timezone': timezone,
+    'isActive': isActive,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'stateId': stateId,
+  };
 }

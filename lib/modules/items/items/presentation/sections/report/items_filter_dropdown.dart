@@ -209,7 +209,10 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Divider(height: 1, color: AppTheme.borderColor),
+                            const Divider(
+                              height: 1,
+                              color: AppTheme.borderColor,
+                            ),
                             const SizedBox(height: 8),
                             _Sectioner(
                               title: 'DEFAULT FILTERS',
@@ -256,9 +259,7 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: _isOpen
-                  ? AppTheme.primaryBlueDark
-                  : AppTheme.borderColor,
+              color: _isOpen ? AppTheme.primaryBlueDark : AppTheme.borderColor,
               width: 1,
             ),
           ),

@@ -733,9 +733,7 @@ class ManualJournalDetailPanel extends ConsumerWidget {
                 label,
                 textAlign: TextAlign.right,
                 style: style.copyWith(
-                  color: isBold
-                      ? AppTheme.textPrimary
-                      : AppTheme.textSecondary,
+                  color: isBold ? AppTheme.textPrimary : AppTheme.textSecondary,
                 ),
               ),
             ),

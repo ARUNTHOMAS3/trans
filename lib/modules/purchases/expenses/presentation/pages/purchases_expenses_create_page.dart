@@ -401,8 +401,6 @@ class _ExpensesCreatePageState extends ConsumerState<ExpensesCreatePage> {
             .toList(growable: false)
       : _taxes;
 
-
-
   String? _resolveGstTreatmentLabel(String? value) {
     if (value == null || value.isEmpty) {
       return value;
@@ -9287,10 +9285,7 @@ class _MileageDistanceInputFieldState extends State<MileageDistanceInputField> {
                         hintText: '',
                         hideBorderDefault: true,
                         fillColor: Colors.transparent,
-                        border: Border.all(
-                          color: Colors.transparent,
-                          width: 0,
-                        ),
+                        border: Border.all(color: Colors.transparent, width: 0),
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         onChanged: widget.onChanged,
                       ),
@@ -9356,4 +9351,3 @@ class VendorItem {
   @override
   String toString() => name;
 }
-

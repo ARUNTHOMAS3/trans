@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/observability/performance_telemetry.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/purchase_request_report.dart';
 import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/purchase_requests_create.dart';
@@ -9,51 +10,49 @@ import 'package:zerpai_erp/modules/procurement/approvals/presentation/pages/proc
 import 'package:zerpai_erp/modules/procurement/approvals/presentation/pages/procurement_approvals_report.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:zerpai_erp/core/auth/auth_session_expiry_notifier.dart';
-import 'package:zerpai_erp/modules/items/items/presentation/items_item_create.dart';
-import 'package:zerpai_erp/modules/items/items/presentation/items_item_detail.dart';
+import 'package:zerpai_erp/modules/items/items/presentation/pages/items_item_create.dart';
+import 'package:zerpai_erp/modules/items/items/presentation/pages/items_item_detail.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_report_overview.dart';
 import 'package:zerpai_erp/modules/items/composite_items/presentation/composite_items_create.dart';
 import 'package:zerpai_erp/modules/items/composite_items/presentation/composite_items_overview.dart';
 import 'package:zerpai_erp/modules/items/composite_items/presentation/composite_items_list.dart';
 
-
-
-import 'package:zerpai_erp/modules/sales/customers/presentation/sales_customer_create.dart';
+import 'package:zerpai_erp/modules/sales/customers/presentation/pages/sales_customer_create.dart';
 import 'package:zerpai_erp/modules/sales/customers/presentation/pages/sales_customer_list.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/presentation/sales_order_list.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/presentation/sales_order_create.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/presentation/pages/sales_order_list.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/presentation/pages/sales_order_create.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
-import 'package:zerpai_erp/modules/sales/invoices/presentation/sales_invoice_create.dart';
+import 'package:zerpai_erp/modules/sales/invoices/presentation/pages/sales_invoice_create.dart';
 import 'package:zerpai_erp/modules/sales/invoices/presentation/pages/sales_invoice_list.dart';
-import 'package:zerpai_erp/modules/sales/retainer_invoices/presentation/sales_retainer_invoice_create.dart';
-import 'package:zerpai_erp/modules/sales/delivery_challans/presentation/sales_delivery_challan_create.dart';
+import 'package:zerpai_erp/modules/sales/retainer_invoices/presentation/pages/sales_retainer_invoice_create.dart';
+import 'package:zerpai_erp/modules/sales/delivery_challans/presentation/pages/sales_delivery_challan_create.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/report_page.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/sales_payment_create.dart';
 
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/payment_recieves_overview.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_add_page.dart';
-import 'package:zerpai_erp/modules/sales/eway_bills/presentation/sales_eway_bill_create.dart';
-import 'package:zerpai_erp/modules/sales/quotations/presentation/sales_quotation_create.dart';
-import 'package:zerpai_erp/modules/sales/documents/presentation/sales_document_detail.dart';
-import 'package:zerpai_erp/modules/sales/customers/presentation/sales_customer_overview.dart';
-import 'package:zerpai_erp/modules/sales/payment_links/presentation/sales_payment_link_create.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_add_page.dart';
+import 'package:zerpai_erp/modules/sales/eway_bills/presentation/pages/sales_eway_bill_create.dart';
+import 'package:zerpai_erp/modules/sales/quotations/presentation/pages/sales_quotation_create.dart';
+import 'package:zerpai_erp/modules/sales/documents/presentation/pages/sales_document_detail.dart';
+import 'package:zerpai_erp/modules/sales/customers/presentation/pages/sales_customer_overview.dart';
+import 'package:zerpai_erp/modules/sales/payment_links/presentation/pages/sales_payment_link_create.dart';
 
-import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/sales_recurring_invoice_create.dart';
+import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/pages/sales_recurring_invoice_create.dart';
 
-import 'package:zerpai_erp/modules/sales/sales_return/presentation/sales_return_overview_page.dart';
+import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_overview_page.dart';
 import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_create_page.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/credit_note_overview_page.dart';
-import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart';
-import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_overview.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_overview_page.dart';
+import 'package:zerpai_erp/modules/inventory/assemblies/presentation/pages/inventory_assemblies_assembly_creation.dart';
+import 'package:zerpai_erp/modules/inventory/assemblies/presentation/pages/inventory_assemblies_assembly_overview.dart';
 
-import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journals_overview_screen.dart';
-import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journal_create_screen.dart';
-import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journal_template_create_screen.dart';
-import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journal_templates_list_screen.dart';
-import 'package:zerpai_erp/modules/accountant/recurring_journals/presentation/recurring_journal_create_screen.dart';
-import 'package:zerpai_erp/modules/accountant/recurring_journals/presentation/recurring_journal_overview_screen.dart';
+import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/pages/manual_journals_overview_screen.dart';
+import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/pages/manual_journal_create_screen.dart';
+import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/pages/manual_journal_template_create_screen.dart';
+import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/pages/manual_journal_templates_list_screen.dart';
+import 'package:zerpai_erp/modules/accountant/recurring_journals/presentation/pages/recurring_journal_create_screen.dart';
+import 'package:zerpai_erp/modules/accountant/recurring_journals/presentation/pages/recurring_journal_overview_screen.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/models/manual_journal_model.dart';
 import 'package:zerpai_erp/modules/accountant/recurring_journals/models/recurring_journal_model.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/presentation/pages/accountant_chart_of_accounts_overview.dart';
@@ -61,17 +60,15 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/presentation/pages
 import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_overview.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/presentation/items_pricelist_pricelist_create.dart';
 
-
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_overview_page.dart';
 import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/branch_pricelist_create_page.dart';
-
 
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_screen.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_update_screen.dart';
 import 'package:zerpai_erp/modules/accountant/config/routes.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_audit_logs_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_sales_sales_daily.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_audit_logs_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_sales_sales_daily.dart';
 import 'package:zerpai_erp/modules/home/presentation/home_dashboard_overview.dart';
 import 'package:zerpai_erp/modules/reports/config/routes.dart';
 import 'package:zerpai_erp/modules/settings/config/routes.dart';
@@ -83,21 +80,20 @@ import 'package:zerpai_erp/modules/auth/services/permission_service.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/vendors_report_page.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/vendors_overview_page.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/vendors_email_page.dart';
-import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
-import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_list.dart';
-import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/purchases_vendors_vendor_create.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_list.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
-import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart';
 
-import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart';
-
+import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart';
 
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_report.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_create.dart';
-import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_list.dart';
-import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_create.dart';
+import 'package:zerpai_erp/modules/purchases/bills/presentation/pages/purchases_bills_list.dart';
+import 'package:zerpai_erp/modules/purchases/bills/presentation/pages/purchases_bills_create.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_create_page.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_overview_page.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_receipts_inbox_page.dart';
@@ -111,27 +107,27 @@ import 'package:zerpai_erp/app/pages/error_page.dart';
 import 'package:zerpai_erp/app/pages/maintenance_page.dart';
 import 'package:zerpai_erp/app/pages/not_found_page.dart';
 import 'package:zerpai_erp/app/pages/unauthorized_page.dart';
-import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_list.dart';
-import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_create.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/presentation/pages/inventory_picklists_list.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/presentation/pages/inventory_picklists_create.dart';
 
-import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_update.dart';
-import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_list.dart';
-import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_create.dart';
-import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_list.dart';
-import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_create.dart';
-import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_edit.dart';
-import 'package:zerpai_erp/modules/inventory/adjustments/presentation/inventory_adjustments_overview_screen.dart';
-import 'package:zerpai_erp/modules/inventory/adjustments/presentation/inventory_adjustments_create.dart';
-import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/inventory_transfer_orders_list.dart';
-import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/inventory_transfer_orders_create.dart';
-import 'package:zerpai_erp/modules/inventory/move_orders/presentation/inventory_move_orders_list.dart';
-import 'package:zerpai_erp/modules/inventory/move_orders/presentation/inventory_move_orders_create.dart';
-import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_report_page.dart';
-import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_create_page.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/presentation/pages/inventory_picklists_update.dart';
+import 'package:zerpai_erp/modules/inventory/packages/presentation/pages/inventory_packages_list.dart';
+import 'package:zerpai_erp/modules/inventory/packages/presentation/pages/inventory_packages_create.dart';
+import 'package:zerpai_erp/modules/inventory/shipments/presentation/pages/inventory_shipments_list.dart';
+import 'package:zerpai_erp/modules/inventory/shipments/presentation/pages/inventory_shipments_create.dart';
+import 'package:zerpai_erp/modules/inventory/shipments/presentation/pages/inventory_shipments_edit.dart';
+import 'package:zerpai_erp/modules/inventory/adjustments/presentation/pages/inventory_adjustments_overview_screen.dart';
+import 'package:zerpai_erp/modules/inventory/adjustments/presentation/pages/inventory_adjustments_create.dart';
+import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/pages/inventory_transfer_orders_list.dart';
+import 'package:zerpai_erp/modules/inventory/transfer_orders/presentation/pages/inventory_transfer_orders_create.dart';
+import 'package:zerpai_erp/modules/inventory/move_orders/presentation/pages/inventory_move_orders_list.dart';
+import 'package:zerpai_erp/modules/inventory/move_orders/presentation/pages/inventory_move_orders_create.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/models/stock_count_model.dart';
 import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/recurring_stock_count_report_page.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_create_page.dart';
 import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_overview_page.dart';
 import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_perform_page.dart';
-import 'package:zerpai_erp/modules/inventory/stock_count/models/stock_count_model.dart';
+import 'package:zerpai_erp/modules/inventory/stock_count/presentation/pages/stock_count_report_page.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 export 'package:zerpai_erp/core/routing/app_routes.dart';
 
@@ -140,7 +136,6 @@ const bool _kEnableAuth = bool.fromEnvironment(
   'ENABLE_AUTH',
   defaultValue: true,
 );
-
 
 bool _hasStoredAuthToken() {
   try {
@@ -408,6 +403,9 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
+  observers: PerformanceMonitoringConfig.enabled
+      ? <NavigatorObserver>[ZerpaiNavigatorObserver()]
+      : const <NavigatorObserver>[],
   refreshListenable: authSessionExpiryNotifier,
   initialLocation: '/$_kFallbackRouteSystemId/home',
   debugLogDiagnostics: false,
@@ -560,8 +558,9 @@ final GoRouter appRouter = GoRouter(
                 fromDemandPool: extra,
                 editId: editId,
               ),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-                  FadeTransition(opacity: animation, child: child),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) =>
+                      FadeTransition(opacity: animation, child: child),
             );
           },
         ),
@@ -929,9 +928,12 @@ final GoRouter appRouter = GoRouter(
                   path: 'create',
                   name: AppRoutes.salesPaymentsReceivedCreate,
                   builder: (context, state) {
-                    final editId = state.uri.queryParameters['editId'] ?? state.uri.queryParameters['id'];
+                    final editId =
+                        state.uri.queryParameters['editId'] ??
+                        state.uri.queryParameters['id'];
                     return SalesPaymentCreateScreen(
-                      initialCustomerId: state.uri.queryParameters['customerId'],
+                      initialCustomerId:
+                          state.uri.queryParameters['customerId'],
                       fromInvoiceId: state.uri.queryParameters['fromInvoiceId'],
                       cloneId: state.uri.queryParameters['cloneId'],
                       editPaymentId: editId,
@@ -943,7 +945,9 @@ final GoRouter appRouter = GoRouter(
                   path: 'customer-advance',
                   name: AppRoutes.salesCustomerAdvanceCreate,
                   builder: (context, state) {
-                    final editId = state.uri.queryParameters['editId'] ?? state.uri.queryParameters['id'];
+                    final editId =
+                        state.uri.queryParameters['editId'] ??
+                        state.uri.queryParameters['id'];
                     return SalesPaymentCreateScreen(
                       editPaymentId: editId,
                       initialTab: 1,
@@ -1075,18 +1079,21 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/recurring-invoices',
               name: AppRoutes.salesRecurringInvoices,
-              builder: (context, state) => const PlaceholderScreen(title: 'Recurring Invoices'),
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'Recurring Invoices'),
               routes: [
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesRecurringInvoicesCreate,
-                  builder: (context, state) => const SalesRecurringInvoiceCreateScreen(),
+                  builder: (context, state) =>
+                      const SalesRecurringInvoiceCreateScreen(),
                 ),
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.salesRecurringInvoicesDetail,
                   builder: (context, state) => PlaceholderScreen(
-                    title: 'Recurring Invoice detail: ${state.pathParameters['id']}',
+                    title:
+                        'Recurring Invoice detail: ${state.pathParameters['id']}',
                   ),
                 ),
               ],
@@ -1102,8 +1109,7 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.assembliesCreate,
-                  builder: (context, state) =>
-                      const AssemblyCreateScreen(),
+                  builder: (context, state) => const AssemblyCreateScreen(),
                 ),
               ],
             ),
@@ -1304,12 +1310,13 @@ final GoRouter appRouter = GoRouter(
               path: 'inventory/stock-counts/create',
               name: AppRoutes.stockCountsCreate,
               builder: (context, state) {
-                final isRecurring = state.uri.queryParameters['recurring'] == 'true';
-                final editId = state.uri.queryParameters['editId'];
                 final extra = state.extra;
                 return StockCountCreatePage(
-                  editCountId: editId,
-                  startAsRecurring: isRecurring,
+                  editCountId:
+                      state.uri.queryParameters['editId'] ??
+                      state.uri.queryParameters['id'],
+                  startAsRecurring:
+                      state.uri.queryParameters['recurring'] == 'true',
                   initialCount: extra is StockCount ? extra : null,
                 );
               },
@@ -1317,23 +1324,22 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'inventory/stock-counts/recurring',
               name: AppRoutes.recurringStockCounts,
-              builder: (context, state) => const RecurringStockCountReportPage(),
-            ),
-            GoRoute(
-              path: 'inventory/stock-counts/:id',
-              name: AppRoutes.stockCountsDetail,
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return StockCountOverviewPage(countId: id);
-              },
+              builder: (context, state) =>
+                  const RecurringStockCountReportPage(),
             ),
             GoRoute(
               path: 'inventory/stock-counts/:id/perform',
               name: AppRoutes.stockCountsPerform,
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return StockCountPerformPage(countId: id);
-              },
+              builder: (context, state) => StockCountPerformPage(
+                countId: state.pathParameters['id'] ?? '',
+              ),
+            ),
+            GoRoute(
+              path: 'inventory/stock-counts/:id',
+              name: AppRoutes.stockCountsDetail,
+              builder: (context, state) => StockCountOverviewPage(
+                countId: state.pathParameters['id'] ?? '',
+              ),
             ),
 
             // Missing Module Placeholders
@@ -1377,7 +1383,8 @@ final GoRouter appRouter = GoRouter(
               path: 'items/trade-setup/:id',
               name: AppRoutes.itemTradeSetupDetail,
               builder: (context, state) => PlaceholderScreen(
-                title: 'Item Trade Setup details: ${state.pathParameters['id']}',
+                title:
+                    'Item Trade Setup details: ${state.pathParameters['id']}',
               ),
             ),
 
@@ -1407,16 +1414,14 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/vendors/:id/email',
               name: AppRoutes.vendorsEmail,
-              builder: (context, state) => VendorsEmailPage(
-                vendorId: state.pathParameters['id']!,
-              ),
+              builder: (context, state) =>
+                  VendorsEmailPage(vendorId: state.pathParameters['id']!),
             ),
             GoRoute(
               path: 'purchases/vendors/:id',
               name: AppRoutes.vendorsDetail,
-              builder: (context, state) => VendorsOverviewPage(
-                vendorId: state.pathParameters['id'],
-              ),
+              builder: (context, state) =>
+                  VendorsOverviewPage(vendorId: state.pathParameters['id']),
             ),
             GoRoute(
               path: 'purchases/purchase-orders',
@@ -1438,9 +1443,12 @@ final GoRouter appRouter = GoRouter(
                           ? initialOrder
                           : null,
                       isClone: state.uri.queryParameters['clone'] == 'true',
-                      isDropship: state.uri.queryParameters['isDropship'] == 'true',
-                      dropshipCustomerName: state.uri.queryParameters['dropshipCustomerName'],
-                      dropshipAddress: state.uri.queryParameters['dropshipAddress'],
+                      isDropship:
+                          state.uri.queryParameters['isDropship'] == 'true',
+                      dropshipCustomerName:
+                          state.uri.queryParameters['dropshipCustomerName'],
+                      dropshipAddress:
+                          state.uri.queryParameters['dropshipAddress'],
                     );
                   },
                 ),
@@ -1494,9 +1502,10 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/purchase-receives/edit/:id',
               name: AppRoutes.purchaseReceivesEdit,
-              builder: (context, state) => PurchasesPurchaseReceivesCreateScreen(
-                initialReceiveId: state.pathParameters['id'],
-              ),
+              builder: (context, state) =>
+                  PurchasesPurchaseReceivesCreateScreen(
+                    initialReceiveId: state.pathParameters['id'],
+                  ),
             ),
             GoRoute(
               path: 'purchases/expenses',
@@ -1523,17 +1532,20 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/recurring-expenses',
               name: AppRoutes.recurringExpenses,
-              builder: (context, state) => const PurchasesRecurringExpensesPage(),
+              builder: (context, state) =>
+                  const PurchasesRecurringExpensesPage(),
             ),
             GoRoute(
               path: 'purchases/recurring-expenses/create',
               name: AppRoutes.recurringExpensesCreate,
-              builder: (context, state) => const PurchasesRecurringExpensesCreatePage(),
+              builder: (context, state) =>
+                  const PurchasesRecurringExpensesCreatePage(),
             ),
             GoRoute(
               path: 'purchases/recurring-expenses/custom-view',
               name: AppRoutes.recurringExpensesCustomView,
-              builder: (context, state) => const PurchasesRecurringExpensesCustomViewPage(),
+              builder: (context, state) =>
+                  const PurchasesRecurringExpensesCustomViewPage(),
             ),
             GoRoute(
               path: 'purchases/bills',
@@ -1576,7 +1588,8 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) {
                 final billIds = state.uri.queryParameters['billIds'];
                 final paymentId = state.uri.queryParameters['paymentId'];
-                final paymentNumber = state.uri.queryParameters['paymentNumber'];
+                final paymentNumber =
+                    state.uri.queryParameters['paymentNumber'];
                 return CreatePaymentMadePage(
                   billIds: billIds != null && billIds.isNotEmpty
                       ? billIds.split(',')
@@ -1836,26 +1849,30 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'procurement/purchase-requests',
               name: AppRoutes.procurementPurchaseRequests,
-              builder: (context, state) => const ProcurementPurchaseRequestsListPage(),
+              builder: (context, state) =>
+                  const ProcurementPurchaseRequestsListPage(),
               routes: [
                 GoRoute(
                   path: 'requested-items',
                   name: AppRoutes.procurementRequestedItems,
-                  builder: (context, state) => const ProcurementRequestedItemsPage(),
+                  builder: (context, state) =>
+                      const ProcurementRequestedItemsPage(),
                 ),
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.procurementPurchaseRequestOverview,
-                  builder: (context, state) => ProcurementPurchaseRequestOverviewPage(
-                    id: state.pathParameters['id'] ?? '',
-                  ),
+                  builder: (context, state) =>
+                      ProcurementPurchaseRequestOverviewPage(
+                        id: state.pathParameters['id'] ?? '',
+                      ),
                 ),
               ],
             ),
             GoRoute(
               path: 'procurement/approvals',
               name: AppRoutes.procurementApprovals,
-              builder: (context, state) => const ProcurementApprovalsReportPage(),
+              builder: (context, state) =>
+                  const ProcurementApprovalsReportPage(),
               routes: [
                 GoRoute(
                   path: 'overview',

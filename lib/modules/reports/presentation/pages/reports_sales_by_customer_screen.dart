@@ -55,13 +55,33 @@ class SalesByCustomerScreen extends ConsumerWidget {
         loading: () => Skeletonizer(
           enabled: true,
           ignoreContainers: true,
-          child: _buildSalesByCustomerContent(context, currencyFormat, items: [
-            {'customerName': '—————————————', 'invoiceCount': 0, 'totalSales': 0},
-            {'customerName': '———————————', 'invoiceCount': 0, 'totalSales': 0},
-            {'customerName': '————————————', 'invoiceCount': 0, 'totalSales': 0},
-            {'customerName': '———————', 'invoiceCount': 0, 'totalSales': 0},
-            {'customerName': '——————————', 'invoiceCount': 0, 'totalSales': 0},
-          ]),
+          child: _buildSalesByCustomerContent(
+            context,
+            currencyFormat,
+            items: [
+              {
+                'customerName': '—————————————',
+                'invoiceCount': 0,
+                'totalSales': 0,
+              },
+              {
+                'customerName': '———————————',
+                'invoiceCount': 0,
+                'totalSales': 0,
+              },
+              {
+                'customerName': '————————————',
+                'invoiceCount': 0,
+                'totalSales': 0,
+              },
+              {'customerName': '———————', 'invoiceCount': 0, 'totalSales': 0},
+              {
+                'customerName': '——————————',
+                'invoiceCount': 0,
+                'totalSales': 0,
+              },
+            ],
+          ),
         ),
         error: (err, stack) => Center(
           child: Column(
@@ -89,7 +109,11 @@ class SalesByCustomerScreen extends ConsumerWidget {
               child: Text("No data found for the selected period."),
             );
           }
-          return _buildSalesByCustomerContent(context, currencyFormat, items: items);
+          return _buildSalesByCustomerContent(
+            context,
+            currencyFormat,
+            items: items,
+          );
         },
       ),
     );

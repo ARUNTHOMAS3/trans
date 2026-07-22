@@ -22,7 +22,8 @@ class ExpenseItemModel {
   factory ExpenseItemModel.fromJson(Map<String, dynamic> json) {
     return ExpenseItemModel(
       id: (json['id'] ?? '').toString(),
-      lineNo: (json['line_no'] as num?)?.toInt() ??
+      lineNo:
+          (json['line_no'] as num?)?.toInt() ??
           int.tryParse((json['line_no'] ?? '').toString()),
       expenseAccountId:
           (json['expense_account_id'] ?? json['expenseAccountId'] ?? '')
@@ -32,22 +33,24 @@ class ExpenseItemModel {
               ?.toString(),
       notes: json['notes']?.toString(),
       taxId: (json['tax_id'] ?? json['taxId'])?.toString(),
-      taxAmount: (json['tax_amount'] as num?)?.toDouble() ??
+      taxAmount:
+          (json['tax_amount'] as num?)?.toDouble() ??
           double.tryParse((json['tax_amount'] ?? '0').toString()) ??
           0,
-      amount: (json['amount'] as num?)?.toDouble() ??
+      amount:
+          (json['amount'] as num?)?.toDouble() ??
           double.tryParse((json['amount'] ?? '0').toString()) ??
           0,
     );
   }
 
   Map<String, dynamic> toRequestJson() => <String, dynamic>{
-        if (id.isNotEmpty) 'id': id,
-        if (lineNo != null) 'line_no': lineNo,
-        'expense_account_id': expenseAccountId,
-        if (notes != null && notes!.trim().isNotEmpty) 'notes': notes!.trim(),
-        if (taxId != null && taxId!.trim().isNotEmpty) 'tax_id': taxId,
-        'tax_amount': taxAmount,
-        'amount': amount,
-      };
+    if (id.isNotEmpty) 'id': id,
+    if (lineNo != null) 'line_no': lineNo,
+    'expense_account_id': expenseAccountId,
+    if (notes != null && notes!.trim().isNotEmpty) 'notes': notes!.trim(),
+    if (taxId != null && taxId!.trim().isNotEmpty) 'tax_id': taxId,
+    'tax_amount': taxAmount,
+    'amount': amount,
+  };
 }

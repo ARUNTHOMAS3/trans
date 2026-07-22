@@ -19,6 +19,7 @@ import 'package:zerpai_erp/modules/settings/integrations/config/routes.dart';
 import 'package:zerpai_erp/modules/settings/developer/config/routes.dart';
 import 'package:zerpai_erp/modules/settings/users/config/routes.dart';
 import 'package:zerpai_erp/modules/settings/users_roles/config/routes.dart';
+import 'package:zerpai_erp/modules/settings/config/handoff_routes.dart';
 
 typedef ActiveTenantTypeReader = String? Function();
 typedef ActiveTenantIdReader = String? Function();
@@ -53,9 +54,8 @@ List<GoRoute> buildSettingsRoutes({
         }
         return null;
       },
-      pageBuilder: (context, state) => const NoTransitionPage(
-        child: SettingsOrganizationProfilePage(),
-      ),
+      pageBuilder: (context, state) =>
+          const NoTransitionPage(child: SettingsOrganizationProfilePage()),
     ),
     GoRoute(
       path: 'settings/orgbranding',
@@ -192,5 +192,6 @@ List<GoRoute> buildSettingsRoutes({
     ...buildSettingsAutomationRoutes(),
     ...buildSettingsIntegrationsRoutes(),
     ...buildSettingsDeveloperRoutes(),
+    ...buildSettingsHandoffRoutes(),
   ];
 }

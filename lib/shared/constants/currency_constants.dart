@@ -19,6 +19,16 @@ class CurrencyOption {
     required this.format,
     required this.label,
   });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CurrencyOption &&
+        other.code.toUpperCase() == code.toUpperCase();
+  }
+
+  @override
+  int get hashCode => code.toUpperCase().hashCode;
 }
 
 const List<CurrencyOption> defaultCurrencyOptions = [

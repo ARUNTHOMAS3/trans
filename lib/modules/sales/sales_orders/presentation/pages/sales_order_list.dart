@@ -3160,7 +3160,49 @@ class _SalesOrderOverviewScreenState
     );
   }
 
+  _SalesOrderSortField? _getSortFieldForColumnKey(_SalesOrderColumnKey key) {
+    switch (key) {
+      case _SalesOrderColumnKey.date:
+        return _SalesOrderSortField.date;
+      case _SalesOrderColumnKey.salesOrderNumber:
+        return _SalesOrderSortField.salesOrderNumber;
+      case _SalesOrderColumnKey.reference:
+        return _SalesOrderSortField.reference;
+      case _SalesOrderColumnKey.customerName:
+        return _SalesOrderSortField.customerName;
+      case _SalesOrderColumnKey.orderStatus:
+      case _SalesOrderColumnKey.status:
+        return _SalesOrderSortField.status;
+      case _SalesOrderColumnKey.invoiced:
+        return _SalesOrderSortField.invoiced;
+      case _SalesOrderColumnKey.payment:
+        return _SalesOrderSortField.payment;
+      case _SalesOrderColumnKey.packed:
+        return _SalesOrderSortField.packed;
+      case _SalesOrderColumnKey.shipped:
+        return _SalesOrderSortField.shipped;
+      case _SalesOrderColumnKey.amount:
+        return _SalesOrderSortField.amount;
+      case _SalesOrderColumnKey.deliveryMethod:
+        return _SalesOrderSortField.deliveryMethod;
+      case _SalesOrderColumnKey.expectedShipmentDate:
+        return _SalesOrderSortField.expectedShipmentDate;
+      case _SalesOrderColumnKey.companyName:
+        return _SalesOrderSortField.companyName;
+      case _SalesOrderColumnKey.invoicedAmount:
+        return _SalesOrderSortField.invoicedAmount;
+      case _SalesOrderColumnKey.location:
+        return _SalesOrderSortField.location;
+      case _SalesOrderColumnKey.picked:
+        return _SalesOrderSortField.picked;
+      case _SalesOrderColumnKey.salesPerson:
+        return _SalesOrderSortField.salesPerson;
+    }
+  }
+
   Widget _buildHeaderForColumn(_SalesOrderColumnConfig column, double width) {
+    final sortField = _getSortFieldForColumnKey(column.key);
+    final isSorted = sortField != null && _activeSortField == sortField;
     final align =
         (column.key == _SalesOrderColumnKey.invoiced ||
             column.key == _SalesOrderColumnKey.payment ||
@@ -3176,27 +3218,38 @@ class _SalesOrderOverviewScreenState
         : TextAlign.left;
     return SizedBox(
       width: width,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: Row(
-          mainAxisAlignment: align == TextAlign.center
-              ? MainAxisAlignment.center
-              : (column.key == _SalesOrderColumnKey.amount ||
-                    column.key == _SalesOrderColumnKey.invoicedAmount)
-              ? MainAxisAlignment.end
-              : MainAxisAlignment.start,
-          children: [
-            Flexible(
-              child: Text(
-                column.label.toUpperCase(),
-                style: AppTheme.metaHelper.copyWith(
-                  fontWeight: FontWeight.bold,
+      child: InkWell(
+        onTap: sortField != null ? () => setState(() => _toggleSort(sortField)) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            mainAxisAlignment: align == TextAlign.center
+                ? MainAxisAlignment.center
+                : (column.key == _SalesOrderColumnKey.amount ||
+                      column.key == _SalesOrderColumnKey.invoicedAmount)
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            children: [
+              Flexible(
+                child: Text(
+                  column.label.toUpperCase(),
+                  style: AppTheme.metaHelper.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+              if (isSorted) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  _isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                  size: 12,
+                  color: AppTheme.primaryBlue,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -3933,48 +3986,30 @@ class _SalesOrderOverviewScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                (() {
-                                  bool isItemHovered = false;
-                                  return StatefulBuilder(
-                                    builder: (innerContext, setStateItem) => InkWell(
-                                      onHover: (val) {
-                                        setStateItem(() => isItemHovered = val);
-                                      },
-                                      onTap: () {
-                                        if (item.itemId.isNotEmpty) {
-                                          POItemDetailsSidebar.show(
-                                            innerContext,
-                                            PurchaseOrderItem(
-                                              productId: item.itemId,
-                                              productName: item.item?.productName ?? item.description,
-                                              quantity: item.quantity,
-                                              rate: item.rate,
-                                              amount: item.itemTotal,
-                                            ),
-                                          );
-                                        }
-                                      },
-                                      hoverColor: AppTheme.primaryBlue,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: isItemHovered ? AppTheme.primaryBlue : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(4),
+                                InkWell(
+                                  onTap: () {
+                                    if (item.itemId.isNotEmpty) {
+                                      POItemDetailsSidebar.show(
+                                        context,
+                                        PurchaseOrderItem(
+                                          productId: item.itemId,
+                                          productName: item.item?.productName ?? item.description,
+                                          quantity: item.quantity,
+                                          rate: item.rate,
+                                          amount: item.itemTotal,
                                         ),
-                                        child: Text(
-                                          item.item?.productName ??
-                                              item.item?.billingName ??
-                                              item.description ??
-                                              item.item?.itemCode ??
-                                              'Unnamed item',
-                                          style: AppTheme.linkText.copyWith(
-                                            color: isItemHovered ? Colors.white : AppTheme.primaryBlue,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                })(),
+                                      );
+                                    }
+                                  },
+                                  child: Text(
+                                    item.item?.productName ??
+                                        item.item?.billingName ??
+                                        item.description ??
+                                        item.item?.itemCode ??
+                                        'Unnamed item',
+                                    style: AppTheme.linkText,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -5626,82 +5661,55 @@ class _ActionSplitMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 12),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderLight),
-          borderRadius: BorderRadius.circular(6),
-          color: Colors.white,
+      child: PopupMenuButton<String>(
+        tooltip: '',
+        constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
+        color: Colors.white,
+        elevation: 8,
+        offset: const Offset(0, 36),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AppTheme.borderLight),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            InkWell(
-              onTap: onPrimaryTap,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(6),
-                bottomLeft: Radius.circular(6),
+        onSelected: onSelected,
+        itemBuilder: (context) => _menuItems
+            .map(
+              (item) => PopupMenuItem<String>(
+                value: item,
+                padding: EdgeInsets.zero,
+                child: _ActionMenuItem(item: item),
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 14, color: const Color(0xFF4B5563)),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF4B5563),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Container(width: 1, height: 22, color: AppTheme.borderLight),
-            PopupMenuButton<String>(
-              tooltip: '',
-              constraints: const BoxConstraints(minWidth: 120, maxWidth: 120),
-              color: Colors.white,
-              elevation: 8,
-              splashRadius: 18,
-              padding: EdgeInsets.zero,
-              offset: const Offset(0, 36),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: const BorderSide(color: AppTheme.borderLight),
-              ),
-              onSelected: onSelected,
-              itemBuilder: (context) => _menuItems
-                  .map(
-                    (item) => PopupMenuItem<String>(
-                      value: item,
-                      padding: EdgeInsets.zero,
-                      child: _ActionMenuItem(item: item),
-                    ),
-                  )
-                  .toList(),
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  hoverColor: AppTheme.primaryBlue,
-                  highlightColor: AppTheme.primaryBlue,
-                  focusColor: AppTheme.primaryBlue,
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  child: Icon(
-                    LucideIcons.chevronDown,
-                    size: 14,
-                    color: AppTheme.textBody,
-                  ),
+            )
+            .toList(),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.borderLight),
+            borderRadius: BorderRadius.circular(6),
+            color: Colors.white,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: const Color(0xFF4B5563)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF4B5563),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 6),
+              Container(width: 1, height: 16, color: AppTheme.borderLight),
+              const SizedBox(width: 6),
+              const Icon(
+                LucideIcons.chevronDown,
+                size: 14,
+                color: Color(0xFF4B5563),
+              ),
+            ],
+          ),
         ),
       ),
     );

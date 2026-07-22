@@ -190,10 +190,15 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
     return Row(
       children: weekdays.map((day) {
         return Expanded(
-          child: Text(
-            day,
-            textAlign: TextAlign.center,
-            style: ZerpaiDatePickerStyle.weekdayTextStyle,
+          child: SizedBox(
+            height: ZerpaiDatePickerStyle.dayCellSize,
+            child: Center(
+              child: Text(
+                day,
+                textAlign: TextAlign.center,
+                style: ZerpaiDatePickerStyle.weekdayTextStyle,
+              ),
+            ),
           ),
         );
       }).toList(),
@@ -239,7 +244,22 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
       days.add(_buildDayCell(i, date: date, isCurrentMonth: false));
     }
 
-    return Wrap(children: days);
+    return Table(
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: List.generate(6, (weekIndex) {
+        return TableRow(
+          children: List.generate(7, (dayIndex) {
+            final index = (weekIndex * 7) + dayIndex;
+            return SizedBox(
+              height:
+                  ZerpaiDatePickerStyle.dayCellSize +
+                  (ZerpaiDatePickerStyle.dayCellVerticalMargin * 2),
+              child: Center(child: days[index]),
+            );
+          }),
+        );
+      }),
+    );
   }
 
   Widget _buildMonthGrid() {
@@ -353,8 +373,12 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
         widget.lastDate != null && date.isAfter(widget.lastDate!);
     final bool isDisabled = isBeforeFirst || isAfterLast;
 
-    Color textColor = AppTheme.textPrimary;
-    if (isDisabled) textColor = ZerpaiDatePickerStyle.disabledTextColor;
+    Color textColor = isCurrentMonth
+        ? AppTheme.textPrimary
+        : ZerpaiDatePickerStyle.adjacentMonthTextColor;
+    if (isDisabled) {
+      textColor = ZerpaiDatePickerStyle.disabledTextColor;
+    }
 
     BoxDecoration? decoration;
 

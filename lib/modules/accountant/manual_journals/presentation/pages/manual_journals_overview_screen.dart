@@ -200,4 +200,3 @@ class _ManualJournalOverviewScreenState
     );
   }
 }
-

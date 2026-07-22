@@ -50,11 +50,11 @@ class _PurchaseRequest {
 // ---------------------------------------------------------------------------
 
 _PrStatus _parsePrStatus(String? raw) => switch ((raw ?? '').toUpperCase()) {
-  'APPROVED'          => _PrStatus.approved,
+  'APPROVED' => _PrStatus.approved,
   'ON_HOLD' || 'ONHOLD' => _PrStatus.onHold,
   'AWAITING_APPROVAL' => _PrStatus.awaitingApproval,
-  'REJECTED'          => _PrStatus.rejected,
-  _                   => _PrStatus.awaitingApproval,
+  'REJECTED' => _PrStatus.rejected,
+  _ => _PrStatus.awaitingApproval,
 };
 
 String _fmtDate(String? raw) {
@@ -101,9 +101,11 @@ class _ProcurementPurchaseRequestsListPageState
       final supabase = Supabase.instance.client;
       final response = await supabase
           .from('purchase_requests')
-          .select('id, request_number, status, expected_date, created_at, '
-              'assignee:users!assignee_id(full_name), '
-              'purchase_request_items(estimated_amount)')
+          .select(
+            'id, request_number, status, expected_date, created_at, '
+            'assignee:users!assignee_id(full_name), '
+            'purchase_request_items(estimated_amount)',
+          )
           .order('created_at', ascending: false);
 
       if (!mounted) return;
@@ -113,7 +115,10 @@ class _ProcurementPurchaseRequestsListPageState
           final items = (map['purchase_request_items'] as List<dynamic>?) ?? [];
           final total = items.fold<double>(
             0,
-            (s, i) => s + ((i as Map<String, dynamic>)['estimated_amount'] as num? ?? 0).toDouble(),
+            (s, i) =>
+                s +
+                ((i as Map<String, dynamic>)['estimated_amount'] as num? ?? 0)
+                    .toDouble(),
           );
           final assigneeMap = map['assignee'] as Map<String, dynamic>?;
           final assigneeName = assigneeMap?['full_name'] as String? ?? '—';
@@ -131,7 +136,11 @@ class _ProcurementPurchaseRequestsListPageState
         _isLoading = false;
       });
     } catch (e) {
-      AppLogger.error('Failed to load purchase requests', error: e, module: 'PurchaseRequests');
+      AppLogger.error(
+        'Failed to load purchase requests',
+        error: e,
+        module: 'PurchaseRequests',
+      );
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -139,9 +148,8 @@ class _ProcurementPurchaseRequestsListPageState
   List<_PurchaseRequest> get _filtered {
     final base = switch (_activeTab) {
       _TabFilter.all => List<_PurchaseRequest>.from(_allRows),
-      _TabFilter.awaitingApproval => _allRows
-          .where((r) => r.status == _PrStatus.awaitingApproval)
-          .toList(),
+      _TabFilter.awaitingApproval =>
+        _allRows.where((r) => r.status == _PrStatus.awaitingApproval).toList(),
       _TabFilter.approved =>
         _allRows.where((r) => r.status == _PrStatus.approved).toList(),
       _TabFilter.rejected =>
@@ -150,8 +158,7 @@ class _ProcurementPurchaseRequestsListPageState
         _allRows.where((r) => r.status == _PrStatus.onHold).toList(),
       _TabFilter.yetToBeOrdered ||
       _TabFilter.processed ||
-      _TabFilter.cancelled =>
-        <_PurchaseRequest>[],
+      _TabFilter.cancelled => <_PurchaseRequest>[],
     };
 
     base.sort((a, b) {
@@ -180,9 +187,6 @@ class _ProcurementPurchaseRequestsListPageState
         _sortDir = _SortDir.ascending;
       }
     });
-
-
-
   }
 
   @override
@@ -267,8 +271,7 @@ class _ProcurementPurchaseRequestsListPageState
   }
 
   void _showExportDialog(BuildContext context, {List<_PurchaseRequest>? rows}) {
-    final exportRows =
-        rows ?? _selected.map((i) => _filtered[i]).toList();
+    final exportRows = rows ?? _selected.map((i) => _filtered[i]).toList();
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.35),
@@ -338,12 +341,14 @@ class _SelectionBar extends StatelessWidget {
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.successGreen,
               backgroundColor: const Color(0xFFF3F4F6),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               textStyle: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w500),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
+                borderRadius: BorderRadius.circular(4),
+              ),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
@@ -381,19 +386,21 @@ class _ExportDialogState extends State<_ExportDialog> {
   bool _includePii = false;
 
   static String _statusLabel(_PrStatus s) => switch (s) {
-    _PrStatus.approved        => 'Approved',
-    _PrStatus.onHold          => 'On Hold',
+    _PrStatus.approved => 'Approved',
+    _PrStatus.onHold => 'On Hold',
     _PrStatus.awaitingApproval => 'Draft',
-    _PrStatus.rejected        => 'Rejected',
+    _PrStatus.rejected => 'Rejected',
   };
 
   String _buildCsv() {
     final buf = StringBuffer();
-    buf.writeln('REQUEST#,SUBMITTER,SUBMITTED ON,EXPECTED DATE,STATUS,APPROVER,ASSIGNEE,AMOUNT');
+    buf.writeln(
+      'REQUEST#,SUBMITTER,SUBMITTED ON,EXPECTED DATE,STATUS,APPROVER,ASSIGNEE,AMOUNT',
+    );
     for (final r in widget.rows) {
       final sub = _includePii ? r.submitter : '***';
-      final apr = _includePii ? r.approver  : '***';
-      final asn = _includePii ? r.assignee  : '***';
+      final apr = _includePii ? r.approver : '***';
+      final asn = _includePii ? r.assignee : '***';
       buf.writeln(
         '"${r.requestNumber}","$sub","${r.submittedOn}","${r.expectedDate}",'
         '"${_statusLabel(r.status)}","$apr","$asn","${r.amount.toStringAsFixed(2)}"',
@@ -405,7 +412,9 @@ class _ExportDialogState extends State<_ExportDialog> {
   String _buildXml() {
     final buf = StringBuffer()
       ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
-      ..writeln('<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"')
+      ..writeln(
+        '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
+      )
       ..writeln('  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">')
       ..writeln('  <Worksheet ss:Name="Purchase Requests">')
       ..writeln('    <Table>');
@@ -415,8 +424,16 @@ class _ExportDialogState extends State<_ExportDialog> {
 
     // Header
     buf.writeln('      <Row>');
-    for (final h in ['REQUEST#', 'SUBMITTER', 'SUBMITTED ON', 'EXPECTED DATE',
-                      'STATUS', 'APPROVER', 'ASSIGNEE', 'AMOUNT']) {
+    for (final h in [
+      'REQUEST#',
+      'SUBMITTER',
+      'SUBMITTED ON',
+      'EXPECTED DATE',
+      'STATUS',
+      'APPROVER',
+      'ASSIGNEE',
+      'AMOUNT',
+    ]) {
       cell('String', h);
     }
     buf.writeln('      </Row>');
@@ -424,8 +441,8 @@ class _ExportDialogState extends State<_ExportDialog> {
     // Data
     for (final r in widget.rows) {
       final sub = _includePii ? r.submitter : '***';
-      final apr = _includePii ? r.approver  : '***';
-      final asn = _includePii ? r.assignee  : '***';
+      final apr = _includePii ? r.approver : '***';
+      final asn = _includePii ? r.assignee : '***';
       buf.writeln('      <Row>');
       cell('String', r.requestNumber);
       cell('String', sub);
@@ -452,21 +469,22 @@ class _ExportDialogState extends State<_ExportDialog> {
 
     switch (_format) {
       case _ExportFormat.csv:
-        content  = _buildCsv();
+        content = _buildCsv();
         filename = 'purchase_requests.csv';
         mimeType = 'text/csv;charset=utf-8;';
       case _ExportFormat.xls:
-        content  = _buildXml();
+        content = _buildXml();
         filename = 'purchase_requests.xls';
         mimeType = 'application/vnd.ms-excel';
       case _ExportFormat.xlsx:
-        content  = _buildXml();
+        content = _buildXml();
         filename = 'purchase_requests.xlsx';
-        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        mimeType =
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     }
 
-    final blob   = html.Blob([utf8.encode(content)], mimeType);
-    final url    = html.Url.createObjectUrlFromBlob(blob);
+    final blob = html.Blob([utf8.encode(content)], mimeType);
+    final url = html.Url.createObjectUrlFromBlob(blob);
     html.AnchorElement(href: url)
       ..setAttribute('download', filename)
       ..click();
@@ -512,8 +530,11 @@ class _ExportDialogState extends State<_ExportDialog> {
                     borderRadius: BorderRadius.circular(4),
                     child: const Padding(
                       padding: EdgeInsets.all(4),
-                      child: Icon(LucideIcons.x,
-                          size: 18, color: AppTheme.errorRed),
+                      child: Icon(
+                        LucideIcons.x,
+                        size: 18,
+                        color: AppTheme.errorRed,
+                      ),
                     ),
                   ),
                 ],
@@ -546,21 +567,30 @@ class _ExportDialogState extends State<_ExportDialog> {
                 label: 'CSV (Comma Separated Value)',
                 value: _ExportFormat.csv,
                 groupValue: _format,
-                onChanged: (v) => setState(() => _format = v!),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => _format = v);
+                },
               ),
               const SizedBox(height: 8),
               _RadioOption(
                 label: 'XLS (Microsoft Excel 1997-2004 Compatible)',
                 value: _ExportFormat.xls,
                 groupValue: _format,
-                onChanged: (v) => setState(() => _format = v!),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => _format = v);
+                },
               ),
               const SizedBox(height: 8),
               _RadioOption(
                 label: 'XLSX (Microsoft Excel)',
                 value: _ExportFormat.xlsx,
                 groupValue: _format,
-                onChanged: (v) => setState(() => _format = v!),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => _format = v);
+                },
               ),
               const SizedBox(height: 20),
               // PII checkbox
@@ -583,11 +613,16 @@ class _ExportDialogState extends State<_ExportDialog> {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6)),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                     ),
                     child: const Text('Export'),
                   ),
@@ -598,11 +633,16 @@ class _ExportDialogState extends State<_ExportDialog> {
                       foregroundColor: AppTheme.textBody,
                       side: const BorderSide(color: AppTheme.borderColor),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w500),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6)),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                     ),
                     child: const Text('Close'),
                   ),
@@ -646,10 +686,7 @@ class _RadioOption extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textPrimary,
-            ),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
           ),
         ],
       ),
@@ -687,10 +724,7 @@ class _ExportCheckbox extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textPrimary,
-              ),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
           ),
         ],
@@ -730,8 +764,7 @@ class _TabBarState extends State<_TabBar> {
       setState(() {});
       return;
     }
-    final box =
-        _dotsKey.currentContext!.findRenderObject()! as RenderBox;
+    final box = _dotsKey.currentContext!.findRenderObject()! as RenderBox;
     final h = box.size.height;
 
     _overlay = OverlayEntry(
@@ -781,13 +814,13 @@ class _TabBarState extends State<_TabBar> {
   };
 
   static String _labelFor(_TabFilter f) => switch (f) {
-    _TabFilter.approved        => 'Approved',
-    _TabFilter.rejected        => 'Rejected',
-    _TabFilter.onHold          => 'On Hold',
-    _TabFilter.yetToBeOrdered  => 'Yet To Be Ordered',
-    _TabFilter.processed       => 'Processed',
-    _TabFilter.cancelled       => 'Cancelled',
-    _                          => 'Approved',
+    _TabFilter.approved => 'Approved',
+    _TabFilter.rejected => 'Rejected',
+    _TabFilter.onHold => 'On Hold',
+    _TabFilter.yetToBeOrdered => 'Yet To Be Ordered',
+    _TabFilter.processed => 'Processed',
+    _TabFilter.cancelled => 'Cancelled',
+    _ => 'Approved',
   };
 
   @override
@@ -822,8 +855,7 @@ class _TabBarState extends State<_TabBar> {
             key: _dotsKey,
             onTap: () => _toggle(context),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: _overlay != null
                     ? AppTheme.primaryBlue.withValues(alpha: 0.1)
@@ -851,10 +883,7 @@ class _TabBarState extends State<_TabBar> {
 // ── Tab dropdown panel ────────────────────────────────────────────────────────
 
 class _TabDropdownPanel extends StatefulWidget {
-  const _TabDropdownPanel({
-    required this.active,
-    required this.onSelect,
-  });
+  const _TabDropdownPanel({required this.active, required this.onSelect});
 
   final _TabFilter active;
   final ValueChanged<_TabFilter> onSelect;
@@ -930,10 +959,12 @@ class _TabDropdownPanelState extends State<_TabDropdownPanel> {
                     color: isActive
                         ? const Color(0xFFF0F4FF)
                         : isHovered
-                            ? AppTheme.infoBlue
-                            : Colors.white,
+                        ? AppTheme.infoBlue
+                        : Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 11),
+                      horizontal: 16,
+                      vertical: 11,
+                    ),
                     child: Text(
                       label,
                       style: TextStyle(
@@ -941,8 +972,8 @@ class _TabDropdownPanelState extends State<_TabDropdownPanel> {
                         color: isActive
                             ? AppTheme.primaryBlue
                             : isHovered
-                                ? Colors.white
-                                : AppTheme.textPrimary,
+                            ? Colors.white
+                            : AppTheme.textPrimary,
                         fontWeight: isActive
                             ? FontWeight.w600
                             : FontWeight.w400,
@@ -1031,19 +1062,19 @@ class _RequestsTableState extends State<_RequestsTable> {
   bool _wrapText = false;
 
   static const _kSubmitter = 'submitter';
-  static const _kRequest   = 'request';
-  static const _kDate      = 'date';
-  static const _kStatus    = 'status';
-  static const _kApprover  = 'approver';
-  static const _kAssignee  = 'assignee';
+  static const _kRequest = 'request';
+  static const _kDate = 'date';
+  static const _kStatus = 'status';
+  static const _kApprover = 'approver';
+  static const _kAssignee = 'assignee';
 
   final Map<String, double> _colWidths = {
     _kSubmitter: 200,
-    _kRequest:   130,
-    _kDate:      140,
-    _kStatus:    120,
-    _kApprover:  180,
-    _kAssignee:  200,
+    _kRequest: 130,
+    _kDate: 140,
+    _kStatus: 120,
+    _kApprover: 180,
+    _kAssignee: 200,
   };
 
   void _onResize(String col, double delta) {
@@ -1054,7 +1085,8 @@ class _RequestsTableState extends State<_RequestsTable> {
 
   @override
   Widget build(BuildContext context) {
-    final allSelected = widget.rows.isNotEmpty && widget.selected.length == widget.rows.length;
+    final allSelected =
+        widget.rows.isNotEmpty && widget.selected.length == widget.rows.length;
     final orgSystemId =
         GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
 
@@ -1143,10 +1175,7 @@ class _TableHeader extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: header,
-          ),
+          Padding(padding: const EdgeInsets.only(right: 6), child: header),
           Positioned(
             right: 0,
             top: 0,
@@ -1160,44 +1189,82 @@ class _TableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    _SortableHeader sortCol(String label, _SortField field, {TextAlign textAlign = TextAlign.left}) =>
-        _SortableHeader(label: label, field: field, activeField: sortField, dir: sortDir, onSort: onSort, textAlign: textAlign);
+    _SortableHeader sortCol(
+      String label,
+      _SortField field, {
+      TextAlign textAlign = TextAlign.left,
+    }) => _SortableHeader(
+      label: label,
+      field: field,
+      activeField: sortField,
+      dir: sortDir,
+      onSort: onSort,
+      textAlign: textAlign,
+    );
 
     return ClipRect(
-    child: Container(
-      height: 40,
-      color: AppTheme.bgLight,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          ZTableHeaderMenu(wrapText: wrapText, onWrapChange: onWrapChange, onCustomize: () {}),
-          const SizedBox(width: 4),
-          SizedBox(
-            width: 32,
-            child: Checkbox(
-              value: allSelected,
-              onChanged: (_) => onToggleAll(),
-              activeColor: AppTheme.primaryBlue,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+      child: Container(
+        height: 40,
+        color: AppTheme.bgLight,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            ZTableHeaderMenu(
+              wrapText: wrapText,
+              onWrapChange: onWrapChange,
+              onCustomize: () {},
             ),
-          ),
-          const SizedBox(width: 8),
-          _resizableCol(_RequestsTableState._kSubmitter,  sortCol('SUBMITTER',      _SortField.submitter),      onResize),
-          _resizableCol(_RequestsTableState._kRequest,    sortCol('REQUEST#',        _SortField.requestNumber),  onResize),
-          _resizableCol(_RequestsTableState._kDate,       sortCol('EXPECTED DATE',   _SortField.expectedDate),   onResize),
-          _resizableCol(_RequestsTableState._kStatus,     sortCol('STATUS',          _SortField.status),         onResize),
-          _resizableCol(_RequestsTableState._kApprover,   sortCol('APPROVER',        _SortField.approver),       onResize),
-          _resizableCol(_RequestsTableState._kAssignee,   sortCol('ASSIGNEE',        _SortField.assignee),       onResize),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: sortCol('AMOUNT', _SortField.amount),
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 32,
+              child: Checkbox(
+                value: allSelected,
+                onChanged: (_) => onToggleAll(),
+                activeColor: AppTheme.primaryBlue,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            _resizableCol(
+              _RequestsTableState._kSubmitter,
+              sortCol('SUBMITTER', _SortField.submitter),
+              onResize,
+            ),
+            _resizableCol(
+              _RequestsTableState._kRequest,
+              sortCol('REQUEST#', _SortField.requestNumber),
+              onResize,
+            ),
+            _resizableCol(
+              _RequestsTableState._kDate,
+              sortCol('EXPECTED DATE', _SortField.expectedDate),
+              onResize,
+            ),
+            _resizableCol(
+              _RequestsTableState._kStatus,
+              sortCol('STATUS', _SortField.status),
+              onResize,
+            ),
+            _resizableCol(
+              _RequestsTableState._kApprover,
+              sortCol('APPROVER', _SortField.approver),
+              onResize,
+            ),
+            _resizableCol(
+              _RequestsTableState._kAssignee,
+              sortCol('ASSIGNEE', _SortField.assignee),
+              onResize,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: sortCol('AMOUNT', _SortField.amount),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -1231,16 +1298,17 @@ class _SortableHeaderState extends State<_SortableHeader> {
     final isActive = widget.field == widget.activeField;
     final IconData sortIcon = isActive
         ? (widget.dir == _SortDir.ascending
-            ? LucideIcons.arrowUp
-            : LucideIcons.arrowDown)
+              ? LucideIcons.arrowUp
+              : LucideIcons.arrowDown)
         : LucideIcons.chevronsUpDown;
-    final Color labelColor =
-        isActive ? AppTheme.primaryBlue : AppTheme.textMuted;
+    final Color labelColor = isActive
+        ? AppTheme.primaryBlue
+        : AppTheme.textMuted;
     final Color iconColor = isActive
         ? AppTheme.primaryBlue
         : _hovered
-            ? AppTheme.textBody
-            : AppTheme.textMuted;
+        ? AppTheme.textBody
+        : AppTheme.textMuted;
 
     final row = Row(
       children: [
@@ -1329,89 +1397,119 @@ class _TableRowState extends State<_TableRow> {
           );
         },
         child: ClipRect(
-        child: Container(
-        color: rowColor,
-        height: widget.wrapText ? null : 48,
-        constraints: widget.wrapText ? const BoxConstraints(minHeight: 48) : null,
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: widget.wrapText ? 10 : 0),
-        child: Row(
-        crossAxisAlignment: widget.wrapText ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        children: [
-          // Placeholder matching header's ZTableHeaderMenu(28) + gap(4)
-          const SizedBox(width: 32),
-          SizedBox(
-            width: 32,
-            child: Checkbox(
-              value: isSelected,
-              onChanged: (_) => widget.onToggle(),
-              activeColor: AppTheme.primaryBlue,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+          child: Container(
+            color: rowColor,
+            height: widget.wrapText ? null : 48,
+            constraints: widget.wrapText
+                ? const BoxConstraints(minHeight: 48)
+                : null,
+            padding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: widget.wrapText ? 10 : 0,
+            ),
+            child: Row(
+              crossAxisAlignment: widget.wrapText
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.center,
+              children: [
+                // Placeholder matching header's ZTableHeaderMenu(28) + gap(4)
+                const SizedBox(width: 32),
+                SizedBox(
+                  width: 32,
+                  child: Checkbox(
+                    value: isSelected,
+                    onChanged: (_) => widget.onToggle(),
+                    activeColor: AppTheme.primaryBlue,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Submitter
+                SizedBox(
+                  width: widget.colWidths[_RequestsTableState._kSubmitter],
+                  child: _UserCell(
+                    name: pr.submitter,
+                    subtitle: 'on : ${pr.submittedOn}',
+                    wrapText: widget.wrapText,
+                  ),
+                ),
+                // Request#
+                SizedBox(
+                  width: widget.colWidths[_RequestsTableState._kRequest],
+                  child: Text(
+                    pr.requestNumber,
+                    maxLines: widget.wrapText ? null : 1,
+                    overflow: widget.wrapText
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+                // Expected date
+                SizedBox(
+                  width: widget.colWidths[_RequestsTableState._kDate],
+                  child: Text(
+                    pr.expectedDate,
+                    maxLines: widget.wrapText ? null : 1,
+                    overflow: widget.wrapText
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textBody,
+                    ),
+                  ),
+                ),
+                // Status
+                SizedBox(
+                  width: widget.colWidths[_RequestsTableState._kStatus],
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _StatusBadge(status: pr.status),
+                  ),
+                ),
+                // Approver
+                SizedBox(
+                  width: widget.colWidths[_RequestsTableState._kApprover],
+                  child: _UserCell(
+                    name: pr.approver,
+                    wrapText: widget.wrapText,
+                  ),
+                ),
+                // Assignee
+                SizedBox(
+                  width: widget.colWidths[_RequestsTableState._kAssignee],
+                  child: _UserCell(
+                    name: pr.assignee,
+                    wrapText: widget.wrapText,
+                  ),
+                ),
+                // Amount
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Text(
+                      '₹${_formatAmount(pr.amount)}',
+                      maxLines: widget.wrapText ? null : 1,
+                      overflow: widget.wrapText
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textBody,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          // Submitter
-          SizedBox(
-            width: widget.colWidths[_RequestsTableState._kSubmitter],
-            child: _UserCell(
-              name: pr.submitter,
-              subtitle: 'on : ${pr.submittedOn}',
-              wrapText: widget.wrapText,
-            ),
-          ),
-          // Request#
-          SizedBox(
-            width: widget.colWidths[_RequestsTableState._kRequest],
-            child: Text(
-              pr.requestNumber,
-              maxLines: widget.wrapText ? null : 1,
-              overflow: widget.wrapText ? TextOverflow.visible : TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryBlue),
-            ),
-          ),
-          // Expected date
-          SizedBox(
-            width: widget.colWidths[_RequestsTableState._kDate],
-            child: Text(
-              pr.expectedDate,
-              maxLines: widget.wrapText ? null : 1,
-              overflow: widget.wrapText ? TextOverflow.visible : TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
-            ),
-          ),
-          // Status
-          SizedBox(
-            width: widget.colWidths[_RequestsTableState._kStatus],
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _StatusBadge(status: pr.status),
-            ),
-          ),
-          // Approver
-          SizedBox(
-            width: widget.colWidths[_RequestsTableState._kApprover],
-            child: _UserCell(name: pr.approver, wrapText: widget.wrapText),
-          ),
-          // Assignee
-          SizedBox(
-            width: widget.colWidths[_RequestsTableState._kAssignee],
-            child: _UserCell(name: pr.assignee, wrapText: widget.wrapText),
-          ),
-          // Amount
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Text(
-                '₹${_formatAmount(pr.amount)}',
-                maxLines: widget.wrapText ? null : 1,
-                overflow: widget.wrapText ? TextOverflow.visible : TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textBody),
-              ),
-            ),
-          ),
-        ],
-      ),
-        ),
         ),
       ),
     );
@@ -1457,7 +1555,11 @@ class _UserCell extends StatelessWidget {
         displayName,
         maxLines: wrapText ? null : 1,
         overflow: wrapText ? TextOverflow.visible : TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 13, color: AppTheme.textBody, fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppTheme.textBody,
+          fontWeight: FontWeight.w500,
+        ),
       );
     }
     return Column(
@@ -1468,7 +1570,11 @@ class _UserCell extends StatelessWidget {
           displayName,
           maxLines: wrapText ? null : 1,
           overflow: wrapText ? TextOverflow.visible : TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, color: AppTheme.textBody, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppTheme.textBody,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 2),
         Text(
@@ -1569,8 +1675,10 @@ class _DemandPoolButtonState extends State<_DemandPoolButton> {
 
       // Entity id from first line item
       final entityId = payload.lineItems
-          .firstWhere((i) => i.entityId.isNotEmpty,
-              orElse: () => payload.lineItems.first)
+          .firstWhere(
+            (i) => i.entityId.isNotEmpty,
+            orElse: () => payload.lineItems.first,
+          )
           .entityId;
 
       // Insert purchase_requests header
@@ -1593,9 +1701,10 @@ class _DemandPoolButtonState extends State<_DemandPoolButton> {
             'request_number': requestNumber,
             'status': 'OPEN',
             if (payload.expectedDate != null)
-              'expected_date': payload.expectedDate!.toIso8601String().substring(0, 10),
-            if (validAssigneeId != null)
-              'assignee_id': validAssigneeId,
+              'expected_date': payload.expectedDate!
+                  .toIso8601String()
+                  .substring(0, 10),
+            if (validAssigneeId != null) 'assignee_id': validAssigneeId,
           })
           .select('id')
           .single();
@@ -1653,18 +1762,18 @@ class _DemandPoolButtonState extends State<_DemandPoolButton> {
       if (dpIds.isNotEmpty) {
         await supabase
             .from('demand_pool')
-            .update({
-              'status': 'PR_CREATED',
-              'purchase_request_id': prId,
-            })
+            .update({'status': 'PR_CREATED', 'purchase_request_id': prId})
             .inFilter('id', dpIds);
       }
 
       if (!mounted) return;
       widget.onRefresh();
     } catch (e) {
-      AppLogger.error('Failed to save purchase request from demand pool',
-          error: e, module: 'PRReport');
+      AppLogger.error(
+        'Failed to save purchase request from demand pool',
+        error: e,
+        module: 'PRReport',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1692,10 +1801,17 @@ class _DemandPoolButtonState extends State<_DemandPoolButton> {
               const SizedBox(
                 width: 16,
                 height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryBlue),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.primaryBlue,
+                ),
               )
             else
-              const Icon(LucideIcons.layers, size: 16, color: AppTheme.primaryBlue),
+              const Icon(
+                LucideIcons.layers,
+                size: 16,
+                color: AppTheme.primaryBlue,
+              ),
             const SizedBox(width: 6),
             const Text(
               'Demand Pool',
@@ -2105,16 +2221,15 @@ class _SortMenuItemState extends State<_SortMenuItem> {
           color: _hovered
               ? AppTheme.infoBlue
               : widget.isActive
-                  ? AppTheme.bgHover
-                  : Colors.white,
+              ? AppTheme.bgHover
+              : Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Text(
             widget.label,
             style: TextStyle(
               fontSize: 13,
               color: _hovered ? Colors.white : AppTheme.textBody,
-              fontWeight:
-                  widget.isActive ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
         ),

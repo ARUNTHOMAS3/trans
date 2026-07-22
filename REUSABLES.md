@@ -18,6 +18,7 @@
 | `SharedFieldLayout` | `inputs/shared_field_layout.dart` | Responsive form field wrapper (horizontal on wide screens, vertical on narrow) with label, tooltip, helper text |
 | `SettingsFixedHeaderLayout` | `settings_fixed_header_layout.dart` | Fixed settings-page header with constrained-width scrollable body and optional footer; keeps titles/action rows pinned while forms and tables scroll |
 | `SettingsNavigationSidebar` | `settings_navigation_sidebar.dart` | Canonical left sidebar for all settings pages using the shared "All Settings" navigation tree and active-route highlighting |
+| `SettingsPageHeader` | `settings_page_header.dart` | Shared settings header with organization label and searchable settings navigation |
 | `KeyboardScrollable` | `keyboard_scrollable.dart` | Enables arrow keys, Page Up/Down, Home/End for scroll on nested ScrollViews |
 | `PlaceholderScreen` | `placeholder_screen.dart` | Under-construction screen for unimplemented modules |
 | `UnsavedChangesGuard` | `unsaved_changes_guard.dart` | PopScope wrapper that prompts before leaving dirty forms |
@@ -42,6 +43,7 @@
 | `FormRadio` | `inputs/radio_input.dart` | Single radio button with label |
 | `ZerpaiRadioGroup<T>` | `inputs/zerpai_radio_group.dart` | Generic radio group (horizontal / vertical) |
 | `AccountTreeDropdown` | `inputs/account_tree_dropdown.dart` | Hierarchical account selector with search and keyboard navigation |
+| `FontFamilyDropdown` | `inputs/font_family_dropdown.dart` | Small shared typography selector used by settings customization forms |
 | `CategoryDropdown` | `inputs/category_dropdown.dart` | Recursive category tree dropdown with optional manage footer and search |
 | `TransactionSeriesDropdown` | `inputs/transaction_series_dropdown.dart` | Transaction series selector (Default always highlighted, optional add button) |
 | `ResizableBox` | `inputs/resizable_box.dart` | Container with draggable bottom resize handle |

@@ -10,6 +10,7 @@ import 'package:zerpai_erp/core/auth/capability_service.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/shared/widgets/settings_page_header.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 String currentSettingsOrgId(WidgetRef ref) {
@@ -245,8 +246,13 @@ class _SettingsUsersRolesShellState
 
   Widget _buildTopBar(BuildContext context) {
     final user = ref.watch(authUserProvider);
-    final canAccessRoles = user == null ||
-        CapabilityService.canUserAction(user, 'settings.roles.view', action: 'view');
+    final canAccessRoles =
+        user == null ||
+        CapabilityService.canUserAction(
+          user,
+          'settings.roles.view',
+          action: 'view',
+        );
     final List<SettingsSearchItem> searchItems = <SettingsSearchItem>[
       SettingsSearchItem(
         group: 'Users & Roles',
@@ -263,131 +269,12 @@ class _SettingsUsersRolesShellState
         ),
     ];
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.space32,
-        AppTheme.space20,
-        AppTheme.space32,
-        AppTheme.space16,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1560),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 320,
-                child: Row(
-                  children: [
-                    InkWell(
-                      onTap: () => context.go(AppRoutes.settings),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.borderLight),
-                        ),
-                        child: const Icon(
-                          LucideIcons.chevronLeft,
-                          size: 20,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.space12),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF3EE),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: const Color(0xFFFED7C3),
-                              ),
-                            ),
-                            child: const Icon(
-                              LucideIcons.settings2,
-                              color: Color(0xFFF97316),
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: AppTheme.space16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('All Settings', style: AppTheme.pageTitle),
-                                const SizedBox(height: AppTheme.space4),
-                                Text(
-                                  currentSettingsOrgName(ref),
-                                  style: AppTheme.bodyText,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppTheme.space24),
-              Expanded(
-                child: Center(
-                  child: SizedBox(
-                    width: 360,
-                    height: 42,
-                    child: SettingsSearchField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      items: searchItems,
-                      onNoMatch: (_) {},
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppTheme.space24),
-              TextButton.icon(
-                onPressed: () {
-                  if (context.canPop()) {
-                    context.pop();
-                    return;
-                  }
-                  context.go(AppRoutes.home);
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.textPrimary,
-                  backgroundColor: AppTheme.bgLight,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.space16,
-                    vertical: AppTheme.space12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(
-                  LucideIcons.x,
-                  size: 16,
-                  color: AppTheme.errorRed,
-                ),
-                label: const Text('Close Settings'),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return SettingsPageHeader(
+      orgName: currentSettingsOrgName(ref),
+      searchController: _searchController,
+      searchFocusNode: _searchFocusNode,
+      searchItems: searchItems,
+      onBack: () => context.go(AppRoutes.settings),
     );
   }
 
@@ -518,7 +405,6 @@ const List<_SettingsNavSection> _navSections = <_SettingsNavSection>[
         items: <_SettingsNavEntry>[
           _SettingsNavEntry(label: 'Users', route: AppRoutes.settingsUsers),
           _SettingsNavEntry(label: 'Roles', route: AppRoutes.settingsRoles),
-          _SettingsNavEntry(label: 'User Preferences'),
         ],
       ),
       _SettingsNavBlock(

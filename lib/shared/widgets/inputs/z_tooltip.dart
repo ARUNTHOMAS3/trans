@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
-enum ZTooltipDirection { right, bottom }
+enum ZTooltipDirection { right, bottom, top }
 
 class ZTooltip extends StatefulWidget {
   final String message;
@@ -63,13 +63,19 @@ class _ZTooltipState extends State<ZTooltip> {
                 showWhenUnlinked: false,
                 targetAnchor: widget.direction == ZTooltipDirection.right
                     ? Alignment.topRight
-                    : Alignment.bottomCenter,
+                    : widget.direction == ZTooltipDirection.top
+                        ? Alignment.topCenter
+                        : Alignment.bottomCenter,
                 followerAnchor: widget.direction == ZTooltipDirection.right
                     ? Alignment.topLeft
-                    : Alignment.topCenter,
+                    : widget.direction == ZTooltipDirection.top
+                        ? Alignment.bottomCenter
+                        : Alignment.topCenter,
                 offset: widget.direction == ZTooltipDirection.right
                     ? const Offset(12, -4)
-                    : const Offset(0, 8),
+                    : widget.direction == ZTooltipDirection.top
+                        ? const Offset(0, -8)
+                        : const Offset(0, 8),
                 child: MouseRegion(
                   onEnter: (_) => _isTooltipHovering = true,
                   onExit: (_) {
@@ -117,6 +123,18 @@ class _ZTooltipState extends State<ZTooltip> {
                             child: CustomPaint(
                               size: const Size(6, 10),
                               painter: _TooltipArrowPainter(widget.direction),
+                            ),
+                          )
+                        else if (widget.direction == ZTooltipDirection.top)
+                          Positioned(
+                            bottom: -6,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: CustomPaint(
+                                size: const Size(10, 6),
+                                painter: _TooltipArrowPainter(widget.direction),
+                              ),
                             ),
                           )
                         else
@@ -187,6 +205,12 @@ class _TooltipArrowPainter extends CustomPainter {
         ..moveTo(size.width, 0)
         ..lineTo(0, size.height / 2)
         ..lineTo(size.width, size.height)
+        ..close();
+    } else if (direction == ZTooltipDirection.top) {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(size.width / 2, size.height)
+        ..lineTo(size.width, 0)
         ..close();
     } else {
       path

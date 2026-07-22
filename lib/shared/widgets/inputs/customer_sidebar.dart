@@ -731,24 +731,29 @@ class _CustomerDetailsSidebarState extends State<CustomerDetailsSidebar> {
                             onPressed: () {
                               String orgId = '0000000000';
                               try {
-                                final location = GoRouter.of(context).routeInformationProvider.value.uri.toString();
-                                final match = RegExp(r'^/(\d{10,20})(/|$)').firstMatch(location);
+                                final location = GoRouter.of(
+                                  context,
+                                ).routeInformationProvider.value.uri.toString();
+                                final match = RegExp(
+                                  r'^/(\d{10,20})(/|$)',
+                                ).firstMatch(location);
                                 final parsed = match?.group(1)?.trim();
                                 if (parsed != null && parsed.isNotEmpty) {
                                   orgId = parsed;
                                 }
                               } catch (_) {}
-                              
+
                               if (orgId == '0000000000') {
                                 try {
                                   final box = Hive.box('config');
-                                  final selected = box.get('selected_entity_id') as String?;
+                                  final selected =
+                                      box.get('selected_entity_id') as String?;
                                   if (selected != null && selected.isNotEmpty) {
                                     orgId = selected;
                                   }
                                 } catch (_) {}
                               }
-                              
+
                               Scaffold.maybeOf(context)?.closeEndDrawer();
                               context.go('/$orgId/sales/customers/${c.id}');
                             },

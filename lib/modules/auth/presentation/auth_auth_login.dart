@@ -46,9 +46,7 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
       if (next is Authenticated && mounted) {
         final routeSystemId = next.user.routeSystemId.isNotEmpty
             ? next.user.routeSystemId
-            : (next.user.orgSystemId.isNotEmpty
-                ? next.user.orgSystemId
-                : '');
+            : (next.user.orgSystemId.isNotEmpty ? next.user.orgSystemId : '');
         if (routeSystemId.isEmpty) {
           context.go(AppRoutes.authLogin);
           return;
@@ -108,10 +106,7 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                                   style: AppTheme.textPrimaryStyle(
                                     34,
                                     FontWeight.w700,
-                                  ).copyWith(
-                                    color: Colors.white,
-                                    height: 1.2,
-                                  ),
+                                  ).copyWith(color: Colors.white, height: 1.2),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
@@ -165,7 +160,8 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                                 key: _formKey,
                                 child: AutofillGroup(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Sign In',
@@ -192,7 +188,8 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                                         controller: _emailController,
                                         label: 'Email',
                                         hintText: 'name@company.com',
-                                        keyboardType: TextInputType.emailAddress,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
                                         forceUppercase: false,
                                         prefixIcon: LucideIcons.mail,
                                         autofillHints: const [
@@ -221,12 +218,15 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                                         obscureText: _obscurePassword,
                                         forceUppercase: false,
                                         prefixIcon: LucideIcons.lock,
-                                        autofillHints: const [AutofillHints.password],
+                                        autofillHints: const [
+                                          AutofillHints.password,
+                                        ],
                                         suffixWidget: IconButton(
                                           splashRadius: 18,
                                           onPressed: () {
                                             setState(() {
-                                              _obscurePassword = !_obscurePassword;
+                                              _obscurePassword =
+                                                  !_obscurePassword;
                                             });
                                           },
                                           icon: Icon(
@@ -279,7 +279,9 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
                                           color: AppTheme.bgLight,
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                           border: Border.all(
                                             color: AppTheme.borderLight,
                                           ),
@@ -360,9 +362,7 @@ class _BrandHeader extends StatelessWidget {
               style: AppTheme.textPrimaryStyle(
                 compact ? 20 : 22,
                 FontWeight.w700,
-              ).copyWith(
-                color: compact ? AppTheme.textPrimary : Colors.white,
-              ),
+              ).copyWith(color: compact ? AppTheme.textPrimary : Colors.white),
             ),
             const SizedBox(height: 2),
             Text(
@@ -479,9 +479,7 @@ class _GlowCircle extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [color, Colors.transparent],
-          ),
+          gradient: RadialGradient(colors: [color, Colors.transparent]),
         ),
       ),
     );

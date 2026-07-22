@@ -101,125 +101,127 @@ class _CreateBatchDialogState extends State<CreateBatchDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              Row(
-                children: [
-                  Text(
-                    widget.initialBatch == null ? 'Create Batch' : 'Edit Batch',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
+                Row(
+                  children: [
+                    Text(
+                      widget.initialBatch == null
+                          ? 'Create Batch'
+                          : 'Edit Batch',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      size: 18,
-                      color: AppTheme.errorRed,
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: AppTheme.errorRed,
+                      ),
+                      onPressed: () => context.pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
-                    onPressed: () => context.pop(),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              const Divider(height: 1, color: AppTheme.borderColor),
-              const SizedBox(height: 10),
-              _buildRow(
-                'Batch Reference#*',
-                _buildTextField(batchRefController, 'Enter Batch#'),
-                labelColor: AppTheme.errorRed,
-              ),
-              const SizedBox(height: 10),
-              _buildRow(
-                'Pack Size',
-                _buildNumberField(unitPackController, hint: '0'),
-              ),
-              const SizedBox(height: 10),
-              _buildRow(
-                'Manufacturer/Patent Batch#',
-                _buildTextField(
-                  manufacturerController,
-                  'Enter MFR/Patent Batch#',
+                  ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              _buildRow(
-                'Manufactured date',
-                _buildDateField(
-                  manufacturedDateController,
-                  'dd-MM-yyyy',
-                  fieldKey: _manufacturedDateFieldKey,
-                  onTap: () => _pickDate(
+                const SizedBox(height: 10),
+                const Divider(height: 1, color: AppTheme.borderColor),
+                const SizedBox(height: 10),
+                _buildRow(
+                  'Batch Reference#*',
+                  _buildTextField(batchRefController, 'Enter Batch#'),
+                  labelColor: AppTheme.errorRed,
+                ),
+                const SizedBox(height: 10),
+                _buildRow(
+                  'Pack Size',
+                  _buildNumberField(unitPackController, hint: '0'),
+                ),
+                const SizedBox(height: 10),
+                _buildRow(
+                  'Manufacturer/Patent Batch#',
+                  _buildTextField(
+                    manufacturerController,
+                    'Enter MFR/Patent Batch#',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildRow(
+                  'Manufactured date',
+                  _buildDateField(
                     manufacturedDateController,
-                    _manufacturedDateFieldKey,
+                    'dd-MM-yyyy',
+                    fieldKey: _manufacturedDateFieldKey,
+                    onTap: () => _pickDate(
+                      manufacturedDateController,
+                      _manufacturedDateFieldKey,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              _buildRow(
-                'Expiry Date',
-                _buildDateField(
-                  expiryDateController,
-                  'dd-MM-yyyy',
-                  fieldKey: _expiryDateFieldKey,
-                  onTap: () =>
-                      _pickDate(expiryDateController, _expiryDateFieldKey),
+                const SizedBox(height: 10),
+                _buildRow(
+                  'Expiry Date',
+                  _buildDateField(
+                    expiryDateController,
+                    'dd-MM-yyyy',
+                    fieldKey: _expiryDateFieldKey,
+                    onTap: () =>
+                        _pickDate(expiryDateController, _expiryDateFieldKey),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => context.pop({
-                      'batchReference': batchRefController.text,
-                      'unitPack': int.tryParse(unitPackController.text) ?? 0,
-                      'manufacturerBatch': manufacturerController.text,
-                      'manufacturedDate': manufacturedDateController.text,
-                      'expiryDate': expiryDateController.text,
-                    }),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => context.pop({
+                        'batchReference': batchRefController.text,
+                        'unitPack': int.tryParse(unitPackController.text) ?? 0,
+                        'manufacturerBatch': manufacturerController.text,
+                        'manufacturedDate': manufacturedDateController.text,
+                        'expiryDate': expiryDateController.text,
+                      }),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      child: const Text('Save'),
                     ),
-                    child: const Text('Save'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () => context.pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.textBody,
-                      side: const BorderSide(color: AppTheme.borderColor),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
+                    OutlinedButton(
+                      onPressed: () => context.pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textBody,
+                        side: const BorderSide(color: AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      child: const Text('Cancel'),
                     ),
-                    child: const Text('Cancel'),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               ],
             ),
           ),

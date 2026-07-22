@@ -12,10 +12,7 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
     return '$packName - $unitPack';
   }
 
-  Map<String, dynamic>? _findPackSizeById(
-    ItemsState itemsState,
-    String? id,
-  ) {
+  Map<String, dynamic>? _findPackSizeById(ItemsState itemsState, String? id) {
     final normalized = id?.trim() ?? '';
     if (normalized.isEmpty) return null;
     for (final pack in itemsState.packSizes) {
@@ -33,7 +30,8 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
     final normalized = displayValue?.trim() ?? '';
     if (normalized.isEmpty) return null;
     for (final pack in itemsState.packSizes) {
-      if (_packSizeDisplayLabel(pack).toLowerCase() == normalized.toLowerCase()) {
+      if (_packSizeDisplayLabel(pack).toLowerCase() ==
+          normalized.toLowerCase()) {
         return pack;
       }
     }
@@ -74,7 +72,8 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         .where((pack) => _packSizeId(pack).isNotEmpty)
         .toList();
     if (selectedPackSize != null && selectedPackSize!.trim().isNotEmpty) {
-      final existingPack = _findPackSizeById(itemsState, selectedPackSize) ??
+      final existingPack =
+          _findPackSizeById(itemsState, selectedPackSize) ??
           _findPackSizeByDisplayValue(itemsState, selectedPackSize) ??
           _findPackSizeByName(itemsState, selectedPackSize);
       if (existingPack != null) {
@@ -94,7 +93,8 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
   String? _packSizeDisplayValue(ItemsState itemsState) {
     final raw = selectedPackSize?.trim() ?? '';
     if (raw.isEmpty) return null;
-    final pack = _findPackSizeById(itemsState, raw) ??
+    final pack =
+        _findPackSizeById(itemsState, raw) ??
         _findPackSizeByDisplayValue(itemsState, raw) ??
         _findPackSizeByName(itemsState, raw);
     if (pack != null) return _packSizeId(pack);
@@ -108,7 +108,8 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         selectedPackSize = null;
         return;
       }
-      final pack = _findPackSizeById(itemsState, text) ??
+      final pack =
+          _findPackSizeById(itemsState, text) ??
           _findPackSizeByDisplayValue(itemsState, text);
       if (pack != null) {
         selectedPackSize = _packSizeId(pack);
@@ -141,7 +142,8 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         lockUnitPackCtrl.clear();
         return;
       }
-      final pack = _findPackSizeById(itemsState, text) ??
+      final pack =
+          _findPackSizeById(itemsState, text) ??
           _findPackSizeByDisplayValue(itemsState, text) ??
           _findPackSizeByName(itemsState, text);
       if (pack != null) {
@@ -162,7 +164,8 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         packSizes: itemsState.packSizes,
         onCreatePackSize: controller.createProductPackSize,
         initialPackSize: (() {
-          final pack = _findPackSizeById(itemsState, selectedPackSize) ??
+          final pack =
+              _findPackSizeById(itemsState, selectedPackSize) ??
               _findPackSizeByDisplayValue(itemsState, selectedPackSize) ??
               _findPackSizeByName(itemsState, selectedPackSize);
           if (pack != null) return _packSizeDisplayLabel(pack);
@@ -563,19 +566,20 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
             reps: itemsState.reps,
             brands: itemsState.brands,
             onSearch: controller.searchReps,
-            onCreate: ({
-              required String name,
-              String? number,
-              String? brandId,
-              String? division,
-              String? area,
-            }) => controller.createRep(
-              name: name,
-              number: number,
-              brandId: brandId,
-              division: division,
-              area: area,
-            ),
+            onCreate:
+                ({
+                  required String name,
+                  String? number,
+                  String? brandId,
+                  String? division,
+                  String? area,
+                }) => controller.createRep(
+                  name: name,
+                  number: number,
+                  brandId: brandId,
+                  division: division,
+                  area: area,
+                ),
           ),
         );
         if (selected != null) {

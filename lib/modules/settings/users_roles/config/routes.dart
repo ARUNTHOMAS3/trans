@@ -34,4 +34,3 @@ List<GoRoute> buildSettingsUsersRolesRoutes() {
     ),
   ];
 }
-

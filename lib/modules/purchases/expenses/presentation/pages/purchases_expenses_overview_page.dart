@@ -4517,4 +4517,3 @@ class _ExpenseHistoryEntry {
   final String message;
   final IconData icon;
 }
-

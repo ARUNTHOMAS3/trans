@@ -23,7 +23,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_list_dialog.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'inventory_shipments_list.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 // ignore: constant_identifier_names
 const Color _textPrimary = Color(0xFF1F2937);
@@ -77,7 +77,6 @@ class _InventoryShipmentsCreateScreenState
   bool _isAutoGenerate = true;
   String _shipmentPrefix = 'SHP-';
   int _nextNumber = 1;
-
 
   List<Map<String, dynamic>> _carriersList = [];
   late final List<String> _times;
@@ -253,7 +252,9 @@ class _InventoryShipmentsCreateScreenState
     _loadCarriers();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initialPackageId = GoRouterState.of(context).uri.queryParameters['packageId'];
+      _initialPackageId = GoRouterState.of(
+        context,
+      ).uri.queryParameters['packageId'];
       ref.read(inventoryPackagesProvider.notifier).fetchPackages();
       _fetchNextShipmentNumber();
       if (widget.salesOrderId != null) {
@@ -265,7 +266,9 @@ class _InventoryShipmentsCreateScreenState
   Future<void> _loadPrefilledSalesOrderData() async {
     if (widget.salesOrderId == null || _initialPrefillApplied) return;
     try {
-      final response = await ref.read(apiClientProvider).get('/sales/${widget.salesOrderId}');
+      final response = await ref
+          .read(apiClientProvider)
+          .get('/sales/${widget.salesOrderId}');
       if (response.statusCode == 200 && response.data != null) {
         final payload = response.data['data'] ?? response.data;
         final order = SalesOrder.fromJson(payload);
@@ -289,7 +292,9 @@ class _InventoryShipmentsCreateScreenState
     if (_initialPrefillApplied) return;
 
     if (widget.salesOrderId != null) {
-      final matchedPkgs = packages.where((p) => p.salesOrderIds.contains(widget.salesOrderId)).toList();
+      final matchedPkgs = packages
+          .where((p) => p.salesOrderIds.contains(widget.salesOrderId))
+          .toList();
       if (matchedPkgs.isNotEmpty) {
         final selectedCustomer = customers.cast<SalesCustomer?>().firstWhere(
           (c) => c?.id == matchedPkgs.first.customerId,
@@ -299,8 +304,13 @@ class _InventoryShipmentsCreateScreenState
           _initialPrefillApplied = true;
           setState(() {
             _selectedCustomer = selectedCustomer;
-            _selectedPackages = matchedPkgs.map((p) => p.packageNumber).toList();
-            _selectedSalesOrders = matchedPkgs.expand((p) => p.salesOrderNumbers).toSet().toList();
+            _selectedPackages = matchedPkgs
+                .map((p) => p.packageNumber)
+                .toList();
+            _selectedSalesOrders = matchedPkgs
+                .expand((p) => p.salesOrderNumbers)
+                .toSet()
+                .toList();
           });
           return;
         }
@@ -365,7 +375,9 @@ class _InventoryShipmentsCreateScreenState
 
     final supabase = Supabase.instance.client;
     try {
-      print('[_fetchNextShipmentNumber] Querying Supabase with prefix: $_shipmentPrefix%');
+      print(
+        '[_fetchNextShipmentNumber] Querying Supabase with prefix: $_shipmentPrefix%',
+      );
       final response = await supabase
           .from('inventory_shipments')
           .select('shipment_number')
@@ -385,8 +397,11 @@ class _InventoryShipmentsCreateScreenState
           final number = int.tryParse(numberStr) ?? 0;
           setState(() {
             _nextNumber = number + 1;
-            _shipmentOrderCtrl.text = '$_shipmentPrefix${_nextNumber.toString().padLeft(5, '0')}';
-            print('[_fetchNextShipmentNumber] Updated text to: ${_shipmentOrderCtrl.text}');
+            _shipmentOrderCtrl.text =
+                '$_shipmentPrefix${_nextNumber.toString().padLeft(5, '0')}';
+            print(
+              '[_fetchNextShipmentNumber] Updated text to: ${_shipmentOrderCtrl.text}',
+            );
           });
         }
       } else {
@@ -427,12 +442,22 @@ class _InventoryShipmentsCreateScreenState
     }
 
     setState(() {
-      _customerError = _selectedCustomer == null ? 'Please select a customer' : null;
-      _salesOrderError = _selectedSalesOrders.isEmpty ? 'Please select at least one sales order' : null;
-      _packageError = _selectedPackages.isEmpty ? 'Please select at least one package' : null;
-      _shipmentOrderError = _shipmentOrderCtrl.text.trim().isEmpty ? 'Shipment Order# is required' : null;
+      _customerError = _selectedCustomer == null
+          ? 'Please select a customer'
+          : null;
+      _salesOrderError = _selectedSalesOrders.isEmpty
+          ? 'Please select at least one sales order'
+          : null;
+      _packageError = _selectedPackages.isEmpty
+          ? 'Please select at least one package'
+          : null;
+      _shipmentOrderError = _shipmentOrderCtrl.text.trim().isEmpty
+          ? 'Shipment Order# is required'
+          : null;
       _dateError = _selectedDate == null ? 'Ship Date is required' : null;
-      _carrierError = _carrierInputCtrl.text.trim().isEmpty ? 'Carrier is required' : null;
+      _carrierError = _carrierInputCtrl.text.trim().isEmpty
+          ? 'Carrier is required'
+          : null;
     });
 
     if (_customerError != null ||
@@ -441,15 +466,20 @@ class _InventoryShipmentsCreateScreenState
         _shipmentOrderError != null ||
         _dateError != null ||
         _carrierError != null) {
-      
       String errorMsg = 'Please fill all mandatory fields.';
-      if (_customerError != null) errorMsg = _customerError!;
-      else if (_salesOrderError != null) errorMsg = _salesOrderError!;
-      else if (_packageError != null) errorMsg = _packageError!;
-      else if (_shipmentOrderError != null) errorMsg = _shipmentOrderError!;
-      else if (_dateError != null) errorMsg = _dateError!;
-      else if (_carrierError != null) errorMsg = _carrierError!;
-      
+      if (_customerError != null)
+        errorMsg = _customerError!;
+      else if (_salesOrderError != null)
+        errorMsg = _salesOrderError!;
+      else if (_packageError != null)
+        errorMsg = _packageError!;
+      else if (_shipmentOrderError != null)
+        errorMsg = _shipmentOrderError!;
+      else if (_dateError != null)
+        errorMsg = _dateError!;
+      else if (_carrierError != null)
+        errorMsg = _carrierError!;
+
       ZerpaiToast.error(context, errorMsg);
       return;
     }
@@ -477,47 +507,57 @@ class _InventoryShipmentsCreateScreenState
         }
       }
 
-      final shipmentResponse = await supabase.from('inventory_shipments').insert({
-        'entity_id': entityId,
-        'shipment_number': _shipmentOrderCtrl.text,
-        'customer_id': _selectedCustomer!.id,
-        'date': _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        'delivered_date': fullDeliveredDate,
-        'carrier': _carrierInputCtrl.text,
-        'tracking_number': _trackingCtrl.text,
-        'tracking_url': _trackingUrlCtrl.text,
-        'shipping_charges': double.tryParse(_shippingChargesCtrl.text) ?? 0.0,
-        'notes': _notesCtrl.text,
-        'is_delivered': _isDelivered,
-        'send_notification': _sendStatusNotification,
-        'is_delete': false,
-      }).select('id').single();
+      final shipmentResponse = await supabase
+          .from('inventory_shipments')
+          .insert({
+            'entity_id': entityId,
+            'shipment_number': _shipmentOrderCtrl.text,
+            'customer_id': _selectedCustomer!.id,
+            'date': _selectedDate != null
+                ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
+                : DateFormat('yyyy-MM-dd').format(DateTime.now()),
+            'delivered_date': fullDeliveredDate,
+            'carrier': _carrierInputCtrl.text,
+            'tracking_number': _trackingCtrl.text,
+            'tracking_url': _trackingUrlCtrl.text,
+            'shipping_charges':
+                double.tryParse(_shippingChargesCtrl.text) ?? 0.0,
+            'notes': _notesCtrl.text,
+            'is_delivered': _isDelivered,
+            'send_notification': _sendStatusNotification,
+            'is_delete': false,
+          })
+          .select('id')
+          .single();
 
       final shipmentId = shipmentResponse['id'] as String;
 
       // 2. Insert into inventory_shipment_sales_orders
-      final soInserts = _selectedSalesOrdersData.map((so) => {
-        'shipment_id': shipmentId,
-        'sales_order_id': so.id,
-      }).toList();
+      final soInserts = _selectedSalesOrdersData
+          .map((so) => {'shipment_id': shipmentId, 'sales_order_id': so.id})
+          .toList();
 
       await supabase.from('inventory_shipment_sales_orders').insert(soInserts);
 
       // 3. Insert into inventory_shipment_packages
       final packagesState = ref.read(inventoryPackagesProvider);
       final packages = packagesState.packages;
-      
-      final selectedPackageObjs = packages.where((p) => _selectedPackages.contains(p.packageNumber)).toList();
-      
-      final packageInserts = selectedPackageObjs.map((p) => {
-        'shipment_id': shipmentId,
-        'package_id': p.id,
-      }).toList();
+
+      final selectedPackageObjs = packages
+          .where((p) => _selectedPackages.contains(p.packageNumber))
+          .toList();
+
+      final packageInserts = selectedPackageObjs
+          .map((p) => {'shipment_id': shipmentId, 'package_id': p.id})
+          .toList();
 
       await supabase.from('inventory_shipment_packages').insert(packageInserts);
 
       // Update package status to Shipped in the database
-      final packageIds = selectedPackageObjs.map((p) => p.id).whereType<String>().toList();
+      final packageIds = selectedPackageObjs
+          .map((p) => p.id)
+          .whereType<String>()
+          .toList();
       if (packageIds.isNotEmpty) {
         await supabase
             .from('inventory_packages')
@@ -546,10 +586,12 @@ class _InventoryShipmentsCreateScreenState
         singularLabel: 'Carrier',
         headerLabel: 'Carrier',
         items: _carriersList,
-        selectedId: _carriersList.firstWhere(
-          (c) => c['name'] == _carrierInputCtrl.text,
-          orElse: () => <String, dynamic>{},
-        )['id']?.toString(),
+        selectedId: _carriersList
+            .firstWhere(
+              (c) => c['name'] == _carrierInputCtrl.text,
+              orElse: () => <String, dynamic>{},
+            )['id']
+            ?.toString(),
         onSelect: (value) {
           if (value is Map<String, dynamic>) {
             setState(() {
@@ -657,12 +699,14 @@ class _InventoryShipmentsCreateScreenState
   Widget build(BuildContext context) {
     final packagesState = ref.watch(inventoryPackagesProvider);
     final packages = packagesState.packages;
-    
+
     final filteredPackages = _selectedCustomer != null
         ? packages.where((p) => p.customerId == _selectedCustomer!.id).toList()
         : packages;
-        
-    final packageNumbers = filteredPackages.map((p) => p.packageNumber).toList();
+
+    final packageNumbers = filteredPackages
+        .map((p) => p.packageNumber)
+        .toList();
 
     return ZerpaiLayout(
       pageTitle: '', // We use custom header
@@ -754,39 +798,39 @@ class _InventoryShipmentsCreateScreenState
                                         customers,
                                       );
                                       return FormDropdown<SalesCustomer>(
-                                          fillColor: Colors.white,
-                                          value: _selectedCustomer,
-                                          height: 32,
-                                          hint: 'Select Customer',
-                                          items: customers,
-                                          maxVisibleItems: 4,
-                                          textStyle: const TextStyle(
-                                            color: _textPrimary,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w400,
-                                            fontFamily: 'Inter',
-                                          ),
-                                          itemBuilder:
-                                              (item, isSelected, isHovered) =>
-                                                  _buildCustomerDropdownItem(
-                                                    item,
-                                                    isSelected,
-                                                    isHovered,
-                                                  ),
-                                          displayStringForValue: (val) =>
-                                              val.displayName,
-                                          searchStringForValue: (val) =>
-                                              val.displayName,
-                                          onChanged: (val) {
-                                            setState(() {
-                                              _initialPrefillApplied = true;
-                                              _selectedCustomer = val;
-                                              _selectedSalesOrders = [];
-                                              _selectedSalesOrdersData = [];
-                                              _selectedPackages = [];
-                                            });
-                                          },
-                                        );
+                                        fillColor: Colors.white,
+                                        value: _selectedCustomer,
+                                        height: 32,
+                                        hint: 'Select Customer',
+                                        items: customers,
+                                        maxVisibleItems: 4,
+                                        textStyle: const TextStyle(
+                                          color: _textPrimary,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w400,
+                                          fontFamily: 'Inter',
+                                        ),
+                                        itemBuilder:
+                                            (item, isSelected, isHovered) =>
+                                                _buildCustomerDropdownItem(
+                                                  item,
+                                                  isSelected,
+                                                  isHovered,
+                                                ),
+                                        displayStringForValue: (val) =>
+                                            val.displayName,
+                                        searchStringForValue: (val) =>
+                                            val.displayName,
+                                        onChanged: (val) {
+                                          setState(() {
+                                            _initialPrefillApplied = true;
+                                            _selectedCustomer = val;
+                                            _selectedSalesOrders = [];
+                                            _selectedSalesOrdersData = [];
+                                            _selectedPackages = [];
+                                          });
+                                        },
+                                      );
                                     },
                                     loading: () => const Skeleton(
                                       height: 32,
@@ -833,52 +877,75 @@ class _InventoryShipmentsCreateScreenState
                                         )
                                         .when(
                                           data: (orders) {
-                                              if (_selectedSalesOrders.isNotEmpty &&
-                                                  _selectedSalesOrdersData.isEmpty) {
-                                                _selectedSalesOrdersData = orders
-                                                    .where((o) => _selectedSalesOrders.contains(o.saleNumber))
-                                                    .toList();
-                                              }
-                                              return FormDropdown<String>(
-                                                fillColor: Colors.white,
-                                                value: null,
-                                                selectedValues: _selectedSalesOrders,
-                                                multiSelect: true,
-                                                hint: 'Select Sales Order',
-                                                items: orders.map((o) => o.saleNumber).where((num) => !_selectedSalesOrders.contains(num)).toList(),
-                                                maxVisibleItems: 4,
-                                                itemBuilder:
-                                                    (
-                                                      item,
-                                                      isSelected,
-                                                      isHovered,
-                                                    ) =>
-                                                        _commonItemBuilder<
-                                                          String
-                                                        >(
-                                                          item,
-                                                          isSelected,
-                                                          isHovered,
-                                                          (val) => val,
-                                                        ),
-                                                displayStringForValue: (val) => val,
-                                                searchStringForValue: (val) => val,
-                                                onChanged: (_) {},
-                                                onSelectedValuesChanged: (vals) {
-                                                  setState(() {
-                                                    _salesOrderError = null;
-                                                    _selectedSalesOrders = vals;
-                                                    _selectedSalesOrdersData = orders.where((o) => vals.contains(o.saleNumber)).toList();
-                                                  });
-                                                },
-                                                height: 32,
-                                                textStyle: const TextStyle(
-                                                  color: _textPrimary,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w400,
-                                                  fontFamily: 'Inter',
-                                                ),
-                                              );
+                                            if (_selectedSalesOrders
+                                                    .isNotEmpty &&
+                                                _selectedSalesOrdersData
+                                                    .isEmpty) {
+                                              _selectedSalesOrdersData = orders
+                                                  .where(
+                                                    (o) => _selectedSalesOrders
+                                                        .contains(o.saleNumber),
+                                                  )
+                                                  .toList();
+                                            }
+                                            return FormDropdown<String>(
+                                              fillColor: Colors.white,
+                                              value: null,
+                                              selectedValues:
+                                                  _selectedSalesOrders,
+                                              multiSelect: true,
+                                              hint: 'Select Sales Order',
+                                              items: orders
+                                                  .map((o) => o.saleNumber)
+                                                  .where(
+                                                    (num) =>
+                                                        !_selectedSalesOrders
+                                                            .contains(num),
+                                                  )
+                                                  .toList(),
+                                              maxVisibleItems: 4,
+                                              itemBuilder:
+                                                  (
+                                                    item,
+                                                    isSelected,
+                                                    isHovered,
+                                                  ) =>
+                                                      _commonItemBuilder<
+                                                        String
+                                                      >(
+                                                        item,
+                                                        isSelected,
+                                                        isHovered,
+                                                        (val) => val,
+                                                      ),
+                                              displayStringForValue: (val) =>
+                                                  val,
+                                              searchStringForValue: (val) =>
+                                                  val,
+                                              onChanged: (_) {},
+                                              onSelectedValuesChanged: (vals) {
+                                                setState(() {
+                                                  _salesOrderError = null;
+                                                  _selectedSalesOrders = vals;
+                                                  _selectedSalesOrdersData =
+                                                      orders
+                                                          .where(
+                                                            (o) =>
+                                                                vals.contains(
+                                                                  o.saleNumber,
+                                                                ),
+                                                          )
+                                                          .toList();
+                                                });
+                                              },
+                                              height: 32,
+                                              textStyle: const TextStyle(
+                                                color: _textPrimary,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w400,
+                                                fontFamily: 'Inter',
+                                              ),
+                                            );
                                           },
                                           loading: () => const Skeleton(
                                             height: 32,
@@ -1086,11 +1153,18 @@ class _InventoryShipmentsCreateScreenState
                                             hasError: _carrierError != null,
                                             child: FormDropdown<String>(
                                               fillColor: Colors.white,
-                                              value: _carrierInputCtrl.text.isEmpty ? null : _carrierInputCtrl.text,
+                                              value:
+                                                  _carrierInputCtrl.text.isEmpty
+                                                  ? null
+                                                  : _carrierInputCtrl.text,
                                               height: 32,
                                               hint: 'Type or Select Carrier',
                                               items: _carriersList
-                                                  .map((c) => c['name']?.toString() ?? '')
+                                                  .map(
+                                                    (c) =>
+                                                        c['name']?.toString() ??
+                                                        '',
+                                                  )
                                                   .where((n) => n.isNotEmpty)
                                                   .toList(),
                                               allowCustomValue: true,
@@ -1098,13 +1172,17 @@ class _InventoryShipmentsCreateScreenState
                                               showSettings: true,
                                               settingsLabel: 'New Carrier',
                                               settingsIcon: Icons.add,
-                                              onSettingsTap: _showManageCarriersDialog,
-                                              displayStringForValue: (val) => val,
-                                              searchStringForValue: (val) => val,
+                                              onSettingsTap:
+                                                  _showManageCarriersDialog,
+                                              displayStringForValue: (val) =>
+                                                  val,
+                                              searchStringForValue: (val) =>
+                                                  val,
                                               onChanged: (val) {
                                                 setState(() {
                                                   _carrierError = null;
-                                                  _carrierInputCtrl.text = val ?? '';
+                                                  _carrierInputCtrl.text =
+                                                      val ?? '';
                                                 });
                                               },
                                               textStyle: const TextStyle(
@@ -1415,18 +1493,31 @@ class _InventoryShipmentsCreateScreenState
                                                         });
                                                       }
                                                     },
-                                                    decoration: const InputDecoration(
-                                                      isDense: true,
-                                                      hintText: 'dd-MM-yyyy',
-                                                      hintStyle: TextStyle(color: _textSecondary, fontSize: 13),
-                                                      border: InputBorder.none,
-                                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                      suffixIcon: Icon(
-                                                        LucideIcons.calendar,
-                                                        size: 16,
-                                                        color: _textSecondary,
-                                                      ),
-                                                    ),
+                                                    decoration:
+                                                        const InputDecoration(
+                                                          isDense: true,
+                                                          hintText:
+                                                              'dd-MM-yyyy',
+                                                          hintStyle: TextStyle(
+                                                            color:
+                                                                _textSecondary,
+                                                            fontSize: 13,
+                                                          ),
+                                                          border:
+                                                              InputBorder.none,
+                                                          contentPadding:
+                                                              EdgeInsets.symmetric(
+                                                                horizontal: 10,
+                                                                vertical: 6,
+                                                              ),
+                                                          suffixIcon: Icon(
+                                                            LucideIcons
+                                                                .calendar,
+                                                            size: 16,
+                                                            color:
+                                                                _textSecondary,
+                                                          ),
+                                                        ),
                                                   ),
                                                 ),
                                               ),
@@ -1643,7 +1734,9 @@ class _InventoryShipmentsCreateScreenState
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: (isRequired || hasError) ? _dangerRed : _textPrimary,
+                      color: (isRequired || hasError)
+                          ? _dangerRed
+                          : _textPrimary,
                       fontFamily: 'Inter',
                     ),
                   ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/workflow/governance_insights_model.dart';
 import 'package:zerpai_erp/core/workflow/workflow_runtime_store.dart';
@@ -58,12 +59,14 @@ class _SettingsWorkflowMissionControlPageState
           Row(
             children: [
               ElevatedButton(
-                onPressed: () => context.go('/settings/workflow-ops-center'),
+                onPressed: () =>
+                    context.go(AppRoutes.settingsWorkflowOpsCenter),
                 child: const Text('Open Ops Center'),
               ),
               const SizedBox(width: 8),
               OutlinedButton(
-                onPressed: () => context.go('/settings/workflow-investigation'),
+                onPressed: () =>
+                    context.go(AppRoutes.settingsWorkflowInvestigation),
                 child: const Text('Open Investigation'),
               ),
             ],
@@ -84,17 +87,15 @@ class _SettingsWorkflowMissionControlPageState
             spacing: 10,
             runSpacing: 10,
             children: [
-              _kpi(
-                'Blocked Δ',
-                trends.currentBlocked - trends.previousBlocked,
-              ),
+              _kpi('Blocked Δ', trends.currentBlocked - trends.previousBlocked),
               _kpi(
                 'Escalations Δ',
                 trends.currentEscalations - trends.previousEscalations,
               ),
               _kpi(
                 'Overdue Δ',
-                trends.currentOverdueApprovals - trends.previousOverdueApprovals,
+                trends.currentOverdueApprovals -
+                    trends.previousOverdueApprovals,
               ),
             ],
           ),
@@ -115,7 +116,9 @@ class _SettingsWorkflowMissionControlPageState
             onSavePreset: () {
               store.saveMissionStatusPreset(_statuses);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Preset saved for Mission Control')),
+                const SnackBar(
+                  content: Text('Preset saved for Mission Control'),
+                ),
               );
             },
             onApplySavedPreset: () {
@@ -136,14 +139,16 @@ class _SettingsWorkflowMissionControlPageState
             ),
           ),
           const SizedBox(height: 8),
-          ...ranking.take(5).map(
-            (r) => Text(
-              'B ${r.branchId} • ${r.riskBand} • score ${r.score} • '
-              'sla ${(r.slaBreachRatio * 100).toStringAsFixed(0)}% • '
-              'esc ${r.escalationDensity.toStringAsFixed(2)}',
-              style: const TextStyle(color: AppTheme.textSecondary),
-            ),
-          ),
+          ...ranking
+              .take(5)
+              .map(
+                (r) => Text(
+                  'B ${r.branchId} • ${r.riskBand} • score ${r.score} • '
+                  'sla ${(r.slaBreachRatio * 100).toStringAsFixed(0)}% • '
+                  'esc ${r.escalationDensity.toStringAsFixed(2)}',
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+              ),
           const SizedBox(height: 14),
           Text(
             'Active RCA Alerts',
@@ -167,7 +172,7 @@ class _SettingsWorkflowMissionControlPageState
                       final a = alerts[index];
                       return ListTile(
                         onTap: () => context.go(
-                          '/settings/workflow-investigation'
+                          '${AppRoutes.settingsWorkflowInvestigation}'
                           '?type=${Uri.encodeComponent(a.transactionType)}'
                           '&id=${Uri.encodeComponent(a.transactionId)}',
                         ),

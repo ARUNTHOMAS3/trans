@@ -1373,7 +1373,10 @@ class _PurchasesRecurringExpensesPageState
     );
   }
 
-  Widget _buildHeaderCell(ColumnConfig column, Map<String, double> columnWidths) {
+  Widget _buildHeaderCell(
+    ColumnConfig column,
+    Map<String, double> columnWidths,
+  ) {
     final isProfile = column.id == 'profile';
     final isAmount = column.id == 'amount';
 
@@ -1801,16 +1804,13 @@ class _PurchasesRecurringExpensesPageState
       ),
       child: Row(
         children: [
-          Expanded(
-            child: _buildViewSelector(context, isDetailsMode: false),
-          ),
+          Expanded(child: _buildViewSelector(context, isDetailsMode: false)),
           const SizedBox(width: 16),
           _buildPageHeaderActions(context),
         ],
       ),
     );
   }
-
 
   void _toggleMoreMenuOverlay({required bool isCompact}) {
     if (_moreMenuOverlay == null) {
@@ -2736,11 +2736,11 @@ class _PurchasesRecurringExpensesPageState
                   // Tab content widget
                   Expanded(
                     child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final detailsPaneWidth = constraints.maxWidth;
-                          return _isDetailActionLoading
-                              ? _buildRecurringDetailsLoading()
-                              : detailAsync.when(
+                      builder: (context, constraints) {
+                        final detailsPaneWidth = constraints.maxWidth;
+                        return _isDetailActionLoading
+                            ? _buildRecurringDetailsLoading()
+                            : detailAsync.when(
                                 data: (details) {
                                   if (details == null) {
                                     return Center(
@@ -2834,107 +2834,103 @@ class _PurchasesRecurringExpensesPageState
                                   ),
                                 ),
                               );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-
-      // STANDARD FULL GRID VIEW
-      final hasSelection = _selectedProfileIds.isNotEmpty;
-
-      return ZerpaiLayout(
-        pageTitle: '',
-        enableBodyScroll: false,
-        useHorizontalPadding: false,
-        useTopPadding: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (hasSelection)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                    child: RecurringExpenseSelectionRibbon(
-                      selectedCount: _selectedProfileIds.length,
-                      onAction: _onSelectionAction,
-                      onClearSelection: _clearSelection,
-                    ),
-                  )
-                else
-                  _buildMainToolbar(context),
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundColor,
-                      border: Border.all(color: AppTheme.borderLight),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        if (_isBulkStatusActionLoading)
-                          Expanded(child: _buildRecurringGridLoading())
-                        else
-                          Expanded(
-                            child: LayoutBuilder(
-                              builder: (context, tableConstraints) {
-                                final columnWidths = _calculateColumnWidths(
-                                  tableConstraints.maxWidth,
-                                );
-                                final tableWidth = math.max(
-                                  tableConstraints.maxWidth,
-                                  _tableWidthFor(columnWidths),
-                                );
-                                return ResponsiveTableShell(
-                                  minWidth: tableWidth,
-                                  child: SizedBox(
-                                    width: tableWidth,
-                                    height: tableConstraints.maxHeight,
-                                    child: filteredExpenses.isEmpty
-                                        ? _buildEmptyTableStructure(
-                                            filteredExpenses,
-                                            columnWidths,
-                                          )
-                                        : _buildWrappedTable(
-                                            orgSystemId,
-                                            filteredExpenses,
-                                            columnWidths,
-                                            tableWidth,
-                                            tableConstraints.maxHeight,
-                                            showPaginationFooter
-                                                ? _buildPaginationFooter(
-                                                    totalCount: totalCount,
-                                                    page: _currentPage,
-                                                    pageSize: _pageSize,
-                                                    totalPages: totalPages,
-                                                    currentPageCount:
-                                                        filteredExpenses.length,
-                                                  )
-                                                : null,
-                                          ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                      ],
+                      },
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
+
+    // STANDARD FULL GRID VIEW
+    final hasSelection = _selectedProfileIds.isNotEmpty;
+
+    return ZerpaiLayout(
+      pageTitle: '',
+      enableBodyScroll: false,
+      useHorizontalPadding: false,
+      useTopPadding: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (hasSelection)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                  child: RecurringExpenseSelectionRibbon(
+                    selectedCount: _selectedProfileIds.length,
+                    onAction: _onSelectionAction,
+                    onClearSelection: _clearSelection,
+                  ),
+                )
+              else
+                _buildMainToolbar(context),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundColor,
+                    border: Border.all(color: AppTheme.borderLight),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      if (_isBulkStatusActionLoading)
+                        Expanded(child: _buildRecurringGridLoading())
+                      else
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, tableConstraints) {
+                              final columnWidths = _calculateColumnWidths(
+                                tableConstraints.maxWidth,
+                              );
+                              final tableWidth = math.max(
+                                tableConstraints.maxWidth,
+                                _tableWidthFor(columnWidths),
+                              );
+                              return ResponsiveTableShell(
+                                minWidth: tableWidth,
+                                child: SizedBox(
+                                  width: tableWidth,
+                                  height: tableConstraints.maxHeight,
+                                  child: filteredExpenses.isEmpty
+                                      ? _buildEmptyTableStructure(
+                                          filteredExpenses,
+                                          columnWidths,
+                                        )
+                                      : _buildWrappedTable(
+                                          orgSystemId,
+                                          filteredExpenses,
+                                          columnWidths,
+                                          tableWidth,
+                                          tableConstraints.maxHeight,
+                                          showPaginationFooter
+                                              ? _buildPaginationFooter(
+                                                  totalCount: totalCount,
+                                                  page: _currentPage,
+                                                  pageSize: _pageSize,
+                                                  totalPages: totalPages,
+                                                  currentPageCount:
+                                                      filteredExpenses.length,
+                                                )
+                                              : null,
+                                        ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
-
-
-
-

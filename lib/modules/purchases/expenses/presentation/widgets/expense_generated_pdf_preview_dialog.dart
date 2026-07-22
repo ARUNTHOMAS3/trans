@@ -127,7 +127,8 @@ class _ExpenseGeneratedPdfFrameState extends State<_ExpenseGeneratedPdfFrame> {
       return const _GeneratedPdfPreviewError();
     }
 
-    final viewType = 'expense-generated-pdf-${widget.title.hashCode}-${widget.pdfBytes.length}';
+    final viewType =
+        'expense-generated-pdf-${widget.title.hashCode}-${widget.pdfBytes.length}';
     if (_registeredExpenseGeneratedPdfFrames.add(viewType)) {
       ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
         final iframe = web.HTMLIFrameElement()
@@ -147,24 +148,20 @@ class _ExpenseGeneratedPdfFrameState extends State<_ExpenseGeneratedPdfFrame> {
           Positioned.fill(
             child: Container(
               color: const Color(0xFF2D2D2D),
-                alignment: Alignment.center,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const ZBone(
-                      width: 30,
-                      height: 30,
-                      borderRadius: 15,
-                      color: Color(0x33FFFFFF),
-                    ),
-                    const SizedBox(height: 14),
-                    const ZBone(
-                      width: 136,
-                      height: 12,
-                      color: Color(0x33FFFFFF),
-                    ),
-                  ],
-                ),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ZBone(
+                    width: 30,
+                    height: 30,
+                    borderRadius: 15,
+                    color: Color(0x33FFFFFF),
+                  ),
+                  const SizedBox(height: 14),
+                  const ZBone(width: 136, height: 12, color: Color(0x33FFFFFF)),
+                ],
+              ),
             ),
           ),
       ],
@@ -184,9 +181,7 @@ class _GeneratedPdfPreviewError extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         'Preview unavailable for this document.',
-        style: AppTextStyles.bodySmall.copyWith(
-          color: AppTheme.textSecondary,
-        ),
+        style: AppTextStyles.bodySmall.copyWith(color: AppTheme.textSecondary),
       ),
     );
   }

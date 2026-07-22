@@ -2,11 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/branch_pricelist_model.dart';
 import '../services/branch_pricelist_service.dart';
 
-class BranchPriceListNotifier extends StateNotifier<AsyncValue<List<BranchPriceList>>> {
+class BranchPriceListNotifier
+    extends StateNotifier<AsyncValue<List<BranchPriceList>>> {
   final BranchPriceListService _service;
 
   BranchPriceListNotifier(this._service, {required bool isAuthenticated})
-      : super(const AsyncValue.loading()) {
+    : super(const AsyncValue.loading()) {
     if (isAuthenticated) fetchBranchPriceLists();
   }
 
@@ -47,7 +48,9 @@ class BranchPriceListNotifier extends StateNotifier<AsyncValue<List<BranchPriceL
           final matchIndex = current.indexWhere((pl) => pl.id == id);
           if (matchIndex == -1) continue;
           final match = current[matchIndex];
-          await _service.updateBranchPriceList(match.copyWith(status: 'active'));
+          await _service.updateBranchPriceList(
+            match.copyWith(status: 'active'),
+          );
         }
       }
       if (!mounted) return;
@@ -55,11 +58,11 @@ class BranchPriceListNotifier extends StateNotifier<AsyncValue<List<BranchPriceL
       state.whenData((priceLists) {
         state = AsyncValue.data(
           priceLists
-               .map(
-                 (pl) =>
-                     ids.contains(pl.id) ? pl.copyWith(status: 'active') : pl,
-               )
-               .toList(),
+              .map(
+                (pl) =>
+                    ids.contains(pl.id) ? pl.copyWith(status: 'active') : pl,
+              )
+              .toList(),
         );
       });
     } catch (e) {
@@ -77,11 +80,11 @@ class BranchPriceListNotifier extends StateNotifier<AsyncValue<List<BranchPriceL
       state.whenData((priceLists) {
         state = AsyncValue.data(
           priceLists
-               .map(
-                 (pl) =>
-                     ids.contains(pl.id) ? pl.copyWith(status: 'inactive') : pl,
-               )
-               .toList(),
+              .map(
+                (pl) =>
+                    ids.contains(pl.id) ? pl.copyWith(status: 'inactive') : pl,
+              )
+              .toList(),
         );
       });
     } catch (e) {
@@ -163,10 +166,3 @@ class BranchPriceListNotifier extends StateNotifier<AsyncValue<List<BranchPriceL
     }
   }
 }
-
-
-
-
-
-
-

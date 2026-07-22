@@ -236,9 +236,11 @@ class _ZerpaiReportShellState extends State<ZerpaiReportShell> {
     final quarterStartMonth = ((now.month - 1) ~/ 3) * 3 + 1;
     final thisQuarterStart = DateTime(now.year, quarterStartMonth, 1);
     final thisQuarterEnd = _endOfDay(
-      DateTime(now.year, quarterStartMonth + 3, 1).subtract(
-        const Duration(days: 1),
-      ),
+      DateTime(
+        now.year,
+        quarterStartMonth + 3,
+        1,
+      ).subtract(const Duration(days: 1)),
     );
     if (_matchesRange(start, end, thisQuarterStart, thisQuarterEnd)) {
       return 'This Quarter';
@@ -258,9 +260,9 @@ class _ZerpaiReportShellState extends State<ZerpaiReportShell> {
     }
 
     final previousWeekStart = thisWeekStart.subtract(const Duration(days: 7));
-    final previousWeekEnd = _endOfDay(thisWeekStart.subtract(
-      const Duration(days: 1),
-    ));
+    final previousWeekEnd = _endOfDay(
+      thisWeekStart.subtract(const Duration(days: 1)),
+    );
     if (_matchesRange(start, end, previousWeekStart, previousWeekEnd)) {
       return 'Previous Week';
     }
@@ -485,11 +487,16 @@ class _ZerpaiReportShellState extends State<ZerpaiReportShell> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String tooltip, [VoidCallback? onTap]) {
+  Widget _buildActionButton(
+    IconData icon,
+    String tooltip, [
+    VoidCallback? onTap,
+  ]) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        onTap: onTap ??
+        onTap:
+            onTap ??
             () {
               ZerpaiToast.info(context, '$tooltip feature is coming soon!');
             },

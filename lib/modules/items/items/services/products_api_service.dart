@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
 import 'package:zerpai_erp/modules/items/composite_items/models/composite_item.dart';
@@ -9,9 +9,7 @@ import 'package:zerpai_erp/core/errors/app_exceptions.dart';
 class ProductsApiService {
   final ApiClient _apiClient = ApiClient();
   static final Set<String> _missingProductTxnEndpoints = <String>{};
-  static const Set<String> _removedProductKeys = <String>{
-    'rack_id',
-  };
+  static const Set<String> _removedProductKeys = <String>{'rack_id'};
 
   Map<String, dynamic> _sanitizeProductPayload(Map<String, dynamic> input) {
     final payload = Map<String, dynamic>.from(input);
@@ -99,7 +97,9 @@ class ProductsApiService {
       if (response.statusCode == 200) {
         final data = _asList(response.data);
         return data
-            .map((json) => Item.fromJson(Map<String, dynamic>.from(json as Map)))
+            .map(
+              (json) => Item.fromJson(Map<String, dynamic>.from(json as Map)),
+            )
             .toList();
       }
 
@@ -149,9 +149,8 @@ class ProductsApiService {
           return {
             'items': data
                 .map(
-                  (json) => Item.fromJson(
-                    Map<String, dynamic>.from(json as Map),
-                  ),
+                  (json) =>
+                      Item.fromJson(Map<String, dynamic>.from(json as Map)),
                 )
                 .toList(),
             'next_cursor': responseMap['next_cursor']?.toString(),
@@ -167,9 +166,8 @@ class ProductsApiService {
           return {
             'items': data
                 .map(
-                  (json) => Item.fromJson(
-                    Map<String, dynamic>.from(json as Map),
-                  ),
+                  (json) =>
+                      Item.fromJson(Map<String, dynamic>.from(json as Map)),
                 )
                 .toList(),
             'next_cursor': null,
@@ -991,32 +989,36 @@ class ProductsApiService {
         if (lines is! List) return false;
         for (final line in lines.whereType<Map>()) {
           final map = Map<String, dynamic>.from(line);
-          final candidate = (map['product_id'] ??
-                  map['productId'] ??
-                  (map['product'] is Map ? (map['product'] as Map)['id'] : null) ??
-                  map['item_id'] ??
-                  map['itemId'] ??
-                  map['id'] ??
-                  map['product_code'] ??
-                  map['item_code'] ??
-                  map['sku'])
-              .toString()
-              .trim();
+          final candidate =
+              (map['product_id'] ??
+                      map['productId'] ??
+                      (map['product'] is Map
+                          ? (map['product'] as Map)['id']
+                          : null) ??
+                      map['item_id'] ??
+                      map['itemId'] ??
+                      map['id'] ??
+                      map['product_code'] ??
+                      map['item_code'] ??
+                      map['sku'])
+                  .toString()
+                  .trim();
           if (candidate == id) return true;
         }
         return false;
       }
 
       bool rowMatchesProduct(Map<String, dynamic> row) {
-        final direct = (row['product_id'] ??
-                row['productId'] ??
-                row['item_id'] ??
-                row['itemId'] ??
-                row['product_code'] ??
-                row['item_code'] ??
-                row['sku'])
-            ?.toString()
-            .trim();
+        final direct =
+            (row['product_id'] ??
+                    row['productId'] ??
+                    row['item_id'] ??
+                    row['itemId'] ??
+                    row['product_code'] ??
+                    row['item_code'] ??
+                    row['sku'])
+                ?.toString()
+                .trim();
         if ((direct ?? '').isNotEmpty) return direct == id;
         final lineMatch = hasProductInLines(row);
         if (lineMatch) return true;
@@ -1044,13 +1046,14 @@ class ProductsApiService {
         var total = 0.0;
         for (final line in lines.whereType<Map>()) {
           final map = Map<String, dynamic>.from(line);
-          final candidate = (map['product_id'] ??
-                  map['productId'] ??
-                  map['item_id'] ??
-                  map['itemId'] ??
-                  map['id'])
-              .toString()
-              .trim();
+          final candidate =
+              (map['product_id'] ??
+                      map['productId'] ??
+                      map['item_id'] ??
+                      map['itemId'] ??
+                      map['id'])
+                  .toString()
+                  .trim();
           if (candidate != id) continue;
           total += parseNum(
             map['quantity'] ??
@@ -1137,15 +1140,20 @@ class ProductsApiService {
           date: formatDate(rawDate),
           documentNumber: docNo,
           customerName:
-              (row['customer_name'] ?? row['customerName'] ?? row['customer'] ?? '')
+              (row['customer_name'] ??
+                      row['customerName'] ??
+                      row['customer'] ??
+                      '')
                   .toString(),
           vendorName:
               (row['vendor_name'] ?? row['vendorName'] ?? row['vendor'] ?? '')
                   .toString(),
-          locationName:
-              (row['warehouse_name'] ?? row['location_name'] ?? '').toString(),
+          locationName: (row['warehouse_name'] ?? row['location_name'] ?? '')
+              .toString(),
           sourceLocation:
-              (row['source_location_name'] ?? row['source_warehouse_name'] ?? '')
+              (row['source_location_name'] ??
+                      row['source_warehouse_name'] ??
+                      '')
                   .toString(),
           destinationLocation:
               (row['destination_location_name'] ??
@@ -1187,10 +1195,7 @@ class ProductsApiService {
         fetchEndpoint('/inventory-adjustments', 'inventoryAdjustments'),
       ]);
 
-      final mapped = endpointRows
-          .expand((rows) => rows)
-          .map(mapRow)
-          .toList();
+      final mapped = endpointRows.expand((rows) => rows).map(mapRow).toList();
 
       mapped.sort((a, b) {
         DateTime parseForSort(TransactionData tx) {

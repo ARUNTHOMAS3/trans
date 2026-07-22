@@ -59,11 +59,7 @@ class _RecurringExpenseSearchDialogState
     'Stopped',
     'Expired',
   ];
-  static const List<String> _statusOptions = [
-    'ACTIVE',
-    'STOPPED',
-    'EXPIRED',
-  ];
+  static const List<String> _statusOptions = ['ACTIVE', 'STOPPED', 'EXPIRED'];
   static const List<String> _taxOptions = ['Select a Tax', 'GST 18%'];
 
   @override

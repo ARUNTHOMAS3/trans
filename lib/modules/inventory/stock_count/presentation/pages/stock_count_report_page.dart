@@ -96,22 +96,24 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
   static final RegExp _naturalSortTokenPattern = RegExp(r'(\d+|\D+)');
 
   List<String> _assignedToOptions(List<StockCount> counts) {
-    final values = counts
-        .map((count) => count.assignedTo.trim())
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final values =
+        counts
+            .map((count) => count.assignedTo.trim())
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return values;
   }
 
   List<String> _locationOptions(List<StockCount> counts) {
-    final values = counts
-        .map((count) => (count.location ?? '').trim())
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final values =
+        counts
+            .map((count) => (count.location ?? '').trim())
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return values;
   }
 
@@ -317,13 +319,14 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
         child: Row(
           children: [
             TextButton(
-              onPressed: () => _deleteSelectedCounts(
-                context,
-                visibleSelectedCounts,
-              ),
+              onPressed: () =>
+                  _deleteSelectedCounts(context, visibleSelectedCounts),
               style: TextButton.styleFrom(
                 foregroundColor: AppTheme.textPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 textStyle: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -375,10 +378,7 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Text(
                   'Esc',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                 ),
               ),
             ),
@@ -387,11 +387,7 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
               borderRadius: BorderRadius.circular(4),
               child: const Padding(
                 padding: EdgeInsets.all(8),
-                child: Icon(
-                  LucideIcons.x,
-                  size: 16,
-                  color: Color(0xFFEF4444),
-                ),
+                child: Icon(LucideIcons.x, size: 16, color: Color(0xFFEF4444)),
               ),
             ),
           ],
@@ -494,7 +490,7 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
       child: Container(
         color: Colors.white,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Top Header ───────────────────────────────────────────────
             Padding(
@@ -675,253 +671,251 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
             // ── Summary Cards ────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // TOTAL PENDING
-                    Expanded(
-                      flex: 12,
-                      child: _buildSummaryCard(
-                        titleWidget: const Text(
-                          'TOTAL PENDING',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF4B5563),
-                            letterSpacing: 0.5,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // TOTAL PENDING
+                  Expanded(
+                    flex: 12,
+                    child: _buildSummaryCard(
+                      titleWidget: const Text(
+                        'TOTAL PENDING',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4B5563),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildSummaryMetricBox(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFDF5E9),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        LucideIcons.timer,
+                                        size: 13,
+                                        color: Color(0xFFD97706),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '$pendingCount Pending',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  ZTooltip(
+                                    message:
+                                        'Counts not yet started or currently in progress.',
+                                    child: const Icon(
+                                      LucideIcons.helpCircle,
+                                      size: 14,
+                                      color: Color(0xFF9CA3AF),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildSummaryMetricBox(
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFDF5E9),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          LucideIcons.timer,
-                                          size: 13,
-                                          color: Color(0xFFD97706),
-                                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildSummaryMetricBox(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF0F3),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        LucideIcons.checkCircle2,
+                                        size: 13,
+                                        color: Color(0xFFF43F5E),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '$pendingCount Pending',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF374151),
-                                      ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '$pendingApprovalCount Pending Approval',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF374151),
                                     ),
-                                    const SizedBox(width: 4),
-                                    ZTooltip(
-                                      message:
-                                          'Counts not yet started or currently in progress.',
-                                      child: const Icon(
-                                        LucideIcons.helpCircle,
-                                        size: 14,
-                                        color: Color(0xFF9CA3AF),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildSummaryMetricBox(
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFEF0F3),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          LucideIcons.checkCircle2,
-                                          size: 13,
-                                          color: Color(0xFFF43F5E),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '$pendingApprovalCount Pending Approval',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF374151),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // This Month + TOP ADJUSTMENT REASON (joined)
-                    // This Month
-                    Expanded(
-                      flex: 12,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7FAF9),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CompositedTransformTarget(
-                              link: _timeRangeLayerLink,
-                              child: InkWell(
-                                onTap: _toggleTimeRangeOverlay,
-                                hoverColor: Colors.transparent,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _selectedTimeRange.toUpperCase(),
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF111827),
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Icon(
-                                      LucideIcons.chevronDown,
-                                      size: 10,
+                  ),
+                  const SizedBox(width: 12),
+                  // This Month + TOP ADJUSTMENT REASON (joined)
+                  // This Month
+                  Expanded(
+                    flex: 12,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7FAF9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CompositedTransformTarget(
+                            link: _timeRangeLayerLink,
+                            child: InkWell(
+                              onTap: _toggleTimeRangeOverlay,
+                              hoverColor: Colors.transparent,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _selectedTimeRange.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
                                       color: Color(0xFF111827),
+                                      letterSpacing: 0.5,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    LucideIcons.chevronDown,
+                                    size: 10,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildSummaryMetricBox(
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          LucideIcons.checkCircle2,
-                                          size: 16,
-                                          color: Color(0xFF10B981),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSummaryMetricBox(
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.checkCircle2,
+                                        size: 16,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '$matchedCount Matched',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: Color(0xFF374151),
                                         ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '$matchedCount Matched',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                            color: Color(0xFF374151),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildSummaryMetricBox(
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          LucideIcons.xCircle,
-                                          size: 16,
-                                          color: Color(0xFFEF4444),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '$unmatchedCount Unmatched',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                            color: Color(0xFF374151),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // TOP ADJUSTMENT REASON section
-                    Expanded(
-                      flex: 5,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F5F7),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(
-                                  LucideIcons.layoutGrid,
-                                  size: 12,
-                                  color: Color(0xFF2563EB),
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'TOP ADJUSTMENT REASON',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF4B5563),
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            _buildSummaryMetricBox(
-                              alignment: Alignment.center,
-                              child: Text(
-                                timeRangeCounts.isEmpty
-                                    ? 'No data'
-                                    : 'Unavailable',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF6B7280),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSummaryMetricBox(
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.xCircle,
+                                        size: 16,
+                                        color: Color(0xFFEF4444),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '$unmatchedCount Unmatched',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: Color(0xFF374151),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  // TOP ADJUSTMENT REASON section
+                  Expanded(
+                    flex: 5,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F5F7),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(
+                                LucideIcons.layoutGrid,
+                                size: 12,
+                                color: Color(0xFF2563EB),
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'TOP ADJUSTMENT REASON',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF4B5563),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSummaryMetricBox(
+                            alignment: Alignment.center,
+                            child: Text(
+                              timeRangeCounts.isEmpty
+                                  ? 'No data'
+                                  : 'Unavailable',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -1037,31 +1031,34 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
                                   color: Color(0xFF6B7280),
                                 ),
                               ),
-                              Builder(builder: (context) {
-                                final locFilter = state.locationFilter;
-                                String displayText;
-                                if (locFilter == null || locFilter.isEmpty) {
-                                  displayText = 'None';
-                                } else {
-                                  final selected = locFilter
-                                      .split(',')
-                                      .where((x) => x.isNotEmpty)
-                                      .toList();
-                                  displayText = selected.length ==
-                                          locationOptions.length &&
-                                          locationOptions.isNotEmpty
-                                      ? 'All'
-                                      : locFilter;
-                                }
-                                return Text(
-                                  displayText,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF111827),
-                                  ),
-                                );
-                              }),
+                              Builder(
+                                builder: (context) {
+                                  final locFilter = state.locationFilter;
+                                  String displayText;
+                                  if (locFilter == null || locFilter.isEmpty) {
+                                    displayText = 'None';
+                                  } else {
+                                    final selected = locFilter
+                                        .split(',')
+                                        .where((x) => x.isNotEmpty)
+                                        .toList();
+                                    displayText =
+                                        selected.length ==
+                                                locationOptions.length &&
+                                            locationOptions.isNotEmpty
+                                        ? 'All'
+                                        : locFilter;
+                                  }
+                                  return Text(
+                                    displayText,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF111827),
+                                    ),
+                                  );
+                                },
+                              ),
                             ],
                           ),
                         ),
@@ -1132,8 +1129,7 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
                               child: SizedBox(
                                 width: tableWidth,
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     // Table Header
                                     Container(
@@ -1157,8 +1153,7 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
                                               child: CompositedTransformTarget(
                                                 link: _settingsLayerLink,
                                                 child: InkWell(
-                                                  onTap:
-                                                      _toggleSettingsOverlay,
+                                                  onTap: _toggleSettingsOverlay,
                                                   hoverColor:
                                                       Colors.transparent,
                                                   splashColor:
@@ -1176,9 +1171,7 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
                                                     child: Icon(
                                                       LucideIcons.settings2,
                                                       size: 18,
-                                                      color: Color(
-                                                        0xFF2563EB,
-                                                      ),
+                                                      color: Color(0xFF2563EB),
                                                     ),
                                                   ),
                                                 ),
@@ -1274,8 +1267,7 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
                                                     SizedBox(
                                                       height:
                                                           _tableCheckboxSize,
-                                                      width:
-                                                          _tableCheckboxSize,
+                                                      width: _tableCheckboxSize,
                                                       child: Checkbox(
                                                         value: isSelected,
                                                         activeColor:
@@ -2371,109 +2363,107 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
                             bool isAllHovered = false;
                             return StatefulBuilder(
                               builder: (context, setStateAllHover) {
-                              final isAllChecked =
-                                  (_tempLocationFilter != null &&
-                                  _tempLocationFilter != 'None' &&
-                                  _tempLocationFilter!.trim().isNotEmpty &&
-                                  _tempLocationFilter!
-                                          .split(',')
-                                          .where((x) => x.isNotEmpty)
-                                          .length ==
-                                      locations.length);
+                                final isAllChecked =
+                                    (_tempLocationFilter != null &&
+                                    _tempLocationFilter != 'None' &&
+                                    _tempLocationFilter!.trim().isNotEmpty &&
+                                    _tempLocationFilter!
+                                            .split(',')
+                                            .where((x) => x.isNotEmpty)
+                                            .length ==
+                                        locations.length);
                                 return InkWell(
-                                    onTap: () {
-                                      setStateOverlay(() {
-                                        final selectedList =
-                                            (_tempLocationFilter == null ||
-                                                _tempLocationFilter == 'None' ||
-                                                _tempLocationFilter!
-                                                    .trim()
-                                                    .isEmpty)
-                                            ? <String>[]
-                                            : _tempLocationFilter!
-                                                  .split(',')
-                                                  .where(
-                                                    (x) => x.isNotEmpty,
-                                                  )
-                                                  .toList();
-                                        if (selectedList.length ==
-                                            locations.length) {
-                                          _tempLocationFilter = null;
-                                        } else {
-                                          _tempLocationFilter = locations.join(
-                                            ',',
-                                          );
-                                        }
-                                      });
-                                    },
-                                    onHover: (val) {
-                                      setStateAllHover(() {
-                                        isAllHovered = val;
-                                      });
-                                    },
-                                    hoverColor: Colors.transparent,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                        horizontal: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isAllHovered
-                                            ? const Color(0xFF2563EB)
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: Checkbox(
-                                              value: isAllChecked,
-                                              activeColor: isAllHovered
-                                                  ? Colors.white
-                                                  : const Color(0xFF2563EB),
-                                              checkColor: isAllHovered
-                                                  ? const Color(0xFF2563EB)
-                                                  : Colors.white,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              side: BorderSide(
-                                                color: isAllHovered
-                                                    ? Colors.white
-                                                    : const Color(0xFFCCCCCC),
-                                                width: 1.5,
-                                              ),
-                                              onChanged: (val) {
-                                                setStateOverlay(() {
-                                                  if (val == true) {
-                                                    _tempLocationFilter =
-                                                        locations.join(',');
-                                                  } else {
-                                                    _tempLocationFilter = null;
-                                                  }
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              'All',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: isAllHovered
-                                                    ? Colors.white
-                                                    : const Color(0xFF4B5563),
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                  onTap: () {
+                                    setStateOverlay(() {
+                                      final selectedList =
+                                          (_tempLocationFilter == null ||
+                                              _tempLocationFilter == 'None' ||
+                                              _tempLocationFilter!
+                                                  .trim()
+                                                  .isEmpty)
+                                          ? <String>[]
+                                          : _tempLocationFilter!
+                                                .split(',')
+                                                .where((x) => x.isNotEmpty)
+                                                .toList();
+                                      if (selectedList.length ==
+                                          locations.length) {
+                                        _tempLocationFilter = null;
+                                      } else {
+                                        _tempLocationFilter = locations.join(
+                                          ',',
+                                        );
+                                      }
+                                    });
+                                  },
+                                  onHover: (val) {
+                                    setStateAllHover(() {
+                                      isAllHovered = val;
+                                    });
+                                  },
+                                  hoverColor: Colors.transparent,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 4,
                                     ),
+                                    decoration: BoxDecoration(
+                                      color: isAllHovered
+                                          ? const Color(0xFF2563EB)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: Checkbox(
+                                            value: isAllChecked,
+                                            activeColor: isAllHovered
+                                                ? Colors.white
+                                                : const Color(0xFF2563EB),
+                                            checkColor: isAllHovered
+                                                ? const Color(0xFF2563EB)
+                                                : Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            side: BorderSide(
+                                              color: isAllHovered
+                                                  ? Colors.white
+                                                  : const Color(0xFFCCCCCC),
+                                              width: 1.5,
+                                            ),
+                                            onChanged: (val) {
+                                              setStateOverlay(() {
+                                                if (val == true) {
+                                                  _tempLocationFilter =
+                                                      locations.join(',');
+                                                } else {
+                                                  _tempLocationFilter = null;
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'All',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: isAllHovered
+                                                  ? Colors.white
+                                                  : const Color(0xFF4B5563),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 );
                               },
                             );
@@ -2964,14 +2954,14 @@ class _StockCountReportPageState extends ConsumerState<StockCountReportPage> {
                               // Refresh List item
                               _buildMoreMenuItem(
                                 icon: LucideIcons.refreshCw,
-                              label: 'Refresh List',
-                              isLast: true,
-                              onTap: () {
-                                _closeMoreMenuOverlay();
-                                ref
-                                    .read(stockCountsProvider.notifier)
-                                    .fetchCounts();
-                              },
+                                label: 'Refresh List',
+                                isLast: true,
+                                onTap: () {
+                                  _closeMoreMenuOverlay();
+                                  ref
+                                      .read(stockCountsProvider.notifier)
+                                      .fetchCounts();
+                                },
                               ),
                             ],
                           ),

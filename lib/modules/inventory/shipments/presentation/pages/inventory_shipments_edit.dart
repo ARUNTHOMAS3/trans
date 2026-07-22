@@ -52,9 +52,8 @@ class _InventoryShipmentsEditScreenState
   final TextEditingController _customerNameCtrl = TextEditingController();
   final TextEditingController _salesOrderCtrl = TextEditingController();
 
-  List<String> _selectedPackages = []; 
+  List<String> _selectedPackages = [];
   String? _selectedTime;
-
 
   DateTime? _selectedDate;
   DateTime? _selectedDeliveredDate;
@@ -64,7 +63,6 @@ class _InventoryShipmentsEditScreenState
   bool _isDelivered = false;
   bool _sendStatusNotification = false;
 
-
   List<Map<String, dynamic>> _carriersList = [];
   late final List<String> _times;
 
@@ -73,12 +71,11 @@ class _InventoryShipmentsEditScreenState
   String? _dateError;
   String? _carrierError;
 
-
   Map<String, dynamic> _initialData = {};
 
   bool get _isDirty {
     if (_initialData.isEmpty) return false;
-    
+
     return _shipmentOrderCtrl.text != _initialData['shipment_number'] ||
         _dateCtrl.text != _initialData['date'] ||
         _carrierInputCtrl.text != _initialData['carrier'] ||
@@ -89,7 +86,10 @@ class _InventoryShipmentsEditScreenState
         _isDelivered != _initialData['is_delivered'] ||
         _deliveredDateCtrl.text != _initialData['delivered_date'] ||
         _selectedTime != _initialData['selected_time'] ||
-        !_areListsEqual(_selectedPackages, _initialData['packages'] as List<String>);
+        !_areListsEqual(
+          _selectedPackages,
+          _initialData['packages'] as List<String>,
+        );
   }
 
   bool _areListsEqual(List<String> a, List<String> b) {
@@ -120,32 +120,45 @@ class _InventoryShipmentsEditScreenState
     try {
       final response = await supabase
           .from('inventory_shipments')
-          .select('*, customers(display_name), inventory_shipment_sales_orders(sales_orders(sale_number)), inventory_shipment_packages(inventory_packages(package_number))')
+          .select(
+            '*, customers(display_name), inventory_shipment_sales_orders(sales_orders(sale_number)), inventory_shipment_packages(inventory_packages(package_number))',
+          )
           .eq('id', widget.shipmentId)
           .maybeSingle();
-          
+
       if (response != null) {
         setState(() {
           _customerNameCtrl.text = response['customers']?['display_name'] ?? '';
-          
+
           final soList = response['inventory_shipment_sales_orders'] as List?;
           if (soList != null && soList.isNotEmpty) {
-            final soNumbers = soList.map((so) => so['sales_orders']?['sale_number'] as String?).where((n) => n != null).toList();
+            final soNumbers = soList
+                .map((so) => so['sales_orders']?['sale_number'] as String?)
+                .where((n) => n != null)
+                .toList();
             _salesOrderCtrl.text = soNumbers.join(', ');
           }
-          
+
           final pkgList = response['inventory_shipment_packages'] as List?;
           if (pkgList != null && pkgList.isNotEmpty) {
-            _selectedPackages = pkgList.map((pkg) => pkg['inventory_packages']?['package_number'] as String?).where((n) => n != null).cast<String>().toList();
+            _selectedPackages = pkgList
+                .map(
+                  (pkg) =>
+                      pkg['inventory_packages']?['package_number'] as String?,
+                )
+                .where((n) => n != null)
+                .cast<String>()
+                .toList();
           }
-          
+
           _shipmentOrderCtrl.text = response['shipment_number'] ?? '';
           _dateCtrl.text = response['date'] ?? '';
           _selectedDate = DateTime.tryParse(response['date'] ?? '');
           _carrierInputCtrl.text = response['carrier'] ?? '';
           _trackingCtrl.text = response['tracking_number'] ?? '';
           _trackingUrlCtrl.text = response['tracking_url'] ?? '';
-          _shippingChargesCtrl.text = (response['shipping_charges'] ?? 0.0).toString();
+          _shippingChargesCtrl.text = (response['shipping_charges'] ?? 0.0)
+              .toString();
           _notesCtrl.text = response['notes'] ?? '';
           _isDelivered = response['is_delivered'] ?? false;
           final delDateStr = response['delivered_date'] as String?;
@@ -162,7 +175,7 @@ class _InventoryShipmentsEditScreenState
               }
             }
           }
-          
+
           _initialData = {
             'shipment_number': _shipmentOrderCtrl.text,
             'date': _dateCtrl.text,
@@ -205,10 +218,12 @@ class _InventoryShipmentsEditScreenState
         singularLabel: 'Carrier',
         headerLabel: 'Carrier',
         items: _carriersList,
-        selectedId: _carriersList.firstWhere(
-          (c) => c['name'] == _carrierInputCtrl.text,
-          orElse: () => <String, dynamic>{},
-        )['id']?.toString(),
+        selectedId: _carriersList
+            .firstWhere(
+              (c) => c['name'] == _carrierInputCtrl.text,
+              orElse: () => <String, dynamic>{},
+            )['id']
+            ?.toString(),
         onSelect: (value) {
           if (value is Map<String, dynamic>) {
             setState(() {
@@ -287,12 +302,18 @@ class _InventoryShipmentsEditScreenState
 
   Future<void> _saveShipment() async {
     setState(() {
-      _shipmentOrderError = _shipmentOrderCtrl.text.trim().isEmpty ? 'Shipment Order# is required' : null;
+      _shipmentOrderError = _shipmentOrderCtrl.text.trim().isEmpty
+          ? 'Shipment Order# is required'
+          : null;
       _dateError = _selectedDate == null ? 'Ship Date is required' : null;
-      _carrierError = _carrierInputCtrl.text.trim().isEmpty ? 'Carrier is required' : null;
+      _carrierError = _carrierInputCtrl.text.trim().isEmpty
+          ? 'Carrier is required'
+          : null;
     });
 
-    if (_shipmentOrderError != null || _dateError != null || _carrierError != null) {
+    if (_shipmentOrderError != null ||
+        _dateError != null ||
+        _carrierError != null) {
       ZerpaiToast.error(context, 'Please fill all mandatory fields.');
       return;
     }
@@ -319,35 +340,47 @@ class _InventoryShipmentsEditScreenState
         }
       }
 
-      await supabase.from('inventory_shipments').update({
-        'shipment_number': _shipmentOrderCtrl.text,
-        'date': _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : null,
-        'delivered_date': fullDeliveredDate,
-        'carrier': _carrierInputCtrl.text,
-        'tracking_number': _trackingCtrl.text,
-        'tracking_url': _trackingUrlCtrl.text,
-        'shipping_charges': double.tryParse(_shippingChargesCtrl.text) ?? 0.0,
-        'notes': _notesCtrl.text,
-        'is_delivered': _isDelivered,
-        'send_notification': _sendStatusNotification,
-      }).eq('id', widget.shipmentId);
+      await supabase
+          .from('inventory_shipments')
+          .update({
+            'shipment_number': _shipmentOrderCtrl.text,
+            'date': _selectedDate != null
+                ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
+                : null,
+            'delivered_date': fullDeliveredDate,
+            'carrier': _carrierInputCtrl.text,
+            'tracking_number': _trackingCtrl.text,
+            'tracking_url': _trackingUrlCtrl.text,
+            'shipping_charges':
+                double.tryParse(_shippingChargesCtrl.text) ?? 0.0,
+            'notes': _notesCtrl.text,
+            'is_delivered': _isDelivered,
+            'send_notification': _sendStatusNotification,
+          })
+          .eq('id', widget.shipmentId);
 
       // Delete existing packages
-      await supabase.from('inventory_shipment_packages').delete().eq('shipment_id', widget.shipmentId);
+      await supabase
+          .from('inventory_shipment_packages')
+          .delete()
+          .eq('shipment_id', widget.shipmentId);
 
       // Insert new packages
       final packagesState = ref.read(inventoryPackagesProvider);
       final packages = packagesState.packages;
-      
-      final selectedPackageObjs = packages.where((p) => _selectedPackages.contains(p.packageNumber)).toList();
-      
-      final packageInserts = selectedPackageObjs.map((p) => {
-        'shipment_id': widget.shipmentId,
-        'package_id': p.id,
-      }).toList();
+
+      final selectedPackageObjs = packages
+          .where((p) => _selectedPackages.contains(p.packageNumber))
+          .toList();
+
+      final packageInserts = selectedPackageObjs
+          .map((p) => {'shipment_id': widget.shipmentId, 'package_id': p.id})
+          .toList();
 
       if (packageInserts.isNotEmpty) {
-        await supabase.from('inventory_shipment_packages').insert(packageInserts);
+        await supabase
+            .from('inventory_shipment_packages')
+            .insert(packageInserts);
       }
 
       ZerpaiToast.success(context, 'Shipment updated successfully!');
@@ -379,10 +412,7 @@ class _InventoryShipmentsEditScreenState
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(
-          color: _focusBorder,
-          width: 1.4,
-        ),
+        borderSide: const BorderSide(color: _focusBorder, width: 1.4),
       ),
     );
   }
@@ -394,7 +424,7 @@ class _InventoryShipmentsEditScreenState
     final packageNumbers = packages.map((p) => p.packageNumber).toList();
 
     return ZerpaiLayout(
-      pageTitle: '', 
+      pageTitle: '',
       enableBodyScroll: false,
       useHorizontalPadding: false,
       useTopPadding: false,
@@ -422,7 +452,11 @@ class _InventoryShipmentsEditScreenState
                   onPressed: () {
                     context.go('/inventory/shipments/${widget.shipmentId}');
                   },
-                  icon: const Icon(LucideIcons.x, size: 20, color: _textSecondary),
+                  icon: const Icon(
+                    LucideIcons.x,
+                    size: 20,
+                    color: _textSecondary,
+                  ),
                   splashRadius: 20,
                   tooltip: 'Close',
                 ),
@@ -440,7 +474,10 @@ class _InventoryShipmentsEditScreenState
                   // Gray Banner for Customer & SO
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                     decoration: const BoxDecoration(color: Color(0xFFF3F4F6)),
                     child: Align(
                       alignment: Alignment.centerLeft,
@@ -475,7 +512,10 @@ class _InventoryShipmentsEditScreenState
                   ),
 
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 24,
+                    ),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1100),
                       child: Column(
@@ -552,18 +592,25 @@ class _InventoryShipmentsEditScreenState
                                   onTap: () async {
                                     final picked = await ZerpaiDatePicker.show(
                                       context,
-                                      initialDate: _selectedDate ?? DateTime.now(),
+                                      initialDate:
+                                          _selectedDate ?? DateTime.now(),
                                       targetKey: _dateFieldKey,
                                     );
                                     if (picked != null && mounted) {
                                       setState(() {
                                         _dateError = null;
                                         _selectedDate = picked;
-                                        _dateCtrl.text = DateFormat('dd-MM-yyyy').format(picked);
+                                        _dateCtrl.text = DateFormat(
+                                          'dd-MM-yyyy',
+                                        ).format(picked);
                                       });
                                     }
                                   },
-                                  suffixWidget: const Icon(LucideIcons.calendar, size: 16, color: _textSecondary),
+                                  suffixWidget: const Icon(
+                                    LucideIcons.calendar,
+                                    size: 16,
+                                    color: _textSecondary,
+                                  ),
                                 ),
                               ),
                             ),
@@ -585,11 +632,15 @@ class _InventoryShipmentsEditScreenState
                                     hasError: _carrierError != null,
                                     child: FormDropdown<String>(
                                       fillColor: Colors.white,
-                                      value: _carrierInputCtrl.text.isEmpty ? null : _carrierInputCtrl.text,
+                                      value: _carrierInputCtrl.text.isEmpty
+                                          ? null
+                                          : _carrierInputCtrl.text,
                                       height: 32,
                                       hint: 'Type or Select Carrier',
                                       items: _carriersList
-                                          .map((c) => c['name']?.toString() ?? '')
+                                          .map(
+                                            (c) => c['name']?.toString() ?? '',
+                                          )
                                           .where((n) => n.isNotEmpty)
                                           .toList(),
                                       allowCustomValue: true,
@@ -659,8 +710,15 @@ class _InventoryShipmentsEditScreenState
                                 child: CustomTextField(
                                   controller: _shippingChargesCtrl,
                                   height: 32,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[0-9.]'),
+                                    ),
+                                  ],
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
@@ -679,7 +737,11 @@ class _InventoryShipmentsEditScreenState
                                 child: TextField(
                                   controller: _notesCtrl,
                                   maxLines: 4,
-                                  style: const TextStyle(fontSize: 14, color: _textPrimary, fontFamily: 'Inter'),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: _textPrimary,
+                                    fontFamily: 'Inter',
+                                  ),
                                   decoration: _standardInputDecoration(
                                     isHovered: _hoveredFields.contains('notes'),
                                   ),
@@ -698,15 +760,24 @@ class _InventoryShipmentsEditScreenState
                                 width: 24,
                                 child: Checkbox(
                                   value: _isDelivered,
-                                  onChanged: (val) => setState(() => _isDelivered = val ?? false),
+                                  onChanged: (val) => setState(
+                                    () => _isDelivered = val ?? false,
+                                  ),
                                   activeColor: const Color(0xFF3B82F6),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               const Text(
                                 'Shipment already delivered',
-                                style: TextStyle(fontSize: 13, color: _textPrimary, fontWeight: FontWeight.w500, fontFamily: 'Inter'),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: _textPrimary,
+                                  fontWeight: FontWeight.w500,
+                                  fontFamily: 'Inter',
+                                ),
                               ),
                             ],
                           ),
@@ -718,7 +789,12 @@ class _InventoryShipmentsEditScreenState
                               children: [
                                 const Text(
                                   'Delivered On',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: _textPrimary, fontFamily: 'Inter'),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: _textPrimary,
+                                    fontFamily: 'Inter',
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Container(
@@ -736,19 +812,30 @@ class _InventoryShipmentsEditScreenState
                                           height: 36,
                                           readOnly: true,
                                           onTap: () async {
-                                            final picked = await ZerpaiDatePicker.show(
-                                              context,
-                                              initialDate: _selectedDeliveredDate ?? DateTime.now(),
-                                              targetKey: _deliveredDateFieldKey,
-                                            );
+                                            final picked =
+                                                await ZerpaiDatePicker.show(
+                                                  context,
+                                                  initialDate:
+                                                      _selectedDeliveredDate ??
+                                                      DateTime.now(),
+                                                  targetKey:
+                                                      _deliveredDateFieldKey,
+                                                );
                                             if (picked != null && mounted) {
                                               setState(() {
                                                 _selectedDeliveredDate = picked;
-                                                _deliveredDateCtrl.text = DateFormat('dd-MM-yyyy').format(picked);
+                                                _deliveredDateCtrl.text =
+                                                    DateFormat(
+                                                      'dd-MM-yyyy',
+                                                    ).format(picked);
                                               });
                                             }
                                           },
-                                          suffixWidget: const Icon(LucideIcons.calendar, size: 16, color: _textSecondary),
+                                          suffixWidget: const Icon(
+                                            LucideIcons.calendar,
+                                            size: 16,
+                                            color: _textSecondary,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(
@@ -761,18 +848,24 @@ class _InventoryShipmentsEditScreenState
                                       ),
                                       Expanded(
                                         child: MouseRegion(
-                                          onEnter: (_) => _onHover('delTime', true),
-                                          onExit: (_) => _onHover('delTime', false),
+                                          onEnter: (_) =>
+                                              _onHover('delTime', true),
+                                          onExit: (_) =>
+                                              _onHover('delTime', false),
                                           child: FormDropdown<String>(
                                             value: _selectedTime,
                                             items: _times,
                                             height: 36,
-                                            isHovered: _hoveredFields.contains('delTime'),
+                                            isHovered: _hoveredFields.contains(
+                                              'delTime',
+                                            ),
                                             hint: 'HH:MM',
                                             maxVisibleItems: 5,
                                             hideBorderDefault: true,
                                             onChanged: (val) {
-                                              setState(() => _selectedTime = val);
+                                              setState(
+                                                () => _selectedTime = val,
+                                              );
                                             },
                                           ),
                                         ),
@@ -807,11 +900,19 @@ class _InventoryShipmentsEditScreenState
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _greenBtn,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     elevation: 0,
                   ),
-                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton(
@@ -821,10 +922,18 @@ class _InventoryShipmentsEditScreenState
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _textPrimary,
                     side: const BorderSide(color: _borderCol),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                  child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
                 ),
               ],
             ),
@@ -842,7 +951,9 @@ class _InventoryShipmentsEditScreenState
     bool hasError = false,
   }) {
     return Row(
-      crossAxisAlignment: subLabel != null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: subLabel != null
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
         SizedBox(
           width: 150,
@@ -858,18 +969,34 @@ class _InventoryShipmentsEditScreenState
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: (isRequired || hasError) ? _dangerRed : _textPrimary,
+                      color: (isRequired || hasError)
+                          ? _dangerRed
+                          : _textPrimary,
                       fontFamily: 'Inter',
                     ),
                   ),
                   if (isRequired)
-                    const Text(' *', style: TextStyle(color: _dangerRed, fontSize: 13, fontFamily: 'Inter')),
+                    const Text(
+                      ' *',
+                      style: TextStyle(
+                        color: _dangerRed,
+                        fontSize: 13,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
                 ],
               ),
               if (subLabel != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(subLabel, style: const TextStyle(fontSize: 11, color: _textSecondary, fontFamily: 'Inter')),
+                  child: Text(
+                    subLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: _textSecondary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
                 ),
             ],
           ),

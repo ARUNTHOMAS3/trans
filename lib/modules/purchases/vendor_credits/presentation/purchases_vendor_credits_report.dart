@@ -8,7 +8,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
@@ -41,7 +41,7 @@ class _VendorCreditsOverviewSkeleton extends StatelessWidget {
         SizedBox(
           width: 460,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 height: 56,
@@ -93,7 +93,7 @@ class _VendorCreditsOverviewSkeleton extends StatelessWidget {
         // Right Panel details skeleton
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 height: 56,
@@ -694,7 +694,7 @@ class _VendorCreditsOverviewPageState
                 )
               else
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildToolbar(context),
                     const Divider(height: 1, color: AppTheme.borderLight),
@@ -846,7 +846,7 @@ class _VendorCreditsOverviewPageState
           child: SizedBox(
             width: tableWidth,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _TableHeader(
                   columns: visibleColumns,
@@ -896,7 +896,8 @@ class _VendorCreditsOverviewPageState
                               textMode: _textMode,
                               onTap: () {
                                 setState(() => _detailIndex = index);
-                                if (_detailScrollController.hasClients) _detailScrollController.jumpTo(0);
+                                if (_detailScrollController.hasClients)
+                                  _detailScrollController.jumpTo(0);
                                 context.go(
                                   '${AppRoutes.vendorCredits}?id=${row.creditNoteNumber}',
                                 );
@@ -937,7 +938,7 @@ class _VendorCreditsOverviewPageState
       width: 460,
       color: AppTheme.backgroundColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             height: 64,
@@ -1039,7 +1040,8 @@ class _VendorCreditsOverviewPageState
                   selected: index == _detailIndex,
                   onTap: () {
                     setState(() => _detailIndex = index);
-                    if (_detailScrollController.hasClients) _detailScrollController.jumpTo(0);
+                    if (_detailScrollController.hasClients)
+                      _detailScrollController.jumpTo(0);
                     context.go(
                       '${AppRoutes.vendorCredits}?id=${row.creditNoteNumber}',
                     );
@@ -1067,7 +1069,7 @@ class _VendorCreditsOverviewPageState
     return Container(
       color: AppTheme.backgroundColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Title header: VC number + status badge + icon buttons + close ──
           Container(
@@ -1195,7 +1197,11 @@ class _VendorCreditsOverviewPageState
                   onViewJournal: () {
                     final ctx = _journalKey.currentContext;
                     if (ctx != null) {
-                      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+                      Scrollable.ensureVisible(
+                        ctx,
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                      );
                     }
                   },
                   onDelete: () {
@@ -1220,7 +1226,7 @@ class _VendorCreditsOverviewPageState
               controller: _detailScrollController,
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildAssociatedBillRow(creditNote),
                   const SizedBox(height: 16),
@@ -1452,133 +1458,132 @@ class _TableHeaderState extends State<_TableHeader> {
       constraints: isWrap ? const BoxConstraints(minHeight: 40) : null,
       color: AppTheme.bgLight,
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: isWrap ? 10 : 0),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!widget.hasSelection)
-              SizedBox(
-                key: widget.columnSettingsKey,
-                width: 28,
-                child: GestureDetector(
-                  onTap: widget.onColumnMenuTap,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Icon(
-                      LucideIcons.slidersHorizontal,
-                      size: 16,
-                      color: widget.columnMenuOpen
-                          ? AppTheme.primaryBlueDark
-                          : AppTheme.primaryBlue,
-                    ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!widget.hasSelection)
+            SizedBox(
+              key: widget.columnSettingsKey,
+              width: 28,
+              child: GestureDetector(
+                onTap: widget.onColumnMenuTap,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Icon(
+                    LucideIcons.slidersHorizontal,
+                    size: 16,
+                    color: widget.columnMenuOpen
+                        ? AppTheme.primaryBlueDark
+                        : AppTheme.primaryBlue,
                   ),
                 ),
               ),
-            SizedBox(
-              width: 32,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Checkbox(
-                  value: widget.allSelected || widget.someSelected,
-                  tristate: false,
-                  onChanged: (v) => widget.onSelectAll(widget.allSelected ? false : true),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  activeColor: AppTheme.primaryBlue,
-                  side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
-                  visualDensity: VisualDensity.compact,
-                ),
+            ),
+          SizedBox(
+            width: 32,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Checkbox(
+                value: widget.allSelected || widget.someSelected,
+                tristate: false,
+                onChanged: (v) =>
+                    widget.onSelectAll(widget.allSelected ? false : true),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                activeColor: AppTheme.primaryBlue,
+                side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
+                visualDensity: VisualDensity.compact,
               ),
             ),
-            ...widget.columns.map((col) {
-              final width = widget.colWidths[col.id] ?? 120.0;
-              final isSorted = widget.sortColumn == col.id;
-              final isHovered = _hoveredCol == col.id;
-              final isDragging = _draggingCol == col.id;
-              final showHandle = isHovered || isDragging;
-              return SizedBox(
-                width: width,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    InkWell(
-                      onTap: () => widget.onSort(col.id),
-                      child: Container(
-                        padding: const EdgeInsets.only(right: 14),
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                col.label.toUpperCase(),
-                                maxLines: isWrap ? null : 1,
-                                overflow: isWrap ? null : TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textSecondary,
-                                  letterSpacing: 0.3,
-                                ),
+          ),
+          ...widget.columns.map((col) {
+            final width = widget.colWidths[col.id] ?? 120.0;
+            final isSorted = widget.sortColumn == col.id;
+            final isHovered = _hoveredCol == col.id;
+            final isDragging = _draggingCol == col.id;
+            final showHandle = isHovered || isDragging;
+            return SizedBox(
+              width: width,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  InkWell(
+                    onTap: () => widget.onSort(col.id),
+                    child: Container(
+                      padding: const EdgeInsets.only(right: 14),
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              col.label.toUpperCase(),
+                              maxLines: isWrap ? null : 1,
+                              overflow: isWrap ? null : TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 0.3,
                               ),
                             ),
-                            if (isSorted) ...[
-                              const SizedBox(width: 4),
-                              Icon(
-                                widget.sortAscending
-                                    ? LucideIcons.chevronUp
-                                    : LucideIcons.chevronDown,
-                                size: 12,
-                                color: AppTheme.primaryBlue,
-                              ),
-                            ],
+                          ),
+                          if (isSorted) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              widget.sortAscending
+                                  ? LucideIcons.chevronUp
+                                  : LucideIcons.chevronDown,
+                              size: 12,
+                              color: AppTheme.primaryBlue,
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
-                    // Resize handle — visible on hover/drag
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: 12,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.resizeLeftRight,
-                        onEnter: (_) => setState(() => _hoveredCol = col.id),
-                        onExit: (_) => setState(() {
-                          if (_hoveredCol == col.id) _hoveredCol = null;
-                        }),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onHorizontalDragStart: (_) =>
-                              setState(() => _draggingCol = col.id),
-                          onHorizontalDragUpdate: (details) =>
-                              widget.onColumnResize(col.id, details.delta.dx),
-                          onHorizontalDragEnd: (_) =>
-                              setState(() => _draggingCol = null),
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 120),
-                              width: showHandle ? 3 : 1,
-                              height: showHandle ? 24 : 16,
-                              decoration: BoxDecoration(
-                                color: isDragging
-                                    ? AppTheme.primaryBlue
-                                    : showHandle
-                                        ? AppTheme.primaryBlue.withValues(alpha: 0.55)
-                                        : AppTheme.borderLight,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                  ),
+                  // Resize handle — visible on hover/drag
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 12,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.resizeLeftRight,
+                      onEnter: (_) => setState(() => _hoveredCol = col.id),
+                      onExit: (_) => setState(() {
+                        if (_hoveredCol == col.id) _hoveredCol = null;
+                      }),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onHorizontalDragStart: (_) =>
+                            setState(() => _draggingCol = col.id),
+                        onHorizontalDragUpdate: (details) =>
+                            widget.onColumnResize(col.id, details.delta.dx),
+                        onHorizontalDragEnd: (_) =>
+                            setState(() => _draggingCol = null),
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 120),
+                            width: showHandle ? 3 : 1,
+                            height: showHandle ? 24 : 16,
+                            decoration: BoxDecoration(
+                              color: isDragging
+                                  ? AppTheme.primaryBlue
+                                  : showHandle
+                                  ? AppTheme.primaryBlue.withValues(alpha: 0.55)
+                                  : AppTheme.borderLight,
+                              borderRadius: BorderRadius.circular(2),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -1783,7 +1788,7 @@ class _VcCompactItemState extends State<_VcCompactItem> {
               : Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1937,7 +1942,7 @@ class _VcDocumentPreviewState extends State<_VcDocumentPreview> {
               ],
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header
                 Padding(
@@ -2088,7 +2093,7 @@ class _VcDocumentPreviewState extends State<_VcDocumentPreview> {
                       SizedBox(
                         width: 300,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _totalRow(
                               'Sub Total',
@@ -2265,7 +2270,7 @@ class _VcDocumentPreviewState extends State<_VcDocumentPreview> {
     final totalCredit = entries.fold(0.0, (s, e) => s + e.credit);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 1, color: AppTheme.borderLight),
         // Tab header row
@@ -2902,7 +2907,7 @@ class _VcMoreMenu extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _menuHeader('SORT BY'),
           _sortOption('Credit Note#', 'creditNoteNumber'),
@@ -3095,7 +3100,11 @@ class _VcCustomizeMenuState extends State<_VcCustomizeMenu> {
 }
 
 class _DownloadMenuOption extends StatefulWidget {
-  const _DownloadMenuOption({required this.label, required this.onTap, this.icon});
+  const _DownloadMenuOption({
+    required this.label,
+    required this.onTap,
+    this.icon,
+  });
   final String label;
   final VoidCallback onTap;
   final IconData? icon;
@@ -3123,7 +3132,11 @@ class _DownloadMenuOptionState extends State<_DownloadMenuOption> {
           child: Row(
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon, size: 16, color: _hovered ? Colors.white : AppTheme.primaryBlue),
+                Icon(
+                  widget.icon,
+                  size: 16,
+                  color: _hovered ? Colors.white : AppTheme.primaryBlue,
+                ),
                 const SizedBox(width: 8),
               ],
               Text(
@@ -3191,7 +3204,11 @@ class _DetailActionBtnState extends State<_DetailActionBtn> {
               ),
               if (widget.trailingIcon != null) ...[
                 const SizedBox(width: 3),
-                Icon(widget.trailingIcon, size: 11, color: AppTheme.textSecondary),
+                Icon(
+                  widget.trailingIcon,
+                  size: 11,
+                  color: AppTheme.textSecondary,
+                ),
               ],
             ],
           ),
@@ -3275,14 +3292,18 @@ class _DetailMoreBtn extends StatelessWidget {
         backgroundColor: const WidgetStatePropertyAll(Colors.white),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
         elevation: const WidgetStatePropertyAll(4),
-        shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.12)),
+        shadowColor: WidgetStatePropertyAll(
+          Colors.black.withValues(alpha: 0.12),
+        ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
             side: const BorderSide(color: AppTheme.borderLight),
           ),
         ),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(vertical: 6),
+        ),
         minimumSize: const WidgetStatePropertyAll(Size(180, 0)),
       ),
       builder: (ctx, ctrl, _) => GestureDetector(
@@ -3322,11 +3343,7 @@ class _DetailMoreBtn extends StatelessWidget {
 }
 
 class _MoreMenuItem extends StatefulWidget {
-  const _MoreMenuItem({
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
+  const _MoreMenuItem({required this.label, required this.onTap, this.color});
 
   final String label;
   final VoidCallback onTap;
@@ -3447,7 +3464,7 @@ class _VcPdfPreview extends StatelessWidget {
           ),
           padding: const EdgeInsets.all(40),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               // ── Top header: logo+company (left) / title+number (right) ──
@@ -3901,7 +3918,7 @@ class _VcJournalSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Tab header ──────────────────────────────────────────────
           Container(
@@ -3915,10 +3932,7 @@ class _VcJournalSection extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                        color: AppTheme.primaryBlue,
-                        width: 2,
-                      ),
+                      bottom: BorderSide(color: AppTheme.primaryBlue, width: 2),
                     ),
                   ),
                   child: const Text(
@@ -3937,7 +3951,7 @@ class _VcJournalSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Currency info ──────────────────────────────────────
                 Row(
@@ -3952,7 +3966,9 @@ class _VcJournalSection extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.successGreen,
                         borderRadius: BorderRadius.circular(4),
@@ -4047,7 +4063,8 @@ class _VcJournalSection extends StatelessWidget {
                   (e) => Container(
                     decoration: const BoxDecoration(
                       border: Border(
-                          bottom: BorderSide(color: _dividerColor, width: 0.5)),
+                        bottom: BorderSide(color: _dividerColor, width: 0.5),
+                      ),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     child: Row(
@@ -4142,7 +4159,6 @@ class _VcJournalSection extends StatelessWidget {
   }
 }
 
-
 class _PdfOrgLogo extends ConsumerWidget {
   const _PdfOrgLogo({this.width = 160, this.height = 64});
   final double width;
@@ -4172,14 +4188,16 @@ class _PdfOrgLogo extends ConsumerWidget {
   }
 
   Widget _fallback() => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        alignment: Alignment.center,
-        child: const Text('LOGO',
-            style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8)),
-      );
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: const Color(0xFF1A1A2E),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    alignment: Alignment.center,
+    child: const Text(
+      'LOGO',
+      style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8),
+    ),
+  );
 }

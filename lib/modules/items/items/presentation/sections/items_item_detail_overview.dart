@@ -328,7 +328,9 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                       ),
                       _buildInfoRow(
                         'Side Effects',
-                        _buildRichTextValue(_joinStructuredValues(item.sideEffects)),
+                        _buildRichTextValue(
+                          _joinStructuredValues(item.sideEffects),
+                        ),
                       ),
                       _buildInfoRow(
                         'Management Of Side Effects',
@@ -348,7 +350,9 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                       ),
                       _buildInfoRow(
                         'Frequently Asked Questions (FAQs)',
-                        _buildRichTextValue(_joinStructuredValues(item.faqText)),
+                        _buildRichTextValue(
+                          _joinStructuredValues(item.faqText),
+                        ),
                       ),
                       _buildInfoRow(
                         'References',
@@ -537,9 +541,11 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
 
   Widget _buildRichTextValue(String? value) {
     final resolvedValue =
-        (value == null || value.trim().isEmpty || value.trim().toLowerCase() == 'n/a')
-            ? 'n/a'
-            : value;
+        (value == null ||
+            value.trim().isEmpty ||
+            value.trim().toLowerCase() == 'n/a')
+        ? 'n/a'
+        : value;
     return SelectableText(
       resolvedValue,
       style: const TextStyle(
@@ -574,22 +580,22 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
         );
 
     return [
-          hasText(item.about),
-          hasText(item.usesDescription),
-          hasText(item.productHighlights),
-          hasText(item.productDescription),
-          hasText(item.ingredientsList),
-          hasText(item.directionsForUse),
-          hasText(item.dosageDescription),
-          hasText(item.howItWorks),
-          hasList(item.sideEffects),
-          hasText(item.sideEffectsManagement),
-          hasText(item.safetyAdvice),
-          hasText(item.drugInteractions),
-          hasText(item.goodToKnow),
-          hasList(item.faqText),
-          hasText(item.referencesText),
-        ].any((value) => value);
+      hasText(item.about),
+      hasText(item.usesDescription),
+      hasText(item.productHighlights),
+      hasText(item.productDescription),
+      hasText(item.ingredientsList),
+      hasText(item.directionsForUse),
+      hasText(item.dosageDescription),
+      hasText(item.howItWorks),
+      hasList(item.sideEffects),
+      hasText(item.sideEffectsManagement),
+      hasText(item.safetyAdvice),
+      hasText(item.drugInteractions),
+      hasText(item.goodToKnow),
+      hasList(item.faqText),
+      hasText(item.referencesText),
+    ].any((value) => value);
   }
 
   Widget _buildSaltCompositionValue(ItemsState state, Item item) {
@@ -609,8 +615,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
 
     final entries = compositions.map((comp) {
       final contentName = comp.contentName?.trim();
-      final resolvedStrengthName =
-          comp.strengthName?.trim().isNotEmpty == true
+      final resolvedStrengthName = comp.strengthName?.trim().isNotEmpty == true
           ? comp.strengthName!.trim()
           : _resolveLookupValue(
               directValue: null,
@@ -1781,7 +1786,8 @@ class _DetailImagePreviewState extends State<_DetailImagePreview> {
   }
 
   void _nextImage() {
-    if (_currentIndex < widget.images.length - 1) setState(() => _currentIndex++);
+    if (_currentIndex < widget.images.length - 1)
+      setState(() => _currentIndex++);
   }
 
   void _handlePointerSignal(PointerSignalEvent event) {

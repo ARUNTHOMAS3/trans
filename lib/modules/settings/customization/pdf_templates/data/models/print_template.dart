@@ -91,18 +91,18 @@ class PrintTemplate extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        type,
-        content,
-        variables,
-        description,
-        isDefault,
-        isActive,
-        createdBy,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    name,
+    type,
+    content,
+    variables,
+    description,
+    isDefault,
+    isActive,
+    createdBy,
+    createdAt,
+    updatedAt,
+  ];
 }
 
 // Template types enumeration
@@ -116,18 +116,18 @@ class TemplateType {
   static const String debitNote = 'debit_note';
   static const String paymentVoucher = 'payment_voucher';
   static const String journalEntry = 'journal_entry';
-  
+
   static List<String> get all => [
-        invoice,
-        receipt,
-        purchaseOrder,
-        deliveryNote,
-        quotation,
-        creditNote,
-        debitNote,
-        paymentVoucher,
-        journalEntry,
-      ];
+    invoice,
+    receipt,
+    purchaseOrder,
+    deliveryNote,
+    quotation,
+    creditNote,
+    debitNote,
+    paymentVoucher,
+    journalEntry,
+  ];
 }
 
 // Variable types for template customization
@@ -139,20 +139,20 @@ class TemplateVariables {
   static const String companyEmail = '{{company_email}}';
   static const String companyGstin = '{{company_gstin}}';
   static const String companyPan = '{{company_pan}}';
-  
+
   // Document information
   static const String documentNumber = '{{document_number}}';
   static const String documentDate = '{{document_date}}';
   static const String dueDate = '{{due_date}}';
   static const String referenceNumber = '{{reference_number}}';
-  
+
   // Customer/Vendor information
   static const String partyName = '{{party_name}}';
   static const String partyAddress = '{{party_address}}';
   static const String partyPhone = '{{party_phone}}';
   static const String partyEmail = '{{party_email}}';
   static const String partyGstin = '{{party_gstin}}';
-  
+
   // Financial information
   static const String subtotal = '{{subtotal}}';
   static const String taxAmount = '{{tax_amount}}';
@@ -160,19 +160,19 @@ class TemplateVariables {
   static const String totalAmount = '{{total_amount}}';
   static const String amountInWords = '{{amount_in_words}}';
   static const String currencySymbol = '{{currency_symbol}}';
-  
+
   // Item details
   static const String itemList = '{{item_list}}';
   static const String itemDescription = '{{item_description}}';
   static const String itemQuantity = '{{item_quantity}}';
   static const String itemRate = '{{item_rate}}';
   static const String itemAmount = '{{item_amount}}';
-  
+
   // Payment information
   static const String paymentTerms = '{{payment_terms}}';
   static const String paymentMethod = '{{payment_method}}';
   static const String bankDetails = '{{bank_details}}';
-  
+
   // Signatures
   static const String authorizedSignature = '{{authorized_signature}}';
   static const String preparedBy = '{{prepared_by}}';

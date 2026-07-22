@@ -28,10 +28,15 @@ class CreditNoteCreatePage extends ConsumerStatefulWidget {
   final String? initialCustomer;
   final String? creditNoteId;
 
-  const CreditNoteCreatePage({super.key, this.initialCustomer, this.creditNoteId});
+  const CreditNoteCreatePage({
+    super.key,
+    this.initialCustomer,
+    this.creditNoteId,
+  });
 
   @override
-  ConsumerState<CreditNoteCreatePage> createState() => _CreditNoteCreatePageState();
+  ConsumerState<CreditNoteCreatePage> createState() =>
+      _CreditNoteCreatePageState();
 }
 
 class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
@@ -565,7 +570,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
               child: MaxWidthContainer(
                 maxWidth: _rowMaxWidth,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
 
@@ -574,7 +579,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _CompactFormRow(
                               label: 'Customer Name',
@@ -1033,7 +1038,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Sub Total
                                 Padding(
@@ -2078,7 +2083,7 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
       child: DecoratedBox(
         decoration: const BoxDecoration(color: AppTheme.backgroundColor),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               height: 62,
@@ -2121,7 +2126,7 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
                   child: SizedBox(
                     width: contentWidth,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildTopSection(),
                         const SizedBox(height: 42),
@@ -2151,7 +2156,7 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
 
   Widget _buildTopSection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _CustomerDialogRow(
           label: 'Customer Type',
@@ -2343,7 +2348,7 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
 
   Widget _buildOtherDetails() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _CustomerDialogRow(
           label: 'GST Treatment',
@@ -3616,82 +3621,74 @@ class _WarehouseStockPopoverState extends State<_WarehouseStockPopover> {
                           // Table Header
                           Container(
                             color: const Color(0xFFF9FAFB),
-                            child: IntrinsicHeight(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Row(
-                                        children: const [
-                                          Text(
-                                            'Location Name ',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: AppTheme.textSecondary,
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.search,
-                                            size: 14,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      children: const [
+                                        Text(
+                                          'Location Name ',
+                                          style: TextStyle(
+                                            fontSize: 12,
                                             color: AppTheme.textSecondary,
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const VerticalDivider(
-                                    width: 1,
-                                    color: AppTheme.borderColor,
-                                  ),
-                                  Expanded(
-                                    flex: 5,
-                                    child: Column(
-                                      children: [
-                                        Container(
-                                          height: 32,
-                                          alignment: Alignment.center,
-                                          child: Text(
-                                            _isAccountingStock
-                                                ? 'Accounting Stock'
-                                                : 'Physical Stock',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppTheme.textSecondary,
-                                            ),
-                                          ),
                                         ),
-                                        const Divider(
-                                          height: 1,
-                                          color: AppTheme.borderColor,
-                                        ),
-                                        IntrinsicHeight(
-                                          child: Row(
-                                            children: [
-                                              _buildSubHeader('Stock on Hand'),
-                                              const VerticalDivider(
-                                                width: 1,
-                                                color: AppTheme.borderColor,
-                                              ),
-                                              _buildSubHeader(
-                                                'Committed Stock',
-                                              ),
-                                              const VerticalDivider(
-                                                width: 1,
-                                                color: AppTheme.borderColor,
-                                              ),
-                                              _buildSubHeader(
-                                                'Available for Sale',
-                                              ),
-                                            ],
-                                          ),
+                                        Icon(
+                                          Icons.search,
+                                          size: 14,
+                                          color: AppTheme.textSecondary,
                                         ),
                                       ],
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                const VerticalDivider(
+                                  width: 1,
+                                  color: AppTheme.borderColor,
+                                ),
+                                Expanded(
+                                  flex: 5,
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        height: 32,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          _isAccountingStock
+                                              ? 'Accounting Stock'
+                                              : 'Physical Stock',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                      const Divider(
+                                        height: 1,
+                                        color: AppTheme.borderColor,
+                                      ),
+                                      Row(
+                                        children: [
+                                          _buildSubHeader('Stock on Hand'),
+                                          const VerticalDivider(
+                                            width: 1,
+                                            color: AppTheme.borderColor,
+                                          ),
+                                          _buildSubHeader('Committed Stock'),
+                                          const VerticalDivider(
+                                            width: 1,
+                                            color: AppTheme.borderColor,
+                                          ),
+                                          _buildSubHeader('Available for Sale'),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const Divider(height: 1, color: AppTheme.borderColor),
@@ -3917,7 +3914,7 @@ class _CnGridCellState extends State<_CnGridCell> {
     if (widget.showDivider) {
       result = Row(
         mainAxisSize: widget.isExpanded ? MainAxisSize.max : MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.isExpanded)
             Expanded(child: content)
@@ -4085,7 +4082,7 @@ class _CnItemsGridState extends State<_CnItemsGrid> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           margin: const EdgeInsets.only(right: _rowActionsWidth),
@@ -4300,100 +4297,98 @@ class _CnItemsGridState extends State<_CnItemsGrid> {
               ],
               const Divider(height: 1, color: AppTheme.borderLight),
               // Header row - fixed-width columns with vertical dividers
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _CnGridCell(
-                      isExpanded: true,
-                      backgroundColor: AppTheme.tableHeaderBg,
-                      alignment: Alignment.topLeft,
-                      child: const Row(
-                        children: [
-                          SizedBox(width: 48),
-                          SizedBox(width: 8),
-                          CnGridHeader(label: 'ITEM DETAILS'),
-                        ],
-                      ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _CnGridCell(
+                    isExpanded: true,
+                    backgroundColor: AppTheme.tableHeaderBg,
+                    alignment: Alignment.topLeft,
+                    child: const Row(
+                      children: [
+                        SizedBox(width: 48),
+                        SizedBox(width: 8),
+                        CnGridHeader(label: 'ITEM DETAILS'),
+                      ],
                     ),
-                    _CnGridCell(
-                      width: _CreditNoteCreatePageState._accountColumnWidth,
-                      backgroundColor: AppTheme.tableHeaderBg,
-                      alignment: Alignment.topLeft,
-                      child: const CnGridHeader(label: 'ACCOUNT'),
-                    ),
-                    _CnGridCell(
-                      width: _CreditNoteCreatePageState._quantityColumnWidth,
-                      backgroundColor: AppTheme.tableHeaderBg,
-                      alignment: Alignment.topRight,
-                      child: const CnGridHeader(label: 'QUANTITY'),
-                    ),
-                    _CnGridCell(
-                      width: _CreditNoteCreatePageState._rateColumnWidth,
-                      backgroundColor: AppTheme.tableHeaderBg,
-                      alignment: Alignment.topRight,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            'RATE',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Icon(
-                            LucideIcons.calculator,
-                            size: 12,
+                  ),
+                  _CnGridCell(
+                    width: _CreditNoteCreatePageState._accountColumnWidth,
+                    backgroundColor: AppTheme.tableHeaderBg,
+                    alignment: Alignment.topLeft,
+                    child: const CnGridHeader(label: 'ACCOUNT'),
+                  ),
+                  _CnGridCell(
+                    width: _CreditNoteCreatePageState._quantityColumnWidth,
+                    backgroundColor: AppTheme.tableHeaderBg,
+                    alignment: Alignment.topRight,
+                    child: const CnGridHeader(label: 'QUANTITY'),
+                  ),
+                  _CnGridCell(
+                    width: _CreditNoteCreatePageState._rateColumnWidth,
+                    backgroundColor: AppTheme.tableHeaderBg,
+                    alignment: Alignment.topRight,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          'RATE',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                             color: AppTheme.textSecondary,
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          LucideIcons.calculator,
+                          size: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ],
                     ),
-                    _CnGridCell(
-                      width: _CreditNoteCreatePageState._discountColumnWidth,
-                      backgroundColor: AppTheme.tableHeaderBg,
-                      alignment: Alignment.topRight,
-                      child: const CnGridHeader(label: 'DISCOUNT'),
-                    ),
-                    _CnGridCell(
-                      width: _CreditNoteCreatePageState._taxColumnWidth,
-                      backgroundColor: AppTheme.tableHeaderBg,
-                      alignment: Alignment.topLeft,
-                      child: const Row(
-                        children: [
-                          Text(
-                            'TAX',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary,
-                            ),
+                  ),
+                  _CnGridCell(
+                    width: _CreditNoteCreatePageState._discountColumnWidth,
+                    backgroundColor: AppTheme.tableHeaderBg,
+                    alignment: Alignment.topRight,
+                    child: const CnGridHeader(label: 'DISCOUNT'),
+                  ),
+                  _CnGridCell(
+                    width: _CreditNoteCreatePageState._taxColumnWidth,
+                    backgroundColor: AppTheme.tableHeaderBg,
+                    alignment: Alignment.topLeft,
+                    child: const Row(
+                      children: [
+                        Text(
+                          'TAX',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textSecondary,
                           ),
-                          SizedBox(width: 4),
-                          ZTooltip(
-                            message:
-                                'Tax can only be applied to an item after choosing a customer. Please select a customer from the Customer Name drop-down.',
-                          ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(width: 4),
+                        ZTooltip(
+                          message:
+                              'Tax can only be applied to an item after choosing a customer. Please select a customer from the Customer Name drop-down.',
+                        ),
+                      ],
                     ),
-                    _CnGridCell(
-                      width: _CreditNoteCreatePageState._amountColumnWidth,
-                      backgroundColor: AppTheme.tableHeaderBg,
-                      alignment: Alignment.topRight,
-                      showDivider: false,
-                      child: const CnGridHeader(label: 'AMOUNT'),
-                    ),
-                  ],
-                ),
+                  ),
+                  _CnGridCell(
+                    width: _CreditNoteCreatePageState._amountColumnWidth,
+                    backgroundColor: AppTheme.tableHeaderBg,
+                    alignment: Alignment.topRight,
+                    showDivider: false,
+                    child: const CnGridHeader(label: 'AMOUNT'),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        // Item rows - each uses IntrinsicHeight so action buttons align with row height
+        // Item rows keep fixed action controls without intrinsic layout.
         ...List.generate(widget.items.length, (index) {
           final showActions = _hoveredItemActionIndex == index;
 
@@ -4408,212 +4403,202 @@ class _CnItemsGridState extends State<_CnItemsGrid> {
                 setState(() => _hoveredItemActionIndex = null);
               }
             },
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          left: BorderSide(color: AppTheme.borderLight),
-                          right: BorderSide(color: AppTheme.borderLight),
-                        ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: AppTheme.borderLight),
+                        right: BorderSide(color: AppTheme.borderLight),
                       ),
-                      child: Column(
-                        children: [
-                          _CnItemRowWidget(
-                            item: widget.items[index],
-                            creditOnly: widget.creditOnly,
-                            warehouse: widget.warehouse,
-                            selectedStockView: _selectedStockView,
-                            onStockViewChanged: (val) =>
-                                setState(() => _selectedStockView = val),
-                            onItemSelected: () => widget.onItemSelected(index),
-                            onViewItemDetails: () =>
-                                widget.onViewItemDetails(widget.items[index]),
-                            onEditItem: () =>
-                                widget.onEditItem(widget.items[index]),
-                            onAddBatches: () =>
-                                widget.onAddBatches(widget.items[index]),
-                            onRemoveItem: () => widget.onRemoveItem(index),
-                            onTotalsChanged: widget.onTotalsChanged,
-                          ),
-                          if (!_areAdditionalInfosHidden) ...[
-                            const Divider(
-                              height: 1,
-                              color: AppTheme.borderLight,
+                    ),
+                    child: Column(
+                      children: [
+                        _CnItemRowWidget(
+                          item: widget.items[index],
+                          creditOnly: widget.creditOnly,
+                          warehouse: widget.warehouse,
+                          selectedStockView: _selectedStockView,
+                          onStockViewChanged: (val) =>
+                              setState(() => _selectedStockView = val),
+                          onItemSelected: () => widget.onItemSelected(index),
+                          onViewItemDetails: () =>
+                              widget.onViewItemDetails(widget.items[index]),
+                          onEditItem: () =>
+                              widget.onEditItem(widget.items[index]),
+                          onAddBatches: () =>
+                              widget.onAddBatches(widget.items[index]),
+                          onRemoveItem: () => widget.onRemoveItem(index),
+                          onTotalsChanged: widget.onTotalsChanged,
+                        ),
+                        if (!_areAdditionalInfosHidden) ...[
+                          const Divider(height: 1, color: AppTheme.borderLight),
+                          Container(
+                            color: const Color(0xFFF9FAFB),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
                             ),
-                            Container(
-                              color: const Color(0xFFF9FAFB),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              child: Row(
-                                children: [
-                                  const SizedBox(width: 48),
-                                  const SizedBox(width: 8),
-                                  _buildInfoItem(
-                                    LucideIcons.badgePercent,
-                                    'Discount',
-                                    ['Discount 1', 'Discount 2'],
-                                    (val) {},
-                                    iconSize: 20,
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 48),
+                                const SizedBox(width: 8),
+                                _buildInfoItem(
+                                  LucideIcons.badgePercent,
+                                  'Discount',
+                                  ['Discount 1', 'Discount 2'],
+                                  (val) {},
+                                  iconSize: 20,
+                                ),
+                                const SizedBox(width: 24),
+                                PopupMenuButton<void>(
+                                  offset: const Offset(0, 4),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    side: const BorderSide(
+                                      color: AppTheme.borderLight,
+                                    ),
                                   ),
-                                  const SizedBox(width: 24),
-                                  PopupMenuButton<void>(
-                                    offset: const Offset(0, 4),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      side: const BorderSide(
-                                        color: AppTheme.borderLight,
+                                  color: Colors.white,
+                                  elevation: 4,
+                                  tooltip: '',
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(
+                                        LucideIcons.tag,
+                                        size: 14,
+                                        color: AppTheme.textSecondary,
                                       ),
-                                    ),
-                                    color: Colors.white,
-                                    elevation: 4,
-                                    tooltip: '',
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(
-                                          LucideIcons.tag,
-                                          size: 14,
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Reporting Tags',
+                                        style: TextStyle(
+                                          fontSize: 12,
                                           color: AppTheme.textSecondary,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          'Reporting Tags',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppTheme.textSecondary,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        SizedBox(width: 4),
-                                        Icon(
-                                          LucideIcons.chevronDown,
-                                          size: 12,
-                                          color: AppTheme.textSecondary,
-                                        ),
-                                      ],
-                                    ),
-                                    itemBuilder: (context) => [
-                                      const PopupMenuItem<void>(
-                                        enabled: false,
-                                        padding: EdgeInsets.zero,
-                                        child: _CnReportingTagsForm(),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(
+                                        LucideIcons.chevronDown,
+                                        size: 12,
+                                        color: AppTheme.textSecondary,
                                       ),
                                     ],
                                   ),
-                                  if (widget.items[index].name.isNotEmpty) ...[
-                                    const SizedBox(width: 24),
-                                    _CnCostPriceButton(
-                                      item: widget.items[index],
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem<void>(
+                                      enabled: false,
+                                      padding: EdgeInsets.zero,
+                                      child: _CnReportingTagsForm(),
                                     ),
                                   ],
+                                ),
+                                if (widget.items[index].name.isNotEmpty) ...[
+                                  const SizedBox(width: 24),
+                                  _CnCostPriceButton(item: widget.items[index]),
                                 ],
-                              ),
-                            ),
-                          ],
-                          if (index != widget.items.length - 1)
-                            const Divider(
-                              height: 1,
-                              color: AppTheme.borderLight,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  IgnorePointer(
-                    ignoring: !showActions,
-                    child: AnimatedOpacity(
-                      opacity: showActions ? 1 : 0,
-                      duration: const Duration(milliseconds: 120),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: _rowActionWidth,
-                            child: Center(
-                              child: PopupMenuButton<int>(
-                                offset: Offset.zero,
-                                position: PopupMenuPosition.under,
-                                constraints: const BoxConstraints(
-                                  minWidth: _rowMenuWidth,
-                                  maxWidth: _rowMenuWidth,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  side: const BorderSide(
-                                    color: AppTheme.borderLight,
-                                  ),
-                                ),
-                                color: Colors.white,
-                                elevation: 6,
-                                tooltip: '',
-                                padding: EdgeInsets.zero,
-                                onSelected: (value) {
-                                  if (value == 0) {
-                                    setState(() {
-                                      _areAdditionalInfosHidden =
-                                          !_areAdditionalInfosHidden;
-                                    });
-                                  } else if (value == 1) {
-                                    widget.onCloneItem(index);
-                                  } else if (value == 2) {
-                                    widget.onInsertItem(index);
-                                  } else if (value == 3) {
-                                    widget.onAddBulkItems();
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  _buildRowActionMenuItem(
-                                    value: 0,
-                                    label: _areAdditionalInfosHidden
-                                        ? 'Show Additional Information'
-                                        : 'Hide Additional Information',
-                                  ),
-                                  const PopupMenuDivider(height: 1),
-                                  _buildRowActionMenuItem(
-                                    value: 1,
-                                    label: 'Clone',
-                                  ),
-                                  const PopupMenuDivider(height: 1),
-                                  _buildRowActionMenuItem(
-                                    value: 2,
-                                    label: 'Insert New Row',
-                                  ),
-                                  _buildRowActionMenuItem(
-                                    value: 3,
-                                    label: 'Insert Items in Bulk',
-                                  ),
-                                ],
-                                child: const Icon(
-                                  LucideIcons.moreHorizontal,
-                                  size: 16,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: _rowActionWidth,
-                            child: Center(
-                              child: GestureDetector(
-                                onTap: () => widget.onRemoveItem(index),
-                                behavior: HitTestBehavior.opaque,
-                                child: const _CnRowActionIconButton(
-                                  icon: LucideIcons.x,
-                                ),
-                              ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
+                        if (index != widget.items.length - 1)
+                          const Divider(height: 1, color: AppTheme.borderLight),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                IgnorePointer(
+                  ignoring: !showActions,
+                  child: AnimatedOpacity(
+                    opacity: showActions ? 1 : 0,
+                    duration: const Duration(milliseconds: 120),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: _rowActionWidth,
+                          child: Center(
+                            child: PopupMenuButton<int>(
+                              offset: Offset.zero,
+                              position: PopupMenuPosition.under,
+                              constraints: const BoxConstraints(
+                                minWidth: _rowMenuWidth,
+                                maxWidth: _rowMenuWidth,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: const BorderSide(
+                                  color: AppTheme.borderLight,
+                                ),
+                              ),
+                              color: Colors.white,
+                              elevation: 6,
+                              tooltip: '',
+                              padding: EdgeInsets.zero,
+                              onSelected: (value) {
+                                if (value == 0) {
+                                  setState(() {
+                                    _areAdditionalInfosHidden =
+                                        !_areAdditionalInfosHidden;
+                                  });
+                                } else if (value == 1) {
+                                  widget.onCloneItem(index);
+                                } else if (value == 2) {
+                                  widget.onInsertItem(index);
+                                } else if (value == 3) {
+                                  widget.onAddBulkItems();
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                _buildRowActionMenuItem(
+                                  value: 0,
+                                  label: _areAdditionalInfosHidden
+                                      ? 'Show Additional Information'
+                                      : 'Hide Additional Information',
+                                ),
+                                const PopupMenuDivider(height: 1),
+                                _buildRowActionMenuItem(
+                                  value: 1,
+                                  label: 'Clone',
+                                ),
+                                const PopupMenuDivider(height: 1),
+                                _buildRowActionMenuItem(
+                                  value: 2,
+                                  label: 'Insert New Row',
+                                ),
+                                _buildRowActionMenuItem(
+                                  value: 3,
+                                  label: 'Insert Items in Bulk',
+                                ),
+                              ],
+                              child: const Icon(
+                                LucideIcons.moreHorizontal,
+                                size: 16,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: _rowActionWidth,
+                          child: Center(
+                            child: GestureDetector(
+                              onTap: () => widget.onRemoveItem(index),
+                              behavior: HitTestBehavior.opaque,
+                              child: const _CnRowActionIconButton(
+                                icon: LucideIcons.x,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         }),
@@ -5122,750 +5107,736 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
     final item = widget.item;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 80),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _CnGridCell(
-                  isExpanded: true,
-                  alignment: Alignment.topLeft,
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.borderLight),
-                        ),
-                        child: const Icon(
-                          LucideIcons.image,
-                          size: 20,
-                          color: AppTheme.textMuted,
-                        ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _CnGridCell(
+                isExpanded: true,
+                alignment: Alignment.topLeft,
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.borderLight),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: item.name.isEmpty
-                            ? FormDropdown<String>(
-                                value: null,
-                                items: const [
-                                  'BATCH TARCK ITEM',
-                                  'Item A',
-                                  'Item B',
-                                  'Item C',
-                                  'Item D',
-                                  'Item E',
-                                  'ITEM-5',
-                                  'ITEM-6',
-                                  'ITEM-7',
-                                  'ITEM-8',
-                                ],
-                                hint: 'Type or click to select an item.',
-                                height:
-                                    _CreditNoteCreatePageState._tableFieldHeight,
-                                hideBorderDefault: true,
-                                showSettings: true,
-                                settingsLabel: 'Add New Item',
-                                settingsIcon: LucideIcons.plusCircle,
-                                onSettingsTap: () {
-                                  showDialog<void>(
-                                    context: context,
-                                    barrierColor: Colors.black.withValues(
-                                      alpha: 0.4,
-                                    ),
-                                    builder: (_) => const _CnNewItemDialog(
-                                      title: 'New Item',
-                                      item: null,
-                                    ),
-                                  );
-                                },
-                                itemBuilder: (val, isSelected, isHovered) {
-                                  final active = isHovered || isSelected;
-                                  return Container(
-                                    color: active
-                                        ? AppTheme.primaryBlue
-                                        : Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          val,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                            color: active
-                                                ? Colors.white
-                                                : AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Rate: ₹200.00',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: active
-                                                ? Colors.white70
-                                                : AppTheme.textMuted,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      item.name = val;
-                                      if (val == 'BATCH TARCK ITEM') {
-                                        item.descriptionController.text =
-                                            'sales description demo txt';
-                                        item.costPrice = 95.0;
-                                      } else {
-                                        item.costPrice = 0.0;
-                                      }
-                                    });
-                                    widget.onItemSelected?.call();
-                                    _notifyTotalsChanged();
-                                  }
-                                },
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.name,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                      ),
-                                      PopupMenuButton<String>(
-                                        offset: const Offset(0, 20),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          side: const BorderSide(
-                                            color: AppTheme.borderLight,
-                                          ),
-                                        ),
-                                        color: Colors.white,
-                                        elevation: 4,
-                                        tooltip: '',
-                                        padding: EdgeInsets.zero,
-                                        icon: const Icon(
-                                          LucideIcons.moreHorizontal,
-                                          size: 16,
-                                          color: AppTheme.textSecondary,
-                                        ),
-                                        iconSize: 16,
-                                        onSelected: (val) {
-                                          if (val == 'view') {
-                                            widget.onViewItemDetails?.call();
-                                          }
-                                          if (val == 'edit') {
-                                            widget.onEditItem?.call();
-                                          }
-                                        },
-                                        itemBuilder: (context) => [
-                                          PopupMenuItem<String>(
-                                            value: 'edit',
-                                            padding: EdgeInsets.zero,
-                                            height: 44,
-                                            child: _CnBulkMenuHoverItem(
-                                              label: 'Edit Item',
-                                              icon: LucideIcons.pencil,
-                                            ),
-                                          ),
-                                          PopupMenuItem<String>(
-                                            value: 'view',
-                                            padding: EdgeInsets.zero,
-                                            height: 44,
-                                            child: _CnBulkMenuHoverItem(
-                                              label: 'View Item Details',
-                                              icon: LucideIcons.shoppingBag,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 2),
-                                      GestureDetector(
-                                        onTap: () =>
-                                            widget.onRemoveItem?.call(),
-                                        child: const Icon(
-                                          LucideIcons.xCircle,
-                                          size: 16,
-                                          color: AppTheme.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  CustomTextField(
-                                    controller: item.descriptionController,
-                                    hintText: 'Add a description',
-                                    maxLines: 3,
-                                    textStyle: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 5,
-                                          vertical: 1,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryBlue,
-                                          borderRadius: BorderRadius.circular(
-                                            2,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'GOODS',
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          'HSN Code: ${item.hsnCode}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.primaryBlue,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      CompositedTransformTarget(
-                                        link: _hsnLayerLink,
-                                        child: GestureDetector(
-                                          onTap: _hsnOverlay == null
-                                              ? _openHsnOverlay
-                                              : _closeHsnOverlay,
-                                          child: const Icon(
-                                            LucideIcons.pencil,
-                                            size: 12,
-                                            color: AppTheme.primaryBlue,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                      child: const Icon(
+                        LucideIcons.image,
+                        size: 20,
+                        color: AppTheme.textMuted,
                       ),
-                    ],
-                  ),
-                ),
-                // ACCOUNT
-                _CnGridCell(
-                  width: _CreditNoteCreatePageState._accountColumnWidth,
-                  alignment: Alignment.topLeft,
-                  child: FormDropdown<String>(
-                    value: item.account,
-                    items: const [
-                      'Sales',
-                      'Cost of Goods Sold',
-                      'Other Income',
-                    ],
-                    hint: 'Select Account',
-                    height: _CreditNoteCreatePageState._tableFieldHeight,
-                    hideBorderDefault: true,
-                    onChanged: (val) => setState(() => item.account = val),
-                  ),
-                ),
-                // QUANTITY
-                _CnGridCell(
-                  width: _CreditNoteCreatePageState._quantityColumnWidth,
-                  alignment: Alignment.topRight,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      CustomTextField(
-                        controller: item.returnQtyController,
-                        hintText: '0',
-                        height: _CreditNoteCreatePageState._tableFieldHeight,
-                        hideBorderDefault: true,
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.right,
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textPrimary,
-                        ),
-                        onChanged: (_) {
-                          setState(() {});
-                          _notifyTotalsChanged();
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      if (item.name.isNotEmpty) ...[
-                        Text(
-                          '${widget.selectedStockView}:',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            color: AppTheme.textSecondary,
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
-                        Text(
-                          widget.selectedStockView == 'Available for Sale'
-                              ? '72 pcs'
-                              : '103 pcs',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            color: AppTheme.textSecondary,
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
-                        const SizedBox(height: 4),
-                        WarehouseHoverPopover(
-                          productId: item.sourceItem?.id,
-                          warehouseName:
-                              item.warehouseLocation ??
-                              'ZABNIX PRIVATE LIMITED',
-                          selectedView: widget.selectedStockView,
-                          onViewChanged: (val) =>
-                              widget.onStockViewChanged?.call(val),
-                          onWarehouseChanged: (val) {
-                            setState(() => item.warehouseLocation = val);
-                          },
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              const Icon(
-                                LucideIcons.home,
-                                size: 12,
-                                color: AppTheme.primaryBlue,
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  item.warehouseLocation ??
-                                      'ZABNIX PRIVATE LIMITED',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppTheme.primaryBlue,
-                                    decoration: TextDecoration.underline,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: item.name.isEmpty
+                          ? FormDropdown<String>(
+                              value: null,
+                              items: const [
+                                'BATCH TARCK ITEM',
+                                'Item A',
+                                'Item B',
+                                'Item C',
+                                'Item D',
+                                'Item E',
+                                'ITEM-5',
+                                'ITEM-6',
+                                'ITEM-7',
+                                'ITEM-8',
+                              ],
+                              hint: 'Type or click to select an item.',
+                              height:
+                                  _CreditNoteCreatePageState._tableFieldHeight,
+                              hideBorderDefault: true,
+                              showSettings: true,
+                              settingsLabel: 'Add New Item',
+                              settingsIcon: LucideIcons.plusCircle,
+                              onSettingsTap: () {
+                                showDialog<void>(
+                                  context: context,
+                                  barrierColor: Colors.black.withValues(
+                                    alpha: 0.4,
                                   ),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: widget.onAddBatches,
-                          child: item.savedBatches.isEmpty
-                              ? Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.alertTriangle,
-                                      size: 12,
-                                      color: AppTheme.errorRed,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Flexible(
-                                      child: Text(
-                                        'Add Batches',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: AppTheme.errorRed,
-                                          decoration: TextDecoration.underline,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Text(
-                                  '${item.savedBatches.fold(0, (sum, b) => sum + (int.tryParse(b.quantityController.text) ?? 0))} pcs added to ${item.savedBatches.length} ${item.savedBatches.length == 1 ? 'batch' : 'batches'}.',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppTheme.primaryBlue,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                // RATE
-                _CnGridCell(
-                  width: _CreditNoteCreatePageState._rateColumnWidth,
-                  alignment: Alignment.topRight,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      CustomTextField(
-                        controller: item.rateController,
-                        hintText: '0.00',
-                        focusNode: _rateFocusNode,
-                        height: _CreditNoteCreatePageState._tableFieldHeight,
-                        hideBorderDefault: true,
-                        keyboardType: TextInputType.text,
-                        textAlign: TextAlign.right,
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textPrimary,
-                        ),
-                        onChanged: (_) {
-                          setState(() {});
-                          _notifyTotalsChanged();
-                        },
-                        onSubmitted: (val) {
-                          _evaluateRateField();
-                          _notifyTotalsChanged();
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      if (item.name.isNotEmpty) ...[
-                        FormDropdown<String>(
-                          value: item.priceList,
-                          items: const [
-                            'Standard Selling',
-                            'Wholesale Price',
-                            'Retail Price',
-                          ],
-                          hint: 'Pricelist',
-                          height: 28,
-                          allowClear: true,
-                          onChanged: (val) =>
-                              setState(() => item.priceList = val),
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: () => widget.onViewItemDetails?.call(),
-                          child: const Text(
-                            'Recent Transactions',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.primaryBlue,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                // DISCOUNT
-                _CnGridCell(
-                  width: _CreditNoteCreatePageState._discountColumnWidth,
-                  alignment: Alignment.topRight,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: CustomTextField(
-                          controller: item.discountController,
-                          hintText: '0',
-                          height: _CreditNoteCreatePageState._tableFieldHeight,
-                          hideBorderDefault: true,
-                          keyboardType: TextInputType.number,
-                          textAlign: TextAlign.right,
-                          onChanged: (val) {
-                            if (item.discountIsPercent) {
-                              final doubleValue = double.tryParse(val) ?? 0;
-                              if (doubleValue > 100) {
-                                item.discountController.text = '100';
-                                item
-                                    .discountController
-                                    .selection = TextSelection.fromPosition(
-                                  TextPosition(
-                                    offset: item.discountController.text.length,
+                                  builder: (_) => const _CnNewItemDialog(
+                                    title: 'New Item',
+                                    item: null,
                                   ),
                                 );
-                              }
-                            }
-                            setState(() {});
-                            _notifyTotalsChanged();
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      PopupMenuButton<bool>(
-                        offset: const Offset(0, 4),
-                        constraints: const BoxConstraints(
-                          minWidth: 44,
-                          maxWidth: 44,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: const BorderSide(color: AppTheme.borderLight),
-                        ),
-                        color: Colors.white,
-                        elevation: 4,
-                        tooltip: '',
-                        onSelected: (val) {
-                          setState(() {
-                            item.discountIsPercent = val;
-                            if (item.discountIsPercent) {
-                              final doubleValue =
-                                  double.tryParse(
-                                    item.discountController.text,
-                                  ) ??
-                                  0;
-                              if (doubleValue > 100) {
-                                item.discountController.text = '100';
-                              }
-                            }
-                          });
-                          _notifyTotalsChanged();
-                        },
-                        itemBuilder: (context) => [
-                          PopupMenuItem<bool>(
-                            value: true,
-                            padding: EdgeInsets.zero,
-                            height: 40,
-                            child: _CnDiscountTypeOption(
-                              label: '%',
-                              selected: item.discountIsPercent,
-                            ),
-                          ),
-                          PopupMenuItem<bool>(
-                            value: false,
-                            padding: EdgeInsets.zero,
-                            height: 40,
-                            child: _CnDiscountTypeOption(
-                              label: '₹',
-                              selected: !item.discountIsPercent,
-                            ),
-                          ),
-                        ],
-                        child: Container(
-                          height: _CreditNoteCreatePageState._tableFieldHeight,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.borderLight),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                item.discountIsPercent ? '%' : '₹',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              const Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 14,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // TAX
-                _CnGridCell(
-                  width: _CreditNoteCreatePageState._taxColumnWidth,
-                  alignment: Alignment.topLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      FormDropdown<_CnTaxOption>(
-                        value: _cnTaxOptions.firstWhere(
-                          (o) => o.label == item.tax,
-                          orElse: () => _cnTaxOptions[5],
-                        ),
-                        items: _cnTaxOptions,
-                        hint: 'Select a Tax',
-                        height: _CreditNoteCreatePageState._tableFieldHeight,
-                        menuWidth: 360,
-                        hideBorderDefault: true,
-                        displayStringForValue: (o) => o.label,
-                        isItemEnabled: (o) => !o.isHeader,
-                        itemBuilder: (option, isSelected, isHovered) {
-                          if (option.isHeader) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              color: const Color(0xFFF9FAFB),
-                              width: double.infinity,
-                              child: Text(
-                                option.label,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            );
-                          }
-                          final active = isHovered || isSelected;
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            color: isHovered
-                                ? AppTheme.primaryBlue
-                                : Colors.white,
-                            child: Column(
+                              },
+                              itemBuilder: (val, isSelected, isHovered) {
+                                final active = isHovered || isSelected;
+                                return Container(
+                                  color: active
+                                      ? AppTheme.primaryBlue
+                                      : Colors.transparent,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        val,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: active
+                                              ? Colors.white
+                                              : AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Rate: ₹200.00',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: active
+                                              ? Colors.white70
+                                              : AppTheme.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    item.name = val;
+                                    if (val == 'BATCH TARCK ITEM') {
+                                      item.descriptionController.text =
+                                          'sales description demo txt';
+                                      item.costPrice = 95.0;
+                                    } else {
+                                      item.costPrice = 0.0;
+                                    }
+                                  });
+                                  widget.onItemSelected?.call();
+                                  _notifyTotalsChanged();
+                                }
+                              },
+                            )
+                          : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Row(
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        option.label,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: isHovered
-                                              ? Colors.white
-                                              : (isSelected
-                                                    ? AppTheme.primaryBlue
-                                                    : AppTheme.textPrimary),
-                                          fontWeight: active
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
+                                        item.name,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppTheme.textPrimary,
                                         ),
                                       ),
                                     ),
-                                    if (isSelected)
-                                      Icon(
-                                        Icons.check,
-                                        size: 16,
-                                        color: isHovered
-                                            ? Colors.white
-                                            : AppTheme.primaryBlue,
+                                    PopupMenuButton<String>(
+                                      offset: const Offset(0, 20),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: const BorderSide(
+                                          color: AppTheme.borderLight,
+                                        ),
                                       ),
+                                      color: Colors.white,
+                                      elevation: 4,
+                                      tooltip: '',
+                                      padding: EdgeInsets.zero,
+                                      icon: const Icon(
+                                        LucideIcons.moreHorizontal,
+                                        size: 16,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                      iconSize: 16,
+                                      onSelected: (val) {
+                                        if (val == 'view') {
+                                          widget.onViewItemDetails?.call();
+                                        }
+                                        if (val == 'edit') {
+                                          widget.onEditItem?.call();
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem<String>(
+                                          value: 'edit',
+                                          padding: EdgeInsets.zero,
+                                          height: 44,
+                                          child: _CnBulkMenuHoverItem(
+                                            label: 'Edit Item',
+                                            icon: LucideIcons.pencil,
+                                          ),
+                                        ),
+                                        PopupMenuItem<String>(
+                                          value: 'view',
+                                          padding: EdgeInsets.zero,
+                                          height: 44,
+                                          child: _CnBulkMenuHoverItem(
+                                            label: 'View Item Details',
+                                            icon: LucideIcons.shoppingBag,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 2),
+                                    GestureDetector(
+                                      onTap: () => widget.onRemoveItem?.call(),
+                                      child: const Icon(
+                                        LucideIcons.xCircle,
+                                        size: 16,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                if (option.description != null) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    option.description!,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: isHovered
-                                          ? Colors.white70
-                                          : AppTheme.textSecondary,
+                                const SizedBox(height: 8),
+                                CustomTextField(
+                                  controller: item.descriptionController,
+                                  hintText: 'Add a description',
+                                  maxLines: 3,
+                                  textStyle: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryBlue,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                      child: const Text(
+                                        'GOODS',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        'HSN Code: ${item.hsnCode}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.primaryBlue,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    CompositedTransformTarget(
+                                      link: _hsnLayerLink,
+                                      child: GestureDetector(
+                                        onTap: _hsnOverlay == null
+                                            ? _openHsnOverlay
+                                            : _closeHsnOverlay,
+                                        child: const Icon(
+                                          LucideIcons.pencil,
+                                          size: 12,
+                                          color: AppTheme.primaryBlue,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              // ACCOUNT
+              _CnGridCell(
+                width: _CreditNoteCreatePageState._accountColumnWidth,
+                alignment: Alignment.topLeft,
+                child: FormDropdown<String>(
+                  value: item.account,
+                  items: const ['Sales', 'Cost of Goods Sold', 'Other Income'],
+                  hint: 'Select Account',
+                  height: _CreditNoteCreatePageState._tableFieldHeight,
+                  hideBorderDefault: true,
+                  onChanged: (val) => setState(() => item.account = val),
+                ),
+              ),
+              // QUANTITY
+              _CnGridCell(
+                width: _CreditNoteCreatePageState._quantityColumnWidth,
+                alignment: Alignment.topRight,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    CustomTextField(
+                      controller: item.returnQtyController,
+                      hintText: '0',
+                      height: _CreditNoteCreatePageState._tableFieldHeight,
+                      hideBorderDefault: true,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.right,
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                      onChanged: (_) {
+                        setState(() {});
+                        _notifyTotalsChanged();
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    if (item.name.isNotEmpty) ...[
+                      Text(
+                        '${widget.selectedStockView}:',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: AppTheme.textSecondary,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                      Text(
+                        widget.selectedStockView == 'Available for Sale'
+                            ? '72 pcs'
+                            : '103 pcs',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: AppTheme.textSecondary,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                      const SizedBox(height: 4),
+                      WarehouseHoverPopover(
+                        productId: item.sourceItem?.id,
+                        warehouseName:
+                            item.warehouseLocation ?? 'ZABNIX PRIVATE LIMITED',
+                        selectedView: widget.selectedStockView,
+                        onViewChanged: (val) =>
+                            widget.onStockViewChanged?.call(val),
+                        onWarehouseChanged: (val) {
+                          setState(() => item.warehouseLocation = val);
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            const Icon(
+                              LucideIcons.home,
+                              size: 12,
+                              color: AppTheme.primaryBlue,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                item.warehouseLocation ??
+                                    'ZABNIX PRIVATE LIMITED',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.primaryBlue,
+                                  decoration: TextDecoration.underline,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      InkWell(
+                        onTap: widget.onAddBatches,
+                        child: item.savedBatches.isEmpty
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  const Icon(
+                                    LucideIcons.alertTriangle,
+                                    size: 12,
+                                    color: AppTheme.errorRed,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Flexible(
+                                    child: Text(
+                                      'Add Batches',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppTheme.errorRed,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
-                              ],
-                            ),
-                          );
-                        },
+                              )
+                            : Text(
+                                '${item.savedBatches.fold(0, (sum, b) => sum + (int.tryParse(b.quantityController.text) ?? 0))} pcs added to ${item.savedBatches.length} ${item.savedBatches.length == 1 ? 'batch' : 'batches'}.',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.primaryBlue,
+                                  decoration: TextDecoration.underline,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              // RATE
+              _CnGridCell(
+                width: _CreditNoteCreatePageState._rateColumnWidth,
+                alignment: Alignment.topRight,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    CustomTextField(
+                      controller: item.rateController,
+                      hintText: '0.00',
+                      focusNode: _rateFocusNode,
+                      height: _CreditNoteCreatePageState._tableFieldHeight,
+                      hideBorderDefault: true,
+                      keyboardType: TextInputType.text,
+                      textAlign: TextAlign.right,
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                      onChanged: (_) {
+                        setState(() {});
+                        _notifyTotalsChanged();
+                      },
+                      onSubmitted: (val) {
+                        _evaluateRateField();
+                        _notifyTotalsChanged();
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    if (item.name.isNotEmpty) ...[
+                      FormDropdown<String>(
+                        value: item.priceList,
+                        items: const [
+                          'Standard Selling',
+                          'Wholesale Price',
+                          'Retail Price',
+                        ],
+                        hint: 'Pricelist',
+                        height: 28,
+                        allowClear: true,
+                        onChanged: (val) =>
+                            setState(() => item.priceList = val),
+                      ),
+                      const SizedBox(height: 4),
+                      InkWell(
+                        onTap: () => widget.onViewItemDetails?.call(),
+                        child: const Text(
+                          'Recent Transactions',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.primaryBlue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              // DISCOUNT
+              _CnGridCell(
+                width: _CreditNoteCreatePageState._discountColumnWidth,
+                alignment: Alignment.topRight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: CustomTextField(
+                        controller: item.discountController,
+                        hintText: '0',
+                        height: _CreditNoteCreatePageState._tableFieldHeight,
+                        hideBorderDefault: true,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.right,
                         onChanged: (val) {
-                          if (val != null && !val.isHeader) {
-                            setState(() {
-                              item.tax = val.label;
-                              if (!_isNonTaxable) item.exemptionReason = null;
-                            });
-                            _notifyTotalsChanged();
-                            if (_isNonTaxable && _exemptionOverlay == null) {
-                              WidgetsBinding.instance.addPostFrameCallback(
-                                (_) => _openExemptionOverlay(),
+                          if (item.discountIsPercent) {
+                            final doubleValue = double.tryParse(val) ?? 0;
+                            if (doubleValue > 100) {
+                              item.discountController.text = '100';
+                              item
+                                  .discountController
+                                  .selection = TextSelection.fromPosition(
+                                TextPosition(
+                                  offset: item.discountController.text.length,
+                                ),
                               );
                             }
                           }
+                          setState(() {});
+                          _notifyTotalsChanged();
                         },
                       ),
-                      if (_isNonTaxable) ...[
-                        const SizedBox(height: 4),
-                        CompositedTransformTarget(
-                          link: _exemptionLayerLink,
-                          child: GestureDetector(
-                            onTap: _exemptionOverlay == null
-                                ? _openExemptionOverlay
-                                : _closeExemptionOverlay,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    item.exemptionReason ??
-                                        'Exemption reason not chosen*',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: item.exemptionReason != null
-                                          ? AppTheme.textSecondary
-                                          : AppTheme.errorRed,
+                    ),
+                    const SizedBox(width: 4),
+                    PopupMenuButton<bool>(
+                      offset: const Offset(0, 4),
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        maxWidth: 44,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: AppTheme.borderLight),
+                      ),
+                      color: Colors.white,
+                      elevation: 4,
+                      tooltip: '',
+                      onSelected: (val) {
+                        setState(() {
+                          item.discountIsPercent = val;
+                          if (item.discountIsPercent) {
+                            final doubleValue =
+                                double.tryParse(item.discountController.text) ??
+                                0;
+                            if (doubleValue > 100) {
+                              item.discountController.text = '100';
+                            }
+                          }
+                        });
+                        _notifyTotalsChanged();
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem<bool>(
+                          value: true,
+                          padding: EdgeInsets.zero,
+                          height: 40,
+                          child: _CnDiscountTypeOption(
+                            label: '%',
+                            selected: item.discountIsPercent,
+                          ),
+                        ),
+                        PopupMenuItem<bool>(
+                          value: false,
+                          padding: EdgeInsets.zero,
+                          height: 40,
+                          child: _CnDiscountTypeOption(
+                            label: '₹',
+                            selected: !item.discountIsPercent,
+                          ),
+                        ),
+                      ],
+                      child: Container(
+                        height: _CreditNoteCreatePageState._tableFieldHeight,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderLight),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              item.discountIsPercent ? '%' : '₹',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.keyboard_arrow_down,
+                              size: 14,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // TAX
+              _CnGridCell(
+                width: _CreditNoteCreatePageState._taxColumnWidth,
+                alignment: Alignment.topLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FormDropdown<_CnTaxOption>(
+                      value: _cnTaxOptions.firstWhere(
+                        (o) => o.label == item.tax,
+                        orElse: () => _cnTaxOptions[5],
+                      ),
+                      items: _cnTaxOptions,
+                      hint: 'Select a Tax',
+                      height: _CreditNoteCreatePageState._tableFieldHeight,
+                      menuWidth: 360,
+                      hideBorderDefault: true,
+                      displayStringForValue: (o) => o.label,
+                      isItemEnabled: (o) => !o.isHeader,
+                      itemBuilder: (option, isSelected, isHovered) {
+                        if (option.isHeader) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            color: const Color(0xFFF9FAFB),
+                            width: double.infinity,
+                            child: Text(
+                              option.label,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          );
+                        }
+                        final active = isHovered || isSelected;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          color: isHovered
+                              ? AppTheme.primaryBlue
+                              : Colors.white,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      option.label,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isHovered
+                                            ? Colors.white
+                                            : (isSelected
+                                                  ? AppTheme.primaryBlue
+                                                  : AppTheme.textPrimary),
+                                        fontWeight: active
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
                                     ),
-                                    softWrap: true,
+                                  ),
+                                  if (isSelected)
+                                    Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: isHovered
+                                          ? Colors.white
+                                          : AppTheme.primaryBlue,
+                                    ),
+                                ],
+                              ),
+                              if (option.description != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  option.description!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isHovered
+                                        ? Colors.white70
+                                        : AppTheme.textSecondary,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 1),
-                                  child: Icon(
-                                    LucideIcons.pencil,
-                                    size: 11,
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                      onChanged: (val) {
+                        if (val != null && !val.isHeader) {
+                          setState(() {
+                            item.tax = val.label;
+                            if (!_isNonTaxable) item.exemptionReason = null;
+                          });
+                          _notifyTotalsChanged();
+                          if (_isNonTaxable && _exemptionOverlay == null) {
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => _openExemptionOverlay(),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    if (_isNonTaxable) ...[
+                      const SizedBox(height: 4),
+                      CompositedTransformTarget(
+                        link: _exemptionLayerLink,
+                        child: GestureDetector(
+                          onTap: _exemptionOverlay == null
+                              ? _openExemptionOverlay
+                              : _closeExemptionOverlay,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  item.exemptionReason ??
+                                      'Exemption reason not chosen*',
+                                  style: TextStyle(
+                                    fontSize: 11,
                                     color: item.exemptionReason != null
                                         ? AppTheme.textSecondary
                                         : AppTheme.errorRed,
                                   ),
+                                  softWrap: true,
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 4),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 1),
+                                child: Icon(
+                                  LucideIcons.pencil,
+                                  size: 11,
+                                  color: item.exemptionReason != null
+                                      ? AppTheme.textSecondary
+                                      : AppTheme.errorRed,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ],
+                  ],
+                ),
+              ),
+              // AMOUNT
+              _CnGridCell(
+                width: _CreditNoteCreatePageState._amountColumnWidth,
+                alignment: Alignment.topRight,
+                showDivider: false,
+                child: Text(
+                  _computeAmount(item),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
-                // AMOUNT
-                _CnGridCell(
-                  width: _CreditNoteCreatePageState._amountColumnWidth,
-                  alignment: Alignment.topRight,
-                  showDivider: false,
-                  child: Text(
-                    _computeAmount(item),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],
@@ -5909,7 +5880,7 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Padding(
@@ -6308,36 +6279,34 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
                 ),
               ),
               if (_stockDropdownOpen)
-                IntrinsicWidth(
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.borderLight),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: options
-                          .map(
-                            (opt) => _StockDropdownOption(
-                              label: opt,
-                              selected: opt == _stockView,
-                              onTap: () => setState(() {
-                                _stockView = opt;
-                                _stockDropdownOpen = false;
-                              }),
-                            ),
-                          )
-                          .toList(),
-                    ),
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.borderLight),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: options
+                        .map(
+                          (opt) => _StockDropdownOption(
+                            label: opt,
+                            selected: opt == _stockView,
+                            onTap: () => setState(() {
+                              _stockView = opt;
+                              _stockDropdownOpen = false;
+                            }),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
             ],
@@ -6482,36 +6451,34 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
           Positioned(
             top: 28,
             left: 0,
-            child: IntrinsicWidth(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.borderLight),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: txnTypes
-                      .map(
-                        (opt) => _StockDropdownOption(
-                          label: opt,
-                          selected: opt == _txnType,
-                          onTap: () => setState(() {
-                            _txnType = opt;
-                            _txnTypeDropdownOpen = false;
-                            _txnStatus = 'All';
-                          }),
-                        ),
-                      )
-                      .toList(),
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.borderLight),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: txnTypes
+                    .map(
+                      (opt) => _StockDropdownOption(
+                        label: opt,
+                        selected: opt == _txnType,
+                        onTap: () => setState(() {
+                          _txnType = opt;
+                          _txnTypeDropdownOpen = false;
+                          _txnStatus = 'All';
+                        }),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -6520,35 +6487,33 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
           Positioned(
             top: 28,
             right: 0,
-            child: IntrinsicWidth(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.borderLight),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: statusOptions
-                      .map(
-                        (opt) => _StockDropdownOption(
-                          label: opt,
-                          selected: opt == _txnStatus,
-                          onTap: () => setState(() {
-                            _txnStatus = opt;
-                            _txnStatusDropdownOpen = false;
-                          }),
-                        ),
-                      )
-                      .toList(),
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.borderLight),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: statusOptions
+                    .map(
+                      (opt) => _StockDropdownOption(
+                        label: opt,
+                        selected: opt == _txnStatus,
+                        onTap: () => setState(() {
+                          _txnStatus = opt;
+                          _txnStatusDropdownOpen = false;
+                        }),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -6592,7 +6557,7 @@ class _CnCustomerDetailsSidePanelState
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
@@ -6705,7 +6670,7 @@ class _CnCustomerDetailsSidePanelState
                 ? SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const _CnCustomerSummaryCards(),
                         const SizedBox(height: 18),
@@ -6769,28 +6734,26 @@ class _CnCustomerSummaryCards extends StatelessWidget {
         border: Border.all(color: AppTheme.borderLight),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: const [
-            Expanded(
-              child: _CnCustomerMetricCard(
-                icon: LucideIcons.alertTriangle,
-                iconColor: AppTheme.warningOrange,
-                label: 'Outstanding Receivables',
-                value: '₹0.00',
-              ),
+      child: Row(
+        children: const [
+          Expanded(
+            child: _CnCustomerMetricCard(
+              icon: LucideIcons.alertTriangle,
+              iconColor: AppTheme.warningOrange,
+              label: 'Outstanding Receivables',
+              value: '₹0.00',
             ),
-            VerticalDivider(width: 1, color: AppTheme.borderLight),
-            Expanded(
-              child: _CnCustomerMetricCard(
-                icon: LucideIcons.badgeDollarSign,
-                iconColor: AppTheme.successGreen,
-                label: 'Unused Credits',
-                value: '₹0.00',
-              ),
+          ),
+          VerticalDivider(width: 1, color: AppTheme.borderLight),
+          Expanded(
+            child: _CnCustomerMetricCard(
+              icon: LucideIcons.badgeDollarSign,
+              iconColor: AppTheme.successGreen,
+              label: 'Unused Credits',
+              value: '₹0.00',
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -6852,7 +6815,7 @@ class _CnCustomerContactCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
             padding: EdgeInsets.all(16),
@@ -7426,7 +7389,7 @@ class _RmaPreferencesDialogState extends State<_RmaPreferencesDialog> {
       width: 560,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Title bar
           Padding(
@@ -10150,8 +10113,10 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
               .map((c) => c['name']?.toString() ?? '')
               .where((name) => name.isNotEmpty)
               .toList();
-          
-          if (_country != null && _country!.isNotEmpty && !_countries.contains(_country)) {
+
+          if (_country != null &&
+              _country!.isNotEmpty &&
+              !_countries.contains(_country)) {
             _countries.insert(0, _country!);
           }
         });
@@ -10164,7 +10129,9 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
 
   Future<void> _loadStatesForCountry(String countryName) async {
     final match = _dbCountries.firstWhere(
-      (c) => (c['name']?.toString() ?? '').toLowerCase() == countryName.toLowerCase(),
+      (c) =>
+          (c['name']?.toString() ?? '').toLowerCase() ==
+          countryName.toLowerCase(),
       orElse: () => <String, dynamic>{},
     );
     final shortCode = match['short_code']?.toString() ?? '';
@@ -10184,8 +10151,10 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
               .map((s) => s['name']?.toString() ?? '')
               .where((name) => name.isNotEmpty)
               .toList();
-          
-          if (_state != null && _state!.isNotEmpty && !_states.contains(_state)) {
+
+          if (_state != null &&
+              _state!.isNotEmpty &&
+              !_states.contains(_state)) {
             _states.insert(0, _state!);
           }
         });
@@ -11121,7 +11090,7 @@ class _AddContactPersonDialogState extends State<_AddContactPersonDialog> {
       width: dialogWidth,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             height: 64,
@@ -11562,7 +11531,7 @@ class _QuickAddCustomerDialogState extends State<_QuickAddCustomerDialog> {
       width: 500,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Title bar
           Padding(
@@ -11773,419 +11742,399 @@ class _CnAddBatchesPopoverState extends State<_CnAddBatchesPopover> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 15,
-                ),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Add Batches',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                    InkWell(
-                      onTap: widget.onClose,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppTheme.primaryBlue),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Icon(
-                          LucideIcons.x,
-                          size: 16,
-                          color: AppTheme.errorRed,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              // Info Area
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.mapPin,
-                          size: 14,
-                          color: AppTheme.textSecondary,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Location : ',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          widget.item.warehouseLocation ??
-                              'ZABNIX PRIVATE LIMITED',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.item.name.isEmpty
-                                ? 'BATCH TRACK ITEM'
-                                : widget.item.name,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'Total Quantity : ${widget.item.returnQtyController.text}.00 pcs',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        const Text(
-                          'Quantity to be added : 0 pcs',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Checkbox(
-                          value: _overwriteLineItem,
-                          onChanged: (val) =>
-                              setState(() => _overwriteLineItem = val!),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        const Text(
-                          'Overwrite the line item with 1 quantities',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          LucideIcons.helpCircle,
-                          size: 14,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              // Table Header
-              Container(
-                color: const Color(0xFFF9FAFB),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                  horizontal: 20,
-                ),
-                child: Row(
-                  children: const [
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        'BATCH REFERENCE#*',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.errorRed,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        'MANUFACTURER BATCH#',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        'MANUFACTURED DATE',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        'EXPIRY DATE',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: Text(
-                        'QUANTITY IN*',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.errorRed,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    SizedBox(width: 24),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              // Table Body
-              Expanded(
-                child: SingleChildScrollView(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _batches.length,
-                    itemBuilder: (context, index) {
-                      final b = _batches[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: b.isExisting
-                                  ? _CnBatchSearchDropdown(
-                                      selectedBatch: b.referenceController.text,
-                                      onChanged: (batch) {
-                                        setState(() {
-                                          b.referenceController.text =
-                                              batch['name']!;
-                                          b.mfrBatchController.text =
-                                              batch['mfrBatch'] ?? '';
-                                          b.mfrDateController.text =
-                                              batch['mfrDate'] ?? '';
-                                          b.expiryDateController.text =
-                                              batch['expiryDate'] ?? '';
-                                          b.balance = batch['balance'];
-                                        });
-                                      },
-                                    )
-                                  : _CnAddBatchField(
-                                      controller: b.referenceController,
-                                      hint: 'Enter Batch#',
-                                    ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 3,
-                              child: _CnAddBatchField(
-                                controller: b.mfrBatchController,
-                                hint: 'Enter MFR Batch#',
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 3,
-                              child: _CnAddBatchField(
-                                controller: b.mfrDateController,
-                                hint: 'dd-MM-yyyy',
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 3,
-                              child: _CnAddBatchField(
-                                controller: b.expiryDateController,
-                                hint: 'dd-MM-yyyy',
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 1,
-                              child: _CnAddBatchField(
-                                controller: b.quantityController,
-                                hint: '1',
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _batches.removeAt(index);
-                                  if (_batches.isEmpty) {
-                                    _batches.add(
-                                      _CnBatch()..quantityController.text = '1',
-                                    );
-                                  }
-                                  // Sync removal back to savedBatches so summary updates live
-                                  widget.item.savedBatches
-                                    ..clear()
-                                    ..addAll(_batches);
-                                });
-                              },
-                              child: const Icon(
-                                LucideIcons.xCircle,
-                                size: 18,
-                                color: AppTheme.errorRed,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+        // Header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Add Batches',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ),
-              // Add Actions
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 15,
+              InkWell(
+                onTap: widget.onClose,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.primaryBlue),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(
+                    LucideIcons.x,
+                    size: 16,
+                    color: AppTheme.errorRed,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          final onlyRow =
-                              _batches.length == 1 &&
-                              _batches[0].referenceController.text.isEmpty;
-                          if (onlyRow) {
-                            _batches[0].isExisting = false;
-                          } else {
-                            _batches.add(_CnBatch());
-                          }
-                        });
-                      },
-                      child: Row(
-                        children: const [
-                          Icon(
-                            LucideIcons.plus,
-                            size: 14,
-                            color: AppTheme.primaryBlue,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'New Batch',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.primaryBlue,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // Info Area
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    LucideIcons.mapPin,
+                    size: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Location : ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    widget.item.warehouseLocation ?? 'ZABNIX PRIVATE LIMITED',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.item.name.isEmpty
+                          ? 'BATCH TRACK ITEM'
+                          : widget.item.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
-                    const SizedBox(width: 20),
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          final onlyRow =
-                              _batches.length == 1 &&
-                              _batches[0].referenceController.text.isEmpty;
-                          if (onlyRow) {
-                            _batches[0].isExisting = true;
-                          } else {
-                            final newBatch = _CnBatch()..isExisting = true;
-                            _batches.add(newBatch);
-                          }
-                        });
-                      },
-                      child: Row(
-                        children: const [
-                          Icon(
-                            LucideIcons.plus,
-                            size: 14,
-                            color: AppTheme.primaryBlue,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Existing Batch',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.primaryBlue,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                  ),
+                  Text(
+                    'Total Quantity : ${widget.item.returnQtyController.text}.00 pcs',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  const Text(
+                    'Quantity to be added : 0 pcs',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Checkbox(
+                    value: _overwriteLineItem,
+                    onChanged: (val) =>
+                        setState(() => _overwriteLineItem = val!),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const Text(
+                    'Overwrite the line item with 1 quantities',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    LucideIcons.helpCircle,
+                    size: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // Table Header
+        Container(
+          color: const Color(0xFFF9FAFB),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          child: Row(
+            children: const [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'BATCH REFERENCE#*',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.errorRed,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'MANUFACTURER BATCH#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'MANUFACTURED DATE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'EXPIRY DATE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  'QUANTITY IN*',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.errorRed,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              SizedBox(width: 24),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // Table Body
+        Expanded(
+          child: SingleChildScrollView(
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _batches.length,
+              itemBuilder: (context, index) {
+                final b = _batches[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: b.isExisting
+                            ? _CnBatchSearchDropdown(
+                                selectedBatch: b.referenceController.text,
+                                onChanged: (batch) {
+                                  setState(() {
+                                    b.referenceController.text = batch['name']!;
+                                    b.mfrBatchController.text =
+                                        batch['mfrBatch'] ?? '';
+                                    b.mfrDateController.text =
+                                        batch['mfrDate'] ?? '';
+                                    b.expiryDateController.text =
+                                        batch['expiryDate'] ?? '';
+                                    b.balance = batch['balance'];
+                                  });
+                                },
+                              )
+                            : _CnAddBatchField(
+                                controller: b.referenceController,
+                                hint: 'Enter Batch#',
+                              ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 3,
+                        child: _CnAddBatchField(
+                          controller: b.mfrBatchController,
+                          hint: 'Enter MFR Batch#',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 3,
+                        child: _CnAddBatchField(
+                          controller: b.mfrDateController,
+                          hint: 'dd-MM-yyyy',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 3,
+                        child: _CnAddBatchField(
+                          controller: b.expiryDateController,
+                          hint: 'dd-MM-yyyy',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 1,
+                        child: _CnAddBatchField(
+                          controller: b.quantityController,
+                          hint: '1',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _batches.removeAt(index);
+                            if (_batches.isEmpty) {
+                              _batches.add(
+                                _CnBatch()..quantityController.text = '1',
+                              );
+                            }
+                            // Sync removal back to savedBatches so summary updates live
+                            widget.item.savedBatches
+                              ..clear()
+                              ..addAll(_batches);
+                          });
+                        },
+                        child: const Icon(
+                          LucideIcons.xCircle,
+                          size: 18,
+                          color: AppTheme.errorRed,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        // Add Actions
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    final onlyRow =
+                        _batches.length == 1 &&
+                        _batches[0].referenceController.text.isEmpty;
+                    if (onlyRow) {
+                      _batches[0].isExisting = false;
+                    } else {
+                      _batches.add(_CnBatch());
+                    }
+                  });
+                },
+                child: Row(
+                  children: const [
+                    Icon(
+                      LucideIcons.plus,
+                      size: 14,
+                      color: AppTheme.primaryBlue,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'New Batch',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              // Footer
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
+              const SizedBox(width: 20),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    final onlyRow =
+                        _batches.length == 1 &&
+                        _batches[0].referenceController.text.isEmpty;
+                    if (onlyRow) {
+                      _batches[0].isExisting = true;
+                    } else {
+                      final newBatch = _CnBatch()..isExisting = true;
+                      _batches.add(newBatch);
+                    }
+                  });
+                },
                 child: Row(
-                  children: [
-                    ZButton.primary(
-                      label: 'Save',
-                      onPressed: () => widget.onSave(_batches),
+                  children: const [
+                    Icon(
+                      LucideIcons.plus,
+                      size: 14,
+                      color: AppTheme.primaryBlue,
                     ),
-                    const SizedBox(width: 12),
-                    ZButton.secondary(
-                      label: 'Cancel',
-                      onPressed: widget.onClose,
-                    ),
-                    const Spacer(),
-                    const Text(
-                      'Batches added: 1/100',
+                    SizedBox(width: 4),
+                    Text(
+                      'Existing Batch',
                       style: TextStyle(
                         fontSize: 13,
+                        color: AppTheme.primaryBlue,
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
                       ),
                     ),
                   ],
                 ),
               ),
             ],
-          );
+          ),
+        ),
+        const Divider(height: 1),
+        // Footer
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Row(
+            children: [
+              ZButton.primary(
+                label: 'Save',
+                onPressed: () => widget.onSave(_batches),
+              ),
+              const SizedBox(width: 12),
+              ZButton.secondary(label: 'Cancel', onPressed: widget.onClose),
+              const Spacer(),
+              const Text(
+                'Batches added: 1/100',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

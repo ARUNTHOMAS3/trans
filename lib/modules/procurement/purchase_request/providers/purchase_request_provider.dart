@@ -41,10 +41,10 @@ class PurchaseRequestNotifier
   }
 }
 
-final purchaseRequestProvider = StateNotifierProvider<PurchaseRequestNotifier,
-    List<PurchaseRequestRecord>>(
-  (ref) => PurchaseRequestNotifier(),
-);
+final purchaseRequestProvider =
+    StateNotifierProvider<PurchaseRequestNotifier, List<PurchaseRequestRecord>>(
+      (ref) => PurchaseRequestNotifier(),
+    );
 
 String prDateToday() {
   final now = DateTime.now();

@@ -340,7 +340,10 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
               ),
               focusedBorder: const OutlineInputBorder(
                 borderRadius: BorderRadius.zero,
-                borderSide: BorderSide(color: AppTheme.primaryBlueDark, width: 1.5),
+                borderSide: BorderSide(
+                  color: AppTheme.primaryBlueDark,
+                  width: 1.5,
+                ),
               ),
               fillColor: Colors.white,
               filled: true,

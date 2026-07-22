@@ -216,4 +216,3 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
     );
   }
 }
-

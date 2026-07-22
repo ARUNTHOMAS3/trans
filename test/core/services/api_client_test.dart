@@ -1,16 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 
 void main() {
-  // dotenv must be loaded before ApiClient singleton is first accessed.
-  setUpAll(() {
-    dotenv.testLoad(
-      mergeWith: {'API_BASE_URL': 'http://localhost:3001'},
-    );
-  });
-
   group('ResponseStandardizer extension', () {
     test('success returns true for 2xx status codes', () {
       for (final code in [200, 201, 204, 299]) {

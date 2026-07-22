@@ -42,7 +42,6 @@ class _ManageListDialogState extends State<ManageListDialog> {
   int? _hoverIndex;
   String? _errorMessage;
 
-
   // Inline form state
   bool _showInlineForm = false;
   final TextEditingController _ctrl = TextEditingController();
@@ -198,7 +197,11 @@ class _ManageListDialogState extends State<ManageListDialog> {
           }
         }
       } catch (e) {
-        AppLogger.error('Save error in ManageListDialog', error: e, module: 'purchases');
+        AppLogger.error(
+          'Save error in ManageListDialog',
+          error: e,
+          module: 'purchases',
+        );
         setState(() {
           _errorMessage = ZerpaiBuilders.parseErrorMessage(
             e,
@@ -233,9 +236,7 @@ class _ManageListDialogState extends State<ManageListDialog> {
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 540),
         child: Column(
@@ -293,8 +294,6 @@ class _ManageListDialogState extends State<ManageListDialog> {
       ),
     );
   }
-
-
 
   Widget _buildNewButton() {
     return Align(
@@ -373,7 +372,10 @@ class _ManageListDialogState extends State<ManageListDialog> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: AppTheme.primaryBlueDark, width: 1.5),
+                  borderSide: const BorderSide(
+                    color: AppTheme.primaryBlueDark,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -479,7 +481,9 @@ class _ManageListDialogState extends State<ManageListDialog> {
                 color: hovered ? AppTheme.bgLight : Colors.white,
                 border: Border(
                   bottom: BorderSide(
-                    color: index == _rows.length - 1 ? Colors.transparent : AppTheme.borderColor,
+                    color: index == _rows.length - 1
+                        ? Colors.transparent
+                        : AppTheme.borderColor,
                     width: 0.5,
                   ),
                 ),

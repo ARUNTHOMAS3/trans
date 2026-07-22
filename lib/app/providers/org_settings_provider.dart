@@ -5,8 +5,9 @@ import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 
 /// Fetches and caches the current organization's profile settings.
 /// Keyed by orgId so invalidation is clean on org switch.
-final orgSettingsProvider =
-    FutureProvider.autoDispose<OrgSettings?>((ref) async {
+final orgSettingsProvider = FutureProvider.autoDispose<OrgSettings?>((
+  ref,
+) async {
   final user = ref.watch(authUserProvider);
   final orgId = user?.orgId.trim() ?? '';
   if (orgId.isEmpty) return null;
@@ -43,7 +44,8 @@ final orgDateFormatProvider = Provider<String>((ref) {
 /// because they rely on space/comma delimiters, not dashes.
 String _applyDateSeparator(String pattern, String separator) {
   if (separator == '-') return pattern;
-  final isNumericPattern = !pattern.contains('MMM') &&
+  final isNumericPattern =
+      !pattern.contains('MMM') &&
       !pattern.contains('MMMM') &&
       !pattern.contains('EEE') &&
       !pattern.contains('EEEE');

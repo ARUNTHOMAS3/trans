@@ -1,4 +1,4 @@
-﻿// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -283,8 +283,10 @@ class _PurchaseReturnsCreatePageState
           .getNextReturnNumber();
       if (mounted && number.isNotEmpty) _returnNumberController.text = number;
     } catch (e) {
-      AppLogger.warning('Could not fetch next return number: $e',
-          module: 'purchases');
+      AppLogger.warning(
+        'Could not fetch next return number: $e',
+        module: 'purchases',
+      );
     }
   }
 
@@ -300,20 +302,22 @@ class _PurchaseReturnsCreatePageState
       _purchaseReceiveController.text = ret.purchaseReceiveNumber ?? '';
       _notesController.text = ret.notes ?? '';
       _returnDate = ret.returnDate ?? DateTime.now();
-      _returnDateController.text =
-          DateFormat('dd-MM-yyyy').format(_returnDate);
+      _returnDateController.text = DateFormat('dd-MM-yyyy').format(_returnDate);
 
       for (final item in _items) item.dispose();
       _items.clear();
 
       for (final item in ret.items) {
         final line = _PRLineItem();
-        line.orderedQtyController.text =
-            item.orderedQty > 0 ? item.orderedQty.toStringAsFixed(0) : '';
-        line.returnQtyController.text =
-            item.returnQty > 0 ? item.returnQty.toStringAsFixed(0) : '';
-        line.rateController.text =
-            item.rate > 0 ? item.rate.toStringAsFixed(2) : '';
+        line.orderedQtyController.text = item.orderedQty > 0
+            ? item.orderedQty.toStringAsFixed(0)
+            : '';
+        line.returnQtyController.text = item.returnQty > 0
+            ? item.returnQty.toStringAsFixed(0)
+            : '';
+        line.rateController.text = item.rate > 0
+            ? item.rate.toStringAsFixed(2)
+            : '';
         line.descriptionController.text = item.description ?? '';
         line.selectedTax = item.taxRateName;
         _items.add(line);
@@ -321,8 +325,10 @@ class _PurchaseReturnsCreatePageState
       if (_items.isEmpty) _addItem();
       setState(() {});
     } catch (e) {
-      AppLogger.error('Failed to load purchase return for edit: $e',
-          module: 'purchases');
+      AppLogger.error(
+        'Failed to load purchase return for edit: $e',
+        module: 'purchases',
+      );
     }
   }
 
@@ -339,8 +345,9 @@ class _PurchaseReturnsCreatePageState
     return (qty * rate).clamp(0.0, double.infinity);
   }
 
-  double get _subTotal =>
-      _items.where((i) => i.sourceItem != null).fold(0.0, (s, i) => s + _lineSubtotal(i));
+  double get _subTotal => _items
+      .where((i) => i.sourceItem != null)
+      .fold(0.0, (s, i) => s + _lineSubtotal(i));
 
   double get _adjustmentAmount => _parseMoney(_adjustmentController.text);
   double get _grandTotal => _subTotal + _adjustmentAmount;
@@ -349,7 +356,9 @@ class _PurchaseReturnsCreatePageState
 
   Future<void> _save({bool draft = true}) async {
     final validItems = _items
-        .where((i) => i.sourceItem != null || i.returnQtyController.text.isNotEmpty)
+        .where(
+          (i) => i.sourceItem != null || i.returnQtyController.text.isNotEmpty,
+        )
         .toList();
     if (validItems.isEmpty) {
       ZerpaiToast.error(context, 'Add at least one item to the return.');
@@ -381,8 +390,10 @@ class _PurchaseReturnsCreatePageState
     try {
       final notifier = ref.read(purchaseReturnsProvider.notifier);
       if (widget.isEdit) {
-        final updated =
-            await notifier.updateReturn(widget.purchaseReturnId!, ret);
+        final updated = await notifier.updateReturn(
+          widget.purchaseReturnId!,
+          ret,
+        );
         if (mounted) {
           setState(() => _saving = false);
           if (updated != null) {
@@ -397,8 +408,12 @@ class _PurchaseReturnsCreatePageState
         if (mounted) {
           setState(() => _saving = false);
           if (created != null) {
-            ZerpaiToast.success(context,
-                draft ? 'Purchase return saved as draft.' : 'Purchase return confirmed.');
+            ZerpaiToast.success(
+              context,
+              draft
+                  ? 'Purchase return saved as draft.'
+                  : 'Purchase return confirmed.',
+            );
             context.go('${AppRoutes.purchaseReturns}?id=${created.id}');
           } else {
             ZerpaiToast.error(context, 'Failed to save purchase return.');
@@ -428,7 +443,9 @@ class _PurchaseReturnsCreatePageState
     return Container(
       color: Colors.white,
       child: ZerpaiLayout(
-        pageTitle: widget.isEdit ? 'Edit Purchase Return' : 'New Purchase Return',
+        pageTitle: widget.isEdit
+            ? 'Edit Purchase Return'
+            : 'New Purchase Return',
         enableBodyScroll: true,
         useHorizontalPadding: true,
         footer: Container(
@@ -465,7 +482,7 @@ class _PurchaseReturnsCreatePageState
           child: _MaxWidthContainer(
             maxWidth: _rowMaxWidth,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 24),
 
@@ -474,7 +491,7 @@ class _PurchaseReturnsCreatePageState
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Vendor Name
                         _CompactFormRow(
@@ -535,24 +552,32 @@ class _PurchaseReturnsCreatePageState
                                         ),
                                         onPressed: () async {
                                           final allCustomers =
-                                              ref.read(salesCustomersProvider).valueOrNull ?? [];
+                                              ref
+                                                  .read(salesCustomersProvider)
+                                                  .valueOrNull ??
+                                              [];
                                           final result =
                                               await AdvancedCustomerSearchModal.show(
-                                            context,
-                                            customers: allCustomers,
-                                          );
+                                                context,
+                                                customers: allCustomers,
+                                              );
                                           if (result != null && mounted) {
-                                            final matched = allCustomers.firstWhere(
-                                              (c) => c.displayName == result,
-                                              orElse: () => allCustomers.first,
-                                            );
+                                            final matched = allCustomers
+                                                .firstWhere(
+                                                  (c) =>
+                                                      c.displayName == result,
+                                                  orElse: () =>
+                                                      allCustomers.first,
+                                                );
                                             setState(() {
                                               _selectedVendorObj = Vendor(
                                                 id: matched.id,
-                                                displayName: matched.displayName,
+                                                displayName:
+                                                    matched.displayName,
                                               );
                                               _selectedSourceOfSupply = null;
-                                              _selectedDestinationOfSupply = null;
+                                              _selectedDestinationOfSupply =
+                                                  null;
                                               _selectedBill = null;
                                             });
                                           }
@@ -593,8 +618,8 @@ class _PurchaseReturnsCreatePageState
                               ],
                               hint: 'Select source of supply',
                               height: _fieldHeight,
-                              onChanged: (v) => setState(
-                                  () => _selectedSourceOfSupply = v),
+                              onChanged: (v) =>
+                                  setState(() => _selectedSourceOfSupply = v),
                             ),
                           ),
                           // Destination of Supply
@@ -615,7 +640,8 @@ class _PurchaseReturnsCreatePageState
                               hint: 'Select destination of supply',
                               height: _fieldHeight,
                               onChanged: (v) => setState(
-                                  () => _selectedDestinationOfSupply = v),
+                                () => _selectedDestinationOfSupply = v,
+                              ),
                             ),
                           ),
                           // Bill#
@@ -672,8 +698,8 @@ class _PurchaseReturnsCreatePageState
                             'Purchase Return Series',
                           ],
                           height: _fieldHeight,
-                          onChanged: (v) => setState(
-                              () => _selectedTransactionSeries = v),
+                          onChanged: (v) =>
+                              setState(() => _selectedTransactionSeries = v),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -686,8 +712,11 @@ class _PurchaseReturnsCreatePageState
                                 'Enable or disable auto-generation of Purchase Return numbers.',
                             child: GestureDetector(
                               onTap: _showPreferencesDialog,
-                              child: const Icon(LucideIcons.settings,
-                                  size: 14, color: AppTheme.primaryBlue),
+                              child: const Icon(
+                                LucideIcons.settings,
+                                size: 14,
+                                color: AppTheme.primaryBlue,
+                              ),
                             ),
                           ),
                         ),
@@ -728,8 +757,11 @@ class _PurchaseReturnsCreatePageState
                     readOnly: true,
                     onTap: _pickReturnDate,
                     height: _fieldHeight,
-                    suffixWidget: const Icon(LucideIcons.calendar,
-                        size: 14, color: AppTheme.textSecondary),
+                    suffixWidget: const Icon(
+                      LucideIcons.calendar,
+                      size: 14,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
 
@@ -784,12 +816,13 @@ class _PurchaseReturnsCreatePageState
                         height: 16,
                         child: Checkbox(
                           value: _isReverseCharge,
-                          onChanged: (v) => setState(
-                              () => _isReverseCharge = v ?? false),
+                          onChanged: (v) =>
+                              setState(() => _isReverseCharge = v ?? false),
                           activeColor: AppTheme.primaryBlue,
                           side: const BorderSide(color: AppTheme.borderLight),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(2)),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -816,8 +849,9 @@ class _PurchaseReturnsCreatePageState
                       setState(() => _discountType = v),
                   selectedPriceList: _selectedPriceList,
                   priceListOptions: ref.watch(activePriceListsProvider),
-                  priceListsLoading:
-                      ref.watch(priceListNotifierProvider).isLoading,
+                  priceListsLoading: ref
+                      .watch(priceListNotifierProvider)
+                      .isLoading,
                   onPriceListChanged: (v) =>
                       setState(() => _selectedPriceList = v),
                 ),
@@ -826,11 +860,9 @@ class _PurchaseReturnsCreatePageState
                 // â”€â”€ Items grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 _PRItemsGrid(
                   items: _items,
-                  availableProducts:
-                      ref.watch(itemsControllerProvider).items,
-                  onSearchProducts: (q) => ref
-                      .read(itemsControllerProvider.notifier)
-                      .searchItems(q),
+                  availableProducts: ref.watch(itemsControllerProvider).items,
+                  onSearchProducts: (q) =>
+                      ref.read(itemsControllerProvider.notifier).searchItems(q),
                   onAddItem: _addItem,
                   onAddBulkItems: _showBulkItemsDialog,
                   onInsertItem: _insertItem,
@@ -856,12 +888,16 @@ class _PurchaseReturnsCreatePageState
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Sub Total
                             Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                16,
+                                20,
+                                12,
+                              ),
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -914,8 +950,9 @@ class _PurchaseReturnsCreatePageState
                                   ),
                                   const SizedBox(width: 6),
                                   const ZTooltip(
-                                      message:
-                                          'Any additional adjustment amount (positive or negative).'),
+                                    message:
+                                        'Any additional adjustment amount (positive or negative).',
+                                  ),
                                   const SizedBox(width: 8),
                                   SizedBox(
                                     width: 60,
@@ -933,11 +970,17 @@ class _PurchaseReturnsCreatePageState
                               ),
                             ),
                             const Divider(
-                                height: 1, color: AppTheme.borderLight),
+                              height: 1,
+                              color: AppTheme.borderLight,
+                            ),
                             // Total
                             Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                16,
+                                20,
+                                16,
+                              ),
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -973,8 +1016,7 @@ class _PurchaseReturnsCreatePageState
                 // â”€â”€ Notes + Attach Files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 Container(
                   padding: const EdgeInsets.all(20),
-                  decoration:
-                      const BoxDecoration(color: AppTheme.bgLight),
+                  decoration: const BoxDecoration(color: AppTheme.bgLight),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1009,8 +1051,7 @@ class _PurchaseReturnsCreatePageState
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: AppTheme.bgLight,
-                            border:
-                                Border.all(color: AppTheme.borderLight),
+                            border: Border.all(color: AppTheme.borderLight),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Column(
@@ -1042,11 +1083,14 @@ class _PurchaseReturnsCreatePageState
                                       color: AppTheme.backgroundColor,
                                       border: Border(
                                         top: BorderSide(
-                                            color: AppTheme.borderColor),
+                                          color: AppTheme.borderColor,
+                                        ),
                                         right: BorderSide(
-                                            color: AppTheme.borderColor),
+                                          color: AppTheme.borderColor,
+                                        ),
                                         bottom: BorderSide(
-                                            color: AppTheme.borderColor),
+                                          color: AppTheme.borderColor,
+                                        ),
                                       ),
                                       borderRadius: BorderRadius.only(
                                         topRight: Radius.circular(4),
@@ -1084,8 +1128,7 @@ class _PurchaseReturnsCreatePageState
                 // â”€â”€ Additional Fields note â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 RichText(
                   text: const TextSpan(
-                    style: TextStyle(
-                        fontSize: 13, color: AppTheme.textPrimary),
+                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                     children: [
                       TextSpan(
                         text: 'Additional Fields: ',
@@ -1142,8 +1185,11 @@ class _PRCurrencyBadge extends StatelessWidget {
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.badgeDollarSign,
-              size: 16, color: AppTheme.successGreen),
+          Icon(
+            LucideIcons.badgeDollarSign,
+            size: 16,
+            color: AppTheme.successGreen,
+          ),
           SizedBox(width: 6),
           Text(
             'INR',
@@ -1165,8 +1211,7 @@ class _PRVendorAddressPanel extends StatefulWidget {
   final Vendor vendor;
   final double labelWidth;
 
-  const _PRVendorAddressPanel(
-      {required this.vendor, required this.labelWidth});
+  const _PRVendorAddressPanel({required this.vendor, required this.labelWidth});
 
   @override
   State<_PRVendorAddressPanel> createState() => _PRVendorAddressPanelState();
@@ -1180,7 +1225,10 @@ class _PRVendorAddressPanelState extends State<_PRVendorAddressPanel> {
     final v = widget.vendor;
     return Padding(
       padding: EdgeInsets.only(
-          left: widget.labelWidth + 16, bottom: 12, top: 4),
+        left: widget.labelWidth + 16,
+        bottom: 12,
+        top: 4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1199,11 +1247,11 @@ class _PRVendorAddressPanelState extends State<_PRVendorAddressPanel> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Icon(LucideIcons.pencil,
-                    size: 12,
-                    color: _open
-                        ? AppTheme.primaryBlue
-                        : AppTheme.textSecondary),
+                Icon(
+                  LucideIcons.pencil,
+                  size: 12,
+                  color: _open ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                ),
               ],
             ),
           ),
@@ -1221,9 +1269,10 @@ class _PRVendorAddressPanelState extends State<_PRVendorAddressPanel> {
             Text(
               'GSTIN: ${v.gstin}',
               style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w500),
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
           const SizedBox(height: 8),
@@ -1240,7 +1289,7 @@ class _PRPreferencesDialog extends StatefulWidget {
   final String nextNumber;
   final bool autoGenerate;
   final void Function(String prefix, String nextNumber, bool autoGenerate)
-      onSave;
+  onSave;
 
   const _PRPreferencesDialog({
     required this.prefix,
@@ -1287,9 +1336,10 @@ class _PRPreferencesDialogState extends State<_PRPreferencesDialog> {
               const Text(
                 'Purchase Return Preferences',
                 style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const Spacer(),
               IconButton(
@@ -1301,8 +1351,10 @@ class _PRPreferencesDialogState extends State<_PRPreferencesDialog> {
           const SizedBox(height: 16),
           Row(
             children: [
-              const Text('Auto-generate Return#',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+              const Text(
+                'Auto-generate Return#',
+                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              ),
               const Spacer(),
               Switch(
                 value: _auto,
@@ -1346,11 +1398,7 @@ class _PRPreferencesDialogState extends State<_PRPreferencesDialog> {
               ZButton.primary(
                 label: 'Save',
                 onPressed: () {
-                  widget.onSave(
-                    _prefixCtrl.text,
-                    _nextCtrl.text,
-                    _auto,
-                  );
+                  widget.onSave(_prefixCtrl.text, _nextCtrl.text, _auto);
                   Navigator.of(context).pop();
                 },
               ),
@@ -1388,10 +1436,13 @@ class _PRItemTableToolbar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final warehouses = ref.watch(warehousesProvider).valueOrNull ?? [];
-    final warehouseNames =
-        warehouses.map((w) => w.name).where((n) => n.isNotEmpty).toList();
-    final effectiveWarehouse =
-        warehouseNames.contains(warehouseLocation) ? warehouseLocation : null;
+    final warehouseNames = warehouses
+        .map((w) => w.name)
+        .where((n) => n.isNotEmpty)
+        .toList();
+    final effectiveWarehouse = warehouseNames.contains(warehouseLocation)
+        ? warehouseLocation
+        : null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1439,16 +1490,16 @@ class _PRItemTableToolbar extends ConsumerWidget {
             width: 200,
             child: Row(
               children: [
-                const Icon(LucideIcons.percent,
-                    size: 16, color: AppTheme.textSecondary),
+                const Icon(
+                  LucideIcons.percent,
+                  size: 16,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: FormDropdown<String>(
                     value: discountType,
-                    items: const [
-                      'At Transaction Level',
-                      'At Line Item Level',
-                    ],
+                    items: const ['At Transaction Level', 'At Line Item Level'],
                     height: 36,
                     hideBorderDefault: true,
                     onChanged: (v) {
@@ -1471,8 +1522,11 @@ class _PRItemTableToolbar extends ConsumerWidget {
             width: 200,
             child: Row(
               children: [
-                const Icon(LucideIcons.clipboardList,
-                    size: 16, color: AppTheme.textSecondary),
+                const Icon(
+                  LucideIcons.clipboardList,
+                  size: 16,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: FormDropdown<PriceList>(
@@ -1602,7 +1656,11 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    Icon(LucideIcons.plusCircle, size: 18, color: AppTheme.primaryBlueDark),
+                    Icon(
+                      LucideIcons.plusCircle,
+                      size: 18,
+                      color: AppTheme.primaryBlueDark,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Add New Row',
@@ -1631,7 +1689,11 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
               ),
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.keyboard_arrow_down, size: 20, color: AppTheme.textSecondary),
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 20,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ),
           ],
@@ -1654,7 +1716,11 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.plusCircle, size: 18, color: AppTheme.primaryBlueDark),
+            Icon(
+              LucideIcons.plusCircle,
+              size: 18,
+              color: AppTheme.primaryBlueDark,
+            ),
             SizedBox(width: 8),
             Text(
               'Add Items in Bulk',
@@ -1679,10 +1745,16 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
       style: ButtonStyle(
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         minimumSize: const WidgetStatePropertyAll(Size(_rowMenuWidth, 40)),
-        overlayColor: WidgetStatePropertyAll(AppTheme.backgroundColor.withValues(alpha: 0)),
+        overlayColor: WidgetStatePropertyAll(
+          AppTheme.backgroundColor.withValues(alpha: 0),
+        ),
         backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
       ),
-      child: _PRRowActionMenuHoverItem(label: label, width: _rowMenuWidth, height: 40),
+      child: _PRRowActionMenuHoverItem(
+        label: label,
+        width: _rowMenuWidth,
+        height: 40,
+      ),
     );
   }
 
@@ -1690,7 +1762,9 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
     return MenuAnchor(
       style: MenuStyle(
         backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-        surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+        surfaceTintColor: const WidgetStatePropertyAll(
+          AppTheme.backgroundColor,
+        ),
         elevation: const WidgetStatePropertyAll(6),
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         shape: WidgetStatePropertyAll(
@@ -1702,23 +1776,41 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
       ),
       menuChildren: [
         _buildRowActionMenuItem(
-          label: _areAdditionalInfosHidden ? 'Show Additional Information' : 'Hide Additional Information',
-          onPressed: () => setState(() => _areAdditionalInfosHidden = !_areAdditionalInfosHidden),
+          label: _areAdditionalInfosHidden
+              ? 'Show Additional Information'
+              : 'Hide Additional Information',
+          onPressed: () => setState(
+            () => _areAdditionalInfosHidden = !_areAdditionalInfosHidden,
+          ),
         ),
         const Divider(height: 1, color: AppTheme.borderLight),
-        _buildRowActionMenuItem(label: 'Clone', onPressed: () => widget.onDuplicateItem(index)),
+        _buildRowActionMenuItem(
+          label: 'Clone',
+          onPressed: () => widget.onDuplicateItem(index),
+        ),
         const Divider(height: 1, color: AppTheme.borderLight),
-        _buildRowActionMenuItem(label: 'Insert New Row', onPressed: () => widget.onInsertItem(index)),
-        _buildRowActionMenuItem(label: 'Insert Items in Bulk', onPressed: widget.onAddBulkItems),
+        _buildRowActionMenuItem(
+          label: 'Insert New Row',
+          onPressed: () => widget.onInsertItem(index),
+        ),
+        _buildRowActionMenuItem(
+          label: 'Insert Items in Bulk',
+          onPressed: widget.onAddBulkItems,
+        ),
       ],
       builder: (context, controller, child) {
         return InkWell(
-          onTap: () => controller.isOpen ? controller.close() : controller.open(),
+          onTap: () =>
+              controller.isOpen ? controller.close() : controller.open(),
           borderRadius: BorderRadius.circular(4),
           child: const SizedBox(
             width: 24,
             height: 24,
-            child: Icon(LucideIcons.moreHorizontal, size: 16, color: AppTheme.textSecondary),
+            child: Icon(
+              LucideIcons.moreHorizontal,
+              size: 16,
+              color: AppTheme.textSecondary,
+            ),
           ),
         );
       },
@@ -1728,7 +1820,7 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Table header bar
         Container(
@@ -1746,7 +1838,11 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
             children: [
               const Text(
                 'Item Table',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const Spacer(),
               PopupMenuButton<int>(
@@ -1762,7 +1858,10 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                   if (value == 0) {
                     setState(() => _isBulkUpdateActive = true);
                   } else if (value == 1) {
-                    setState(() => _areAdditionalInfosHidden = !_areAdditionalInfosHidden);
+                    setState(
+                      () => _areAdditionalInfosHidden =
+                          !_areAdditionalInfosHidden,
+                    );
                   }
                 },
                 itemBuilder: (context) => [
@@ -1770,7 +1869,9 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                     value: 0,
                     padding: EdgeInsets.zero,
                     height: 40,
-                    child: _PRBulkMenuHoverItem(label: 'Bulk Update Line Items'),
+                    child: _PRBulkMenuHoverItem(
+                      label: 'Bulk Update Line Items',
+                    ),
                   ),
                   PopupMenuItem<int>(
                     value: 1,
@@ -1788,7 +1889,11 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(LucideIcons.checkCircle, size: 16, color: AppTheme.primaryBlueDark),
+                      Icon(
+                        LucideIcons.checkCircle,
+                        size: 16,
+                        color: AppTheme.primaryBlueDark,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Bulk Actions',
@@ -1831,7 +1936,11 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                   borderRadius: BorderRadius.circular(4),
                   child: const Padding(
                     padding: EdgeInsets.all(4),
-                    child: Icon(LucideIcons.x, size: 16, color: AppTheme.textSecondary),
+                    child: Icon(
+                      LucideIcons.x,
+                      size: 16,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -1848,96 +1957,105 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
               bottom: BorderSide(color: AppTheme.borderLight),
             ),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                const SizedBox(width: 40),
-                const Expanded(
-                  flex: 14,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('ITEM DETAILS'),
+          child: Row(
+            children: [
+              const SizedBox(width: 40),
+              const Expanded(
+                flex: 14,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: _TH('ITEM DETAILS'),
+                ),
+              ),
+              _vLine(),
+              const Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: _TH('ORDERED QTY', right: true),
+                ),
+              ),
+              _vLine(),
+              const Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: _TH('RETURN QTY', right: true),
+                ),
+              ),
+              _vLine(),
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const _TH('RATE'),
+                      const SizedBox(width: 4),
+                      Icon(
+                        LucideIcons.layoutGrid,
+                        size: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ],
                   ),
                 ),
-                _vLine(),
-                const Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('ORDERED QTY', right: true),
+              ),
+              _vLine(),
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-                ),
-                _vLine(),
-                const Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('RETURN QTY', right: true),
-                  ),
-                ),
-                _vLine(),
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        const _TH('RATE'),
-                        const SizedBox(width: 4),
-                        Icon(LucideIcons.layoutGrid, size: 14, color: AppTheme.textSecondary),
-                      ],
-                    ),
-                  ),
-                ),
-                _vLine(),
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: widget.isReverseCharge
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Text(
-                                'TAX',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textSecondary,
-                                  letterSpacing: 0.5,
-                                ),
+                  child: widget.isReverseCharge
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text(
+                              'TAX',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 0.5,
                               ),
-                              Text(
-                                '(REVERSE CHARGE)',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryBlue,
-                                  letterSpacing: 0.3,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              '(REVERSE CHARGE)',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryBlue,
+                                letterSpacing: 0.3,
                               ),
-                            ],
-                          )
-                        : const _TH(
-                            'TAX',
-                            tooltip: 'Applicable tax for the items. You can select a tax rate from the list.',
-                          ),
-                  ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        )
+                      : const _TH(
+                          'TAX',
+                          tooltip:
+                              'Applicable tax for the items. You can select a tax rate from the list.',
+                        ),
                 ),
-                _vLine(),
-                const Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('AMOUNT', right: true),
-                  ),
+              ),
+              _vLine(),
+              const Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: _TH('AMOUNT', right: true),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         // Item rows
@@ -1945,67 +2063,69 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
           final showActions = _hoveredItemActionIndex == index;
           return MouseRegion(
             onEnter: (_) {
-              if (_hoveredItemActionIndex != index) setState(() => _hoveredItemActionIndex = index);
+              if (_hoveredItemActionIndex != index)
+                setState(() => _hoveredItemActionIndex = index);
             },
             onExit: (_) {
-              if (_hoveredItemActionIndex == index) setState(() => _hoveredItemActionIndex = null);
+              if (_hoveredItemActionIndex == index)
+                setState(() => _hoveredItemActionIndex = null);
             },
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: AppTheme.backgroundColor,
-                        border: Border(
-                          left: BorderSide(color: AppTheme.borderLight),
-                          right: BorderSide(color: AppTheme.borderLight),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          _PRItemRow(
-                            item: widget.items[index],
-                            availableProducts: widget.availableProducts,
-                            onSearchProducts: widget.onSearchProducts,
-                            onChanged: widget.onTotalsChanged,
-                            defaultWarehouse: widget.warehouse,
-                            showAdditionalInformation: !_areAdditionalInfosHidden,
-                          ),
-                          if (index < widget.items.length - 1)
-                            const Divider(height: 1, color: AppTheme.borderLight),
-                        ],
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      border: Border(
+                        left: BorderSide(color: AppTheme.borderLight),
+                        right: BorderSide(color: AppTheme.borderLight),
                       ),
                     ),
+                    child: Column(
+                      children: [
+                        _PRItemRow(
+                          item: widget.items[index],
+                          availableProducts: widget.availableProducts,
+                          onSearchProducts: widget.onSearchProducts,
+                          onChanged: widget.onTotalsChanged,
+                          defaultWarehouse: widget.warehouse,
+                          showAdditionalInformation: !_areAdditionalInfosHidden,
+                        ),
+                        if (index < widget.items.length - 1)
+                          const Divider(height: 1, color: AppTheme.borderLight),
+                      ],
+                    ),
                   ),
-                  IgnorePointer(
-                    ignoring: !showActions,
-                    child: AnimatedOpacity(
-                      opacity: showActions ? 1 : 0,
-                      duration: const Duration(milliseconds: 120),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: _rowActionWidth,
-                            child: Center(child: _buildRowActionMenu(index)),
-                          ),
-                          SizedBox(
-                            width: _rowActionWidth,
-                            child: Center(
-                              child: GestureDetector(
-                                onTap: () => widget.onRemoveItem(index),
-                                behavior: HitTestBehavior.opaque,
-                                child: const _PRRowActionIconButton(icon: LucideIcons.x),
+                ),
+                IgnorePointer(
+                  ignoring: !showActions,
+                  child: AnimatedOpacity(
+                    opacity: showActions ? 1 : 0,
+                    duration: const Duration(milliseconds: 120),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: _rowActionWidth,
+                          child: Center(child: _buildRowActionMenu(index)),
+                        ),
+                        SizedBox(
+                          width: _rowActionWidth,
+                          child: Center(
+                            child: GestureDetector(
+                              onTap: () => widget.onRemoveItem(index),
+                              behavior: HitTestBehavior.opaque,
+                              child: const _PRRowActionIconButton(
+                                icon: LucideIcons.x,
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         }),
@@ -2073,8 +2193,10 @@ class _PRItemRowState extends State<_PRItemRow> {
     setState(() {
       widget.item.sourceItem = selected;
       if (selected != null) {
-        widget.item.rateController.text = selected.costPrice?.toStringAsFixed(2) ?? '0.00';
-        widget.item.descriptionController.text = selected.purchaseDescription ?? '';
+        widget.item.rateController.text =
+            selected.costPrice?.toStringAsFixed(2) ?? '0.00';
+        widget.item.descriptionController.text =
+            selected.purchaseDescription ?? '';
         if (widget.item.returnQtyController.text.isEmpty ||
             widget.item.returnQtyController.text == '0.00') {
           widget.item.returnQtyController.text = '1.00';
@@ -2087,319 +2209,350 @@ class _PRItemRowState extends State<_PRItemRow> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Grip handle
-          const SizedBox(
-            width: 40,
-            child: Padding(
-              padding: EdgeInsets.only(top: 14),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Icon(LucideIcons.gripVertical, size: 16, color: AppTheme.borderLight),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Grip handle
+        const SizedBox(
+          width: 40,
+          child: Padding(
+            padding: EdgeInsets.only(top: 14),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Icon(
+                LucideIcons.gripVertical,
+                size: 16,
+                color: AppTheme.borderLight,
               ),
             ),
           ),
-          // ITEM DETAILS
-          Expanded(
-            flex: 14,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppTheme.bgDisabled,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Icon(LucideIcons.image, size: 20, color: AppTheme.textMuted),
+        ),
+        // ITEM DETAILS
+        Expanded(
+          flex: 14,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppTheme.bgDisabled,
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FormDropdown<Item>(
-                          value: item.sourceItem,
-                          items: widget.availableProducts,
-                          hint: 'Type or click to select an item.',
-                          height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                          hideBorderDefault: true,
-                          allowClear: true,
-                          displayStringForValue: (p) => p.productName,
-                          searchStringForValue: (p) =>
-                              '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
-                          onSearch: widget.onSearchProducts,
-                          itemBuilder: (product, isSelected, isHovered) =>
-                              _PRProductDropdownItem(
-                                productName: product.productName,
-                                itemCode: product.itemCode,
-                                highlighted: isSelected || isHovered,
-                              ),
-                          onChanged: _onItemSelected,
-                        ),
+                      child: const Icon(
+                        LucideIcons.image,
+                        size: 20,
+                        color: AppTheme.textMuted,
                       ),
-                    ],
-                  ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48),
-                      child: CustomTextField(
-                        controller: item.descriptionController,
-                        hintText: 'Item description',
-                        height: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FormDropdown<Item>(
+                        value: item.sourceItem,
+                        items: widget.availableProducts,
+                        hint: 'Type or click to select an item.',
+                        height:
+                            _PurchaseReturnsCreatePageState._tableFieldHeight,
                         hideBorderDefault: true,
-                        maxLines: 2,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.selectionActiveBg,
-                              borderRadius: BorderRadius.circular(3),
+                        allowClear: true,
+                        displayStringForValue: (p) => p.productName,
+                        searchStringForValue: (p) =>
+                            '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
+                        onSearch: widget.onSearchProducts,
+                        itemBuilder: (product, isSelected, isHovered) =>
+                            _PRProductDropdownItem(
+                              productName: product.productName,
+                              itemCode: product.itemCode,
+                              highlighted: isSelected || isHovered,
                             ),
-                            child: Text(
-                              item.sourceItem!.type.toUpperCase() == 'SERVICE' ? 'SERVICE' : 'GOODS',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryBlue,
-                              ),
-                            ),
-                          ),
-                          if (item.sourceItem!.hsnCode != null) ...[
-                            const SizedBox(width: 8),
-                            const Text(
-                              'HSN: ',
-                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                            ),
-                            Text(
-                              item.sourceItem!.hsnCode!,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textPrimary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(LucideIcons.pencil, size: 10, color: AppTheme.primaryBlue),
-                          ],
-                        ],
+                        onChanged: _onItemSelected,
                       ),
                     ),
                   ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // ORDERED QTY
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: CustomTextField(
-                controller: item.orderedQtyController,
-                height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                textAlign: TextAlign.right,
-                hintText: '0',
-                hideBorderDefault: true,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => widget.onChanged(),
-              ),
-            ),
-          ),
-          _vLine(),
-          // RETURN QTY
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: CustomTextField(
-                controller: item.returnQtyController,
-                height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                textAlign: TextAlign.right,
-                hintText: '0',
-                hideBorderDefault: true,
-                keyboardType: TextInputType.number,
-                onChanged: (_) {
-                  setState(() {});
-                  widget.onChanged();
-                },
-              ),
-            ),
-          ),
-          _vLine(),
-          // RATE
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  CustomTextField(
-                    controller: item.rateController,
-                    height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                    textAlign: TextAlign.right,
-                    hintText: '0.00',
-                    hideBorderDefault: true,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) {
-                      setState(() {});
-                      widget.onChanged();
-                    },
+                ),
+                if (item.sourceItem != null) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 48),
+                    child: CustomTextField(
+                      controller: item.descriptionController,
+                      hintText: 'Item description',
+                      height: 32,
+                      hideBorderDefault: true,
+                      maxLines: 2,
+                      onChanged: (_) => setState(() {}),
+                    ),
                   ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () {},
-                      child: const Text(
-                        'Recent Transactions',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.primaryBlue,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // TAX
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormDropdown<_PRTaxOption>(
-                    value: item.selectedTax == null
-                        ? null
-                        : _prTaxOptionItems.firstWhere(
-                            (o) => o.label == item.selectedTax,
-                            orElse: () => _prTaxOptionItems[4],
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 48),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
                           ),
-                    items: _prTaxOptionItems,
-                    hint: 'Select Tax',
-                    height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                    menuWidth: 360,
-                    hideBorderDefault: true,
-                    allowClear: true,
-                    displayStringForValue: (o) => o.label,
-                    isItemEnabled: (o) => !o.isHeader,
-                    itemBuilder: (option, isSelected, isHovered) {
-                      if (option.isHeader) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          color: AppTheme.bgLight,
-                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: AppTheme.selectionActiveBg,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
                           child: Text(
-                            option.label,
+                            item.sourceItem!.type.toUpperCase() == 'SERVICE'
+                                ? 'SERVICE'
+                                : 'GOODS',
                             style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ),
+                        ),
+                        if (item.sourceItem!.hsnCode != null) ...[
+                          const SizedBox(width: 8),
+                          const Text(
+                            'HSN: ',
+                            style: TextStyle(
+                              fontSize: 11,
                               color: AppTheme.textSecondary,
                             ),
                           ),
-                        );
-                      }
-                      final active = isHovered || isSelected;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        color: isHovered ? AppTheme.primaryBlue : Colors.white,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    option.label,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isHovered
-                                          ? Colors.white
-                                          : (isSelected
-                                              ? AppTheme.primaryBlue
-                                              : AppTheme.textPrimary),
-                                      fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                                if (isSelected)
-                                  Icon(
-                                    Icons.check,
-                                    size: 16,
-                                    color: isHovered ? Colors.white : AppTheme.primaryBlue,
-                                  ),
-                              ],
+                          Text(
+                            item.sourceItem!.hsnCode!,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w500,
                             ),
-                            if (option.description != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                option.description!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isHovered ? Colors.white70 : AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    },
-                    onChanged: (val) {
-                      if (val != null && !val.isHeader) {
-                        setState(() => item.selectedTax = val.label);
-                        widget.onChanged();
-                      } else if (val == null) {
-                        setState(() => item.selectedTax = null);
-                        widget.onChanged();
-                      }
-                    },
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            LucideIcons.pencil,
+                            size: 10,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
-          _vLine(),
-          // AMOUNT
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  'â‚¹${_computeAmount(item)}',
+        ),
+        _vLine(),
+        // ORDERED QTY
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: CustomTextField(
+              controller: item.orderedQtyController,
+              height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+              textAlign: TextAlign.right,
+              hintText: '0',
+              hideBorderDefault: true,
+              keyboardType: TextInputType.number,
+              onChanged: (_) => widget.onChanged(),
+            ),
+          ),
+        ),
+        _vLine(),
+        // RETURN QTY
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: CustomTextField(
+              controller: item.returnQtyController,
+              height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+              textAlign: TextAlign.right,
+              hintText: '0',
+              hideBorderDefault: true,
+              keyboardType: TextInputType.number,
+              onChanged: (_) {
+                setState(() {});
+                widget.onChanged();
+              },
+            ),
+          ),
+        ),
+        _vLine(),
+        // RATE
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                CustomTextField(
+                  controller: item.rateController,
+                  height: _PurchaseReturnsCreatePageState._tableFieldHeight,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+                  hintText: '0.00',
+                  hideBorderDefault: true,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) {
+                    setState(() {});
+                    widget.onChanged();
+                  },
+                ),
+                if (item.sourceItem != null) ...[
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () {},
+                    child: const Text(
+                      'Recent Transactions',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.primaryBlue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        _vLine(),
+        // TAX
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FormDropdown<_PRTaxOption>(
+                  value: item.selectedTax == null
+                      ? null
+                      : _prTaxOptionItems.firstWhere(
+                          (o) => o.label == item.selectedTax,
+                          orElse: () => _prTaxOptionItems[4],
+                        ),
+                  items: _prTaxOptionItems,
+                  hint: 'Select Tax',
+                  height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                  menuWidth: 360,
+                  hideBorderDefault: true,
+                  allowClear: true,
+                  displayStringForValue: (o) => o.label,
+                  isItemEnabled: (o) => !o.isHeader,
+                  itemBuilder: (option, isSelected, isHovered) {
+                    if (option.isHeader) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        color: AppTheme.bgLight,
+                        width: double.infinity,
+                        child: Text(
+                          option.label,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      );
+                    }
+                    final active = isHovered || isSelected;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      color: isHovered ? AppTheme.primaryBlue : Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  option.label,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isHovered
+                                        ? Colors.white
+                                        : (isSelected
+                                              ? AppTheme.primaryBlue
+                                              : AppTheme.textPrimary),
+                                    fontWeight: active
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: isHovered
+                                      ? Colors.white
+                                      : AppTheme.primaryBlue,
+                                ),
+                            ],
+                          ),
+                          if (option.description != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              option.description!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isHovered
+                                    ? Colors.white70
+                                    : AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                  onChanged: (val) {
+                    if (val != null && !val.isHeader) {
+                      setState(() => item.selectedTax = val.label);
+                      widget.onChanged();
+                    } else if (val == null) {
+                      setState(() => item.selectedTax = null);
+                      widget.onChanged();
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        _vLine(),
+        // AMOUNT
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'â‚¹${_computeAmount(item)}',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -2436,10 +2589,9 @@ class _HeaderBackgroundBand extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bodyWidth = screenWidth - (hPad * 2);
-        final rightBleed =
-            (bodyWidth - constraints.maxWidth + hPad)
-                .clamp(0.0, double.infinity)
-                .toDouble();
+        final rightBleed = (bodyWidth - constraints.maxWidth + hPad)
+            .clamp(0.0, double.infinity)
+            .toDouble();
         return Stack(
           clipBehavior: Clip.none,
           children: [
@@ -2481,8 +2633,9 @@ class _CompactFormRow extends StatelessWidget {
         final available = constraints.hasBoundedWidth
             ? constraints.maxWidth - 150 - 16
             : requested;
-        final effective =
-            available < requested ? (available > 0 ? available : 0.0) : requested;
+        final effective = available < requested
+            ? (available > 0 ? available : 0.0)
+            : requested;
 
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -2550,13 +2703,19 @@ class _TH extends StatelessWidget {
     if (tooltip != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: right ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: right
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           content,
           const SizedBox(width: 4),
           ZTooltip(
             message: tooltip!,
-            child: const Icon(LucideIcons.helpCircle, size: 13, color: AppTheme.textMuted),
+            child: const Icon(
+              LucideIcons.helpCircle,
+              size: 13,
+              color: AppTheme.textMuted,
+            ),
           ),
         ],
       );
@@ -2581,7 +2740,8 @@ class _PRRowActionMenuHoverItem extends StatefulWidget {
   });
 
   @override
-  State<_PRRowActionMenuHoverItem> createState() => _PRRowActionMenuHoverItemState();
+  State<_PRRowActionMenuHoverItem> createState() =>
+      _PRRowActionMenuHoverItemState();
 }
 
 class _PRRowActionMenuHoverItemState extends State<_PRRowActionMenuHoverItem> {
@@ -2715,11 +2875,13 @@ final List<_PRTaxOption> _prTaxOptionItems = [
   ),
   const _PRTaxOption(
     label: 'Out of Scope',
-    description: 'Supplies on which you don\'t charge any GST or include them in the returns.',
+    description:
+        'Supplies on which you don\'t charge any GST or include them in the returns.',
   ),
   const _PRTaxOption(
     label: 'Non-GST Supply',
-    description: 'Supplies which do not come under GST such as petroleum products and liquor.',
+    description:
+        'Supplies which do not come under GST such as petroleum products and liquor.',
   ),
   const _PRTaxOption(label: 'Taxable', isHeader: true),
   const _PRTaxOption(label: 'GST 0%', description: '0%'),
@@ -2746,8 +2908,12 @@ class _PRProductDropdownItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = highlighted ? AppTheme.backgroundColor : AppTheme.textBody;
-    final secondaryColor = highlighted ? AppTheme.backgroundColor : AppTheme.textSecondary;
+    final textColor = highlighted
+        ? AppTheme.backgroundColor
+        : AppTheme.textBody;
+    final secondaryColor = highlighted
+        ? AppTheme.backgroundColor
+        : AppTheme.textSecondary;
 
     return Container(
       height: 52,

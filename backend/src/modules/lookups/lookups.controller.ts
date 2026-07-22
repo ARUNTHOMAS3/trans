@@ -106,7 +106,7 @@ export class LookupsController {
     // Handle different status column names or lack thereof
     if (type === "price-lists") {
       query = query.eq("status", "active");
-    } else {
+    } else if (type !== "tax-group-rates") {
       query = query.eq("is_active", true);
     }
 

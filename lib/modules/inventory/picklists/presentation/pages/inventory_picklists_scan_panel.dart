@@ -43,8 +43,10 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
   void _selectItem(WarehouseStockData item) {
     setState(() {
       _selectedItem = item;
-      final rowKey = '${item.productId}_${item.batchNo ?? ''}_${item.salesOrderId ?? ''}';
-      final currentQty = widget.manualPickedQty[rowKey] ?? item.quantityPicked ?? 0;
+      final rowKey =
+          '${item.productId}_${item.batchNo ?? ''}_${item.salesOrderId ?? ''}';
+      final currentQty =
+          widget.manualPickedQty[rowKey] ?? item.quantityPicked ?? 0;
       _qtyCtrl.text = currentQty == 0 ? '' : currentQty.toInt().toString();
     });
   }
@@ -146,17 +148,32 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Status', style: TextStyle(fontSize: 12, color: _textSecondary)),
+                                    const Text(
+                                      'Status',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFDCFCE7),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        _selectedItem!.status == 'COMPLETED' ? 'Completed' : 'In Progress',
-                                        style: const TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.w500),
+                                        _selectedItem!.status == 'COMPLETED'
+                                            ? 'Completed'
+                                            : 'In Progress',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF166534),
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -166,11 +183,22 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Sales Order#', style: TextStyle(fontSize: 12, color: _textSecondary)),
+                                    const Text(
+                                      'Sales Order#',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      _selectedItem!.salesOrderNumber != null ? '[${_selectedItem!.salesOrderNumber}]' : '-',
-                                      style: const TextStyle(fontSize: 13, color: _textPrimary),
+                                      _selectedItem!.salesOrderNumber != null
+                                          ? '[${_selectedItem!.salesOrderNumber}]'
+                                          : '-',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: _textPrimary,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -179,11 +207,21 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    const Text('Quantity to pick', style: TextStyle(fontSize: 12, color: _textSecondary)),
+                                    const Text(
+                                      'Quantity to pick',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Text(
                                       '${_selectedItem!.quantityToPick?.toInt() ?? 0} box',
-                                      style: const TextStyle(fontSize: 14, color: _textPrimary, fontWeight: FontWeight.w600),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: _textPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -223,10 +261,18 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                                   children: [
                                     const Text(
                                       'Item Quantity',
-                                      style: TextStyle(fontSize: 13, color: _textPrimary, fontWeight: FontWeight.w500),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: _textPrimary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                     const SizedBox(width: 4),
-                                    Icon(LucideIcons.info, size: 14, color: _textSecondary),
+                                    Icon(
+                                      LucideIcons.info,
+                                      size: 14,
+                                      color: _textSecondary,
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
@@ -236,27 +282,46 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                                     controller: _scanCtrl,
                                     decoration: InputDecoration(
                                       hintText: 'Scan Item',
-                                      hintStyle: TextStyle(color: _textSecondary.withValues(alpha: 0.5), fontSize: 13),
+                                      hintStyle: TextStyle(
+                                        color: _textSecondary.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        fontSize: 13,
+                                      ),
                                       isDense: true,
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(6),
-                                        borderSide: const BorderSide(color: _focusBorder),
+                                        borderSide: const BorderSide(
+                                          color: _focusBorder,
+                                        ),
                                       ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(6),
-                                        borderSide: const BorderSide(color: _focusBorder),
+                                        borderSide: const BorderSide(
+                                          color: _focusBorder,
+                                        ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(6),
-                                        borderSide: const BorderSide(color: _focusBorder, width: 1.5),
+                                        borderSide: const BorderSide(
+                                          color: _focusBorder,
+                                          width: 1.5,
+                                        ),
                                       ),
                                     ),
                                     onSubmitted: (val) {
                                       if (val.isNotEmpty) {
-                                        final currentQty = double.tryParse(_qtyCtrl.text) ?? 0;
+                                        final currentQty =
+                                            double.tryParse(_qtyCtrl.text) ?? 0;
                                         setState(() {
-                                          _qtyCtrl.text = (currentQty + 1).toInt().toString();
+                                          _qtyCtrl.text = (currentQty + 1)
+                                              .toInt()
+                                              .toString();
                                           _scanCtrl.clear();
                                         });
                                       }
@@ -273,22 +338,33 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
                                       'Picked Items',
-                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _textPrimary),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: _textPrimary,
+                                      ),
                                     ),
                                     Builder(
                                       builder: (context) {
-                                        final picked = double.tryParse(_qtyCtrl.text) ?? 0;
-                                        final toPick = _selectedItem!.quantityToPick ?? 0;
-                                        final yetToPick = (toPick - picked).clamp(0, double.infinity);
+                                        final picked =
+                                            double.tryParse(_qtyCtrl.text) ?? 0;
+                                        final toPick =
+                                            _selectedItem!.quantityToPick ?? 0;
+                                        final yetToPick = (toPick - picked)
+                                            .clamp(0, double.infinity);
                                         return Text(
                                           'Yet to be picked: ${yetToPick.toInt()} box',
-                                          style: const TextStyle(fontSize: 13, color: _textPrimary),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: _textPrimary,
+                                          ),
                                         );
-                                      }
+                                      },
                                     ),
                                   ],
                                 ),
@@ -302,15 +378,27 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                                     children: [
                                       Container(
                                         width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
                                         decoration: const BoxDecoration(
                                           color: Color(0xFFF8FAFC),
-                                          border: Border(bottom: BorderSide(color: _borderCol)),
+                                          border: Border(
+                                            bottom: BorderSide(
+                                              color: _borderCol,
+                                            ),
+                                          ),
                                         ),
                                         child: const Text(
                                           'QUANTITY PICKED',
                                           textAlign: TextAlign.right,
-                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary, letterSpacing: 0.5),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: _textSecondary,
+                                            letterSpacing: 0.5,
+                                          ),
                                         ),
                                       ),
                                       Container(
@@ -325,14 +413,24 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                                             keyboardType: TextInputType.number,
                                             decoration: InputDecoration(
                                               isDense: true,
-                                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
                                               border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(4),
-                                                borderSide: const BorderSide(color: _borderCol),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                borderSide: const BorderSide(
+                                                  color: _borderCol,
+                                                ),
                                               ),
                                               enabledBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(4),
-                                                borderSide: const BorderSide(color: _borderCol),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                borderSide: const BorderSide(
+                                                  color: _borderCol,
+                                                ),
                                               ),
                                             ),
                                             onChanged: (val) => setState(() {}),
@@ -365,19 +463,29 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                 SizedBox(
                   height: 36,
                   child: ElevatedButton(
-                    onPressed: _selectedItem == null ? null : () {
-                      final newQty = double.tryParse(_qtyCtrl.text) ?? 0;
-                      widget.onUpdate(_selectedItem!, newQty);
-                      widget.onClose();
-                    },
+                    onPressed: _selectedItem == null
+                        ? null
+                        : () {
+                            final newQty = double.tryParse(_qtyCtrl.text) ?? 0;
+                            widget.onUpdate(_selectedItem!, newQty);
+                            widget.onClose();
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF42B883),
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: const Text('Update', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Update',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -389,9 +497,17 @@ class _ScanItemSidePanelState extends State<ScanItemSidePanel> {
                       foregroundColor: _textPrimary,
                       side: const BorderSide(color: _borderCol),
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
               ],

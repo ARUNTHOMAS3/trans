@@ -1,5 +1,5 @@
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import '../models/inventory_package_model.dart';
 import 'inventory_package_repository.dart';
@@ -42,7 +42,9 @@ class InventoryPackageRepositoryImpl implements InventoryPackageRepository {
   @override
   Future<InventoryPackage?> getPackage(String id) async {
     try {
-      final response = await _apiClient.get('${ApiEndpoints.inventoryPackages}/$id');
+      final response = await _apiClient.get(
+        '${ApiEndpoints.inventoryPackages}/$id',
+      );
       final data = response.data is Map && response.data.containsKey('data')
           ? response.data['data']
           : response.data;
@@ -71,7 +73,10 @@ class InventoryPackageRepositoryImpl implements InventoryPackageRepository {
   }
 
   @override
-  Future<InventoryPackage?> updatePackage(String id, Map<String, dynamic> data) async {
+  Future<InventoryPackage?> updatePackage(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final response = await _apiClient.put(
         '${ApiEndpoints.inventoryPackages}/$id',
@@ -101,7 +106,9 @@ class InventoryPackageRepositoryImpl implements InventoryPackageRepository {
   @override
   Future<Map<String, dynamic>> getNextNumber() async {
     try {
-      final response = await _apiClient.get(ApiEndpoints.inventoryPackagesNextNumber);
+      final response = await _apiClient.get(
+        ApiEndpoints.inventoryPackagesNextNumber,
+      );
       return response.data as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('getNextNumber error', error: e, module: 'inventory');
@@ -118,13 +125,14 @@ class InventoryPackageRepositoryImpl implements InventoryPackageRepository {
     try {
       await _apiClient.patch(
         '${ApiEndpoints.sequences}/inventory_packages/settings',
-        data: {
-          'prefix': prefix,
-          'nextNumber': nextNumber,
-        },
+        data: {'prefix': prefix, 'nextNumber': nextNumber},
       );
     } catch (e) {
-      AppLogger.error('updateNextNumberSettings error', error: e, module: 'inventory');
+      AppLogger.error(
+        'updateNextNumberSettings error',
+        error: e,
+        module: 'inventory',
+      );
       throw Exception('Failed to update package numbering settings: $e');
     }
   }

@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:zerpai_erp/core/auth/auth_session_expiry_notifier.dart';
 import 'package:zerpai_erp/core/utils/console_error_reporter.dart';
+import 'package:zerpai_erp/core/observability/dio_telemetry_interceptor.dart';
+import 'package:zerpai_erp/core/observability/performance_telemetry.dart';
 
 /// ------------------------------
 /// CACHE MODEL
@@ -110,7 +111,8 @@ class ApiClient {
       if (refreshResponse.statusCode == 200 && refreshResponse.data != null) {
         final data = Map<String, dynamic>.from(refreshResponse.data as Map);
         final newToken = data['access_token'] as String?;
-        final newRefreshToken = (data['refresh_token'] as String?) ?? refreshToken;
+        final newRefreshToken =
+            (data['refresh_token'] as String?) ?? refreshToken;
         final newExpiresAt = (data['expires_at'] as num?)?.toInt();
         if (newToken != null && newToken.isNotEmpty) {
           _forcedLogoutTriggered = false;
@@ -199,11 +201,7 @@ class ApiClient {
     } catch (_) {}
   }
 
-  bool _isHardAuthFailure({
-    int? statusCode,
-    String? message,
-    String? code,
-  }) {
+  bool _isHardAuthFailure({int? statusCode, String? message, String? code}) {
     if (statusCode == 401) {
       return true;
     }
@@ -253,12 +251,9 @@ class ApiClient {
           ? envDefinedBaseUrl
           : 'http://localhost:3001';
     } else {
-      rawBaseUrl = envDefinedBaseUrl;
-      if (rawBaseUrl.isEmpty) {
-        rawBaseUrl =
-            dotenv.maybeGet('API_BASE_URL') ??
-            'https://zerpai-production.up.railway.app';
-      }
+      rawBaseUrl = envDefinedBaseUrl.isNotEmpty
+          ? envDefinedBaseUrl
+          : 'https://zerpai-production.up.railway.app';
     }
 
     rawBaseUrl = rawBaseUrl.trim().replaceFirst(RegExp(r'/$'), '');
@@ -286,6 +281,10 @@ class ApiClient {
       ),
     );
 
+    if (PerformanceMonitoringConfig.enabled) {
+      _dio.interceptors.add(ZerpaiDioTelemetryInterceptor());
+    }
+
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -306,9 +305,11 @@ class ApiClient {
               } else if (_shouldRefreshToken(box)) {
                 final refreshToken = box.get('refresh_token') as String?;
                 if (refreshToken != null && refreshToken.isNotEmpty) {
-                  _refreshFuture ??= _doRefresh(refreshToken, box).whenComplete(() {
-                    _refreshFuture = null;
-                  });
+                  _refreshFuture ??= _doRefresh(refreshToken, box).whenComplete(
+                    () {
+                      _refreshFuture = null;
+                    },
+                  );
                   await _refreshFuture;
                 }
               }
@@ -353,9 +354,11 @@ class ApiClient {
             );
           }
 
-          options.headers['X-Request-ID'] = DateTime.now()
-              .millisecondsSinceEpoch
-              .toString();
+          if (!options.headers.containsKey('X-Request-ID')) {
+            options.headers['X-Request-ID'] = DateTime.now()
+                .millisecondsSinceEpoch
+                .toString();
+          }
 
           if (kDebugMode) {
             debugPrint('🚀 ${options.method} ${options.uri}');
@@ -441,7 +444,8 @@ class ApiClient {
                 : response.requestOptions.path;
 
             // Don't try to refresh if the request was already an auth request
-            final isAuthRequest = normalizedPath.startsWith('auth/login') ||
+            final isAuthRequest =
+                normalizedPath.startsWith('auth/login') ||
                 normalizedPath.startsWith('auth/refresh') ||
                 normalizedPath.startsWith('auth/forgot-password') ||
                 normalizedPath.startsWith('auth/change-password');
@@ -453,9 +457,11 @@ class ApiClient {
 
                 if (refreshToken != null && refreshToken.isNotEmpty) {
                   // Single shared refresh — prevents N parallel 401s each triggering a refresh
-                  _refreshFuture ??= _doRefresh(refreshToken, box).whenComplete(() {
-                    _refreshFuture = null;
-                  });
+                  _refreshFuture ??= _doRefresh(refreshToken, box).whenComplete(
+                    () {
+                      _refreshFuture = null;
+                    },
+                  );
 
                   final newToken = await _refreshFuture;
                   if (newToken != null) {
@@ -470,7 +476,8 @@ class ApiClient {
                   }
                 } else {
                   // No refresh token available. Clear on any 401 with absent/expired token.
-                  final token = (box.get('auth_token') as String?)?.trim() ?? '';
+                  final token =
+                      (box.get('auth_token') as String?)?.trim() ?? '';
                   if (token.isEmpty || _isTokenExpired(box, token)) {
                     await _clearAuthSession(box);
                   }
@@ -577,7 +584,8 @@ class ApiClient {
           final normalizedPath = error.requestOptions.path.startsWith('/')
               ? error.requestOptions.path.substring(1)
               : error.requestOptions.path;
-          final isAuthRequest = normalizedPath.startsWith('auth/login') ||
+          final isAuthRequest =
+              normalizedPath.startsWith('auth/login') ||
               normalizedPath.startsWith('auth/refresh') ||
               normalizedPath.startsWith('auth/forgot-password') ||
               normalizedPath.startsWith('auth/change-password');
@@ -604,10 +612,7 @@ class ApiClient {
               'ApiClient.onError',
               error: enhanced,
               stackTrace: error.stackTrace,
-              details: {
-                'message': message,
-                'code': code,
-              },
+              details: {'message': message, 'code': code},
             );
           }
 
@@ -659,6 +664,7 @@ class ApiClient {
     if (useCache) {
       final cached = _getCachedResponse(key);
       if (cached != null) {
+        PerformanceTelemetry.instance.recordCache('lookup', key, hit: true);
         if (kDebugMode) debugPrint('⚡ Cache Hit: $normalizedPathWithoutQuery');
         return Response(
           data: cached.data,
@@ -667,6 +673,7 @@ class ApiClient {
         );
       }
     } else {
+      PerformanceTelemetry.instance.recordCache('lookup', key, hit: false);
       // Force-refresh: evict stale entry so it cannot be served to subsequent reads
       _responseCache.remove(key);
     }

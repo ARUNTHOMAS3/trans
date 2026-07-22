@@ -5,7 +5,8 @@ class Picklist {
   final String? id;
   final String picklistNumber;
   final DateTime? date;
-  final String status; // 'YET_TO_PICK' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'FORCE_COMPLETE' | 'APPROVED'
+  final String
+  status; // 'YET_TO_PICK' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'FORCE_COMPLETE' | 'APPROVED'
   final String? assignee;
   final String? location;
   final String? notes;
@@ -99,11 +100,13 @@ class Picklist {
                 .map((e) => PicklistItem.fromJson(e as Map<String, dynamic>))
                 .toList()
           : [],
-      salesOrderIds: (json['sales_order_ids'] as List<dynamic>?)
+      salesOrderIds:
+          (json['sales_order_ids'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
-      salesOrderNumbers: (json['sales_order_numbers'] as List<dynamic>?)
+      salesOrderNumbers:
+          (json['sales_order_numbers'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],

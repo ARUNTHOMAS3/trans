@@ -25,8 +25,10 @@ import 'package:zerpai_erp/modules/items/items/repositories/items_repository_pro
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
 
-final stockCountProductsProvider =
-    FutureProvider.family<List<Item>, String?>((ref, warehouseId) async {
+final stockCountProductsProvider = FutureProvider.family<List<Item>, String?>((
+  ref,
+  warehouseId,
+) async {
   final repo = ref.watch(itemRepositoryProvider);
   final user = ref.watch(authUserProvider);
   final entityId = user?.activeEntityId ?? user?.orgEntityId;
@@ -55,7 +57,8 @@ final stockCountProductsProvider =
       final stockMap = <String, double>{};
       for (final row in stockData) {
         final productId = row['product_id'] as String?;
-        final stock = double.tryParse(row['stock_on_hand']?.toString() ?? '') ?? 0.0;
+        final stock =
+            double.tryParse(row['stock_on_hand']?.toString() ?? '') ?? 0.0;
         if (productId != null) {
           stockMap[productId] = (stockMap[productId] ?? 0.0) + stock;
         }
@@ -134,15 +137,13 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
   int _addedItemsCount = 0;
   List<Map<String, String>> _selectedItems = [];
 
-  bool get _isPrimaryCountFieldEmpty =>
-      _scheduleCounts
-          ? _nameController.text.trim().isEmpty
-          : _numberController.text.trim().isEmpty;
+  bool get _isPrimaryCountFieldEmpty => _scheduleCounts
+      ? _nameController.text.trim().isEmpty
+      : _numberController.text.trim().isEmpty;
 
-  String get _primaryCountFieldWarning =>
-      _scheduleCounts
-          ? 'Enter a stock count name.'
-          : 'Enter a stock count number.';
+  String get _primaryCountFieldWarning => _scheduleCounts
+      ? 'Enter a stock count name.'
+      : 'Enter a stock count number.';
 
   Widget _buildUniformDialogCheckbox({
     required bool value,
@@ -166,21 +167,19 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
           fillColor: fillColor ?? _blueCheckedFill,
           shape:
               shape ??
-              RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(3),
-              ),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
         ),
       ),
     );
   }
 
-
   // Schedule Fields
   String _scheduleType = 'Periodic';
   String _frequency = 'Every Day';
   DateTime _startDate = DateTime.now();
-  final LinkedHashSet<String> _generateCountOnDays =
-      LinkedHashSet<String>.from(<String>['Monday']);
+  final LinkedHashSet<String> _generateCountOnDays = LinkedHashSet<String>.from(
+    <String>['Monday'],
+  );
   String _monthlyGenerateCountMode = 'A Specific Date';
   String _monthlyOrdinal = 'First';
   String _monthlyWeekday = 'Sunday';
@@ -229,7 +228,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
           .from('warehouses')
           .select('id, name')
           .eq('is_active', true);
-      
+
       if (mounted) {
         setState(() {
           _dbWarehouses = List<Map<String, dynamic>>.from(res);
@@ -262,22 +261,23 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
 
       final res = await query.order('full_name');
       final Map<String, String> resolvedMap = {};
-      final names = (res as List<dynamic>)
-          .map((row) => row as Map<String, dynamic>)
-          .map((row) {
-            final id = row['id'] as String? ?? '';
-            final fullName = (row['full_name'] as String? ?? '').trim();
-            final email = (row['email'] as String? ?? '').trim();
-            final key = fullName.isNotEmpty ? fullName : email;
-            if (key.isNotEmpty && id.isNotEmpty) {
-              resolvedMap[key] = id;
-            }
-            return key;
-          })
-          .where((value) => value.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final names =
+          (res as List<dynamic>)
+              .map((row) => row as Map<String, dynamic>)
+              .map((row) {
+                final id = row['id'] as String? ?? '';
+                final fullName = (row['full_name'] as String? ?? '').trim();
+                final email = (row['email'] as String? ?? '').trim();
+                final key = fullName.isNotEmpty ? fullName : email;
+                if (key.isNotEmpty && id.isNotEmpty) {
+                  resolvedMap[key] = id;
+                }
+                return key;
+              })
+              .where((value) => value.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
 
       if (mounted) {
         setState(() {
@@ -389,14 +389,15 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
           .eq('is_active', true)
           .order('name');
 
-      final names = (res as List<dynamic>)
-          .whereType<Map>()
-          .map((row) => Map<String, dynamic>.from(row))
-          .map((row) => (row['name'] ?? '').toString().trim())
-          .where((name) => name.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final names =
+          (res as List<dynamic>)
+              .whereType<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .map((row) => (row['name'] ?? '').toString().trim())
+              .where((name) => name.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
 
       if (!mounted) return;
       setState(() {
@@ -417,14 +418,15 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
           .eq('is_active', true)
           .order('name');
 
-      final names = (res as List<dynamic>)
-          .whereType<Map>()
-          .map((row) => Map<String, dynamic>.from(row))
-          .map((row) => (row['name'] ?? '').toString().trim())
-          .where((name) => name.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final names =
+          (res as List<dynamic>)
+              .whereType<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .map((row) => (row['name'] ?? '').toString().trim())
+              .where((name) => name.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
 
       if (!mounted) return;
       setState(() {
@@ -558,7 +560,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
   }
 
   void _onCancel(String orgId) {
-    final detailId = _editingId ?? widget.initialCount?.id ?? widget.editCountId;
+    final detailId =
+        _editingId ?? widget.initialCount?.id ?? widget.editCountId;
     if (detailId != null && detailId.isNotEmpty) {
       context.go('/$orgId/inventory/stock-counts/$detailId');
     } else {
@@ -706,8 +709,12 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
   int _daysInMonth(int year, int month) => DateTime(year, month + 1, 0).day;
 
   DateTime _resolveMonthlySpecificDate(DateTime baseDate) {
-    final parsedDay = int.tryParse(_monthlyDayOfMonthController.text.trim()) ?? 1;
-    final clampedDay = parsedDay.clamp(1, _daysInMonth(baseDate.year, baseDate.month));
+    final parsedDay =
+        int.tryParse(_monthlyDayOfMonthController.text.trim()) ?? 1;
+    final clampedDay = parsedDay.clamp(
+      1,
+      _daysInMonth(baseDate.year, baseDate.month),
+    );
     return DateTime(baseDate.year, baseDate.month, clampedDay);
   }
 
@@ -739,7 +746,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
 
   DateTime _resolveYearlySpecificDate(DateTime baseDate) {
     final month = _monthNumberForLabel(_yearlyMonth);
-    final parsedDay = int.tryParse(_yearlyDayOfMonthController.text.trim()) ?? 1;
+    final parsedDay =
+        int.tryParse(_yearlyDayOfMonthController.text.trim()) ?? 1;
     final clampedDay = parsedDay.clamp(1, _daysInMonth(baseDate.year, month));
     return DateTime(baseDate.year, month, clampedDay);
   }
@@ -798,7 +806,9 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
     if (raw.isEmpty) return null;
 
     final normalized = raw.startsWith('On ') ? raw.substring(3).trim() : raw;
-    final dashMatch = RegExp(r'^(\d{2})-(\d{2})-(\d{4})$').firstMatch(normalized);
+    final dashMatch = RegExp(
+      r'^(\d{2})-(\d{2})-(\d{4})$',
+    ).firstMatch(normalized);
     if (dashMatch != null) {
       final day = int.tryParse(dashMatch.group(1) ?? '');
       final month = int.tryParse(dashMatch.group(2) ?? '');
@@ -1087,10 +1097,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
             int.tryParse(decoded['day']?.toString() ?? '') ?? _startDate.day;
         _monthlyDayOfMonthController.text = day.toString();
       } else {
-        _monthlyOrdinal =
-            decoded['ordinal']?.toString() ?? _monthlyOrdinal;
-        _monthlyWeekday =
-            decoded['weekday']?.toString() ?? _monthlyWeekday;
+        _monthlyOrdinal = decoded['ordinal']?.toString() ?? _monthlyOrdinal;
+        _monthlyWeekday = decoded['weekday']?.toString() ?? _monthlyWeekday;
       }
     } else if (type == 'yearly') {
       _yearlyGenerateCountMode =
@@ -1244,10 +1252,12 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
     final selectedName = _selectedLocation.trim();
     if (selectedName.isEmpty) return null;
 
-    final selectedWarehouse = _dbWarehouses.cast<Map<String, dynamic>?>().firstWhere(
-      (warehouse) => warehouse?['name'] == selectedName,
-      orElse: () => null,
-    );
+    final selectedWarehouse = _dbWarehouses
+        .cast<Map<String, dynamic>?>()
+        .firstWhere(
+          (warehouse) => warehouse?['name'] == selectedName,
+          orElse: () => null,
+        );
 
     final warehouseId = selectedWarehouse?['id']?.toString().trim();
     if (warehouseId == null || warehouseId.isEmpty) return null;
@@ -1292,7 +1302,9 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not determine warehouse. Please reload the page and try again.'),
+          content: Text(
+            'Could not determine warehouse. Please reload the page and try again.',
+          ),
           backgroundColor: Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 3),
@@ -1304,7 +1316,9 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
     final effectiveRecurringDate = _resolvePeriodicBaseDate(_startDate);
     final countDate = _scheduleCounts
         ? effectiveRecurringDate
-        : (_customDates.isNotEmpty ? (_customDates.first ?? DateTime.now()) : DateTime.now());
+        : (_customDates.isNotEmpty
+              ? (_customDates.first ?? DateTime.now())
+              : DateTime.now());
     final formattedCountDate =
         '${countDate.year}-${countDate.month.toString().padLeft(2, '0')}-'
         '${countDate.day.toString().padLeft(2, '0')}';
@@ -1323,7 +1337,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
     final generateCountOnValue = _buildGenerateCountOnValue();
 
     final localCount = StockCount(
-      id: _editingId ??
+      id:
+          _editingId ??
           widget.initialCount?.id ??
           widget.editCountId ??
           DateTime.now().millisecondsSinceEpoch.toString(),
@@ -1349,12 +1364,15 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
       items: savedItems,
     );
 
-    final remindBeforeVal = double.tryParse(_remindBeforeController.text) ?? 0.0;
-    
+    final remindBeforeVal =
+        double.tryParse(_remindBeforeController.text) ?? 0.0;
+
     final authUser = ref.read(authUserProvider);
     final entityId = authUser?.activeEntityId ?? authUser?.orgEntityId;
 
-    final String? resolvedAssignToUuid = _selectedUser != null ? _userMap[_selectedUser] : null;
+    final String? resolvedAssignToUuid = _selectedUser != null
+        ? _userMap[_selectedUser]
+        : null;
 
     final insertPayload = <String, dynamic>{
       'stock_count_number': stockCountNum,
@@ -1388,20 +1406,21 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
       final supabase = Supabase.instance.client;
 
       if (_scheduleCounts) {
-        final recurringRecordId =
-            (_editingId != null && _isUuid(_editingId))
-                ? _editingId!
-                : (widget.initialCount?.id != null &&
-                        _isUuid(widget.initialCount!.id))
-                    ? widget.initialCount!.id
-                    : (widget.editCountId != null &&
-                            _isUuid(widget.editCountId))
-                        ? widget.editCountId!
-                        : _uuid.v4();
+        final recurringRecordId = (_editingId != null && _isUuid(_editingId))
+            ? _editingId!
+            : (widget.initialCount?.id != null &&
+                  _isUuid(widget.initialCount!.id))
+            ? widget.initialCount!.id
+            : (widget.editCountId != null && _isUuid(widget.editCountId))
+            ? widget.editCountId!
+            : _uuid.v4();
 
         final customDatesJson = _customDates
             .where((d) => d != null)
-            .map((d) => '${d!.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}')
+            .map(
+              (d) =>
+                  '${d!.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+            )
             .toList();
 
         final recurringPayload = <String, dynamic>{
@@ -1431,7 +1450,10 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
             .single();
 
         recurringStockCountDbId = recResponse['id'] as String?;
-        if (recurringStockCountDbId == null) throw Exception('No id returned from inventory_recurring_stock_count upsert');
+        if (recurringStockCountDbId == null)
+          throw Exception(
+            'No id returned from inventory_recurring_stock_count upsert',
+          );
       } else {
         // It's a manual count - Only save in inventory_stock_count
         final manualPayload = Map<String, dynamic>.from(insertPayload);
@@ -1442,7 +1464,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
             .single();
 
         stockCountDbId = scResponse['id'] as String?;
-        if (stockCountDbId == null) throw Exception('No id returned from inventory_stock_count upsert');
+        if (stockCountDbId == null)
+          throw Exception('No id returned from inventory_stock_count upsert');
       }
 
       // 2. Replace existing item rows
@@ -1456,21 +1479,24 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
           .delete()
           .eq(itemForeignKeyColumn, itemTargetId!);
 
-
-       // 3. Build and insert stock_count_items rows.
+      // 3. Build and insert stock_count_items rows.
       if (_selectedItems.isNotEmpty) {
         final itemRows = _selectedItems
             .where((item) => (item['product_id'] ?? '').isNotEmpty)
             .map((item) {
-          final rawRate = (item['rate'] ?? '').replaceAll(RegExp(r'[^\d.]'), '');
-          final rate = double.tryParse(rawRate) ?? 0.0;
-          return <String, dynamic>{
-            itemForeignKeyColumn: itemTargetId,
-            'product_id': item['product_id'],
-            'sku': item['sku']?.isNotEmpty == true ? item['sku'] : 'N/A',
-            'rate': rate,
-          };
-        }).toList();
+              final rawRate = (item['rate'] ?? '').replaceAll(
+                RegExp(r'[^\d.]'),
+                '',
+              );
+              final rate = double.tryParse(rawRate) ?? 0.0;
+              return <String, dynamic>{
+                itemForeignKeyColumn: itemTargetId,
+                'product_id': item['product_id'],
+                'sku': item['sku']?.isNotEmpty == true ? item['sku'] : 'N/A',
+                'rate': rate,
+              };
+            })
+            .toList();
 
         if (itemRows.isNotEmpty) {
           await supabase.from('stock_count_items').insert(itemRows);
@@ -1479,13 +1505,17 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
 
       // 4. Handle attachment upload and save if import items toggle is on and a file is selected.
       if (_importItems && _selectedFile != null) {
-        final uploadedUrl = await StorageService().uploadStockCountAttachment(_selectedFile!);
+        final uploadedUrl = await StorageService().uploadStockCountAttachment(
+          _selectedFile!,
+        );
         if (uploadedUrl == null) {
-          throw Exception('Failed to upload file to storage. Please try again.');
+          throw Exception(
+            'Failed to upload file to storage. Please try again.',
+          );
         }
 
         // Clean up previous attachments for this count
-        final attachmentTable = _scheduleCounts 
+        final attachmentTable = _scheduleCounts
             ? 'inventory_recurring_stock_count_attachments'
             : 'inventory_stock_count_attachments';
         final attachmentForeignKeyColumn = _scheduleCounts
@@ -1494,7 +1524,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
         final attachmentTargetId = _scheduleCounts
             ? recurringStockCountDbId
             : stockCountDbId;
-            
+
         await supabase
             .from(attachmentTable)
             .delete()
@@ -1524,9 +1554,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
       return; // abort — don't show success or navigate
     }
 
-    final savedId = _scheduleCounts
-        ? recurringStockCountDbId
-        : stockCountDbId;
+    final savedId = _scheduleCounts ? recurringStockCountDbId : stockCountDbId;
     final persistedCount = localCount.copyWith(
       id: savedId ?? localCount.id,
       location: _selectedLocation,
@@ -1640,14 +1668,10 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                           SizedBox(
                             width: 18,
                             height: 18,
-                            child: Radio<bool>(
-                              value: true,
-                              groupValue: true,
-                              activeColor: AppTheme.primaryBlueDark,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                              onChanged: (_) {},
+                            child: Icon(
+                              Icons.radio_button_checked,
+                              size: 18,
+                              color: AppTheme.primaryBlueDark,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -2026,7 +2050,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                             suffixWidget: ZTooltip(
                                               message:
                                                   'Click here to change AutoGenerate Number Order',
-                                              direction: ZTooltipDirection.bottom,
+                                              direction:
+                                                  ZTooltipDirection.bottom,
                                               child: IconButton(
                                                 icon: const Icon(
                                                   LucideIcons.settings,
@@ -2209,42 +2234,45 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                   ZerpaiFormRow(
                                     label: 'Schedule Type',
                                     required: true,
-                                    child: Row(
-                                      children: [
-                                        Radio<String>(
-                                          value: 'Periodic',
-                                          activeColor: AppTheme.primaryBlueDark,
-                                          groupValue: _scheduleType,
-                                          materialTapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          visualDensity: VisualDensity.compact,
-                                          onChanged: (v) => setState(
-                                            () => _scheduleType = v!,
+                                    child: RadioGroup<String>(
+                                      groupValue: _scheduleType,
+                                      onChanged: (v) =>
+                                          setState(() => _scheduleType = v!),
+                                      child: Row(
+                                        children: [
+                                          Radio<String>(
+                                            value: 'Periodic',
+                                            activeColor:
+                                                AppTheme.primaryBlueDark,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                           ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        const Text(
-                                          'Periodic',
-                                          style: TextStyle(fontSize: 13),
-                                        ),
-                                        const SizedBox(width: 24),
-                                        Radio<String>(
-                                          value: 'Custom',
-                                          activeColor: AppTheme.primaryBlueDark,
-                                          groupValue: _scheduleType,
-                                          materialTapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          visualDensity: VisualDensity.compact,
-                                          onChanged: (v) => setState(
-                                            () => _scheduleType = v!,
+                                          const SizedBox(width: 6),
+                                          const Text(
+                                            'Periodic',
+                                            style: TextStyle(fontSize: 13),
                                           ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        const Text(
-                                          'Custom',
-                                          style: TextStyle(fontSize: 13),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 24),
+                                          Radio<String>(
+                                            value: 'Custom',
+                                            activeColor:
+                                                AppTheme.primaryBlueDark,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          const Text(
+                                            'Custom',
+                                            style: TextStyle(fontSize: 13),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
 
@@ -2280,9 +2308,9 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                         } else if (_frequency ==
                                                             'Every Month') {
                                                           _monthlyDayOfMonthController
-                                                                  .text =
-                                                              _startDate.day
-                                                                  .toString();
+                                                              .text = _startDate
+                                                              .day
+                                                              .toString();
                                                           _monthlyWeekday =
                                                               _weekdayLabelForDate(
                                                                 _startDate,
@@ -2290,19 +2318,17 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                         } else if (_frequency ==
                                                             'Every Year') {
                                                           _yearlyDayOfMonthController
-                                                                  .text =
-                                                              _startDate.day
-                                                                  .toString();
+                                                              .text = _startDate
+                                                              .day
+                                                              .toString();
                                                           _yearlyWeekday =
                                                               _weekdayLabelForDate(
                                                                 _startDate,
                                                               );
                                                           _yearlyMonth =
-                                                              _monthsOfYear[
-                                                                _startDate
-                                                                        .month -
-                                                                    1
-                                                              ];
+                                                              _monthsOfYear[_startDate
+                                                                      .month -
+                                                                  1];
                                                         }
                                                       });
                                                     }
@@ -2499,13 +2525,14 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                 onChanged: (_) {},
                                                 onSelectedValuesChanged:
                                                     (values) {
-                                                  if (values.isEmpty) return;
-                                                  setState(() {
-                                                    _generateCountOnDays
-                                                      ..clear()
-                                                      ..addAll(values);
-                                                  });
-                                                },
+                                                      if (values.isEmpty)
+                                                        return;
+                                                      setState(() {
+                                                        _generateCountOnDays
+                                                          ..clear()
+                                                          ..addAll(values);
+                                                      });
+                                                    },
                                               ),
                                             ),
                                             const SizedBox(width: 26),
@@ -2522,7 +2549,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                             SizedBox(
                                               width: 154,
                                               child: FormDropdown<String>(
-                                                value: _monthlyGenerateCountMode,
+                                                value:
+                                                    _monthlyGenerateCountMode,
                                                 height: _fieldHeight,
                                                 items: _monthlyGenerateModes,
                                                 showSearch: false,
@@ -2557,7 +2585,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                   keyboardType:
                                                       TextInputType.number,
                                                   textAlign: TextAlign.center,
-                                                  onChanged: (_) => setState(() {}),
+                                                  onChanged: (_) =>
+                                                      setState(() {}),
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
@@ -2568,8 +2597,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                       TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     fontSize: 13,
-                                                    color:
-                                                        AppTheme.textPrimary,
+                                                    color: AppTheme.textPrimary,
                                                   ),
                                                 ),
                                               ),
@@ -2673,8 +2701,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                   textStyle: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w500,
-                                                    color:
-                                                        AppTheme.textPrimary,
+                                                    color: AppTheme.textPrimary,
                                                   ),
                                                   onChanged: (value) {
                                                     if (value == null) return;
@@ -2694,9 +2721,8 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                   keyboardType:
                                                       TextInputType.number,
                                                   textAlign: TextAlign.center,
-                                                  onChanged: (_) => setState(
-                                                    () {},
-                                                  ),
+                                                  onChanged: (_) =>
+                                                      setState(() {}),
                                                 ),
                                               ),
                                             ] else ...[
@@ -2716,8 +2742,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                   textStyle: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w500,
-                                                    color:
-                                                        AppTheme.textPrimary,
+                                                    color: AppTheme.textPrimary,
                                                   ),
                                                   onChanged: (value) {
                                                     if (value == null) return;
@@ -2744,8 +2769,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                   textStyle: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w500,
-                                                    color:
-                                                        AppTheme.textPrimary,
+                                                    color: AppTheme.textPrimary,
                                                   ),
                                                   onChanged: (value) {
                                                     if (value == null) return;
@@ -2781,8 +2805,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                                   textStyle: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w500,
-                                                    color:
-                                                        AppTheme.textPrimary,
+                                                    color: AppTheme.textPrimary,
                                                   ),
                                                   onChanged: (value) {
                                                     if (value == null) return;
@@ -4097,7 +4120,9 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                   height: 200,
                   child: Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF2563EB),
+                      ),
                     ),
                   ),
                 ),
@@ -4133,7 +4158,9 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
 
                 if (selectedIndices.isEmpty && _selectedItems.isNotEmpty) {
                   for (var i = 0; i < items.length; i++) {
-                    if (_selectedItems.any((sel) => sel['name'] == items[i]['name'])) {
+                    if (_selectedItems.any(
+                      (sel) => sel['name'] == items[i]['name'],
+                    )) {
                       selectedIndices.add(i);
                     }
                   }
@@ -4141,375 +4168,859 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
 
                 return StatefulBuilder(
                   builder: (context, setStateDialog) {
-                    final visibleEntries = items
-                        .asMap()
-                        .entries
-                        .where((entry) {
-                          if (showSelectedItemsOnly &&
-                              !selectedIndices.contains(entry.key)) {
+                    final visibleEntries = items.asMap().entries.where((entry) {
+                      if (showSelectedItemsOnly &&
+                          !selectedIndices.contains(entry.key)) {
+                        return false;
+                      }
+
+                      final stockQty =
+                          double.tryParse(
+                            (entry.value['stock'] ?? '0').toString().trim(),
+                          ) ??
+                          0.0;
+                      switch (appliedAvailability) {
+                        case 'In Stock':
+                          if (stockQty <= 0) {
                             return false;
                           }
-
-                          final stockQty =
-                              double.tryParse(
-                                (entry.value['stock'] ?? '0').toString().trim(),
-                              ) ??
-                              0.0;
-                          switch (appliedAvailability) {
-                            case 'In Stock':
-                              if (stockQty <= 0) {
-                                return false;
-                              }
-                              break;
-                            case 'Negative Stock':
-                              if (stockQty >= 0) {
-                                return false;
-                              }
-                              break;
-                            case 'Out of Stock':
-                              if (stockQty != 0) {
-                                return false;
-                              }
-                              break;
-                            case 'All Items':
-                            default:
-                              break;
+                          break;
+                        case 'Negative Stock':
+                          if (stockQty >= 0) {
+                            return false;
                           }
-
-                          final allCategoryIds =
-                              _categoryDescendantIds.keys.toSet();
-                          final allCategoriesSelected =
-                              allCategoryIds.isNotEmpty &&
-                              appliedCategoryIds.containsAll(allCategoryIds);
-
-                          if (appliedCategoryIds.isNotEmpty &&
-                              !allCategoriesSelected) {
-                            final itemCategoryId =
-                                (entry.value['category_id'] ?? '')
-                                    .toString()
-                                    .trim();
-                            final allowedCategoryIds = <String>{};
-                            for (final categoryId in appliedCategoryIds) {
-                              allowedCategoryIds.addAll(
-                                _categoryDescendantIds[categoryId] ??
-                                    {categoryId},
-                              );
-                            }
-                            if (!allowedCategoryIds.contains(itemCategoryId)) {
-                              return false;
-                            }
+                          break;
+                        case 'Out of Stock':
+                          if (stockQty != 0) {
+                            return false;
                           }
+                          break;
+                        case 'All Items':
+                        default:
+                          break;
+                      }
 
-                          final allManufacturersSelected =
-                              _manufacturers.isNotEmpty &&
-                              appliedManufacturers.length ==
-                                  _manufacturers.length;
-                          if (appliedManufacturers.isNotEmpty &&
-                              !allManufacturersSelected) {
-                            final itemManufacturer =
-                                (entry.value['manufacturer_name'] ?? '')
-                                    .toString()
-                                    .trim();
-                            if (!appliedManufacturers.contains(
-                              itemManufacturer,
-                            )) {
-                              return false;
-                            }
-                          }
+                      final allCategoryIds = _categoryDescendantIds.keys
+                          .toSet();
+                      final allCategoriesSelected =
+                          allCategoryIds.isNotEmpty &&
+                          appliedCategoryIds.containsAll(allCategoryIds);
 
-                          final allBrandsSelected =
-                              _brands.isNotEmpty &&
-                              appliedBrands.length == _brands.length;
-                          if (appliedBrands.isNotEmpty &&
-                              !allBrandsSelected) {
-                            final itemBrand =
-                                (entry.value['brand_name'] ?? '')
-                                    .toString()
-                                    .trim();
-                            if (!appliedBrands.contains(itemBrand)) {
-                              return false;
-                            }
-                          }
+                      if (appliedCategoryIds.isNotEmpty &&
+                          !allCategoriesSelected) {
+                        final itemCategoryId =
+                            (entry.value['category_id'] ?? '')
+                                .toString()
+                                .trim();
+                        final allowedCategoryIds = <String>{};
+                        for (final categoryId in appliedCategoryIds) {
+                          allowedCategoryIds.addAll(
+                            _categoryDescendantIds[categoryId] ?? {categoryId},
+                          );
+                        }
+                        if (!allowedCategoryIds.contains(itemCategoryId)) {
+                          return false;
+                        }
+                      }
 
-                          return true;
-                        })
-                        .toList();
+                      final allManufacturersSelected =
+                          _manufacturers.isNotEmpty &&
+                          appliedManufacturers.length == _manufacturers.length;
+                      if (appliedManufacturers.isNotEmpty &&
+                          !allManufacturersSelected) {
+                        final itemManufacturer =
+                            (entry.value['manufacturer_name'] ?? '')
+                                .toString()
+                                .trim();
+                        if (!appliedManufacturers.contains(itemManufacturer)) {
+                          return false;
+                        }
+                      }
+
+                      final allBrandsSelected =
+                          _brands.isNotEmpty &&
+                          appliedBrands.length == _brands.length;
+                      if (appliedBrands.isNotEmpty && !allBrandsSelected) {
+                        final itemBrand = (entry.value['brand_name'] ?? '')
+                            .toString()
+                            .trim();
+                        if (!appliedBrands.contains(itemBrand)) {
+                          return false;
+                        }
+                      }
+
+                      return true;
+                    }).toList();
                     return Dialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent,
-              alignment: Alignment.topCenter,
-              insetPadding: const EdgeInsets.only(top: 0),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(8),
-                  bottomRight: Radius.circular(8),
-                ),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 1000,
-                  maxHeight: MediaQuery.of(context).size.height - 24,
-                ),
-                child: SizedBox(
-                  width: 1000,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Select Items for Stock Counting',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF111827),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                LucideIcons.x,
-                                color: Color(0xFFDC2626),
-                                size: 18,
-                              ),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ],
+                      backgroundColor: Colors.white,
+                      surfaceTintColor: Colors.transparent,
+                      alignment: Alignment.topCenter,
+                      insetPadding: const EdgeInsets.only(top: 0),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(8),
+                          bottomRight: Radius.circular(8),
                         ),
-                        const SizedBox(height: 16),
-
-                        // Controls Row
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 440,
-                              height: 44,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(
-                                    color: const Color(0xFFD1D5DB),
-                                  ),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                alignment: Alignment.center,
-                                child: TextField(
-                                  textAlignVertical:
-                                      TextAlignVertical.center,
-                                  style: const TextStyle(fontSize: 13),
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    hintText: 'Enter an item name or SKU',
-                                    hintStyle: TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF9CA3AF),
-                                    ),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    disabledBorder: InputBorder.none,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () {
-                                setStateDialog(() {
-                                  showFilters = !showFilters;
-                                });
-                              },
-                              child: Container(
-                                height: 44,
-                                width: 44,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: const Color(0xFFBFDBFE),
-                                  ),
-                                  borderRadius: BorderRadius.circular(4),
-                                  color: const Color(0xFFEFF6FF),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    LucideIcons.filter,
-                                    size: 16,
-                                    color: Color(0xFF2563EB),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            Row(
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: 1000,
+                          maxHeight: MediaQuery.of(context).size.height - 24,
+                        ),
+                        child: SizedBox(
+                          width: 1000,
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.max,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                const Icon(
-                                  LucideIcons.home,
-                                  size: 14,
-                                  color: Color(0xFF6B7280),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _selectedWarehouseDisplayLabel,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF4B5563),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        if (showFilters) ...[
-                          const SizedBox(height: 8),
-                          // Caret pointer pointing up to the filter icon
-                          Row(
-                            children: [
-                              const SizedBox(
-                                width: 460,
-                              ), // Approx offset to align below filter icon
-                              CustomPaint(
-                                size: const Size(12, 6),
-                                painter: _CaretPainter(),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF2F6FC),
-                            ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  const Text(
-                                    'Availability:',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF4B5563),
+                                // Header
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Select Items for Stock Counting',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF111827),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  SizedBox(
-                                    height: 32,
-                                    width: 150,
-                                    child: FormDropdown<String>(
-                                      value: draftAvailability,
-                                      height: _fieldHeight,
-                                      items: const [
-                                        'All Items',
-                                        'In Stock',
-                                        'Negative Stock',
-                                        'Out of Stock',
+                                    IconButton(
+                                      icon: const Icon(
+                                        LucideIcons.x,
+                                        color: Color(0xFFDC2626),
+                                        size: 18,
+                                      ),
+                                      onPressed: () => Navigator.pop(context),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Controls Row
+                                Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 440,
+                                      height: 44,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          border: Border.all(
+                                            color: const Color(0xFFD1D5DB),
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: TextField(
+                                          textAlignVertical:
+                                              TextAlignVertical.center,
+                                          style: const TextStyle(fontSize: 13),
+                                          decoration: const InputDecoration(
+                                            isDense: true,
+                                            hintText:
+                                                'Enter an item name or SKU',
+                                            hintStyle: TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF9CA3AF),
+                                            ),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 10,
+                                                ),
+                                            border: InputBorder.none,
+                                            enabledBorder: InputBorder.none,
+                                            focusedBorder: InputBorder.none,
+                                            disabledBorder: InputBorder.none,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    InkWell(
+                                      onTap: () {
+                                        setStateDialog(() {
+                                          showFilters = !showFilters;
+                                        });
+                                      },
+                                      child: Container(
+                                        height: 44,
+                                        width: 44,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                            color: const Color(0xFFBFDBFE),
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          color: const Color(0xFFEFF6FF),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            LucideIcons.filter,
+                                            size: 16,
+                                            color: Color(0xFF2563EB),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          LucideIcons.home,
+                                          size: 14,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _selectedWarehouseDisplayLabel,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF4B5563),
+                                          ),
+                                        ),
                                       ],
-                                      onChanged: (v) {
-                                        if (v != null) {
-                                          setStateDialog(() {
-                                            draftAvailability = v;
-                                          });
-                                        }
-                                      },
                                     ),
+                                  ],
+                                ),
+                                if (showFilters) ...[
+                                  const SizedBox(height: 8),
+                                  // Caret pointer pointing up to the filter icon
+                                  Row(
+                                    children: [
+                                      const SizedBox(
+                                        width: 460,
+                                      ), // Approx offset to align below filter icon
+                                      CustomPaint(
+                                        size: const Size(12, 6),
+                                        painter: _CaretPainter(),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 12),
-                                  SizedBox(
-                                    width: 220,
-                                    child: CategoryPicker(
-                                      nodes: _categoryNodes,
-                                      value: null,
-                                      hintText: 'Category',
-                                      multiSelect: true,
-                                      selectedValues:
-                                          draftCategoryIds.toList(),
-                                      fieldHeight: 32,
-                                      selectedBackgroundColor:
-                                          const Color(0xFFE5E7EB),
-                                      hoverBackgroundColor:
-                                          const Color(0xFF2563EB),
-                                      rowBorderRadius: 6,
-                                      onChanged: (_) {},
-                                      onSelectedValuesChanged: (values) {
-                                        setStateDialog(() {
-                                          draftCategoryIds
-                                            ..clear()
-                                            ..addAll(values);
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildFilterDropdownWidget(
-                                    hint: 'Manufacturer',
-                                    items: _manufacturers,
-                                    selectedValues: draftManufacturers,
-                                    onSelectedValuesChanged: (values) {
-                                      setStateDialog(() {
-                                        draftManufacturers
-                                          ..clear()
-                                          ..addAll(values);
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildFilterDropdownWidget(
-                                    hint: 'Brand',
-                                    items: _brands,
-                                    selectedValues: draftBrands,
-                                    onSelectedValuesChanged: (values) {
-                                      setStateDialog(() {
-                                        draftBrands
-                                          ..clear()
-                                          ..addAll(values);
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(width: 12),
                                   Container(
-                                    width: 1,
-                                    height: 24,
-                                    color: const Color(0xFFE5E7EB),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF2F6FC),
+                                    ),
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        children: [
+                                          const Text(
+                                            'Availability:',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF4B5563),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          SizedBox(
+                                            height: 32,
+                                            width: 150,
+                                            child: FormDropdown<String>(
+                                              value: draftAvailability,
+                                              height: _fieldHeight,
+                                              items: const [
+                                                'All Items',
+                                                'In Stock',
+                                                'Negative Stock',
+                                                'Out of Stock',
+                                              ],
+                                              onChanged: (v) {
+                                                if (v != null) {
+                                                  setStateDialog(() {
+                                                    draftAvailability = v;
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          SizedBox(
+                                            width: 220,
+                                            child: CategoryPicker(
+                                              nodes: _categoryNodes,
+                                              value: null,
+                                              hintText: 'Category',
+                                              multiSelect: true,
+                                              selectedValues: draftCategoryIds
+                                                  .toList(),
+                                              fieldHeight: 32,
+                                              selectedBackgroundColor:
+                                                  const Color(0xFFE5E7EB),
+                                              hoverBackgroundColor: const Color(
+                                                0xFF2563EB,
+                                              ),
+                                              rowBorderRadius: 6,
+                                              onChanged: (_) {},
+                                              onSelectedValuesChanged:
+                                                  (values) {
+                                                    setStateDialog(() {
+                                                      draftCategoryIds
+                                                        ..clear()
+                                                        ..addAll(values);
+                                                    });
+                                                  },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          _buildFilterDropdownWidget(
+                                            hint: 'Manufacturer',
+                                            items: _manufacturers,
+                                            selectedValues: draftManufacturers,
+                                            onSelectedValuesChanged: (values) {
+                                              setStateDialog(() {
+                                                draftManufacturers
+                                                  ..clear()
+                                                  ..addAll(values);
+                                              });
+                                            },
+                                          ),
+                                          const SizedBox(width: 12),
+                                          _buildFilterDropdownWidget(
+                                            hint: 'Brand',
+                                            items: _brands,
+                                            selectedValues: draftBrands,
+                                            onSelectedValuesChanged: (values) {
+                                              setStateDialog(() {
+                                                draftBrands
+                                                  ..clear()
+                                                  ..addAll(values);
+                                              });
+                                            },
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Container(
+                                            width: 1,
+                                            height: 24,
+                                            color: const Color(0xFFE5E7EB),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          SizedBox(
+                                            height: 32,
+                                            child: OutlinedButton(
+                                              onPressed: () {
+                                                setStateDialog(() {
+                                                  appliedAvailability =
+                                                      draftAvailability;
+                                                  appliedCategoryIds
+                                                    ..clear()
+                                                    ..addAll(draftCategoryIds);
+                                                  appliedManufacturers
+                                                    ..clear()
+                                                    ..addAll(
+                                                      draftManufacturers,
+                                                    );
+                                                  appliedBrands
+                                                    ..clear()
+                                                    ..addAll(draftBrands);
+                                                });
+                                              },
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: const Color(
+                                                  0xFF2563EB,
+                                                ),
+                                                side: const BorderSide(
+                                                  color: Color(0xFFBFDBFE),
+                                                ),
+                                                backgroundColor: const Color(
+                                                  0xFFEFF6FF,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                    ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                'Apply',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ZTooltip(
+                                            message: 'Reset filter',
+                                            direction: ZTooltipDirection.bottom,
+                                            child: IconButton(
+                                              icon: const Icon(
+                                                LucideIcons.rotateCcw,
+                                                size: 16,
+                                                color: Color(0xFF9CA3AF),
+                                              ),
+                                              onPressed: () {
+                                                setStateDialog(() {
+                                                  draftAvailability =
+                                                      'All Items';
+                                                  draftCategoryIds.clear();
+                                                  draftManufacturers.clear();
+                                                  draftBrands.clear();
+                                                });
+                                              },
+                                              padding: EdgeInsets.zero,
+                                              constraints:
+                                                  const BoxConstraints(),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: const Icon(
+                                              LucideIcons.x,
+                                              size: 16,
+                                              color: Color(0xFFEF4444),
+                                            ),
+                                            onPressed: () {
+                                              setStateDialog(() {
+                                                showFilters = false;
+                                              });
+                                            },
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  SizedBox(
-                                    height: 32,
-                                    child: OutlinedButton(
-                                      onPressed: () {
+                                ],
+                                const SizedBox(height: 16),
+
+                                // Tabs
+                                Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () {
                                         setStateDialog(() {
-                                          appliedAvailability =
-                                              draftAvailability;
-                                          appliedCategoryIds
-                                            ..clear()
-                                            ..addAll(draftCategoryIds);
-                                          appliedManufacturers
-                                            ..clear()
-                                            ..addAll(draftManufacturers);
-                                          appliedBrands
-                                            ..clear()
-                                            ..addAll(draftBrands);
+                                          showSelectedItemsOnly = false;
                                         });
                                       },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: const Color(
-                                          0xFF2563EB,
+                                      child: Container(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
                                         ),
-                                        side: const BorderSide(
-                                          color: Color(0xFFBFDBFE),
+                                        decoration: BoxDecoration(
+                                          border: Border(
+                                            bottom: BorderSide(
+                                              color: showSelectedItemsOnly
+                                                  ? Colors.transparent
+                                                  : const Color(0xFF2563EB),
+                                              width: 2,
+                                            ),
+                                          ),
                                         ),
+                                        child: Text(
+                                          'All Items(${items.length})',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: showSelectedItemsOnly
+                                                ? FontWeight.w500
+                                                : FontWeight.bold,
+                                            color: showSelectedItemsOnly
+                                                ? const Color(0xFF4B5563)
+                                                : const Color(0xFF111827),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    InkWell(
+                                      onTap: () {
+                                        setStateDialog(() {
+                                          showSelectedItemsOnly = true;
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          border: Border(
+                                            bottom: BorderSide(
+                                              color: showSelectedItemsOnly
+                                                  ? const Color(0xFF2563EB)
+                                                  : Colors.transparent,
+                                              width: 2,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Selected Items(${selectedIndices.length})',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: showSelectedItemsOnly
+                                                ? FontWeight.bold
+                                                : FontWeight.w500,
+                                            color: showSelectedItemsOnly
+                                                ? const Color(0xFF111827)
+                                                : const Color(0xFF4B5563),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    if (showFilters)
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            'Group By: ',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF4B5563),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          SizedBox(
+                                            height: 32,
+                                            width: 100,
+                                            child: FormDropdown<String>(
+                                              value: 'None',
+                                              height: _fieldHeight,
+                                              items: const [
+                                                'None',
+                                                'Category',
+                                                'Brand',
+                                              ],
+                                              border: Border.all(
+                                                color: Colors.transparent,
+                                                style: BorderStyle.none,
+                                              ),
+                                              fillColor: Colors.transparent,
+                                              hideBorderDefault: true,
+                                              onChanged: (v) {},
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                                const Divider(
+                                  height: 1,
+                                  color: Color(0xFFE5E7EB),
+                                ),
+
+                                // Table
+                                Expanded(
+                                  child: ClipRect(
+                                    child: SingleChildScrollView(
+                                      child: Column(
+                                        children: [
+                                          // Header Row
+                                          Container(
+                                            color: const Color(0xFFF9FAFB),
+                                            height: 38,
+                                            child: Row(
+                                              children: [
+                                                SizedBox(
+                                                  width: 64,
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          left: 24,
+                                                        ),
+                                                    child: _buildUniformDialogCheckbox(
+                                                      value:
+                                                          visibleEntries
+                                                              .isNotEmpty &&
+                                                          visibleEntries.every(
+                                                            (entry) =>
+                                                                selectedIndices
+                                                                    .contains(
+                                                                      entry.key,
+                                                                    ),
+                                                          ),
+                                                      onChanged: (v) {
+                                                        setStateDialog(() {
+                                                          final allVisibleSelected =
+                                                              visibleEntries
+                                                                  .isNotEmpty &&
+                                                              visibleEntries.every(
+                                                                (
+                                                                  entry,
+                                                                ) => selectedIndices
+                                                                    .contains(
+                                                                      entry.key,
+                                                                    ),
+                                                              );
+                                                          if (allVisibleSelected) {
+                                                            for (final entry
+                                                                in visibleEntries) {
+                                                              selectedIndices
+                                                                  .remove(
+                                                                    entry.key,
+                                                                  );
+                                                            }
+                                                          } else {
+                                                            for (final entry
+                                                                in visibleEntries) {
+                                                              selectedIndices
+                                                                  .add(
+                                                                    entry.key,
+                                                                  );
+                                                            }
+                                                          }
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 4,
+                                                  child: _buildDlgHeaderCell(
+                                                    'ITEM NAME',
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: _buildDlgHeaderCell(
+                                                    'SKU',
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: _buildDlgHeaderCell(
+                                                    'RATE',
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: _buildDlgHeaderCell(
+                                                    'STOCK ON HAND',
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: _buildDlgHeaderCell(
+                                                    'UNIT',
+                                                    isRightmost: true,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Divider(
+                                            height: 1,
+                                            thickness: 1,
+                                            color: Color(0xFFE5E7EB),
+                                          ),
+
+                                          // Data Rows
+                                          ...visibleEntries.map((entry) {
+                                            final index = entry.key;
+                                            final item = entry.value;
+                                            bool isRowHovered = false;
+                                            return StatefulBuilder(
+                                              builder: (context, setStateRow) {
+                                                final bool showRemoveAction =
+                                                    showSelectedItemsOnly &&
+                                                    isRowHovered;
+                                                return MouseRegion(
+                                                  onEnter: (_) => setStateRow(
+                                                    () => isRowHovered = true,
+                                                  ),
+                                                  onExit: (_) => setStateRow(
+                                                    () => isRowHovered = false,
+                                                  ),
+                                                  child: InkWell(
+                                                    onTap: () {
+                                                      setStateDialog(() {
+                                                        if (selectedIndices
+                                                            .contains(index)) {
+                                                          selectedIndices
+                                                              .remove(index);
+                                                        } else {
+                                                          selectedIndices.add(
+                                                            index,
+                                                          );
+                                                        }
+                                                      });
+                                                    },
+                                                    child: Container(
+                                                      color: isRowHovered
+                                                          ? const Color(
+                                                              0xFFF2F6FC,
+                                                            )
+                                                          : Colors.transparent,
+                                                      height: 38,
+                                                      child: Row(
+                                                        children: [
+                                                          SizedBox(
+                                                            width: 64,
+                                                            child: Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    left: 24,
+                                                                  ),
+                                                              child: _buildUniformDialogCheckbox(
+                                                                value:
+                                                                    selectedIndices
+                                                                        .contains(
+                                                                          index,
+                                                                        ),
+                                                                onChanged: (v) {
+                                                                  setStateDialog(() {
+                                                                    if (selectedIndices
+                                                                        .contains(
+                                                                          index,
+                                                                        )) {
+                                                                      selectedIndices
+                                                                          .remove(
+                                                                            index,
+                                                                          );
+                                                                    } else {
+                                                                      selectedIndices
+                                                                          .add(
+                                                                            index,
+                                                                          );
+                                                                    }
+                                                                  });
+                                                                },
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          Expanded(
+                                                            flex: 4,
+                                                            child:
+                                                                _buildDlgCell(
+                                                                  item['name']!,
+                                                                ),
+                                                          ),
+                                                          Expanded(
+                                                            flex: 2,
+                                                            child:
+                                                                _buildDlgCell(
+                                                                  item['sku']!,
+                                                                ),
+                                                          ),
+                                                          Expanded(
+                                                            flex: 2,
+                                                            child: Row(
+                                                              children: [
+                                                                Expanded(
+                                                                  child: _buildDlgCell(
+                                                                    item['rate']!,
+                                                                  ),
+                                                                ),
+                                                                if (showRemoveAction)
+                                                                  InkWell(
+                                                                    onTap: () {
+                                                                      setStateDialog(() {
+                                                                        selectedIndices.remove(
+                                                                          index,
+                                                                        );
+                                                                      });
+                                                                    },
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          10,
+                                                                        ),
+                                                                    child: Container(
+                                                                      width: 16,
+                                                                      height:
+                                                                          16,
+                                                                      decoration: BoxDecoration(
+                                                                        shape: BoxShape
+                                                                            .circle,
+                                                                        border: Border.all(
+                                                                          color: const Color(
+                                                                            0xFFEF4444,
+                                                                          ),
+                                                                          width:
+                                                                              1.2,
+                                                                        ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                      ),
+                                                                      child: const Center(
+                                                                        child: Icon(
+                                                                          LucideIcons
+                                                                              .x,
+                                                                          size:
+                                                                              10,
+                                                                          color: Color(
+                                                                            0xFFEF4444,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                if (showRemoveAction)
+                                                                  const SizedBox(
+                                                                    width: 12,
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          Expanded(
+                                                            flex: 2,
+                                                            child: _buildDlgCell(
+                                                              item['stock']!,
+                                                            ),
+                                                          ),
+                                                          Expanded(
+                                                            flex: 2,
+                                                            child:
+                                                                _buildDlgCell(
+                                                                  item['unit']!,
+                                                                  isRightmost:
+                                                                      true,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            );
+                                          }),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Footer Buttons
+                                Row(
+                                  children: [
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _selectedItems = selectedIndices
+                                              .map((idx) => items[idx])
+                                              .toList();
+                                          _addedItemsCount =
+                                              _selectedItems.length;
+                                          if (_selectedItems.isNotEmpty) {
+                                            _showItemsWarning = false;
+                                          }
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                      style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(
-                                          0xFFEFF6FF,
+                                          0xFF22A95E,
                                         ),
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 16,
+                                          vertical: 12,
                                         ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
@@ -4518,491 +5029,48 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                                         ),
                                       ),
                                       child: const Text(
-                                        'Apply',
+                                        'Add Items',
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ZTooltip(
-                                    message: 'Reset filter',
-                                    direction: ZTooltipDirection.bottom,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        LucideIcons.rotateCcw,
-                                        size: 16,
-                                        color: Color(0xFF9CA3AF),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(
+                                          0xFF4B5563,
+                                        ),
+                                        side: const BorderSide(
+                                          color: Color(0xFFD1D5DB),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
                                       ),
-                                      onPressed: () {
-                                        setStateDialog(() {
-                                          draftAvailability = 'All Items';
-                                          draftCategoryIds.clear();
-                                          draftManufacturers.clear();
-                                          draftBrands.clear();
-                                        });
-                                      },
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(
-                                      LucideIcons.x,
-                                      size: 16,
-                                      color: Color(0xFFEF4444),
-                                    ),
-                                    onPressed: () {
-                                      setStateDialog(() {
-                                        showFilters = false;
-                                      });
-                                    },
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-
-                        // Tabs
-                        Row(
-                          children: [
-                            InkWell(
-                              onTap: () {
-                                setStateDialog(() {
-                                  showSelectedItemsOnly = false;
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(
-                                      color: showSelectedItemsOnly
-                                          ? Colors.transparent
-                                          : const Color(0xFF2563EB),
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  'All Items(${items.length})',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: showSelectedItemsOnly
-                                        ? FontWeight.w500
-                                        : FontWeight.bold,
-                                    color: showSelectedItemsOnly
-                                        ? const Color(0xFF4B5563)
-                                        : const Color(0xFF111827),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            InkWell(
-                              onTap: () {
-                                setStateDialog(() {
-                                  showSelectedItemsOnly = true;
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(
-                                      color: showSelectedItemsOnly
-                                          ? const Color(0xFF2563EB)
-                                          : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Selected Items(${selectedIndices.length})',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: showSelectedItemsOnly
-                                        ? FontWeight.bold
-                                        : FontWeight.w500,
-                                    color: showSelectedItemsOnly
-                                        ? const Color(0xFF111827)
-                                        : const Color(0xFF4B5563),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            if (showFilters)
-                              Row(
-                                children: [
-                                  const Text(
-                                    'Group By: ',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF4B5563),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  SizedBox(
-                                    height: 32,
-                                    width: 100,
-                                    child: FormDropdown<String>(
-                                      value: 'None',
-                                      height: _fieldHeight,
-                                      items: const [
-                                        'None',
-                                        'Category',
-                                        'Brand',
-                                      ],
-                                      border: Border.all(
-                                        color: Colors.transparent,
-                                        style: BorderStyle.none,
+                                      child: const Text(
+                                        'Cancel',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                      fillColor: Colors.transparent,
-                                      hideBorderDefault: true,
-                                      onChanged: (v) {},
                                     ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                        const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-                        // Table
-                        Expanded(
-                          child: ClipRect(
-                            child: SingleChildScrollView(
-                              child: Column(
-                                children: [
-                                  // Header Row
-                                  Container(
-                                    color: const Color(0xFFF9FAFB),
-                                    height: 38,
-                                    child: Row(
-                                      children: [
-                                        SizedBox(
-                                          width: 64,
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 24,
-                                            ),
-                                            child: _buildUniformDialogCheckbox(
-                                              value:
-                                                  visibleEntries.isNotEmpty &&
-                                                  visibleEntries.every(
-                                                    (entry) => selectedIndices
-                                                        .contains(entry.key),
-                                                  ),
-                                              onChanged: (v) {
-                                                setStateDialog(() {
-                                                  final allVisibleSelected =
-                                                      visibleEntries
-                                                          .isNotEmpty &&
-                                                      visibleEntries.every(
-                                                        (entry) =>
-                                                            selectedIndices
-                                                                .contains(
-                                                                  entry.key,
-                                                                ),
-                                                      );
-                                                  if (allVisibleSelected) {
-                                                    for (final entry
-                                                        in visibleEntries) {
-                                                      selectedIndices.remove(
-                                                        entry.key,
-                                                      );
-                                                    }
-                                                  } else {
-                                                    for (final entry
-                                                        in visibleEntries) {
-                                                      selectedIndices.add(
-                                                        entry.key,
-                                                      );
-                                                    }
-                                                  }
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 4,
-                                          child: _buildDlgHeaderCell(
-                                            'ITEM NAME',
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: _buildDlgHeaderCell('SKU'),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: _buildDlgHeaderCell('RATE'),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: _buildDlgHeaderCell(
-                                            'STOCK ON HAND',
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: _buildDlgHeaderCell(
-                                            'UNIT',
-                                            isRightmost: true,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Divider(
-                                    height: 1,
-                                    thickness: 1,
-                                    color: Color(0xFFE5E7EB),
-                                  ),
-
-                                  // Data Rows
-                                  ...visibleEntries.map((entry) {
-                                    final index = entry.key;
-                                    final item = entry.value;
-                                    bool isRowHovered = false;
-                                    return StatefulBuilder(
-                                      builder: (context, setStateRow) {
-                                        final bool showRemoveAction =
-                                            showSelectedItemsOnly &&
-                                            isRowHovered;
-                                        return MouseRegion(
-                                          onEnter: (_) => setStateRow(
-                                            () => isRowHovered = true,
-                                          ),
-                                          onExit: (_) => setStateRow(
-                                            () => isRowHovered = false,
-                                          ),
-                                          child: InkWell(
-                                            onTap: () {
-                                              setStateDialog(() {
-                                                if (selectedIndices.contains(
-                                                  index,
-                                                )) {
-                                                  selectedIndices.remove(index);
-                                                } else {
-                                                  selectedIndices.add(index);
-                                                }
-                                              });
-                                            },
-                                            child: Container(
-                                              color: isRowHovered
-                                                  ? const Color(0xFFF2F6FC)
-                                                  : Colors.transparent,
-                                              height: 38,
-                                              child: Row(
-                                                children: [
-                                                  SizedBox(
-                                                    width: 64,
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            left: 24,
-                                                          ),
-                                                      child:
-                                                          _buildUniformDialogCheckbox(
-                                                            value:
-                                                                selectedIndices
-                                                                    .contains(
-                                                                      index,
-                                                                    ),
-                                                            onChanged: (v) {
-                                                              setStateDialog(() {
-                                                                if (selectedIndices
-                                                                    .contains(
-                                                                      index,
-                                                                    )) {
-                                                                  selectedIndices
-                                                                      .remove(
-                                                                        index,
-                                                                      );
-                                                                } else {
-                                                                  selectedIndices
-                                                                      .add(
-                                                                        index,
-                                                                      );
-                                                                }
-                                                              });
-                                                            },
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 4,
-                                                    child: _buildDlgCell(
-                                                      item['name']!,
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: _buildDlgCell(
-                                                      item['sku']!,
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: _buildDlgCell(
-                                                            item['rate']!,
-                                                          ),
-                                                        ),
-                                                        if (showRemoveAction)
-                                                          InkWell(
-                                                            onTap: () {
-                                                              setStateDialog(() {
-                                                                selectedIndices
-                                                                    .remove(
-                                                                      index,
-                                                                    );
-                                                              });
-                                                            },
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  10,
-                                                                ),
-                                                            child: Container(
-                                                              width: 16,
-                                                              height: 16,
-                                                              decoration: BoxDecoration(
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                                border: Border.all(
-                                                                  color: const Color(
-                                                                    0xFFEF4444,
-                                                                  ),
-                                                                  width: 1.2,
-                                                                ),
-                                                                color: Colors
-                                                                    .white,
-                                                              ),
-                                                              child: const Center(
-                                                                child: Icon(
-                                                                  LucideIcons.x,
-                                                                  size: 10,
-                                                                  color: Color(
-                                                                    0xFFEF4444,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        if (showRemoveAction)
-                                                          const SizedBox(
-                                                            width: 12,
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: _buildDlgCell(
-                                                      item['stock']!,
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: _buildDlgCell(
-                                                      item['unit']!,
-                                                      isRightmost: true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  }),
-                                ],
-                              ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-
-                        // Footer Buttons
-                        Row(
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedItems = selectedIndices
-                                      .map((idx) => items[idx])
-                                      .toList();
-                                  _addedItemsCount = _selectedItems.length;
-                                  if (_selectedItems.isNotEmpty) {
-                                    _showItemsWarning = false;
-                                  }
-                                });
-                                Navigator.pop(context);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF22A95E),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                              child: const Text(
-                                'Add Items',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF4B5563),
-                                side: const BorderSide(
-                                  color: Color(0xFFD1D5DB),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+                      ),
                     );
                   },
                 );
@@ -5157,10 +5225,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                 borderRadius: BorderRadius.circular(6),
                 border: item == 'All'
                     ? const Border(
-                        bottom: BorderSide(
-                          color: Color(0xFFE5E7EB),
-                          width: 1,
-                        ),
+                        bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
                       )
                     : null,
               ),
@@ -5175,11 +5240,7 @@ class _StockCountCreatePageState extends ConsumerState<StockCountCreatePage> {
                       border: Border.all(color: checkboxBorderColor),
                     ),
                     child: checked
-                        ? const Icon(
-                            Icons.check,
-                            size: 12,
-                            color: Colors.white,
-                          )
+                        ? const Icon(Icons.check, size: 12, color: Colors.white)
                         : null,
                   ),
                   const SizedBox(width: 8),

@@ -55,13 +55,42 @@ class GeneralLedgerScreen extends ConsumerWidget {
         loading: () => Skeletonizer(
           enabled: true,
           ignoreContainers: true,
-          child: _buildGlScrollView(context, currencyFormat, accounts: [
-            {'accountName': '—————————————', 'accountCode': '——————', 'debit': 0, 'credit': 0},
-            {'accountName': '———————————', 'accountCode': '——————', 'debit': 0, 'credit': 0},
-            {'accountName': '————————', 'accountCode': '——————', 'debit': 0, 'credit': 0},
-            {'accountName': '—————————————', 'accountCode': '——————', 'debit': 0, 'credit': 0},
-            {'accountName': '——————————', 'accountCode': '——————', 'debit': 0, 'credit': 0},
-          ]),
+          child: _buildGlScrollView(
+            context,
+            currencyFormat,
+            accounts: [
+              {
+                'accountName': '—————————————',
+                'accountCode': '——————',
+                'debit': 0,
+                'credit': 0,
+              },
+              {
+                'accountName': '———————————',
+                'accountCode': '——————',
+                'debit': 0,
+                'credit': 0,
+              },
+              {
+                'accountName': '————————',
+                'accountCode': '——————',
+                'debit': 0,
+                'credit': 0,
+              },
+              {
+                'accountName': '—————————————',
+                'accountCode': '——————',
+                'debit': 0,
+                'credit': 0,
+              },
+              {
+                'accountName': '——————————',
+                'accountCode': '——————',
+                'debit': 0,
+                'credit': 0,
+              },
+            ],
+          ),
         ),
         error: (err, stack) => Center(
           child: Column(
@@ -89,7 +118,6 @@ class GeneralLedgerScreen extends ConsumerWidget {
       ),
     );
   }
-
 
   Widget _buildGlScrollView(
     BuildContext context,

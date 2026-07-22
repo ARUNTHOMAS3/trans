@@ -228,4 +228,3 @@ extension _AddressSection on _SalesCustomerCreateScreenState {
     });
   }
 }
-

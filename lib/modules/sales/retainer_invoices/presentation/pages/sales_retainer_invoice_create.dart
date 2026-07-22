@@ -148,12 +148,9 @@ class _SalesRetainerInvoiceCreateScreenState
             _row([
               _labeledField(
                 'Retainer Invoice#',
-                CustomTextField(
-                  controller: invoiceNumberCtrl,
-                  height: 32,
-                ),
+                CustomTextField(controller: invoiceNumberCtrl, height: 32),
               ),
-               _labeledField(
+              _labeledField(
                 'Invoice Date',
                 ZDatePickerField(
                   selectedDate: invoiceDate,
@@ -165,10 +162,7 @@ class _SalesRetainerInvoiceCreateScreenState
             _row([
               _labeledField(
                 'Reference#',
-                CustomTextField(
-                  controller: referenceCtrl,
-                  height: 32,
-                ),
+                CustomTextField(controller: referenceCtrl, height: 32),
               ),
             ]),
           ],
@@ -233,7 +227,6 @@ class _SalesRetainerInvoiceCreateScreenState
   );
   Widget _labeledField(String label, Widget child, {bool required = false}) =>
       SharedFieldLayout(label: label, required: required, child: child);
-
 
   Widget _buildFooter() => Container(
     padding: const EdgeInsets.all(16),

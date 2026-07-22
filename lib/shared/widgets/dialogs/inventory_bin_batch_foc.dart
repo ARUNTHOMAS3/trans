@@ -171,12 +171,14 @@ class _PicklistSelectBatchesDialogState
         warehouseId: widget.warehouseId,
         productId: widget.productId,
       );
-      
+
       debugPrint('📦 Found ${bins.length} bins from repository for Picklist');
-      
+
       if (mounted) {
         setState(() {
-          _allBinObjects = bins.map((b) => Map<String, dynamic>.from(b)).toList();
+          _allBinObjects = bins
+              .map((b) => Map<String, dynamic>.from(b))
+              .toList();
           _binLocations = bins
               .map((b) => (b['binCode'] ?? b['bin_code'] ?? '').toString())
               .where((c) => c.isNotEmpty)
@@ -701,7 +703,7 @@ class _PicklistSelectBatchesDialogState
                   final row = _rows[index];
                   final isRowHovered = _hoveredBatchRows.contains(index);
                   return Column(
-                     children: [
+                    children: [
                       MouseRegion(
                         onEnter: (_) =>
                             setState(() => _hoveredBatchRows.add(index)),
@@ -913,7 +915,8 @@ class _PicklistSelectBatchesDialogState
                                           onChanged: (v) {
                                             setState(() {
                                               if (v != null) {
-                                                row.batchId = v['id']?.toString();
+                                                row.batchId = v['id']
+                                                    ?.toString();
                                                 final batchNo = v['batch_no']
                                                     ?.toString()
                                                     .trim();
@@ -936,8 +939,8 @@ class _PicklistSelectBatchesDialogState
                                                 if (prices != null &&
                                                     prices.isNotEmpty) {
                                                   final p = prices[0];
-                                                  row.layerId =
-                                                      p['layer_id']?.toString();
+                                                  row.layerId = p['layer_id']
+                                                      ?.toString();
                                                   row.mrpCtrl.text =
                                                       (p['mrp'] as num?)
                                                           ?.toDouble()
@@ -1164,41 +1167,36 @@ class _PicklistSelectBatchesDialogState
                         return;
                       }
 
-                      final batchDataList = _rows
-                          .map(
-                            (row) {
-                              final matchedBin = _allBinObjects.firstWhere(
-                                (b) =>
-                                    (b['binCode'] ?? b['bin_code'] ?? '')
-                                        .toString()
-                                        .trim()
-                                        .toLowerCase() ==
-                                    row.binLocationCtrl.text
-                                        .trim()
-                                        .toLowerCase(),
-                                orElse: () => <String, dynamic>{},
-                              );
-                              final binId =
-                                  matchedBin.isEmpty ? '' : (matchedBin['id']?.toString() ?? '');
-                              return {
-                                'binLocation': row.binLocationCtrl.text,
-                                'binId': binId,
-                                'batchId': row.batchId ?? '',
-                                'layerId': row.layerId ?? '',
-                                'batchRef': row.batchRefCtrl.text,
-                                'batchNo': row.batchNoCtrl.text,
-                                'unitPack': row.unitPackCtrl.text,
-                                'mrp': row.mrpCtrl.text,
-                                'prate': row.ptrCtrl.text,
-                                'expDate': row.expDateCtrl.text,
-                                'mfgDate': row.mfgDateCtrl.text,
-                                'mfgBatch': row.mfgBatchCtrl.text,
-                                'qtyOut': row.qtyOutCtrl.text,
-                                'foc': row.focCtrl.text,
-                              };
-                            },
-                          )
-                          .toList();
+                      final batchDataList = _rows.map((row) {
+                        final matchedBin = _allBinObjects.firstWhere(
+                          (b) =>
+                              (b['binCode'] ?? b['bin_code'] ?? '')
+                                  .toString()
+                                  .trim()
+                                  .toLowerCase() ==
+                              row.binLocationCtrl.text.trim().toLowerCase(),
+                          orElse: () => <String, dynamic>{},
+                        );
+                        final binId = matchedBin.isEmpty
+                            ? ''
+                            : (matchedBin['id']?.toString() ?? '');
+                        return {
+                          'binLocation': row.binLocationCtrl.text,
+                          'binId': binId,
+                          'batchId': row.batchId ?? '',
+                          'layerId': row.layerId ?? '',
+                          'batchRef': row.batchRefCtrl.text,
+                          'batchNo': row.batchNoCtrl.text,
+                          'unitPack': row.unitPackCtrl.text,
+                          'mrp': row.mrpCtrl.text,
+                          'prate': row.ptrCtrl.text,
+                          'expDate': row.expDateCtrl.text,
+                          'mfgDate': row.mfgDateCtrl.text,
+                          'mfgBatch': row.mfgBatchCtrl.text,
+                          'qtyOut': row.qtyOutCtrl.text,
+                          'foc': row.focCtrl.text,
+                        };
+                      }).toList();
 
                       Navigator.pop(
                         context,

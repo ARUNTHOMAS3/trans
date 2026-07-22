@@ -151,7 +151,9 @@ class ApiManualJournalRepository implements ManualJournalRepository {
   @override
   Future<ManualJournal> reverseManualJournal(String id) async {
     try {
-      final response = await _dio.post('accountant/manual-journals/$id/reverse');
+      final response = await _dio.post(
+        'accountant/manual-journals/$id/reverse',
+      );
       return ManualJournal.fromJson(_asMap(response.data));
     } on DioException catch (e) {
       throw Exception(
@@ -165,7 +167,9 @@ class ApiManualJournalRepository implements ManualJournalRepository {
     String id,
   ) async {
     try {
-      final response = await _dio.post('accountant/manual-journals/$id/template');
+      final response = await _dio.post(
+        'accountant/manual-journals/$id/template',
+      );
       return ManualJournalTemplate.fromJson(_asMap(response.data));
     } on DioException catch (e) {
       throw Exception(
@@ -456,11 +460,7 @@ class MockManualJournalRepository implements ManualJournalRepository {
       source,
       items: source.items
           .map(
-            (item) => _cloneItem(
-              item,
-              debit: item.credit,
-              credit: item.debit,
-            ),
+            (item) => _cloneItem(item, debit: item.credit, credit: item.debit),
           )
           .toList(),
       notes: source.notes == null || source.notes!.trim().isEmpty
@@ -499,7 +499,11 @@ class MockManualJournalRepository implements ManualJournalRepository {
               contactName: item.contactName,
               projectId: item.projectId,
               reportingTags: item.reportingTags,
-              type: item.debit > 0 ? 'debit' : item.credit > 0 ? 'credit' : null,
+              type: item.debit > 0
+                  ? 'debit'
+                  : item.credit > 0
+                  ? 'credit'
+                  : null,
               debit: item.debit,
               credit: item.credit,
               sortOrder: item.sortOrder,
@@ -563,8 +567,7 @@ class MockManualJournalRepository implements ManualJournalRepository {
       enterAmount: template.enterAmount,
       isActive: template.isActive,
       items: template.items,
-      createdAt:
-          index != -1 ? _templates[index].createdAt : template.createdAt,
+      createdAt: index != -1 ? _templates[index].createdAt : template.createdAt,
       updatedAt: DateTime.now(),
     );
     if (index == -1) {

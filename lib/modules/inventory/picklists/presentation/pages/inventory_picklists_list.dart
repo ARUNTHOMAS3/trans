@@ -27,7 +27,7 @@ import '../../providers/inventory_picklists_provider.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
-import '../../../packages/presentation/inventory_packages_list.dart';
+import '../../../packages/presentation/pages/inventory_packages_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../shared/widgets/tables/column_customizer.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
@@ -51,6 +51,7 @@ const _picklistFilterOptions = <FavoriteFilterOption>[
   FavoriteFilterOption(label: 'Force Complete', value: 'Force Complete'),
   FavoriteFilterOption(label: 'Approved', value: 'Approved'),
 ];
+
 class InventoryPicklistsListScreen extends ConsumerStatefulWidget {
   final String? id;
 
@@ -99,7 +100,11 @@ class _InventoryPicklistsListScreenState
       ColumnConfig(id: 'location', label: 'LOCATION', orderIndex: 4),
       ColumnConfig(id: 'notes', label: 'NOTES', orderIndex: 5),
       ColumnConfig(id: 'customer_name', label: 'CUSTOMER NAME', orderIndex: 6),
-      ColumnConfig(id: 'sales_order_number', label: 'SALES ORDER#', orderIndex: 7),
+      ColumnConfig(
+        id: 'sales_order_number',
+        label: 'SALES ORDER#',
+        orderIndex: 7,
+      ),
     ];
     _updateVisibleColumns();
   }
@@ -121,7 +126,10 @@ class _InventoryPicklistsListScreenState
       if (jsonStr != null) {
         final List<dynamic> decoded = jsonDecode(jsonStr);
         final Map<String, ColumnConfig> loadedMap = {
-          for (var c in decoded.map((e) => ColumnConfig.fromJson(Map<String, dynamic>.from(e)))) c.id: c
+          for (var c in decoded.map(
+            (e) => ColumnConfig.fromJson(Map<String, dynamic>.from(e)),
+          ))
+            c.id: c,
         };
 
         setState(() {
@@ -341,8 +349,7 @@ class _InventoryPicklistsListScreenState
           IconButton(
             onPressed: () {
               final orgId =
-                  GoRouterState.of(context).pathParameters['orgSystemId'] ??
-                  '';
+                  GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
               context.push('/$orgId/inventory/picklists/create');
             },
             icon: const Icon(LucideIcons.plus, size: 16, color: Colors.white),
@@ -476,10 +483,7 @@ class _InventoryPicklistsListScreenState
       },
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -780,7 +784,9 @@ class _InventoryPicklistsListScreenState
           if (isSelected) {
             _activeOption = _picklistFilterOptions.first;
           } else {
-            final found = _picklistFilterOptions.where((opt) => opt.label == viewName);
+            final found = _picklistFilterOptions.where(
+              (opt) => opt.label == viewName,
+            );
             if (found.isNotEmpty) {
               _activeOption = found.first;
             }
@@ -829,11 +835,8 @@ class _InventoryPicklistsListScreenState
     );
   }
 
-
-
   Widget _buildNewButton() {
-    final orgId =
-        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
     return ZButton.primary(
       label: 'New',
       icon: LucideIcons.plus,
@@ -862,7 +865,7 @@ class _InventoryPicklistsListScreenState
     );
   }
 
-// Removed local _menuItemButtonStyle.
+  // Removed local _menuItemButtonStyle.
 
   Widget _buildVirtualizedTable(List<Picklist> allPicklists) {
     // Filter by selected view status and search queries
@@ -1385,7 +1388,9 @@ class _InventoryPicklistsListScreenState
         style: AppTheme.tableCell.copyWith(
           fontSize: 13,
           color: AppTheme.textPrimary,
-          overflow: _shouldWrapText ? TextOverflow.visible : TextOverflow.ellipsis,
+          overflow: _shouldWrapText
+              ? TextOverflow.visible
+              : TextOverflow.ellipsis,
         ),
         maxLines: _shouldWrapText ? null : 1,
         softWrap: _shouldWrapText,
@@ -2123,7 +2128,9 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
               decoration: BoxDecoration(
                 color: isHovered ? Colors.white : Colors.transparent,
                 border: Border.all(
-                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  color: isHovered
+                      ? const Color(0xFFD3D9E3)
+                      : Colors.transparent,
                   width: 1,
                 ),
                 borderRadius: BorderRadius.circular(4),
@@ -2143,7 +2150,11 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                   ),
                   if (hasDropdown) ...[
                     const SizedBox(width: 4),
-                    Icon(LucideIcons.chevronDown, size: 12, color: color ?? AppTheme.textPrimary),
+                    Icon(
+                      LucideIcons.chevronDown,
+                      size: 12,
+                      color: color ?? AppTheme.textPrimary,
+                    ),
                   ],
                 ],
               ),
@@ -2153,8 +2164,6 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
       },
     );
   }
-
-
 
   Widget _buildPdfPrintDropdown(BuildContext context) {
     final p = ref.watch(picklistByIdProvider(widget.id)).asData?.value;
@@ -2253,15 +2262,19 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
         child: _buildToolbarButton(
           LucideIcons.printer,
           'PDF/Print',
-          onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
         ),
       ),
     );
   }
 
-  Future<Uint8List> _generatePicklistPdf(Picklist picklist, OrgSettings? org) async {
+  Future<Uint8List> _generatePicklistPdf(
+    Picklist picklist,
+    OrgSettings? org,
+  ) async {
     final doc = pw.Document();
-    
+
     // Attempt to load company logo
     pw.MemoryImage? logoImage;
     if (org?.logoUrl != null && org!.logoUrl!.trim().isNotEmpty) {
@@ -2312,21 +2325,32 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                           height: 56,
                           color: const PdfColor.fromInt(0xFF101820),
                           child: pw.Center(
-                            child: pw.Text('LOGO',
-                                style: pw.TextStyle(color: PdfColors.white, fontSize: 12)),
+                            child: pw.Text(
+                              'LOGO',
+                              style: pw.TextStyle(
+                                color: PdfColors.white,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                         ),
                       pw.SizedBox(height: 10),
                       pw.Text(
                         org?.name.trim().toUpperCase() ?? 'YOUR COMPANY',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 11,
+                        ),
                       ),
                       if (org?.paymentStubAddress?.trim().isNotEmpty == true)
                         pw.Padding(
                           padding: const pw.EdgeInsets.only(top: 3),
                           child: pw.Text(
                             _formatAddress(org!.paymentStubAddress!.trim()),
-                            style: const pw.TextStyle(fontSize: 9, lineSpacing: 2),
+                            style: const pw.TextStyle(
+                              fontSize: 9,
+                              lineSpacing: 2,
+                            ),
                           ),
                         ),
                     ],
@@ -2345,7 +2369,10 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                       pw.SizedBox(height: 6),
                       pw.Text(
                         'Picklist# ${picklist.picklistNumber}',
-                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+                        style: pw.TextStyle(
+                          fontSize: 13,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -2383,22 +2410,34 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                 children: [
                   pw.TableRow(
                     decoration: const pw.BoxDecoration(
-                        color: PdfColor.fromInt(0xFF1F2937)),
+                      color: PdfColor.fromInt(0xFF1F2937),
+                    ),
                     children: [
                       _pwHeaderCell('#'),
                       _pwHeaderCell('ITEM & DESCRIPTION'),
                       _pwHeaderCell('ORDER #'),
                       _pwHeaderCell('STATUS'),
-                      _pwHeaderCell('QTY TO PICK', align: pw.Alignment.centerRight),
-                      _pwHeaderCell('QTY PICKED', align: pw.Alignment.centerRight),
-                      _pwHeaderCell('QTY REMAINING', align: pw.Alignment.centerRight),
+                      _pwHeaderCell(
+                        'QTY TO PICK',
+                        align: pw.Alignment.centerRight,
+                      ),
+                      _pwHeaderCell(
+                        'QTY PICKED',
+                        align: pw.Alignment.centerRight,
+                      ),
+                      _pwHeaderCell(
+                        'QTY REMAINING',
+                        align: pw.Alignment.centerRight,
+                      ),
                     ],
                   ),
                   ...picklist.items.asMap().entries.map((e) {
                     final item = e.value;
                     return pw.TableRow(
                       decoration: pw.BoxDecoration(
-                        color: e.key.isEven ? PdfColors.white : const PdfColor.fromInt(0xFFF9FAFB),
+                        color: e.key.isEven
+                            ? PdfColors.white
+                            : const PdfColor.fromInt(0xFFF9FAFB),
                         border: const pw.Border(
                           bottom: pw.BorderSide(color: PdfColors.grey200),
                         ),
@@ -2408,9 +2447,18 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                         _pwDataCell(item.productName ?? '-'),
                         _pwDataCell(item.salesOrderNumber ?? '-'),
                         _pwDataCell(item.itemStatus),
-                        _pwDataCell(item.qtyToPick.toStringAsFixed(2), align: pw.Alignment.centerRight),
-                        _pwDataCell(item.qtyPicked.toStringAsFixed(2), align: pw.Alignment.centerRight),
-                        _pwDataCell((item.qtyToPick - item.qtyPicked).toStringAsFixed(2), align: pw.Alignment.centerRight),
+                        _pwDataCell(
+                          item.qtyToPick.toStringAsFixed(2),
+                          align: pw.Alignment.centerRight,
+                        ),
+                        _pwDataCell(
+                          item.qtyPicked.toStringAsFixed(2),
+                          align: pw.Alignment.centerRight,
+                        ),
+                        _pwDataCell(
+                          (item.qtyToPick - item.qtyPicked).toStringAsFixed(2),
+                          align: pw.Alignment.centerRight,
+                        ),
                       ],
                     );
                   }),
@@ -2430,17 +2478,24 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(label,
-              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+          ),
           pw.SizedBox(height: 3),
-          pw.Text(value,
-              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            value,
+            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          ),
         ],
       ),
     );
   }
 
-  pw.Widget _pwHeaderCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+  pw.Widget _pwHeaderCell(
+    String text, {
+    pw.Alignment align = pw.Alignment.centerLeft,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: pw.Align(
@@ -2457,15 +2512,15 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
     );
   }
 
-  pw.Widget _pwDataCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+  pw.Widget _pwDataCell(
+    String text, {
+    pw.Alignment align = pw.Alignment.centerLeft,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: pw.Align(
         alignment: align,
-        child: pw.Text(
-          text,
-          style: const pw.TextStyle(fontSize: 8),
-        ),
+        child: pw.Text(text, style: const pw.TextStyle(fontSize: 8)),
       ),
     );
   }
@@ -2508,8 +2563,7 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
               data['country'].toString().isNotEmpty) {
             parts.add(data['country'].toString());
           }
-          if (data['phone'] != null &&
-              data['phone'].toString().isNotEmpty) {
+          if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
             parts.add('Phone: ${data['phone']}');
           }
 
@@ -2826,7 +2880,13 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                       ),
                       _buildInfoBlock(
                         'Location',
-                        p.location ?? (ref.watch(orgSettingsProvider).asData?.value?.name ?? 'Main Office'),
+                        p.location ??
+                            (ref
+                                    .watch(orgSettingsProvider)
+                                    .asData
+                                    ?.value
+                                    ?.name ??
+                                'Main Office'),
                       ),
                       _buildInfoBlock('Group', 'No Grouping'),
                     ],
@@ -3045,9 +3105,7 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Color(0xFFF3F4F6)),
-              ),
+              border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
             ),
             child: Row(
               children: [
@@ -3063,9 +3121,7 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                 Expanded(
                   flex: 3,
                   child: InkWell(
-                    onTap: () => context.go(
-                      '/$orgId/sales/orders/${e.key}',
-                    ),
+                    onTap: () => context.go('/$orgId/sales/orders/${e.key}'),
                     child: Text(
                       e.value,
                       style: const TextStyle(
@@ -3089,10 +3145,7 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                 ),
                 const Expanded(
                   flex: 3,
-                  child: Text(
-                    '',
-                    style: TextStyle(fontSize: 13),
-                  ),
+                  child: Text('', style: TextStyle(fontSize: 13)),
                 ),
               ],
             ),
@@ -3200,7 +3253,8 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                                   Builder(
                                     builder: (innerContext) => InkWell(
                                       onTap: () {
-                                        if (item.productId != null && item.productId!.isNotEmpty) {
+                                        if (item.productId != null &&
+                                            item.productId!.isNotEmpty) {
                                           POItemDetailsSidebar.show(
                                             innerContext,
                                             PurchaseOrderItem(
@@ -3238,8 +3292,14 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
                         child: InkWell(
                           onTap: () {
                             if (item.salesOrderId != null) {
-                              final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
-                              context.go('/$orgId/sales/orders/${item.salesOrderId}');
+                              final orgId =
+                                  GoRouterState.of(
+                                    context,
+                                  ).pathParameters['orgSystemId'] ??
+                                  '';
+                              context.go(
+                                '/$orgId/sales/orders/${item.salesOrderId}',
+                              );
                             }
                           },
                           child: Text(
@@ -4033,4 +4093,3 @@ class _ResizableHeaderCellState extends State<_ResizableHeaderCell> {
     );
   }
 }
-

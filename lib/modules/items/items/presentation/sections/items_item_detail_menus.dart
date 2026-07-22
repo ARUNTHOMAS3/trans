@@ -401,7 +401,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
 
   void _openImportMenu(BuildContext rowContext) {
     final overlay = Overlay.of(context, rootOverlay: true);
- 
+
     final RenderBox? box = rowContext.findRenderObject() as RenderBox?;
     if (box == null) return;
     final Offset offset = box.localToGlobal(Offset.zero);
@@ -457,7 +457,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
 
   void _openExportMenu(BuildContext rowContext) {
     final OverlayState overlay = Overlay.of(context, rootOverlay: true);
- 
+
     final RenderBox? box = rowContext.findRenderObject() as RenderBox?;
     if (box == null) return;
     final Offset offset = box.localToGlobal(Offset.zero);

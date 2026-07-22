@@ -234,8 +234,11 @@ class _InventoryAdjustmentsListPanelState
                     menuWidth: 200,
                     onChanged: (v) {
                       if (v == null) return;
-                      ref.read(inventoryAdjustmentsFiltersProvider.notifier).state =
-                          filters.copyWith(adjustmentType: v);
+                      ref
+                          .read(inventoryAdjustmentsFiltersProvider.notifier)
+                          .state = filters.copyWith(
+                        adjustmentType: v,
+                      );
                     },
                     displayStringForValue: (value) {
                       switch (value) {
@@ -693,9 +696,7 @@ class _InventoryAdjustmentsListPanelState
       style: const MenuStyle(
         backgroundColor: WidgetStatePropertyAll(Colors.white),
         surfaceTintColor: WidgetStatePropertyAll(Colors.white),
-        side: WidgetStatePropertyAll(
-          BorderSide(color: AppTheme.borderColor),
-        ),
+        side: WidgetStatePropertyAll(BorderSide(color: AppTheme.borderColor)),
       ),
       menuChildren: [
         SubmenuButton(
@@ -711,7 +712,9 @@ class _InventoryAdjustmentsListPanelState
               onPressed: () => _setSortField('date'),
               trailingIcon: _sortField == 'date'
                   ? Icon(
-                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      _sortAscending
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
                       size: 14,
                     )
                   : null,
@@ -722,7 +725,9 @@ class _InventoryAdjustmentsListPanelState
               onPressed: () => _setSortField('reason'),
               trailingIcon: _sortField == 'reason'
                   ? Icon(
-                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      _sortAscending
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
                       size: 14,
                     )
                   : null,
@@ -733,7 +738,9 @@ class _InventoryAdjustmentsListPanelState
               onPressed: () => _setSortField('created_time'),
               trailingIcon: _sortField == 'created_time'
                   ? Icon(
-                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      _sortAscending
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
                       size: 14,
                     )
                   : null,
@@ -744,7 +751,9 @@ class _InventoryAdjustmentsListPanelState
               onPressed: () => _setSortField('last_modified_time'),
               trailingIcon: _sortField == 'last_modified_time'
                   ? Icon(
-                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      _sortAscending
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
                       size: 14,
                     )
                   : null,
@@ -859,18 +868,12 @@ class _InventoryAdjustmentsListPanelState
         ),
         MenuItemButton(
           style: menuStyle,
-          onPressed: () => ZerpaiToast.info(
-            context,
-            'Import not wired yet',
-          ),
+          onPressed: () => ZerpaiToast.info(context, 'Import not wired yet'),
           child: const Text('Import'),
         ),
         MenuItemButton(
           style: menuStyle,
-          onPressed: () => ZerpaiToast.info(
-            context,
-            'Export not wired yet',
-          ),
+          onPressed: () => ZerpaiToast.info(context, 'Export not wired yet'),
           child: const Text('Export Inventory Adjustments'),
         ),
         MenuItemButton(
@@ -887,7 +890,8 @@ class _InventoryAdjustmentsListPanelState
           width: 32,
           height: 32,
           child: TextButton(
-            onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
             style: ButtonStyle(
               padding: WidgetStateProperty.all(EdgeInsets.zero),
               backgroundColor: WidgetStateProperty.resolveWith((states) {
@@ -931,10 +935,7 @@ class _InventoryAdjustmentsListPanelState
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem<String>(
-                value: 'approve',
-                child: Text('Approve'),
-              ),
+              PopupMenuItem<String>(value: 'approve', child: Text('Approve')),
             ],
             child: Container(
               height: 36,
@@ -951,7 +952,11 @@ class _InventoryAdjustmentsListPanelState
                     style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                   ),
                   SizedBox(width: 6),
-                  Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    size: 18,
+                    color: AppTheme.textSecondary,
+                  ),
                 ],
               ),
             ),
@@ -1017,14 +1022,16 @@ class _InventoryAdjustmentsListPanelState
           ),
           const Spacer(),
           TextButton(
-            onPressed: () => setState(() => (_selectedIds ??= <String>{}).clear()),
+            onPressed: () =>
+                setState(() => (_selectedIds ??= <String>{}).clear()),
             child: const Text(
               'Esc',
               style: TextStyle(color: AppTheme.textSecondary),
             ),
           ),
           IconButton(
-            onPressed: () => setState(() => (_selectedIds ??= <String>{}).clear()),
+            onPressed: () =>
+                setState(() => (_selectedIds ??= <String>{}).clear()),
             icon: const Icon(Icons.close, color: AppTheme.errorRed, size: 18),
             tooltip: 'Clear selection',
           ),
@@ -1070,7 +1077,9 @@ class _InventoryAdjustmentsListPanelState
 
   Future<void> _approveSelected(List<InventoryAdjustment> rows) async {
     final selectedIds = (_selectedIds ??= <String>{});
-    final selectedRows = rows.where((row) => selectedIds.contains(row.id)).toList();
+    final selectedRows = rows
+        .where((row) => selectedIds.contains(row.id))
+        .toList();
     if (selectedRows.isEmpty) return;
 
     int successCount = 0;
@@ -1117,7 +1126,10 @@ class _InventoryAdjustmentsListPanelState
       }
     }
 
-    if (total == 1 && successCount == 0 && errorCount == 0 && alreadyTotal == 1) {
+    if (total == 1 &&
+        successCount == 0 &&
+        errorCount == 0 &&
+        alreadyTotal == 1) {
       final status = alreadyByStatus.keys.first;
       ZerpaiToast.error(
         context,
@@ -1132,7 +1144,10 @@ class _InventoryAdjustmentsListPanelState
     }
     if (alreadyTotal > 0) {
       final alreadyParts = alreadyByStatus.entries
-          .map((entry) => '${entry.value} already ${_statusLabelForMessage(entry.key)}')
+          .map(
+            (entry) =>
+                '${entry.value} already ${_statusLabelForMessage(entry.key)}',
+          )
           .join(', ');
       parts.add(alreadyParts);
     }
@@ -1147,7 +1162,9 @@ class _InventoryAdjustmentsListPanelState
 
     final summary = '${parts.join(' | ')} out of $total selected';
     if (errorCount > 0) {
-      final suffix = errorMessages.isNotEmpty ? ' (${errorMessages.first})' : '';
+      final suffix = errorMessages.isNotEmpty
+          ? ' (${errorMessages.first})'
+          : '';
       ZerpaiToast.error(context, '$summary$suffix');
       return;
     }
@@ -1355,14 +1372,18 @@ class _InventoryAdjustmentsListPanelState
               Expanded(
                 flex: 2,
                 child: _CellText(
-                  DateFormat('dd-MM-yyyy hh:mm a').format(row.createdAt.toLocal()),
+                  DateFormat(
+                    'dd-MM-yyyy hh:mm a',
+                  ).format(row.createdAt.toLocal()),
                 ),
               ),
               Expanded(flex: 2, child: _CellText(_actorLabel(row))),
               Expanded(
                 flex: 2,
                 child: _CellText(
-                  DateFormat('dd-MM-yyyy hh:mm a').format(row.updatedAt.toLocal()),
+                  DateFormat(
+                    'dd-MM-yyyy hh:mm a',
+                  ).format(row.updatedAt.toLocal()),
                 ),
               ),
               SizedBox(
@@ -1462,7 +1483,6 @@ class _InventoryAdjustmentsListPanelState
         return 'DRAFT';
     }
   }
-
 }
 
 class _HeaderText extends StatelessWidget {

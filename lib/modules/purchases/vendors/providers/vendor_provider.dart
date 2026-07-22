@@ -95,9 +95,7 @@ class VendorNotifier extends StateNotifier<VendorState> {
 
   void updateVendorLocally(String id, Vendor vendor) {
     state = state.copyWith(
-      vendors: state.vendors
-          .map((v) => v.id == id ? vendor : v)
-          .toList(),
+      vendors: state.vendors.map((v) => v.id == id ? vendor : v).toList(),
     );
   }
 

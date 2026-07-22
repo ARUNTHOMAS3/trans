@@ -1,4 +1,4 @@
-﻿# ðŸ“˜ Product Requirements Document (PRD) - Comprehensive
+# ðŸ“˜ Product Requirements Document (PRD) - Comprehensive
 
 > **ðŸ“ Entity Model Specification:** The tenancy and ownership architecture (how data is scoped by org vs. branch) is defined in [`PRD/prd_entity_model.md`](./prd_entity_model.md). All developers and AI agents must read that document before writing queries, API endpoints, or providers. It supplements this PRD and does not alter it.
 
@@ -33,7 +33,7 @@ Checkbox, radio, and switch/toggle controls must use a strict blue/white interac
 
 The application must prefer real DB-backed runtime data wherever a schema-backed source already exists. When real data is unavailable, the UI must show an explicit empty or error state instead of fabricated business values. Lookup defaults should resolve from DB-backed master rows rather than hardcoded IDs or labels. Reusable control behavior and visual styling should be centralized in shared sources. Warehouse master data, storage/location master data, accounting stock, and physical stock must remain separate concepts across schema, API, and UI. Shared environments must be updated with additive migrations and scoped upserts instead of destructive resets.
 Primary save/create/confirm actions, cancel/secondary actions, upload controls, borders, and separators must also follow centralized project styling rules instead of per-screen color choices.
-Any new database table created specifically for the global settings system must start with the `settings_` prefix.
+Settings-related backend work must use the canonical table names in `current schema.md`. Do not add a blanket `settings_` prefix for Settings tables; if a new table is unavoidable, name it by owning domain and purpose, matching the existing schema style.
 
 ---
 
@@ -546,13 +546,13 @@ If any options table / master lookup table is created in the database (dropdown 
 - `inventory_item_statuses`
 - `reports_filter_fields`
 - `reports_group_by_options`
-- `settings_organization_profiles`
-- `settings_company_id_labels`
+- `organization_profiles`
+- `company_id_labels`
 
 **Scope & Enforcement**
 
 - âœ… Applies to **ALL NEW TABLES** created from now onward
-- âœ… Settings-owned tables are a mandatory special case and must always use the `settings_` prefix
+- âœ… Settings-owned tables must follow `current schema.md` canonical naming instead of a blanket prefix
 - âŒ Do **NOT** rename or modify existing production tables
 - ðŸ”’ Existing schema remains untouched until a planned production refactor phase
 

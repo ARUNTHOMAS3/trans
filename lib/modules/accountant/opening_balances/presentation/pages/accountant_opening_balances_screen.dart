@@ -333,5 +333,3 @@ class _OpeningBalancesScreenState extends ConsumerState<OpeningBalancesScreen> {
     );
   }
 }
-
-

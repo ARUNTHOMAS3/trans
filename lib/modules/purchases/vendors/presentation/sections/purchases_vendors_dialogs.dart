@@ -451,4 +451,3 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
     );
   }
 }
-

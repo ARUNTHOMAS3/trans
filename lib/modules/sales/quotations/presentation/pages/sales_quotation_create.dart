@@ -154,8 +154,9 @@ class _SalesQuoteCreateScreenState
       quantity: qty,
     );
 
-    if (row.rateCtrl.text != newRate.toString()) {
-      row.rateCtrl.text = newRate.toString();
+    final formattedRate = newRate == 0 ? '0' : newRate.toStringAsFixed(2);
+    if (row.rateCtrl.text != formattedRate) {
+      row.rateCtrl.text = formattedRate;
     }
   }
 

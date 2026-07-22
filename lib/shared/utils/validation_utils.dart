@@ -1,4 +1,3 @@
-
 import 'package:flutter/services.dart';
 
 bool _isAsciiLetter(String value) => RegExp(r'^[A-Z]$').hasMatch(value);
@@ -135,7 +134,9 @@ String? validateGstin(String? value) {
   }
 
   // Overall Regex sanity check
-  final overallRegExp = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
+  final overallRegExp = RegExp(
+    r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$',
+  );
   if (!overallRegExp.hasMatch(cleanValue)) {
     return 'Invalid GSTIN format. Expected format: 29ABCDE1234F1Z5';
   }

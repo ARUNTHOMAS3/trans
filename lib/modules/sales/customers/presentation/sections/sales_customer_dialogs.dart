@@ -561,8 +561,10 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                                     'Privilege Card Number',
                                     'GST Number',
                                   ],
-                                  onChanged: (v) =>
-                                      setDialogState(() => searchType = v!),
+                                  onChanged: (v) {
+                                    if (v == null) return;
+                                    setDialogState(() => searchType = v);
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -844,4 +846,3 @@ class _TableHeader extends StatelessWidget {
     );
   }
 }
-

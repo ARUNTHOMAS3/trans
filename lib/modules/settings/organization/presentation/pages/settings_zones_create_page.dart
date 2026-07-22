@@ -81,10 +81,10 @@ class _ZoneLevelFormRow {
     String delimiter = '',
     String alias = '',
     String total = '',
-  })  : locationController = TextEditingController(text: location),
-        delimiterController = TextEditingController(text: delimiter),
-        aliasController = TextEditingController(text: alias),
-        totalController = TextEditingController(text: total);
+  }) : locationController = TextEditingController(text: location),
+       delimiterController = TextEditingController(text: delimiter),
+       aliasController = TextEditingController(text: alias),
+       totalController = TextEditingController(text: total);
 
   void dispose() {
     locationController.dispose();
@@ -131,11 +131,13 @@ class _SettingsZonesCreatePageState
 
   bool get _isWarehouseScope => (widget.warehouseId ?? '').trim().isNotEmpty;
 
-  String get _currentScopeId =>
-      _isWarehouseScope ? widget.warehouseId!.trim() : (widget.branchId ?? '').trim();
+  String get _currentScopeId => _isWarehouseScope
+      ? widget.warehouseId!.trim()
+      : (widget.branchId ?? '').trim();
 
-  String get _currentScopeName =>
-      _isWarehouseScope ? (widget.warehouseName ?? '').trim() : (widget.branchName ?? '').trim();
+  String get _currentScopeName => _isWarehouseScope
+      ? (widget.warehouseName ?? '').trim()
+      : (widget.branchName ?? '').trim();
 
   Map<String, String> _scopeQueryParameters({String? zoneName}) {
     final params = <String, String>{};
@@ -151,6 +153,7 @@ class _SettingsZonesCreatePageState
     }
     return params;
   }
+
   final Map<int, String> _locationErrors = <int, String>{};
   final Map<int, String> _delimiterErrors = <int, String>{};
   final Map<int, String> _aliasErrors = <int, String>{};
@@ -160,10 +163,9 @@ class _SettingsZonesCreatePageState
   void initState() {
     super.initState();
     final user = ref.read(authUserProvider);
-    _organizationName =
-        (user?.orgName ?? '').trim().isNotEmpty
-            ? user!.orgName
-            : 'Your Organization';
+    _organizationName = (user?.orgName ?? '').trim().isNotEmpty
+        ? user!.orgName
+        : 'Your Organization';
   }
 
   @override
@@ -213,12 +215,12 @@ class _SettingsZonesCreatePageState
   }
 
   int get _combinedAliasAndDelimiterLength => _levels.fold<int>(
-        0,
-        (sum, level) =>
-            sum +
-            level.aliasController.text.trim().length +
-            level.delimiterController.text.trim().length,
-      );
+    0,
+    (sum, level) =>
+        sum +
+        level.aliasController.text.trim().length +
+        level.delimiterController.text.trim().length,
+  );
 
   int get _totalCount {
     final List<int> totals = _levels
@@ -305,9 +307,7 @@ class _SettingsZonesCreatePageState
 
     try {
       final createdZone = await BinLocationsService.instance.createZone(
-        orgId: orgId.isNotEmpty
-            ? orgId
-            : '',
+        orgId: orgId.isNotEmpty ? orgId : '',
         branchId: _currentScopeId,
         branchName: _currentScopeName,
         zoneName: _zoneNameController.text.trim(),
@@ -329,8 +329,7 @@ class _SettingsZonesCreatePageState
         AppRoutes.settingsZoneBins,
         pathParameters: {
           'orgSystemId':
-              GoRouterState.of(context).pathParameters['orgSystemId'] ??
-              '',
+              GoRouterState.of(context).pathParameters['orgSystemId'] ?? '',
           'zoneId': createdZone.id,
         },
         queryParameters: _scopeQueryParameters(zoneName: createdZone.zoneName),
@@ -655,8 +654,9 @@ class _SettingsZonesCreatePageState
                           AppRoutes.settingsZones,
                           pathParameters: {
                             'orgSystemId':
-                                GoRouterState.of(context)
-                                    .pathParameters['orgSystemId'] ??
+                                GoRouterState.of(
+                                  context,
+                                ).pathParameters['orgSystemId'] ??
                                 '',
                           },
                           queryParameters: _scopeQueryParameters(),
@@ -680,18 +680,16 @@ class _SettingsZonesCreatePageState
                         _buildInlineErrorBanner(
                           message:
                               '• The total combined length of the Alias Name and Delimiter fields across all five levels must not exceed 50 characters.',
-                          onClose: () => setState(
-                            () => _showCombinedLengthError = false,
-                          ),
+                          onClose: () =>
+                              setState(() => _showCombinedLengthError = false),
                         ),
                       ],
                       if (_showDelimiterLengthError) ...[
                         _buildInlineErrorBanner(
                           message:
                               '• Please ensure that the "delimiter" has less than 1 characters.',
-                          onClose: () => setState(
-                            () => _showDelimiterLengthError = false,
-                          ),
+                          onClose: () =>
+                              setState(() => _showDelimiterLengthError = false),
                         ),
                       ],
                       _buildZoneNameRow(),
@@ -703,7 +701,9 @@ class _SettingsZonesCreatePageState
                           ElevatedButton(
                             onPressed: _isSaving ? null : _save,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.successGreen,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
@@ -726,15 +726,16 @@ class _SettingsZonesCreatePageState
                             onPressed: _isSaving
                                 ? null
                                 : () => context.goNamed(
-                                      AppRoutes.settingsZones,
-                                      pathParameters: {
-                                        'orgSystemId':
-                                            GoRouterState.of(context)
-                                                    .pathParameters['orgSystemId'] ??
-                                                '',
-                                      },
-                                      queryParameters: _scopeQueryParameters(),
-                                    ),
+                                    AppRoutes.settingsZones,
+                                    pathParameters: {
+                                      'orgSystemId':
+                                          GoRouterState.of(
+                                            context,
+                                          ).pathParameters['orgSystemId'] ??
+                                          '',
+                                    },
+                                    queryParameters: _scopeQueryParameters(),
+                                  ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textPrimary,
                               side: const BorderSide(
@@ -796,39 +797,39 @@ class _SettingsZonesCreatePageState
             child: SizedBox(
               width: 420,
               child: TextField(
-              controller: _zoneNameController,
-              onChanged: (_) {
-                if (_zoneNameError != null) {
-                  setState(() => _zoneNameError = null);
-                }
-              },
-              decoration: InputDecoration(
-                hintText: 'Enter zone name',
-                errorText: _zoneNameError,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
+                controller: _zoneNameController,
+                onChanged: (_) {
+                  if (_zoneNameError != null) {
+                    setState(() => _zoneNameError = null);
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: 'Enter zone name',
+                  errorText: _zoneNameError,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.white,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: AppTheme.errorRed),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: AppTheme.errorRed),
+                  ),
                 ),
-                isDense: true,
-                filled: true,
-                fillColor: Colors.white,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: AppTheme.borderColor),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: AppTheme.primaryBlue),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: AppTheme.errorRed),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: AppTheme.errorRed),
-                ),
-              ),
               ),
             ),
           ),
@@ -869,11 +870,7 @@ class _SettingsZonesCreatePageState
             borderRadius: BorderRadius.circular(8),
             child: const Padding(
               padding: EdgeInsets.all(2),
-              child: Icon(
-                LucideIcons.x,
-                size: 16,
-                color: AppTheme.errorRed,
-              ),
+              child: Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
             ),
           ),
         ],
@@ -1102,8 +1099,9 @@ class _SettingsZonesCreatePageState
             child: Padding(
               padding: const EdgeInsets.only(top: 8),
               child: IconButton(
-                onPressed:
-                    _levels.length == 1 ? null : () => _removeLevel(index),
+                onPressed: _levels.length == 1
+                    ? null
+                    : () => _removeLevel(index),
                 icon: Icon(
                   LucideIcons.xCircle,
                   size: 16,

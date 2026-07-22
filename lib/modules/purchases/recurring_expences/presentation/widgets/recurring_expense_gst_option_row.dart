@@ -79,14 +79,15 @@ Widget buildRecurringExpenseGstOptionRow({
                 item,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: (useStandardDropdownTypography
-                        ? AppTextStyles.input
-                        : AppTextStyles.body)
-                    .copyWith(
-                  color: titleColor,
-                  height: 1.1,
-                  fontWeight: FontWeight.w400,
-                ),
+                style:
+                    (useStandardDropdownTypography
+                            ? AppTextStyles.input
+                            : AppTextStyles.body)
+                        .copyWith(
+                          color: titleColor,
+                          height: 1.1,
+                          fontWeight: FontWeight.w400,
+                        ),
               ),
               const SizedBox(height: 2),
               Text(

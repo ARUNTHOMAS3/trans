@@ -17,15 +17,15 @@ final priceListServiceProvider = Provider<PriceListService>((ref) {
 
 /// Notifier Provider for Price List State
 final priceListNotifierProvider =
-    StateNotifierProvider<PriceListNotifier, AsyncValue<List<PriceList>>>(
-      (ref) {
-        ref.watch(entityProvider);
-        return PriceListNotifier(
-          ref.watch(priceListServiceProvider),
-          isAuthenticated: true,
-        );
-      },
-    );
+    StateNotifierProvider<PriceListNotifier, AsyncValue<List<PriceList>>>((
+      ref,
+    ) {
+      ref.watch(entityProvider);
+      return PriceListNotifier(
+        ref.watch(priceListServiceProvider),
+        isAuthenticated: true,
+      );
+    });
 
 /// Provider for Active Price Lists only
 final activePriceListsProvider = Provider<List<PriceList>>((ref) {
@@ -40,16 +40,19 @@ final activePriceListsProvider = Provider<List<PriceList>>((ref) {
 });
 
 /// Provider for Active Sales Price Lists only (used by Sales modules)
-final activeSalesPriceListsAsyncProvider = Provider<AsyncValue<List<PriceList>>>((ref) {
-  final priceListsAsync = ref.watch(priceListNotifierProvider);
-  return priceListsAsync.whenData(
-    (priceLists) => priceLists
-        .where((pl) =>
-            pl.status == 'active' &&
-            pl.transactionType.toLowerCase() == 'sales')
-        .toList(),
-  );
-});
+final activeSalesPriceListsAsyncProvider =
+    Provider<AsyncValue<List<PriceList>>>((ref) {
+      final priceListsAsync = ref.watch(priceListNotifierProvider);
+      return priceListsAsync.whenData(
+        (priceLists) => priceLists
+            .where(
+              (pl) =>
+                  pl.status == 'active' &&
+                  pl.transactionType.toLowerCase() == 'sales',
+            )
+            .toList(),
+      );
+    });
 
 /// Provider for a specific Price List by ID
 final priceListByIdProvider = Provider.family<PriceList?, String>((ref, id) {

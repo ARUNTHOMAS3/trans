@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../models/user_model.dart';
 import '../repositories/user_management_repository.dart';
@@ -74,7 +74,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         onUserSaved: (updatedUser) {
           setState(() {
             final index = _users.indexWhere((u) => u.id == updatedUser.id);
-          if (index != -1) {
+            if (index != -1) {
               _users[index] = updatedUser;
             }
           });

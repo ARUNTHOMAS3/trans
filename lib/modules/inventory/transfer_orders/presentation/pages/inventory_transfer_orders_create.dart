@@ -2233,7 +2233,9 @@ class _InventoryTransferOrdersCreateScreenState
                             },
                             onSubmitted: (_) async {
                               if (_scanSuggestions.isNotEmpty) {
-                                await _applyScanSelection(_scanSuggestions.first);
+                                await _applyScanSelection(
+                                  _scanSuggestions.first,
+                                );
                                 return;
                               }
                               final query = _scanInputCtrl.text.trim();
@@ -2245,7 +2247,8 @@ class _InventoryTransferOrdersCreateScreenState
                               }
                             },
                             decoration: InputDecoration(
-                              hintText: 'Search/scan by name, SKU, code, barcode',
+                              hintText:
+                                  'Search/scan by name, SKU, code, barcode',
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 10,
                                 vertical: 7,

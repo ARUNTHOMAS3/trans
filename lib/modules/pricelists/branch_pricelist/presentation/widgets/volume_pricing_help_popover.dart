@@ -372,9 +372,3 @@ class _PopoverArrowPainter extends CustomPainter {
     return oldDelegate.pointsLeft != pointsLeft;
   }
 }
-
-
-
-
-
-

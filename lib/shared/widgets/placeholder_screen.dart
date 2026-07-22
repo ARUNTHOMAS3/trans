@@ -40,10 +40,7 @@ class PlaceholderScreen extends StatelessWidget {
             const SizedBox(height: AppTheme.space8),
             const Text(
               'This module is currently under development.',
-              style: TextStyle(
-                fontSize: 16,
-                color: AppTheme.textSecondary,
-              ),
+              style: TextStyle(fontSize: 16, color: AppTheme.textSecondary),
             ),
           ],
         ),

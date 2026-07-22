@@ -685,13 +685,15 @@ class _SettingsOrganizationBrandingPageState
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const ZFormSkeleton(rows: 20);
+      return const SingleChildScrollView(
+        padding: EdgeInsets.all(AppTheme.space32),
+        child: ZFormSkeleton(rows: 20),
+      );
     }
     return _buildBodyContent();
   }
 
   Widget _buildBodyContent() {
-
     if (_error != null) {
       return Center(
         child: Container(

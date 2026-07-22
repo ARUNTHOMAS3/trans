@@ -795,4 +795,3 @@ class _FilterTransactionsDialogState
     );
   }
 }
-

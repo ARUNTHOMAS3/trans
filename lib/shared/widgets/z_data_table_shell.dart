@@ -22,6 +22,12 @@ class ZDataTableShell extends StatelessWidget {
   final List<Widget> rows;
   final Widget? body;
   final EdgeInsets? padding;
+  final double? scrollbarThickness;
+  final Color? scrollbarThumbColor;
+  final Color? scrollHintColor;
+  final double? scrollHintWidth;
+  final double? scrollbarGutterWidth;
+  final double? scrollHintIconSize;
 
   const ZDataTableShell({
     super.key,
@@ -29,6 +35,12 @@ class ZDataTableShell extends StatelessWidget {
     this.rows = const [],
     this.body,
     this.padding,
+    this.scrollbarThickness,
+    this.scrollbarThumbColor,
+    this.scrollHintColor,
+    this.scrollHintWidth,
+    this.scrollbarGutterWidth,
+    this.scrollHintIconSize,
   });
 
   @override

@@ -687,7 +687,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
           required: true,
           child: _fieldBox(
             FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+              height: _customerDialogFieldHeight,
               value: _selectedGstTreatment,
               items: kRecurringExpenseBaseGstTreatmentOptions,
               hint: 'Select a GST treatment',
@@ -759,7 +759,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
             required: true,
             child: _fieldBox(
               FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                height: _customerDialogFieldHeight,
                 value: _selectedSourceOfSupply,
                 items: _stateSources,
                 hint: '',
@@ -788,7 +788,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
           label: 'Currency',
           child: _fieldBox(
             FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+              height: _customerDialogFieldHeight,
               value: _selectedCurrency,
               items: _currencyOptions,
               hint: 'Currency',
@@ -806,7 +806,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                   child: SizedBox(
                     height: _customerDialogFieldHeight,
                     child: FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                      height: _customerDialogFieldHeight,
                       value: _openingBalanceLocation,
                       items: _locationOptions,
                       hint: 'Location',
@@ -866,7 +866,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
           label: 'Payment Terms',
           child: _fieldBox(
             FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+              height: _customerDialogFieldHeight,
               value: _paymentTerms,
               items: _paymentTermsOptions,
               hint: 'Select Payment Terms',
@@ -879,7 +879,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
           required: true,
           child: _fieldBox(
             FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+              height: _customerDialogFieldHeight,
               value: _selectedPriceList,
               items: _priceLists,
               hint: '',
@@ -999,7 +999,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                   _addressField(
                     label: 'Country/Region',
                     child: FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                      height: _customerDialogFieldHeight,
                       value: _billingCountry,
                       items: _countryOptions,
                       hint: 'Select',
@@ -1034,7 +1034,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                   _addressField(
                     label: 'State',
                     child: FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                      height: _customerDialogFieldHeight,
                       value: _billingState,
                       items: _stateOptions,
                       hint: 'Select or type to add',
@@ -1136,7 +1136,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                   _addressField(
                     label: 'Country/Region',
                     child: FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                      height: _customerDialogFieldHeight,
                       value: _shippingCountry,
                       items: _countryOptions,
                       hint: 'Select',
@@ -1171,7 +1171,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                   _addressField(
                     label: 'State',
                     child: FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                      height: _customerDialogFieldHeight,
                       value: _shippingState,
                       items: _stateOptions,
                       hint: 'Select or type to add',
@@ -1333,7 +1333,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                     padding: const EdgeInsets.only(top: 6),
                     child: _fieldBox(
                       FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                        height: _customerDialogFieldHeight,
                         value: _selectedReportingTagValues[field.id],
                         items: const [],
                         hint: 'None',
@@ -1345,7 +1345,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                   )
                 : _fieldBox(
                     FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                      height: _customerDialogFieldHeight,
                       value: _selectedReportingTagValues[field.id],
                       items: const [],
                       hint: 'None',
@@ -1511,7 +1511,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                                 SizedBox(
                                   width: 120,
                                   child: FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                                    height: _customerDialogFieldHeight,
                                     value: _salutation,
                                     items: kSalutationOptions,
                                     hint: 'Salutation',
@@ -1561,7 +1561,7 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                               'Select a generated name or type a custom one.',
                           child: _fieldBox(
                             FormDropdown<String>(
-      height: _customerDialogFieldHeight,
+                              height: _customerDialogFieldHeight,
                               value: _selectedDisplayName,
                               items: _displayNameOptions,
                               hint: 'Select or type to add',
@@ -1707,14 +1707,17 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                           onPressed: _isSaving
                               ? null
                               : () async {
-                                  if (!(_formKey.currentState?.validate() ?? false)) {
+                                  if (!(_formKey.currentState?.validate() ??
+                                      false)) {
                                     return;
                                   }
                                   if (_selectedDisplayName == null ||
                                       _selectedDisplayName!.trim().isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Please enter a Display Name'),
+                                        content: Text(
+                                          'Please enter a Display Name',
+                                        ),
                                       ),
                                     );
                                     return;
@@ -1726,7 +1729,10 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                                   try {
                                     final customerData = SalesCustomer(
                                       id: '',
-                                      customerNumber: _customerNumberCtrl.text.trim().isNotEmpty
+                                      customerNumber:
+                                          _customerNumberCtrl.text
+                                              .trim()
+                                              .isNotEmpty
                                           ? _customerNumberCtrl.text.trim()
                                           : null,
                                       displayName: _selectedDisplayName!.trim(),
@@ -1748,25 +1754,45 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                                       taxPreference: _taxPreference,
                                       paymentTerms: _paymentTerms,
                                       priceList: _selectedPriceList,
-                                      openingBalance: double.tryParse(_openingBalanceCtrl.text.trim()),
-                                      creditLimit: double.tryParse(_creditLimitCtrl.text.trim()),
+                                      openingBalance: double.tryParse(
+                                        _openingBalanceCtrl.text.trim(),
+                                      ),
+                                      creditLimit: double.tryParse(
+                                        _creditLimitCtrl.text.trim(),
+                                      ),
                                       enablePortal: _enablePortal,
                                       facebookHandle: _facebookCtrl.text.trim(),
                                       whatsappNumber: _mobileCtrl.text.trim(),
-                                      billingAddressStreet1: _billingStreet1Ctrl.text.trim(),
-                                      billingAddressStreet2: _billingStreet2Ctrl.text.trim(),
-                                      billingAddressCity: _billingCityCtrl.text.trim(),
+                                      billingAddressStreet1: _billingStreet1Ctrl
+                                          .text
+                                          .trim(),
+                                      billingAddressStreet2: _billingStreet2Ctrl
+                                          .text
+                                          .trim(),
+                                      billingAddressCity: _billingCityCtrl.text
+                                          .trim(),
                                       billingAddressStateId: _billingState,
-                                      billingAddressZip: _billingPinCtrl.text.trim(),
+                                      billingAddressZip: _billingPinCtrl.text
+                                          .trim(),
                                       billingAddressCountryId: _billingCountry,
-                                      billingAddressPhone: _billingPhoneCtrl.text.trim(),
-                                      shippingAddressStreet1: _shippingStreet1Ctrl.text.trim(),
-                                      shippingAddressStreet2: _shippingStreet2Ctrl.text.trim(),
-                                      shippingAddressCity: _shippingCityCtrl.text.trim(),
+                                      billingAddressPhone: _billingPhoneCtrl
+                                          .text
+                                          .trim(),
+                                      shippingAddressStreet1:
+                                          _shippingStreet1Ctrl.text.trim(),
+                                      shippingAddressStreet2:
+                                          _shippingStreet2Ctrl.text.trim(),
+                                      shippingAddressCity: _shippingCityCtrl
+                                          .text
+                                          .trim(),
                                       shippingAddressStateId: _shippingState,
-                                      shippingAddressZip: _shippingPinCtrl.text.trim(),
-                                      shippingAddressCountryId: _shippingCountry,
-                                      shippingAddressPhone: _shippingPhoneCtrl.text.trim(),
+                                      shippingAddressZip: _shippingPinCtrl.text
+                                          .trim(),
+                                      shippingAddressCountryId:
+                                          _shippingCountry,
+                                      shippingAddressPhone: _shippingPhoneCtrl
+                                          .text
+                                          .trim(),
                                       isActive: true,
                                     );
 
@@ -1776,13 +1802,18 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
 
                                     if (!mounted) return;
 
-                                    final newCustomerOption = RecurringExpenseCustomerOption(
-                                      id: createdCustomer.id,
-                                      displayName: createdCustomer.displayName,
-                                      customerNumber: createdCustomer.customerNumber,
-                                      gstTreatment: createdCustomer.gstTreatment,
-                                      placeOfSupply: createdCustomer.placeOfSupply,
-                                    );
+                                    final newCustomerOption =
+                                        RecurringExpenseCustomerOption(
+                                          id: createdCustomer.id,
+                                          displayName:
+                                              createdCustomer.displayName,
+                                          customerNumber:
+                                              createdCustomer.customerNumber,
+                                          gstTreatment:
+                                              createdCustomer.gstTreatment,
+                                          placeOfSupply:
+                                              createdCustomer.placeOfSupply,
+                                        );
 
                                     Navigator.pop(context, newCustomerOption);
                                   } catch (error) {

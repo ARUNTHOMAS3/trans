@@ -1,7 +1,7 @@
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
   final ApiClient _apiClient;
@@ -41,8 +41,9 @@ class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
 
   @override
   Future<PurchaseReturn?> getPurchaseReturn(String id) async {
-    final response =
-        await _apiClient.get('${ApiEndpoints.purchaseReturns}/$id');
+    final response = await _apiClient.get(
+      '${ApiEndpoints.purchaseReturns}/$id',
+    );
     final data = response.data;
     if (data == null) return null;
     return PurchaseReturn.fromJson(data as Map<String, dynamic>);
@@ -50,7 +51,8 @@ class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
 
   @override
   Future<PurchaseReturn> createPurchaseReturn(
-      PurchaseReturn purchaseReturn) async {
+    PurchaseReturn purchaseReturn,
+  ) async {
     final response = await _apiClient.post(
       ApiEndpoints.purchaseReturns,
       data: purchaseReturn.toJson(),
@@ -80,8 +82,9 @@ class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
 
   @override
   Future<String> getNextReturnNumber() async {
-    final response =
-        await _apiClient.get(ApiEndpoints.purchaseReturnNextNumber);
+    final response = await _apiClient.get(
+      ApiEndpoints.purchaseReturnNextNumber,
+    );
     final data = response.data;
     return (data is Map ? data['number'] : data) as String? ?? '';
   }

@@ -112,7 +112,10 @@ class ErrorHandler {
     BuildContext context, {
     String? requiredPermission,
   }) {
-    context.go('/unauthorized', extra: {'requiredPermission': requiredPermission});
+    context.go(
+      '/unauthorized',
+      extra: {'requiredPermission': requiredPermission},
+    );
   }
 
   static void showMaintenancePage(
@@ -120,10 +123,10 @@ class ErrorHandler {
     String? message,
     DateTime? estimatedCompletion,
   }) {
-    context.go('/maintenance', extra: {
-      'message': message,
-      'estimatedCompletion': estimatedCompletion,
-    });
+    context.go(
+      '/maintenance',
+      extra: {'message': message, 'estimatedCompletion': estimatedCompletion},
+    );
   }
 
   static void showErrorPage(
@@ -133,12 +136,15 @@ class ErrorHandler {
     Object? error,
     StackTrace? stackTrace,
   }) {
-    context.go('/error', extra: {
-      'errorMessage': errorMessage,
-      'errorCode': errorCode,
-      'error': error,
-      'stackTrace': stackTrace,
-    });
+    context.go(
+      '/error',
+      extra: {
+        'errorMessage': errorMessage,
+        'errorCode': errorCode,
+        'error': error,
+        'stackTrace': stackTrace,
+      },
+    );
   }
 
   static void handleNavigationError(BuildContext context, String route) {

@@ -31,4 +31,3 @@ class SearchRegistry {
     return entries;
   }
 }
-

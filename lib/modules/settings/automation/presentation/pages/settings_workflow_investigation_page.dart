@@ -91,7 +91,10 @@ class _SettingsWorkflowInvestigationPageState
         ? store.incidentNotes(transactionType: type, transactionId: id)
         : const <String>[];
     final assignmentHistory = hasQuery
-        ? store.incidentAssignmentHistory(transactionType: type, transactionId: id)
+        ? store.incidentAssignmentHistory(
+            transactionType: type,
+            transactionId: id,
+          )
         : const <String>[];
     final snapshots = hasQuery
         ? store.investigationSnapshots(transactionType: type, transactionId: id)
@@ -99,19 +102,26 @@ class _SettingsWorkflowInvestigationPageState
     final replay = hasQuery
         ? store.incidentReplayTimeline(transactionType: type, transactionId: id)
         : const [];
-    final replayVisible = replay.where((r) {
-      final detail = '${r.eventType} ${r.detail}'.toLowerCase();
-      final isCritical = r.eventType == 'workflow.blocked' ||
-          r.eventType == 'approval.escalated';
-      if (_onlyCriticalReplay && !isCritical) return false;
-      if (replayFilter.isNotEmpty && !detail.contains(replayFilter)) return false;
-      return true;
-    }).toList(growable: false);
+    final replayVisible = replay
+        .where((r) {
+          final detail = '${r.eventType} ${r.detail}'.toLowerCase();
+          final isCritical =
+              r.eventType == 'workflow.blocked' ||
+              r.eventType == 'approval.escalated';
+          if (_onlyCriticalReplay && !isCritical) return false;
+          if (replayFilter.isNotEmpty && !detail.contains(replayFilter))
+            return false;
+          return true;
+        })
+        .toList(growable: false);
     final blockers = hasQuery
         ? store.incidentRcaTopBlockers(transactionType: type, transactionId: id)
         : const [];
     final export = hasQuery
-        ? store.incidentEvidenceExportJson(transactionType: type, transactionId: id)
+        ? store.incidentEvidenceExportJson(
+            transactionType: type,
+            transactionId: id,
+          )
         : '';
     final handoffExport = hasQuery
         ? store.incidentHandoffBundleJson(
@@ -289,16 +299,22 @@ class _SettingsWorkflowInvestigationPageState
                       escalationOwner: _escalationOwnerController.text,
                       investigationAssignee: _assigneeController.text,
                       watcherList: _parseWatchers(_watchersController.text),
-                      transferReason: 'self-assigned from investigation workspace',
+                      transferReason:
+                          'self-assigned from investigation workspace',
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Assigned to current operator')),
+                      const SnackBar(
+                        content: Text('Assigned to current operator'),
+                      ),
                     );
                   },
                   child: const Text('Assign To Me'),
                 ),
                 _inlineInput(_watchersController, 'watchers: user1, user2'),
-                _inlineInput(_transferAssigneeController, 'transfer to assignee'),
+                _inlineInput(
+                  _transferAssigneeController,
+                  'transfer to assignee',
+                ),
                 _inlineInput(_transferReasonController, 'transfer reason'),
                 OutlinedButton(
                   onPressed: () {
@@ -342,12 +358,14 @@ class _SettingsWorkflowInvestigationPageState
                 ),
               ),
               const SizedBox(height: 4),
-              ...assignmentHistory.reversed.take(3).map(
-                (entry) => Text(
-                  entry,
-                  style: const TextStyle(color: AppTheme.textSecondary),
-                ),
-              ),
+              ...assignmentHistory.reversed
+                  .take(3)
+                  .map(
+                    (entry) => Text(
+                      entry,
+                      style: const TextStyle(color: AppTheme.textSecondary),
+                    ),
+                  ),
             ],
             const SizedBox(height: 12),
             const Text(
@@ -423,39 +441,47 @@ class _SettingsWorkflowInvestigationPageState
             ),
             if (snapshots.isNotEmpty) ...[
               const SizedBox(height: 6),
-              ...snapshots.reversed.take(3).map(
-                (s) => Text(
-                  '${dateFmt.format(s.createdAt)} • ${s.label} • '
-                  'filter=${s.replayFilter.isEmpty ? '-' : s.replayFilter} • '
-                  'critical=${s.onlyCritical ? 'yes' : 'no'}',
-                  style: const TextStyle(color: AppTheme.textSecondary),
-                ),
-              ),
+              ...snapshots.reversed
+                  .take(3)
+                  .map(
+                    (s) => Text(
+                      '${dateFmt.format(s.createdAt)} • ${s.label} • '
+                      'filter=${s.replayFilter.isEmpty ? '-' : s.replayFilter} • '
+                      'critical=${s.onlyCritical ? 'yes' : 'no'}',
+                      style: const TextStyle(color: AppTheme.textSecondary),
+                    ),
+                  ),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: snapshots.reversed.take(3).map((s) {
-                  return OutlinedButton(
-                    onPressed: () {
-                      final ok = store.applyInvestigationSnapshot(
-                        transactionType: type,
-                        transactionId: id,
-                        createdAt: s.createdAt,
+                children: snapshots.reversed
+                    .take(3)
+                    .map((s) {
+                      return OutlinedButton(
+                        onPressed: () {
+                          final ok = store.applyInvestigationSnapshot(
+                            transactionType: type,
+                            transactionId: id,
+                            createdAt: s.createdAt,
+                          );
+                          if (!ok) return;
+                          setState(() {
+                            _replayFilterController.text =
+                                store.lastInvestigationReplayFilter;
+                            _onlyCriticalReplay =
+                                store.lastInvestigationOnlyCritical;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Snapshot applied: ${s.label}'),
+                            ),
+                          );
+                        },
+                        child: Text('Apply ${s.label}'),
                       );
-                      if (!ok) return;
-                      setState(() {
-                        _replayFilterController.text =
-                            store.lastInvestigationReplayFilter;
-                        _onlyCriticalReplay = store.lastInvestigationOnlyCritical;
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Snapshot applied: ${s.label}')),
-                      );
-                    },
-                    child: Text('Apply ${s.label}'),
-                  );
-                }).toList(growable: false),
+                    })
+                    .toList(growable: false),
               ),
             ],
             const SizedBox(height: 12),
@@ -489,9 +515,9 @@ class _SettingsWorkflowInvestigationPageState
                       note: _noteController.text,
                     );
                     _noteController.clear();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Note added')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('Note added')));
                     setState(() {});
                   },
                   child: const Text('Add Note'),
@@ -500,12 +526,14 @@ class _SettingsWorkflowInvestigationPageState
             ),
             if (notes.isNotEmpty) ...[
               const SizedBox(height: 6),
-              ...notes.reversed.take(4).map(
-                (n) => Text(
-                  n,
-                  style: const TextStyle(color: AppTheme.textSecondary),
-                ),
-              ),
+              ...notes.reversed
+                  .take(4)
+                  .map(
+                    (n) => Text(
+                      n,
+                      style: const TextStyle(color: AppTheme.textSecondary),
+                    ),
+                  ),
             ],
             const SizedBox(height: 12),
             Row(

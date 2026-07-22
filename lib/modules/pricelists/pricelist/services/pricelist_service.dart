@@ -35,13 +35,14 @@ class PriceListService {
     if (priceList.name.isEmpty) {
       return false;
     }
-    
+
     if (priceList.pricingScheme.isEmpty) {
       return false;
     }
-    
+
     // Additional validation based on pricing scheme
-    if (priceList.pricingScheme == 'markup' || priceList.pricingScheme == 'markdown') {
+    if (priceList.pricingScheme == 'markup' ||
+        priceList.pricingScheme == 'markdown') {
       try {
         final String safeDetails = priceList.details ?? '';
         final value = double.tryParse(safeDetails.replaceAll('%', ''));
@@ -52,7 +53,7 @@ class PriceListService {
         return false;
       }
     }
-    
+
     return true;
   }
 }

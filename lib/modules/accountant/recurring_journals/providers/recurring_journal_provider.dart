@@ -57,7 +57,7 @@ class RecurringJournalNotifier extends StateNotifier<RecurringJournalState> {
   final RecurringJournalRepository repository;
 
   RecurringJournalNotifier(this.repository, {required bool isAuthenticated})
-      : super(RecurringJournalState()) {
+    : super(RecurringJournalState()) {
     _loadCustomViews();
     if (isAuthenticated) fetchJournals();
   }
@@ -187,7 +187,10 @@ final recurringJournalProvider =
     ) {
       final repository = ref.watch(recurringJournalRepositoryProvider);
       final isAuthenticated = ref.watch(isAuthenticatedProvider);
-      return RecurringJournalNotifier(repository, isAuthenticated: isAuthenticated);
+      return RecurringJournalNotifier(
+        repository,
+        isAuthenticated: isAuthenticated,
+      );
     });
 
 final recurringJournalChildJournalsProvider =

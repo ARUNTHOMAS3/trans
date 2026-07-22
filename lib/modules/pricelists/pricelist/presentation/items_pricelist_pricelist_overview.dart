@@ -6,7 +6,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
-import '../../../../core/routing/app_router.dart';
+import '../../../../core/routing/app_routes.dart';
 import '../../../../shared/widgets/inputs/dropdown_input.dart';
 import '../../../../shared/widgets/z_button.dart';
 import '../models/pricelist_model.dart';
@@ -62,9 +62,9 @@ class _PriceListOverviewScreenState
     final names = <String>{
       for (final priceList in priceLists)
         if (priceList.name.trim().isNotEmpty) priceList.name.trim(),
-      if (_defaultRetailPriceList.trim().isNotEmpty) _defaultRetailPriceList.trim(),
-    }.toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      if (_defaultRetailPriceList.trim().isNotEmpty)
+        _defaultRetailPriceList.trim(),
+    }.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     return names;
   }
@@ -188,14 +188,18 @@ class _PriceListOverviewScreenState
               shape: WidgetStatePropertyAll(
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               ),
-              padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 4)),
+              padding: WidgetStatePropertyAll(
+                EdgeInsets.symmetric(vertical: 4),
+              ),
             ),
             menuChildren: menuItems.map((item) {
               return _TitleMenuItem(
                 label: item.$2,
                 onTap: () {
                   _titleMenuController.close();
-                  ref.read(priceListFilterProvider.notifier).setTransactionType(item.$1);
+                  ref
+                      .read(priceListFilterProvider.notifier)
+                      .setTransactionType(item.$1);
                 },
               );
             }).toList(),
@@ -231,7 +235,8 @@ class _PriceListOverviewScreenState
           ),
           const Spacer(),
           TextButton(
-            onPressed: () => _openDefaultRetailPriceListDialog(priceListOptions),
+            onPressed: () =>
+                _openDefaultRetailPriceListDialog(priceListOptions),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: Size.zero,
@@ -257,7 +262,10 @@ class _PriceListOverviewScreenState
               onPressed: () async {
                 final result = await context.push(AppRoutes.priceListsCreate);
                 if (result == true && context.mounted) {
-                  ZerpaiToast.success(context, 'Price list created successfully');
+                  ZerpaiToast.success(
+                    context,
+                    'Price list created successfully',
+                  );
                 }
               },
               icon: const Icon(Icons.add, size: 16, color: Colors.white),
@@ -403,11 +411,16 @@ class _PriceListOverviewScreenState
                         String detailsText = '-';
                         if (priceList.priceListType == 'individual_items') {
                           detailsText = 'Per Item Rate';
-                        } else if (priceList.percentageValue != null && priceList.percentageType != null) {
+                        } else if (priceList.percentageValue != null &&
+                            priceList.percentageType != null) {
                           final pctType = priceList.percentageType!.isEmpty
                               ? ''
-                              : (priceList.percentageType![0].toUpperCase() + priceList.percentageType!.substring(1).toLowerCase());
-                          detailsText = '${priceList.percentageValue!.toStringAsFixed(0)}% $pctType';
+                              : (priceList.percentageType![0].toUpperCase() +
+                                    priceList.percentageType!
+                                        .substring(1)
+                                        .toLowerCase());
+                          detailsText =
+                              '${priceList.percentageValue!.toStringAsFixed(0)}% $pctType';
                         } else {
                           detailsText = priceList.details ?? '-';
                         }
@@ -750,7 +763,10 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .deactivatePriceList(priceList.id);
                 if (context.mounted) {
-                  ZerpaiToast.success(context, 'Price list "${priceList.name}" deactivated');
+                  ZerpaiToast.success(
+                    context,
+                    'Price list "${priceList.name}" deactivated',
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -811,7 +827,10 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .updatePriceList(priceList.copyWith(status: 'active'));
                 if (context.mounted) {
-                  ZerpaiToast.success(context, 'Price list "${priceList.name}" activated');
+                  ZerpaiToast.success(
+                    context,
+                    'Price list "${priceList.name}" activated',
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -885,7 +904,10 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .deletePriceList(priceList.id);
                 if (context.mounted) {
-                  ZerpaiToast.success(context, 'Price list "${priceList.name}" deleted');
+                  ZerpaiToast.success(
+                    context,
+                    'Price list "${priceList.name}" deleted',
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -916,7 +938,8 @@ class _MoreSubmenuButton extends StatelessWidget {
   });
 
   static ButtonStyle _buttonStyle(Set<WidgetState> states) {
-    final active = states.contains(WidgetState.hovered) ||
+    final active =
+        states.contains(WidgetState.hovered) ||
         states.contains(WidgetState.focused);
     return ButtonStyle(
       backgroundColor: WidgetStatePropertyAll(
@@ -1027,11 +1050,7 @@ class _MoreMenuItem extends StatefulWidget {
   final VoidCallback onTap;
   final IconData? icon;
 
-  const _MoreMenuItem({
-    required this.label,
-    required this.onTap,
-    this.icon,
-  });
+  const _MoreMenuItem({required this.label, required this.onTap, this.icon});
 
   @override
   State<_MoreMenuItem> createState() => _MoreMenuItemState();
@@ -1539,7 +1558,10 @@ class _PriceListRowState extends State<_PriceListRow> {
                                 SizedBox(width: 4),
                                 Text(
                                   'Delete',
-                                  style: TextStyle(fontSize: 12, color: AppTheme.errorRed),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.errorRed,
+                                  ),
                                 ),
                               ],
                             ),

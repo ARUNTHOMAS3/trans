@@ -24,15 +24,22 @@ import '../models/branch_pricelist_model.dart';
 import '../providers/branch_pricelist_provider.dart';
 import 'widgets/volume_pricing_help_popover.dart';
 
-final _branchesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final _branchesProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
   final user = ref.watch(authUserProvider);
   final orgId = user?.orgId ?? '';
   if (orgId.isEmpty) return [];
   final api = ref.watch(apiClientProvider);
   try {
-    final response = await api.get('/branches', queryParameters: {'org_id': orgId});
+    final response = await api.get(
+      '/branches',
+      queryParameters: {'org_id': orgId},
+    );
     if (response.statusCode == 200 && response.data != null) {
-      final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
+      final List<dynamic> data = response.data is List
+          ? response.data
+          : (response.data['data'] ?? []);
       return data.map((json) => Map<String, dynamic>.from(json)).toList();
     }
   } catch (e) {
@@ -178,7 +185,8 @@ class _BranchPriceListCreateScreenState
 
       if (p.percentageType != null && p.percentageType!.isNotEmpty) {
         final type = p.percentageType!;
-        _percentageType = type[0].toUpperCase() + type.substring(1).toLowerCase();
+        _percentageType =
+            type[0].toUpperCase() + type.substring(1).toLowerCase();
       } else {
         final details = p.details ?? '';
         if (details.contains('Markdown') || details.contains('markdown')) {
@@ -195,23 +203,23 @@ class _BranchPriceListCreateScreenState
           _volumeRangeCounts[itemId] = ranges.length;
           for (var i = 0; i < ranges.length; i++) {
             final v = ranges[i];
-            _volumeStartControllerFor(itemId, i).text =
-                v.startQuantity.toString();
+            _volumeStartControllerFor(itemId, i).text = v.startQuantity
+                .toString();
             _volumeEndControllerFor(itemId, i).text =
                 v.endQuantity?.toString() ?? '';
-            _volumeRateControllerFor(itemId, i).text =
-                v.customRate.toString();
+            _volumeRateControllerFor(itemId, i).text = v.customRate.toString();
             if (_isDiscountEnabled && v.discountPercentage != null) {
-              _discountControllerFor(_volumeDiscountKey(itemId, i)).text =
-                  v.discountPercentage!.toString();
+              _discountControllerFor(_volumeDiscountKey(itemId, i)).text = v
+                  .discountPercentage!
+                  .toString();
             }
           }
         } else {
           _customRateControllerFor(itemId).text =
               rate.customRate?.toString() ?? '';
           if (_isDiscountEnabled && rate.discountPercentage != null) {
-            _discountControllerFor(itemId).text =
-                rate.discountPercentage!.toString();
+            _discountControllerFor(itemId).text = rate.discountPercentage!
+                .toString();
           }
         }
       }
@@ -248,9 +256,12 @@ class _BranchPriceListCreateScreenState
     final isRestrictedBranchAdmin =
         user?.role.trim().toLowerCase() == 'branch_admin' &&
         user?.roleIsDefault == true;
-    
-    final isEdit = widget.branchPriceList != null || widget.branchPriceListId != null;
-    final pageTitle = isEdit ? 'Edit Branch Price List' : 'New Branch Price List';
+
+    final isEdit =
+        widget.branchPriceList != null || widget.branchPriceListId != null;
+    final pageTitle = isEdit
+        ? 'Edit Branch Price List'
+        : 'New Branch Price List';
 
     if (isRestrictedBranchAdmin) {
       return ColoredBox(
@@ -385,7 +396,8 @@ class _BranchPriceListCreateScreenState
   }
 
   Widget _buildTransactionTypeRow() {
-    final isEdit = widget.branchPriceList != null || widget.branchPriceListId != null;
+    final isEdit =
+        widget.branchPriceList != null || widget.branchPriceListId != null;
     return _FormRow(
       label: 'Transaction Type',
       child: IgnorePointer(
@@ -551,7 +563,7 @@ class _BranchPriceListCreateScreenState
       final type = entry.key;
       final children = entry.value;
       final headerKey = '__header_$type';
-      
+
       dropdownItems.add(headerKey);
       dropdownItems.addAll(children);
       groupChildren[headerKey] = children;
@@ -580,7 +592,7 @@ class _BranchPriceListCreateScreenState
           selectedValues: _associatedBranches,
           onSelectedValuesChanged: (values) {
             final nextBranches = List<String>.from(_associatedBranches);
-            
+
             // Check if any header was clicked/selected
             String? clickedHeader;
             for (final header in groupChildren.keys) {
@@ -592,8 +604,10 @@ class _BranchPriceListCreateScreenState
 
             if (clickedHeader != null) {
               final children = groupChildren[clickedHeader] ?? [];
-              final allSelected = children.every((child) => nextBranches.contains(child));
-              
+              final allSelected = children.every(
+                (child) => nextBranches.contains(child),
+              );
+
               setState(() {
                 if (allSelected) {
                   nextBranches.removeWhere((item) => children.contains(item));
@@ -631,8 +645,10 @@ class _BranchPriceListCreateScreenState
           onChanged: (_) {},
           itemBuilder: (item, isSelected, isHovered) {
             final itemIsHeader = isHeader(item);
-            
-            Color textColor = itemIsHeader ? AppTheme.textPrimary : AppTheme.textSecondary;
+
+            Color textColor = itemIsHeader
+                ? AppTheme.textPrimary
+                : AppTheme.textSecondary;
             if (isHovered) {
               textColor = Colors.white;
             } else if (isSelected) {
@@ -642,10 +658,7 @@ class _BranchPriceListCreateScreenState
             return Container(
               height: 34,
               alignment: Alignment.centerLeft,
-              padding: EdgeInsets.only(
-                left: itemIsHeader ? 12 : 24,
-                right: 12,
-              ),
+              padding: EdgeInsets.only(left: itemIsHeader ? 12 : 24, right: 12),
               child: Text(
                 getDisplayLabel(item),
                 style: TextStyle(
@@ -669,10 +682,7 @@ class _BranchPriceListCreateScreenState
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppTheme.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
         const SizedBox(width: 6),
         const Icon(Icons.calendar_today, size: 14),
@@ -681,7 +691,8 @@ class _BranchPriceListCreateScreenState
   }
 
   Widget _buildpriceListTypeRow() {
-    final isEdit = widget.branchPriceList != null || widget.branchPriceListId != null;
+    final isEdit =
+        widget.branchPriceList != null || widget.branchPriceListId != null;
     return _FormRow(
       label: 'Price List Type',
       child: IgnorePointer(
@@ -705,7 +716,8 @@ class _BranchPriceListCreateScreenState
                 selected: _priceListType == 'individual_items',
                 title: 'Individual Items',
                 subtitle: 'Customize the rate of each item',
-                onTap: () => setState(() => _priceListType = 'individual_items'),
+                onTap: () =>
+                    setState(() => _priceListType = 'individual_items'),
               ),
             ],
           ),
@@ -752,7 +764,9 @@ class _BranchPriceListCreateScreenState
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border.all(
-                  color: hasError ? AppTheme.errorRedDark : AppTheme.borderColorDark,
+                  color: hasError
+                      ? AppTheme.errorRedDark
+                      : AppTheme.borderColorDark,
                 ),
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -820,7 +834,10 @@ class _BranchPriceListCreateScreenState
                     color: AppTheme.inputFill,
                     child: const Text(
                       '%',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -1267,13 +1284,13 @@ class _BranchPriceListCreateScreenState
                                       children: [
                                         Expanded(
                                           child: CustomTextField(
-                                            controller: ranges
-                                                .first.discountController,
+                                            controller:
+                                                ranges.first.discountController,
                                             height: 34,
-                                            keyboardType: const TextInputType
-                                                .numberWithOptions(
-                                              decimal: true,
-                                            ),
+                                            keyboardType:
+                                                const TextInputType.numberWithOptions(
+                                                  decimal: true,
+                                                ),
                                             inputFormatters: [
                                               FilteringTextInputFormatter.allow(
                                                 RegExp(r'[0-9.]'),
@@ -1283,8 +1300,8 @@ class _BranchPriceListCreateScreenState
                                             textAlign: TextAlign.right,
                                             borderRadius:
                                                 const BorderRadius.horizontal(
-                                              left: Radius.circular(4),
-                                            ),
+                                                  left: Radius.circular(4),
+                                                ),
                                           ),
                                         ),
                                         Container(
@@ -1298,8 +1315,8 @@ class _BranchPriceListCreateScreenState
                                             ),
                                             borderRadius:
                                                 const BorderRadius.horizontal(
-                                              right: Radius.circular(4),
-                                            ),
+                                                  right: Radius.circular(4),
+                                                ),
                                           ),
                                           child: const Text(
                                             '%',
@@ -1317,7 +1334,11 @@ class _BranchPriceListCreateScreenState
                             ],
                             if (_pricingScheme == 'volume_pricing') ...[
                               const SizedBox(height: 16),
-                              for (var index = 0; index < ranges.length; index++)
+                              for (
+                                var index = 0;
+                                index < ranges.length;
+                                index++
+                              )
                                 Padding(
                                   padding: EdgeInsets.only(
                                     top: index == 0 ? 0 : 12,
@@ -1332,8 +1353,8 @@ class _BranchPriceListCreateScreenState
                                     },
                                     onRemove: ranges.length > 1
                                         ? () => setDialogState(
-                                              () => ranges.removeAt(index),
-                                            )
+                                            () => ranges.removeAt(index),
+                                          )
                                         : null,
                                   ),
                                 ),
@@ -1582,11 +1603,7 @@ class _BranchPriceListCreateScreenState
               borderRadius: BorderRadius.circular(4),
               child: const Padding(
                 padding: EdgeInsets.all(4),
-                child: Icon(
-                  Icons.close,
-                  size: 16,
-                  color: AppTheme.errorRed,
-                ),
+                child: Icon(Icons.close, size: 16, color: AppTheme.errorRed),
               ),
             ),
           ),
@@ -1744,7 +1761,7 @@ class _BranchPriceListCreateScreenState
     return SizedBox(
       height: headerHeight,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_isBulkUpdateMode) _buildBulkSelectionHeader(visibleItems),
           Expanded(flex: 5, child: _buildItemDetailsHeader()),
@@ -2006,7 +2023,7 @@ class _BranchPriceListCreateScreenState
         ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_isBulkUpdateMode) _buildBulkSelectionCell(item, index),
           Expanded(flex: 5, child: _buildItemNameCell(item)),
@@ -2051,54 +2068,44 @@ class _BranchPriceListCreateScreenState
               : const BorderSide(color: AppTheme.borderLight),
         ),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_isBulkUpdateMode)
-              _buildBulkSelectionCell(item, index, alignTop: true),
-            Expanded(flex: 5, child: _buildItemNameCell(item, alignTop: true)),
-            _buildTableDivider(),
-            Expanded(
-              flex: 2,
-              child: _buildBaseRateCell(baseRate, alignTop: true),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_isBulkUpdateMode)
+            _buildBulkSelectionCell(item, index, alignTop: true),
+          Expanded(flex: 5, child: _buildItemNameCell(item, alignTop: true)),
+          _buildTableDivider(),
+          Expanded(
+            flex: 2,
+            child: _buildBaseRateCell(baseRate, alignTop: true),
+          ),
+          _buildTableDivider(),
+          Expanded(
+            flex: rangeColumnsFlex,
+            child: Column(
+              children: [
+                for (var rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++)
+                  _buildVolumeRangeLine(itemId, rangeIndex),
+                _buildAddRangeLine(itemId),
+              ],
             ),
-            _buildTableDivider(),
-            Expanded(
-              flex: rangeColumnsFlex,
-              child: Column(
-                children: [
-                  for (
-                    var rangeIndex = 0;
-                    rangeIndex < rangeCount;
-                    rangeIndex++
-                  )
-                    _buildVolumeRangeLine(itemId, rangeIndex),
-                  _buildAddRangeLine(itemId),
-                ],
-              ),
+          ),
+          _buildTableDivider(),
+          SizedBox(
+            width: _bulkRatesRemoveWidth,
+            child: Column(
+              children: [
+                for (var rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++)
+                  _buildVolumeRangeCloseLine(
+                    itemId,
+                    rangeIndex,
+                    showClose: rangeIndex > 0,
+                  ),
+                const SizedBox(height: _bulkRatesAddRangeHeight),
+              ],
             ),
-            _buildTableDivider(),
-            SizedBox(
-              width: _bulkRatesRemoveWidth,
-              child: Column(
-                children: [
-                  for (
-                    var rangeIndex = 0;
-                    rangeIndex < rangeCount;
-                    rangeIndex++
-                  )
-                    _buildVolumeRangeCloseLine(
-                      itemId,
-                      rangeIndex,
-                      showClose: rangeIndex > 0,
-                    ),
-                  const SizedBox(height: _bulkRatesAddRangeHeight),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2166,7 +2173,7 @@ class _BranchPriceListCreateScreenState
         border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             flex: 2,
@@ -2609,13 +2616,14 @@ class _BranchPriceListCreateScreenState
                 ? 'Fixed Rates'
                 : 'Tiered Pricing');
       final itemRates = _priceListType == 'individual_items'
-          ? _buildItemRates(
-              ref.read(itemsControllerProvider).items,
-            )
+          ? _buildItemRates(ref.read(itemsControllerProvider).items)
           : null;
 
-      final isEdit = widget.branchPriceList != null || widget.branchPriceListId != null;
-      final existingId = isEdit ? (widget.branchPriceList?.id ?? widget.branchPriceListId ?? '') : '';
+      final isEdit =
+          widget.branchPriceList != null || widget.branchPriceListId != null;
+      final existingId = isEdit
+          ? (widget.branchPriceList?.id ?? widget.branchPriceListId ?? '')
+          : '';
 
       final branchPriceList = BranchPriceList(
         id: existingId,
@@ -2637,7 +2645,9 @@ class _BranchPriceListCreateScreenState
         startDate: _isSeasonalEnabled ? _startDate : null,
         endDate: _isSeasonalEnabled ? _endDate : null,
         itemRates: itemRates,
-        associatedBranches: actualBranches.isEmpty ? null : List<String>.from(actualBranches),
+        associatedBranches: actualBranches.isEmpty
+            ? null
+            : List<String>.from(actualBranches),
         createdAt: isEdit ? (widget.branchPriceList?.createdAt ?? now) : now,
         updatedAt: now,
       );
@@ -2897,7 +2907,10 @@ class _BranchPriceListCreateScreenState
             '';
         final discountPercentage = _parseDecimalInput(discountText);
         final hasInput =
-            startText.isNotEmpty || endText.isNotEmpty || rateText.isNotEmpty || discountText.isNotEmpty;
+            startText.isNotEmpty ||
+            endText.isNotEmpty ||
+            rateText.isNotEmpty ||
+            discountText.isNotEmpty;
         if (!hasInput) continue;
 
         ranges.add(
@@ -3338,11 +3351,3 @@ class _BulkUpdateRangeInput {
     discountController.dispose();
   }
 }
-
-
-
-
-
-
-
-

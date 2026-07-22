@@ -20,11 +20,18 @@ import { GstModule } from "./modules/gst/gst.module";
 import { TransactionSeriesModule } from "./modules/transaction-series/transaction-series.module";
 import { UsersModule } from "./modules/users/users.module";
 import { SettingsZonesModule } from "./modules/settings-zones/settings-zones.module";
+import { SettingsTaxesModule } from "./modules/settings-taxes/settings-taxes.module";
+import { SettingsSetupModule } from "./modules/settings-setup/settings-setup.module";
+import { SettingsCustomizationModule } from "./modules/settings-customization/settings-customization.module";
 import { RedisModule } from "./modules/redis/redis.module";
 import { ResendModule } from "./modules/email/resend.module";
 import { AuthModule } from "./common/auth/auth.module";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { TenantMiddleware } from "./common/middleware/tenant.middleware";
+import { CorrelationMiddleware } from "./common/observability/correlation.middleware";
+import { ObservabilityController } from "./common/observability/observability.controller";
+import { ObservabilityInterceptor } from "./common/observability/observability.interceptor";
+import { ObservabilityService } from "./common/observability/observability.service";
 
 @Module({
   imports: [
@@ -50,14 +57,23 @@ import { TenantMiddleware } from "./common/middleware/tenant.middleware";
     TransactionSeriesModule,
     UsersModule,
     SettingsZonesModule,
+    SettingsTaxesModule,
+    SettingsSetupModule,
+    SettingsCustomizationModule,
     RedisModule,
     ResendModule,
   ],
-  controllers: [],
-  providers: [AuditInterceptor],
+  controllers: [ObservabilityController],
+  providers: [
+    AuditInterceptor,
+    ObservabilityService,
+    ObservabilityInterceptor,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes("*");
+    consumer
+      .apply(CorrelationMiddleware, TenantMiddleware)
+      .forRoutes("*");
   }
 }

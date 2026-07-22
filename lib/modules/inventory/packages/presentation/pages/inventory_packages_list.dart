@@ -40,7 +40,9 @@ final pendingDispatchedPicklistsProvider = StateProvider<List<Picklist>>(
   (ref) => [],
 );
 
-final packageSortProvider = StateProvider<({String field, bool isAscending})>((ref) {
+final packageSortProvider = StateProvider<({String field, bool isAscending})>((
+  ref,
+) {
   return (field: 'Created Time', isAscending: false);
 });
 
@@ -169,7 +171,10 @@ class _InventoryPackagesListScreenState
       if (jsonStr != null) {
         final List<dynamic> decoded = jsonDecode(jsonStr);
         final Map<String, ColumnConfig> loadedMap = {
-          for (var c in decoded.map((e) => ColumnConfig.fromJson(Map<String, dynamic>.from(e)))) c.id: c
+          for (var c in decoded.map(
+            (e) => ColumnConfig.fromJson(Map<String, dynamic>.from(e)),
+          ))
+            c.id: c,
         };
 
         setState(() {
@@ -226,150 +231,163 @@ class _InventoryPackagesListScreenState
       horizontalPaddingValue: 0,
       useTopPadding: !isDetailOpen,
       titlePadding: const EdgeInsets.only(left: 20, right: 20),
-      actions: isDetailOpen ? null : [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(width: 12),
-            SizedBox(
-              height: 38,
-              child: ElevatedButton(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const DispatchEntrypassDialog(),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryBlue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Text(
-                      'Create Dispatch Entrypass',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Icon(LucideIcons.fileText, size: 14),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: AppTheme.borderLight),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
+      actions: isDetailOpen
+          ? null
+          : [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ZTooltip(
-                    message: 'List View',
-                    direction: ZTooltipDirection.bottom,
-                    child: InkWell(
-                      onTap: () => setState(() => _isListView = true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    height: 38,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const DispatchEntrypassDialog(),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        color: _isListView ? const Color(0xFFF3F4F6) : Colors.transparent,
-                        child: Icon(
-                          LucideIcons.list,
-                          size: 14,
-                          color: _isListView ? _textPrimary : _textSecondary,
-                        ),
+                        elevation: 0,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Text(
+                            'Create Dispatch Entrypass',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(LucideIcons.fileText, size: 14),
+                        ],
                       ),
                     ),
                   ),
-                  Container(width: 1, color: AppTheme.borderLight),
-                  ZTooltip(
-                    message: 'Kanban View',
-                    direction: ZTooltipDirection.bottom,
-                    child: InkWell(
-                      onTap: () => setState(() => _isListView = false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                  const SizedBox(width: 12),
+                  Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: AppTheme.borderLight),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        ZTooltip(
+                          message: 'List View',
+                          direction: ZTooltipDirection.bottom,
+                          child: InkWell(
+                            onTap: () => setState(() => _isListView = true),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              color: _isListView
+                                  ? const Color(0xFFF3F4F6)
+                                  : Colors.transparent,
+                              child: Icon(
+                                LucideIcons.list,
+                                size: 14,
+                                color: _isListView
+                                    ? _textPrimary
+                                    : _textSecondary,
+                              ),
+                            ),
+                          ),
                         ),
-                        color: !_isListView ? const Color(0xFFF3F4F6) : Colors.transparent,
-                        child: Icon(
-                          LucideIcons.layoutGrid,
-                          size: 14,
-                          color: !_isListView ? _textPrimary : _textSecondary,
+                        Container(width: 1, color: AppTheme.borderLight),
+                        ZTooltip(
+                          message: 'Kanban View',
+                          direction: ZTooltipDirection.bottom,
+                          child: InkWell(
+                            onTap: () => setState(() => _isListView = false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              color: !_isListView
+                                  ? const Color(0xFFF3F4F6)
+                                  : Colors.transparent,
+                              child: Icon(
+                                LucideIcons.layoutGrid,
+                                size: 14,
+                                color: !_isListView
+                                    ? _textPrimary
+                                    : _textSecondary,
+                              ),
+                            ),
+                          ),
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    height: 38,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final orgId =
+                            GoRouterState.of(
+                              context,
+                            ).pathParameters['orgSystemId'] ??
+                            '';
+                        context.go('/$orgId/inventory/packages/create');
+                      },
+                      icon: const Icon(LucideIcons.plus, size: 14),
+                      label: const Text(
+                        'New',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(
+                          0xFF28A745,
+                        ), // Success green (#28A745)
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        elevation: 0,
                       ),
                     ),
                   ),
+                  if (_isListView) ...[
+                    const SizedBox(width: 8),
+                    _buildMoreMenu(),
+                  ],
+                  const SizedBox(width: 20),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              height: 38,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
-                  context.go('/$orgId/inventory/packages/create');
-                },
-                icon: const Icon(LucideIcons.plus, size: 14),
-                label: const Text(
-                  'New',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF28A745), // Success green (#28A745)
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-            if (_isListView) ...[
-              const SizedBox(width: 8),
-              _buildMoreMenu(),
             ],
-            const SizedBox(width: 20),
-          ],
-        ),
-      ],
       child: ref.watch(inventoryPackagesProvider).isLoading
           ? const Padding(
               padding: EdgeInsets.all(24),
               child: TableSkeleton(rows: 10, columns: 7),
             )
           : isDetailOpen
-              ? _buildSplitView()
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                if (!_isListView) const Divider(height: 1, thickness: 1, color: _borderCol),
+          ? _buildSplitView()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!_isListView)
+                  const Divider(height: 1, thickness: 1, color: _borderCol),
                 Expanded(
                   child: _isListView
                       ? _buildVirtualizedTable()
@@ -377,7 +395,8 @@ class _InventoryPackagesListScreenState
                           padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
-                              final bool useFixedDesktopColumns = constraints.maxWidth >= 1220;
+                              final bool useFixedDesktopColumns =
+                                  constraints.maxWidth >= 1220;
 
                               if (useFixedDesktopColumns) {
                                 return Row(
@@ -417,9 +436,12 @@ class _InventoryPackagesListScreenState
                               return SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: ConstrainedBox(
-                                  constraints: const BoxConstraints(minWidth: 980),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 980,
+                                  ),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       SizedBox(
                                         width: 305,
@@ -485,7 +507,9 @@ class _InventoryPackagesListScreenState
           child: _PackageDetailPanel(
             id: widget.id!,
             onClose: () {
-              final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+              final orgId = GoRouterState.of(
+                context,
+              ).pathParameters['orgSystemId']!;
               context.go('/$orgId/inventory/packages');
             },
           ),
@@ -505,13 +529,17 @@ class _InventoryPackagesListScreenState
           const Spacer(),
           IconButton(
             onPressed: () {
-              final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+              final orgId = GoRouterState.of(
+                context,
+              ).pathParameters['orgSystemId']!;
               context.go('/$orgId/inventory/packages/create');
             },
             icon: const Icon(LucideIcons.plus, size: 16, color: Colors.white),
             style: IconButton.styleFrom(
               backgroundColor: _greenBtn,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
               minimumSize: const Size(28, 28),
               fixedSize: const Size(28, 28),
               padding: EdgeInsets.zero,
@@ -531,7 +559,8 @@ class _InventoryPackagesListScreenState
       iconSize: 14,
       menuChildren: [
         MenuItemButton(
-          onPressed: () => ref.read(inventoryPackagesProvider.notifier).fetchPackages(),
+          onPressed: () =>
+              ref.read(inventoryPackagesProvider.notifier).fetchPackages(),
           style: ZTableMoreMenu.menuItemButtonStyle(),
           child: const Text('Refresh List'),
         ),
@@ -549,7 +578,9 @@ class _InventoryPackagesListScreenState
 
         return InkWell(
           onTap: () {
-            final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+            final orgId = GoRouterState.of(
+              context,
+            ).pathParameters['orgSystemId']!;
             context.go('/$orgId/inventory/packages/${pkg.id}');
           },
           child: Container(
@@ -560,7 +591,10 @@ class _InventoryPackagesListScreenState
             ),
             child: Row(
               children: [
-                _buildCheckboxWidget(isSelected, onTap: () => _toggleSelection(pkg.id!)),
+                _buildCheckboxWidget(
+                  isSelected,
+                  onTap: () => _toggleSelection(pkg.id!),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -571,11 +605,17 @@ class _InventoryPackagesListScreenState
                         children: [
                           Text(
                             pkg.customerName ?? 'No Customer',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           Text(
                             pkg.totalQty.toString(),
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
@@ -585,11 +625,21 @@ class _InventoryPackagesListScreenState
                         children: [
                           Text(
                             pkg.packageNumber,
-                            style: const TextStyle(fontSize: 12, color: AppTheme.primaryBlue),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.primaryBlue,
+                            ),
                           ),
                           Text(
-                            pkg.packageDate != null ? DateFormat('dd-MM-yyyy').format(pkg.packageDate!) : '',
-                            style: const TextStyle(fontSize: 11, color: _textSecondary),
+                            pkg.packageDate != null
+                                ? DateFormat(
+                                    'dd-MM-yyyy',
+                                  ).format(pkg.packageDate!)
+                                : '',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: _textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -599,7 +649,9 @@ class _InventoryPackagesListScreenState
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: pkg.status == 'Not Shipped' ? AppTheme.errorRed : _greenBtn,
+                          color: pkg.status == 'Not Shipped'
+                              ? AppTheme.errorRed
+                              : _greenBtn,
                         ),
                       ),
                     ],
@@ -645,6 +697,7 @@ class _InventoryPackagesListScreenState
       menuChildren: [_buildMoreMenuOptions()],
     );
   }
+
   Widget _buildMoreMenuOptions() {
     final sort = ref.watch(packageSortProvider);
     return Column(
@@ -656,16 +709,37 @@ class _InventoryPackagesListScreenState
           style: ZTableMoreMenu.menuItemButtonStyle(),
           leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
           menuChildren: [
-            _buildSortMenuItem('Package Date', isActive: sort.field == 'Package Date'),
+            _buildSortMenuItem(
+              'Package Date',
+              isActive: sort.field == 'Package Date',
+            ),
             _buildSortMenuItem('Package#', isActive: sort.field == 'Package#'),
             _buildSortMenuItem('Carrier', isActive: sort.field == 'Carrier'),
-            _buildSortMenuItem('Tracking#', isActive: sort.field == 'Tracking#'),
-            _buildSortMenuItem('Sales Order#', isActive: sort.field == 'Sales Order#'),
-            _buildSortMenuItem('Shipment Date', isActive: sort.field == 'Shipment Date'),
-            _buildSortMenuItem('Customer Name', isActive: sort.field == 'Customer Name'),
+            _buildSortMenuItem(
+              'Tracking#',
+              isActive: sort.field == 'Tracking#',
+            ),
+            _buildSortMenuItem(
+              'Sales Order#',
+              isActive: sort.field == 'Sales Order#',
+            ),
+            _buildSortMenuItem(
+              'Shipment Date',
+              isActive: sort.field == 'Shipment Date',
+            ),
+            _buildSortMenuItem(
+              'Customer Name',
+              isActive: sort.field == 'Customer Name',
+            ),
             _buildSortMenuItem('Quantity', isActive: sort.field == 'Quantity'),
-            _buildSortMenuItem('Created Time', isActive: sort.field == 'Created Time'),
-            _buildSortMenuItem('Last Modified Time', isActive: sort.field == 'Last Modified Time'),
+            _buildSortMenuItem(
+              'Created Time',
+              isActive: sort.field == 'Created Time',
+            ),
+            _buildSortMenuItem(
+              'Last Modified Time',
+              isActive: sort.field == 'Last Modified Time',
+            ),
           ],
           child: const Text('Sort by'),
         ),
@@ -695,7 +769,8 @@ class _InventoryPackagesListScreenState
         ),
         const Divider(height: 1, color: AppTheme.bgDisabled),
         MenuItemButton(
-          onPressed: () => ref.read(inventoryPackagesProvider.notifier).fetchPackages(),
+          onPressed: () =>
+              ref.read(inventoryPackagesProvider.notifier).fetchPackages(),
           style: ZTableMoreMenu.menuItemButtonStyle(),
           leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
           child: const Text('Refresh List'),
@@ -710,11 +785,15 @@ class _InventoryPackagesListScreenState
       onPressed: () {
         final currentSort = ref.read(packageSortProvider);
         if (currentSort.field == label) {
-          ref.read(packageSortProvider.notifier).state =
-              (field: label, isAscending: !currentSort.isAscending);
+          ref.read(packageSortProvider.notifier).state = (
+            field: label,
+            isAscending: !currentSort.isAscending,
+          );
         } else {
-          ref.read(packageSortProvider.notifier).state =
-              (field: label, isAscending: false);
+          ref.read(packageSortProvider.notifier).state = (
+            field: label,
+            isAscending: false,
+          );
         }
       },
       style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive),
@@ -739,7 +818,7 @@ class _InventoryPackagesListScreenState
     );
   }
 
-// Removed local _menuItemButtonStyle as it's now replaced by ZTableMoreMenu.menuItemButtonStyle.
+  // Removed local _menuItemButtonStyle as it's now replaced by ZTableMoreMenu.menuItemButtonStyle.
 
   Widget _buildVirtualizedTable() {
     final allPackages = ref.watch(inventoryPackagesProvider).packages;
@@ -750,7 +829,12 @@ class _InventoryPackagesListScreenState
     _sortPackages(packages, ref.watch(packageSortProvider));
 
     if (packages.isEmpty) {
-      return const Center(child: Text('No Records Found', style: TextStyle(color: _textSecondary)));
+      return const Center(
+        child: Text(
+          'No Records Found',
+          style: TextStyle(color: _textSecondary),
+        ),
+      );
     }
 
     return LayoutBuilder(
@@ -759,11 +843,15 @@ class _InventoryPackagesListScreenState
             _customColumnWidths ?? _calculateColumnWidths(constraints.maxWidth);
         // Actual prefix: SizedBox(8) + HeaderMenuButton(28) + SizedBox(12) + checkbox(18) + SizedBox(12) = 78
         const double actualPrefixWidth = 78.0;
-        final double totalColumnsWidth =
-            columnWidths.values.fold(0.0, (sum, w) => sum + w);
+        final double totalColumnsWidth = columnWidths.values.fold(
+          0.0,
+          (sum, w) => sum + w,
+        );
         // screenWidth = always enough to hold all columns + prefix + safety margin
-        final screenWidth =
-            math.max(constraints.maxWidth, totalColumnsWidth + actualPrefixWidth + 40);
+        final screenWidth = math.max(
+          constraints.maxWidth,
+          totalColumnsWidth + actualPrefixWidth + 40,
+        );
 
         return Scrollbar(
           controller: _horizontalScrollController,
@@ -867,23 +955,34 @@ class _InventoryPackagesListScreenState
             const SizedBox(width: 8),
             const SizedBox(width: 28),
             const SizedBox(width: 12),
-            _buildCheckboxWidget(isSelected, onTap: () => _toggleSelection(pkg.id ?? '')),
+            _buildCheckboxWidget(
+              isSelected,
+              onTap: () => _toggleSelection(pkg.id ?? ''),
+            ),
             const SizedBox(width: 12),
-            ..._visibleColumns.map((colId) => _buildCell(pkg, colId, width: columnWidths[colId]!)),
+            ..._visibleColumns.map(
+              (colId) => _buildCell(pkg, colId, width: columnWidths[colId]!),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCell(InventoryPackage pkg, String colId, {required double width}) {
+  Widget _buildCell(
+    InventoryPackage pkg,
+    String colId, {
+    required double width,
+  }) {
     String text = '';
     Color? textColor;
     bool isBold = false;
 
     switch (colId) {
       case 'package_date':
-        text = pkg.packageDate != null ? DateFormat('dd-MM-yyyy').format(pkg.packageDate!) : '-';
+        text = pkg.packageDate != null
+            ? DateFormat('dd-MM-yyyy').format(pkg.packageDate!)
+            : '-';
         break;
       case 'package#':
         text = pkg.packageNumber;
@@ -918,7 +1017,9 @@ class _InventoryPackagesListScreenState
         isBold = true;
         break;
       case 'shipment_date':
-        text = pkg.shipmentDate != null ? DateFormat('dd-MM-yyyy').format(pkg.shipmentDate!) : '-';
+        text = pkg.shipmentDate != null
+            ? DateFormat('dd-MM-yyyy').format(pkg.shipmentDate!)
+            : '-';
         break;
       case 'customer_name':
         text = pkg.customerName ?? '';
@@ -949,20 +1050,40 @@ class _InventoryPackagesListScreenState
   }
 
   Widget _buildSelectAllCheckbox(List<InventoryPackage> packages) {
-    final isAllSelected = packages.isNotEmpty && _selectedPackageIds.length == packages.length;
-    final isPartially = _selectedPackageIds.isNotEmpty && _selectedPackageIds.length < packages.length;
-    return _buildCheckboxWidget(isAllSelected, isPartially: isPartially, onTap: () => _toggleAll(packages));
+    final isAllSelected =
+        packages.isNotEmpty && _selectedPackageIds.length == packages.length;
+    final isPartially =
+        _selectedPackageIds.isNotEmpty &&
+        _selectedPackageIds.length < packages.length;
+    return _buildCheckboxWidget(
+      isAllSelected,
+      isPartially: isPartially,
+      onTap: () => _toggleAll(packages),
+    );
   }
 
-  Widget _buildCheckboxWidget(bool isSelected, {bool isPartially = false, VoidCallback? onTap}) {
+  Widget _buildCheckboxWidget(
+    bool isSelected, {
+    bool isPartially = false,
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       child: isSelected || isPartially
           ? Container(
               width: 18,
               height: 18,
-              decoration: BoxDecoration(color: AppTheme.primaryBlue, borderRadius: BorderRadius.circular(3)),
-              child: Center(child: Icon(isPartially ? LucideIcons.minus : LucideIcons.check, size: 14, color: Colors.white)),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Center(
+                child: Icon(
+                  isPartially ? LucideIcons.minus : LucideIcons.check,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
             )
           : Container(
               width: 18,
@@ -980,7 +1101,9 @@ class _InventoryPackagesListScreenState
     setState(() {
       if (_customColumnWidths == null) {
         // Initialize with current constraints to avoid jump
-        _customColumnWidths = _calculateColumnWidths(context.size?.width ?? 1200);
+        _customColumnWidths = _calculateColumnWidths(
+          context.size?.width ?? 1200,
+        );
       }
       final current = _customColumnWidths![key] ?? 120.0;
       _customColumnWidths![key] = (current + dx).clamp(50.0, 2000.0);
@@ -1026,7 +1149,8 @@ class _PackageDetailPanel extends ConsumerStatefulWidget {
   const _PackageDetailPanel({required this.id, required this.onClose});
 
   @override
-  ConsumerState<_PackageDetailPanel> createState() => _PackageDetailPanelState();
+  ConsumerState<_PackageDetailPanel> createState() =>
+      _PackageDetailPanelState();
 }
 
 class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
@@ -1066,12 +1190,20 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(LucideIcons.messageSquare, size: 20, color: _textSecondary),
+                        icon: const Icon(
+                          LucideIcons.messageSquare,
+                          size: 20,
+                          color: _textSecondary,
+                        ),
                         onPressed: () {},
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        icon: const Icon(LucideIcons.x, size: 20, color: _textSecondary),
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 20,
+                          color: _textSecondary,
+                        ),
                         onPressed: widget.onClose,
                       ),
                     ],
@@ -1093,14 +1225,12 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                     LucideIcons.edit,
                     'Edit',
                     onPressed: () {
-                      final orgId = GoRouterState.of(context)
-                          .pathParameters['orgSystemId']!;
+                      final orgId = GoRouterState.of(
+                        context,
+                      ).pathParameters['orgSystemId']!;
                       context.pushNamed(
                         AppRoutes.packagesEdit,
-                        pathParameters: {
-                          'orgSystemId': orgId,
-                          'id': pkg.id!,
-                        },
+                        pathParameters: {'orgSystemId': orgId, 'id': pkg.id!},
                       );
                     },
                   ),
@@ -1124,7 +1254,9 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                   const SizedBox(height: 16),
                   _buildDetailTabs(pkg),
                   Expanded(
-                    child: _showPdfView ? _PackagePdfView(package: pkg) : _buildStandardView(pkg),
+                    child: _showPdfView
+                        ? _PackagePdfView(package: pkg)
+                        : _buildStandardView(pkg),
                   ),
                 ],
               ),
@@ -1159,7 +1291,9 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
               decoration: BoxDecoration(
                 color: isHovered ? Colors.white : Colors.transparent,
                 border: Border.all(
-                  color: isHovered ? const Color(0xFFD3D9E3) : Colors.transparent,
+                  color: isHovered
+                      ? const Color(0xFFD3D9E3)
+                      : Colors.transparent,
                   width: 1,
                 ),
                 borderRadius: BorderRadius.circular(4),
@@ -1179,7 +1313,11 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                   ),
                   if (hasDropdownArrow) ...[
                     const SizedBox(width: 4),
-                    Icon(LucideIcons.chevronDown, size: 12, color: color ?? AppTheme.textPrimary),
+                    Icon(
+                      LucideIcons.chevronDown,
+                      size: 12,
+                      color: color ?? AppTheme.textPrimary,
+                    ),
                   ],
                 ],
               ),
@@ -1189,8 +1327,6 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
       },
     );
   }
-
-
 
   Future<void> _deletePackage(String id) async {
     final confirmed = await showDialog<bool>(
@@ -1213,7 +1349,9 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
     );
 
     if (confirmed == true) {
-      final success = await ref.read(inventoryPackagesProvider.notifier).deletePackage(id);
+      final success = await ref
+          .read(inventoryPackagesProvider.notifier)
+          .deletePackage(id);
       if (success && mounted) {
         ZerpaiToast.success(context, 'Package deleted successfully');
         widget.onClose();
@@ -1224,7 +1362,12 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
   }
 
   Widget _buildDivider() {
-    return Container(width: 1, height: 20, color: AppTheme.borderLight, margin: const EdgeInsets.symmetric(horizontal: 4));
+    return Container(
+      width: 1,
+      height: 20,
+      color: AppTheme.borderLight,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+    );
   }
 
   Widget _buildShipDropdown(InventoryPackage pkg) {
@@ -1259,7 +1402,8 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
         child: _buildToolbarButton(
           LucideIcons.printer,
           'PDF/Print',
-          onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
         ),
       ),
       menuChildren: [
@@ -1339,12 +1483,17 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
     );
   }
 
-  Future<Uint8List> _generatePackagePdf(InventoryPackage pkg, OrgSettings? org) async {
+  Future<Uint8List> _generatePackagePdf(
+    InventoryPackage pkg,
+    OrgSettings? org,
+  ) async {
     final doc = pw.Document();
     SalesCustomer? customer;
     if (pkg.customerId != null) {
       try {
-        customer = await ref.read(salesCustomerByIdProvider(pkg.customerId!).future);
+        customer = await ref.read(
+          salesCustomerByIdProvider(pkg.customerId!).future,
+        );
       } catch (_) {}
     }
 
@@ -1401,21 +1550,32 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                           height: 56,
                           color: const PdfColor.fromInt(0xFF101820),
                           child: pw.Center(
-                            child: pw.Text('LOGO',
-                                style: pw.TextStyle(color: PdfColors.white, fontSize: 12)),
+                            child: pw.Text(
+                              'LOGO',
+                              style: pw.TextStyle(
+                                color: PdfColors.white,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                         ),
                       pw.SizedBox(height: 10),
                       pw.Text(
                         org?.name.trim().toUpperCase() ?? 'YOUR COMPANY',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 11,
+                        ),
                       ),
                       if (org?.paymentStubAddress?.trim().isNotEmpty == true)
                         pw.Padding(
                           padding: const pw.EdgeInsets.only(top: 3),
                           child: pw.Text(
                             _formatAddress(org!.paymentStubAddress!.trim()),
-                            style: const pw.TextStyle(fontSize: 9, lineSpacing: 2),
+                            style: const pw.TextStyle(
+                              fontSize: 9,
+                              lineSpacing: 2,
+                            ),
                           ),
                         ),
                     ],
@@ -1434,7 +1594,10 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                       pw.SizedBox(height: 6),
                       pw.Text(
                         'Package# ${pkg.packageNumber}',
-                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+                        style: pw.TextStyle(
+                          fontSize: 13,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -1459,24 +1622,36 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('Bill To',
-                            style: pw.TextStyle(
-                                color: PdfColors.blue,
-                                fontSize: 11,
-                                fontWeight: pw.FontWeight.bold)),
+                        pw.Text(
+                          'Bill To',
+                          style: pw.TextStyle(
+                            color: PdfColors.blue,
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
                         pw.SizedBox(height: 4),
-                        pw.Text(pkg.customerName ?? '',
-                            style: pw.TextStyle(
-                                fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                        if (customer != null && customer.fullBillingAddress != 'N/A')
+                        pw.Text(
+                          pkg.customerName ?? '',
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        if (customer != null &&
+                            customer.fullBillingAddress != 'N/A')
                           pw.Padding(
                             padding: const pw.EdgeInsets.only(top: 2),
                             child: pw.Text(
                               customer.fullBillingAddress,
-                              style: const pw.TextStyle(fontSize: 10, lineSpacing: 2),
+                              style: const pw.TextStyle(
+                                fontSize: 10,
+                                lineSpacing: 2,
+                              ),
                             ),
                           ),
-                        if (customer != null && customer.billingAddressPhone != null)
+                        if (customer != null &&
+                            customer.billingAddressPhone != null)
                           pw.Padding(
                             padding: const pw.EdgeInsets.only(top: 2),
                             child: pw.Text(
@@ -1491,24 +1666,36 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('Ship To',
-                            style: pw.TextStyle(
-                                color: PdfColors.blue,
-                                fontSize: 11,
-                                fontWeight: pw.FontWeight.bold)),
+                        pw.Text(
+                          'Ship To',
+                          style: pw.TextStyle(
+                            color: PdfColors.blue,
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
                         pw.SizedBox(height: 4),
-                        pw.Text(pkg.customerName ?? '',
-                            style: pw.TextStyle(
-                                fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                        if (customer != null && customer.fullShippingAddress != 'N/A')
+                        pw.Text(
+                          pkg.customerName ?? '',
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        if (customer != null &&
+                            customer.fullShippingAddress != 'N/A')
                           pw.Padding(
                             padding: const pw.EdgeInsets.only(top: 2),
                             child: pw.Text(
                               customer.fullShippingAddress,
-                              style: const pw.TextStyle(fontSize: 10, lineSpacing: 2),
+                              style: const pw.TextStyle(
+                                fontSize: 10,
+                                lineSpacing: 2,
+                              ),
                             ),
                           ),
-                        if (customer != null && customer.shippingAddressPhone != null)
+                        if (customer != null &&
+                            customer.shippingAddressPhone != null)
                           pw.Padding(
                             padding: const pw.EdgeInsets.only(top: 2),
                             child: pw.Text(
@@ -1533,7 +1720,8 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                 children: [
                   pw.TableRow(
                     decoration: const pw.BoxDecoration(
-                        color: PdfColor.fromInt(0xFF1F2937)),
+                      color: PdfColor.fromInt(0xFF1F2937),
+                    ),
                     children: [
                       _pwHeaderCell('#'),
                       _pwHeaderCell('Item & Description'),
@@ -1544,7 +1732,9 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                   ...pkg.items.asMap().entries.map((e) {
                     return pw.TableRow(
                       decoration: pw.BoxDecoration(
-                        color: e.key.isEven ? PdfColors.white : const PdfColor.fromInt(0xFFF9FAFB),
+                        color: e.key.isEven
+                            ? PdfColors.white
+                            : const PdfColor.fromInt(0xFFF9FAFB),
                         border: const pw.Border(
                           bottom: pw.BorderSide(color: PdfColors.grey200),
                         ),
@@ -1576,31 +1766,44 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(label,
-              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+          ),
           pw.SizedBox(height: 3),
-          pw.Text(value,
-              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            value,
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          ),
         ],
       ),
     );
   }
 
-  pw.Widget _pwHeaderCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+  pw.Widget _pwHeaderCell(
+    String text, {
+    pw.Alignment align = pw.Alignment.centerLeft,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: pw.Align(
         alignment: align,
-        child: pw.Text(text,
-            style: pw.TextStyle(
-                color: PdfColors.white,
-                fontSize: 10,
-                fontWeight: pw.FontWeight.bold)),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 10,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-  pw.Widget _pwDataCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+  pw.Widget _pwDataCell(
+    String text, {
+    pw.Alignment align = pw.Alignment.centerLeft,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: pw.Align(
@@ -1653,7 +1856,9 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                   Padding(
                     padding: const EdgeInsets.only(right: 16),
                     child: Icon(
-                      _isTabsExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
+                      _isTabsExpanded
+                          ? LucideIcons.chevronDown
+                          : LucideIcons.chevronRight,
                       size: 16,
                       color: const Color(0xFF6B7280),
                     ),
@@ -1664,20 +1869,34 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
           ),
           if (_isTabsExpanded)
             Container(
-              child: _activeTabIndex == 0 
-                ? (hasPicklists ? _buildPicklistsTable(pkg) : _buildEmptyState('No picklists found')) 
-                : (hasSalesOrders ? _buildSalesOrdersTable(pkg) : _buildEmptyState('No sales orders found')),
+              child: _activeTabIndex == 0
+                  ? (hasPicklists
+                        ? _buildPicklistsTable(pkg)
+                        : _buildEmptyState('No picklists found'))
+                  : (hasSalesOrders
+                        ? _buildSalesOrdersTable(pkg)
+                        : _buildEmptyState('No sales orders found')),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildDropdownOption(String label, int count, bool isActive, VoidCallback onTap) {
+  Widget _buildDropdownOption(
+    String label,
+    int count,
+    bool isActive,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.only(top: 12, bottom: 10, left: 16, right: 16),
+        padding: const EdgeInsets.only(
+          top: 12,
+          bottom: 10,
+          left: 16,
+          right: 16,
+        ),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -1693,7 +1912,9 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? const Color(0xFF111827) : const Color(0xFF6B7280),
+                color: isActive
+                    ? const Color(0xFF111827)
+                    : const Color(0xFF6B7280),
               ),
             ),
             const SizedBox(width: 8),
@@ -1705,7 +1926,11 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
               ),
               child: Text(
                 count.toString(),
-                style: const TextStyle(fontSize: 11, color: Color(0xFF0088FF), fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF0088FF),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -1720,7 +1945,11 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
       alignment: Alignment.center,
       child: Text(
         message,
-        style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280), fontStyle: FontStyle.italic),
+        style: const TextStyle(
+          fontSize: 13,
+          color: Color(0xFF6B7280),
+          fontStyle: FontStyle.italic,
+        ),
       ),
     );
   }
@@ -1734,33 +1963,97 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
           color: const Color(0xFFF9FAFB),
           child: Row(
             children: const [
-              Expanded(flex: 3, child: Text('Picklist#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Assignee', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Picklist#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Assignee',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
         ...List.generate(pkg.picklistNumbers.length, (index) {
           final num = pkg.picklistNumbers[index];
-          final id = pkg.picklistIds.length > index ? pkg.picklistIds[index] : null;
+          final id = pkg.picklistIds.length > index
+              ? pkg.picklistIds[index]
+              : null;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF3F4F6)))),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+            ),
             child: Row(
               children: [
                 Expanded(
                   flex: 3,
                   child: InkWell(
-                    onTap: id == null ? null : () => context.go('/$orgId/inventory/picklists/$id'),
+                    onTap: id == null
+                        ? null
+                        : () => context.go('/$orgId/inventory/picklists/$id'),
                     child: Text(
                       num,
-                      style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
-                Expanded(flex: 3, child: Text(DateFormat('dd-MM-yyyy').format(pkg.packageDate ?? DateTime.now()), style: const TextStyle(fontSize: 13))),
-                const Expanded(flex: 3, child: Text('UNASSIGNED', style: TextStyle(fontSize: 13, color: Color(0xFF111827)))),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    DateFormat(
+                      'dd-MM-yyyy',
+                    ).format(pkg.packageDate ?? DateTime.now()),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                const Expanded(
+                  flex: 3,
+                  child: Text(
+                    'UNASSIGNED',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                  ),
+                ),
                 Expanded(
                   flex: 3,
                   child: Text(
@@ -1789,29 +2082,87 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
           color: const Color(0xFFF9FAFB),
           child: Row(
             children: const [
-              Expanded(flex: 3, child: Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Sales Order#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Shipment Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Sales Order#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Shipment Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
         ...List.generate(pkg.salesOrderNumbers.length, (index) {
           final num = pkg.salesOrderNumbers[index];
-          final id = pkg.salesOrderIds.length > index ? pkg.salesOrderIds[index] : null;
+          final id = pkg.salesOrderIds.length > index
+              ? pkg.salesOrderIds[index]
+              : null;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF3F4F6)))),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+            ),
             child: Row(
               children: [
-                Expanded(flex: 3, child: Text(DateFormat('dd-MM-yyyy').format(pkg.packageDate ?? DateTime.now()), style: const TextStyle(fontSize: 13))),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    DateFormat(
+                      'dd-MM-yyyy',
+                    ).format(pkg.packageDate ?? DateTime.now()),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
                 Expanded(
                   flex: 3,
                   child: InkWell(
-                    onTap: id == null ? null : () => context.go('/$orgId/sales/orders/$id'),
+                    onTap: id == null
+                        ? null
+                        : () => context.go('/$orgId/sales/orders/$id'),
                     child: Text(
                       num,
-                      style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
@@ -1826,7 +2177,13 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                     ),
                   ),
                 ),
-                const Expanded(flex: 3, child: Text('-', style: TextStyle(fontSize: 13, color: Color(0xFF111827)))),
+                const Expanded(
+                  flex: 3,
+                  child: Text(
+                    '-',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                  ),
+                ),
               ],
             ),
           );
@@ -1878,12 +2235,16 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
       final supabase = Supabase.instance.client;
       final List<dynamic> response = await supabase
           .from('inventory_shipment_packages')
-          .select('shipment_id, inventory_shipments!inner(id, shipment_number, date, carrier, tracking_number, is_delivered)')
+          .select(
+            'shipment_id, inventory_shipments!inner(id, shipment_number, date, carrier, tracking_number, is_delivered)',
+          )
           .eq('package_id', packageId)
           .limit(1);
       if (mounted) {
         setState(() {
-          _shipmentInfo = response.isNotEmpty ? response.first as Map<String, dynamic> : null;
+          _shipmentInfo = response.isNotEmpty
+              ? response.first as Map<String, dynamic>
+              : null;
         });
       }
     } catch (e) {
@@ -1894,11 +2255,16 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
   @override
   Widget build(BuildContext context) {
     final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
-    final shipment = _shipmentInfo?['inventory_shipments'] as Map<String, dynamic>?;
+    final shipment =
+        _shipmentInfo?['inventory_shipments'] as Map<String, dynamic>?;
     final hasShipment = shipment != null;
 
-    final statusLabel = hasShipment ? 'SHIPPED' : widget.package.status.replaceAll('_', ' ');
-    final statusColor = hasShipment ? const Color(0xFF1E8E3E) : _getPdfStatusColor(widget.package.status);
+    final statusLabel = hasShipment
+        ? 'SHIPPED'
+        : widget.package.status.replaceAll('_', ' ');
+    final statusColor = hasShipment
+        ? const Color(0xFF1E8E3E)
+        : _getPdfStatusColor(widget.package.status);
 
     return Container(
       color: Colors.white,
@@ -1922,14 +2288,21 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 16),
+                        padding: const EdgeInsets.only(
+                          left: 24,
+                          right: 24,
+                          top: 24,
+                          bottom: 16,
+                        ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFF7ED),
-                                border: Border.all(color: const Color(0xFFFFEDD5)),
+                                border: Border.all(
+                                  color: const Color(0xFFFFEDD5),
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(
@@ -1956,8 +2329,12 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                                     children: [
                                       InkWell(
                                         onTap: () {
-                                          final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
-                                          context.go('/$orgId/inventory/shipments/${shipment['id']}');
+                                          final orgId = GoRouterState.of(
+                                            context,
+                                          ).pathParameters['orgSystemId']!;
+                                          context.go(
+                                            '/$orgId/inventory/shipments/${shipment['id']}',
+                                          );
                                         },
                                         child: Text(
                                           shipment['shipment_number'] ?? '',
@@ -1965,17 +2342,23 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
                                             color: AppTheme.primaryBlue,
-                                            decoration: TextDecoration.underline,
+                                            decoration:
+                                                TextDecoration.underline,
                                             fontFamily: 'Inter',
                                           ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF0088FF),
-                                          borderRadius: BorderRadius.circular(3),
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
                                         ),
                                         child: const Text(
                                           'SHIPPED',
@@ -1997,7 +2380,12 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                       ),
                       const Divider(color: _borderCol, height: 1, thickness: 1),
                       Padding(
-                        padding: const EdgeInsets.only(left: 24, right: 24, top: 16, bottom: 24),
+                        padding: const EdgeInsets.only(
+                          left: 24,
+                          right: 24,
+                          top: 16,
+                          bottom: 24,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2016,7 +2404,9 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                                 ),
                                 Text(
                                   shipment['date'] != null
-                                      ? DateFormat('dd-MM-yyyy').format(DateTime.parse(shipment['date']))
+                                      ? DateFormat('dd-MM-yyyy').format(
+                                          DateTime.parse(shipment['date']),
+                                        )
                                       : '-',
                                   style: const TextStyle(
                                     fontSize: 12,
@@ -2064,7 +2454,13 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                 width: 800,
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
                 child: ClipRect(
                   child: Stack(
@@ -2089,20 +2485,38 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
               ),
             ),
             const SizedBox(height: 32),
-            if (widget.package.notes != null && widget.package.notes!.isNotEmpty) ...[
+            if (widget.package.notes != null &&
+                widget.package.notes!.isNotEmpty) ...[
               Center(
                 child: Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Package Notes', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                        const Text(
+                          'Package Notes',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
                         const SizedBox(width: 4),
-                        const Icon(LucideIcons.paperclip, size: 12, color: Color(0xFF6B7280)),
+                        const Icon(
+                          LucideIcons.paperclip,
+                          size: 12,
+                          color: Color(0xFF6B7280),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(widget.package.notes!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
+                    Text(
+                      widget.package.notes!,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2112,7 +2526,10 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 40,
+                  vertical: 24,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: const Color(0xFFE5E7EB)),
@@ -2145,7 +2562,10 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                 orgSettings?.name.trim().isNotEmpty == true
                     ? orgSettings!.name.trim().toUpperCase()
                     : 'YOUR COMPANY NAME',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
               if (orgSettings?.paymentStubAddress?.trim().isNotEmpty == true)
                 Padding(
@@ -2165,9 +2585,23 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('PACKAGE', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              const Text(
+                'PACKAGE',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text('Package# ${widget.package.packageNumber}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+              Text(
+                'Package# ${widget.package.packageNumber}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827),
+                ),
+              ),
             ],
           ),
         ],
@@ -2230,9 +2664,10 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
     }
   }
 
-
   Widget _buildPdfContent() {
-    final customerAsync = ref.watch(salesCustomerByIdProvider(widget.package.customerId ?? ''));
+    final customerAsync = ref.watch(
+      salesCustomerByIdProvider(widget.package.customerId ?? ''),
+    );
     final customer = customerAsync.asData?.value;
 
     return Padding(
@@ -2243,9 +2678,30 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
           Row(
             children: [
               _buildInfo('Package#', widget.package.packageNumber),
-              _buildInfo('Order Date', widget.package.packageDate != null ? DateFormat('dd-MM-yyyy').format(widget.package.packageDate!) : '-'),
-              _buildInfo('Package Date', widget.package.packageDate != null ? DateFormat('dd-MM-yyyy').format(widget.package.packageDate!) : '-'),
-              _buildInfo('Sales Order#', (widget.package.salesOrderNumber?.isNotEmpty == true) ? widget.package.salesOrderNumber! : (widget.package.salesOrderNumbers.isNotEmpty ? widget.package.salesOrderNumbers.join(', ') : '-')),
+              _buildInfo(
+                'Order Date',
+                widget.package.packageDate != null
+                    ? DateFormat(
+                        'dd-MM-yyyy',
+                      ).format(widget.package.packageDate!)
+                    : '-',
+              ),
+              _buildInfo(
+                'Package Date',
+                widget.package.packageDate != null
+                    ? DateFormat(
+                        'dd-MM-yyyy',
+                      ).format(widget.package.packageDate!)
+                    : '-',
+              ),
+              _buildInfo(
+                'Sales Order#',
+                (widget.package.salesOrderNumber?.isNotEmpty == true)
+                    ? widget.package.salesOrderNumber!
+                    : (widget.package.salesOrderNumbers.isNotEmpty
+                          ? widget.package.salesOrderNumbers.join(', ')
+                          : '-'),
+              ),
             ],
           ),
           const SizedBox(height: 40),
@@ -2256,7 +2712,9 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                 child: _buildAddress(
                   'Bill To',
                   widget.package.customerName ?? 'Customer',
-                  address: customer?.fullBillingAddress == 'N/A' ? null : customer?.fullBillingAddress,
+                  address: customer?.fullBillingAddress == 'N/A'
+                      ? null
+                      : customer?.fullBillingAddress,
                   phone: customer?.billingAddressPhone,
                 ),
               ),
@@ -2264,7 +2722,9 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
                 child: _buildAddress(
                   'Ship To',
                   widget.package.customerName ?? 'Customer',
-                  address: customer?.fullShippingAddress == 'N/A' ? null : customer?.fullShippingAddress,
+                  address: customer?.fullShippingAddress == 'N/A'
+                      ? null
+                      : customer?.fullShippingAddress,
                   phone: customer?.shippingAddressPhone,
                 ),
               ),
@@ -2293,11 +2753,20 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppTheme.primaryBlue, width: _isBatchesExpanded ? 2 : 0)),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppTheme.primaryBlue,
+                      width: _isBatchesExpanded ? 2 : 0,
+                    ),
+                  ),
                 ),
                 child: const Text(
                   'Batches',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBlue,
+                  ),
                 ),
               ),
             ],
@@ -2305,133 +2774,213 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
         ),
         if (_isBatchesExpanded) ...[
           const SizedBox(height: 16),
-        ...() {
-          final Map<String, Map<String, List<InventoryPackageItem>>> grouped = {};
-          for (var item in widget.package.items) {
-            final itemName = item.itemName ?? 'Unknown Item';
-            final batch = item.batchNo ?? 'No Batch';
-            grouped.putIfAbsent(itemName, () => {});
-            grouped[itemName]!.putIfAbsent(batch, () => []);
-            grouped[itemName]![batch]!.add(item);
-          }
+          ...() {
+            final Map<String, Map<String, List<InventoryPackageItem>>> grouped =
+                {};
+            for (var item in widget.package.items) {
+              final itemName = item.itemName ?? 'Unknown Item';
+              final batch = item.batchNo ?? 'No Batch';
+              grouped.putIfAbsent(itemName, () => {});
+              grouped[itemName]!.putIfAbsent(batch, () => []);
+              grouped[itemName]![batch]!.add(item);
+            }
 
-          return grouped.entries.map((itemEntry) {
-            final itemName = itemEntry.key;
-            final batches = itemEntry.value;
-            final isExpanded = _expandedItems.contains(itemName);
+            return grouped.entries.map((itemEntry) {
+              final itemName = itemEntry.key;
+              final batches = itemEntry.value;
+              final isExpanded = _expandedItems.contains(itemName);
 
-            return Column(
-              children: [
-                InkWell(
-                  onTap: () => setState(() {
-                    if (isExpanded) {
-                      _expandedItems.remove(itemName);
-                    } else {
-                      _expandedItems.add(itemName);
-                    }
-                  }),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: Row(
-                      children: [
-                        Text(itemName.toUpperCase(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryBlue)),
-                        const Spacer(),
-                        Text('${batches.length} Batches', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: AppTheme.primaryBlue,
-                            shape: BoxShape.circle,
+              return Column(
+                children: [
+                  InkWell(
+                    onTap: () => setState(() {
+                      if (isExpanded) {
+                        _expandedItems.remove(itemName);
+                      } else {
+                        _expandedItems.add(itemName);
+                      }
+                    }),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            itemName.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.primaryBlue,
+                            ),
                           ),
-                          child: Icon(
-                            isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronRight,
-                            size: 14,
-                            color: Colors.white,
+                          const Spacer(),
+                          Text(
+                            '${batches.length} Batches',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.primaryBlue,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isExpanded
+                                  ? LucideIcons.chevronUp
+                                  : LucideIcons.chevronRight,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                if (isExpanded) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          color: const Color(0xFFF9FAFB),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text('BATCH DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
-                              Text('QUANTITY OUT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
-                            ],
+                  if (isExpanded) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            color: const Color(0xFFF9FAFB),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: const [
+                                Text(
+                                  'BATCH DETAILS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                Text(
+                                  'QUANTITY OUT',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        ...batches.entries.map((batchEntry) {
-                          final batchNo = batchEntry.key;
-                          final items = batchEntry.value;
-                          final firstItem = items.first;
-                          final totalQty = items.fold(0.0, (sum, i) => sum + i.quantity);
-                          final details = firstItem.batchDetails;
+                          ...batches.entries.map((batchEntry) {
+                            final batchNo = batchEntry.key;
+                            final items = batchEntry.value;
+                            final firstItem = items.first;
+                            final totalQty = items.fold(
+                              0.0,
+                              (sum, i) => sum + i.quantity,
+                            );
+                            final details = firstItem.batchDetails;
 
-                          return Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(batchNo, style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue)),
-                                        if (details != null) ...[
-                                          const SizedBox(height: 6),
-                                          ...[
-                                            if (details.manufactureBatchNumber != null && details.manufactureBatchNumber!.isNotEmpty)
-                                              Text('Manufacturer Batch# : ${details.manufactureBatchNumber}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
-                                            if (details.manufactureExp != null)
-                                              Text('Manufactured date : ${DateFormat('dd-MM-yyyy').format(details.manufactureExp!)}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
-                                            if (details.expiryDate != null)
-                                              Text('Expiry Date: ${DateFormat('dd-MM-yyyy').format(details.expiryDate!)}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                            return Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            batchNo,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.primaryBlue,
+                                            ),
+                                          ),
+                                          if (details != null) ...[
+                                            const SizedBox(height: 6),
+                                            ...[
+                                              if (details.manufactureBatchNumber !=
+                                                      null &&
+                                                  details
+                                                      .manufactureBatchNumber!
+                                                      .isNotEmpty)
+                                                Text(
+                                                  'Manufacturer Batch# : ${details.manufactureBatchNumber}',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
+                                              if (details.manufactureExp !=
+                                                  null)
+                                                Text(
+                                                  'Manufactured date : ${DateFormat('dd-MM-yyyy').format(details.manufactureExp!)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
+                                              if (details.expiryDate != null)
+                                                Text(
+                                                  'Expiry Date: ${DateFormat('dd-MM-yyyy').format(details.expiryDate!)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
+                                            ],
                                           ],
                                         ],
-                                      ],
-                                    ),
-                                    Text('${totalQty.toStringAsFixed(0)} box', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                  ],
+                                      ),
+                                      Text(
+                                        '${totalQty.toStringAsFixed(0)} box',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              if (batchEntry.key != batches.keys.last)
-                                const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                            ],
-                          );
-                        }).toList(),
-                      ],
+                                if (batchEntry.key != batches.keys.last)
+                                  const Divider(
+                                    height: 1,
+                                    color: Color(0xFFE5E7EB),
+                                  ),
+                              ],
+                            );
+                          }).toList(),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
                 ],
-              ],
-            );
-          }).toList();
-        }(),
+              );
+            }).toList();
+          }(),
         ],
       ],
     );
@@ -2442,28 +2991,59 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAddress(String label, String name, {String? address, String? phone}) {
+  Widget _buildAddress(
+    String label,
+    String name, {
+    String? address,
+    String? phone,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.primaryBlue, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppTheme.primaryBlue,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         const SizedBox(height: 4),
-        Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        Text(
+          name,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         if (address != null) ...[
           const SizedBox(height: 2),
-          Text(address, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563), height: 1.5)),
+          Text(
+            address,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF4B5563),
+              height: 1.5,
+            ),
+          ),
         ],
         if (phone != null) ...[
           const SizedBox(height: 2),
-          Text('Phone: $phone', style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+          Text(
+            'Phone: $phone',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+          ),
         ],
       ],
     );
@@ -2471,7 +3051,9 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
 
   Widget _buildItemsTable() {
     return Container(
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE5E7EB)))),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+      ),
       child: Column(
         children: [
           Container(
@@ -2480,10 +3062,34 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
             child: Row(
               children: const [
                 SizedBox(width: 12),
-                Expanded(flex: 1, child: Text('#', style: TextStyle(color: Colors.white, fontSize: 11))),
-                Expanded(flex: 6, child: Text('Item & Description', style: TextStyle(color: Colors.white, fontSize: 11))),
-                Expanded(flex: 3, child: Text('HSN/SAC', style: TextStyle(color: Colors.white, fontSize: 11))),
-                Expanded(flex: 2, child: Text('Qty', style: TextStyle(color: Colors.white, fontSize: 11))),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    '#',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                Expanded(
+                  flex: 6,
+                  child: Text(
+                    'Item & Description',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'HSN/SAC',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Qty',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
               ],
             ),
           ),
@@ -2491,20 +3097,52 @@ class _PackagePdfViewState extends ConsumerState<_PackagePdfView> {
             final item = widget.package.items[index];
             return Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB)))),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
               child: Row(
                 children: [
                   SizedBox(width: 12),
-                  Expanded(flex: 1, child: Text((index + 1).toString(), style: const TextStyle(fontSize: 12))),
-                  Expanded(flex: 6, child: Text(item.itemName ?? 'Item', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                  const Expanded(flex: 3, child: Text('30045037', style: TextStyle(fontSize: 12))),
-                  Expanded(flex: 2, child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.quantity.toStringAsFixed(2), style: const TextStyle(fontSize: 12)),
-                      const Text('box', style: TextStyle(fontSize: 10, color: Color(0xFF6B7280))),
-                    ],
-                  )),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      (index + 1).toString(),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 6,
+                    child: Text(
+                      item.itemName ?? 'Item',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    flex: 3,
+                    child: Text('30045037', style: TextStyle(fontSize: 12)),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.quantity.toStringAsFixed(2),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        const Text(
+                          'box',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             );
@@ -2568,7 +3206,12 @@ class _PdfCornerRibbon extends StatelessWidget {
                     colors: [
                       color,
                       HSLColor.fromColor(color)
-                          .withLightness((HSLColor.fromColor(color).lightness * 0.85).clamp(0.0, 1.0))
+                          .withLightness(
+                            (HSLColor.fromColor(color).lightness * 0.85).clamp(
+                              0.0,
+                              1.0,
+                            ),
+                          )
                           .toColor(),
                     ],
                   ),
@@ -2584,7 +3227,11 @@ class _PdfCornerRibbon extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.8,
                     shadows: [
-                      Shadow(color: Colors.black45, offset: Offset(0, 1), blurRadius: 2),
+                      Shadow(
+                        color: Colors.black45,
+                        offset: Offset(0, 1),
+                        blurRadius: 2,
+                      ),
                     ],
                   ),
                 ),
@@ -2604,7 +3251,9 @@ class _CornerFoldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final darkColor = HSLColor.fromColor(color)
-        .withLightness((HSLColor.fromColor(color).lightness * 0.45).clamp(0.0, 1.0))
+        .withLightness(
+          (HSLColor.fromColor(color).lightness * 0.45).clamp(0.0, 1.0),
+        )
         .toColor();
 
     final paint = Paint()..color = darkColor;
@@ -2633,7 +3282,11 @@ class _ResizableHeaderCell extends StatefulWidget {
   final Widget child;
   final ValueChanged<double> onResize;
 
-  const _ResizableHeaderCell({required this.width, required this.child, required this.onResize});
+  const _ResizableHeaderCell({
+    required this.width,
+    required this.child,
+    required this.onResize,
+  });
 
   @override
   State<_ResizableHeaderCell> createState() => _ResizableHeaderCellState();
@@ -2659,10 +3312,15 @@ class _ResizableHeaderCellState extends State<_ResizableHeaderCell> {
               bottom: 0,
               width: 10,
               child: GestureDetector(
-                onHorizontalDragUpdate: (details) => widget.onResize(details.delta.dx),
+                onHorizontalDragUpdate: (details) =>
+                    widget.onResize(details.delta.dx),
                 child: MouseRegion(
                   cursor: SystemMouseCursors.resizeLeftRight,
-                  child: Container(color: _isHovering ? AppTheme.primaryBlue.withValues(alpha: 0.2) : Colors.transparent),
+                  child: Container(
+                    color: _isHovering
+                        ? AppTheme.primaryBlue.withValues(alpha: 0.2)
+                        : Colors.transparent,
+                  ),
                 ),
               ),
             ),
@@ -2810,21 +3468,26 @@ class _PackageColumn extends ConsumerWidget {
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         elevation: const WidgetStatePropertyAll(8),
         shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
         ),
       ),
       builder: (context, controller, child) {
         return IconButton(
-          onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-          icon: const Icon(LucideIcons.menu, size: 18, color: Color(0xFF4B5563)),
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          icon: const Icon(
+            LucideIcons.menu,
+            size: 18,
+            color: Color(0xFF4B5563),
+          ),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           hoverColor: Colors.black.withValues(alpha: 0.05),
         );
       },
-      menuChildren: [
-        _buildColumnMenuOptions(context, ref),
-      ],
+      menuChildren: [_buildColumnMenuOptions(context, ref)],
     );
   }
 
@@ -2857,34 +3520,100 @@ class _PackageColumn extends ConsumerWidget {
         elevation: WidgetStatePropertyAll(8),
       ),
       menuChildren: [
-        _buildSortItem(ref, 'Package Date', sort.field == 'Package Date', sort.isAscending),
-        _buildSortItem(ref, 'Package#', sort.field == 'Package#', sort.isAscending),
-        _buildSortItem(ref, 'Carrier', sort.field == 'Carrier', sort.isAscending),
-        _buildSortItem(ref, 'Tracking#', sort.field == 'Tracking#', sort.isAscending),
-        _buildSortItem(ref, 'Sales Order#', sort.field == 'Sales Order#', sort.isAscending),
-        _buildSortItem(ref, 'Shipment Date', sort.field == 'Shipment Date', sort.isAscending),
-        _buildSortItem(ref, 'Customer Name', sort.field == 'Customer Name', sort.isAscending),
-        _buildSortItem(ref, 'Quantity', sort.field == 'Quantity', sort.isAscending),
-        _buildSortItem(ref, 'Created Time', sort.field == 'Created Time', sort.isAscending),
-        _buildSortItem(ref, 'Last Modified Time', sort.field == 'Last Modified Time', sort.isAscending),
+        _buildSortItem(
+          ref,
+          'Package Date',
+          sort.field == 'Package Date',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Package#',
+          sort.field == 'Package#',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Carrier',
+          sort.field == 'Carrier',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Tracking#',
+          sort.field == 'Tracking#',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Sales Order#',
+          sort.field == 'Sales Order#',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Shipment Date',
+          sort.field == 'Shipment Date',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Customer Name',
+          sort.field == 'Customer Name',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Quantity',
+          sort.field == 'Quantity',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Created Time',
+          sort.field == 'Created Time',
+          sort.isAscending,
+        ),
+        _buildSortItem(
+          ref,
+          'Last Modified Time',
+          sort.field == 'Last Modified Time',
+          sort.isAscending,
+        ),
       ],
-      child: const Text('Sort by', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+      child: const Text(
+        'Sort by',
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      ),
     );
   }
 
-  Widget _buildSortItem(WidgetRef ref, String label, bool isActive, bool isAscending) {
+  Widget _buildSortItem(
+    WidgetRef ref,
+    String label,
+    bool isActive,
+    bool isAscending,
+  ) {
     return MenuItemButton(
       onPressed: () {
         final currentSort = ref.read(packageSortProvider);
         if (currentSort.field == label) {
-          ref.read(packageSortProvider.notifier).state = (field: label, isAscending: !currentSort.isAscending);
+          ref.read(packageSortProvider.notifier).state = (
+            field: label,
+            isAscending: !currentSort.isAscending,
+          );
         } else {
-          ref.read(packageSortProvider.notifier).state = (field: label, isAscending: false);
+          ref.read(packageSortProvider.notifier).state = (
+            field: label,
+            isAscending: false,
+          );
         }
       },
       style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive).copyWith(
         minimumSize: const WidgetStatePropertyAll(Size(180, 40)),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
       ),
       trailingIcon: isActive
           ? Icon(
@@ -2892,19 +3621,22 @@ class _PackageColumn extends ConsumerWidget {
               size: 14,
             )
           : null,
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 13),
-      ),
+      child: Text(label, style: const TextStyle(fontSize: 13)),
     );
   }
 
-  Widget _buildColumnSimpleItem(IconData icon, String label, VoidCallback onTap) {
+  Widget _buildColumnSimpleItem(
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) {
     return MenuItemButton(
       onPressed: onTap,
       style: ZTableMoreMenu.menuItemButtonStyle().copyWith(
         minimumSize: const WidgetStatePropertyAll(Size(180, 40)),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
       ),
       leadingIcon: Icon(icon, size: 14),
       child: Text(label, style: const TextStyle(fontSize: 13)),
@@ -3042,8 +3774,6 @@ class _HeaderClipper extends CustomClipper<Path> {
   bool shouldReclip(CustomClipper<Path> oldClipper) => true;
 }
 
-
-
 /// Popup Dialog for creating Dispatch Entrypasses.
 class DispatchEntrypassDialog extends ConsumerStatefulWidget {
   final Picklist? initialPicklist;
@@ -3097,7 +3827,8 @@ class _DispatchEntrypassDialogState
           } else {
             _allPicklists = all.where((p) {
               final statusUpper = p.status.toUpperCase();
-              final isEligible = statusUpper == 'APPROVED' || statusUpper == 'COMPLETED';
+              final isEligible =
+                  statusUpper == 'APPROVED' || statusUpper == 'COMPLETED';
               if (_showEntrypassOnly) {
                 return isEligible && p.isEntrypass == true;
               } else {
@@ -3310,7 +4041,12 @@ class _DispatchEntrypassDialogState
         ),
         Container(
           color: AppTheme.bgLight,
-          padding: const EdgeInsets.only(left: 12, right: 24, top: 12, bottom: 12),
+          padding: const EdgeInsets.only(
+            left: 12,
+            right: 24,
+            top: 12,
+            bottom: 12,
+          ),
           child: Row(
             children: [
               if (!_showEntrypassOnly)
@@ -3361,19 +4097,35 @@ class _DispatchEntrypassDialogState
               ),
               const Expanded(
                 flex: 1,
-                child: Text('STATUS', style: _tableHeaderStyle, textAlign: TextAlign.center),
+                child: Text(
+                  'STATUS',
+                  style: _tableHeaderStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
               const Expanded(
                 flex: 2,
-                child: Text('ASSIGNEE', style: _tableHeaderStyle, textAlign: TextAlign.center),
+                child: Text(
+                  'ASSIGNEE',
+                  style: _tableHeaderStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
               const Expanded(
                 flex: 2,
-                child: Text('LOCATION', style: _tableHeaderStyle, textAlign: TextAlign.center),
+                child: Text(
+                  'LOCATION',
+                  style: _tableHeaderStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
               const Expanded(
                 flex: 2,
-                child: Text('NOTES', style: _tableHeaderStyle, textAlign: TextAlign.center),
+                child: Text(
+                  'NOTES',
+                  style: _tableHeaderStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
             ],
           ),
@@ -3451,7 +4203,9 @@ class _DispatchEntrypassDialogState
                       Expanded(
                         flex: 1,
                         child: Text(
-                          p.status.toUpperCase() == 'APPROVED' ? 'Approved' : 'Completed',
+                          p.status.toUpperCase() == 'APPROVED'
+                              ? 'Approved'
+                              : 'Completed',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
@@ -3583,10 +4337,7 @@ class _DispatchEntrypassDialogState
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: _tableHeaderStyle,
-            ),
+            Text(label, style: _tableHeaderStyle),
             const SizedBox(width: 4),
             IconButton(
               onPressed: onToggle,
@@ -3663,12 +4414,21 @@ String _formatAddress(String address) {
       final data = json.decode(address);
       if (data is Map) {
         final List<String> parts = [];
-        if (data['attention'] != null && data['attention'].toString().isNotEmpty) parts.add(data['attention'].toString());
-        if (data['street1'] != null && data['street1'].toString().isNotEmpty) parts.add(data['street1'].toString());
-        if (data['street2'] != null && data['street2'].toString().isNotEmpty) parts.add(data['street2'].toString());
-        final cityStateZip = [data['city'], data['state_name'] ?? data['state'], data['pincode'] ?? data['zip_code']].where((e) => e != null && e.toString().trim().isNotEmpty).join(', ');
+        if (data['attention'] != null &&
+            data['attention'].toString().isNotEmpty)
+          parts.add(data['attention'].toString());
+        if (data['street1'] != null && data['street1'].toString().isNotEmpty)
+          parts.add(data['street1'].toString());
+        if (data['street2'] != null && data['street2'].toString().isNotEmpty)
+          parts.add(data['street2'].toString());
+        final cityStateZip = [
+          data['city'],
+          data['state_name'] ?? data['state'],
+          data['pincode'] ?? data['zip_code'],
+        ].where((e) => e != null && e.toString().trim().isNotEmpty).join(', ');
         if (cityStateZip.isNotEmpty) parts.add(cityStateZip);
-        if (data['phone'] != null && data['phone'].toString().isNotEmpty) parts.add('Phone: ${data['phone']}');
+        if (data['phone'] != null && data['phone'].toString().isNotEmpty)
+          parts.add('Phone: ${data['phone']}');
         if (parts.isNotEmpty) return parts.join('\n');
       }
     } catch (_) {}
@@ -3676,12 +4436,17 @@ String _formatAddress(String address) {
   return address;
 }
 
-void _sortPackages(List<InventoryPackage> list, ({String field, bool isAscending}) sort) {
+void _sortPackages(
+  List<InventoryPackage> list,
+  ({String field, bool isAscending}) sort,
+) {
   list.sort((a, b) {
     int cmp = 0;
     switch (sort.field) {
       case 'Package Date':
-        cmp = (a.packageDate ?? DateTime(0)).compareTo(b.packageDate ?? DateTime(0));
+        cmp = (a.packageDate ?? DateTime(0)).compareTo(
+          b.packageDate ?? DateTime(0),
+        );
         break;
       case 'Package#':
         cmp = a.packageNumber.compareTo(b.packageNumber);
@@ -3693,12 +4458,18 @@ void _sortPackages(List<InventoryPackage> list, ({String field, bool isAscending
         cmp = (a.trackingNumber ?? '').compareTo(b.trackingNumber ?? '');
         break;
       case 'Sales Order#':
-        final aSo = a.salesOrderNumbers.isNotEmpty ? a.salesOrderNumbers.first : '';
-        final bSo = b.salesOrderNumbers.isNotEmpty ? b.salesOrderNumbers.first : '';
+        final aSo = a.salesOrderNumbers.isNotEmpty
+            ? a.salesOrderNumbers.first
+            : '';
+        final bSo = b.salesOrderNumbers.isNotEmpty
+            ? b.salesOrderNumbers.first
+            : '';
         cmp = aSo.compareTo(bSo);
         break;
       case 'Shipment Date':
-        cmp = (a.shipmentDate ?? DateTime(0)).compareTo(b.shipmentDate ?? DateTime(0));
+        cmp = (a.shipmentDate ?? DateTime(0)).compareTo(
+          b.shipmentDate ?? DateTime(0),
+        );
         break;
       case 'Customer Name':
         cmp = (a.customerName ?? '').compareTo(b.customerName ?? '');

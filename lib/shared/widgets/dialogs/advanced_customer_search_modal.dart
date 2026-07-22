@@ -9,7 +9,10 @@ class AdvancedCustomerSearchModal extends StatefulWidget {
   final List<SalesCustomer> customers;
   const AdvancedCustomerSearchModal({super.key, required this.customers});
 
-  static Future<String?> show(BuildContext context, {List<SalesCustomer> customers = const []}) {
+  static Future<String?> show(
+    BuildContext context, {
+    List<SalesCustomer> customers = const [],
+  }) {
     return showGeneralDialog<String>(
       context: context,
       barrierDismissible: true,
@@ -54,13 +57,17 @@ class _AdvancedCustomerSearchModalState
   final TextEditingController _searchController = TextEditingController();
 
   // Dummy data replaced with real customer data getter
-  List<Map<String, String>> get _customers => widget.customers.map((c) => {
-    'name': c.displayName,
-    'id': c.customerNumber ?? '',
-    'email': c.email ?? '',
-    'company': c.companyName ?? '',
-    'phone': c.phone ?? c.mobilePhone ?? '',
-  }).toList();
+  List<Map<String, String>> get _customers => widget.customers
+      .map(
+        (c) => {
+          'name': c.displayName,
+          'id': c.customerNumber ?? '',
+          'email': c.email ?? '',
+          'company': c.companyName ?? '',
+          'phone': c.phone ?? c.mobilePhone ?? '',
+        },
+      )
+      .toList();
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +183,9 @@ class _AdvancedCustomerSearchModalState
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              border: Border.all(color: const Color(0xFFD1D5DB)),
+                              border: Border.all(
+                                color: const Color(0xFFD1D5DB),
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(

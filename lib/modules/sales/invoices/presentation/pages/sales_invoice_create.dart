@@ -147,6 +147,7 @@ class _SalesInvoiceCreateScreenState
 
   String? _selectedCustomerId;
   SalesCustomer? _selectedCustomer;
+  String? _gstTreatment;
   int? _hoveredRowIndex;
 
   bool get _isCustomerUnregistered {
@@ -159,10 +160,11 @@ class _SalesInvoiceCreateScreenState
             .where((c) => c.id == _selectedCustomerId)
             .firstOrNull;
     final activeCustomer = _selectedCustomer ?? customerFromList;
+    final effectiveGst = _gstTreatment ?? activeCustomer?.gstTreatment;
     return activeCustomer != null &&
-        (activeCustomer.gstTreatment == null ||
-            activeCustomer.gstTreatment!.toLowerCase().contains('unregistered') ||
-            activeCustomer.gstTreatment! == 'Unregistered Business');
+        (effectiveGst == null ||
+            effectiveGst.toLowerCase().contains('unregistered') ||
+            effectiveGst == 'Unregistered Business');
   }
   List<SalesOrder> _confirmedCustomerOrders = [];
   List<InventoryPackage> _selectedPackages = [];
@@ -442,6 +444,7 @@ class _SalesInvoiceCreateScreenState
     deliveryMethod = order.deliveryMethod;
     salesperson = order.salesperson;
     placeOfSupply = order.placeOfSupply;
+    _gstTreatment = order.gstTreatment;
     _resolveSalespersonUuid();
 
     final initialItems = (order.items ?? const <SalesOrderItem>[])
@@ -1379,6 +1382,11 @@ class _SalesInvoiceCreateScreenState
     String? warehouseId,
     bool isHeader = false,
   }) {
+    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
+    final defaultWh = warehouseList.firstWhere(
+      (w) => w.name == warehouse,
+      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+    );
     final resolvedAccountId = accountId ?? item?.salesAccountId;
     final resolvedAccountName = accountName ?? item?.salesAccountName;
     final row = SalesOrderItemRow(
@@ -1395,7 +1403,7 @@ class _SalesInvoiceCreateScreenState
       priceListId: priceListId,
       accountId: resolvedAccountId,
       accountName: resolvedAccountName,
-      warehouseId: warehouseId,
+      warehouseId: warehouseId ?? (defaultWh.id.isNotEmpty ? defaultWh.id : null),
       isHeader: isHeader,
     );
     row.hsnCode = hsnCode ?? item?.hsnCode;
@@ -2002,9 +2010,9 @@ class _SalesInvoiceCreateScreenState
       productName: row.item?.productName,
     );
 
-    // Update rate if it changed
-    if (row.rateCtrl.text != newRate.toString()) {
-      row.rateCtrl.text = newRate.toString();
+    final formattedRate = newRate == 0 ? '0' : newRate.toStringAsFixed(2);
+    if (row.rateCtrl.text != formattedRate) {
+      row.rateCtrl.text = formattedRate;
     }
   }
 
@@ -3097,6 +3105,11 @@ class _SalesInvoiceCreateScreenState
                                   setState(() {
                                     warehouse = w?.name;
                                     _selectedPackages = [];
+                                    if (w != null && w.id.isNotEmpty) {
+                                      for (var row in rows) {
+                                        row.warehouseId = w.id;
+                                      }
+                                    }
                                   });
                                   if (w != null) {
                                     _loadWarehouseBins(w.id);
@@ -3975,6 +3988,16 @@ class _SalesInvoiceCreateScreenState
                                                 setState(() {
                                                   row.itemId = v;
                                                   row.item = p;
+                                                  if (row.warehouseId == null || row.warehouseId!.isEmpty) {
+                                                    final warehouseList = ref.read(warehousesProvider).valueOrNull ?? <Warehouse>[];
+                                                    final selectedWh = warehouseList.firstWhere(
+                                                      (w) => w.name == warehouse,
+                                                      orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+                                                    );
+                                                    if (selectedWh.id.isNotEmpty) {
+                                                      row.warehouseId = selectedWh.id;
+                                                    }
+                                                  }
                                                   row.accountId = p.salesAccountId;
                                                   row.accountName = p.salesAccountName;
                                                   final r = (p.sellingPrice ?? 0.0).toDouble();
@@ -4077,41 +4100,50 @@ class _SalesInvoiceCreateScreenState
                                           ),
                                         ),
                                         data: (stocks) {
-                                          final stockRow = stocks
-                                              .where((s) => s.name == (warehouse ?? ''))
-                                              .firstOrNull ??
-                                              stocks.firstOrNull;
-                                          double stockVal = 0.0;
-                                          if (stockRow != null) {
-                                            final numbers = _selectedStockType == 'Accounting'
-                                                ? stockRow.accounting
-                                                : stockRow.physical;
-                                            stockVal = _selectedStockView == 'Stock on Hand'
-                                                ? numbers.onHand
-                                                : numbers.available;
-                                          }
-                                          return Padding(
-                                            padding: const EdgeInsets.only(top: 4),
-                                            child: Text.rich(
-                                              TextSpan(
-                                                children: [
-                                                  TextSpan(text: '$_selectedStockView: '),
-                                                  TextSpan(
-                                                    text: '${stockVal.toInt()} pcs',
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                color: Color(0xFF4B5563),
-                                              ),
-                                              textAlign: TextAlign.right,
-                                            ),
-                                          );
-                                        },
+                                           final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
+                                           final rowWhObj = warehouseList.firstWhere(
+                                             (w) => w.id == row.warehouseId,
+                                             orElse: () => warehouseList.firstWhere(
+                                               (w) => w.name == warehouse,
+                                               orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+                                             ),
+                                           );
+                                           final currentWhName = rowWhObj.name;
+                                           final stockRow = stocks
+                                               .where((s) => s.id == rowWhObj.id || s.name == currentWhName)
+                                               .firstOrNull ??
+                                               stocks.firstOrNull;
+                                           double stockVal = 0.0;
+                                           if (stockRow != null) {
+                                             final numbers = _selectedStockType == 'Accounting'
+                                                 ? stockRow.accounting
+                                                 : stockRow.physical;
+                                             stockVal = _selectedStockView == 'Stock on Hand'
+                                                 ? numbers.onHand
+                                                 : numbers.available;
+                                           }
+                                           return Padding(
+                                             padding: const EdgeInsets.only(top: 4),
+                                             child: Text.rich(
+                                               TextSpan(
+                                                 children: [
+                                                   TextSpan(text: '$_selectedStockView: '),
+                                                   TextSpan(
+                                                     text: '${stockVal.toInt()} pcs',
+                                                     style: const TextStyle(
+                                                       fontWeight: FontWeight.bold,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                               style: const TextStyle(
+                                                 fontSize: 10,
+                                                 color: Color(0xFF4B5563),
+                                               ),
+                                               textAlign: TextAlign.right,
+                                             ),
+                                           );
+                                         },
                                       );
                                     },
                                   ),
@@ -4131,38 +4163,54 @@ class _SalesInvoiceCreateScreenState
                                         ),
                                         const SizedBox(width: 4),
                                         Flexible(
-                                          child: WarehouseHoverPopover(
-                                            productId: row.itemId,
-                                            warehouseName: warehouse ?? '',
-                                            selectedView: _selectedStockView,
-                                            selectedStockType: _selectedStockType,
-                                            onViewChanged: (v) {
-                                              setState(() {
-                                                _selectedStockView = v;
-                                              });
+                                          child: Consumer(
+                                            builder: (context, ref, _) {
+                                              final warehouseList = ref.watch(warehousesProvider).valueOrNull ?? <Warehouse>[];
+                                              final rowWhObj = warehouseList.firstWhere(
+                                                (w) => w.id == row.warehouseId,
+                                                orElse: () => warehouseList.firstWhere(
+                                                  (w) => w.name == warehouse,
+                                                  orElse: () => warehouseList.isNotEmpty ? warehouseList.first : Warehouse(id: '', name: ''),
+                                                ),
+                                              );
+                                              final currentWhName = rowWhObj.name;
+                                              return WarehouseHoverPopover(
+                                                productId: row.itemId,
+                                                warehouseName: currentWhName,
+                                                selectedView: _selectedStockView,
+                                                selectedStockType: _selectedStockType,
+                                                onViewChanged: (v) {
+                                                  setState(() {
+                                                    _selectedStockView = v;
+                                                  });
+                                                },
+                                                onStockTypeChanged: (t) {
+                                                  setState(() {
+                                                    _selectedStockType = t;
+                                                  });
+                                                },
+                                                onWarehouseChanged: (newName) {
+                                                  final matchWh = warehouseList.firstWhere(
+                                                    (w) => w.name == newName,
+                                                    orElse: () => Warehouse(id: '', name: ''),
+                                                  );
+                                                  setState(() {
+                                                    row.warehouseId = matchWh.id;
+                                                  });
+                                                },
+                                                child: Text(
+                                                  currentWhName.toUpperCase(),
+                                                  textAlign: TextAlign.left,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF2563EB),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                  maxLines: 2,
+                                                ),
+                                              );
                                             },
-                                            onStockTypeChanged: (t) {
-                                              setState(() {
-                                                _selectedStockType = t;
-                                              });
-                                            },
-                                            onWarehouseChanged: (newName) {
-                                              setState(() {
-                                                warehouse = newName;
-                                              });
-                                            },
-                                            child: Text(
-                                              (warehouse ?? '')
-                                                  .toUpperCase(),
-                                              textAlign: TextAlign.left,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Color(0xFF2563EB),
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 2,
-                                            ),
                                           ),
                                         ),
                                       ],
@@ -7196,6 +7244,7 @@ class _SalesInvoiceCreateScreenState
 
       for (final row in rows.where((r) => r.itemId.isNotEmpty)) {
         final productId = row.itemId;
+        final rowWhId = row.warehouseId ?? warehouseId;
         final quantity = double.tryParse(row.quantityCtrl.text) ?? 0.0;
         final rate = double.tryParse(row.rateCtrl.text) ?? 0.0;
         final discount = double.tryParse(row.discountCtrl.text) ?? 0.0;
@@ -7240,7 +7289,7 @@ class _SalesInvoiceCreateScreenState
               final bins = await ref
                   .read(inventoryPicklistRepositoryProvider)
                   .getWarehouseBins(
-                    warehouseId: warehouseId,
+                    warehouseId: rowWhId,
                     productId: productId,
                   );
 
@@ -7276,7 +7325,7 @@ class _SalesInvoiceCreateScreenState
             itemBatches.add({
               'batchId': bId.isEmpty ? null : bId,
               'layerId': lId.isEmpty ? null : lId,
-              'warehouseId': warehouseId,
+              'warehouseId': rowWhId,
               'binId': bnId.isEmpty ? null : bnId,
               'quantity': double.tryParse(bData['qtyOut'] ?? '') ?? quantity,
               'focQuantity': double.tryParse(bData['foc'] ?? '') ?? focQuantity,
@@ -7333,7 +7382,7 @@ class _SalesInvoiceCreateScreenState
             itemBatches.add({
               'batchId': (bId == null || bId.isEmpty) ? null : bId,
               'layerId': (lId == null || lId.isEmpty) ? null : lId,
-              'warehouseId': warehouseId,
+              'warehouseId': rowWhId,
               'binId': (bnId == null || bnId.isEmpty) ? null : bnId,
               'quantity': quantity,
               'focQuantity': focQuantity,
@@ -7361,6 +7410,7 @@ class _SalesInvoiceCreateScreenState
           'focQuantity': focQuantity,
           'hsnCode': row.hsnCode ?? row.item?.hsnCode,
           'accounts': row.accountId,
+          'warehouseId': rowWhId,
           'batches': itemBatches,
         });
       }
@@ -7375,6 +7425,7 @@ class _SalesInvoiceCreateScreenState
         'paymentTerms': terms,
         'salespersonId': salespersonId,
         'warehouseId': warehouseId,
+        'gstTreatment': _gstTreatment ?? _selectedCustomer?.gstTreatment,
         'placeOfSupply': placeOfSupply ?? _selectedCustomer?.placeOfSupply,
         'shippingCharges': double.tryParse(shippingCtrl.text) ?? 0.0,
         'adjustmentAmount': double.tryParse(adjustmentCtrl.text) ?? 0.0,
@@ -7705,7 +7756,7 @@ class _SalesInvoiceCreateScreenState
         ? shippingStateMap['name']
         : c.shippingAddressStateId;
 
-    final gst = c.gstTreatment;
+    final gst = _gstTreatment ?? c.gstTreatment;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -8363,10 +8414,17 @@ class _SalesInvoiceCreateScreenState
                 initialGstin: _selectedCustomer?.gstin ?? '',
                 onUpdate: (newGst, newGstin, isPermanent) async {
                   setState(() {
-                    _selectedCustomer = _selectedCustomer?.copyWith(
-                      gstTreatment: newGst,
-                      gstin: newGstin,
-                    );
+                    _gstTreatment = newGst;
+                    if (isPermanent) {
+                      _selectedCustomer = _selectedCustomer?.copyWith(
+                        gstTreatment: newGst,
+                        gstin: newGstin,
+                      );
+                    } else {
+                      _selectedCustomer = _selectedCustomer?.copyWith(
+                        gstin: newGstin,
+                      );
+                    }
                   });
                   if (isPermanent && _selectedCustomer != null) {
                     try {

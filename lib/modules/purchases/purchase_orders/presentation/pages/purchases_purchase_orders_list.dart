@@ -590,6 +590,9 @@ class _PurchaseOrderOverviewScreenState
             b.updatedAt ?? b.orderDate,
           );
           break;
+        case 'status':
+          cmp = a.status.compareTo(b.status);
+          break;
         default:
           cmp = 0;
       }
@@ -2119,32 +2122,93 @@ class _PurchaseOrderOverviewScreenState
     );
   }
 
+  String? _mapColIdToSortField(String colId) {
+    switch (colId) {
+      case 'order_date':
+      case 'date':
+        return 'order_date';
+      case 'order_number':
+      case 'po_number':
+      case 'number':
+        return 'order_number';
+      case 'vendor_name':
+      case 'vendor':
+        return 'vendor_name';
+      case 'total':
+      case 'amount':
+        return 'total';
+      case 'delivery_date':
+      case 'expected_delivery_date':
+        return 'delivery_date';
+      case 'created_at':
+        return 'created_at';
+      case 'updated_at':
+        return 'updated_at';
+      case 'status':
+        return 'status';
+      case 'received':
+        return 'received';
+      case 'billed':
+        return 'billed';
+      default:
+        return colId;
+    }
+  }
+
+  void _onHeaderCellTap(String colId) {
+    final sortField = _mapColIdToSortField(colId);
+    if (sortField == null) return;
+    setState(() {
+      if (_sortField == sortField) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortField = sortField;
+        _sortAscending = true;
+      }
+    });
+  }
+
   Widget _buildHeaderCell(
     String text,
     String colId, {
     double? width,
     TextAlign? align,
   }) {
+    final sortField = _mapColIdToSortField(colId);
+    final isSorted = sortField != null && _sortField == sortField;
     return SizedBox(
       width: width,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: align == TextAlign.center
-            ? Center(
+      child: InkWell(
+        onTap: sortField != null ? () => _onHeaderCellTap(colId) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            mainAxisAlignment: align == TextAlign.center
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
+            children: [
+              Flexible(
                 child: Text(
                   text,
                   style: AppTheme.metaHelper.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
+                  textAlign: align,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              )
-            : Text(
-                text,
-                style: AppTheme.metaHelper.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: align,
               ),
+              if (isSorted) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  _sortAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                  size: 12,
+                  color: AppTheme.primaryBlue,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

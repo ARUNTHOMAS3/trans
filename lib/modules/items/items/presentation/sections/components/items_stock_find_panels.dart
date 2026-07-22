@@ -226,7 +226,10 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                 child: Center(
                   child: Text(
                     'No serial number selected',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
               )
@@ -547,7 +550,10 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                 child: Center(
                   child: Text(
                     'No batches selected',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
               )

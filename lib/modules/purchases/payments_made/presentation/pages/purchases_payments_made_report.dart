@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -17,6 +18,7 @@ import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/providers/purchases_payments_made_provider.dart';
 
 class MockPaymentMade {
+  final String id;
   final String date;
   final String location;
   final String paymentNumber;
@@ -32,6 +34,7 @@ class MockPaymentMade {
   final String depositToAccountId;
 
   MockPaymentMade({
+    required this.id,
     required this.date,
     required this.location,
     required this.paymentNumber,
@@ -55,12 +58,10 @@ class PaymentsMadeReportPage extends ConsumerStatefulWidget {
   static final List<MockPaymentMade> allPayments = [];
 
   @override
-  ConsumerState<PaymentsMadeReportPage> createState() =>
-      _PaymentsMadeReportPageState();
+  ConsumerState<PaymentsMadeReportPage> createState() => _PaymentsMadeReportPageState();
 }
 
-class _PaymentsMadeReportPageState
-    extends ConsumerState<PaymentsMadeReportPage> {
+class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage> {
   List<MockPaymentMade> get _allPayments => PaymentsMadeReportPage.allPayments;
 
   // Selection state
@@ -87,28 +88,27 @@ class _PaymentsMadeReportPageState
     try {
       final repo = ref.read(paymentsMadeRepositoryProvider);
       final apiPayments = await repo.getPaymentsMade();
-
+      
       final List<MockPaymentMade> loaded = [];
       for (final p in apiPayments) {
-        loaded.add(
-          MockPaymentMade(
-            date: DateFormat('dd-MM-yyyy').format(p.paymentDate),
-            location: 'ZABNIX PRIVATE LIMITED',
-            paymentNumber: p.paymentNumber,
-            referenceNumber: p.referenceNumber ?? '',
-            vendorName: p.vendorName ?? 'Generic Vendor',
-            billNumber: '',
-            mode: p.paymentMode ?? 'Cash',
-            status: p.status,
-            amount: p.paymentAmount,
-            unusedAmount: p.excessAmount,
-            notes: p.notes ?? '',
-            paidThrough: p.paidThroughAccountId,
-            depositToAccountId: p.depositToAccountId ?? '',
-          ),
-        );
+        loaded.add(MockPaymentMade(
+          id: p.id,
+          date: DateFormat('dd-MM-yyyy').format(p.paymentDate),
+          location: 'ZABNIX PRIVATE LIMITED',
+          paymentNumber: p.paymentNumber,
+          referenceNumber: p.referenceNumber ?? '',
+          vendorName: p.vendorName ?? 'Generic Vendor',
+          billNumber: '',
+          mode: p.paymentMode ?? 'Cash',
+          status: p.status,
+          amount: p.paymentAmount,
+          unusedAmount: p.excessAmount,
+          notes: p.notes ?? '',
+          paidThrough: p.paidThroughAccountId,
+          depositToAccountId: p.depositToAccountId ?? '',
+        ));
       }
-
+      
       setState(() {
         PaymentsMadeReportPage.allPayments.clear();
         PaymentsMadeReportPage.allPayments.addAll(loaded);
@@ -119,9 +119,9 @@ class _PaymentsMadeReportPageState
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load payments: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load payments: $e')),
+        );
       }
     }
   }
@@ -211,6 +211,7 @@ class _PaymentsMadeReportPageState
       ),
     ];
   }
+
 
   // Sort state
   bool _sortAscending =
@@ -405,54 +406,70 @@ class _PaymentsMadeReportPageState
       } catch (_) {}
     }
 
-    final visiblePayments = _getFilteredAndSortedPayments();
+    final List<MockPaymentMade> dummyList = List.generate(
+      8,
+      (index) => MockPaymentMade(
+        id: 'dummy-$index',
+        date: '20-07-2026',
+        location: 'ZABNIX PRIVATE LIMITED',
+        paymentNumber: 'PM-000$index',
+        referenceNumber: 'REF-$index',
+        vendorName: 'Loading Vendor Name...',
+        billNumber: 'BILL-$index',
+        mode: 'Cash',
+        status: 'Paid',
+        amount: 1000.0,
+        unusedAmount: 0.0,
+      ),
+    );
+
+    final visiblePayments = _isLoading && _allPayments.isEmpty
+        ? dummyList
+        : _getFilteredAndSortedPayments();
     final allVisibleSelected =
         visiblePayments.isNotEmpty &&
         visiblePayments.every((p) => _selectedIds.contains(p.paymentNumber));
 
-    final scaffoldBody = Stack(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(context, orgId),
-            _buildSearchFilterToolbar(),
-            Expanded(
-              child: Scrollbar(
-                controller: _horizontalScrollController,
-                thumbVisibility: true,
-                child: SingleChildScrollView(
-                  controller: _horizontalScrollController,
-                  scrollDirection: Axis.horizontal,
-                  child: Scrollbar(
-                    controller: _verticalScrollController,
-                    thumbVisibility: true,
-                    child: SingleChildScrollView(
-                      controller: _verticalScrollController,
-                      scrollDirection: Axis.vertical,
-                      child: _buildTable(visiblePayments, allVisibleSelected),
-                    ),
-                  ),
+    final scaffoldBody = Skeletonizer(
+      enabled: _isLoading,
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(context, orgId),
+              _buildSearchFilterToolbar(),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Scrollbar(
+                      controller: _horizontalScrollController,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: _horizontalScrollController,
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                          child: Scrollbar(
+                            controller: _verticalScrollController,
+                            thumbVisibility: true,
+                            child: SingleChildScrollView(
+                              controller: _verticalScrollController,
+                              scrollDirection: Axis.vertical,
+                              child: _buildTable(visiblePayments, allVisibleSelected, constraints.maxWidth),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
-          ],
-        ),
-        if (selectedPayment != null) _buildDetailsOverlay(selectedPayment),
-        if (_isLoading)
-          Positioned.fill(
-            child: ColoredBox(
-              color: Colors.white54,
-              child: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    AppTheme.primaryBlue,
-                  ),
-                ),
-              ),
-            ),
+            ],
           ),
-      ],
+          if (selectedPayment != null) _buildDetailsOverlay(selectedPayment),
+        ],
+      ),
     );
 
     return Scaffold(
@@ -531,6 +548,7 @@ class _PaymentsMadeReportPageState
                         }
 
                         _allPayments[index] = MockPaymentMade(
+                          id: p.id,
                           date: updatedDate,
                           location: updatedLocation,
                           paymentNumber: p.paymentNumber,
@@ -571,7 +589,7 @@ class _PaymentsMadeReportPageState
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textPrimary,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
             ),
@@ -589,11 +607,38 @@ class _PaymentsMadeReportPageState
                 );
                 if (confirmed) {
                   setState(() {
-                    _allPayments.removeWhere(
-                      (p) => _selectedIds.contains(p.paymentNumber),
-                    );
-                    _selectedIds.clear();
+                    _isLoading = true;
                   });
+                  try {
+                    final repo = ref.read(paymentsMadeRepositoryProvider);
+                    for (final pmNum in _selectedIds) {
+                      final payment = _allPayments.firstWhere(
+                        (p) => p.paymentNumber == pmNum,
+                        orElse: () => MockPaymentMade(id: '', date: '', location: '', paymentNumber: '', referenceNumber: '', vendorName: '', billNumber: '', mode: '', status: '', amount: 0, unusedAmount: 0),
+                      );
+                      if (payment.id.isNotEmpty) {
+                        await repo.deletePaymentMade(payment.id);
+                      }
+                    }
+                    if (mounted) {
+                      setState(() {
+                        _allPayments.removeWhere(
+                          (p) => _selectedIds.contains(p.paymentNumber),
+                        );
+                        _selectedIds.clear();
+                        _isLoading = false;
+                      });
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      setState(() {
+                        _isLoading = false;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to delete payments: $e')),
+                      );
+                    }
+                  }
                 }
               },
               style: OutlinedButton.styleFrom(
@@ -616,7 +661,7 @@ class _PaymentsMadeReportPageState
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textPrimary,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
             ),
@@ -635,7 +680,7 @@ class _PaymentsMadeReportPageState
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryBlue,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
             ),
@@ -645,7 +690,7 @@ class _PaymentsMadeReportPageState
               style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,
-                fontFamily: 'Inter',
+                
               ),
             ),
             const Spacer(),
@@ -663,7 +708,6 @@ class _PaymentsMadeReportPageState
                     style: TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
-                      fontFamily: 'Inter',
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -717,7 +761,7 @@ class _PaymentsMadeReportPageState
                         _selectedView,
                         style: AppTheme.textPrimaryStyle(18, FontWeight.w600)
                             .copyWith(
-                              fontFamily: 'Inter',
+                              
                               color: AppTheme.textPrimary,
                             ),
                       ),
@@ -739,7 +783,11 @@ class _PaymentsMadeReportPageState
           const Spacer(),
           ElevatedButton(
             onPressed: () {
-              context.go('/$orgId${AppRoutes.paymentsMadeCreate}');
+              final state = GoRouterState.of(context);
+              context.goNamed(
+                AppRoutes.paymentsMadeCreate,
+                pathParameters: state.pathParameters,
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
@@ -760,7 +808,7 @@ class _PaymentsMadeReportPageState
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'Inter',
+                    
                   ),
                 ),
               ],
@@ -901,21 +949,7 @@ class _PaymentsMadeReportPageState
                   ],
                 ),
               ),
-              MenuItemButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening preferences...')),
-                  );
-                },
-                style: ZTableMoreMenu.menuItemButtonStyle(),
-                child: Row(
-                  children: const [
-                    Icon(LucideIcons.settings, size: 14),
-                    SizedBox(width: 12),
-                    Text('Preferences', style: TextStyle(fontSize: 13)),
-                  ],
-                ),
-              ),
+
               MenuItemButton(
                 onPressed: () {
                   setState(() {
@@ -993,7 +1027,7 @@ class _PaymentsMadeReportPageState
                 fillColor: Colors.transparent,
                 filled: false,
               ),
-              style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
+              style: const TextStyle(fontSize: 13),
             ),
           ),
           if (_searchQuery.isNotEmpty)
@@ -1018,6 +1052,7 @@ class _PaymentsMadeReportPageState
   Widget _buildTable(
     List<MockPaymentMade> visiblePayments,
     bool allVisibleSelected,
+    double minWidth,
   ) {
     // Columns config and widths
     final colWidths = _colWidths;
@@ -1031,7 +1066,7 @@ class _PaymentsMadeReportPageState
     }
 
     return Container(
-      width: totalWidth,
+      width: totalWidth < minWidth ? minWidth : totalWidth,
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1152,7 +1187,7 @@ class _PaymentsMadeReportPageState
                 style: TextStyle(
                   fontSize: 13,
                   color: AppTheme.textSecondary,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
             )
@@ -1240,7 +1275,7 @@ class _PaymentsMadeReportPageState
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                       color: Color(0xFF374151),
-                                      fontFamily: 'Inter',
+                                      
                                     ),
                                   );
                                 }
@@ -1267,7 +1302,7 @@ class _PaymentsMadeReportPageState
                                               color: AppTheme.primaryBlue,
                                               decoration:
                                                   TextDecoration.underline,
-                                              fontFamily: 'Inter',
+                                              
                                             ),
                                             maxLines: _wrapText ? null : 1,
                                             overflow: _wrapText
@@ -1293,7 +1328,7 @@ class _PaymentsMadeReportPageState
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF1F2937),
-                                      fontFamily: 'Inter',
+                                      
                                     ),
                                   );
                                 }
@@ -1329,7 +1364,7 @@ class _PaymentsMadeReportPageState
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
                                             color: Color(0xFF10B981),
-                                            fontFamily: 'Inter',
+                                            
                                           ),
                                           maxLines: _wrapText ? null : 1,
                                           overflow: _wrapText
@@ -1349,7 +1384,7 @@ class _PaymentsMadeReportPageState
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF1F2937),
-                                      fontFamily: 'Inter',
+                                      
                                     ),
                                   );
                                 }
@@ -1366,7 +1401,7 @@ class _PaymentsMadeReportPageState
                                       color: p.unusedAmount > 0
                                           ? const Color(0xFF374151)
                                           : const Color(0xFF9CA3AF),
-                                      fontFamily: 'Inter',
+                                      
                                     ),
                                   );
                                 }
@@ -1411,11 +1446,8 @@ class _PaymentsMadeReportPageState
               textAlign: align,
               overflow: _wrapText ? TextOverflow.clip : TextOverflow.ellipsis,
               maxLines: _wrapText ? null : 1,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF4B5563),
-                fontFamily: 'Inter',
+              style: AppTheme.metaHelper.copyWith(
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -1483,12 +1515,7 @@ class _PaymentsMadeReportPageState
           child: Text(
             text,
             style:
-                textStyle ??
-                const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF4B5563),
-                  fontFamily: 'Inter',
-                ),
+                textStyle ?? AppTheme.tableCell,
             maxLines: _wrapText ? null : 1,
             overflow: _wrapText ? TextOverflow.clip : TextOverflow.ellipsis,
           ),
@@ -1564,7 +1591,7 @@ class _PaymentsMadeReportPageState
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,
-                fontFamily: 'Inter',
+                
               ),
             ),
           ),
@@ -1628,7 +1655,7 @@ class _PaymentsMadeReportPageState
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF065F46),
-                    fontFamily: 'Inter',
+                    
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1637,7 +1664,7 @@ class _PaymentsMadeReportPageState
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF047857),
-                    fontFamily: 'Inter',
+                    
                   ),
                 ),
               ],
@@ -1659,7 +1686,7 @@ class _PaymentsMadeReportPageState
             fontWeight: FontWeight.w600,
             color: Color(0xFF6B7280),
             letterSpacing: 0.5,
-            fontFamily: 'Inter',
+            
           ),
         ),
         const SizedBox(height: 12),
@@ -1699,7 +1726,7 @@ class _PaymentsMadeReportPageState
             style: const TextStyle(
               fontSize: 12,
               color: AppTheme.textSecondary,
-              fontFamily: 'Inter',
+              
             ),
           ),
         ),
@@ -1711,7 +1738,7 @@ class _PaymentsMadeReportPageState
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: AppTheme.textPrimary,
-              fontFamily: 'Inter',
+              
             ),
           ),
         ),
@@ -1737,7 +1764,7 @@ class _PaymentsMadeReportPageState
                 style: TextStyle(
                   fontSize: 12,
                   color: AppTheme.textSecondary,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
               Text(
@@ -1746,7 +1773,7 @@ class _PaymentsMadeReportPageState
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textPrimary,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
             ],
@@ -1760,7 +1787,7 @@ class _PaymentsMadeReportPageState
                 style: TextStyle(
                   fontSize: 12,
                   color: AppTheme.textSecondary,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
               Text(
@@ -1771,7 +1798,7 @@ class _PaymentsMadeReportPageState
                   color: p.unusedAmount > 0
                       ? const Color(0xFFEA580C)
                       : AppTheme.textSecondary,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
             ],
@@ -1796,7 +1823,7 @@ class _PaymentsMadeReportPageState
             fontWeight: FontWeight.w600,
             color: Color(0xFF6B7280),
             letterSpacing: 0.5,
-            fontFamily: 'Inter',
+            
           ),
         ),
         const SizedBox(height: 12),
@@ -1823,7 +1850,7 @@ class _PaymentsMadeReportPageState
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF4B5563),
-                          fontFamily: 'Inter',
+                          
                         ),
                       ),
                     ),
@@ -1833,7 +1860,7 @@ class _PaymentsMadeReportPageState
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF4B5563),
-                        fontFamily: 'Inter',
+                        
                       ),
                     ),
                   ],
@@ -1855,7 +1882,7 @@ class _PaymentsMadeReportPageState
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.textPrimary,
-                          fontFamily: 'Inter',
+                          
                         ),
                       ),
                     ),
@@ -1865,7 +1892,7 @@ class _PaymentsMadeReportPageState
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF1F2937),
-                        fontFamily: 'Inter',
+                        
                       ),
                     ),
                   ],
@@ -1954,7 +1981,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.textPrimary,
-                      fontFamily: 'Inter',
+                      
                     ),
                   ),
                   IconButton(
@@ -1982,7 +2009,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
                     style: TextStyle(
                       fontSize: 13,
                       color: AppTheme.textPrimary,
-                      fontFamily: 'Inter',
+                      
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -2005,6 +2032,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
                           hint: 'Select a field',
                           height: 36,
                           showSearch: false,
+                          
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -2029,7 +2057,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
                         fontSize: 12,
                         color: AppTheme.textSecondary,
                         height: 1.4,
-                        fontFamily: 'Inter',
+                        
                       ),
                     ),
                   ),
@@ -2078,7 +2106,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        fontFamily: 'Inter',
+                        
                       ),
                     ),
                   ),
@@ -2102,7 +2130,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        fontFamily: 'Inter',
+                        
                       ),
                     ),
                   ),
@@ -2143,6 +2171,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
         hint: 'Select Payment Mode',
         height: 36,
         showSearch: false,
+        
       );
     }
 
@@ -2178,6 +2207,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
         hint: 'Select Paid Through',
         height: 36,
         showSearch: false,
+        
       );
     }
 
@@ -2193,6 +2223,7 @@ class _BulkUpdateDialogState extends State<BulkUpdateDialog> {
         hint: 'Select Deposit To Account ID',
         height: 36,
         showSearch: false,
+        
       );
     }
 
@@ -2255,7 +2286,7 @@ class _ViewOptionRowState extends State<_ViewOptionRow> {
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: textColor,
-                    fontFamily: 'Inter',
+                    
                   ),
                 ),
               ),
@@ -2315,7 +2346,7 @@ class _NewViewRowState extends State<_NewViewRow> {
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: textColor,
-                  fontFamily: 'Inter',
+                  
                 ),
               ),
             ],

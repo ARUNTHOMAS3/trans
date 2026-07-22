@@ -40,11 +40,11 @@ class ContactPersonRow {
     String? initialEmail,
     String? initialPhone,
     String? initialMobile,
-  })  : firstName = TextEditingController(text: initialFirstName),
-        lastName = TextEditingController(text: initialLastName),
-        email = TextEditingController(text: initialEmail),
-        phone = TextEditingController(text: initialPhone),
-        mobile = TextEditingController(text: initialMobile);
+  }) : firstName = TextEditingController(text: initialFirstName),
+       lastName = TextEditingController(text: initialLastName),
+       email = TextEditingController(text: initialEmail),
+       phone = TextEditingController(text: initialPhone),
+       mobile = TextEditingController(text: initialMobile);
 
   /// Clears all text fields and resets dropdowns to their defaults.
   void clear() {
@@ -350,10 +350,7 @@ class _ContactPersonsTableState extends State<ContactPersonsTable> {
           const SizedBox(height: AppTheme.space8),
 
           // Data rows
-          ...widget.rows
-              .asMap()
-              .entries
-              .map((e) => _buildRow(e.key, e.value)),
+          ...widget.rows.asMap().entries.map((e) => _buildRow(e.key, e.value)),
 
           const SizedBox(height: AppTheme.space12),
 

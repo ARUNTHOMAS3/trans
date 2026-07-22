@@ -31,7 +31,17 @@ class PaymentFormSkeleton extends StatelessWidget {
   /// Max content width — 900 for Customer Advance, 1200 for Invoice Payment.
   final double maxWidth;
 
-  static const List<double> _labelWidths = [110, 90, 80, 140, 120, 100, 70, 130, 95];
+  static const List<double> _labelWidths = [
+    110,
+    90,
+    80,
+    140,
+    120,
+    100,
+    70,
+    130,
+    95,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +84,11 @@ class PaymentFormSkeleton extends StatelessWidget {
                 // Notes block
                 const Skeleton(width: 120, height: 14),
                 const SizedBox(height: 10),
-                const Skeleton(width: double.infinity, height: 80, borderRadius: 6),
+                const Skeleton(
+                  width: double.infinity,
+                  height: 80,
+                  borderRadius: 6,
+                ),
                 const SizedBox(height: 20),
                 // Attachments block
                 const Skeleton(width: 120, height: 14),

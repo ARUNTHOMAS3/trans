@@ -2257,5 +2257,3 @@ class _UploadMenuItemState extends State<_UploadMenuItem> {
     );
   }
 }
-
-

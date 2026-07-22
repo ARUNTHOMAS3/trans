@@ -229,10 +229,7 @@ class _FileUploadButtonState extends State<FileUploadButton> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Upload control (icon or button variant)
-        ZTooltip(
-          message: 'Attach documents (PDF/Image)',
-          child: uploadControl,
-        ),
+        ZTooltip(message: 'Attach documents (PDF/Image)', child: uploadControl),
 
         // Badge pill — sits to the right of the upload icon
         if (widget.showBadge && hasFiles) ...[
@@ -358,11 +355,7 @@ class _FileListItemState extends State<_FileListItem> {
         color: _isHovered ? AppTheme.infoBlue : Colors.transparent,
         child: Row(
           children: [
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: Center(child: leading),
-            ),
+            SizedBox(width: 32, height: 32, child: Center(child: leading)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -384,8 +377,9 @@ class _FileListItemState extends State<_FileListItem> {
                     'File size: ${_formatSize(widget.file.size)}',
                     style: TextStyle(
                       fontSize: 11,
-                      color:
-                          _isHovered ? Colors.white70 : AppTheme.textSecondary,
+                      color: _isHovered
+                          ? Colors.white70
+                          : AppTheme.textSecondary,
                     ),
                   ),
                 ],

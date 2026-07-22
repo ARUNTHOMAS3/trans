@@ -3261,6 +3261,29 @@ class _SalesInvoiceOverviewScreenState
     );
   }
 
+  _InvSortField? _getSortFieldForColumnKey(_InvColumnKey key) {
+    switch (key) {
+      case _InvColumnKey.date:
+        return _InvSortField.date;
+      case _InvColumnKey.invoiceNumber:
+        return _InvSortField.invoiceNumber;
+      case _InvColumnKey.orderNumber:
+        return _InvSortField.orderNumber;
+      case _InvColumnKey.customerName:
+        return _InvSortField.customerName;
+      case _InvColumnKey.status:
+        return _InvSortField.status;
+      case _InvColumnKey.dueDate:
+        return _InvSortField.dueDate;
+      case _InvColumnKey.amount:
+        return _InvSortField.amount;
+      case _InvColumnKey.balanceDue:
+        return _InvSortField.balanceDue;
+      case _InvColumnKey.warehouse:
+        return _InvSortField.warehouse;
+    }
+  }
+
   Widget _buildTableHeader(
     List<SalesOrder> invoices,
     bool allSelected,
@@ -3302,6 +3325,8 @@ class _SalesInvoiceOverviewScreenState
   }
 
   Widget _headerLabel(_InvColumnConfig col, double width) {
+    final sortField = _getSortFieldForColumnKey(col.key);
+    final isSorted = sortField != null && _activeSortField == sortField;
     MainAxisAlignment alignment = MainAxisAlignment.start;
     if (col.key == _InvColumnKey.amount) {
       alignment = MainAxisAlignment.end;
@@ -3312,7 +3337,11 @@ class _SalesInvoiceOverviewScreenState
     }
     return SizedBox(
       width: width,
-      child: Padding(
+      child: InkWell(
+        onTap: sortField != null
+            ? () => setState(() => _toggleSort(sortField))
+            : null,
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
         child: Row(
           mainAxisAlignment: alignment,
@@ -3327,10 +3356,19 @@ class _SalesInvoiceOverviewScreenState
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (isSorted) ...[
+              const SizedBox(width: 4),
+              Icon(
+                _isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                size: 12,
+                color: AppTheme.primaryBlue,
+              ),
+            ],
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildRow(SalesOrder inv, Map<String, double> columnWidths) {

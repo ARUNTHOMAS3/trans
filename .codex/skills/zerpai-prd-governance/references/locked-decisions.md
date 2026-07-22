@@ -32,7 +32,7 @@
 
 - Global lookup tables (`products`, `categories`, `brands`, `manufacturers`, `tax_rates`, `tax_groups`, `payment_terms`, `currencies`, `uqc`, `units`, `storage_conditions`, `buying_rules`, `drug_schedules`, `drug_strengths`, `contents`, `racks`, `shipment_preferences`, `tds_rates`, `tds_sections`, `tds_groups`, `price_lists`, `price_list_items`, `countries`, `states`, `timezones`, `gst_treatments`, `gstin_registration_types`, `business_types`, `hsn_sac_codes`, `composite_items`, `composite_item_parts`) are global and must NOT be scoped by `entity_id`.
 - All business-owned transactional data must use `entity_id uuid NOT NULL REFERENCES organisation_branch_master(id)` as the tenant scope column.
-- Any new database table created specifically for the global settings system must start with `settings_`.
+- Settings-related backend work must use canonical table names from `current schema.md`; do not add a blanket `settings_` prefix.
 - Server-side pagination is mandatory for tables, defaulting to 100 rows.
 - `MenuAnchor` is mandatory for action menus and `FormDropdown` is mandatory for form selections.
 - Dialogs, dropdowns, popup menus, date pickers, and overlay surfaces must default to pure white `#FFFFFF`; do not rely on inherited Material surface tinting unless explicitly approved.

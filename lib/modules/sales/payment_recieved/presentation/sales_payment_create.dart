@@ -8,7 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_text_styles.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart' as coa;
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart'
+    as coa;
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/data/services/payments_received_api_service.dart';
@@ -30,7 +31,6 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
-
 
 class SalesPaymentCreateScreen extends ConsumerStatefulWidget {
   final String? initialCustomerId;
@@ -58,10 +58,12 @@ class SalesPaymentCreateScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SalesPaymentCreateScreen> createState() => _SalesPaymentCreateScreenState();
+  ConsumerState<SalesPaymentCreateScreen> createState() =>
+      _SalesPaymentCreateScreenState();
 }
 
-class _SalesPaymentCreateScreenState extends ConsumerState<SalesPaymentCreateScreen> {
+class _SalesPaymentCreateScreenState
+    extends ConsumerState<SalesPaymentCreateScreen> {
   late int _activeTab;
 
   @override
@@ -99,41 +101,6 @@ class _SalesPaymentCreateScreenState extends ConsumerState<SalesPaymentCreateScr
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class CustomerItem {
   final String id;
   final String name;
@@ -161,7 +128,6 @@ class _InvoicePaymentBody extends ConsumerStatefulWidget {
   final ValueChanged<int>? onTabChanged;
 
   const _InvoicePaymentBody({
-    super.key,
     this.initialCustomerId,
     this.fromInvoiceId,
     this.cloneId,
@@ -174,7 +140,8 @@ class _InvoicePaymentBody extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_InvoicePaymentBody> createState() => _InvoicePaymentBodyState();
+  ConsumerState<_InvoicePaymentBody> createState() =>
+      _InvoicePaymentBodyState();
 }
 
 class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
@@ -187,7 +154,9 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _bankChargesController = TextEditingController();
-  final TextEditingController _paymentController = TextEditingController(text: '305');
+  final TextEditingController _paymentController = TextEditingController(
+    text: '305',
+  );
   final TextEditingController _referenceController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
@@ -259,7 +228,10 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     'UPI',
   ];
   late List<String> _dynamicPaymentModes = List.from(_paymentModes);
-  static const List<String> _taxDeductOptions = ['No Tax deducted', 'Yes, TDS (Income Tax)'];
+  static const List<String> _taxDeductOptions = [
+    'No Tax deducted',
+    'Yes, TDS (Income Tax)',
+  ];
   String? _selectedPaymentMode = 'Cash';
   String _selectedTaxDeducted = 'No Tax deducted';
   // Holds the selected "Deposit To" account id from the chart of accounts tree.
@@ -289,8 +261,9 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     }
     setState(() => _loadingInvoices = true);
     try {
-      final list =
-          await PaymentsReceivedApiService().getUnpaidInvoices(customer.id);
+      final list = await PaymentsReceivedApiService().getUnpaidInvoices(
+        customer.id,
+      );
       if (!mounted) return;
       setState(() => _unpaidInvoices = list);
     } catch (_) {
@@ -310,6 +283,7 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     }
     return total;
   }
+
   String? _selectedTdsTaxAccount = 'Advance Tax';
   String? _selectedTransactionSeries = 'Default Transaction Series';
 
@@ -319,7 +293,9 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     _amountController.addListener(_onAmountChanged);
     if (widget.editPaymentId != null) {
       final state = ref.read(paymentRecievesProvider);
-      final recordIndex = state.records.indexWhere((r) => r.paymentNo == widget.editPaymentId);
+      final recordIndex = state.records.indexWhere(
+        (r) => r.paymentNo == widget.editPaymentId,
+      );
       if (recordIndex >= 0) {
         final record = state.records[recordIndex];
         _editRecordId = record.id;
@@ -379,7 +355,8 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
               hint: 'Select Customer',
               itemHeight: 56.0,
               displayStringForValue: (item) => item.name,
-              searchStringForValue: (item) => '${item.name} ${item.code} ${item.email ?? ''} ${item.secondaryCode ?? ''}',
+              searchStringForValue: (item) =>
+                  '${item.name} ${item.code} ${item.email ?? ''} ${item.secondaryCode ?? ''}',
               onChanged: (val) {
                 setState(() {
                   _selectedCustomer = val;
@@ -392,21 +369,33 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
                 _loadUnpaidInvoices();
               },
               itemBuilder: (item, isSelected, isHovered) {
-                final firstLetter = item.name.isNotEmpty ? item.name[0].toUpperCase() : '';
-                final hasSubtitle = item.email != null || item.secondaryCode != null;
-                
-                final Color titleColor = isHovered ? Colors.white : AppTheme.textPrimary;
-                final Color subtitleColor = isHovered ? Colors.white.withValues(alpha: 0.8) : AppTheme.textSecondary;
-                final Color avatarBgColor = isHovered 
-                    ? const Color(0xFFDBEAFE) 
+                final firstLetter = item.name.isNotEmpty
+                    ? item.name[0].toUpperCase()
+                    : '';
+                final hasSubtitle =
+                    item.email != null || item.secondaryCode != null;
+
+                final Color titleColor = isHovered
+                    ? Colors.white
+                    : AppTheme.textPrimary;
+                final Color subtitleColor = isHovered
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : AppTheme.textSecondary;
+                final Color avatarBgColor = isHovered
+                    ? const Color(0xFFDBEAFE)
                     : const Color(0xFFF3F4F6);
-                final Color avatarTextColor = isHovered 
-                    ? const Color(0xFF2563EB) 
+                final Color avatarTextColor = isHovered
+                    ? const Color(0xFF2563EB)
                     : const Color(0xFF4B5563);
-                final Color iconColor = isHovered ? Colors.white.withValues(alpha: 0.9) : AppTheme.textSecondary;
+                final Color iconColor = isHovered
+                    ? Colors.white.withValues(alpha: 0.9)
+                    : AppTheme.textSecondary;
 
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -446,7 +435,9 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
                                     text: ' | ${item.code}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w400,
-                                      color: isHovered ? Colors.white.withValues(alpha: 0.9) : AppTheme.textSecondary,
+                                      color: isHovered
+                                          ? Colors.white.withValues(alpha: 0.9)
+                                          : AppTheme.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -522,10 +513,7 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
             children: [
               const Text(
                 'PAN: ',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                ),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
               CompositedTransformTarget(
                 link: _panLayerLink,
@@ -619,11 +607,7 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.chevron_right,
-                color: Colors.white,
-                size: 16,
-              ),
+              const Icon(Icons.chevron_right, color: Colors.white, size: 16),
             ],
           ),
         ),
@@ -659,7 +643,8 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
               clipBehavior: Clip.antiAlias,
               child: _ConfigurePaymentPreferencesDialog(
                 location: _selectedLocation ?? '',
-                associatedSeries: _selectedTransactionSeries ?? 'Default Transaction Series',
+                associatedSeries:
+                    _selectedTransactionSeries ?? 'Default Transaction Series',
                 initialNextNumber: _paymentController.text,
                 onSave: (nextNum) {
                   setState(() {
@@ -672,8 +657,10 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
-        final offsetAnimation = Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
-            .animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut));
+        final offsetAnimation = Tween<Offset>(
+          begin: const Offset(0, -1),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut));
         return SlideTransition(position: offsetAnimation, child: child);
       },
     );
@@ -690,7 +677,9 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
             value: _selectedTransactionSeries,
             items: const ['Default Transaction Series'],
             hint: 'Select Series',
-            onChanged: isEditing ? (val) {} : (val) => setState(() => _selectedTransactionSeries = val),
+            onChanged: isEditing
+                ? (val) {}
+                : (val) => setState(() => _selectedTransactionSeries = val),
           ),
         ),
         const SizedBox(width: 12),
@@ -702,7 +691,8 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
             suffixWidget: isEditing
                 ? null
                 : ZTooltip(
-                    message: 'Click here to configure auto-generation of payment numbers.',
+                    message:
+                        'Click here to configure auto-generation of payment numbers.',
                     direction: ZTooltipDirection.bottom,
                     child: InkWell(
                       onTap: _showConfigurePreferencesDialog,
@@ -743,7 +733,13 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
   /// it has at least one account. The `__account_type__` id prefix makes
   /// [AccountTreeDropdown] render the row as a bold heading.
   List<shared.AccountNode> _buildDepositToNodes(List<coa.AccountNode> roots) {
-    const groupNames = {'assets', 'liabilities', 'equity', 'income', 'expenses'};
+    const groupNames = {
+      'assets',
+      'liabilities',
+      'equity',
+      'income',
+      'expenses',
+    };
 
     final cash = <shared.AccountNode>[];
     final bank = <shared.AccountNode>[];
@@ -781,39 +777,46 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
 
     final nodes = <shared.AccountNode>[];
     if (cash.isNotEmpty) {
-      nodes.add(shared.AccountNode(
-        id: '__account_type__Cash',
-        name: 'Cash',
-        selectable: false,
-        children: cash,
-      ));
+      nodes.add(
+        shared.AccountNode(
+          id: '__account_type__Cash',
+          name: 'Cash',
+          selectable: false,
+          children: cash,
+        ),
+      );
     }
     if (bank.isNotEmpty) {
-      nodes.add(shared.AccountNode(
-        id: '__account_type__Bank',
-        name: 'Bank',
-        selectable: false,
-        children: bank,
-      ));
+      nodes.add(
+        shared.AccountNode(
+          id: '__account_type__Bank',
+          name: 'Bank',
+          selectable: false,
+          children: bank,
+        ),
+      );
     }
     if (liabilities.isNotEmpty) {
-      nodes.add(shared.AccountNode(
-        id: '__account_type__Liabilities',
-        name: 'Liabilities',
-        selectable: false,
-        children: liabilities,
-      ));
+      nodes.add(
+        shared.AccountNode(
+          id: '__account_type__Liabilities',
+          name: 'Liabilities',
+          selectable: false,
+          children: liabilities,
+        ),
+      );
     }
     return nodes;
   }
 
-  Widget _fieldRow(Widget label, Widget field, {bool fixHeight = true, CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.center, double? maxWidth = 400}) {
-    Widget content = fixHeight
-        ? SizedBox(
-            height: 40,
-            child: field,
-          )
-        : field;
+  Widget _fieldRow(
+    Widget label,
+    Widget field, {
+    bool fixHeight = true,
+    CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.center,
+    double? maxWidth = 400,
+  }) {
+    Widget content = fixHeight ? SizedBox(height: 40, child: field) : field;
     if (maxWidth != null) {
       content = ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
@@ -825,17 +828,11 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
       children: [
         SizedBox(
           width: 180,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: label,
-          ),
+          child: Align(alignment: Alignment.centerLeft, child: label),
         ),
         const SizedBox(width: 24),
         Expanded(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: content,
-          ),
+          child: Align(alignment: Alignment.centerLeft, child: content),
         ),
       ],
     );
@@ -867,14 +864,25 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.calendar_today_outlined, size: 14, color: AppTheme.textSecondary),
+              const Icon(
+                Icons.calendar_today_outlined,
+                size: 14,
+                color: AppTheme.textSecondary,
+              ),
               const SizedBox(width: 6),
               Text(
                 dateStr,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.keyboard_arrow_down, size: 14, color: AppTheme.textSecondary),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 14,
+                color: AppTheme.textSecondary,
+              ),
             ],
           ),
         ),
@@ -928,7 +936,6 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     );
 
     Overlay.of(context).insert(_filterOverlayEntry!);
-
   }
 
   void _closeFilterOverlay() {
@@ -972,11 +979,19 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Row(
           children: [
-            _tabItem('Invoice Payment', isActive: _activeTab == 0, onTap: () => setState(() => _activeTab = 0)),
+            _tabItem(
+              'Invoice Payment',
+              isActive: _activeTab == 0,
+              onTap: () => setState(() => _activeTab = 0),
+            ),
             const SizedBox(width: 24),
-            _tabItem('Customer Advance', isActive: _activeTab == 1, onTap: () {
-              widget.onTabChanged?.call(1);
-            }),
+            _tabItem(
+              'Customer Advance',
+              isActive: _activeTab == 1,
+              onTap: () {
+                widget.onTabChanged?.call(1);
+              },
+            ),
             const Spacer(),
             IconButton(
               icon: const Icon(Icons.close, color: Colors.grey, size: 20),
@@ -991,7 +1006,11 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     );
   }
 
-  Widget _tabItem(String text, {required bool isActive, required VoidCallback onTap}) {
+  Widget _tabItem(
+    String text, {
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -1030,7 +1049,8 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
       ZerpaiToast.error(context, 'Please select a customer.');
       return;
     }
-    final amount = double.tryParse(_amountController.text.replaceAll(',', '')) ?? 0.0;
+    final amount =
+        double.tryParse(_amountController.text.replaceAll(',', '')) ?? 0.0;
     if (amount <= 0) {
       ZerpaiToast.error(context, 'Please enter a valid amount.');
       return;
@@ -1053,8 +1073,9 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
       'payment_date': _isoDate(_selectedDate),
       'deposit_account_id': _selectedDepositToId,
       'payment_mode': _selectedPaymentMode,
-      'reference_number':
-          _referenceController.text.isEmpty ? null : _referenceController.text,
+      'reference_number': _referenceController.text.isEmpty
+          ? null
+          : _referenceController.text,
       'amount_received': amount,
       'bank_charges': bankCharges,
       'is_tds_deducted': _selectedTaxDeducted != 'No Tax deducted',
@@ -1147,10 +1168,7 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
             const SizedBox(width: 8),
             Text(
               'Received full amount (₹$formatted)',
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textPrimary,
-              ),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
           ],
         ),
@@ -1165,7 +1183,8 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     for (final inv in _unpaidInvoices) {
       final id = inv['id'];
       if (id == null || id.isEmpty) continue;
-      final allocated = double.tryParse(
+      final allocated =
+          double.tryParse(
             (_invoicePaymentControllers[id]?.text ?? '').replaceAll(',', ''),
           ) ??
           0.0;
@@ -1174,7 +1193,10 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
       result.add({
         'invoice_id': id,
         'invoice_amount':
-            double.tryParse((inv['invoiceAmount'] ?? '0').replaceAll(',', '')) ?? 0,
+            double.tryParse(
+              (inv['invoiceAmount'] ?? '0').replaceAll(',', ''),
+            ) ??
+            0,
         'amount_due':
             double.tryParse((inv['amountDue'] ?? '0').replaceAll(',', '')) ?? 0,
         'allocated_amount': allocated,
@@ -1212,18 +1234,24 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
       return;
     }
     final orgId = resolveOrgSystemId(context);
-    context.goNamed(AppRoutes.salesPaymentsReceived, pathParameters: {'orgSystemId': orgId});
+    context.goNamed(
+      AppRoutes.salesPaymentsReceived,
+      pathParameters: {'orgSystemId': orgId},
+    );
   }
 
   // ── Bottom Section Builders ──────────────────────────────────────────────
 
-Widget _buildUnpaidInvoicesTable() {
+  Widget _buildUnpaidInvoicesTable() {
     final List<Map<String, String>> invoices = _selectedCustomerUnpaidInvoices;
 
     // Ensure controllers exist for each invoice row
     for (final inv in invoices) {
       final id = inv['id'] ?? inv['number'] ?? '';
-      _invoicePaymentControllers.putIfAbsent(id, () => TextEditingController(text: '0'));
+      _invoicePaymentControllers.putIfAbsent(
+        id,
+        () => TextEditingController(text: '0'),
+      );
       _invoiceReceivedDates.putIfAbsent(id, () => _selectedDate);
     }
 
@@ -1241,41 +1269,108 @@ Widget _buildUnpaidInvoicesTable() {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: const BoxDecoration(
               color: AppTheme.tableHeaderBg,
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderColor),
-              ),
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
-            child: IntrinsicHeight(
-              child: Row(
-                children: [
-                  Expanded(flex: 2, child: Text('DATE', style: AppTheme.tableHeader.copyWith(fontSize: 12))),
-                  const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                  Expanded(flex: 2, child: Text('INVOICE NUMBER', style: AppTheme.tableHeader.copyWith(fontSize: 12))),
-                  const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                  Expanded(flex: 2, child: Text('LOCATION', style: AppTheme.tableHeader.copyWith(fontSize: 12))),
-                  const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                  Expanded(flex: 2, child: Text('INVOICE AMOUNT', style: AppTheme.tableHeader.copyWith(fontSize: 12), textAlign: TextAlign.right)),
-                  const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                  Expanded(flex: 2, child: Text('AMOUNT DUE', style: AppTheme.tableHeader.copyWith(fontSize: 12), textAlign: TextAlign.right)),
-                  const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                  Expanded(
-                    flex: 3,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('PAYMENT RECEIVED ON', style: AppTheme.tableHeader.copyWith(fontSize: 12)),
-                        const SizedBox(width: 4),
-                        ZTooltip(
-                          message: 'Date on which the payment was received for this invoice.',
-                          child: const Icon(Icons.info_outline, size: 14, color: AppTheme.textSecondary),
-                        ),
-                      ],
-                    ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'DATE',
+                    style: AppTheme.tableHeader.copyWith(fontSize: 12),
                   ),
-                  const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                  Expanded(flex: 2, child: Text('PAYMENT', style: AppTheme.tableHeader.copyWith(fontSize: 12), textAlign: TextAlign.right)),
-                ],
-              ),
+                ),
+                const VerticalDivider(
+                  width: 32,
+                  thickness: 1,
+                  color: AppTheme.borderColor,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'INVOICE NUMBER',
+                    style: AppTheme.tableHeader.copyWith(fontSize: 12),
+                  ),
+                ),
+                const VerticalDivider(
+                  width: 32,
+                  thickness: 1,
+                  color: AppTheme.borderColor,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'LOCATION',
+                    style: AppTheme.tableHeader.copyWith(fontSize: 12),
+                  ),
+                ),
+                const VerticalDivider(
+                  width: 32,
+                  thickness: 1,
+                  color: AppTheme.borderColor,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'INVOICE AMOUNT',
+                    style: AppTheme.tableHeader.copyWith(fontSize: 12),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                const VerticalDivider(
+                  width: 32,
+                  thickness: 1,
+                  color: AppTheme.borderColor,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'AMOUNT DUE',
+                    style: AppTheme.tableHeader.copyWith(fontSize: 12),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                const VerticalDivider(
+                  width: 32,
+                  thickness: 1,
+                  color: AppTheme.borderColor,
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'PAYMENT RECEIVED ON',
+                        style: AppTheme.tableHeader.copyWith(fontSize: 12),
+                      ),
+                      const SizedBox(width: 4),
+                      ZTooltip(
+                        message:
+                            'Date on which the payment was received for this invoice.',
+                        child: const Icon(
+                          Icons.info_outline,
+                          size: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const VerticalDivider(
+                  width: 32,
+                  thickness: 1,
+                  color: AppTheme.borderColor,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'PAYMENT',
+                    style: AppTheme.tableHeader.copyWith(fontSize: 12),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
             ),
           ),
           // Table Body
@@ -1303,7 +1398,11 @@ Widget _buildUnpaidInvoicesTable() {
               ),
               child: const Text(
                 'There are no unpaid invoices associated with this customer.',
-                style: TextStyle(fontSize: 13, color: Color(0xFFD97706), fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFFD97706),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             )
           else
@@ -1313,176 +1412,246 @@ Widget _buildUnpaidInvoicesTable() {
               final receivedDate = _invoiceReceivedDates[id]!;
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
                 ),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // DATE column – date + due date
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(inv['date'] ?? '-', style: AppTheme.tableCell.copyWith(fontSize: 12)),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Due Date: ${inv['dueDate'] ?? '-'}',
-                              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.borderColor),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // DATE column – date + due date
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            inv['date'] ?? '-',
+                            style: AppTheme.tableCell.copyWith(fontSize: 12),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Due Date: ${inv['dueDate'] ?? '-'}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.textSecondary,
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const VerticalDivider(
+                      width: 32,
+                      thickness: 1,
+                      color: AppTheme.borderColor,
+                    ),
+                    // INVOICE NUMBER
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          inv['number'] ?? '-',
+                          style: AppTheme.tableCell.copyWith(fontSize: 12),
                         ),
                       ),
-                      const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                      // INVOICE NUMBER
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(inv['number'] ?? '-', style: AppTheme.tableCell.copyWith(fontSize: 12)),
+                    ),
+                    const VerticalDivider(
+                      width: 32,
+                      thickness: 1,
+                      color: AppTheme.borderColor,
+                    ),
+                    // LOCATION
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          inv['location'] ?? '-',
+                          style: AppTheme.tableCell.copyWith(fontSize: 12),
                         ),
                       ),
-                      const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                      // LOCATION
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(inv['location'] ?? '-', style: AppTheme.tableCell.copyWith(fontSize: 12)),
+                    ),
+                    const VerticalDivider(
+                      width: 32,
+                      thickness: 1,
+                      color: AppTheme.borderColor,
+                    ),
+                    // INVOICE AMOUNT
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          inv['invoiceAmount'] ?? '-',
+                          style: AppTheme.tableCell.copyWith(fontSize: 12),
+                          textAlign: TextAlign.right,
                         ),
                       ),
-                      const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                      // INVOICE AMOUNT
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(inv['invoiceAmount'] ?? '-', style: AppTheme.tableCell.copyWith(fontSize: 12), textAlign: TextAlign.right),
+                    ),
+                    const VerticalDivider(
+                      width: 32,
+                      thickness: 1,
+                      color: AppTheme.borderColor,
+                    ),
+                    // AMOUNT DUE
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          inv['amountDue'] ?? '-',
+                          style: AppTheme.tableCell.copyWith(fontSize: 12),
+                          textAlign: TextAlign.right,
                         ),
                       ),
-                      const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                      // AMOUNT DUE
-                      Expanded(
-                        flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(inv['amountDue'] ?? '-', style: AppTheme.tableCell.copyWith(fontSize: 12), textAlign: TextAlign.right),
-                        ),
-                      ),
-                      const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                      // PAYMENT RECEIVED ON – inline date picker
-                      Builder(
-                        builder: (context) {
-                          final dateKey = _datePickerKeys.putIfAbsent(id, () => GlobalKey());
-                          return Expanded(
-                            flex: 3,
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: SizedBox(
-                                width: 150,
-                                height: 34,
-                                child: InkWell(
-                                  key: dateKey,
-                                  onTap: () async {
-                                    final picked = await ZerpaiDatePicker.show(
-                                      context,
-                                      initialDate: receivedDate,
-                                      firstDate: DateTime(2020),
-                                      lastDate: DateTime(2030),
-                                      targetKey: dateKey,
-                                    );
-                                    if (picked != null) {
-                                      setState(() {
-                                        _invoiceReceivedDates[id] = picked;
-                                      });
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: AppTheme.borderColor),
-                                      borderRadius: BorderRadius.circular(4),
-                                      color: Colors.white,
+                    ),
+                    const VerticalDivider(
+                      width: 32,
+                      thickness: 1,
+                      color: AppTheme.borderColor,
+                    ),
+                    // PAYMENT RECEIVED ON – inline date picker
+                    Builder(
+                      builder: (context) {
+                        final dateKey = _datePickerKeys.putIfAbsent(
+                          id,
+                          () => GlobalKey(),
+                        );
+                        return Expanded(
+                          flex: 3,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: 150,
+                              height: 34,
+                              child: InkWell(
+                                key: dateKey,
+                                onTap: () async {
+                                  final picked = await ZerpaiDatePicker.show(
+                                    context,
+                                    initialDate: receivedDate,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2030),
+                                    targetKey: dateKey,
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      _invoiceReceivedDates[id] = picked;
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: AppTheme.borderColor,
                                     ),
-                                    alignment: Alignment.centerLeft,
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            _formatDate(receivedDate),
-                                            style: AppTheme.tableCell.copyWith(fontSize: 12),
+                                    borderRadius: BorderRadius.circular(4),
+                                    color: Colors.white,
+                                  ),
+                                  alignment: Alignment.centerLeft,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _formatDate(receivedDate),
+                                          style: AppTheme.tableCell.copyWith(
+                                            fontSize: 12,
                                           ),
                                         ),
-                                        const Icon(Icons.calendar_today_outlined, size: 14, color: AppTheme.textSecondary),
-                                      ],
-                                    ),
+                                      ),
+                                      const Icon(
+                                        Icons.calendar_today_outlined,
+                                        size: 14,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        );
+                      },
+                    ),
+                    const VerticalDivider(
+                      width: 32,
+                      thickness: 1,
+                      color: AppTheme.borderColor,
+                    ),
+                    // PAYMENT – editable field + Pay in Full link
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            height: 34,
+                            child: TextField(
+                              controller: payCtrl,
+                              textAlign: TextAlign.right,
+                              keyboardType: TextInputType.number,
+                              style: AppTheme.tableCell.copyWith(fontSize: 12),
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 8,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.borderColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.borderColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                isDense: true,
+                              ),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () {
+                              final dueStr =
+                                  inv['amountDue']?.replaceAll(',', '') ?? '0';
+                              final dueVal = double.tryParse(dueStr) ?? 0.0;
+                              setState(() {
+                                payCtrl.text = dueVal.toStringAsFixed(2);
+                              });
+                            },
+                            child: const Text(
+                              'Pay in Full',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.primaryBlue,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const VerticalDivider(width: 32, thickness: 1, color: AppTheme.borderColor),
-                      // PAYMENT – editable field + Pay in Full link
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            SizedBox(
-                              width: 100,
-                              height: 34,
-                              child: TextField(
-                                controller: payCtrl,
-                                textAlign: TextAlign.right,
-                                keyboardType: TextInputType.number,
-                                style: AppTheme.tableCell.copyWith(fontSize: 12),
-                                decoration: InputDecoration(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                  border: OutlineInputBorder(
-                                    borderSide: const BorderSide(color: AppTheme.borderColor),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(color: AppTheme.borderColor),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(color: AppTheme.primaryBlue),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  isDense: true,
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            InkWell(
-                              onTap: () {
-                                final dueStr = inv['amountDue']?.replaceAll(',', '') ?? '0';
-                                final dueVal = double.tryParse(dueStr) ?? 0.0;
-                                setState(() {
-                                  payCtrl.text = dueVal.toStringAsFixed(2);
-                                });
-                              },
-                              child: const Text(
-                                'Pay in Full',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.primaryBlue,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
             }).toList(),
@@ -1492,16 +1661,37 @@ Widget _buildUnpaidInvoicesTable() {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('**List contains only SENT invoices', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+                const Text(
+                  '**List contains only SENT invoices',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 Row(
                   children: [
-                    Text('Total', style: AppTheme.tableHeader.copyWith(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+                    Text(
+                      'Total',
+                      style: AppTheme.tableHeader.copyWith(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(width: 40),
                     Text(
                       _invoicePaymentControllers.values
-                          .fold<double>(0, (sum, c) => sum + (double.tryParse(c.text.replaceAll(',', '')) ?? 0))
+                          .fold<double>(
+                            0,
+                            (sum, c) =>
+                                sum +
+                                (double.tryParse(c.text.replaceAll(',', '')) ??
+                                    0),
+                          )
                           .toStringAsFixed(2),
-                      style: AppTheme.tableCell.copyWith(fontWeight: FontWeight.w700),
+                      style: AppTheme.tableCell.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
@@ -1514,9 +1704,12 @@ Widget _buildUnpaidInvoicesTable() {
   }
 
   Widget _buildSummaryCard() {
-    final double amountReceived = double.tryParse(_amountController.text) ?? 0.00;
-    final double amountUsed = _invoicePaymentControllers.values
-        .fold<double>(0, (sum, c) => sum + (double.tryParse(c.text.replaceAll(',', '')) ?? 0));
+    final double amountReceived =
+        double.tryParse(_amountController.text) ?? 0.00;
+    final double amountUsed = _invoicePaymentControllers.values.fold<double>(
+      0,
+      (sum, c) => sum + (double.tryParse(c.text.replaceAll(',', '')) ?? 0),
+    );
     final double amountRefunded = 0.00;
     final double excess = amountReceived - amountUsed - amountRefunded;
 
@@ -1524,9 +1717,15 @@ Widget _buildUnpaidInvoicesTable() {
 
     // Dynamic styling based on excess amount
     final bool isExcessZero = excess == 0.00;
-    final Color cardBgColor = isExcessZero ? const Color(0xFFF9FAFB) : const Color(0xFFFFF7ED);
-    final Color labelColor = isExcessZero ? AppTheme.textSecondary : const Color(0xFFB45309);
-    final Color iconColor = isExcessZero ? const Color(0xFF9CA3AF) : const Color(0xFFD97706);
+    final Color cardBgColor = isExcessZero
+        ? const Color(0xFFF9FAFB)
+        : const Color(0xFFFFF7ED);
+    final Color labelColor = isExcessZero
+        ? AppTheme.textSecondary
+        : const Color(0xFFB45309);
+    final Color iconColor = isExcessZero
+        ? const Color(0xFF9CA3AF)
+        : const Color(0xFFD97706);
 
     return Align(
       alignment: Alignment.centerRight,
@@ -1536,25 +1735,32 @@ Widget _buildUnpaidInvoicesTable() {
         decoration: BoxDecoration(
           color: cardBgColor,
           borderRadius: BorderRadius.circular(8),
-          border: isExcessZero ? Border.all(color: const Color(0xFFE5E7EB)) : null,
+          border: isExcessZero
+              ? Border.all(color: const Color(0xFFE5E7EB))
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            _summaryRow('Amount Received :', numberFormat.format(amountReceived)),
+            _summaryRow(
+              'Amount Received :',
+              numberFormat.format(amountReceived),
+            ),
             const SizedBox(height: 8),
-            _summaryRow('Amount used for Payments :', numberFormat.format(amountUsed)),
+            _summaryRow(
+              'Amount used for Payments :',
+              numberFormat.format(amountUsed),
+            ),
             const SizedBox(height: 8),
-            _summaryRow('Amount Refunded :', numberFormat.format(amountRefunded)),
+            _summaryRow(
+              'Amount Refunded :',
+              numberFormat.format(amountRefunded),
+            ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Icon(
-                  Icons.warning_rounded,
-                  color: iconColor,
-                  size: 16,
-                ),
+                Icon(Icons.warning_rounded, color: iconColor, size: 16),
                 const SizedBox(width: 6),
                 Text(
                   'Amount in Excess:',
@@ -1587,10 +1793,7 @@ Widget _buildUnpaidInvoicesTable() {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 13,
-            color: AppTheme.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         const SizedBox(width: 24),
         SizedBox(
@@ -1663,10 +1866,7 @@ Widget _buildUnpaidInvoicesTable() {
         const SizedBox(height: 6),
         const Text(
           'You can upload a maximum of 5 files, 5MB each',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppTheme.textSecondary,
-          ),
+          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
       ],
     );
@@ -1687,14 +1887,23 @@ Widget _buildUnpaidInvoicesTable() {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, color: AppTheme.errorRed, size: 48),
+                const Icon(
+                  Icons.error_outline,
+                  color: AppTheme.errorRed,
+                  size: 48,
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  error.toString().contains('token') || error.toString().contains('Unauthorized')
+                  error.toString().contains('token') ||
+                          error.toString().contains('Unauthorized')
                       ? 'Session expired. Please sign in again.'
                       : 'Error loading customers: ${error.toString()}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -1719,17 +1928,23 @@ Widget _buildUnpaidInvoicesTable() {
     }
 
     final customersList = customersAsync.value ?? [];
-    final customerItems = customersList.map((c) => CustomerItem(
-      id: c.id,
-      name: c.displayName,
-      code: c.customerNumber ?? '',
-      email: c.email,
-      secondaryCode: c.customerNumber,
-    )).toList();
+    final customerItems = customersList
+        .map(
+          (c) => CustomerItem(
+            id: c.id,
+            name: c.displayName,
+            code: c.customerNumber ?? '',
+            email: c.email,
+            secondaryCode: c.customerNumber,
+          ),
+        )
+        .toList();
 
     if (_selectedCustomer == null && customerItems.isNotEmpty) {
       if (widget.initialCustomerId != null) {
-        final matchIndex = customerItems.indexWhere((c) => c.id == widget.initialCustomerId);
+        final matchIndex = customerItems.indexWhere(
+          (c) => c.id == widget.initialCustomerId,
+        );
         if (matchIndex >= 0) {
           _selectedCustomer = customerItems[matchIndex];
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1738,7 +1953,9 @@ Widget _buildUnpaidInvoicesTable() {
         }
       } else if (widget.editPaymentId != null) {
         final state = ref.read(paymentRecievesProvider);
-        final recordIndex = state.records.indexWhere((r) => r.paymentNo == widget.editPaymentId);
+        final recordIndex = state.records.indexWhere(
+          (r) => r.paymentNo == widget.editPaymentId,
+        );
         if (recordIndex >= 0) {
           final record = state.records[recordIndex];
           final matchIndex = customerItems.indexWhere(
@@ -1756,296 +1973,311 @@ Widget _buildUnpaidInvoicesTable() {
     }
 
     // Live chart-of-accounts grouped into Cash / Bank / Liabilities heads.
-    final depositToNodes =
-        _buildDepositToNodes(ref.watch(chartOfAccountsProvider).roots);
+    final depositToNodes = _buildDepositToNodes(
+      ref.watch(chartOfAccountsProvider).roots,
+    );
 
     final bodyWidget = Stack(
-        children: [
-          SingleChildScrollView(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(24),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 0. Customer Name*
-                    _fieldRow(
-                      _label('Customer Name', required: true),
-                      _customerField(customerItems),
-                      fixHeight: false,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      maxWidth: null,
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Fields below are shown dimmed (half opacity) and
-                    // non-interactive until a customer is selected.
-                    Opacity(
-                      opacity: _selectedCustomer == null ? 0.3 : 1.0,
-                      child: IgnorePointer(
-                        ignoring: _selectedCustomer == null,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-
-                // 2. Amount Received*
-                _fieldRow(
-                  _label('Amount Received', required: true),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 40,
-                        child: _AmountField(
-                          controller: _amountController,
-                          enabled: !_receivedFullAmount,
-                        ),
-                      ),
-                      if (_selectedCustomer != null && _fullAmountDue > 0) ...[
-                        const SizedBox(height: 8),
-                        _buildReceivedFullAmount(),
-                      ],
-                    ],
-                  ),
-                  fixHeight: false,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                ),
-                const SizedBox(height: 18),
-
-                // 3. Bank Charges (if any)
-                _fieldRow(
-                  _label('Bank Charges (if any)'),
-                  CustomTextField(
-                    controller: _bankChargesController,
-                    hintText: '',
-                    autoFocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // 4. Payment Date*
-                _fieldRow(
-                  _label('Payment Date', required: true),
-                  _DatePickerField(
-                    dateKey: _datePickerKey,
-                    selectedDate: _selectedDate,
-                    onDateChanged: (d) => setState(() => _selectedDate = d),
-                    formatDate: _formatDate,
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // 5. Payment #*
-                _fieldRow(
-                  _label('Payment #', required: true),
-                  _paymentBar(),
-                ),
-                const SizedBox(height: 18),
-
-                // 6. Payment Mode
-                _fieldRow(
-                  _label('Payment Mode'),
-                  FormDropdown<String>(
-                    value: _selectedPaymentMode,
-                    items: _dynamicPaymentModes,
-                    hint: 'Select payment mode',
-                    onChanged: (val) => setState(() => _selectedPaymentMode = val),
-                    showSettings: true,
-                    settingsLabel: 'Configure Payment Mode',
-                    settingsIcon: Icons.add_circle,
-                    onSettingsTap: () {
-                      showDialog(
-                        context: context,
-                        barrierDismissible: true,
-                        builder: (context) {
-                          return ConfigurePaymentModeDialog(
-                            paymentModes: _dynamicPaymentModes,
-                            defaultPaymentMode: _selectedPaymentMode ?? 'Cash',
-                            onSave: (updated, newDefault) {
-                              setState(() {
-                                _dynamicPaymentModes = updated;
-                                _selectedPaymentMode = newDefault;
-                              });
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // 7. Deposit To*
-                _fieldRow(
-                  _label('Deposit To', required: true),
-                  AccountTreeDropdown(
-                    value: _selectedDepositToId,
-                    nodes: depositToNodes,
-                    hint: 'Select an account',
-                    height: 40,
-                    borderRadius: BorderRadius.circular(6),
-                    onChanged: (val) => setState(() => _selectedDepositToId = val),
-                  ),
-                  fixHeight: false,
-                ),
-                const SizedBox(height: 18),
-
-                // 8. Reference#
-                _fieldRow(
-                  _label('Reference#'),
-                  CustomTextField(
-                    controller: _referenceController,
-                    hintText: '',
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // 9. Tax deducted?
-                _fieldRow(
-                  _label('Tax deducted?'),
-                  _taxDeductedBar(),
-                  fixHeight: false,
-                ),
-                if (_selectedTaxDeducted == 'Yes, TDS (Income Tax)') ...[
-                  const SizedBox(height: 18),
+      children: [
+        SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(24),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 0. Customer Name*
                   _fieldRow(
-                    _label('TDS Tax Account', required: true),
-                    FormDropdown<String>(
-                      value: _selectedTdsTaxAccount,
-                      items: const ['Advance Tax', 'TDS Payable', 'Other Account'],
-                      hint: 'Select TDS Tax Account',
-                      onChanged: (val) => setState(() => _selectedTdsTaxAccount = val),
+                    _label('Customer Name', required: true),
+                    _customerField(customerItems),
+                    fixHeight: false,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    maxWidth: null,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Fields below are shown dimmed (half opacity) and
+                  // non-interactive until a customer is selected.
+                  Opacity(
+                    opacity: _selectedCustomer == null ? 0.3 : 1.0,
+                    child: IgnorePointer(
+                      ignoring: _selectedCustomer == null,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 2. Amount Received*
+                          _fieldRow(
+                            _label('Amount Received', required: true),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  height: 40,
+                                  child: _AmountField(
+                                    controller: _amountController,
+                                    enabled: !_receivedFullAmount,
+                                  ),
+                                ),
+                                if (_selectedCustomer != null &&
+                                    _fullAmountDue > 0) ...[
+                                  const SizedBox(height: 8),
+                                  _buildReceivedFullAmount(),
+                                ],
+                              ],
+                            ),
+                            fixHeight: false,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+                          const SizedBox(height: 18),
+
+                          // 3. Bank Charges (if any)
+                          _fieldRow(
+                            _label('Bank Charges (if any)'),
+                            CustomTextField(
+                              controller: _bankChargesController,
+                              hintText: '',
+                              autoFocus: true,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // 4. Payment Date*
+                          _fieldRow(
+                            _label('Payment Date', required: true),
+                            _DatePickerField(
+                              dateKey: _datePickerKey,
+                              selectedDate: _selectedDate,
+                              onDateChanged: (d) =>
+                                  setState(() => _selectedDate = d),
+                              formatDate: _formatDate,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // 5. Payment #*
+                          _fieldRow(
+                            _label('Payment #', required: true),
+                            _paymentBar(),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // 6. Payment Mode
+                          _fieldRow(
+                            _label('Payment Mode'),
+                            FormDropdown<String>(
+                              value: _selectedPaymentMode,
+                              items: _dynamicPaymentModes,
+                              hint: 'Select payment mode',
+                              onChanged: (val) =>
+                                  setState(() => _selectedPaymentMode = val),
+                              showSettings: true,
+                              settingsLabel: 'Configure Payment Mode',
+                              settingsIcon: Icons.add_circle,
+                              onSettingsTap: () {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: true,
+                                  builder: (context) {
+                                    return ConfigurePaymentModeDialog(
+                                      paymentModes: _dynamicPaymentModes,
+                                      defaultPaymentMode:
+                                          _selectedPaymentMode ?? 'Cash',
+                                      onSave: (updated, newDefault) {
+                                        setState(() {
+                                          _dynamicPaymentModes = updated;
+                                          _selectedPaymentMode = newDefault;
+                                        });
+                                      },
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // 7. Deposit To*
+                          _fieldRow(
+                            _label('Deposit To', required: true),
+                            AccountTreeDropdown(
+                              value: _selectedDepositToId,
+                              nodes: depositToNodes,
+                              hint: 'Select an account',
+                              height: 40,
+                              borderRadius: BorderRadius.circular(6),
+                              onChanged: (val) =>
+                                  setState(() => _selectedDepositToId = val),
+                            ),
+                            fixHeight: false,
+                          ),
+                          const SizedBox(height: 18),
+
+                          // 8. Reference#
+                          _fieldRow(
+                            _label('Reference#'),
+                            CustomTextField(
+                              controller: _referenceController,
+                              hintText: '',
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // 9. Tax deducted?
+                          _fieldRow(
+                            _label('Tax deducted?'),
+                            _taxDeductedBar(),
+                            fixHeight: false,
+                          ),
+                          if (_selectedTaxDeducted ==
+                              'Yes, TDS (Income Tax)') ...[
+                            const SizedBox(height: 18),
+                            _fieldRow(
+                              _label('TDS Tax Account', required: true),
+                              FormDropdown<String>(
+                                value: _selectedTdsTaxAccount,
+                                items: const [
+                                  'Advance Tax',
+                                  'TDS Payable',
+                                  'Other Account',
+                                ],
+                                hint: 'Select TDS Tax Account',
+                                onChanged: (val) => setState(
+                                  () => _selectedTdsTaxAccount = val,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+
+                          // 10. Unpaid Invoices Header with Date Range Filter & Clear Link
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'Unpaid Invoices',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              _buildDateRangeFilter(),
+                              const Spacer(),
+                              _buildClearAppliedAmountLink(),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // 11. Unpaid Invoices Table
+                          _buildUnpaidInvoicesTable(),
+                          const SizedBox(height: 24),
+
+                          // 12. Amount Summary Card
+                          _buildSummaryCard(),
+                          const SizedBox(height: 24),
+
+                          // 13. Notes Field
+                          _buildNotesField(),
+                          const SizedBox(height: 20),
+
+                          // 14. Attachments Field
+                          _buildAttachmentsField(),
+                          const SizedBox(height: 20),
+
+                          // 15. Additional Fields Info
+                          RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: 'Additional Fields: ',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text:
+                                      'Start adding custom fields for your payments received by going to ',
+                                ),
+                                TextSpan(
+                                  text: 'Settings → Sales → Payments Received',
+                                  style: TextStyle(fontStyle: FontStyle.italic),
+                                ),
+                                TextSpan(text: '.'),
+                              ],
+                            ),
+                          ),
+                          if (_isFilterOpen) const SizedBox(height: 250),
+                        ],
+                      ),
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
-
-                // 10. Unpaid Invoices Header with Date Range Filter & Clear Link
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Unpaid Invoices',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    _buildDateRangeFilter(),
-                    const Spacer(),
-                    _buildClearAppliedAmountLink(),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // 11. Unpaid Invoices Table
-                _buildUnpaidInvoicesTable(),
-                const SizedBox(height: 24),
-
-                // 12. Amount Summary Card
-                _buildSummaryCard(),
-                const SizedBox(height: 24),
-
-                // 13. Notes Field
-                _buildNotesField(),
-                const SizedBox(height: 20),
-
-                // 14. Attachments Field
-                _buildAttachmentsField(),
-                const SizedBox(height: 20),
-
-                // 15. Additional Fields Info
-                RichText(
-                  text: const TextSpan(
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                    children: [
-                      TextSpan(
-                        text: 'Additional Fields: ',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      TextSpan(
-                        text: 'Start adding custom fields for your payments received by going to ',
-                      ),
-                      TextSpan(
-                        text: 'Settings → Sales → Payments Received',
-                        style: TextStyle(fontStyle: FontStyle.italic),
-                      ),
-                      TextSpan(text: '.'),
-                    ],
-                  ),
-                ),
-                if (_isFilterOpen) const SizedBox(height: 250),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
-          // Details button pinned to the far right of the viewport
-          if (_selectedCustomer != null)
-            Positioned(
-              top: 10,
-              right: 0,
-              child: _buildDetailsButton(),
+        ),
+        // Details button pinned to the far right of the viewport
+        if (_selectedCustomer != null)
+          Positioned(top: 10, right: 0, child: _buildDetailsButton()),
+        if (_showCustomerSidebar && _selectedCustomer != null)
+          Positioned(
+            top: 0,
+            bottom: 0,
+            right: 0,
+            child: CustomerDetailsSidebar(
+              customer: _getSalesCustomer(_selectedCustomer!, customersList),
+              onClose: () => setState(() => _showCustomerSidebar = false),
             ),
-          if (_showCustomerSidebar && _selectedCustomer != null)
-            Positioned(
-              top: 0,
-              bottom: 0,
-              right: 0,
-              child: CustomerDetailsSidebar(
-                customer: _getSalesCustomer(_selectedCustomer!, customersList),
-                onClose: () => setState(() => _showCustomerSidebar = false),
-              ),
-            ),
+          ),
+      ],
+    );
+
+    final actionContainer = Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      alignment: Alignment.centerLeft,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
+      ),
+      child: _ActionButtons(
+        onDraft: _saveAsDraft,
+        onPaid: _saveAsPaid,
+        onCancel: _cancel,
+        paidEnabled: _selectedCustomer != null,
+      ),
+    );
+
+    if (!widget.showLayout) {
+      return Column(
+        children: [
+          Expanded(child: bodyWidget),
+          actionContainer,
         ],
       );
+    }
 
-      final actionContainer = Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        alignment: Alignment.centerLeft,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: AppTheme.borderColor)),
-        ),
-        child: _ActionButtons(
-          onDraft: _saveAsDraft,
-          onPaid: _saveAsPaid,
-          onCancel: _cancel,
-          paidEnabled: _selectedCustomer != null,
-        ),
-      );
-
-      if (!widget.showLayout) {
-        return Column(
-          children: [
-            Expanded(child: bodyWidget),
-            actionContainer,
-          ],
-        );
-      }
-
-      return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: _buildAppBar(),
-        body: bodyWidget,
-        bottomNavigationBar: actionContainer,
-      );
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: _buildAppBar(),
+      body: bodyWidget,
+      bottomNavigationBar: actionContainer,
+    );
   }
 }
 
@@ -2068,7 +2300,8 @@ class _AmountFieldState extends State<_AmountField> {
   @override
   Widget build(BuildContext context) {
     // Show red/coral error border if non-numeric string (e.g. 'ASD') is entered
-    final bool hasError = double.tryParse(widget.controller.text) == null &&
+    final bool hasError =
+        double.tryParse(widget.controller.text) == null &&
         widget.controller.text.isNotEmpty;
 
     final borderColor = hasError
@@ -2090,9 +2323,7 @@ class _AmountFieldState extends State<_AmountField> {
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: const Color(0xFFF3F4F6),
-              border: Border(
-                right: BorderSide(color: borderColor, width: 1),
-              ),
+              border: Border(right: BorderSide(color: borderColor, width: 1)),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(5),
                 bottomLeft: Radius.circular(5),
@@ -2194,10 +2425,7 @@ class _DatePickerFieldState extends State<_DatePickerField> {
           alignment: Alignment.centerLeft,
           child: Text(
             widget.formatDate(widget.selectedDate),
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textPrimary,
-            ),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
           ),
         ),
       ),
@@ -2225,10 +2453,7 @@ class _ActionButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        ZButton.secondary(
-          label: 'Save as Draft',
-          onPressed: onDraft,
-        ),
+        ZButton.secondary(label: 'Save as Draft', onPressed: onDraft),
         const SizedBox(width: 8),
         ElevatedButton(
           onPressed: paidEnabled ? onPaid : null,
@@ -2253,10 +2478,7 @@ class _ActionButtons extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        ZButton.secondary(
-          label: 'Cancel',
-          onPressed: onCancel,
-        ),
+        ZButton.secondary(label: 'Cancel', onPressed: onCancel),
       ],
     );
   }
@@ -2293,7 +2515,9 @@ class _ConfigurePaymentPreferencesDialogState
   @override
   void initState() {
     super.initState();
-    _nextNumberController = TextEditingController(text: widget.initialNextNumber);
+    _nextNumberController = TextEditingController(
+      text: widget.initialNextNumber,
+    );
   }
 
   @override
@@ -2311,10 +2535,15 @@ class _ConfigurePaymentPreferencesDialogState
       children: [
         // Title Bar
         Container(
-           padding: const EdgeInsets.only(left: 24, right: 24, top: 0, bottom: 16),
-           decoration: const BoxDecoration(
-             color: Color(0xFFF9FAFB),
-             border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 0,
+            bottom: 16,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF9FAFB),
+            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
           child: Row(
             children: [
@@ -2406,10 +2635,7 @@ class _ConfigurePaymentPreferencesDialogState
 
               const Text(
                 'Auto-generating payment numbers can save your time. Would you like to change your current setting?',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 16),
 
@@ -2562,14 +2788,19 @@ class _ConfigurePaymentPreferencesDialogState
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      widget.onSave(_mode == 0 ? _nextNumberController.text : '');
+                      widget.onSave(
+                        _mode == 0 ? _nextNumberController.text : '',
+                      );
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981), // green
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -2589,7 +2820,10 @@ class _ConfigurePaymentPreferencesDialogState
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textBody,
                       side: const BorderSide(color: AppTheme.borderColor),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -2632,7 +2866,8 @@ class _DateRangePopoverContent extends StatefulWidget {
   });
 
   @override
-  State<_DateRangePopoverContent> createState() => _DateRangePopoverContentState();
+  State<_DateRangePopoverContent> createState() =>
+      _DateRangePopoverContentState();
 }
 
 class _DateRangePopoverContentState extends State<_DateRangePopoverContent> {
@@ -2691,7 +2926,10 @@ class _DateRangePopoverContentState extends State<_DateRangePopoverContent> {
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text('-', style: TextStyle(color: AppTheme.textSecondary)),
+                child: Text(
+                  '-',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
               ),
               Expanded(
                 child: _FilterDatePickerField(
@@ -2724,7 +2962,10 @@ class _DateRangePopoverContentState extends State<_DateRangePopoverContent> {
                   backgroundColor: const Color(0xFF10B981), // success green
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -2744,7 +2985,10 @@ class _DateRangePopoverContentState extends State<_DateRangePopoverContent> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.textBody,
                   side: const BorderSide(color: AppTheme.borderColor),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -2842,10 +3086,14 @@ class _FilterDatePickerFieldState extends State<_FilterDatePickerField> {
           ),
           alignment: Alignment.centerLeft,
           child: Text(
-            widget.selectedDate != null ? widget.formatDate(widget.selectedDate!) : widget.placeholder,
+            widget.selectedDate != null
+                ? widget.formatDate(widget.selectedDate!)
+                : widget.placeholder,
             style: TextStyle(
               fontSize: 13,
-              color: widget.selectedDate != null ? AppTheme.textPrimary : AppTheme.textSecondary,
+              color: widget.selectedDate != null
+                  ? AppTheme.textPrimary
+                  : AppTheme.textSecondary,
             ),
           ),
         ),
@@ -2933,21 +3181,33 @@ class _AddPanPopoverContentState extends State<_AddPanPopoverContent> {
                   child: TextField(
                     controller: widget.controller,
                     textCapitalization: TextCapitalization.characters,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                    ),
                     decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       isDense: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(4),
-                        borderSide: const BorderSide(color: AppTheme.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(4),
-                        borderSide: const BorderSide(color: AppTheme.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(4),
-                        borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                        borderSide: const BorderSide(
+                          color: AppTheme.primaryBlue,
+                        ),
                       ),
                     ),
                   ),
@@ -2957,7 +3217,11 @@ class _AddPanPopoverContentState extends State<_AddPanPopoverContent> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Icon(Icons.info_outline, size: 13, color: AppTheme.textSecondary),
+                    Icon(
+                      Icons.info_outline,
+                      size: 13,
+                      color: AppTheme.textSecondary,
+                    ),
                     SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -2975,7 +3239,8 @@ class _AddPanPopoverContentState extends State<_AddPanPopoverContent> {
                 SizedBox(
                   height: 34,
                   child: ElevatedButton(
-                    onPressed: () => widget.onSave(widget.controller.text.trim()),
+                    onPressed: () =>
+                        widget.onSave(widget.controller.text.trim()),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF16A34A),
                       foregroundColor: Colors.white,
@@ -3012,7 +3277,6 @@ class _CustomerAdvanceBody extends ConsumerStatefulWidget {
   final ValueChanged<int>? onTabChanged;
 
   const _CustomerAdvanceBody({
-    super.key,
     this.initialCustomerId,
     this.cloneId,
     this.editPaymentId,
@@ -3024,7 +3288,8 @@ class _CustomerAdvanceBody extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_CustomerAdvanceBody> createState() => _CustomerAdvanceBodyState();
+  ConsumerState<_CustomerAdvanceBody> createState() =>
+      _CustomerAdvanceBodyState();
 }
 
 class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
@@ -3059,9 +3324,13 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _bankChargesController = TextEditingController();
-  final TextEditingController _paymentNumberController = TextEditingController(text: '305');
+  final TextEditingController _paymentNumberController = TextEditingController(
+    text: '305',
+  );
   final TextEditingController _panController = TextEditingController();
-  final TextEditingController _gstTreatmentController = TextEditingController(text: 'Unregistered Business');
+  final TextEditingController _gstTreatmentController = TextEditingController(
+    text: 'Unregistered Business',
+  );
   final TextEditingController _referenceController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
@@ -3112,8 +3381,9 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
     super.initState();
     if (widget.editPaymentId != null) {
       final state = ref.read(paymentRecievesProvider);
-      final recordIndex =
-          state.records.indexWhere((r) => r.paymentNo == widget.editPaymentId);
+      final recordIndex = state.records.indexWhere(
+        (r) => r.paymentNo == widget.editPaymentId,
+      );
       if (recordIndex >= 0) {
         final record = state.records[recordIndex];
         _editRecordId = record.id;
@@ -3189,11 +3459,13 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
       'payment_date': _isoDate(_selectedDate),
       'deposit_account_id': _selectedDepositToId,
       'place_of_supply': _placeOfSupply,
-      'description_of_supply':
-          _descriptionController.text.isEmpty ? null : _descriptionController.text,
+      'description_of_supply': _descriptionController.text.isEmpty
+          ? null
+          : _descriptionController.text,
       'payment_mode': _selectedPaymentMode,
-      'reference_number':
-          _referenceController.text.isEmpty ? null : _referenceController.text,
+      'reference_number': _referenceController.text.isEmpty
+          ? null
+          : _referenceController.text,
       'amount_received': amount,
       'bank_charges': bankCharges,
       'excess_amount': amount,
@@ -3254,7 +3526,13 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
   /// it has at least one account. The `__account_type__` id prefix makes
   /// [AccountTreeDropdown] render the row as a bold heading.
   List<shared.AccountNode> _buildDepositToNodes(List<coa.AccountNode> roots) {
-    const groupNames = {'assets', 'liabilities', 'equity', 'income', 'expenses'};
+    const groupNames = {
+      'assets',
+      'liabilities',
+      'equity',
+      'income',
+      'expenses',
+    };
 
     final cash = <shared.AccountNode>[];
     final bank = <shared.AccountNode>[];
@@ -3292,28 +3570,34 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
 
     final nodes = <shared.AccountNode>[];
     if (cash.isNotEmpty) {
-      nodes.add(shared.AccountNode(
-        id: '__account_type__Cash',
-        name: 'Cash',
-        selectable: false,
-        children: cash,
-      ));
+      nodes.add(
+        shared.AccountNode(
+          id: '__account_type__Cash',
+          name: 'Cash',
+          selectable: false,
+          children: cash,
+        ),
+      );
     }
     if (bank.isNotEmpty) {
-      nodes.add(shared.AccountNode(
-        id: '__account_type__Bank',
-        name: 'Bank',
-        selectable: false,
-        children: bank,
-      ));
+      nodes.add(
+        shared.AccountNode(
+          id: '__account_type__Bank',
+          name: 'Bank',
+          selectable: false,
+          children: bank,
+        ),
+      );
     }
     if (liabilities.isNotEmpty) {
-      nodes.add(shared.AccountNode(
-        id: '__account_type__Liabilities',
-        name: 'Liabilities',
-        selectable: false,
-        children: liabilities,
-      ));
+      nodes.add(
+        shared.AccountNode(
+          id: '__account_type__Liabilities',
+          name: 'Liabilities',
+          selectable: false,
+          children: liabilities,
+        ),
+      );
     }
     return nodes;
   }
@@ -3390,7 +3674,8 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
               clipBehavior: Clip.antiAlias,
               child: _AdvConfigurePaymentPreferencesDialog(
                 location: _selectedLocation ?? '',
-                associatedSeries: _selectedSeries ?? 'Default Transaction Series',
+                associatedSeries:
+                    _selectedSeries ?? 'Default Transaction Series',
                 initialNextNumber: _paymentNumberController.text,
                 onSave: (nextNum) {
                   setState(() {
@@ -3403,8 +3688,10 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
-        final offsetAnimation = Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
-            .animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut));
+        final offsetAnimation = Tween<Offset>(
+          begin: const Offset(0, -1),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut));
         return SlideTransition(position: offsetAnimation, child: child);
       },
     );
@@ -3414,184 +3701,167 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
     showConfigureTaxPreferencesDialog(context);
   }
 
-void showConfigureTaxPreferencesDialog(BuildContext context) {
-  String gstTreatment = "Unregistered Business";
-  bool makePermanent = false;
+  void showConfigureTaxPreferencesDialog(BuildContext context) {
+    String gstTreatment = "Unregistered Business";
+    bool makePermanent = false;
 
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Container(
-              width: 300,
-              padding: EdgeInsets.zero,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Color(0xFFE5E7EB)),
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Container(
+                width: 300,
+                padding: EdgeInsets.zero,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Configure Tax Preferences',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => Navigator.pop(context),
+                            child: const Icon(
+                              Icons.close,
+                              color: Color(0xFFE74C3C),
+                              size: 22,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Configure Tax Preferences',
+                    // Body
+                    Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'GST Treatment',
                             style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              color: Color(0xFF374151),
                             ),
                           ),
-                        ),
-                        InkWell(
-                          onTap: () => Navigator.pop(context),
-                          child: const Icon(
-                            Icons.close,
-                            color: Color(0xFFE74C3C),
-                            size: 22,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Body
-                  Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'GST Treatment',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          height: 40,
-                          child: DropdownButtonFormField<String>(
-                            value: gstTreatment,
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFD1D5DB),
-                                ),
-                              ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            height: 40,
+                            child: FormDropdown<String>(
+                              value: gstTreatment,
+                              items: const [
+                                'Unregistered Business',
+                                'Registered Business',
+                              ],
+                              showSearch: false,
+                              allowClear: false,
+                              onChanged: (value) {
+                                setState(() {
+                                  gstTreatment = value ?? gstTreatment;
+                                });
+                              },
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: "Unregistered Business",
-                                child: Text("Unregistered Business"),
-                              ),
-                              DropdownMenuItem(
-                                value: "Registered Business",
-                                child: Text("Registered Business"),
-                              ),
-                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Make it permanent?',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          CheckboxListTile(
+                            value: makePermanent,
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: const Text(
+                              'Use these settings for all future\ntransactions of this customer.',
+                              style: TextStyle(fontSize: 14),
+                            ),
                             onChanged: (value) {
                               setState(() {
-                                gstTreatment = value!;
+                                makePermanent = value ?? false;
                               });
                             },
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Make it permanent?',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        CheckboxListTile(
-                          value: makePermanent,
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: const Text(
-                            'Use these settings for all future\ntransactions of this customer.',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              makePermanent = value ?? false;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Footer
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF8F9FA),
-                      border: Border(
-                        top: BorderSide(color: Color(0xFFE5E7EB)),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          height: 34,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF22C55E),
-                              elevation: 0,
+                    // Footer
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF8F9FA),
+                        border: Border(
+                          top: BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            height: 34,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Color(0xFF22C55E),
+                                elevation: 0,
+                              ),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                // TODO: handle update logic
+                              },
+                              child: const Text("Update"),
                             ),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              // TODO: handle update logic
-                            },
-                            child: const Text("Update"),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          height: 34,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("Cancel"),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            height: 34,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("Cancel"),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
-
-
-
-  Widget _tabItem(String text, {required bool isActive, required VoidCallback onTap}) {
+  Widget _tabItem(
+    String text, {
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -3627,11 +3897,15 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Row(
           children: [
-            _tabItem('Invoice Payment', isActive: false, onTap: () {
-              if (widget.onTabChanged != null) {
-                widget.onTabChanged!(0);
-              }
-            }),
+            _tabItem(
+              'Invoice Payment',
+              isActive: false,
+              onTap: () {
+                if (widget.onTabChanged != null) {
+                  widget.onTabChanged!(0);
+                }
+              },
+            ),
             const SizedBox(width: 24),
             _tabItem('Customer Advance', isActive: true, onTap: () {}),
             const Spacer(),
@@ -3639,7 +3913,10 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
               icon: const Icon(Icons.close, color: Colors.grey, size: 20),
               onPressed: () {
                 final orgId = resolveOrgSystemId(context);
-                context.goNamed(AppRoutes.salesPaymentsReceived, pathParameters: {'orgSystemId': orgId});
+                context.goNamed(
+                  AppRoutes.salesPaymentsReceived,
+                  pathParameters: {'orgSystemId': orgId},
+                );
               },
             ),
           ],
@@ -3678,11 +3955,7 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.chevron_right,
-                color: Colors.white,
-                size: 16,
-              ),
+              const Icon(Icons.chevron_right, color: Colors.white, size: 16),
             ],
           ),
         ),
@@ -3705,24 +3978,37 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
               hint: 'Select Customer',
               itemHeight: 56.0,
               displayStringForValue: (item) => item.name,
-              searchStringForValue: (item) => '${item.name} ${item.code} ${item.email ?? ''} ${item.secondaryCode ?? ''}',
+              searchStringForValue: (item) =>
+                  '${item.name} ${item.code} ${item.email ?? ''} ${item.secondaryCode ?? ''}',
               onChanged: (val) => setState(() => _selectedCustomer = val),
               itemBuilder: (item, isSelected, isHovered) {
-                final firstLetter = item.name.isNotEmpty ? item.name[0].toUpperCase() : '';
-                final hasSubtitle = item.email != null || item.secondaryCode != null;
-                
-                final Color titleColor = isHovered ? Colors.white : AppTheme.textPrimary;
-                final Color subtitleColor = isHovered ? Colors.white.withValues(alpha: 0.8) : AppTheme.textSecondary;
-                final Color avatarBgColor = isHovered 
-                    ? const Color(0xFFDBEAFE) 
+                final firstLetter = item.name.isNotEmpty
+                    ? item.name[0].toUpperCase()
+                    : '';
+                final hasSubtitle =
+                    item.email != null || item.secondaryCode != null;
+
+                final Color titleColor = isHovered
+                    ? Colors.white
+                    : AppTheme.textPrimary;
+                final Color subtitleColor = isHovered
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : AppTheme.textSecondary;
+                final Color avatarBgColor = isHovered
+                    ? const Color(0xFFDBEAFE)
                     : const Color(0xFFF3F4F6);
-                final Color avatarTextColor = isHovered 
-                    ? const Color(0xFF2563EB) 
+                final Color avatarTextColor = isHovered
+                    ? const Color(0xFF2563EB)
                     : const Color(0xFF4B5563);
-                final Color iconColor = isHovered ? Colors.white.withValues(alpha: 0.9) : AppTheme.textSecondary;
+                final Color iconColor = isHovered
+                    ? Colors.white.withValues(alpha: 0.9)
+                    : AppTheme.textSecondary;
 
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -3762,7 +4048,9 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
                                     text: ' | ${item.code}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w400,
-                                      color: isHovered ? Colors.white.withValues(alpha: 0.9) : AppTheme.textSecondary,
+                                      color: isHovered
+                                          ? Colors.white.withValues(alpha: 0.9)
+                                          : AppTheme.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -3838,10 +4126,7 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
             children: [
               const Text(
                 'PAN: ',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                ),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
               CompositedTransformTarget(
                 link: _panLayerLink,
@@ -3864,19 +4149,16 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
             children: [
               const Text(
                 'GST Treatment: ',
-                style: TextStyle(
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              Text(
+                _gstTreatmentController.text,
+                style: const TextStyle(
                   fontSize: 12,
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            Text(
-              _gstTreatmentController.text,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
               const SizedBox(width: 4),
               InkWell(
                 onTap: _showGstTreatmentDialog,
@@ -3911,7 +4193,8 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
           child: CustomTextField(
             controller: _paymentNumberController,
             suffixWidget: ZTooltip(
-              message: 'Click here to configure auto-generation of payment numbers.',
+              message:
+                  'Click here to configure auto-generation of payment numbers.',
               direction: ZTooltipDirection.bottom,
               child: InkWell(
                 onTap: _showConfigurePreferencesDialog,
@@ -3943,19 +4226,17 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
         ),
       );
     }
-    return Text(
-      required ? "$text*" : text,
-      style: baseStyle,
-    );
+    return Text(required ? "$text*" : text, style: baseStyle);
   }
 
-  Widget _fieldRow(Widget label, Widget field, {bool fixHeight = true, CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.center, double? maxWidth = 400}) {
-    Widget content = fixHeight
-        ? SizedBox(
-            height: 40,
-            child: field,
-          )
-        : field;
+  Widget _fieldRow(
+    Widget label,
+    Widget field, {
+    bool fixHeight = true,
+    CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.center,
+    double? maxWidth = 400,
+  }) {
+    Widget content = fixHeight ? SizedBox(height: 40, child: field) : field;
     if (maxWidth != null) {
       content = ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
@@ -3967,17 +4248,11 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
       children: [
         SizedBox(
           width: 180,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: label,
-          ),
+          child: Align(alignment: Alignment.centerLeft, child: label),
         ),
         const SizedBox(width: 24),
         Expanded(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: content,
-          ),
+          child: Align(alignment: Alignment.centerLeft, child: content),
         ),
       ],
     );
@@ -3997,14 +4272,23 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, color: AppTheme.errorRed, size: 48),
+                const Icon(
+                  Icons.error_outline,
+                  color: AppTheme.errorRed,
+                  size: 48,
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  error.toString().contains('token') || error.toString().contains('Unauthorized')
+                  error.toString().contains('token') ||
+                          error.toString().contains('Unauthorized')
                       ? 'Session expired. Please sign in again.'
                       : 'Error loading customers: ${error.toString()}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -4029,20 +4313,25 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
     }
 
     final customersList = customersAsync.value ?? [];
-    final customerItems = customersList.map((c) => CustomerItem(
-      id: c.id,
-      name: c.displayName,
-      code: c.customerNumber ?? '',
-      email: c.email,
-      secondaryCode: c.customerNumber,
-    )).toList();
+    final customerItems = customersList
+        .map(
+          (c) => CustomerItem(
+            id: c.id,
+            name: c.displayName,
+            code: c.customerNumber ?? '',
+            email: c.email,
+            secondaryCode: c.customerNumber,
+          ),
+        )
+        .toList();
 
     if (widget.editPaymentId != null &&
         _selectedCustomer == null &&
         customerItems.isNotEmpty) {
       final state = ref.read(paymentRecievesProvider);
-      final recordIndex =
-          state.records.indexWhere((r) => r.paymentNo == widget.editPaymentId);
+      final recordIndex = state.records.indexWhere(
+        (r) => r.paymentNo == widget.editPaymentId,
+      );
       if (recordIndex >= 0) {
         final record = state.records[recordIndex];
         final matchIndex = customerItems.indexWhere(
@@ -4055,382 +4344,406 @@ void showConfigureTaxPreferencesDialog(BuildContext context) {
     }
 
     // Live chart-of-accounts grouped into Cash / Bank / Liabilities heads.
-    final depositToNodes =
-        _buildDepositToNodes(ref.watch(chartOfAccountsProvider).roots);
+    final depositToNodes = _buildDepositToNodes(
+      ref.watch(chartOfAccountsProvider).roots,
+    );
 
     final bodyWidget = Stack(
-        children: [
-          SingleChildScrollView(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(24),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 900),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 1. Customer Name*
-                    _fieldRow(
-                      _label('Customer Name', required: true),
-                      _customerField(customerItems),
-                      fixHeight: false,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      maxWidth: null,
-                    ),
-                    const SizedBox(height: 18),
+      children: [
+        SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(24),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Customer Name*
+                  _fieldRow(
+                    _label('Customer Name', required: true),
+                    _customerField(customerItems),
+                    fixHeight: false,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    maxWidth: null,
+                  ),
+                  const SizedBox(height: 18),
 
-                    // Fields below are shown dimmed (half opacity) and
-                    // non-interactive until a customer is selected.
-                    Opacity(
-                      opacity: _selectedCustomer == null ? 0.3 : 1.0,
-                      child: IgnorePointer(
-                        ignoring: _selectedCustomer == null,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-
-                    // 2. Place of Supply*
-                    _fieldRow(
-                      _label('Place of Supply', required: true),
-                      FormDropdown<String>(
-                        value: _placeOfSupply,
-                        items: const ['[KL] - Kerala'],
-                        hint: 'Select supply place',
-                        onChanged: (val) => setState(() => _placeOfSupply = val),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Description of Supply
-                    _fieldRow(
-                      _label('Description of Supply', isDashed: true),
-                      Column(
+                  // Fields below are shown dimmed (half opacity) and
+                  // non-interactive until a customer is selected.
+                  Opacity(
+                    opacity: _selectedCustomer == null ? 0.3 : 1.0,
+                    child: IgnorePointer(
+                      ignoring: _selectedCustomer == null,
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          CustomTextField(
-                            controller: _descriptionController,
-                            maxLines: 3,
-                            height: 60,
-                            hintText: '',
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Will be displayed on the Payment Receipt',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondary,
+                          // 2. Place of Supply*
+                          _fieldRow(
+                            _label('Place of Supply', required: true),
+                            FormDropdown<String>(
+                              value: _placeOfSupply,
+                              items: const ['[KL] - Kerala'],
+                              hint: 'Select supply place',
+                              onChanged: (val) =>
+                                  setState(() => _placeOfSupply = val),
                             ),
                           ),
-                        ],
-                      ),
-                      fixHeight: false,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                    ),
-                    const SizedBox(height: 18),
+                          const SizedBox(height: 18),
 
-                    // 5. Amount Received*
-                    _fieldRow(
-                      _label('Amount Received', required: true),
-                      _AdvAmountField(controller: _amountController),
-                    ),
-                    const SizedBox(height: 18),
+                          // Description of Supply
+                          _fieldRow(
+                            _label('Description of Supply', isDashed: true),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CustomTextField(
+                                  controller: _descriptionController,
+                                  maxLines: 3,
+                                  height: 60,
+                                  hintText: '',
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Will be displayed on the Payment Receipt',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            fixHeight: false,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+                          const SizedBox(height: 18),
 
-                    // 6. Bank Charges (if any)
-                    _fieldRow(
-                      _label('Bank Charges (if any)'),
-                      CustomTextField(
-                        controller: _bankChargesController,
-                        hintText: '',
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
+                          // 5. Amount Received*
+                          _fieldRow(
+                            _label('Amount Received', required: true),
+                            _AdvAmountField(controller: _amountController),
+                          ),
+                          const SizedBox(height: 18),
 
-                    // 7. Tax
-                    _fieldRow(
-                      _label('Tax'),
-                      FormDropdown<String>(
-                        value: _selectedTax,
-                        items: const ['Select a Tax', '5% GST', '12% GST', '18% GST', '28% GST'],
-                        hint: 'Select Tax',
-                        onChanged: (val) => setState(() => _selectedTax = val),
-                        
-                      ),
-                    ),
-                    const SizedBox(height: 18),
+                          // 6. Bank Charges (if any)
+                          _fieldRow(
+                            _label('Bank Charges (if any)'),
+                            CustomTextField(
+                              controller: _bankChargesController,
+                              hintText: '',
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
 
-                    // 8. Payment Date*
-                    _fieldRow(
-                      _label('Payment Date', required: true),
-                      _AdvDatePickerField(
-                        dateKey: _datePickerKey,
-                        selectedDate: _selectedDate,
-                        onDateChanged: (d) => setState(() => _selectedDate = d),
-                        formatDate: _formatDate,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
+                          // 7. Tax
+                          _fieldRow(
+                            _label('Tax'),
+                            FormDropdown<String>(
+                              value: _selectedTax,
+                              items: const [
+                                'Select a Tax',
+                                '5% GST',
+                                '12% GST',
+                                '18% GST',
+                                '28% GST',
+                              ],
+                              hint: 'Select Tax',
+                              onChanged: (val) =>
+                                  setState(() => _selectedTax = val),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
 
-                    // 9. Payment #*
-                    _fieldRow(
-                      _label('Payment #', required: true),
-                      _paymentBar(),
-                    ),
-                    const SizedBox(height: 18),
+                          // 8. Payment Date*
+                          _fieldRow(
+                            _label('Payment Date', required: true),
+                            _AdvDatePickerField(
+                              dateKey: _datePickerKey,
+                              selectedDate: _selectedDate,
+                              onDateChanged: (d) =>
+                                  setState(() => _selectedDate = d),
+                              formatDate: _formatDate,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
 
-                    // 10. Payment Mode
-                    _fieldRow(
-                      _label('Payment Mode'),
-                      FormDropdown<String>(
-                        value: _selectedPaymentMode,
-                        items: _dynamicPaymentModes,
-                        hint: 'Select payment mode',
-                        onChanged: (val) => setState(() => _selectedPaymentMode = val),
-                        showSettings: true,
-                        settingsLabel: 'Configure Payment Mode',
-                        settingsIcon: Icons.add_circle,
-                        onSettingsTap: () {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: true,
-                            builder: (context) {
-                              return ConfigurePaymentModeDialog(
-                                paymentModes: _dynamicPaymentModes,
-                                defaultPaymentMode: _selectedPaymentMode ?? 'Cash',
-                                onSave: (updated, newDefault) {
-                                  setState(() {
-                                    _dynamicPaymentModes = updated;
-                                    _selectedPaymentMode = newDefault;
-                                  });
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 18),
+                          // 9. Payment #*
+                          _fieldRow(
+                            _label('Payment #', required: true),
+                            _paymentBar(),
+                          ),
+                          const SizedBox(height: 18),
 
-                    // 11. Deposit To*
-                    _fieldRow(
-                      _label('Deposit To', required: true),
-                      AccountTreeDropdown(
-                        value: _selectedDepositToId,
-                        nodes: depositToNodes,
-                        hint: 'Select an account',
-                        height: 40,
-                        borderRadius: BorderRadius.circular(6),
-                        onChanged: (val) => setState(() => _selectedDepositToId = val),
-                      ),
-                      fixHeight: false,
-                    ),
-                    const SizedBox(height: 18),
+                          // 10. Payment Mode
+                          _fieldRow(
+                            _label('Payment Mode'),
+                            FormDropdown<String>(
+                              value: _selectedPaymentMode,
+                              items: _dynamicPaymentModes,
+                              hint: 'Select payment mode',
+                              onChanged: (val) =>
+                                  setState(() => _selectedPaymentMode = val),
+                              showSettings: true,
+                              settingsLabel: 'Configure Payment Mode',
+                              settingsIcon: Icons.add_circle,
+                              onSettingsTap: () {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: true,
+                                  builder: (context) {
+                                    return ConfigurePaymentModeDialog(
+                                      paymentModes: _dynamicPaymentModes,
+                                      defaultPaymentMode:
+                                          _selectedPaymentMode ?? 'Cash',
+                                      onSave: (updated, newDefault) {
+                                        setState(() {
+                                          _dynamicPaymentModes = updated;
+                                          _selectedPaymentMode = newDefault;
+                                        });
+                                      },
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 18),
 
-                    // 12. Reference#
-                    _fieldRow(
-                      _label('Reference#'),
-                      CustomTextField(
-                        controller: _referenceController,
-                        hintText: '',
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                          // 11. Deposit To*
+                          _fieldRow(
+                            _label('Deposit To', required: true),
+                            AccountTreeDropdown(
+                              value: _selectedDepositToId,
+                              nodes: depositToNodes,
+                              hint: 'Select an account',
+                              height: 40,
+                              borderRadius: BorderRadius.circular(6),
+                              onChanged: (val) =>
+                                  setState(() => _selectedDepositToId = val),
+                            ),
+                            fixHeight: false,
+                          ),
+                          const SizedBox(height: 18),
 
-                    // ── Full-width bottom sections ────────────────────────
+                          // 12. Reference#
+                          _fieldRow(
+                            _label('Reference#'),
+                            CustomTextField(
+                              controller: _referenceController,
+                              hintText: '',
+                            ),
+                          ),
+                          const SizedBox(height: 24),
 
-                    // 13. Notes
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        RichText(
-                          text: const TextSpan(
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                          // ── Full-width bottom sections ────────────────────────
+
+                          // 13. Notes
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              TextSpan(
-                                text: 'Notes ',
-                                style: TextStyle(color: AppTheme.textPrimary),
+                              RichText(
+                                text: const TextSpan(
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: 'Notes ',
+                                      style: TextStyle(
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text:
+                                          '(Internal use. Not visible to customer)',
+                                      style: TextStyle(
+                                        color: Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              TextSpan(
-                                text: '(Internal use. Not visible to customer)',
-                                style: TextStyle(color: Color(0xFFB45309)),
+                              const SizedBox(height: 8),
+                              CustomTextField(
+                                controller: _notesController,
+                                maxLines: 4,
+                                height: 80,
+                                hintText: '',
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        CustomTextField(
-                          controller: _notesController,
-                          maxLines: 4,
-                          height: 80,
-                          hintText: '',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
-                    // 14. Attachments
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Attachments',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
+                          // 14. Attachments
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Attachments',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              FileUploadButton(
+                                files: _attachedFiles,
+                                onFilesChanged: (updated) {
+                                  setState(() {
+                                    _attachedFiles = updated;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'You can upload a maximum of 5 files, 5MB each',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        FileUploadButton(
-                          files: _attachedFiles,
-                          onFilesChanged: (updated) {
-                            setState(() {
-                              _attachedFiles = updated;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'You can upload a maximum of 5 files, 5MB each',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
-                    // 15. Additional Fields Info
-                    RichText(
-                      text: const TextSpan(
-                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                        children: [
-                          TextSpan(
-                            text: 'Additional Fields: ',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary,
+                          // 15. Additional Fields Info
+                          RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: 'Additional Fields: ',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text:
+                                      'Start adding custom fields for your payments received by going to ',
+                                ),
+                                TextSpan(
+                                  text: 'Settings → Sales → Payments Received',
+                                  style: TextStyle(fontStyle: FontStyle.italic),
+                                ),
+                                TextSpan(text: '.'),
+                              ],
                             ),
                           ),
-                          TextSpan(
-                            text: 'Start adding custom fields for your payments received by going to ',
-                          ),
-                          TextSpan(
-                            text: 'Settings → Sales → Payments Received',
-                            style: TextStyle(fontStyle: FontStyle.italic),
-                          ),
-                          TextSpan(text: '.'),
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
-          // Details button pinned to the far right of the viewport
-          if (_selectedCustomer != null)
-            Positioned(
-              top: 10,
-              right: 24,
-              child: _buildDetailsButton(),
+        ),
+        // Details button pinned to the far right of the viewport
+        if (_selectedCustomer != null)
+          Positioned(top: 10, right: 24, child: _buildDetailsButton()),
+        if (_showCustomerSidebar && _selectedCustomer != null)
+          Positioned(
+            top: 0,
+            bottom: 0,
+            right: 0,
+            child: CustomerDetailsSidebar(
+              customer: _getSalesCustomer(_selectedCustomer!, customersList),
+              onClose: () => setState(() => _showCustomerSidebar = false),
             ),
-          if (_showCustomerSidebar && _selectedCustomer != null)
-            Positioned(
-              top: 0,
-              bottom: 0,
-              right: 0,
-              child: CustomerDetailsSidebar(
-                customer: _getSalesCustomer(_selectedCustomer!, customersList),
-                onClose: () => setState(() => _showCustomerSidebar = false),
+          ),
+      ],
+    );
+
+    final actionContainer = Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+      ),
+      child: Row(
+        children: [
+          ZButton.secondary(
+            label: 'Save as Draft',
+            onPressed: () => _performSave('DRAFT'),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: _selectedCustomer == null
+                ? null
+                : () => _performSave('PAID'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981), // success green
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xFFA7F3D0),
+              disabledForegroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
+            child: const Text(
+              'Save as Paid',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ZButton.secondary(
+            label: 'Cancel',
+            onPressed: () {
+              if (widget.onCancel != null) {
+                widget.onCancel!();
+                return;
+              }
+              if (widget.onClose != null) {
+                widget.onClose!();
+                return;
+              }
+              final orgId = resolveOrgSystemId(context);
+              context.goNamed(
+                AppRoutes.salesPaymentsReceived,
+                pathParameters: {'orgSystemId': orgId},
+              );
+            },
+          ),
+        ],
+      ),
+    );
+
+    if (!widget.showLayout) {
+      return Column(
+        children: [
+          Expanded(child: bodyWidget),
+          actionContainer,
         ],
       );
+    }
 
-      final actionContainer = Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-        ),
-        child: Row(
-          children: [
-            ZButton.secondary(
-              label: 'Save as Draft',
-              onPressed: () => _performSave('DRAFT'),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed:
-                  _selectedCustomer == null ? null : () => _performSave('PAID'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981), // success green
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: const Color(0xFFA7F3D0),
-                disabledForegroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              child: const Text(
-                'Save as Paid',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            ZButton.secondary(
-              label: 'Cancel',
-              onPressed: () {
-                if (widget.onCancel != null) {
-                  widget.onCancel!();
-                  return;
-                }
-                if (widget.onClose != null) {
-                  widget.onClose!();
-                  return;
-                }
-                final orgId = resolveOrgSystemId(context);
-                context.goNamed(AppRoutes.salesPaymentsReceived, pathParameters: {'orgSystemId': orgId});
-              },
-            ),
-          ],
-        ),
-      );
-
-      if (!widget.showLayout) {
-        return Column(
-          children: [
-            Expanded(child: bodyWidget),
-            actionContainer,
-          ],
-        );
-      }
-
-      return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: _buildAppBar(),
-        body: bodyWidget,
-        bottomNavigationBar: actionContainer,
-      );
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: _buildAppBar(),
+      body: bodyWidget,
+      bottomNavigationBar: actionContainer,
+    );
   }
 }
 
@@ -4451,7 +4764,8 @@ class _AdvAmountFieldState extends State<_AdvAmountField> {
   @override
   Widget build(BuildContext context) {
     // Show red/coral error border if non-numeric string (e.g. 'ASD') is entered
-    final bool hasError = double.tryParse(widget.controller.text) == null &&
+    final bool hasError =
+        double.tryParse(widget.controller.text) == null &&
         widget.controller.text.isNotEmpty;
 
     final borderColor = hasError
@@ -4473,9 +4787,7 @@ class _AdvAmountFieldState extends State<_AdvAmountField> {
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: const Color(0xFFF3F4F6),
-              border: Border(
-                right: BorderSide(color: borderColor, width: 1),
-              ),
+              border: Border(right: BorderSide(color: borderColor, width: 1)),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(5),
                 bottomLeft: Radius.circular(5),
@@ -4575,10 +4887,7 @@ class _AdvDatePickerFieldState extends State<_AdvDatePickerField> {
           alignment: Alignment.centerLeft,
           child: Text(
             widget.formatDate(widget.selectedDate),
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textPrimary,
-            ),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
           ),
         ),
       ),
@@ -4598,7 +4907,8 @@ class _AdvAddPanPopoverContent extends StatefulWidget {
   });
 
   @override
-  State<_AdvAddPanPopoverContent> createState() => _AdvAddPanPopoverContentState();
+  State<_AdvAddPanPopoverContent> createState() =>
+      _AdvAddPanPopoverContentState();
 }
 
 class _AdvAddPanPopoverContentState extends State<_AdvAddPanPopoverContent> {
@@ -4662,21 +4972,33 @@ class _AdvAddPanPopoverContentState extends State<_AdvAddPanPopoverContent> {
                   child: TextField(
                     controller: widget.controller,
                     textCapitalization: TextCapitalization.characters,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                    ),
                     decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       isDense: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(4),
-                        borderSide: const BorderSide(color: AppTheme.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(4),
-                        borderSide: const BorderSide(color: AppTheme.borderColor),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(4),
-                        borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                        borderSide: const BorderSide(
+                          color: AppTheme.primaryBlue,
+                        ),
                       ),
                     ),
                   ),
@@ -4686,7 +5008,11 @@ class _AdvAddPanPopoverContentState extends State<_AdvAddPanPopoverContent> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Icon(Icons.info_outline, size: 13, color: AppTheme.textSecondary),
+                    Icon(
+                      Icons.info_outline,
+                      size: 13,
+                      color: AppTheme.textSecondary,
+                    ),
                     SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -4704,7 +5030,8 @@ class _AdvAddPanPopoverContentState extends State<_AdvAddPanPopoverContent> {
                 SizedBox(
                   height: 34,
                   child: ElevatedButton(
-                    onPressed: () => widget.onSave(widget.controller.text.trim()),
+                    onPressed: () =>
+                        widget.onSave(widget.controller.text.trim()),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF16A34A),
                       foregroundColor: Colors.white,
@@ -4758,7 +5085,9 @@ class _AdvConfigurePaymentPreferencesDialogState
   @override
   void initState() {
     super.initState();
-    _nextNumberController = TextEditingController(text: widget.initialNextNumber);
+    _nextNumberController = TextEditingController(
+      text: widget.initialNextNumber,
+    );
   }
 
   @override
@@ -4865,10 +5194,7 @@ class _AdvConfigurePaymentPreferencesDialogState
               const SizedBox(height: 16),
               const Text(
                 'Auto-generating payment numbers can save your time. Would you like to change your current setting?',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 16),
               RadioScope<int>(
@@ -5004,14 +5330,19 @@ class _AdvConfigurePaymentPreferencesDialogState
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      widget.onSave(_mode == 0 ? _nextNumberController.text : '');
+                      widget.onSave(
+                        _mode == 0 ? _nextNumberController.text : '',
+                      );
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -5031,7 +5362,10 @@ class _AdvConfigurePaymentPreferencesDialogState
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textBody,
                       side: const BorderSide(color: AppTheme.borderColor),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),

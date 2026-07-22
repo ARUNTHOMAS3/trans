@@ -151,10 +151,12 @@ class _ManualJournalCreateScreenState
     referenceCtrl = TextEditingController();
     notesCtrl = TextEditingController();
 
-    if (isEditMode) {
-      _hydrateFromJournal(widget.initialJournal!);
-    } else if (widget.template != null) {
-      _hydrateFromTemplate(widget.template!);
+    final initialJournal = widget.initialJournal;
+    final template = widget.template;
+    if (initialJournal != null) {
+      _hydrateFromJournal(initialJournal);
+    } else if (template != null) {
+      _hydrateFromTemplate(template);
       Future.microtask(_prefillJournalNumberFromSettings);
     } else {
       if (widget.showTemplates) {
@@ -1176,9 +1178,12 @@ class _ManualJournalCreateScreenState
                             enabled: true,
                             child: di.FormDropdown<Map<String, dynamic>>(
                               value: null,
-                              items: const [{'id': 'dummy', 'name': 'Loading...'}],
+                              items: const [
+                                {'id': 'dummy', 'name': 'Loading...'},
+                              ],
                               hint: 'Loading Fiscal Year...',
-                              displayStringForValue: (val) => val['name'] as String,
+                              displayStringForValue: (val) =>
+                                  val['name'] as String,
                               onChanged: (val) {},
                             ),
                           ),
@@ -1728,9 +1733,12 @@ class _ManualJournalCreateScreenState
                               enabled: true,
                               child: di.FormDropdown<Map<String, dynamic>>(
                                 value: null,
-                                items: const [{'id': 'dummy', 'displayName': 'Loading...'}],
+                                items: const [
+                                  {'id': 'dummy', 'displayName': 'Loading...'},
+                                ],
                                 hint: 'Loading Contacts...',
-                                displayStringForValue: (val) => val['displayName'] as String,
+                                displayStringForValue: (val) =>
+                                    val['displayName'] as String,
                                 onChanged: (val) {},
                               ),
                             ),
@@ -2574,9 +2582,7 @@ class _ManualJournalCreateScreenState
             },
             icon: const Icon(LucideIcons.refreshCw, size: 14),
             label: const Text('Make Recurring'),
-            style: TextButton.styleFrom(
-              foregroundColor: AppTheme.primaryBlue,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryBlue),
           ),
         ],
       ),
@@ -2645,20 +2651,19 @@ class _ManualJournalCreateScreenState
     }
 
     shared.AccountNode mapNode(coa.AccountNode account, int level) {
-      final prefix = level > 0 ? '• ' : '';
       final activeChildren =
           account.children
               .where((c) => c.isActive && !c.isDeleted && !_isAccountHidden(c))
               .toList()
             ..sort(
-              (a, b) => _getAccountDisplayName(
-                a,
-              ).toLowerCase().compareTo(_getAccountDisplayName(b).toLowerCase()),
+              (a, b) => _getAccountDisplayName(a).toLowerCase().compareTo(
+                _getAccountDisplayName(b).toLowerCase(),
+              ),
             );
 
       return shared.AccountNode(
         id: account.id,
-        name: '$prefix${_getAccountDisplayName(account)}',
+        name: _getAccountDisplayName(account),
         selectable: true,
         children: activeChildren.map((c) => mapNode(c, level + 1)).toList(),
       );
@@ -2666,7 +2671,11 @@ class _ManualJournalCreateScreenState
 
     // Grouping only by account type now
     final groupedByType = <String, List<shared.AccountNode>>{};
-    final typeToGroup = <String, String>{}; // To preserve accounting order (Assets types first, etc.)
+    final typeToGroup =
+        <
+          String,
+          String
+        >{}; // To preserve accounting order (Assets types first, etc.)
 
     final activeRoots = roots
         .where((n) => n.isActive && !n.isDeleted && !_isAccountHidden(n))
@@ -2674,7 +2683,9 @@ class _ManualJournalCreateScreenState
 
     for (final root in activeRoots) {
       final isGroup = groupOrder.any(
-        (g) => g.toLowerCase() == _getAccountDisplayName(root).toLowerCase().trim(),
+        (g) =>
+            g.toLowerCase() ==
+            _getAccountDisplayName(root).toLowerCase().trim(),
       );
 
       if (isGroup) {
@@ -2774,8 +2785,9 @@ class _ManualJournalCreateScreenState
 
     final now = DateTime.now();
     final scope = ref.read(journalSettingsScopeProvider);
+    final initialJournal = widget.initialJournal;
     return ManualJournal(
-      id: isEditMode ? widget.initialJournal!.id : '',
+      id: initialJournal?.id ?? '',
       orgId: scope['orgId'] as String?,
       branchId: scope['branchId'] as String?,
       userId: scope['userId'] as String?,
@@ -2789,7 +2801,7 @@ class _ManualJournalCreateScreenState
       currency: selectedCurrency.code,
       status: isEditMode ? ManualJournalStatus.draft : status,
       items: manualItems,
-      createdAt: isEditMode ? widget.initialJournal!.createdAt : now,
+      createdAt: initialJournal?.createdAt ?? now,
       updatedAt: now,
     );
   }
@@ -2846,7 +2858,8 @@ class _ManualJournalCreateScreenState
                               ),
                             ),
                             IconButton(
-                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
                               icon: const Icon(
                                 LucideIcons.x,
                                 size: 18,
@@ -2889,13 +2902,16 @@ class _ManualJournalCreateScreenState
                           children: [
                             ZButton.primary(
                               label: 'Save',
-                              onPressed: () =>
-                                  Navigator.pop(dialogContext, ctrl.text.trim()),
+                              onPressed: () => Navigator.pop(
+                                dialogContext,
+                                ctrl.text.trim(),
+                              ),
                             ),
                             const SizedBox(width: 12),
                             ZButton.secondary(
                               label: 'Cancel',
-                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
                             ),
                           ],
                         ),
@@ -3652,5 +3668,3 @@ class _GstWarningWidgetState extends State<_GstWarningWidget> {
     );
   }
 }
-
-

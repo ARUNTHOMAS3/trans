@@ -36,13 +36,20 @@ class ZTableMoreMenu extends StatelessWidget {
           padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6)),
           elevation: WidgetStatePropertyAll(8),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
           ),
         ),
         builder: (context, controller, child) {
           return IconButton(
-            onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-            icon: Icon(LucideIcons.moreHorizontal, size: iconSize, color: AppTheme.primaryBlue),
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+            icon: Icon(
+              LucideIcons.moreHorizontal,
+              size: iconSize,
+              color: AppTheme.primaryBlue,
+            ),
             padding: EdgeInsets.zero,
             constraints: BoxConstraints(minWidth: width, minHeight: height),
           );
@@ -52,33 +59,44 @@ class ZTableMoreMenu extends StatelessWidget {
     );
   }
 
-  static ButtonStyle menuItemButtonStyle({bool isActive = false, bool isHeader = false}) {
+  /// Standard style for menu items (MenuItemButton, SubmenuButton) with blue hover effect.
+  static ButtonStyle menuItemButtonStyle({
+    bool isActive = false,
+    bool isHeader = false,
+  }) {
     return ButtonStyle(
       animationDuration: Duration.zero,
       splashFactory: NoSplash.splashFactory,
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       backgroundColor: WidgetStateProperty.resolveWith((states) {
-        final highlighted = states.contains(WidgetState.hovered) ||
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused);
         if (isActive || highlighted) return AppTheme.primaryBlue;
         return isHeader ? Colors.transparent : Colors.white;
       }),
       foregroundColor: WidgetStateProperty.resolveWith((states) {
-        final highlighted = states.contains(WidgetState.hovered) ||
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused);
         if (isActive || highlighted) return Colors.white;
         return AppTheme.textPrimary;
       }),
       iconColor: WidgetStateProperty.resolveWith((states) {
-        final highlighted = states.contains(WidgetState.hovered) ||
+        final highlighted =
+            states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused);
         if (isActive || highlighted) return Colors.white;
         return AppTheme.primaryBlue;
       }),
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
       minimumSize: const WidgetStatePropertyAll(Size(220, 40)),
       alignment: Alignment.centerLeft,
-      shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.zero))),
+      shape: const WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      ),
     );
   }
 

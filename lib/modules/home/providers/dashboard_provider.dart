@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
-import '../../../shared/services/api_client.dart';
+import '../../../core/services/api_client.dart';
 
 class DashboardState {
   final double receivables;
@@ -107,24 +107,29 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       final data = response.data;
       if (_disposed) return;
 
-      _setStateSafe(state.copyWith(
-        receivables: (data['receivables'] ?? 0).toDouble(),
-        payables: (data['payables'] ?? 0).toDouble(),
-        cashOnHand: (data['cashOnHand'] ?? 0).toDouble(),
-        purchaseReceivablesAmount:
-            (data['purchaseReceivablesAmount'] ?? 0).toDouble(),
-        billsTotalAmount: (data['billsTotalAmount'] ?? 0).toDouble(),
-        picklistsCount: (data['picklistsCount'] as num?)?.toInt() ?? 0,
-        packagesCount: (data['packagesCount'] as num?)?.toInt() ?? 0,
-        salesInvoicesCount: (data['salesInvoicesCount'] as num?)?.toInt() ?? 0,
-        salesInvoicesAmount: (data['salesInvoicesAmount'] ?? 0).toDouble(),
-        salesOrdersAmount: (data['salesOrdersAmount'] ?? 0).toDouble(),
-        purchaseOrdersAmount: (data['purchaseOrdersAmount'] ?? 0).toDouble(),
-        salesTrend: List<Map<String, dynamic>>.from(data['salesTrend'] ?? []),
-        topCustomers: List<Map<String, dynamic>>.from(data['topCustomers'] ?? []),
-        topItems: List<Map<String, dynamic>>.from(data['topItems'] ?? []),
-        isLoading: false,
-      ));
+      _setStateSafe(
+        state.copyWith(
+          receivables: (data['receivables'] ?? 0).toDouble(),
+          payables: (data['payables'] ?? 0).toDouble(),
+          cashOnHand: (data['cashOnHand'] ?? 0).toDouble(),
+          purchaseReceivablesAmount: (data['purchaseReceivablesAmount'] ?? 0)
+              .toDouble(),
+          billsTotalAmount: (data['billsTotalAmount'] ?? 0).toDouble(),
+          picklistsCount: (data['picklistsCount'] as num?)?.toInt() ?? 0,
+          packagesCount: (data['packagesCount'] as num?)?.toInt() ?? 0,
+          salesInvoicesCount:
+              (data['salesInvoicesCount'] as num?)?.toInt() ?? 0,
+          salesInvoicesAmount: (data['salesInvoicesAmount'] ?? 0).toDouble(),
+          salesOrdersAmount: (data['salesOrdersAmount'] ?? 0).toDouble(),
+          purchaseOrdersAmount: (data['purchaseOrdersAmount'] ?? 0).toDouble(),
+          salesTrend: List<Map<String, dynamic>>.from(data['salesTrend'] ?? []),
+          topCustomers: List<Map<String, dynamic>>.from(
+            data['topCustomers'] ?? [],
+          ),
+          topItems: List<Map<String, dynamic>>.from(data['topItems'] ?? []),
+          isLoading: false,
+        ),
+      );
     } catch (e) {
       if (_disposed) return;
       _setStateSafe(state.copyWith(isLoading: false, error: e.toString()));

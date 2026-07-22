@@ -38,14 +38,16 @@ class SettingsWorkflowStatusPresetControls extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: GovernanceIncidentStatus.values.map((status) {
-            final selected = statuses.contains(status);
-            return FilterChip(
-              label: Text(status.label),
-              selected: selected,
-              onSelected: (_) => onToggleStatus(status),
-            );
-          }).toList(growable: false),
+          children: GovernanceIncidentStatus.values
+              .map((status) {
+                final selected = statuses.contains(status);
+                return FilterChip(
+                  label: Text(status.label),
+                  selected: selected,
+                  onSelected: (_) => onToggleStatus(status),
+                );
+              })
+              .toList(growable: false),
         ),
         const SizedBox(height: 8),
         Wrap(

@@ -30,15 +30,17 @@ class WorkflowRuntimeStore extends ChangeNotifier {
       <String, List<String>>{};
   final Map<String, List<String>> _incidentNotes = <String, List<String>>{};
   final Map<String, List<GovernanceInvestigationSnapshot>>
-      _investigationSnapshots = <String, List<GovernanceInvestigationSnapshot>>{};
+  _investigationSnapshots = <String, List<GovernanceInvestigationSnapshot>>{};
   String? _lastInvestigationType;
   String? _lastInvestigationId;
   String _lastInvestigationReplayFilter = '';
   bool _lastInvestigationOnlyCritical = false;
-  Set<GovernanceIncidentStatus> _missionStatusPreset =
-      GovernanceIncidentStatus.values.toSet();
-  Set<GovernanceIncidentStatus> _opsStatusPreset =
-      GovernanceIncidentStatus.values.toSet();
+  Set<GovernanceIncidentStatus> _missionStatusPreset = GovernanceIncidentStatus
+      .values
+      .toSet();
+  Set<GovernanceIncidentStatus> _opsStatusPreset = GovernanceIncidentStatus
+      .values
+      .toSet();
   GovernanceIncidentStatus _logsStatusPreset = GovernanceIncidentStatus.active;
 
   List<DomainEventEnvelope> get events =>
@@ -97,34 +99,36 @@ class WorkflowRuntimeStore extends ChangeNotifier {
     required String transactionType,
     required String transactionId,
   }) {
-    return _events.where((envelope) {
-      final event = envelope.event;
-      if (event is TransactionTransitionedEvent) {
-        return event.transactionType == transactionType &&
-            event.transactionId == transactionId;
-      }
-      if (event is WorkflowBlockedEvent) {
-        return event.transactionType == transactionType &&
-            event.transactionId == transactionId;
-      }
-      if (event is InventoryFreezeViolationEvent) {
-        return event.transactionType == transactionType &&
-            event.transactionId == transactionId;
-      }
-      if (event is ApprovalEscalatedEvent) {
-        return event.transactionType == transactionType &&
-            event.transactionId == transactionId;
-      }
-      if (event is ApprovalQueuedEvent) {
-        return event.transactionType == transactionType &&
-            event.transactionId == transactionId;
-      }
-      if (event is GovernanceIncidentStatusChangedEvent) {
-        return event.transactionType == transactionType &&
-            event.transactionId == transactionId;
-      }
-      return false;
-    }).toList(growable: false);
+    return _events
+        .where((envelope) {
+          final event = envelope.event;
+          if (event is TransactionTransitionedEvent) {
+            return event.transactionType == transactionType &&
+                event.transactionId == transactionId;
+          }
+          if (event is WorkflowBlockedEvent) {
+            return event.transactionType == transactionType &&
+                event.transactionId == transactionId;
+          }
+          if (event is InventoryFreezeViolationEvent) {
+            return event.transactionType == transactionType &&
+                event.transactionId == transactionId;
+          }
+          if (event is ApprovalEscalatedEvent) {
+            return event.transactionType == transactionType &&
+                event.transactionId == transactionId;
+          }
+          if (event is ApprovalQueuedEvent) {
+            return event.transactionType == transactionType &&
+                event.transactionId == transactionId;
+          }
+          if (event is GovernanceIncidentStatusChangedEvent) {
+            return event.transactionType == transactionType &&
+                event.transactionId == transactionId;
+          }
+          return false;
+        })
+        .toList(growable: false);
   }
 
   String? latestBlockedReason({
@@ -201,7 +205,9 @@ class WorkflowRuntimeStore extends ChangeNotifier {
           (e.event as InventoryFreezeViolationEvent).branchId ?? 'unscoped',
         );
       } else if (e.event is TransactionTransitionedEvent) {
-        keys.add((e.event as TransactionTransitionedEvent).branchId ?? 'unscoped');
+        keys.add(
+          (e.event as TransactionTransitionedEvent).branchId ?? 'unscoped',
+        );
       } else if (e.event is ApprovalEscalatedEvent) {
         keys.add((e.event as ApprovalEscalatedEvent).branchId ?? 'unscoped');
       }
@@ -222,7 +228,8 @@ class WorkflowRuntimeStore extends ChangeNotifier {
         if (branchKey != key) continue;
         pending += 1;
         if (q.isOverdue) overdue += 1;
-        totalLatencyHours += resolvedNow.difference(q.pendingSince).inMinutes / 60;
+        totalLatencyHours +=
+            resolvedNow.difference(q.pendingSince).inMinutes / 60;
       }
       for (final e in _events) {
         final event = e.event;
@@ -242,7 +249,9 @@ class WorkflowRuntimeStore extends ChangeNotifier {
         }
       }
 
-      final approvalLatencyHours = pending == 0 ? 0.0 : totalLatencyHours / pending;
+      final approvalLatencyHours = pending == 0
+          ? 0.0
+          : totalLatencyHours / pending;
       final breachRatio = pending == 0 ? 0.0 : overdue / pending;
       final escalationDensity = pending == 0 ? 0.0 : escalations / pending;
 
@@ -262,7 +271,9 @@ class WorkflowRuntimeStore extends ChangeNotifier {
         ),
       );
     }
-    list.sort((a, b) => a.governanceHealthScore.compareTo(b.governanceHealthScore));
+    list.sort(
+      (a, b) => a.governanceHealthScore.compareTo(b.governanceHealthScore),
+    );
     return list;
   }
 
@@ -322,14 +333,16 @@ class WorkflowRuntimeStore extends ChangeNotifier {
       counts[key] = (counts[key] ?? 0) + 1;
     }
 
-    final list = counts.entries.map((entry) {
-      final parts = entry.key.split('|');
-      return PolicyFrictionMetric(
-        ruleCode: parts.isNotEmpty ? parts[0] : 'unknown',
-        permissionKey: parts.length > 1 ? parts[1] : 'unknown',
-        count: entry.value,
-      );
-    }).toList(growable: false);
+    final list = counts.entries
+        .map((entry) {
+          final parts = entry.key.split('|');
+          return PolicyFrictionMetric(
+            ruleCode: parts.isNotEmpty ? parts[0] : 'unknown',
+            permissionKey: parts.length > 1 ? parts[1] : 'unknown',
+            count: entry.value,
+          );
+        })
+        .toList(growable: false);
     list.sort((a, b) => b.count.compareTo(a.count));
     if (list.length <= limit) return list;
     return list.sublist(0, limit);
@@ -454,18 +467,20 @@ class WorkflowRuntimeStore extends ChangeNotifier {
 
   List<BranchGovernanceRanking> branchGovernanceRanking() {
     final intel = branchGovernanceIntelligence();
-    final ranking = intel.map((x) {
-      final band = x.governanceHealthScore < 50
-          ? 'critical'
-          : (x.governanceHealthScore < 70 ? 'warning' : 'healthy');
-      return BranchGovernanceRanking(
-        branchId: x.branchId,
-        score: x.governanceHealthScore,
-        riskBand: band,
-        slaBreachRatio: x.slaBreachRatio,
-        escalationDensity: x.escalationDensity,
-      );
-    }).toList(growable: false);
+    final ranking = intel
+        .map((x) {
+          final band = x.governanceHealthScore < 50
+              ? 'critical'
+              : (x.governanceHealthScore < 70 ? 'warning' : 'healthy');
+          return BranchGovernanceRanking(
+            branchId: x.branchId,
+            score: x.governanceHealthScore,
+            riskBand: band,
+            slaBreachRatio: x.slaBreachRatio,
+            escalationDensity: x.escalationDensity,
+          );
+        })
+        .toList(growable: false);
     ranking.sort((a, b) => a.score.compareTo(b.score));
     return ranking;
   }
@@ -488,14 +503,16 @@ class WorkflowRuntimeStore extends ChangeNotifier {
       final key = '$rule|$perm';
       counts[key] = (counts[key] ?? 0) + 1;
     }
-    final list = counts.entries.map((x) {
-      final p = x.key.split('|');
-      return PolicyFrictionMetric(
-        ruleCode: p.first,
-        permissionKey: p.length > 1 ? p[1] : 'unknown',
-        count: x.value,
-      );
-    }).toList(growable: false);
+    final list = counts.entries
+        .map((x) {
+          final p = x.key.split('|');
+          return PolicyFrictionMetric(
+            ruleCode: p.first,
+            permissionKey: p.length > 1 ? p[1] : 'unknown',
+            count: x.value,
+          );
+        })
+        .toList(growable: false);
     list.sort((a, b) => b.count.compareTo(a.count));
     if (list.length <= limit) return list;
     return list.sublist(0, limit);
@@ -509,7 +526,9 @@ class WorkflowRuntimeStore extends ChangeNotifier {
         .length;
     final slaHotspots = ranking.where((r) => r.slaBreachRatio >= 0.25).length;
     final unstable = ranking.where((r) => r.score < 70).length;
-    final blockedHotspots = intel.where((x) => x.blockedTransitions >= 3).length;
+    final blockedHotspots = intel
+        .where((x) => x.blockedTransitions >= 3)
+        .length;
 
     return GovernanceOperationsCenterSnapshot(
       escalationHotspots: escalationHotspots,
@@ -800,8 +819,10 @@ class WorkflowRuntimeStore extends ChangeNotifier {
     final key = '$transactionType|$transactionId';
     final existing = _incidentStatuses[key];
     if (existing != null) return existing;
-    if (_archivedIncidents.contains(key)) return GovernanceIncidentStatus.archived;
-    if (_resolvedIncidents.contains(key)) return GovernanceIncidentStatus.resolved;
+    if (_archivedIncidents.contains(key))
+      return GovernanceIncidentStatus.archived;
+    if (_resolvedIncidents.contains(key))
+      return GovernanceIncidentStatus.resolved;
     final hasEscalation = _events.any((envelope) {
       final event = envelope.event;
       return event is ApprovalEscalatedEvent &&
@@ -922,7 +943,9 @@ class WorkflowRuntimeStore extends ChangeNotifier {
       assignedOperator: assignedOperator?.trim().isEmpty == true
           ? null
           : assignedOperator?.trim(),
-      branchLead: branchLead?.trim().isEmpty == true ? null : branchLead?.trim(),
+      branchLead: branchLead?.trim().isEmpty == true
+          ? null
+          : branchLead?.trim(),
       escalationOwner: escalationOwner?.trim().isEmpty == true
           ? null
           : escalationOwner?.trim(),

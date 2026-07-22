@@ -81,7 +81,9 @@ class WarehouseRepositoryImpl implements WarehouseRepository {
       final supabase = Supabase.instance.client;
       var query = supabase
           .from('warehouses')
-          .select('id, name, warehouse_code, is_active, entity_id, source_branch_id');
+          .select(
+            'id, name, warehouse_code, is_active, entity_id, source_branch_id',
+          );
 
       if (activeEntityId != null && activeEntityId.isNotEmpty) {
         query = query.eq('entity_id', activeEntityId);

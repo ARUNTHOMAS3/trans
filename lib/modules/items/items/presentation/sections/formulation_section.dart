@@ -245,8 +245,9 @@ class FormulationSection extends StatelessWidget {
                         : isSelected
                         ? AppTheme.primaryBlueDark
                         : AppTheme.textPrimary,
-                    fontWeight:
-                        isSelected ? FontWeight.w500 : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.w500
+                        : FontWeight.normal,
                   ),
                 ),
               ),
@@ -254,9 +255,7 @@ class FormulationSection extends StatelessWidget {
                 Icon(
                   Icons.check,
                   size: 16,
-                  color: isHovered
-                      ? Colors.white
-                      : AppTheme.primaryBlueDark,
+                  color: isHovered ? Colors.white : AppTheme.primaryBlueDark,
                 ),
             ],
           ),
@@ -367,7 +366,9 @@ class FormulationSection extends StatelessWidget {
                     child: TextField(
                       controller: dimXCtrl,
                       textAlign: TextAlign.center,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
                       decoration: const InputDecoration(
                         contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -381,13 +382,18 @@ class FormulationSection extends StatelessWidget {
                   ),
                   const Text(
                     '×',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   Expanded(
                     child: TextField(
                       controller: dimYCtrl,
                       textAlign: TextAlign.center,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
                       decoration: const InputDecoration(
                         contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -401,13 +407,18 @@ class FormulationSection extends StatelessWidget {
                   ),
                   const Text(
                     '×',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   Expanded(
                     child: TextField(
                       controller: dimZCtrl,
                       textAlign: TextAlign.center,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
                       decoration: const InputDecoration(
                         contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -451,8 +462,6 @@ class FormulationSection extends StatelessWidget {
     );
   }
 
-
-
   // ---------------- WEIGHT ----------------
 
   Widget _weightField(BuildContext context) {
@@ -470,7 +479,9 @@ class FormulationSection extends StatelessWidget {
             child: TextField(
               controller: weightCtrl,
               textAlign: TextAlign.right,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
               decoration: const InputDecoration(
                 contentPadding: EdgeInsets.symmetric(vertical: 8),

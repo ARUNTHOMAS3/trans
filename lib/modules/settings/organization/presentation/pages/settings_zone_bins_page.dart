@@ -110,9 +110,7 @@ class _SettingsZoneBinsPageState extends ConsumerState<SettingsZoneBinsPage> {
 
   String get _currentOrgId {
     final user = ref.read(authUserProvider);
-    return (user?.orgId.isNotEmpty == true)
-        ? user!.orgId
-        : '';
+    return (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
   }
 
   String get _currentZoneName => _zone?.zoneName.trim().isNotEmpty == true
@@ -532,7 +530,8 @@ class _SettingsZoneBinsPageState extends ConsumerState<SettingsZoneBinsPage> {
                     'orgSystemId':
                         GoRouterState.of(
                           context,
-                        ).pathParameters['orgSystemId'] ?? resolveOrgSystemId(context),
+                        ).pathParameters['orgSystemId'] ??
+                        resolveOrgSystemId(context),
                   },
                   queryParameters: _scopeQueryParameters(),
                 ),
@@ -1068,7 +1067,9 @@ class _SettingsZoneBinsPageState extends ConsumerState<SettingsZoneBinsPage> {
                               ElevatedButton(
                                 onPressed: isSaving ? null : submit,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.successGreen,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),

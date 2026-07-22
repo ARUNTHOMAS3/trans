@@ -278,8 +278,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   void _syncDetailRoute(List<_ItemDetailTab> tabs) {
     if (!mounted || widget.itemId == null) return;
     final queryParams = _buildDetailQueryParameters(tabs);
-    final orgSystemId =
-        resolveOrgSystemId(context);
+    final orgSystemId = resolveOrgSystemId(context);
     context.goNamed(
       AppRoutes.itemsDetail,
       pathParameters: {'orgSystemId': orgSystemId, 'id': widget.itemId!},
@@ -1566,7 +1565,10 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
         if (status.trim().isEmpty) return '';
         final normalized = status
             .replaceAll(RegExp(r'[_-]'), ' ')
-            .replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]}')
+            .replaceAllMapped(
+              RegExp(r'([a-z])([A-Z])'),
+              (m) => '${m[1]} ${m[2]}',
+            )
             .trim();
         return normalized
             .split(RegExp(r'\s+'))
@@ -1653,8 +1655,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
       return;
     }
 
-    final orgSystemId =
-        resolveOrgSystemId(context);
+    final orgSystemId = resolveOrgSystemId(context);
     final targetPath =
         '/$orgSystemId/inventory/adjustments?adjustmentId=$adjustmentId';
 
@@ -1742,7 +1743,10 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                       const SizedBox(height: 32),
                       _buildDrawerSection('PARTNER DETAILS', [
                         _buildDrawerRow('Customer/Vendor', tx.customerName),
-                        _buildDrawerRow('Reference', _drawerDisplayReference(tx)),
+                        _buildDrawerRow(
+                          'Reference',
+                          _drawerDisplayReference(tx),
+                        ),
                       ]),
                       const SizedBox(height: 32),
                       _buildDrawerSection('ITEM TOTALS', [

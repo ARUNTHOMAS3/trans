@@ -115,43 +115,45 @@ class InventoryPackage {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'customer_id': customerId,
-        'package_number': packageNumber,
-        'package_date': packageDate?.toIso8601String(),
-        'dimension_length': dimensionLength,
-        'dimension_width': dimensionWidth,
-        'dimension_height': dimensionHeight,
-        'dimension_unit': dimensionUnit,
-        'weight': weight,
-        'weight_unit': weightUnit,
-        'is_manual_mode': isManualMode,
-        'notes': notes,
-        'status': status,
-        'items': items.map((i) => i.toJson()).toList(),
-        'sales_order_ids': salesOrderIds,
-        'picklist_ids': picklistIds,
-        'sales_order_numbers': salesOrderNumbers,
-        'picklist_numbers': picklistNumbers,
-        'carrier': carrier,
-        'tracking_number': trackingNumber,
-        'shipment_date': shipmentDate?.toIso8601String(),
-        'sales_order_number': salesOrderNumber,
-        'sales_order_refs': salesOrderRefs.map((r) => r.toJson()).toList(),
-        'is_delete': isDelete,
-        'quantity': quantity,
-      };
+    'id': id,
+    'customer_id': customerId,
+    'package_number': packageNumber,
+    'package_date': packageDate?.toIso8601String(),
+    'dimension_length': dimensionLength,
+    'dimension_width': dimensionWidth,
+    'dimension_height': dimensionHeight,
+    'dimension_unit': dimensionUnit,
+    'weight': weight,
+    'weight_unit': weightUnit,
+    'is_manual_mode': isManualMode,
+    'notes': notes,
+    'status': status,
+    'items': items.map((i) => i.toJson()).toList(),
+    'sales_order_ids': salesOrderIds,
+    'picklist_ids': picklistIds,
+    'sales_order_numbers': salesOrderNumbers,
+    'picklist_numbers': picklistNumbers,
+    'carrier': carrier,
+    'tracking_number': trackingNumber,
+    'shipment_date': shipmentDate?.toIso8601String(),
+    'sales_order_number': salesOrderNumber,
+    'sales_order_refs': salesOrderRefs.map((r) => r.toJson()).toList(),
+    'is_delete': isDelete,
+    'quantity': quantity,
+  };
 
   factory InventoryPackage.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] as List<dynamic>?;
     final rawSoIds = json['sales_order_ids'] as List<dynamic>?;
-    
+
     return InventoryPackage(
       id: json['id'] as String?,
       customerId: json['customer_id'] as String?,
       customerName: json['customer_name'] as String?,
       packageNumber: json['package_number'] as String? ?? '',
-      packageDate: json['package_date'] != null ? DateTime.parse(json['package_date'] as String) : null,
+      packageDate: json['package_date'] != null
+          ? DateTime.parse(json['package_date'] as String)
+          : null,
       dimensionLength: (json['dimension_length'] as num?)?.toDouble() ?? 0,
       dimensionWidth: (json['dimension_width'] as num?)?.toDouble() ?? 0,
       dimensionHeight: (json['dimension_height'] as num?)?.toDouble() ?? 0,
@@ -162,25 +164,58 @@ class InventoryPackage {
       notes: json['notes'] as String?,
       status: json['status'] as String? ?? 'Not Shipped',
       items: rawItems != null
-          ? rawItems.map((e) => InventoryPackageItem.fromJson(e as Map<String, dynamic>)).toList()
+          ? rawItems
+                .map(
+                  (e) =>
+                      InventoryPackageItem.fromJson(e as Map<String, dynamic>),
+                )
+                .toList()
           : [],
-      salesOrderIds: rawSoIds != null 
-          ? rawSoIds.map((e) => e is Map ? (e['sales_order_id'] ?? e['id']).toString() : e.toString()).toList() 
+      salesOrderIds: rawSoIds != null
+          ? rawSoIds
+                .map(
+                  (e) => e is Map
+                      ? (e['sales_order_id'] ?? e['id']).toString()
+                      : e.toString(),
+                )
+                .toList()
           : [],
-      picklistIds: (json['picklist_ids'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      salesOrderNumbers: (json['sales_order_numbers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      picklistNumbers: (json['picklist_numbers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      picklistIds:
+          (json['picklist_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      salesOrderNumbers:
+          (json['sales_order_numbers'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      picklistNumbers:
+          (json['picklist_numbers'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       carrier: json['carrier'] as String?,
       trackingNumber: json['tracking_number'] as String?,
-      shipmentDate: json['shipment_date'] != null ? DateTime.parse(json['shipment_date'] as String) : null,
+      shipmentDate: json['shipment_date'] != null
+          ? DateTime.parse(json['shipment_date'] as String)
+          : null,
       salesOrderNumber: json['sales_order_number'] as String?,
-      salesOrderRefs: (json['sales_order_refs'] as List<dynamic>?)?.map((e) => InventoryPackageSORef.fromJson(e as Map<String, dynamic>)).toList() ?? [],
+      salesOrderRefs:
+          (json['sales_order_refs'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    InventoryPackageSORef.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
       isDelete: json['is_delete'] as bool? ?? false,
       quantity: (json['quantity'] as num?)?.toDouble(),
     );
   }
 
-  double get totalQty => quantity ?? items.fold(0.0, (sum, item) => sum + item.quantity);
+  double get totalQty =>
+      quantity ?? items.fold(0.0, (sum, item) => sum + item.quantity);
 }
 
 class InventoryPackageSORef {
@@ -227,8 +262,12 @@ class BatchMetadata {
   factory BatchMetadata.fromJson(Map<String, dynamic> json) {
     return BatchMetadata(
       manufactureBatchNumber: json['manufacture_batch_number'],
-      manufactureExp: json['manufacture_exp'] != null ? DateTime.parse(json['manufacture_exp']) : null,
-      expiryDate: json['expiry_date'] != null ? DateTime.parse(json['expiry_date']) : null,
+      manufactureExp: json['manufacture_exp'] != null
+          ? DateTime.parse(json['manufacture_exp'])
+          : null,
+      expiryDate: json['expiry_date'] != null
+          ? DateTime.parse(json['expiry_date'])
+          : null,
     );
   }
 
@@ -269,30 +308,48 @@ class InventoryPackageItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'package_id': packageId,
-        'product_id': productId,
-        'quantity': quantity,
-        'sales_order_id': salesOrderId,
-        'picklist_id': picklistId,
-        'bin_location': binLocation,
-        'batch_no': batchNo,
-      };
+    'id': id,
+    'package_id': packageId,
+    'product_id': productId,
+    'quantity': quantity,
+    'sales_order_id': salesOrderId,
+    'picklist_id': picklistId,
+    'bin_location': binLocation,
+    'batch_no': batchNo,
+  };
 
   factory InventoryPackageItem.fromJson(Map<String, dynamic> json) {
     return InventoryPackageItem(
       id: json['id'] as String?,
       packageId: json['package_id'] as String? ?? json['packageId'] as String?,
-      productId: json['product_id'] as String? ?? json['productId'] as String? ?? json['item_id'] as String? ?? json['itemId'] as String?,
-      itemName: json['item_name'] as String? ?? json['itemName'] as String? ?? json['description'] as String?,
+      productId:
+          json['product_id'] as String? ??
+          json['productId'] as String? ??
+          json['item_id'] as String? ??
+          json['itemId'] as String?,
+      itemName:
+          json['item_name'] as String? ??
+          json['itemName'] as String? ??
+          json['description'] as String?,
       quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
-      salesOrderId: json['sales_order_id'] as String? ?? json['salesOrderId'] as String?,
-      salesOrderNumber: json['sales_order_number'] as String? ?? json['salesOrderNumber'] as String?,
-      picklistId: json['picklist_id'] as String? ?? json['picklistId'] as String?,
-      picklistNumber: json['picklist_number'] as String? ?? json['picklistNumber'] as String?,
-      binLocation: json['bin_location'] as String? ?? json['binLocation'] as String?,
+      salesOrderId:
+          json['sales_order_id'] as String? ?? json['salesOrderId'] as String?,
+      salesOrderNumber:
+          json['sales_order_number'] as String? ??
+          json['salesOrderNumber'] as String?,
+      picklistId:
+          json['picklist_id'] as String? ?? json['picklistId'] as String?,
+      picklistNumber:
+          json['picklist_number'] as String? ??
+          json['picklistNumber'] as String?,
+      binLocation:
+          json['bin_location'] as String? ?? json['binLocation'] as String?,
       batchNo: json['batch_no'] as String? ?? json['batchNo'] as String?,
-      batchDetails: json['batch_details'] != null ? BatchMetadata.fromJson(json['batch_details'] as Map<String, dynamic>) : null,
+      batchDetails: json['batch_details'] != null
+          ? BatchMetadata.fromJson(
+              json['batch_details'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 }

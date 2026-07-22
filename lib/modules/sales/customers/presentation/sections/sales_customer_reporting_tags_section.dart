@@ -13,4 +13,3 @@ extension _ReportingTagsSection on _SalesCustomerCreateScreenState {
     );
   }
 }
-

@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
-import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -105,8 +105,10 @@ class ReceiveBatch {
 
 // ── Mock data provider ────────────────────────────────────────────────────────
 
-final purchaseReturnDetailProvider =
-    Provider.family<PurchaseReturnDetailData, String>((ref, id) {
+final purchaseReturnDetailProvider = Provider.family<PurchaseReturnDetailData, String>((
+  ref,
+  id,
+) {
   final cleanId = id.contains('PR-') ? id : 'PR-00001';
 
   if (cleanId == 'PR-00002') {
@@ -305,7 +307,9 @@ class _PurchaseReturnDetailPageState
   }
 
   void _showRecordReceiveDialog(
-      BuildContext context, PurchaseReturnDetailData returnDetail) {
+    BuildContext context,
+    PurchaseReturnDetailData returnDetail,
+  ) {
     showDialog<ReceiveBatch?>(
       context: context,
       barrierColor: Colors.black54,
@@ -317,21 +321,34 @@ class _PurchaseReturnDetailPageState
     });
   }
 
-  Widget _buildPrPdfCard(PurchaseReturnDetailData returnDetail, OrgSettings? orgSettings) {
+  Widget _buildPrPdfCard(
+    PurchaseReturnDetailData returnDetail,
+    OrgSettings? orgSettings,
+  ) {
     final fmt = NumberFormat('#,##,##0.00', 'en_IN');
     final dateStr = DateFormat('dd-MM-yyyy').format(returnDetail.date);
 
     Color ribbonColor;
     switch (returnDetail.status.toLowerCase()) {
-      case 'confirmed': ribbonColor = AppTheme.primaryBlue; break;
-      case 'vendor_received': ribbonColor = AppTheme.successGreen; break;
-      default: ribbonColor = AppTheme.textSecondary;
+      case 'confirmed':
+        ribbonColor = AppTheme.primaryBlue;
+        break;
+      case 'vendor_received':
+        ribbonColor = AppTheme.successGreen;
+        break;
+      default:
+        ribbonColor = AppTheme.textSecondary;
     }
     String ribbonLabel;
     switch (returnDetail.status.toLowerCase()) {
-      case 'confirmed': ribbonLabel = 'Confirmed'; break;
-      case 'vendor_received': ribbonLabel = 'Received'; break;
-      default: ribbonLabel = 'Draft';
+      case 'confirmed':
+        ribbonLabel = 'Confirmed';
+        break;
+      case 'vendor_received':
+        ribbonLabel = 'Received';
+        break;
+      default:
+        ribbonLabel = 'Draft';
     }
 
     return Container(
@@ -341,7 +358,11 @@ class _PurchaseReturnDetailPageState
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.borderLight),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       child: Stack(
@@ -363,13 +384,24 @@ class _PurchaseReturnDetailPageState
                           const _PdfOrgLogo(width: 140, height: 60),
                           const SizedBox(height: 14),
                           Text(
-                            orgSettings?.name.trim().isNotEmpty == true ? orgSettings!.name.trim() : 'YOUR COMPANY NAME',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                            orgSettings?.name.trim().isNotEmpty == true
+                                ? orgSettings!.name.trim()
+                                : 'YOUR COMPANY NAME',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            orgSettings?.paymentStubAddress?.trim() ?? 'Address Line 1\nCity, State PIN',
-                            style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.6),
+                            orgSettings?.paymentStubAddress?.trim() ??
+                                'Address Line 1\nCity, State PIN',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.textSecondary,
+                              height: 1.6,
+                            ),
                           ),
                         ],
                       ),
@@ -377,9 +409,24 @@ class _PurchaseReturnDetailPageState
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text('PURCHASE RETURN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: 0.5)),
+                        const Text(
+                          'PURCHASE RETURN',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textPrimary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text('Return# ${returnDetail.returnNumber}', style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
+                        Text(
+                          'Return# ${returnDetail.returnNumber}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.primaryBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -395,11 +442,33 @@ class _PurchaseReturnDetailPageState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('VENDOR ADDRESS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.4)),
+                          const Text(
+                            'VENDOR ADDRESS',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textSecondary,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-                          Text(returnDetail.vendorName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryBlueDark)),
+                          Text(
+                            returnDetail.vendorName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primaryBlueDark,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          Text(returnDetail.vendorAddress, style: const TextStyle(fontSize: 12, color: AppTheme.textSubtle, height: 1.5)),
+                          Text(
+                            returnDetail.vendorAddress,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSubtle,
+                              height: 1.5,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -408,20 +477,36 @@ class _PurchaseReturnDetailPageState
                       children: [
                         _pdfMetaRow('Return Date', dateStr),
                         if (returnDetail.purchaseOrderNumber != null)
-                          _pdfMetaRow('Purchase Order', returnDetail.purchaseOrderNumber!),
+                          _pdfMetaRow(
+                            'Purchase Order',
+                            returnDetail.purchaseOrderNumber!,
+                          ),
                         if (returnDetail.purchaseReceiveNumber != null)
-                          _pdfMetaRow('Receive#', returnDetail.purchaseReceiveNumber!),
+                          _pdfMetaRow(
+                            'Receive#',
+                            returnDetail.purchaseReceiveNumber!,
+                          ),
                         if (returnDetail.billNumber != null)
                           _pdfMetaRow('Bill#', returnDetail.billNumber!),
                         _pdfMetaRow('Warehouse', returnDetail.warehouseName),
-                        _pdfMetaRow('Source of Supply', returnDetail.sourceOfSupply),
-                        _pdfMetaRow('Destination', returnDetail.destinationOfSupply),
+                        _pdfMetaRow(
+                          'Source of Supply',
+                          returnDetail.sourceOfSupply,
+                        ),
+                        _pdfMetaRow(
+                          'Destination',
+                          returnDetail.destinationOfSupply,
+                        ),
                       ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                _ItemsTable(items: returnDetail.items, fmt: fmt, onItemTap: (_) {}),
+                _ItemsTable(
+                  items: returnDetail.items,
+                  fmt: fmt,
+                  onItemTap: (_) {},
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
                   child: Row(
@@ -436,9 +521,21 @@ class _PurchaseReturnDetailPageState
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        SizedBox(width: 220, child: Divider(color: AppTheme.textPrimary, thickness: 1)),
+                        SizedBox(
+                          width: 220,
+                          child: Divider(
+                            color: AppTheme.textPrimary,
+                            thickness: 1,
+                          ),
+                        ),
                         SizedBox(height: 4),
-                        Text('Authorized Signature', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        Text(
+                          'Authorized Signature',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -468,7 +565,12 @@ class _PurchaseReturnDetailPageState
                           alignment: Alignment.center,
                           child: Text(
                             ribbonLabel,
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600, decoration: TextDecoration.none),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                            ),
                           ),
                         ),
                       ),
@@ -483,15 +585,24 @@ class _PurchaseReturnDetailPageState
     );
   }
 
-
   Widget _pdfMetaRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label : ', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
+          Text(
+            '$label : ',
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+            ),
+          ),
         ],
       ),
     );
@@ -523,7 +634,8 @@ class _PurchaseReturnDetailPageState
                   context.go(AppRoutes.purchaseReturns);
                 },
                 onJournal: () => setState(() => _showJournal = !_showJournal),
-                onRecordReceive: returnDetail.status.toLowerCase() == 'confirmed'
+                onRecordReceive:
+                    returnDetail.status.toLowerCase() == 'confirmed'
                     ? () => _showRecordReceiveDialog(context, returnDetail)
                     : null,
               ),
@@ -557,12 +669,14 @@ class _PurchaseReturnDetailPageState
                               const SizedBox(width: 8),
                               Switch(
                                 value: _showPdfView,
-                                onChanged: (v) => setState(() => _showPdfView = v),
+                                onChanged: (v) =>
+                                    setState(() => _showPdfView = v),
                                 activeTrackColor: AppTheme.primaryBlue,
                                 activeThumbColor: Colors.white,
                                 inactiveTrackColor: AppTheme.borderLight,
                                 inactiveThumbColor: Colors.white,
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                               ),
                             ],
                           ),
@@ -584,8 +698,12 @@ class _PurchaseReturnDetailPageState
                               ...returnDetail.receiveHistory,
                               ..._localReceiveHistory,
                             ],
-                            onRecordReceive: returnDetail.status.toLowerCase() != 'draft'
-                                ? () => _showRecordReceiveDialog(context, returnDetail)
+                            onRecordReceive:
+                                returnDetail.status.toLowerCase() != 'draft'
+                                ? () => _showRecordReceiveDialog(
+                                    context,
+                                    returnDetail,
+                                  )
                                 : null,
                           ),
                           if (_showJournal) ...[
@@ -602,8 +720,7 @@ class _PurchaseReturnDetailPageState
             ],
           ),
           if (_drawerItem != null)
-            _ItemStockDrawer(
-                item: _drawerItem!, onClose: _closeItemDrawer),
+            _ItemStockDrawer(item: _drawerItem!, onClose: _closeItemDrawer),
         ],
       ),
     );
@@ -705,67 +822,71 @@ class _ActionBarState extends State<_ActionBar> {
     return Material(
       color: Colors.white,
       child: Container(
-      height: 46,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          _PrOverviewBtn(
-            icon: LucideIcons.pencil,
-            label: 'Edit',
-            onTap: () => context.push(
-              '${AppRoutes.purchaseReturnsCreate}?id=${widget.returnDetail.id}',
-            ),
-          ),
-          gap,
-          _PrOverviewBtn(
-            icon: LucideIcons.mail,
-            label: 'Send Email',
-            onTap: () {},
-          ),
-          gap,
-          CompositedTransformTarget(
-            link: _pdfPrintLink,
-            child: _PrOverviewBtn(
-              icon: LucideIcons.fileText,
-              label: 'PDF/Print',
-              trailingIcon: LucideIcons.chevronDown,
-              onTap: _showPdfPrintMenu,
-            ),
-          ),
-          gap,
-          if (status == 'draft') ...[
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
             _PrOverviewBtn(
-              icon: LucideIcons.checkCircle,
-              label: 'Confirm',
+              icon: LucideIcons.pencil,
+              label: 'Edit',
+              onTap: () => context.push(
+                '${AppRoutes.purchaseReturnsCreate}?id=${widget.returnDetail.id}',
+              ),
+            ),
+            gap,
+            _PrOverviewBtn(
+              icon: LucideIcons.mail,
+              label: 'Send Email',
               onTap: () {},
-              color: AppTheme.primaryBlue,
             ),
             gap,
-          ],
-          if (status == 'confirmed') ...[
-            _PrOverviewBtn(
-              icon: LucideIcons.packageCheck,
-              label: 'Record Receive',
-              onTap: widget.onRecordReceive ?? () {},
-              color: AppTheme.successGreen,
+            CompositedTransformTarget(
+              link: _pdfPrintLink,
+              child: _PrOverviewBtn(
+                icon: LucideIcons.fileText,
+                label: 'PDF/Print',
+                trailingIcon: LucideIcons.chevronDown,
+                onTap: _showPdfPrintMenu,
+              ),
             ),
             gap,
+            if (status == 'draft') ...[
+              _PrOverviewBtn(
+                icon: LucideIcons.checkCircle,
+                label: 'Confirm',
+                onTap: () {},
+                color: AppTheme.primaryBlue,
+              ),
+              gap,
+            ],
+            if (status == 'confirmed') ...[
+              _PrOverviewBtn(
+                icon: LucideIcons.packageCheck,
+                label: 'Record Receive',
+                onTap: widget.onRecordReceive ?? () {},
+                color: AppTheme.successGreen,
+              ),
+              gap,
+            ],
+            _PrOverviewMoreBtn(
+              onJournal: widget.onJournal,
+              onDelete: widget.onDelete,
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => context.go(AppRoutes.purchaseReturns),
+              icon: const Icon(
+                LucideIcons.chevronLeft,
+                size: 14,
+                color: AppTheme.textSecondary,
+              ),
+              label: const Text(
+                'Back',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              ),
+            ),
           ],
-          _PrOverviewMoreBtn(
-            onJournal: widget.onJournal,
-            onDelete: widget.onDelete,
-          ),
-          const Spacer(),
-          TextButton.icon(
-            onPressed: () => context.go(AppRoutes.purchaseReturns),
-            icon: const Icon(LucideIcons.chevronLeft,
-                size: 14, color: AppTheme.textSecondary),
-            label: const Text('Back',
-                style:
-                    TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -865,10 +986,7 @@ class _StageChip extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: stage.color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: stage.color, shape: BoxShape.circle),
         ),
         const SizedBox(height: 4),
         Text(
@@ -910,10 +1028,8 @@ class _DocumentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,##,##0.00', 'en_IN');
-    final dateStr =
-        DateFormat('dd-MM-yyyy').format(returnDetail.date);
-    final orgName =
-        orgSettings?.name.trim() ?? 'YOUR COMPANY NAME';
+    final dateStr = DateFormat('dd-MM-yyyy').format(returnDetail.date);
+    final orgName = orgSettings?.name.trim() ?? 'YOUR COMPANY NAME';
     final orgAddress =
         orgSettings?.paymentStubAddress?.trim() ??
         'Address Line 1\nCity, State PIN';
@@ -1044,14 +1160,26 @@ class _DocumentCard extends StatelessWidget {
                       children: [
                         _metaRow('Return Date', dateStr),
                         if (returnDetail.purchaseOrderNumber != null)
-                          _metaRow('Purchase Order', returnDetail.purchaseOrderNumber!),
+                          _metaRow(
+                            'Purchase Order',
+                            returnDetail.purchaseOrderNumber!,
+                          ),
                         if (returnDetail.purchaseReceiveNumber != null)
-                          _metaRow('Receive#', returnDetail.purchaseReceiveNumber!),
+                          _metaRow(
+                            'Receive#',
+                            returnDetail.purchaseReceiveNumber!,
+                          ),
                         if (returnDetail.billNumber != null)
                           _metaRow('Bill#', returnDetail.billNumber!),
                         _metaRow('Warehouse', returnDetail.warehouseName),
-                        _metaRow('Source of Supply', returnDetail.sourceOfSupply),
-                        _metaRow('Destination', returnDetail.destinationOfSupply),
+                        _metaRow(
+                          'Source of Supply',
+                          returnDetail.sourceOfSupply,
+                        ),
+                        _metaRow(
+                          'Destination',
+                          returnDetail.destinationOfSupply,
+                        ),
                       ],
                     ),
                   ],
@@ -1174,8 +1302,7 @@ class _DocumentCard extends StatelessWidget {
         children: [
           Text(
             '$label : ',
-            style: const TextStyle(
-                fontSize: 12, color: AppTheme.textSecondary),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           Text(
             value,
@@ -1223,7 +1350,11 @@ class _DocumentCard extends StatelessWidget {
       alignment: Alignment.center,
       child: const Text(
         'LOGO',
-        style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8),
+        style: TextStyle(
+          color: Colors.white54,
+          fontSize: 12,
+          letterSpacing: 0.8,
+        ),
       ),
     );
   }
@@ -1264,28 +1395,43 @@ class _ItemsTable extends StatelessWidget {
               ),
               SizedBox(
                 width: 80,
-                child: Text('Return Qty', style: headerStyle,
-                    textAlign: TextAlign.center),
+                child: Text(
+                  'Return Qty',
+                  style: headerStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
               SizedBox(
                 width: 60,
-                child: Text('Unit', style: headerStyle,
-                    textAlign: TextAlign.center),
+                child: Text(
+                  'Unit',
+                  style: headerStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
               SizedBox(
                 width: 90,
-                child: Text('Rate', style: headerStyle,
-                    textAlign: TextAlign.right),
+                child: Text(
+                  'Rate',
+                  style: headerStyle,
+                  textAlign: TextAlign.right,
+                ),
               ),
               SizedBox(
                 width: 100,
-                child: Text('Tax', style: headerStyle,
-                    textAlign: TextAlign.right),
+                child: Text(
+                  'Tax',
+                  style: headerStyle,
+                  textAlign: TextAlign.right,
+                ),
               ),
               SizedBox(
                 width: 100,
-                child: Text('Amount', style: headerStyle,
-                    textAlign: TextAlign.right),
+                child: Text(
+                  'Amount',
+                  style: headerStyle,
+                  textAlign: TextAlign.right,
+                ),
               ),
             ],
           ),
@@ -1296,20 +1442,21 @@ class _ItemsTable extends StatelessWidget {
           return InkWell(
             onTap: () => onItemTap(item),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               decoration: const BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(color: AppTheme.borderLight)),
+                border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
               ),
               child: Row(
                 children: [
                   SizedBox(
                     width: 28,
-                    child: Text('${idx + 1}',
-                        style: const TextStyle(
-                            fontSize: 12.5,
-                            color: AppTheme.textSecondary)),
+                    child: Text(
+                      '${idx + 1}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   Expanded(
                     flex: 5,
@@ -1326,59 +1473,77 @@ class _ItemsTable extends StatelessWidget {
                         ),
                         if (item.description.isNotEmpty) ...[
                           const SizedBox(height: 2),
-                          Text(item.description,
-                              style: const TextStyle(
-                                  fontSize: 11.5,
-                                  color: AppTheme.textSecondary)),
+                          Text(
+                            item.description,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
                         ],
                         if (item.reason != null) ...[
                           const SizedBox(height: 2),
-                          Text('Reason: ${item.reason}',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.primaryBlue,
-                                  fontStyle: FontStyle.italic)),
+                          Text(
+                            'Reason: ${item.reason}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.primaryBlue,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
                         ],
                       ],
                     ),
                   ),
                   SizedBox(
                     width: 80,
-                    child: Text(item.returnQty.toStringAsFixed(0),
-                        style: const TextStyle(fontSize: 12.5),
-                        textAlign: TextAlign.center),
+                    child: Text(
+                      item.returnQty.toStringAsFixed(0),
+                      style: const TextStyle(fontSize: 12.5),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                   SizedBox(
                     width: 60,
-                    child: Text(item.unit,
-                        style: const TextStyle(
-                            fontSize: 12.5,
-                            color: AppTheme.textSecondary),
-                        textAlign: TextAlign.center),
+                    child: Text(
+                      item.unit,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                   SizedBox(
                     width: 90,
-                    child: Text(fmt.format(item.rate),
-                        style: const TextStyle(fontSize: 12.5),
-                        textAlign: TextAlign.right),
+                    child: Text(
+                      fmt.format(item.rate),
+                      style: const TextStyle(fontSize: 12.5),
+                      textAlign: TextAlign.right,
+                    ),
                   ),
                   SizedBox(
                     width: 100,
-                    child: Text(item.taxRate,
-                        style: const TextStyle(
-                            fontSize: 12.5,
-                            color: AppTheme.textSecondary),
-                        textAlign: TextAlign.right),
+                    child: Text(
+                      item.taxRate,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
                   ),
                   SizedBox(
                     width: 100,
-                    child: Text(fmt.format(item.amount),
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                        textAlign: TextAlign.right),
+                    child: Text(
+                      fmt.format(item.amount),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
                   ),
                 ],
               ),
@@ -1420,12 +1585,14 @@ class _TotalsBlock extends StatelessWidget {
           if (returnDetail.adjustment != 0)
             _totalRow('Adjustment', fmt.format(returnDetail.adjustment)),
           const Divider(color: AppTheme.borderLight, height: 16),
-          _totalRow('Total', fmt.format(returnDetail.total),
-              isGrandTotal: true),
+          _totalRow(
+            'Total',
+            fmt.format(returnDetail.total),
+            isGrandTotal: true,
+          ),
           const SizedBox(height: 8),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: AppTheme.infoBg,
               borderRadius: BorderRadius.circular(4),
@@ -1457,8 +1624,7 @@ class _TotalsBlock extends StatelessWidget {
     );
   }
 
-  Widget _totalRow(String label, String value,
-      {bool isGrandTotal = false}) {
+  Widget _totalRow(String label, String value, {bool isGrandTotal = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1468,8 +1634,7 @@ class _TotalsBlock extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: isGrandTotal ? 14 : 12.5,
-              fontWeight:
-                  isGrandTotal ? FontWeight.w800 : FontWeight.w400,
+              fontWeight: isGrandTotal ? FontWeight.w800 : FontWeight.w400,
               color: isGrandTotal
                   ? AppTheme.textPrimary
                   : AppTheme.textSecondary,
@@ -1479,8 +1644,7 @@ class _TotalsBlock extends StatelessWidget {
             value,
             style: TextStyle(
               fontSize: isGrandTotal ? 14 : 12.5,
-              fontWeight:
-                  isGrandTotal ? FontWeight.w800 : FontWeight.w600,
+              fontWeight: isGrandTotal ? FontWeight.w800 : FontWeight.w600,
               color: AppTheme.textPrimary,
             ),
           ),
@@ -1508,8 +1672,7 @@ class _ItemStockDrawer extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          border:
-              const Border(left: BorderSide(color: AppTheme.borderLight)),
+          border: const Border(left: BorderSide(color: AppTheme.borderLight)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
@@ -1576,8 +1739,10 @@ class _ItemStockDrawer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _detailRow('Return Qty',
-                      '${item.returnQty.toStringAsFixed(0)} ${item.unit}'),
+                  _detailRow(
+                    'Return Qty',
+                    '${item.returnQty.toStringAsFixed(0)} ${item.unit}',
+                  ),
                   _detailRow('Rate', '₹${item.rate.toStringAsFixed(2)}'),
                   _detailRow('Tax Rate', item.taxRate),
                   _detailRow('Amount', '₹${item.amount.toStringAsFixed(2)}'),
@@ -1613,15 +1778,21 @@ class _ItemStockDrawer extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 12.5, color: AppTheme.textSecondary)),
-          Text(value,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              )),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
         ],
       ),
     );
@@ -1657,64 +1828,76 @@ class _JournalSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: const BoxDecoration(
-              border:
-                  Border(bottom: BorderSide(color: AppTheme.borderLight)),
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
             ),
             child: Row(
               children: [
-                const Icon(LucideIcons.bookOpen,
-                    size: 15, color: AppTheme.textSecondary),
+                const Icon(
+                  LucideIcons.bookOpen,
+                  size: 15,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   'Journal',
                   style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
                 const Spacer(),
                 Text(
                   returnDetail.returnNumber,
                   style: const TextStyle(
-                      fontSize: 12, color: AppTheme.textSecondary),
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
               ],
             ),
           ),
           Container(
             color: AppTheme.backgroundColor,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: const [
                 Expanded(
                   flex: 4,
-                  child: Text('Account',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary)),
+                  child: Text(
+                    'Account',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
                 ),
                 SizedBox(
                   width: 140,
-                  child: Text('Debit',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary)),
+                  child: Text(
+                    'Debit',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
                 ),
                 SizedBox(
                   width: 140,
-                  child: Text('Credit',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary)),
+                  child: Text(
+                    'Credit',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1723,40 +1906,42 @@ class _JournalSection extends StatelessWidget {
           ...entries.map((e) => _JournalRow(entry: e, fmt: fmt)),
           const Divider(height: 1, color: AppTheme.borderLight),
           Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
                 const Expanded(
                   flex: 4,
-                  child: Text('Total',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary)),
-                ),
-                SizedBox(
-                  width: 140,
                   child: Text(
-                    fmt.format(
-                        entries.fold(0.0, (s, e) => s + e.debit)),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary),
+                    'Total',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
                 ),
                 SizedBox(
                   width: 140,
                   child: Text(
-                    fmt.format(
-                        entries.fold(0.0, (s, e) => s + e.credit)),
+                    fmt.format(entries.fold(0.0, (s, e) => s + e.debit)),
                     textAlign: TextAlign.right,
                     style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    fmt.format(entries.fold(0.0, (s, e) => s + e.credit)),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -1770,18 +1955,21 @@ class _JournalSection extends StatelessWidget {
   List<_JournalEntry> _journalEntries() {
     return [
       _JournalEntry(
-          account: 'Accounts Payable',
-          debit: returnDetail.total,
-          credit: 0),
+        account: 'Accounts Payable',
+        debit: returnDetail.total,
+        credit: 0,
+      ),
       _JournalEntry(
-          account: 'Purchase Returns & Allowances',
-          debit: 0,
-          credit: returnDetail.subtotal),
+        account: 'Purchase Returns & Allowances',
+        debit: 0,
+        credit: returnDetail.subtotal,
+      ),
       if (returnDetail.taxAmount > 0)
         _JournalEntry(
-            account: 'Input Tax Credit Reversal (GST)',
-            debit: 0,
-            credit: returnDetail.taxAmount),
+          account: 'Input Tax Credit Reversal (GST)',
+          debit: 0,
+          credit: returnDetail.taxAmount,
+        ),
     ];
   }
 }
@@ -1807,8 +1995,7 @@ class _JournalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
       ),
@@ -1816,17 +2003,17 @@ class _JournalRow extends StatelessWidget {
         children: [
           Expanded(
             flex: 4,
-            child: Text(entry.account,
-                style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textPrimary)),
+            child: Text(
+              entry.account,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            ),
           ),
           SizedBox(
             width: 140,
             child: Text(
               entry.debit > 0 ? fmt.format(entry.debit) : '—',
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                  fontSize: 13, color: AppTheme.textPrimary),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
           ),
           SizedBox(
@@ -1834,8 +2021,7 @@ class _JournalRow extends StatelessWidget {
             child: Text(
               entry.credit > 0 ? fmt.format(entry.credit) : '—',
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                  fontSize: 13, color: AppTheme.textPrimary),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
           ),
         ],
@@ -1885,8 +2071,11 @@ class _ReceiveBatchesSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(LucideIcons.packageCheck,
-                    size: 15, color: AppTheme.textSecondary),
+                const Icon(
+                  LucideIcons.packageCheck,
+                  size: 15,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   'Receive Batches',
@@ -1904,16 +2093,21 @@ class _ReceiveBatchesSection extends StatelessWidget {
                     label: const Text(
                       'Record Receive',
                       style: TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w500),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.successGreen,
                       side: const BorderSide(color: AppTheme.successGreen),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       minimumSize: Size.zero,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                   ),
               ],
@@ -1923,59 +2117,76 @@ class _ReceiveBatchesSection extends StatelessWidget {
           if (receiveBatches.isNotEmpty)
             Container(
               color: AppTheme.backgroundColor,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: const [
                   SizedBox(
                     width: 32,
-                    child: Text('#',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary)),
+                    child: Text(
+                      '#',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   Expanded(
                     flex: 3,
-                    child: Text('Receive#',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary)),
+                    child: Text(
+                      'Receive#',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('Date',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary)),
+                    child: Text(
+                      'Date',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   Expanded(
                     flex: 4,
-                    child: Text('Items',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary)),
+                    child: Text(
+                      'Items',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   SizedBox(
                     width: 90,
-                    child: Text('Total Qty',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary)),
+                    child: Text(
+                      'Total Qty',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   SizedBox(
                     width: 90,
-                    child: Text('Status',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary)),
+                    child: Text(
+                      'Status',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1985,13 +2196,11 @@ class _ReceiveBatchesSection extends StatelessWidget {
           // Rows
           if (receiveBatches.isEmpty)
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               child: Center(
                 child: Text(
                   'No receive batches recorded yet.',
-                  style: TextStyle(
-                      fontSize: 13, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                 ),
               ),
             )
@@ -1999,29 +2208,38 @@ class _ReceiveBatchesSection extends StatelessWidget {
             ...receiveBatches.asMap().entries.map((entry) {
               final idx = entry.key;
               final batch = entry.value;
-              final totalQty =
-                  batch.items.fold(0.0, (s, l) => s + l.qty);
+              final totalQty = batch.items.fold(0.0, (s, l) => s + l.qty);
               final itemsSummary = batch.items
-                  .map((l) => '${l.itemName} (${l.qty.toStringAsFixed(0)} ${l.unit})')
+                  .map(
+                    (l) =>
+                        '${l.itemName} (${l.qty.toStringAsFixed(0)} ${l.unit})',
+                  )
                   .join(', ');
               return Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   border: Border(
-                      bottom: BorderSide(
-                          color: idx < receiveBatches.length - 1
-                              ? AppTheme.borderLight
-                              : Colors.transparent)),
+                    bottom: BorderSide(
+                      color: idx < receiveBatches.length - 1
+                          ? AppTheme.borderLight
+                          : Colors.transparent,
+                    ),
+                  ),
                 ),
                 child: Row(
                   children: [
                     SizedBox(
                       width: 32,
-                      child: Text('${idx + 1}',
-                          style: const TextStyle(
-                              fontSize: 12.5,
-                              color: AppTheme.textSecondary)),
+                      child: Text(
+                        '${idx + 1}',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                     ),
                     Expanded(
                       flex: 3,
@@ -2039,8 +2257,9 @@ class _ReceiveBatchesSection extends StatelessWidget {
                       child: Text(
                         dateFmt.format(batch.date),
                         style: const TextStyle(
-                            fontSize: 12.5,
-                            color: AppTheme.textPrimary),
+                          fontSize: 12.5,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -2048,8 +2267,9 @@ class _ReceiveBatchesSection extends StatelessWidget {
                       child: Text(
                         itemsSummary,
                         style: const TextStyle(
-                            fontSize: 12.5,
-                            color: AppTheme.textSecondary),
+                          fontSize: 12.5,
+                          color: AppTheme.textSecondary,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2060,9 +2280,10 @@ class _ReceiveBatchesSection extends StatelessWidget {
                         totalQty.toStringAsFixed(0),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -2107,8 +2328,10 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
     super.initState();
     _receiveDateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
     _qtyControllers = widget.returnDetail.items
-        .map((item) =>
-            TextEditingController(text: item.returnQty.toStringAsFixed(0)))
+        .map(
+          (item) =>
+              TextEditingController(text: item.returnQty.toStringAsFixed(0)),
+        )
         .toList();
     for (final c in _qtyControllers) {
       c.addListener(() => setState(() {}));
@@ -2130,8 +2353,7 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
         .asMap()
         .entries
         .map((e) {
-          final qty =
-              double.tryParse(_qtyControllers[e.key].text) ?? 0.0;
+          final qty = double.tryParse(_qtyControllers[e.key].text) ?? 0.0;
           return ReceiveBatchLine(
             itemName: e.value.name,
             qty: qty,
@@ -2168,16 +2390,17 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
           children: [
             // Title bar
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: const BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(color: AppTheme.borderLight)),
+                border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
               ),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.packageCheck,
-                      size: 16, color: AppTheme.textSecondary),
+                  const Icon(
+                    LucideIcons.packageCheck,
+                    size: 16,
+                    color: AppTheme.textSecondary,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -2201,8 +2424,7 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
             ),
             // Date row
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
                   const Text(
@@ -2216,7 +2438,9 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
                   const SizedBox(width: 16),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 7),
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
                       border: Border.all(color: AppTheme.borderLight),
                       borderRadius: BorderRadius.circular(4),
@@ -2224,7 +2448,9 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
                     child: Text(
                       _receiveDateStr,
                       style: const TextStyle(
-                          fontSize: 13, color: AppTheme.textPrimary),
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -2234,8 +2460,7 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
             // Table header
             Container(
               color: AppTheme.backgroundColor,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Table(
                 border: TableBorder.all(color: Colors.transparent),
                 columnWidths: const {
@@ -2253,21 +2478,27 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Text('Return Qty',
-                            textAlign: TextAlign.center,
-                            style: headerStyle),
+                        child: Text(
+                          'Return Qty',
+                          textAlign: TextAlign.center,
+                          style: headerStyle,
+                        ),
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Text('Unit',
-                            textAlign: TextAlign.center,
-                            style: headerStyle),
+                        child: Text(
+                          'Unit',
+                          textAlign: TextAlign.center,
+                          style: headerStyle,
+                        ),
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Text('Qty to Record',
-                            textAlign: TextAlign.center,
-                            style: headerStyle),
+                        child: Text(
+                          'Qty to Record',
+                          textAlign: TextAlign.center,
+                          style: headerStyle,
+                        ),
                       ),
                     ],
                   ),
@@ -2294,7 +2525,9 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 10),
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                       child: Text(
                         item.name,
                         style: const TextStyle(
@@ -2310,8 +2543,9 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
                         item.returnQty.toStringAsFixed(0),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary),
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ),
                     Padding(
@@ -2320,37 +2554,47 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
                         item.unit,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary),
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       child: TextField(
                         controller: ctrl,
                         textAlign: TextAlign.center,
                         keyboardType: TextInputType.number,
                         style: const TextStyle(
-                            fontSize: 13, color: AppTheme.textPrimary),
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                        ),
                         decoration: InputDecoration(
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 7),
+                            horizontal: 8,
+                            vertical: 7,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(3),
-                            borderSide:
-                                const BorderSide(color: AppTheme.borderLight),
+                            borderSide: const BorderSide(
+                              color: AppTheme.borderLight,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(3),
-                            borderSide:
-                                const BorderSide(color: AppTheme.borderLight),
+                            borderSide: const BorderSide(
+                              color: AppTheme.borderLight,
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(3),
                             borderSide: const BorderSide(
-                                color: AppTheme.primaryBlue),
+                              color: AppTheme.primaryBlue,
+                            ),
                           ),
                         ),
                       ),
@@ -2361,11 +2605,9 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
             ),
             // Footer
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: const BoxDecoration(
-                border: Border(
-                    top: BorderSide(color: AppTheme.borderLight)),
+                border: Border(top: BorderSide(color: AppTheme.borderLight)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -2376,14 +2618,21 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
                       foregroundColor: AppTheme.textSecondary,
                       side: const BorderSide(color: AppTheme.borderLight),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 9),
+                        horizontal: 16,
+                        vertical: 9,
+                      ),
                       minimumSize: Size.zero,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: const Text('Cancel',
-                        style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton(
@@ -2392,15 +2641,22 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
                       backgroundColor: AppTheme.successGreen,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 9),
+                        horizontal: 16,
+                        vertical: 9,
+                      ),
                       minimumSize: Size.zero,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       elevation: 0,
                     ),
-                    child: const Text('Save Receive',
-                        style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      'Save Receive',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2415,7 +2671,11 @@ class _RecordReceiveDialogState extends State<RecordReceiveDialog> {
 // ── PDF/Print dropdown menu option ────────────────────────────────────────────
 
 class _PrDownloadMenuOption extends StatefulWidget {
-  const _PrDownloadMenuOption({required this.label, required this.onTap, this.icon});
+  const _PrDownloadMenuOption({
+    required this.label,
+    required this.onTap,
+    this.icon,
+  });
   final String label;
   final VoidCallback onTap;
   final IconData? icon;
@@ -2443,7 +2703,11 @@ class _PrDownloadMenuOptionState extends State<_PrDownloadMenuOption> {
           child: Row(
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon, size: 16, color: _hovered ? Colors.white : AppTheme.primaryBlue),
+                Icon(
+                  widget.icon,
+                  size: 16,
+                  color: _hovered ? Colors.white : AppTheme.primaryBlue,
+                ),
                 const SizedBox(width: 8),
               ],
               Text(
@@ -2497,7 +2761,11 @@ class _PrOverviewBtn extends StatelessWidget {
             const SizedBox(width: 5),
             Text(
               label,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textColor),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: textColor,
+              ),
             ),
             if (trailingIcon != null) ...[
               const SizedBox(width: 4),
@@ -2531,25 +2799,51 @@ class _PrOverviewMoreBtn extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: const [
-              Icon(LucideIcons.moreHorizontal, size: 16, color: AppTheme.textSecondary),
+              Icon(
+                LucideIcons.moreHorizontal,
+                size: 16,
+                color: AppTheme.textSecondary,
+              ),
               SizedBox(width: 5),
-              Text('More', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
+              Text(
+                'More',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
             ],
           ),
         ),
       ),
       menuChildren: [
         MenuItemButton(
-          leadingIcon: const Icon(LucideIcons.bookOpen, size: 14, color: AppTheme.textSecondary),
+          leadingIcon: const Icon(
+            LucideIcons.bookOpen,
+            size: 14,
+            color: AppTheme.textSecondary,
+          ),
           onPressed: onJournal,
           style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.primaryBlue : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textPrimary),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textSecondary),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.white,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textPrimary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
             minimumSize: const WidgetStatePropertyAll(Size(170, 0)),
             alignment: Alignment.centerLeft,
             shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
@@ -2557,16 +2851,31 @@ class _PrOverviewMoreBtn extends StatelessWidget {
           child: const Text('Journal', style: TextStyle(fontSize: 13)),
         ),
         MenuItemButton(
-          leadingIcon: const Icon(LucideIcons.trash2, size: 14, color: AppTheme.errorRed),
+          leadingIcon: const Icon(
+            LucideIcons.trash2,
+            size: 14,
+            color: AppTheme.errorRed,
+          ),
           onPressed: onDelete,
           style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.errorRed : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.errorRed),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.errorRed),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.errorRed
+                  : Colors.white,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.errorRed,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.errorRed,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
             minimumSize: const WidgetStatePropertyAll(Size(170, 0)),
             alignment: Alignment.centerLeft,
             shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
@@ -2577,7 +2886,6 @@ class _PrOverviewMoreBtn extends StatelessWidget {
     );
   }
 }
-
 
 class _PdfOrgLogo extends ConsumerWidget {
   const _PdfOrgLogo({this.width = 140, this.height = 60});
@@ -2608,14 +2916,16 @@ class _PdfOrgLogo extends ConsumerWidget {
   }
 
   Widget _fallback() => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        alignment: Alignment.center,
-        child: const Text('LOGO',
-            style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8)),
-      );
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: const Color(0xFF1A1A2E),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    alignment: Alignment.center,
+    child: const Text(
+      'LOGO',
+      style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8),
+    ),
+  );
 }

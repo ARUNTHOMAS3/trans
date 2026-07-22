@@ -56,7 +56,10 @@ class AccountTransaction {
       description: json['description'],
       debit: _asDouble(json['debit']),
       credit: _asDouble(json['credit']),
-      bcyDebit: _asDouble(json['bcy_debit'], fallback: _asDouble(json['debit'])),
+      bcyDebit: _asDouble(
+        json['bcy_debit'],
+        fallback: _asDouble(json['debit']),
+      ),
       bcyCredit: _asDouble(
         json['bcy_credit'],
         fallback: _asDouble(json['credit']),

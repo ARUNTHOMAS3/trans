@@ -25,8 +25,7 @@ class ApiEndpoints {
   static const String purchaseReceiveNextNumber =
       'purchase-receives/next-number';
   static const String purchaseReturns = 'purchase-returns';
-  static const String purchaseReturnNextNumber =
-      'purchase-returns/next-number';
+  static const String purchaseReturnNextNumber = 'purchase-returns/next-number';
   static const String warehouses = 'warehouses-settings';
   static const String bills = 'bills';
   static const String paymentsMade = 'payments-made';
@@ -43,7 +42,8 @@ class ApiEndpoints {
   static const String stockMovements = 'stock-movements';
   static const String picklists = 'picklists';
   static const String inventoryPackages = 'inventory-packages';
-  static const String inventoryPackagesNextNumber = 'inventory-packages/next-number';
+  static const String inventoryPackagesNextNumber =
+      'inventory-packages/next-number';
   static const String inventoryAdjustments = 'inventory-adjustments';
   static const String inventoryAdjustmentReasons =
       'inventory-adjustments/reasons';

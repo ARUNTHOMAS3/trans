@@ -74,39 +74,45 @@ class ZSplitActionMenuButton extends StatelessWidget {
     );
 
     return MenuAnchor(
-      menuChildren: menuItems.map((item) {
-        return MenuItemButton(
-          onPressed: isDisabled ? null : item.onPressed,
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return AppTheme.primaryBlue;
-              }
-              return AppTheme.backgroundColor;
-            }),
-            foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return AppTheme.backgroundColor;
-              }
-              return AppTheme.textPrimary;
-            }),
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: menuWidth - 32),
-            child: Row(
-              children: [
-                Expanded(child: Text(item.label)),
-                if (item.isLoading)
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-          ),
-        );
-      }).toList(growable: false),
+      menuChildren: menuItems
+          .map((item) {
+            return MenuItemButton(
+              onPressed: isDisabled ? null : item.onPressed,
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith<Color?>((
+                  states,
+                ) {
+                  if (states.contains(WidgetState.hovered)) {
+                    return AppTheme.primaryBlue;
+                  }
+                  return AppTheme.backgroundColor;
+                }),
+                foregroundColor: WidgetStateProperty.resolveWith<Color?>((
+                  states,
+                ) {
+                  if (states.contains(WidgetState.hovered)) {
+                    return AppTheme.backgroundColor;
+                  }
+                  return AppTheme.textPrimary;
+                }),
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: menuWidth - 32),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(item.label)),
+                    if (item.isLoading)
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          })
+          .toList(growable: false),
       builder: (context, controller, child) {
         final hasSplitPrimary = onPrimaryPressed != null;
         if (!hasSplitPrimary) {
@@ -115,7 +121,9 @@ class ZSplitActionMenuButton extends StatelessWidget {
             child: ElevatedButton(
               onPressed: isDisabled
                   ? null
-                  : () => controller.isOpen ? controller.close() : controller.open(),
+                  : () => controller.isOpen
+                        ? controller.close()
+                        : controller.open(),
               style: triggerBaseStyle.copyWith(
                 padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
                   EdgeInsets.symmetric(horizontal: 14),
@@ -167,7 +175,9 @@ class ZSplitActionMenuButton extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: isDisabled
                     ? null
-                    : () => controller.isOpen ? controller.close() : controller.open(),
+                    : () => controller.isOpen
+                          ? controller.close()
+                          : controller.open(),
                 style: triggerBaseStyle.copyWith(
                   padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
                     EdgeInsets.zero,

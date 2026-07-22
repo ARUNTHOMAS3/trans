@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -19,6 +20,13 @@ class AccountTreeDropdown extends StatefulWidget {
   final BorderRadius? borderRadius;
   final BoxBorder? border;
   final FocusNode? focusNode;
+  final bool showHierarchyBullets;
+  final int hierarchyBulletMinDepth;
+  final bool showSettings;
+  final String settingsLabel;
+  final IconData? settingsIcon;
+  final VoidCallback? onSettingsTap;
+  final double? dropdownWidth;
 
   const AccountTreeDropdown({
     super.key,
@@ -33,6 +41,13 @@ class AccountTreeDropdown extends StatefulWidget {
     this.borderRadius,
     this.border,
     this.focusNode,
+    this.showHierarchyBullets = true,
+    this.hierarchyBulletMinDepth = 1,
+    this.showSettings = false,
+    this.settingsLabel = 'Configure...',
+    this.settingsIcon,
+    this.onSettingsTap,
+    this.dropdownWidth,
   });
 
   @override
@@ -54,6 +69,7 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
   bool _didScrollToSelected = false;
   List<AccountNode>? _remoteResults;
   bool _isSearching = false;
+  bool _overlayRebuildQueued = false;
   Timer? _debounce;
 
   static const double _rowHeight = 36;
@@ -326,7 +342,26 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
   }
 
   void _markOverlayNeedsBuild() {
-    _overlay?.markNeedsBuild();
+    final entry = _overlay;
+    if (entry == null) return;
+
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final canRebuildNow =
+        phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks;
+
+    if (canRebuildNow) {
+      entry.markNeedsBuild();
+      return;
+    }
+
+    if (_overlayRebuildQueued) return;
+    _overlayRebuildQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _overlayRebuildQueued = false;
+      if (!mounted) return;
+      _overlay?.markNeedsBuild();
+    });
   }
 
   Offset _calculateOverlayOffset(Size fieldSize, double overlayHeight) {
@@ -347,10 +382,7 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
 
     late final Offset targetGlobal;
     try {
-      targetGlobal = targetBox.localToGlobal(
-        Offset.zero,
-        ancestor: overlayBox,
-      );
+      targetGlobal = targetBox.localToGlobal(Offset.zero, ancestor: overlayBox);
     } catch (_) {
       return Offset(0, fieldSize.height + 4);
     }
@@ -408,7 +440,7 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
               canRequestFocus: false,
               onKeyEvent: _onDropdownKeyEvent,
               child: Container(
-                width: box.size.width,
+            width: widget.dropdownWidth ?? box.size.width,
                 height: overlayHeight,
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -494,129 +526,134 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                               itemCount: items.length,
                               padding: EdgeInsets.zero,
                               itemBuilder: (context, index) {
-                          final entry = items[index];
-                          final node = entry.node;
-                          final selected = widget.value == node.id;
-                          final hovered =
-                              _hoveredIndex == index || _keyboardIndex == index;
+                                final entry = items[index];
+                                final node = entry.node;
+                                final selected = widget.value == node.id;
+                                final hovered =
+                                    _hoveredIndex == index ||
+                                    _keyboardIndex == index;
 
-                          final isGroup = node.id.startsWith(
-                            '__account_group__',
-                          );
-                          final isType = node.id.startsWith('__account_type__');
+                                final isGroup = node.id.startsWith(
+                                  '__account_group__',
+                                );
+                                final isType = node.id.startsWith(
+                                  '__account_type__',
+                                );
 
-                          if (!node.selectable) {
-                            final double paddingLeft =
-                                (12 + (entry.depth * 12)).toDouble();
+                                if (!node.selectable) {
+                                  final double paddingLeft =
+                                      (12 + (entry.depth * 12)).toDouble();
 
-                            return Container(
-                              height: _rowHeight,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: isType
-                                    ? const Border(
-                                        top: BorderSide(
-                                          color: AppTheme.bgDisabled,
-                                          width: 1,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: paddingLeft,
-                              ),
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                node.name,
-                                style: TextStyle(
-                                  fontSize: isGroup ? 13 : 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: isGroup
-                                      ? AppTheme.textBody
-                                      : AppTheme.textSubtle,
-                                ),
-                              ),
-                            );
-                          }
-
-                          Color bg = Colors.transparent;
-                          Color text = AppTheme.textPrimary;
-                          Color check = Colors.transparent;
-
-                          if (selected) {
-                            bg = AppTheme.primaryBlueDark;
-                            text = Colors.white;
-                            check = Colors.white;
-                          } else if (hovered) {
-                            bg = AppTheme.infoBlue;
-                            text = Colors.white;
-                          }
-
-                          final bool showBullet = entry.depth > 0;
-                          final double paddingLeft =
-                              (12 + (entry.depth * 12)).toDouble();
-
-                          return MouseRegion(
-                            onEnter: (_) {
-                              _hoveredIndex = index;
-                              _keyboardIndex = index;
-                              _markOverlayNeedsBuild();
-                            },
-                            onExit: (_) {
-                              _hoveredIndex = null;
-                              _markOverlayNeedsBuild();
-                            },
-                            child: InkWell(
-                              onTap: () {
-                                widget.onChanged(node.id);
-                                _close();
-                              },
-                              hoverColor: Colors.transparent,
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              child: Container(
-                                height: _rowHeight,
-                                padding: EdgeInsets.only(
-                                  left: paddingLeft,
-                                  right: 12,
-                                ),
-                                color: bg,
-                                child: Row(
-                                  children: [
-                                    if (showBullet)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 8,
-                                        ),
-                                        child: Text(
-                                          '•',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: text,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    Expanded(
-                                      child: _buildNameWithHighlight(
-                                        node.name,
-                                        text,
-                                        selected,
+                                  return Container(
+                                    height: _rowHeight,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      border: isType
+                                          ? const Border(
+                                              top: BorderSide(
+                                                color: AppTheme.bgDisabled,
+                                                width: 1,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: paddingLeft,
+                                    ),
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      node.name,
+                                      style: TextStyle(
+                                        fontSize: isGroup ? 13 : 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: isGroup
+                                            ? AppTheme.textBody
+                                            : AppTheme.textSubtle,
                                       ),
                                     ),
-                                    if (selected)
-                                      Icon(
-                                        LucideIcons.check,
-                                        size: 16,
-                                        color: check,
+                                  );
+                                }
+
+                                Color bg = Colors.transparent;
+                                Color text = AppTheme.textPrimary;
+                                Color check = Colors.transparent;
+
+                                if (selected) {
+                                  bg = AppTheme.primaryBlueDark;
+                                  text = Colors.white;
+                                  check = Colors.white;
+                                } else if (hovered) {
+                                  bg = AppTheme.infoBlue;
+                                  text = Colors.white;
+                                }
+
+                                final bool showBullet =
+                                    widget.showHierarchyBullets &&
+                                    entry.depth >= widget.hierarchyBulletMinDepth;
+                                final double paddingLeft =
+                                    (12 + (entry.depth * 12)).toDouble();
+
+                                return MouseRegion(
+                                  onEnter: (_) {
+                                    _hoveredIndex = index;
+                                    _keyboardIndex = index;
+                                    _markOverlayNeedsBuild();
+                                  },
+                                  onExit: (_) {
+                                    _hoveredIndex = null;
+                                    _markOverlayNeedsBuild();
+                                  },
+                                  child: InkWell(
+                                    onTap: () {
+                                      widget.onChanged(node.id);
+                                      _close();
+                                    },
+                                    hoverColor: Colors.transparent,
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    child: Container(
+                                      height: _rowHeight,
+                                      padding: EdgeInsets.only(
+                                        left: paddingLeft,
+                                        right: 12,
                                       ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                                      color: bg,
+                                      child: Row(
+                                        children: [
+                                          if (showBullet)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 8,
+                                              ),
+                                              child: Text(
+                                                '•',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: text,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          Expanded(
+                                            child: _buildNameWithHighlight(
+                                              node.name,
+                                              text,
+                                              selected,
+                                            ),
+                                          ),
+                                          if (selected)
+                                            Icon(
+                                              LucideIcons.check,
+                                              size: 16,
+                                              color: check,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                     ),
                   ],
@@ -719,7 +756,8 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                         widget.border ??
                         Border.all(
                           color: hasError
-                              ? AppTheme.errorRed // Red on error
+                              ? AppTheme
+                                    .errorRed // Red on error
                               : _isOpen
                               ? AppTheme.primaryBlueDark
                               : AppTheme.borderColor,

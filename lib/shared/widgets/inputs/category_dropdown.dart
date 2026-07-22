@@ -101,8 +101,6 @@ class CategoryPicker extends StatelessWidget {
   final ValueChanged<String?> onChanged;
   final String? displayString;
   final Future<List<CategoryNode>> Function(String query)? onSearch;
-
-  // Multi-select fields:
   final bool multiSelect;
   final List<String> selectedValues;
   final ValueChanged<List<String>>? onSelectedValuesChanged;
@@ -135,15 +133,22 @@ class CategoryPicker extends StatelessWidget {
       final flatNodes = _flatten(nodes);
       return FormDropdown<String>(
         value: null,
-        items: flatNodes.map((n) => n.id).toList(),
-        hint: hintText ?? 'Category',
+        items: flatNodes.map((node) => node.id).toList(),
+        hintText: hintText ?? 'Category',
         onChanged: (_) {},
         multiSelect: true,
         selectedValues: selectedValues,
         onSelectedValuesChanged: onSelectedValuesChanged,
-        displayStringForValue: (id) =>
-            flatNodes.firstWhere((n) => n.id == id, orElse: () => CategoryNode(id: '', name: '')).name,
-        height: fieldHeight,
+        displayStringForValue: (id) => flatNodes
+            .firstWhere(
+              (node) => node.id == id,
+              orElse: () => const CategoryNode(id: '', name: ''),
+            )
+            .name,
+        fieldHeight: fieldHeight,
+        selectedBackgroundColor: selectedBackgroundColor,
+        hoverBackgroundColor: hoverBackgroundColor,
+        rowBorderRadius: BorderRadius.circular(rowBorderRadius ?? 4),
       );
     }
 
@@ -313,7 +318,7 @@ class _BaseCategoryDropdownState extends State<_BaseCategoryDropdown> {
                 showWhenUnlinked: false,
                 child: SizedBox(
                   width: width,
-                child: Material(
+                  child: Material(
                     elevation: 6,
                     color: Colors.white,
                     surfaceTintColor: Colors.transparent,

@@ -157,9 +157,9 @@ class PurchaseSection extends StatelessWidget {
 
       final typeRaw = _accountType(raw);
       final type = _toTitleCase(typeRaw.isEmpty ? 'Other' : typeRaw);
-      groupedByType.putIfAbsent(type, () => <AccountNode>[]).add(
-        AccountNode(id: id, name: name, selectable: true),
-      );
+      groupedByType
+          .putIfAbsent(type, () => <AccountNode>[])
+          .add(AccountNode(id: id, name: name, selectable: true));
     }
 
     final sortedTypes = groupedByType.keys.toList()
@@ -342,12 +342,13 @@ class PurchaseSection extends StatelessWidget {
                     );
                     final name = (rep['name'] ?? rep['rep_name'] ?? id)
                         .toString();
-                    final brandOrDivision = ((rep['brand_name'] ??
-                                rep['brand'] ??
-                                rep['division'] ??
-                                '')
-                            .toString())
-                        .trim();
+                    final brandOrDivision =
+                        ((rep['brand_name'] ??
+                                    rep['brand'] ??
+                                    rep['division'] ??
+                                    '')
+                                .toString())
+                            .trim();
                     return brandOrDivision.isEmpty
                         ? name
                         : '$name ($brandOrDivision)';
@@ -359,12 +360,13 @@ class PurchaseSection extends StatelessWidget {
                     );
                     final name = (rep['name'] ?? rep['rep_name'] ?? id)
                         .toString();
-                    final brandOrDivision = ((rep['brand_name'] ??
-                                rep['brand'] ??
-                                rep['division'] ??
-                                '')
-                            .toString())
-                        .trim();
+                    final brandOrDivision =
+                        ((rep['brand_name'] ??
+                                    rep['brand'] ??
+                                    rep['division'] ??
+                                    '')
+                                .toString())
+                            .trim();
                     return Container(
                       height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 12),

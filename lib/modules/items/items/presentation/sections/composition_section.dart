@@ -286,10 +286,7 @@ class _CompositionSectionState extends State<CompositionSection> {
     final buyingRuleTooltip = _lookupTooltip(
       widget.buyingRuleOptions,
       _selectedBuyingRule,
-      [
-        'rule_description',
-        'system_behavior',
-      ],
+      ['rule_description', 'system_behavior'],
       extraLines: (selected) {
         final associatedCodes =
             (selected['associated_schedule_codes'] as List?)
@@ -319,10 +316,7 @@ class _CompositionSectionState extends State<CompositionSection> {
     final drugScheduleTooltip = _lookupTooltip(
       widget.drugScheduleOptions,
       _selectedDrugSchedule,
-      [
-        'schedule_code',
-        'reference_description',
-      ],
+      ['schedule_code', 'reference_description'],
       extraLines: (selected) => [
         selected['requires_prescription'] == true
             ? 'Requires Prescription: Yes'
@@ -721,7 +715,9 @@ class _CompositionSectionState extends State<CompositionSection> {
     List<String?> Function(Map<String, dynamic> selected)? extraLines,
   }) {
     if (selectedId == null || selectedId.isEmpty) return null;
-    final selected = items.where((item) => item['id'] == selectedId).firstOrNull;
+    final selected = items
+        .where((item) => item['id'] == selectedId)
+        .firstOrNull;
     if (selected == null) return null;
 
     final lines = <String?>[

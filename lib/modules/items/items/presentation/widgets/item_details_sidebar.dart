@@ -107,9 +107,7 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 8, 12),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -137,9 +135,7 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
   Widget _buildTabBar() {
     return Container(
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: TabBar(
         controller: _tabController,
@@ -205,33 +201,21 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
                 ],
               ),
               const SizedBox(height: 26),
-              _buildInfoSection(
-                'Sales Information',
-                <Widget>[
-                  _buildSimpleInfoRow(
-                    'Price',
-                    _formatCurrency(item.sellingPrice),
-                  ),
-                  _buildSimpleInfoRow(
-                    'Account',
-                    item.salesAccountName ?? 'n/a',
-                  ),
-                ],
-              ),
+              _buildInfoSection('Sales Information', <Widget>[
+                _buildSimpleInfoRow(
+                  'Price',
+                  _formatCurrency(item.sellingPrice),
+                ),
+                _buildSimpleInfoRow('Account', item.salesAccountName ?? 'n/a'),
+              ]),
               const SizedBox(height: 28),
-              _buildInfoSection(
-                'Purchase Information',
-                <Widget>[
-                  _buildSimpleInfoRow(
-                    'Price',
-                    _formatCurrency(item.costPrice),
-                  ),
-                  _buildSimpleInfoRow(
-                    'Account',
-                    item.purchaseAccountName ?? 'n/a',
-                  ),
-                ],
-              ),
+              _buildInfoSection('Purchase Information', <Widget>[
+                _buildSimpleInfoRow('Price', _formatCurrency(item.costPrice)),
+                _buildSimpleInfoRow(
+                  'Account',
+                  item.purchaseAccountName ?? 'n/a',
+                ),
+              ]),
               const SizedBox(height: 28),
               InkWell(
                 onTap: () {
@@ -436,8 +420,7 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
                   onTap: item.id == null
                       ? null
                       : () {
-                          final orgSystemId =
-                              resolveOrgSystemId(context);
+                          final orgSystemId = resolveOrgSystemId(context);
                           final targetPath =
                               '/$orgSystemId/items/detail/${item.id!}?tab=overview';
                           if (kIsWeb) {
@@ -581,9 +564,7 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: const Row(
         children: [
@@ -649,9 +630,7 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,9 +690,7 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -808,7 +785,9 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
         surfaceTintColor: WidgetStateProperty.all(Colors.white),
         padding: WidgetStateProperty.all(EdgeInsets.zero),
         minimumSize: WidgetStateProperty.all(Size(resolvedMenuWidth, 0)),
-        maximumSize: WidgetStateProperty.all(Size(resolvedMenuWidth, maxMenuHeight)),
+        maximumSize: WidgetStateProperty.all(
+          Size(resolvedMenuWidth, maxMenuHeight),
+        ),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
@@ -819,13 +798,17 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
           MenuItemButton(
             onPressed: () => onSelected(option),
             style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+              backgroundColor: WidgetStateProperty.resolveWith<Color?>((
+                states,
+              ) {
                 if (option == value || states.contains(WidgetState.hovered)) {
                   return AppTheme.primaryBlue;
                 }
                 return Colors.white;
               }),
-              foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+              foregroundColor: WidgetStateProperty.resolveWith<Color?>((
+                states,
+              ) {
                 if (option == value || states.contains(WidgetState.hovered)) {
                   return Colors.white;
                 }
@@ -887,7 +870,8 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
                 Flexible(
                   child: Text(
                     value,
-                    style: textStyle ??
+                    style:
+                        textStyle ??
                         const TextStyle(
                           fontSize: 14,
                           color: AppTheme.textPrimary,
@@ -924,7 +908,8 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
       return;
     }
 
-    final isSameItem = _warehouseStocksLoadedForItemId == item.id &&
+    final isSameItem =
+        _warehouseStocksLoadedForItemId == item.id &&
         _transactionsLoadedForItemId == item.id;
     if (!isSameItem) {
       setState(() {
@@ -1012,16 +997,18 @@ class _ItemDetailsSidebarState extends ConsumerState<ItemDetailsSidebar>
     final type = _transactionType;
     final status = _transactionStatus;
     final selectedStatusKey = _normalizeStatusKey(status);
-    return _transactions.where((entry) {
-      if (_normalizeTransactionType(entry.documentType) != type) {
-        return false;
-      }
-      if (selectedStatusKey != 'all' &&
-          _normalizeStatusKey(entry.status) != selectedStatusKey) {
-        return false;
-      }
-      return true;
-    }).toList(growable: false);
+    return _transactions
+        .where((entry) {
+          if (_normalizeTransactionType(entry.documentType) != type) {
+            return false;
+          }
+          if (selectedStatusKey != 'all' &&
+              _normalizeStatusKey(entry.status) != selectedStatusKey) {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
   }
 
   List<String> _statusOptionsForType(String type) {

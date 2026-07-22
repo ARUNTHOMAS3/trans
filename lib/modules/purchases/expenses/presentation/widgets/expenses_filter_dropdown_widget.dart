@@ -63,9 +63,7 @@ class _ExpensesFilterDropdownWidgetState
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             decoration: BoxDecoration(
-              color: isOpen
-                  ? AppTheme.selectionInactiveBg
-                  : Colors.transparent,
+              color: isOpen ? AppTheme.selectionInactiveBg : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -84,7 +82,9 @@ class _ExpensesFilterDropdownWidgetState
                 if (widget.showChevron) ...[
                   const SizedBox(width: 6),
                   Icon(
-                    isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isOpen
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     size: 22,
                     color: AppTheme.primaryBlueDark,
                   ),
@@ -331,8 +331,8 @@ class _ExpensesFilterMenuContentState
                       count: defaults.length,
                       isExpanded: _defaultFiltersExpanded,
                       onTap: () => setState(
-                        () => _defaultFiltersExpanded =
-                            !_defaultFiltersExpanded,
+                        () =>
+                            _defaultFiltersExpanded = !_defaultFiltersExpanded,
                       ),
                     ),
                     if (_defaultFiltersExpanded) ...[
@@ -467,8 +467,8 @@ class _ExpensesFilterOptionRowState extends State<_ExpensesFilterOptionRow> {
     final starColor = _isHovered
         ? Colors.white
         : (widget.isStarred
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFD1D5DB));
+              ? const Color(0xFFF59E0B)
+              : const Color(0xFFD1D5DB));
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

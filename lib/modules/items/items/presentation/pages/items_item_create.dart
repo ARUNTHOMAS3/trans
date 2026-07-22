@@ -359,8 +359,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       productHighlightsCtrl.text = data['productHighlights'] as String? ?? '';
       ingredientsListCtrl.text = data['ingredientsList'] as String? ?? '';
       referencesTextCtrl.text = data['referencesText'] as String? ?? '';
-      productDescriptionCtrl.text =
-          data['productDescription'] as String? ?? '';
+      productDescriptionCtrl.text = data['productDescription'] as String? ?? '';
       directionsForUseCtrl.text = data['directionsForUse'] as String? ?? '';
       sideEffectsCtrl.text = data['sideEffectsText'] as String? ?? '';
       faqTextCtrl.text = data['faqText'] as String? ?? '';
@@ -1148,7 +1147,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                       final normalizedItemCodeInput = itemCodeCtrl.text.trim();
                       final normalizedExistingItemCode =
                           editingItem?.itemCode.trim() ?? '';
-                      final resolvedItemCode = normalizedItemCodeInput.isNotEmpty
+                      final resolvedItemCode =
+                          normalizedItemCodeInput.isNotEmpty
                           ? normalizedItemCodeInput
                           : normalizedExistingItemCode.isNotEmpty
                           ? normalizedExistingItemCode
@@ -1327,8 +1327,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                             productHighlightsCtrl.text.trim().isEmpty
                             ? null
                             : productHighlightsCtrl.text.trim(),
-                        referencesText:
-                            referencesTextCtrl.text.trim().isEmpty
+                        referencesText: referencesTextCtrl.text.trim().isEmpty
                             ? null
                             : referencesTextCtrl.text.trim(),
                         productDescription:
@@ -1343,8 +1342,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                           sideEffectsCtrl.text,
                         ),
                         faqText: _splitStructuredItems(faqTextCtrl.text),
-                        ingredientsList:
-                            ingredientsListCtrl.text.trim().isEmpty
+                        ingredientsList: ingredientsListCtrl.text.trim().isEmpty
                             ? null
                             : ingredientsListCtrl.text.trim(),
                       );

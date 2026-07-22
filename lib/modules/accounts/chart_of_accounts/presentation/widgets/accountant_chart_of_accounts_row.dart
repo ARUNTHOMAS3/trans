@@ -363,175 +363,170 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                       width: 3,
                       child: Container(color: AppTheme.primaryBlue),
                     ),
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.center, // Align icons vertically
-                      children: [
-                        // 1. Padding for Folder/Filter Alignment
-                        Container(width: 20),
+                  Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.center, // Align icons vertically
+                    children: [
+                      // 1. Padding for Folder/Filter Alignment
+                      Container(width: 20),
 
-                        // 2. Selectable / System Icon Cell
-                        Container(
-                          width: 22,
-                          alignment: Alignment.center,
-                          child: !widget.node.isDeletable
-                              ? const Tooltip(
-                                  message:
-                                      "You cannot delete this account. However, you will be able to edit the account details.",
-                                  child: Icon(
-                                    LucideIcons.lock,
-                                    size: 14,
-                                    color: AppTheme.textDisabled, // Slate 400
-                                  ),
-                                )
-                              : widget.canSelectForBulk
-                              ? InkWell(
-                                  onTap: () => ref
-                                      .read(chartOfAccountsProvider.notifier)
-                                      .toggleSelectAccount(widget.node.id),
-                                  child: Container(
-                                    width: 16,
-                                    height: 16,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: isSelectedInBulk
-                                            ? AppTheme.infoBlue
-                                            : const Color(
-                                                0xFFCBD5E1,
-                                              ), // Slate 300 for better visibility
-                                        width: 1.5,
-                                      ),
+                      // 2. Selectable / System Icon Cell
+                      Container(
+                        width: 22,
+                        alignment: Alignment.center,
+                        child: !widget.node.isDeletable
+                            ? const Tooltip(
+                                message:
+                                    "You cannot delete this account. However, you will be able to edit the account details.",
+                                child: Icon(
+                                  LucideIcons.lock,
+                                  size: 14,
+                                  color: AppTheme.textDisabled, // Slate 400
+                                ),
+                              )
+                            : widget.canSelectForBulk
+                            ? InkWell(
+                                onTap: () => ref
+                                    .read(chartOfAccountsProvider.notifier)
+                                    .toggleSelectAccount(widget.node.id),
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
                                       color: isSelectedInBulk
                                           ? AppTheme.infoBlue
-                                          : Colors.transparent,
+                                          : const Color(
+                                              0xFFCBD5E1,
+                                            ), // Slate 300 for better visibility
+                                      width: 1.5,
                                     ),
-                                    child: isSelectedInBulk
-                                        ? const Icon(
-                                            LucideIcons.check,
-                                            size: 10,
-                                            color: Colors.white,
-                                          )
-                                        : null,
+                                    color: isSelectedInBulk
+                                        ? AppTheme.infoBlue
+                                        : Colors.transparent,
                                   ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
+                                  child: isSelectedInBulk
+                                      ? const Icon(
+                                          LucideIcons.check,
+                                          size: 10,
+                                          color: Colors.white,
+                                        )
+                                      : null,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
 
-                        ...columnWidgets,
+                      ...columnWidgets,
 
-                        // 8. Actions (Gear Icon) — shown on row hover only
-                        SizedBox(
-                          width: widget.compact ? 36 : 48,
-                          child: Center(
-                            child:
-                                (_isHovered || _isMenuOpen) &&
-                                    (widget.canEdit ||
-                                        (widget.canDelete &&
-                                            widget.node.isDeletable))
-                                ? _ActionMenu(
-                                    node: widget.node,
-                                    canEdit: widget.canEdit,
-                                    canDelete:
-                                        widget.canDelete &&
-                                        widget.node.isDeletable,
-                                    onMenuOpen: () =>
-                                        setState(() => _isMenuOpen = true),
-                                    onMenuClose: () =>
-                                        setState(() => _isMenuOpen = false),
-                                    isMenuOpen: _isMenuOpen,
-                                    onAction: (value) async {
-                                      try {
-                                        switch (value) {
-                                          case 'edit':
-                                            if (!widget.canEdit) return;
-                                            final orgSystemId =
-                                                GoRouterState.of(
-                                                  context,
-                                                ).pathParameters['orgSystemId'];
-                                            final editPath =
-                                                (orgSystemId != null &&
-                                                    orgSystemId.isNotEmpty)
-                                                ? '/$orgSystemId/accounts/chart-of-accounts/edit/${widget.node.id}'
-                                                : AppRoutes
-                                                      .accountsChartOfAccountsEdit
-                                                      .replaceAll(
-                                                        ':id',
-                                                        widget.node.id,
-                                                      );
-                                            context.push(
-                                              editPath,
-                                              extra: {'account': widget.node},
+                      // 8. Actions (Gear Icon) — shown on row hover only
+                      SizedBox(
+                        width: widget.compact ? 36 : 48,
+                        child: Center(
+                          child:
+                              (_isHovered || _isMenuOpen) &&
+                                  (widget.canEdit ||
+                                      (widget.canDelete &&
+                                          widget.node.isDeletable))
+                              ? _ActionMenu(
+                                  node: widget.node,
+                                  canEdit: widget.canEdit,
+                                  canDelete:
+                                      widget.canDelete &&
+                                      widget.node.isDeletable,
+                                  onMenuOpen: () =>
+                                      setState(() => _isMenuOpen = true),
+                                  onMenuClose: () =>
+                                      setState(() => _isMenuOpen = false),
+                                  isMenuOpen: _isMenuOpen,
+                                  onAction: (value) async {
+                                    try {
+                                      switch (value) {
+                                        case 'edit':
+                                          if (!widget.canEdit) return;
+                                          final orgSystemId = GoRouterState.of(
+                                            context,
+                                          ).pathParameters['orgSystemId'];
+                                          final editPath =
+                                              (orgSystemId != null &&
+                                                  orgSystemId.isNotEmpty)
+                                              ? '/$orgSystemId/accounts/chart-of-accounts/edit/${widget.node.id}'
+                                              : AppRoutes
+                                                    .accountsChartOfAccountsEdit
+                                                    .replaceAll(
+                                                      ':id',
+                                                      widget.node.id,
+                                                    );
+                                          context.push(
+                                            editPath,
+                                            extra: {'account': widget.node},
+                                          );
+                                          break;
+                                        case 'inactive':
+                                          if (!widget.canEdit) return;
+                                          final newStatus =
+                                              !widget.node.isActive;
+                                          await ref
+                                              .read(
+                                                chartOfAccountsProvider
+                                                    .notifier,
+                                              )
+                                              .updateAccountStatus(
+                                                widget.node.id,
+                                                newStatus,
+                                              );
+                                          if (mounted) {
+                                            ZerpaiToast.success(
+                                              context,
+                                              'Account "${widget.node.name}" marked as ${newStatus ? 'Active' : 'Inactive'}',
                                             );
-                                            break;
-                                          case 'inactive':
-                                            if (!widget.canEdit) return;
-                                            final newStatus =
-                                                !widget.node.isActive;
+                                          }
+                                          break;
+                                        case 'delete':
+                                          if (!widget.canDelete) return;
+                                          final confirmed =
+                                              await showZerpaiConfirmationDialog(
+                                                context,
+                                                title:
+                                                    'Are you sure about deleting "${widget.node.name}"?',
+                                                message:
+                                                    'This action cannot be undone.',
+                                                confirmLabel: 'OK',
+                                                cancelLabel: 'Cancel',
+                                              );
+                                          if (confirmed == true) {
                                             await ref
                                                 .read(
                                                   chartOfAccountsProvider
                                                       .notifier,
                                                 )
-                                                .updateAccountStatus(
-                                                  widget.node.id,
-                                                  newStatus,
-                                                );
-                                            if (mounted) {
-                                              ZerpaiToast.success(
-                                                context,
-                                                'Account "${widget.node.name}" marked as ${newStatus ? 'Active' : 'Inactive'}',
-                                              );
-                                            }
-                                            break;
-                                          case 'delete':
-                                            if (!widget.canDelete) return;
-                                            final confirmed =
-                                                await showZerpaiConfirmationDialog(
-                                                  context,
-                                                  title:
-                                                      'Are you sure about deleting "${widget.node.name}"?',
-                                                  message:
-                                                      'This action cannot be undone.',
-                                                  confirmLabel: 'OK',
-                                                  cancelLabel: 'Cancel',
-                                                );
-                                            if (confirmed == true) {
-                                              await ref
-                                                  .read(
-                                                    chartOfAccountsProvider
-                                                        .notifier,
-                                                  )
-                                                  .deleteAccount(
-                                                    widget.node.id,
-                                                  );
-                                            }
-                                            break;
-                                        }
-                                      } catch (e) {
-                                        if (mounted) {
-                                          String errorMessage = e.toString();
-                                          if (e is DioException) {
-                                            final data = e.response?.data;
-                                            if (data is Map &&
-                                                data.containsKey('message')) {
-                                              errorMessage = data['message'];
-                                            }
+                                                .deleteAccount(widget.node.id);
                                           }
-                                          ZerpaiToast.error(
-                                            context,
-                                            errorMessage,
-                                          );
-                                        }
+                                          break;
                                       }
-                                    },
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
+                                    } catch (e) {
+                                      if (mounted) {
+                                        String errorMessage = e.toString();
+                                        if (e is DioException) {
+                                          final data = e.response?.data;
+                                          if (data is Map &&
+                                              data.containsKey('message')) {
+                                            errorMessage = data['message'];
+                                          }
+                                        }
+                                        ZerpaiToast.error(
+                                          context,
+                                          errorMessage,
+                                        );
+                                      }
+                                    }
+                                  },
+                                )
+                              : const SizedBox.shrink(),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -821,4 +816,3 @@ class _TreeGuidePainter extends CustomPainter {
         oldDelegate.ancestorHasNext != ancestorHasNext;
   }
 }
-

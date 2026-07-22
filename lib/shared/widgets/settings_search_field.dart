@@ -147,10 +147,7 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
 
     return grouped.entries
         .map(
-          (entry) => _SettingsSearchGroup(
-            title: entry.key,
-            items: entry.value,
-          ),
+          (entry) => _SettingsSearchGroup(title: entry.key, items: entry.value),
         )
         .toList();
   }
@@ -178,9 +175,7 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
               const BorderSide(color: AppTheme.borderLight),
             ),
             shape: WidgetStateProperty.all(
-              RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),
           menuChildren: [
@@ -286,10 +281,7 @@ class _SettingsSearchGroup {
   final String title;
   final List<SettingsSearchItem> items;
 
-  const _SettingsSearchGroup({
-    required this.title,
-    required this.items,
-  });
+  const _SettingsSearchGroup({required this.title, required this.items});
 }
 
 class _SettingsSearchResultTile extends StatelessWidget {

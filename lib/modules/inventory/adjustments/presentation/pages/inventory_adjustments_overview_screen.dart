@@ -5,7 +5,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/inventory/adjustments/providers/inventory_adjustments_provider.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
-import '../inventory_adjustments_list.dart';
+import 'inventory_adjustments_list.dart';
 import '../widgets/inventory_adjustments_detail_panel.dart';
 
 class InventoryAdjustmentsOverviewScreen extends ConsumerStatefulWidget {
@@ -73,7 +73,9 @@ class _InventoryAdjustmentsOverviewScreenState
                       ),
                       Expanded(
                         child: selectedAsync == null
-                            ? _emptyDetail('Select an adjustment to view details.')
+                            ? _emptyDetail(
+                                'Select an adjustment to view details.',
+                              )
                             : selectedAsync.when(
                                 data: (adj) => adj == null
                                     ? _emptyDetail('Adjustment not found.')
@@ -82,8 +84,7 @@ class _InventoryAdjustmentsOverviewScreenState
                                         onClose: _closeDetail,
                                       ),
                                 loading: () => _detailLoadingSkeleton(),
-                                error: (e, _) =>
-                                    _emptyDetail(e.toString()),
+                                error: (e, _) => _emptyDetail(e.toString()),
                               ),
                       ),
                     ],
@@ -95,15 +96,15 @@ class _InventoryAdjustmentsOverviewScreenState
   }
 
   Widget _emptyDetail(String message) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            message,
-            style: const TextStyle(color: AppTheme.textSecondary),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Text(
+        message,
+        style: const TextStyle(color: AppTheme.textSecondary),
+        textAlign: TextAlign.center,
+      ),
+    ),
+  );
 
   Widget _detailLoadingSkeleton() {
     return Skeletonizer(

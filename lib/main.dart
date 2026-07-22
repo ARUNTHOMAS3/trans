@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -13,6 +12,7 @@ import 'package:zerpai_erp/app.dart';
 import 'package:zerpai_erp/core/utils/console_error_reporter.dart';
 import 'package:zerpai_erp/shared/services/hive_adapters.dart';
 import 'package:zerpai_erp/core/workflow/domain_event_handlers.dart';
+import 'package:zerpai_erp/core/observability/performance_telemetry.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_model.dart';
@@ -111,19 +111,7 @@ Future<void> main() async {
 
   await Sentry.runZonedGuarded<Future<void>>(
     () async {
-      var sentryDsn = const String.fromEnvironment('SENTRY_DSN');
-      if (sentryDsn.isEmpty) {
-        try {
-          await dotenv.load(fileName: 'assets/.env');
-          sentryDsn = dotenv.env['SENTRY_DSN'] ?? '';
-        } catch (e, st) {
-          ConsoleErrorReporter.log(
-            'main dotenv.load assets/.env',
-            error: e,
-            stackTrace: st,
-          );
-        }
-      }
+      const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
       if (sentryDsn.isNotEmpty) {
         await SentryFlutter.init((options) {
@@ -151,6 +139,7 @@ Future<void> _initApp() async {
 
   // Use path URLs on web (removes the # from URLs for deep linking)
   WidgetsFlutterBinding.ensureInitialized();
+  PerformanceTelemetry.instance.start();
   usePathUrlStrategy();
 
   debugPrint('Build Version: 1.0.1 - Fix Alpha Crash');
@@ -297,32 +286,14 @@ Future<void> _initApp() async {
 
     debugPrint('Loading environment variables...');
 
-    // 1. Try to get from dart-define (Best for Web/Firebase)
-    String supabaseUrl = const String.fromEnvironment('SUPABASE_URL');
-    String supabaseAnonKey = const String.fromEnvironment('SUPABASE_ANON_KEY');
-
-    // 2. Fallback to .env (for local development/mobile)
-    if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-      debugPrint('dart-define missing, attempting to load from asset file...');
-      try {
-        final envLoadWatch = Stopwatch()..start();
-        await dotenv
-            .load(fileName: "assets/.env")
-            .timeout(const Duration(seconds: 3));
-        envLoadWatch.stop();
-        supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
-        supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
-        debugPrint('.env loaded fallback values');
-        debugPrint('⏱️ [boot] env_load=${envLoadWatch.elapsedMilliseconds}ms');
-      } catch (e) {
-        debugPrint('Error loading env file: $e');
-      }
-    }
+    const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+    const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
     if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
       debugPrint('CRITICAL ERROR: Supabase configuration missing!');
       throw Exception(
-        'Supabase URL or Anon Key is missing. Pass them via --dart-define or check assets/.env',
+        'Supabase URL or Anon Key is missing. Pass SUPABASE_URL and '
+        'SUPABASE_ANON_KEY via --dart-define.',
       );
     }
 
@@ -339,7 +310,10 @@ Future<void> _initApp() async {
     );
 
     debugPrint('🚀 Launching ZerpaiApp...');
-    runApp(const ProviderScope(child: ZerpaiApp()));
+    final observers = PerformanceMonitoringConfig.enabled
+        ? <ProviderObserver>[const ZerpaiProviderObserver()]
+        : const <ProviderObserver>[];
+    runApp(ProviderScope(observers: observers, child: const ZerpaiApp()));
     appBootWatch.stop();
     debugPrint(
       '⏱️ [boot] first_frame_trigger=${appBootWatch.elapsedMilliseconds}ms',

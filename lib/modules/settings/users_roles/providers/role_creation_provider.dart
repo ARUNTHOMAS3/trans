@@ -90,7 +90,8 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
     final nextReports = <String, Set<String>>{};
     var fullAccessReports = false;
 
-    for (final entry in (permissionsPayload ?? const <String, dynamic>{}).entries) {
+    for (final entry
+        in (permissionsPayload ?? const <String, dynamic>{}).entries) {
       if (entry.key == 'reports' && entry.value is Map) {
         final reportsMap = Map<String, dynamic>.from(entry.value as Map);
         fullAccessReports = reportsMap['full_access'] == true;
@@ -120,9 +121,12 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
       isDefaultRole: isDefaultRole,
       roleName: roleName,
       description: description,
-      permissions: nextPermissions.isEmpty ? state.permissions : nextPermissions,
-      reportPermissions:
-          nextReports.isEmpty ? state.reportPermissions : nextReports,
+      permissions: nextPermissions.isEmpty
+          ? state.permissions
+          : nextPermissions,
+      reportPermissions: nextReports.isEmpty
+          ? state.reportPermissions
+          : nextReports,
       fullAccessReports: fullAccessReports,
     );
   }

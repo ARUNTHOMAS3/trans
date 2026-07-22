@@ -24,7 +24,9 @@ class SalesReturnRepositoryImpl implements SalesReturnRepository {
           'page': page,
           'limit': limit,
           if (search != null && search.isNotEmpty) 'search': search,
-          if (status != null && status.isNotEmpty && status.toLowerCase() != 'all')
+          if (status != null &&
+              status.isNotEmpty &&
+              status.toLowerCase() != 'all')
             'status': status,
         },
       );
@@ -68,7 +70,9 @@ class SalesReturnRepositoryImpl implements SalesReturnRepository {
   }
 
   @override
-  Future<SalesReturn> createSalesReturn(CreateSalesReturnPayload payload) async {
+  Future<SalesReturn> createSalesReturn(
+    CreateSalesReturnPayload payload,
+  ) async {
     try {
       final response = await _apiClient.post(
         ApiEndpoints.salesReturns,
@@ -88,14 +92,15 @@ class SalesReturnRepositoryImpl implements SalesReturnRepository {
 
   @override
   Future<SalesReturnReceive> createReceive(
-      String salesReturnId, CreateReceivePayload payload) async {
+    String salesReturnId,
+    CreateReceivePayload payload,
+  ) async {
     try {
       final response = await _apiClient.post(
         ApiEndpoints.salesReturnReceives(salesReturnId),
         data: payload.toJson(),
       );
-      return SalesReturnReceive.fromJson(
-          response.data as Map<String, dynamic>);
+      return SalesReturnReceive.fromJson(response.data as Map<String, dynamic>);
     } catch (e, st) {
       AppLogger.error(
         'Failed to create sales return receive',
@@ -114,8 +119,9 @@ class SalesReturnRepositoryImpl implements SalesReturnRepository {
         ApiEndpoints.salesReturnReceives(salesReturnId),
       );
       final data = response.data;
-      final List<dynamic> list =
-          data is List ? data : (data['data'] as List<dynamic>? ?? const []);
+      final List<dynamic> list = data is List
+          ? data
+          : (data['data'] as List<dynamic>? ?? const []);
       return list
           .whereType<Map<String, dynamic>>()
           .map(SalesReturnReceive.fromJson)

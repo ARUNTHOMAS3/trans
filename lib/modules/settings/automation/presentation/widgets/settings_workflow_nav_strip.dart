@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SettingsWorkflowNavStrip extends StatelessWidget {
@@ -23,14 +24,13 @@ class SettingsWorkflowNavStrip extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        chip('Mission', '/settings/workflow-mission-control'),
-        chip('Ops Center', '/settings/workflow-ops-center'),
-        chip('Investigation', '/settings/workflow-investigation'),
-        chip('Rules', '/settings/workflow-rules'),
-        chip('Actions', '/settings/workflow-actions'),
-        chip('Logs', '/settings/workflow-logs'),
+        chip('Mission', AppRoutes.settingsWorkflowMissionControl),
+        chip('Ops Center', AppRoutes.settingsWorkflowOpsCenter),
+        chip('Investigation', AppRoutes.settingsWorkflowInvestigation),
+        chip('Rules', AppRoutes.settingsWorkflowRules),
+        chip('Actions', AppRoutes.settingsWorkflowActions),
+        chip('Logs', AppRoutes.settingsWorkflowLogs),
       ],
     );
   }
 }
-

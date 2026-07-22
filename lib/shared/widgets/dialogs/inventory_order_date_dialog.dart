@@ -155,7 +155,9 @@ class _InventoryOrderDateDialogState extends State<InventoryOrderDateDialog> {
                           Navigator.of(context).pop<DateTime>(_selectedDate),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(4),

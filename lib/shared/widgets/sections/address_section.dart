@@ -272,10 +272,7 @@ class AddressSection extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            title,
-            style: AppTheme.sectionHeader,
-          ),
+          Text(title, style: AppTheme.sectionHeader),
           if (showCopyFromBilling && onCopyFromBilling != null) ...[
             const SizedBox(width: AppTheme.space8),
             Text(

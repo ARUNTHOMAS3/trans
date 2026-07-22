@@ -9,6 +9,9 @@ class ZerpaiDatePicker {
     DateTime? firstDate,
     DateTime? lastDate,
     required GlobalKey targetKey,
+    LayerLink? layerLink,
+    bool dismissOnBackgroundTap = true,
+    bool openAbove = false,
   }) async {
     final RenderBox? renderBox =
         targetKey.currentContext?.findRenderObject() as RenderBox?;
@@ -25,15 +28,20 @@ class ZerpaiDatePicker {
       builder: (context) {
         return Stack(
           children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                behavior: HitTestBehavior.translucent,
+            if (dismissOnBackgroundTap)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  behavior: HitTestBehavior.translucent,
+                ),
               ),
-            ),
             Positioned(
               left: offset.dx,
-              top: offset.dy + size.height + ZerpaiDatePickerStyle.popupOffsetY,
+              top: openAbove
+                  ? offset.dy - ZerpaiDatePickerStyle.popupOffsetY - 320
+                  : offset.dy +
+                      size.height +
+                      ZerpaiDatePickerStyle.popupOffsetY,
               child: Material(
                 color: Colors.transparent,
                 child: ZerpaiCalendar(

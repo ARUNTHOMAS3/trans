@@ -2127,7 +2127,9 @@ class _TransferOrderDetailPanelState extends State<_TransferOrderDetailPanel> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final resolvedOrgId = GoRouterState.of(context).pathParameters['orgSystemId'];
+    final resolvedOrgId = GoRouterState.of(
+      context,
+    ).pathParameters['orgSystemId'];
     if (resolvedOrgId == null || resolvedOrgId.trim().isEmpty) {
       return;
     }
@@ -2219,7 +2221,10 @@ class _TransferOrderDetailPanelState extends State<_TransferOrderDetailPanel> {
     return lines;
   }
 
-  String _resolveWarehouseDisplayName(String preferredName, String warehouseId) {
+  String _resolveWarehouseDisplayName(
+    String preferredName,
+    String warehouseId,
+  ) {
     final direct = preferredName.trim();
     if (direct.isNotEmpty && direct != '-' && direct != '—') {
       return direct;
@@ -2649,7 +2654,11 @@ class _TransferOrderDetailPanelState extends State<_TransferOrderDetailPanel> {
               ),
             ),
             SizedBox(width: 4),
-            Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.textPrimary),
+            Icon(
+              LucideIcons.chevronDown,
+              size: 12,
+              color: AppTheme.textPrimary,
+            ),
           ],
         ),
       ),
@@ -2733,7 +2742,10 @@ class _TransferOrderDetailPanelState extends State<_TransferOrderDetailPanel> {
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(4),
@@ -2771,7 +2783,10 @@ class _TransferOrderDetailPanelState extends State<_TransferOrderDetailPanel> {
                               'dd-MM-yyyy hh:mm a',
                             ).format(transfer.updatedAt),
                           ),
-                          OverviewEntry(label: 'Source Location', value: sourceName),
+                          OverviewEntry(
+                            label: 'Source Location',
+                            value: sourceName,
+                          ),
                           OverviewEntry(
                             label: 'Destination Location',
                             value: destinationName,
@@ -2779,7 +2794,8 @@ class _TransferOrderDetailPanelState extends State<_TransferOrderDetailPanel> {
                           OverviewEntry(label: 'Status', value: status),
                           OverviewEntry(
                             label: 'Created By',
-                            value: transfer.initiatedBy ?? 'zabnixprivatelimited',
+                            value:
+                                transfer.initiatedBy ?? 'zabnixprivatelimited',
                           ),
                           const OverviewEntry(
                             label: 'Place of Supply',

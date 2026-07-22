@@ -16,10 +16,12 @@ class ConfigurePaymentModeDialog extends StatefulWidget {
   });
 
   @override
-  State<ConfigurePaymentModeDialog> createState() => _ConfigurePaymentModeDialogState();
+  State<ConfigurePaymentModeDialog> createState() =>
+      _ConfigurePaymentModeDialogState();
 }
 
-class _ConfigurePaymentModeDialogState extends State<ConfigurePaymentModeDialog> {
+class _ConfigurePaymentModeDialogState
+    extends State<ConfigurePaymentModeDialog> {
   late List<TextEditingController> _controllers;
   // Tracks which rows were added via "Add New" — only these get the red X.
   late List<bool> _isCustom;
@@ -75,7 +77,12 @@ class _ConfigurePaymentModeDialogState extends State<ConfigurePaymentModeDialog>
   Widget build(BuildContext context) {
     return Dialog(
       alignment: Alignment.topCenter,
-      insetPadding: const EdgeInsets.only(top: 0, left: 24, right: 24, bottom: 24),
+      insetPadding: const EdgeInsets.only(
+        top: 0,
+        left: 24,
+        right: 24,
+        bottom: 24,
+      ),
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
@@ -125,11 +132,14 @@ class _ConfigurePaymentModeDialogState extends State<ConfigurePaymentModeDialog>
               ),
             ),
             const Divider(height: 1, color: AppTheme.borderColor),
-            
+
             // List of Payment Modes
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 itemCount: _controllers.length,
                 itemBuilder: (context, index) {
                   final controller = _controllers[index];
@@ -162,9 +172,14 @@ class _ConfigurePaymentModeDialogState extends State<ConfigurePaymentModeDialog>
                                 ? Align(
                                     alignment: Alignment.centerLeft,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF15803D), // green-700
+                                        color: const Color(
+                                          0xFF15803D,
+                                        ), // green-700
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                       child: const Text(
@@ -190,20 +205,26 @@ class _ConfigurePaymentModeDialogState extends State<ConfigurePaymentModeDialog>
                                                 child: TextButton(
                                                   onPressed: () {
                                                     setState(() {
-                                                      _defaultMode = controller.text.trim();
+                                                      _defaultMode = controller
+                                                          .text
+                                                          .trim();
                                                     });
                                                   },
                                                   style: TextButton.styleFrom(
                                                     padding: EdgeInsets.zero,
                                                     minimumSize: Size.zero,
-                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
                                                   ),
                                                   child: const Text(
                                                     'Mark as Default',
                                                     style: TextStyle(
                                                       fontSize: 12,
-                                                      color: AppTheme.primaryBlue,
-                                                      fontWeight: FontWeight.w500,
+                                                      color:
+                                                          AppTheme.primaryBlue,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                     ),
                                                   ),
                                                 ),
@@ -213,11 +234,14 @@ class _ConfigurePaymentModeDialogState extends State<ConfigurePaymentModeDialog>
                                       // Red close (X) icon — only on custom
                                       // ("Add New") rows, and only on hover,
                                       // matching the "Mark as Default" link.
-                                      if (_isCustom[index] && _hoveredIndex == index) ...[
+                                      if (_isCustom[index] &&
+                                          _hoveredIndex == index) ...[
                                         const SizedBox(width: 4),
                                         InkWell(
                                           onTap: () => _deleteMode(index),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                           child: const Padding(
                                             padding: EdgeInsets.all(2),
                                             child: Icon(
@@ -272,10 +296,7 @@ class _ConfigurePaymentModeDialogState extends State<ConfigurePaymentModeDialog>
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Row(
                 children: [
-                  ZButton.primary(
-                    label: 'Save',
-                    onPressed: _handleSave,
-                  ),
+                  ZButton.primary(label: 'Save', onPressed: _handleSave),
                   const SizedBox(width: 12),
                   ZButton.secondary(
                     label: 'Cancel',

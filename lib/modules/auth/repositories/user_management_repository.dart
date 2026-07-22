@@ -1,7 +1,7 @@
 // PATH: lib/modules/auth/repositories/user_management_repository.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/user_model.dart';
 import '../models/user_profile_model.dart';
 
@@ -25,9 +25,11 @@ class UserManagementRepository {
           final dataMap = response.data as Map<String, dynamic>;
           usersData = dataMap['data'] ?? dataMap['users'] ?? [];
         } else {
-          throw Exception('Unexpected response format: ${response.data.runtimeType}');
+          throw Exception(
+            'Unexpected response format: ${response.data.runtimeType}',
+          );
         }
-        
+
         return usersData
             .map((userJson) => User.fromJson(userJson as Map<String, dynamic>))
             .toList();

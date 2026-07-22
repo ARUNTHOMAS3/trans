@@ -55,7 +55,9 @@ class ProfitAndLossScreen extends ConsumerWidget {
         loading: () => Skeletonizer(
           enabled: true,
           ignoreContainers: true,
-          child: _buildPnlScrollView(context, currencyFormat,
+          child: _buildPnlScrollView(
+            context,
+            currencyFormat,
             report: {
               'operatingIncome': [
                 {'accountName': '—————————————', 'netAmount': 0},
@@ -185,9 +187,7 @@ class ProfitAndLossScreen extends ConsumerWidget {
               pinned: true,
               delegate: _PnlTableHeaderDelegate(),
             ),
-            SliverList(
-              delegate: SliverChildListDelegate(contentRows),
-            ),
+            SliverList(delegate: SliverChildListDelegate(contentRows)),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),

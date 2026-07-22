@@ -1,10 +1,10 @@
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_general_ledger_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_inventory_valuation_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_profit_and_loss_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_sales_by_customer_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/reports_trial_balance_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_general_ledger_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_inventory_valuation_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_profit_and_loss_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_sales_by_customer_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_trial_balance_screen.dart';
 
 List<GoRoute> buildStandaloneReportRoutes() {
   return [

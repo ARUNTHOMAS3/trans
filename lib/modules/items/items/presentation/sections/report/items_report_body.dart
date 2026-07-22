@@ -198,7 +198,9 @@ class _ItemsReportBodyState extends ConsumerState<ItemsReportBody> {
     final rangeEnd = endIndex;
     final bool isSinglePage = totalItemsReal <= itemsPerPage;
 
-    final itemsToDisplay = widget.isLoading ? ItemRow.dummyList(10) : pagedItems;
+    final itemsToDisplay = widget.isLoading
+        ? ItemRow.dummyList(10)
+        : pagedItems;
 
     return Column(
       children: [
@@ -219,78 +221,80 @@ class _ItemsReportBodyState extends ConsumerState<ItemsReportBody> {
                     onToggleAll: (v) => _toggleAll(itemsToDisplay, v),
                     selectedIds: widget.isLoading ? {} : _selectedIds,
                     onSelectionChanged: _onSelectionChanged,
-                    isNameSorted: !widget.isLoading &&
+                    isNameSorted:
+                        !widget.isLoading &&
                         _currentSortField == _ItemsSortField.name,
                     isNameAscending: _isAscending,
-                  onToggleNameSort: () {
-                    setState(() {
-                      if (_currentSortField == _ItemsSortField.name) {
-                        _isAscending = !_isAscending;
-                      } else {
-                        _currentSortField = _ItemsSortField.name;
-                        _isAscending = true;
-                      }
-                    });
-                  },
-                  isReorderSorted:
-                      _currentSortField == _ItemsSortField.reorderLevel,
-                  isReorderAscending: _isAscending,
-                  onToggleReorderSort: () {
-                    setState(() {
-                      if (_currentSortField == _ItemsSortField.reorderLevel) {
-                        _isAscending = !_isAscending;
-                      } else {
-                        _currentSortField = _ItemsSortField.reorderLevel;
-                        _isAscending = true;
-                      }
-                    });
-                  },
-                  isHsnSorted: _currentSortField == _ItemsSortField.hsnSacRate,
-                  isHsnAscending: _isAscending,
-                  onToggleHsnSort: () {
-                    setState(() {
-                      if (_currentSortField == _ItemsSortField.hsnSacRate) {
-                        _isAscending = !_isAscending;
-                      } else {
-                        _currentSortField = _ItemsSortField.hsnSacRate;
-                        _isAscending = true;
-                      }
-                    });
-                  },
-                  isSkuSorted: _currentSortField == _ItemsSortField.sku,
-                  isSkuAscending: _isAscending,
-                  onToggleSkuSort: () {
-                    setState(() {
-                      if (_currentSortField == _ItemsSortField.sku) {
-                        _isAscending = !_isAscending;
-                      } else {
-                        _currentSortField = _ItemsSortField.sku;
-                        _isAscending = true;
-                      }
-                    });
-                  },
-                  isStockSorted:
-                      _currentSortField == _ItemsSortField.stockOnHand,
-                  isStockAscending: _isAscending,
-                  onToggleStockSort: () {
-                    setState(() {
-                      if (_currentSortField == _ItemsSortField.stockOnHand) {
-                        _isAscending = !_isAscending;
-                      } else {
-                        _currentSortField = _ItemsSortField.stockOnHand;
-                        _isAscending = true;
-                      }
-                    });
-                  },
-                  resetWidthsTrigger: _resetWidthsCounter,
-                  onItemTap: widget.onItemTap,
-                )
-              : ItemsGridView(
-                  items: itemsToDisplay,
-                  selectedIds: widget.isLoading ? {} : _selectedIds,
-                  onSelectionChanged: _onSelectionChanged,
-                  onItemTap: widget.onItemTap,
-                ),
+                    onToggleNameSort: () {
+                      setState(() {
+                        if (_currentSortField == _ItemsSortField.name) {
+                          _isAscending = !_isAscending;
+                        } else {
+                          _currentSortField = _ItemsSortField.name;
+                          _isAscending = true;
+                        }
+                      });
+                    },
+                    isReorderSorted:
+                        _currentSortField == _ItemsSortField.reorderLevel,
+                    isReorderAscending: _isAscending,
+                    onToggleReorderSort: () {
+                      setState(() {
+                        if (_currentSortField == _ItemsSortField.reorderLevel) {
+                          _isAscending = !_isAscending;
+                        } else {
+                          _currentSortField = _ItemsSortField.reorderLevel;
+                          _isAscending = true;
+                        }
+                      });
+                    },
+                    isHsnSorted:
+                        _currentSortField == _ItemsSortField.hsnSacRate,
+                    isHsnAscending: _isAscending,
+                    onToggleHsnSort: () {
+                      setState(() {
+                        if (_currentSortField == _ItemsSortField.hsnSacRate) {
+                          _isAscending = !_isAscending;
+                        } else {
+                          _currentSortField = _ItemsSortField.hsnSacRate;
+                          _isAscending = true;
+                        }
+                      });
+                    },
+                    isSkuSorted: _currentSortField == _ItemsSortField.sku,
+                    isSkuAscending: _isAscending,
+                    onToggleSkuSort: () {
+                      setState(() {
+                        if (_currentSortField == _ItemsSortField.sku) {
+                          _isAscending = !_isAscending;
+                        } else {
+                          _currentSortField = _ItemsSortField.sku;
+                          _isAscending = true;
+                        }
+                      });
+                    },
+                    isStockSorted:
+                        _currentSortField == _ItemsSortField.stockOnHand,
+                    isStockAscending: _isAscending,
+                    onToggleStockSort: () {
+                      setState(() {
+                        if (_currentSortField == _ItemsSortField.stockOnHand) {
+                          _isAscending = !_isAscending;
+                        } else {
+                          _currentSortField = _ItemsSortField.stockOnHand;
+                          _isAscending = true;
+                        }
+                      });
+                    },
+                    resetWidthsTrigger: _resetWidthsCounter,
+                    onItemTap: widget.onItemTap,
+                  )
+                : ItemsGridView(
+                    items: itemsToDisplay,
+                    selectedIds: widget.isLoading ? {} : _selectedIds,
+                    onSelectionChanged: _onSelectionChanged,
+                    onItemTap: widget.onItemTap,
+                  ),
           ),
         ),
         _buildTableFooter(

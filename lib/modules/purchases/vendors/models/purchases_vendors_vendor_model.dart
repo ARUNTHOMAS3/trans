@@ -155,7 +155,8 @@ class Vendor {
     Map<String, dynamic>? billingAddress,
     Map<String, dynamic>? shippingAddress,
     List<Map<String, dynamic>>? contactPersons,
-    Map<String, dynamic>? addressMap, // changed name slightly if needed, but we keep simple
+    Map<String, dynamic>?
+    addressMap, // changed name slightly if needed, but we keep simple
     List<Map<String, dynamic>>? bankDetails,
     bool? enablePortal,
     List<Map<String, dynamic>>? vendorAddresses,
@@ -430,7 +431,10 @@ class Vendor {
   }
 
   static List<Vendor> dummyList([int count = 10]) {
-    return List.generate(count, (index) => dummy().copyWith(id: 'dummy-$index'));
+    return List.generate(
+      count,
+      (index) => dummy().copyWith(id: 'dummy-$index'),
+    );
   }
 
   @override

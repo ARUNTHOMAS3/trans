@@ -161,8 +161,7 @@ class TransactionStatusTransitionGuard {
         (to == 'approved' || to == 'confirmed')) {
       final denied = TransitionDecision(
         allowed: false,
-        reason:
-            'Approval threshold exceeded. Additional approval is required.',
+        reason: 'Approval threshold exceeded. Additional approval is required.',
         fromStatus: from,
         toStatus: to,
         requiredPermission: effectivePermissionKey,
@@ -229,7 +228,8 @@ class TransactionStatusTransitionGuard {
       return denied;
     }
 
-    final hasPermission = !enforcePermission ||
+    final hasPermission =
+        !enforcePermission ||
         CapabilityService.canUser(
           user,
           effectivePermissionKey,

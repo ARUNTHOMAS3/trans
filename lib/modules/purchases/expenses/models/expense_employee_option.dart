@@ -1,8 +1,5 @@
 class ExpenseEmployeeOption {
-  const ExpenseEmployeeOption({
-    required this.id,
-    required this.fullName,
-  });
+  const ExpenseEmployeeOption({required this.id, required this.fullName});
 
   final String id;
   final String fullName;

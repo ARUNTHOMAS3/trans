@@ -20,7 +20,7 @@ final transactionLockProvider =
 class TransactionLockNotifier
     extends StateNotifier<Map<String, TransactionLock>> {
   final Dio _dio;
-  
+
   TransactionLockNotifier(this._dio) : super({});
 
   Future<void> init() async {
@@ -40,7 +40,11 @@ class TransactionLockNotifier
         state = locks;
       }
     } catch (e) {
-      AppLogger.error('Error fetching transaction locks', error: e, module: 'transaction_lock');
+      AppLogger.error(
+        'Error fetching transaction locks',
+        error: e,
+        module: 'transaction_lock',
+      );
     }
   }
 
@@ -63,7 +67,11 @@ class TransactionLockNotifier
     try {
       await _dio.post('transaction-locking', data: lock.toJson());
     } catch (e) {
-      AppLogger.error('Error locking module', error: e, module: 'transaction_lock');
+      AppLogger.error(
+        'Error locking module',
+        error: e,
+        module: 'transaction_lock',
+      );
       state = previousState; // Rollback
     }
   }
@@ -77,7 +85,11 @@ class TransactionLockNotifier
     try {
       await _dio.delete('transaction-locking/$moduleName');
     } catch (e) {
-      AppLogger.error('Error unlocking module', error: e, module: 'transaction_lock');
+      AppLogger.error(
+        'Error unlocking module',
+        error: e,
+        module: 'transaction_lock',
+      );
       state = previousState; // Rollback
     }
   }

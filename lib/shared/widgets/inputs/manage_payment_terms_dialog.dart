@@ -480,11 +480,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                     child: _buildEditableCell(index, 'term_name'),
                   ),
                   // Vertical Line
-                  Container(
-                    width: 1,
-                    height: 40,
-                    color: AppTheme.borderColor,
-                  ),
+                  Container(width: 1, height: 40, color: AppTheme.borderColor),
                   Expanded(
                     flex: 2,
                     child: _buildEditableCell(
@@ -527,7 +523,9 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                     TextButton(
                       onPressed: () async {
                         setState(() => _currentDefaultId = rowId);
-                        await LookupsApiService().setDefaultPaymentTermId(rowId);
+                        await LookupsApiService().setDefaultPaymentTermId(
+                          rowId,
+                        );
                         widget.onSelect(row);
                       },
                       style: TextButton.styleFrom(
@@ -639,7 +637,10 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Text(
                 controller.text,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                ),
               ),
             ),
     );

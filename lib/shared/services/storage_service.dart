@@ -114,6 +114,8 @@ class StorageService {
       contentType = 'image/jpeg';
     } else if (ext == 'png') {
       contentType = 'image/png';
+    } else if (ext == 'csv') {
+      contentType = 'text/csv';
     }
 
     try {
@@ -131,10 +133,7 @@ class StorageService {
 
   Future<void> deleteProductImage(String url) async {
     try {
-      await ApiClient().delete(
-        'lookups/uploads',
-        data: {'fileUrl': url},
-      );
+      await ApiClient().delete('lookups/uploads', data: {'fileUrl': url});
     } on DioException catch (e) {
       debugPrint('Error deleting file: ${e.error ?? e.message}');
     } catch (e) {

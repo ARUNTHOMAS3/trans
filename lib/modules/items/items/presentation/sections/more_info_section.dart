@@ -155,10 +155,7 @@ class MoreInfoSection extends StatelessWidget {
     );
   }
 
-  void _normalizePastedText(
-    TextEditingController controller,
-    String rawValue,
-  ) {
+  void _normalizePastedText(TextEditingController controller, String rawValue) {
     final normalized = _sanitizeStructuredText(rawValue);
     if (normalized == rawValue) return;
     controller.value = controller.value.copyWith(
@@ -184,10 +181,9 @@ class MoreInfoSection extends StatelessWidget {
         trimmed.contains('\n')) {
       final start = normalized.indexOf(trimmed);
       final end = start + trimmed.length;
-      final unquoted = trimmed.substring(1, trimmed.length - 1).replaceAll(
-        '""',
-        '"',
-      );
+      final unquoted = trimmed
+          .substring(1, trimmed.length - 1)
+          .replaceAll('""', '"');
       normalized =
           '${normalized.substring(0, start)}$unquoted${normalized.substring(end)}';
     }
@@ -212,10 +208,9 @@ class MoreInfoSection extends StatelessWidget {
     String line, {
     String? previousNormalizedLine,
   }) {
-    final value = line.replaceAll('\t', '    ').replaceAll(
-      RegExp(r'[ \t]+$'),
-      '',
-    );
+    final value = line
+        .replaceAll('\t', '    ')
+        .replaceAll(RegExp(r'[ \t]+$'), '');
 
     if (value.trim().isEmpty) {
       return '';
@@ -266,7 +261,8 @@ class MoreInfoSection extends StatelessWidget {
     if (!colonLabelPattern.hasMatch(prefix)) return false;
 
     final previous = previousNormalizedLine?.trim() ?? '';
-    if (previous.startsWith('• ') || RegExp(r'^\d+[\.\)]\s').hasMatch(previous)) {
+    if (previous.startsWith('• ') ||
+        RegExp(r'^\d+[\.\)]\s').hasMatch(previous)) {
       return true;
     }
 

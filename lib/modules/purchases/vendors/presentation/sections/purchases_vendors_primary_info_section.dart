@@ -120,7 +120,8 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
                 child: PhoneInputField(
                   controller: _workPhoneCtrl,
                   selectedPrefix: _workPhoneCode,
-                  onPrefixChanged: (v) => _state(() => _workPhoneCode = v ?? '+91'),
+                  onPrefixChanged: (v) =>
+                      _state(() => _workPhoneCode = v ?? '+91'),
                   hintText: 'Work Phone',
                 ),
               ),
@@ -129,7 +130,8 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
                 child: PhoneInputField(
                   controller: _mobilePhoneCtrl,
                   selectedPrefix: _mobilePhoneCode,
-                  onPrefixChanged: (v) => _state(() => _mobilePhoneCode = v ?? '+91'),
+                  onPrefixChanged: (v) =>
+                      _state(() => _mobilePhoneCode = v ?? '+91'),
                   hintText: 'Mobile',
                 ),
               ),
@@ -184,4 +186,3 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
     return ZTooltip(message: tooltip, child: button);
   }
 }
-

@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
@@ -107,13 +107,18 @@ class _PurchaseReturnsReportPageState
   // ── Column config ────────────────────────────────────────────────────────────
 
   static List<ColumnConfig> _defaultColumns() => [
-        ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
-        ColumnConfig(id: 'returnNumber', label: 'Return #', orderIndex: 1, isLocked: true),
-        ColumnConfig(id: 'vendorName', label: 'Vendor', orderIndex: 2),
-        ColumnConfig(id: 'purchaseOrder', label: 'Purchase Order', orderIndex: 3),
-        ColumnConfig(id: 'status', label: 'Status', orderIndex: 4),
-        ColumnConfig(id: 'amount', label: 'Amount', orderIndex: 5),
-      ];
+    ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
+    ColumnConfig(
+      id: 'returnNumber',
+      label: 'Return #',
+      orderIndex: 1,
+      isLocked: true,
+    ),
+    ColumnConfig(id: 'vendorName', label: 'Vendor', orderIndex: 2),
+    ColumnConfig(id: 'purchaseOrder', label: 'Purchase Order', orderIndex: 3),
+    ColumnConfig(id: 'status', label: 'Status', orderIndex: 4),
+    ColumnConfig(id: 'amount', label: 'Amount', orderIndex: 5),
+  ];
 
   List<ColumnConfig> _columns = _defaultColumns();
   bool _columnMenuOpen = false;
@@ -162,13 +167,15 @@ class _PurchaseReturnsReportPageState
           onSave: (updated) {
             setState(() {
               _columns = updated
-                  .map((c) => ColumnConfig(
-                        id: c.id,
-                        label: c.label,
-                        isVisible: c.isVisible,
-                        orderIndex: c.orderIndex,
-                        isLocked: c.isLocked,
-                      ))
+                  .map(
+                    (c) => ColumnConfig(
+                      id: c.id,
+                      label: c.label,
+                      isVisible: c.isVisible,
+                      orderIndex: c.orderIndex,
+                      isLocked: c.isLocked,
+                    ),
+                  )
                   .toList();
             });
             Navigator.of(dialogContext, rootNavigator: true).pop();
@@ -189,8 +196,7 @@ class _PurchaseReturnsReportPageState
   void _toggleSelectAll(bool? value) {
     setState(() {
       if (value == true) {
-        _selectedIndices
-            .addAll(List.generate(_filteredRows.length, (i) => i));
+        _selectedIndices.addAll(List.generate(_filteredRows.length, (i) => i));
       } else {
         _selectedIndices.clear();
       }
@@ -388,10 +394,12 @@ class _PurchaseReturnsReportPageState
     var list = _selectedView == 'All'
         ? List<_PrListRow>.from(_rows)
         : _rows
-            .where((r) =>
-                _statusLabel(r.status).toLowerCase() ==
-                _selectedView.toLowerCase())
-            .toList();
+              .where(
+                (r) =>
+                    _statusLabel(r.status).toLowerCase() ==
+                    _selectedView.toLowerCase(),
+              )
+              .toList();
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -410,7 +418,11 @@ class _PurchaseReturnsReportPageState
           DateTime _parseDate(String d) {
             final p = d.split('-');
             if (p.length == 3) {
-              return DateTime(int.tryParse(p[2]) ?? 0, int.tryParse(p[1]) ?? 0, int.tryParse(p[0]) ?? 0);
+              return DateTime(
+                int.tryParse(p[2]) ?? 0,
+                int.tryParse(p[1]) ?? 0,
+                int.tryParse(p[0]) ?? 0,
+              );
             }
             return DateTime(0);
           }
@@ -423,7 +435,9 @@ class _PurchaseReturnsReportPageState
           cmp = a.vendorName.compareTo(b.vendorName);
           break;
         case 'purchaseOrder':
-          cmp = (a.purchaseOrderNumber ?? '').compareTo(b.purchaseOrderNumber ?? '');
+          cmp = (a.purchaseOrderNumber ?? '').compareTo(
+            b.purchaseOrderNumber ?? '',
+          );
           break;
         case 'status':
           cmp = _statusLabel(a.status).compareTo(_statusLabel(b.status));
@@ -443,7 +457,8 @@ class _PurchaseReturnsReportPageState
   String _buildUrl({String? id, String? status, String? q}) {
     final params = <String, String>{
       if (id != null) 'id': id,
-      if (status != null && status != 'All') 'status': status.toLowerCase().replaceAll(' ', '_'),
+      if (status != null && status != 'All')
+        'status': status.toLowerCase().replaceAll(' ', '_'),
       if (q != null && q.isNotEmpty) 'q': q,
     };
     if (params.isEmpty) return AppRoutes.purchaseReturns;
@@ -462,228 +477,245 @@ class _PurchaseReturnsReportPageState
         SingleActivator(LogicalKeyboardKey.escape): () {
           if (_detailIndex != null) {
             setState(() => _detailIndex = null);
-            context.go(_buildUrl(
-              status: _selectedView != 'All' ? _selectedView : null,
-              q: _searchQuery.isNotEmpty ? _searchQuery : null,
-            ));
+            context.go(
+              _buildUrl(
+                status: _selectedView != 'All' ? _selectedView : null,
+                q: _searchQuery.isNotEmpty ? _searchQuery : null,
+              ),
+            );
           }
         },
       },
       child: Focus(
         autofocus: true,
         child: ZerpaiLayout(
-      pageTitle: '',
-      enableBodyScroll: false,
-      useTopPadding: false,
-      useHorizontalPadding: false,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () {
-          if (_dropdownOpen || _columnMenuOpen) {
-            setState(() {
-              _dropdownOpen = false;
-              _columnMenuOpen = false;
-            });
-          }
-        },
-        child: Container(
-          color: AppTheme.backgroundColor,
-          child: Stack(
-            children: [
-              if (_detailIndex != null)
-                Positioned.fill(child: _buildSplitView(rows))
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildToolbar(),
-                    const Divider(height: 1, color: AppTheme.borderLight),
-                    Expanded(child: _buildFullTable(rows)),
-                  ],
-                ),
+          pageTitle: '',
+          enableBodyScroll: false,
+          useTopPadding: false,
+          useHorizontalPadding: false,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              if (_dropdownOpen || _columnMenuOpen) {
+                setState(() {
+                  _dropdownOpen = false;
+                  _columnMenuOpen = false;
+                });
+              }
+            },
+            child: Container(
+              color: AppTheme.backgroundColor,
+              child: Stack(
+                children: [
+                  if (_detailIndex != null)
+                    Positioned.fill(child: _buildSplitView(rows))
+                  else
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildToolbar(),
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                        Expanded(child: _buildFullTable(rows)),
+                      ],
+                    ),
 
-              // Filter dropdown overlay
-              if (_dropdownOpen)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: CompositedTransformFollower(
-                    link: _filterDropdownLink,
-                    showWhenUnlinked: false,
-                    offset: const Offset(0, 40),
-                    child: Material(
-                      elevation: 0,
-                      color: Colors.transparent,
-                      child: Container(
-                        width: 240,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.borderLight),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 480),
-                          child: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => setState(
-                                    () => _favoritesExpanded = !_favoritesExpanded,
-                                  ),
-                                  child: _PrDropdownSectionHeader(
-                                    label: 'FAVORITES',
-                                    count: _starredViews.length,
-                                    countColor: AppTheme.primaryBlue,
-                                    expanded: _favoritesExpanded,
-                                  ),
+                  // Filter dropdown overlay
+                  if (_dropdownOpen)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: CompositedTransformFollower(
+                        link: _filterDropdownLink,
+                        showWhenUnlinked: false,
+                        offset: const Offset(0, 40),
+                        child: Material(
+                          elevation: 0,
+                          color: Colors.transparent,
+                          child: Container(
+                            width: 240,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.borderLight),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
                                 ),
-                                if (_favoritesExpanded && _starredViews.isNotEmpty)
-                                  ..._viewOptions
-                                      .where((opt) => _starredViews.contains(opt))
-                                      .map(
+                              ],
+                            ),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 480),
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => setState(
+                                        () => _favoritesExpanded =
+                                            !_favoritesExpanded,
+                                      ),
+                                      child: _PrDropdownSectionHeader(
+                                        label: 'FAVORITES',
+                                        count: _starredViews.length,
+                                        countColor: AppTheme.primaryBlue,
+                                        expanded: _favoritesExpanded,
+                                      ),
+                                    ),
+                                    if (_favoritesExpanded &&
+                                        _starredViews.isNotEmpty)
+                                      ..._viewOptions
+                                          .where(
+                                            (opt) =>
+                                                _starredViews.contains(opt),
+                                          )
+                                          .map(
+                                            (opt) => _PrViewFilterOption(
+                                              label: opt == 'All'
+                                                  ? 'All Purchase Returns'
+                                                  : '$opt Returns',
+                                              selected: opt == _selectedView,
+                                              starred: true,
+                                              onStarTap: () => setState(
+                                                () => _starredViews.remove(opt),
+                                              ),
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedView = opt;
+                                                  _dropdownOpen = false;
+                                                  _detailIndex = null;
+                                                });
+                                                context.go(
+                                                  _buildUrl(
+                                                    status: opt != 'All'
+                                                        ? opt
+                                                        : null,
+                                                    q: _searchQuery.isNotEmpty
+                                                        ? _searchQuery
+                                                        : null,
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                    GestureDetector(
+                                      onTap: () => setState(
+                                        () => _defaultFiltersExpanded =
+                                            !_defaultFiltersExpanded,
+                                      ),
+                                      child: _PrDropdownSectionHeader(
+                                        label: 'DEFAULT FILTERS',
+                                        count: _viewOptions.length,
+                                        countColor: AppTheme.accentGreen,
+                                        expanded: _defaultFiltersExpanded,
+                                      ),
+                                    ),
+                                    if (_defaultFiltersExpanded)
+                                      ..._viewOptions.map(
                                         (opt) => _PrViewFilterOption(
                                           label: opt == 'All'
                                               ? 'All Purchase Returns'
                                               : '$opt Returns',
                                           selected: opt == _selectedView,
-                                          starred: true,
-                                          onStarTap: () => setState(
-                                            () => _starredViews.remove(opt),
-                                          ),
+                                          starred: _starredViews.contains(opt),
+                                          onStarTap: () => setState(() {
+                                            if (_starredViews.contains(opt)) {
+                                              _starredViews.remove(opt);
+                                            } else {
+                                              _starredViews.add(opt);
+                                            }
+                                          }),
                                           onTap: () {
                                             setState(() {
                                               _selectedView = opt;
                                               _dropdownOpen = false;
                                               _detailIndex = null;
                                             });
-                                            context.go(_buildUrl(
-                                              status: opt != 'All' ? opt : null,
-                                              q: _searchQuery.isNotEmpty
-                                                  ? _searchQuery
-                                                  : null,
-                                            ));
+                                            context.go(
+                                              _buildUrl(
+                                                status: opt != 'All'
+                                                    ? opt
+                                                    : null,
+                                                q: _searchQuery.isNotEmpty
+                                                    ? _searchQuery
+                                                    : null,
+                                              ),
+                                            );
                                           },
                                         ),
                                       ),
-                                GestureDetector(
-                                  onTap: () => setState(
-                                    () => _defaultFiltersExpanded =
-                                        !_defaultFiltersExpanded,
-                                  ),
-                                  child: _PrDropdownSectionHeader(
-                                    label: 'DEFAULT FILTERS',
-                                    count: _viewOptions.length,
-                                    countColor: AppTheme.accentGreen,
-                                    expanded: _defaultFiltersExpanded,
-                                  ),
+                                  ],
                                 ),
-                                if (_defaultFiltersExpanded)
-                                  ..._viewOptions.map(
-                                    (opt) => _PrViewFilterOption(
-                                      label: opt == 'All'
-                                          ? 'All Purchase Returns'
-                                          : '$opt Returns',
-                                      selected: opt == _selectedView,
-                                      starred: _starredViews.contains(opt),
-                                      onStarTap: () => setState(() {
-                                        if (_starredViews.contains(opt)) {
-                                          _starredViews.remove(opt);
-                                        } else {
-                                          _starredViews.add(opt);
-                                        }
-                                      }),
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedView = opt;
-                                          _dropdownOpen = false;
-                                          _detailIndex = null;
-                                        });
-                                        context.go(_buildUrl(
-                                          status: opt != 'All' ? opt : null,
-                                          q: _searchQuery.isNotEmpty
-                                              ? _searchQuery
-                                              : null,
-                                        ));
-                                      },
-                                    ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Column menu overlay
+                  if (_columnMenuOpen)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: CompositedTransformFollower(
+                        link: _columnMenuLink,
+                        showWhenUnlinked: false,
+                        offset: const Offset(0, 44),
+                        child: Material(
+                          elevation: 0,
+                          color: Colors.transparent,
+                          child: Container(
+                            width: 200,
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.borderLight),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.textPrimary.withValues(
+                                    alpha: 0.12,
                                   ),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _PrColumnMenuOption(
+                                  label: 'Customize Columns',
+                                  icon: LucideIcons.columns,
+                                  selected: false,
+                                  onTap: _openColumnCustomizer,
+                                ),
+                                _PrColumnMenuOption(
+                                  label: _textMode == 'clip'
+                                      ? 'Clip Text'
+                                      : 'Wrap Text',
+                                  icon: _textMode == 'clip'
+                                      ? LucideIcons.minus
+                                      : LucideIcons.alignLeft,
+                                  selected: false,
+                                  onTap: () => setState(() {
+                                    _textMode = _textMode == 'clip'
+                                        ? 'wrap'
+                                        : 'clip';
+                                    _columnMenuOpen = false;
+                                  }),
+                                ),
                               ],
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-
-              // Column menu overlay
-              if (_columnMenuOpen)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: CompositedTransformFollower(
-                    link: _columnMenuLink,
-                    showWhenUnlinked: false,
-                    offset: const Offset(0, 44),
-                    child: Material(
-                      elevation: 0,
-                      color: Colors.transparent,
-                      child: Container(
-                        width: 200,
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.borderLight),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.textPrimary
-                                  .withValues(alpha: 0.12),
-                              blurRadius: 14,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _PrColumnMenuOption(
-                              label: 'Customize Columns',
-                              icon: LucideIcons.columns,
-                              selected: false,
-                              onTap: _openColumnCustomizer,
-                            ),
-                            _PrColumnMenuOption(
-                              label: _textMode == 'clip'
-                                  ? 'Clip Text'
-                                  : 'Wrap Text',
-                              icon: _textMode == 'clip'
-                                  ? LucideIcons.minus
-                                  : LucideIcons.alignLeft,
-                              selected: false,
-                              onTap: () => setState(() {
-                                _textMode =
-                                    _textMode == 'clip' ? 'wrap' : 'clip';
-                                _columnMenuOpen = false;
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
         ),
       ),
     );
@@ -700,8 +732,7 @@ class _PurchaseReturnsReportPageState
           CompositedTransformTarget(
             link: _filterDropdownLink,
             child: GestureDetector(
-              onTap: () =>
-                  setState(() => _dropdownOpen = !_dropdownOpen),
+              onTap: () => setState(() => _dropdownOpen = !_dropdownOpen),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -736,24 +767,28 @@ class _PurchaseReturnsReportPageState
               style: AppTheme.tableCell,
               decoration: InputDecoration(
                 hintText: 'Search returns…',
-                hintStyle: AppTheme.tableCell
-                    .copyWith(color: AppTheme.textSecondary),
-                prefixIcon: const Icon(LucideIcons.search,
-                    size: 14, color: AppTheme.textSecondary),
+                hintStyle: AppTheme.tableCell.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+                prefixIcon: const Icon(
+                  LucideIcons.search,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide:
-                      const BorderSide(color: AppTheme.borderColor),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide:
-                      const BorderSide(color: AppTheme.borderColor),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
                   borderSide: const BorderSide(
-                      color: AppTheme.primaryBlue, width: 1.5),
+                    color: AppTheme.primaryBlue,
+                    width: 1.5,
+                  ),
                 ),
                 contentPadding: EdgeInsets.zero,
                 filled: true,
@@ -761,15 +796,19 @@ class _PurchaseReturnsReportPageState
               ),
               onChanged: (v) {
                 setState(() => _searchQuery = v);
-                context.go(_buildUrl(
-                  id: _detailIndex != null
-                      ? _filteredRows[_detailIndex!.clamp(
-                              0, _filteredRows.length - 1)]
-                          .id
-                      : null,
-                  status: _selectedView != 'All' ? _selectedView : null,
-                  q: v.isNotEmpty ? v : null,
-                ));
+                context.go(
+                  _buildUrl(
+                    id: _detailIndex != null
+                        ? _filteredRows[_detailIndex!.clamp(
+                                0,
+                                _filteredRows.length - 1,
+                              )]
+                              .id
+                        : null,
+                    status: _selectedView != 'All' ? _selectedView : null,
+                    q: v.isNotEmpty ? v : null,
+                  ),
+                );
               },
             ),
           ),
@@ -778,8 +817,7 @@ class _PurchaseReturnsReportPageState
             width: 32,
             height: 32,
             child: TextButton(
-              onPressed: () =>
-                  context.go(AppRoutes.purchaseReturnsCreate),
+              onPressed: () => context.go(AppRoutes.purchaseReturnsCreate),
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
@@ -789,8 +827,11 @@ class _PurchaseReturnsReportPageState
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              child: const Icon(LucideIcons.plus,
-                  size: 18, color: Colors.white),
+              child: const Icon(
+                LucideIcons.plus,
+                size: 18,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
@@ -817,7 +858,7 @@ class _PurchaseReturnsReportPageState
           child: SizedBox(
             width: tWidth,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CompositedTransformTarget(
                   link: _columnMenuLink,
@@ -871,15 +912,17 @@ class _PurchaseReturnsReportPageState
                             if (_detailScrollController.hasClients) {
                               _detailScrollController.jumpTo(0);
                             }
-                            context.go(_buildUrl(
-                              id: row.id,
-                              status: _selectedView != 'All'
-                                  ? _selectedView
-                                  : null,
-                              q: _searchQuery.isNotEmpty
-                                  ? _searchQuery
-                                  : null,
-                            ));
+                            context.go(
+                              _buildUrl(
+                                id: row.id,
+                                status: _selectedView != 'All'
+                                    ? _selectedView
+                                    : null,
+                                q: _searchQuery.isNotEmpty
+                                    ? _searchQuery
+                                    : null,
+                              ),
+                            );
                           },
                         );
                       },
@@ -910,23 +953,20 @@ class _PurchaseReturnsReportPageState
       width: 460,
       color: AppTheme.backgroundColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             height: 64,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderLight),
-              ),
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
             ),
             child: Row(
               children: [
                 CompositedTransformTarget(
                   link: _filterDropdownLink,
                   child: GestureDetector(
-                    onTap: () => setState(
-                        () => _dropdownOpen = !_dropdownOpen),
+                    onTap: () => setState(() => _dropdownOpen = !_dropdownOpen),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -968,8 +1008,11 @@ class _PurchaseReturnsReportPageState
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    child: const Icon(LucideIcons.plus,
-                        size: 18, color: Colors.white),
+                    child: const Icon(
+                      LucideIcons.plus,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -994,11 +1037,13 @@ class _PurchaseReturnsReportPageState
                     if (_detailScrollController.hasClients) {
                       _detailScrollController.jumpTo(0);
                     }
-                    context.go(_buildUrl(
-                      id: row.id,
-                      status: _selectedView != 'All' ? _selectedView : null,
-                      q: _searchQuery.isNotEmpty ? _searchQuery : null,
-                    ));
+                    context.go(
+                      _buildUrl(
+                        id: row.id,
+                        status: _selectedView != 'All' ? _selectedView : null,
+                        q: _searchQuery.isNotEmpty ? _searchQuery : null,
+                      ),
+                    );
                   },
                 );
               },
@@ -1020,7 +1065,7 @@ class _PurchaseReturnsReportPageState
     return Container(
       color: AppTheme.backgroundColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Title header: PR number + status badge + icon buttons + close ──
           Container(
@@ -1028,42 +1073,77 @@ class _PurchaseReturnsReportPageState
             padding: const EdgeInsets.only(left: 20, right: 8),
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
-              border: Border(bottom: BorderSide(color: AppTheme.borderLight, width: 1)),
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderLight, width: 1),
+              ),
             ),
             child: Row(
               children: [
                 Text(
                   returnDetail.returnNumber,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: _statusColor(returnDetail.status).withValues(alpha: 0.12),
+                    color: _statusColor(
+                      returnDetail.status,
+                    ).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     _statusLabel(returnDetail.status),
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _statusColor(returnDetail.status)),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: _statusColor(returnDetail.status),
+                    ),
                   ),
                 ),
                 const Spacer(),
-                _DetailIconBtn(icon: LucideIcons.paperclip, tooltip: 'Attachments', onTap: () {}),
+                _DetailIconBtn(
+                  icon: LucideIcons.paperclip,
+                  tooltip: 'Attachments',
+                  onTap: () {},
+                ),
                 const SizedBox(width: 6),
-                _DetailIconBtn(icon: LucideIcons.messageSquare, tooltip: 'Comments', onTap: () {}),
-                Container(width: 1, height: 28, margin: const EdgeInsets.symmetric(horizontal: 10), color: AppTheme.borderLight),
+                _DetailIconBtn(
+                  icon: LucideIcons.messageSquare,
+                  tooltip: 'Comments',
+                  onTap: () {},
+                ),
+                Container(
+                  width: 1,
+                  height: 28,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  color: AppTheme.borderLight,
+                ),
                 GestureDetector(
                   onTap: () {
                     setState(() => _detailIndex = null);
-                    context.go(_buildUrl(
-                      status: _selectedView != 'All' ? _selectedView : null,
-                      q: _searchQuery.isNotEmpty ? _searchQuery : null,
-                    ));
+                    context.go(
+                      _buildUrl(
+                        status: _selectedView != 'All' ? _selectedView : null,
+                        q: _searchQuery.isNotEmpty ? _searchQuery : null,
+                      ),
+                    );
                   },
                   child: const SizedBox(
-                    width: 36, height: 36,
-                    child: Icon(LucideIcons.x, size: 20, color: AppTheme.errorRed),
+                    width: 36,
+                    height: 36,
+                    child: Icon(
+                      LucideIcons.x,
+                      size: 20,
+                      color: AppTheme.errorRed,
+                    ),
                   ),
                 ),
               ],
@@ -1073,62 +1153,72 @@ class _PurchaseReturnsReportPageState
           Material(
             color: AppTheme.bgLight,
             child: Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.borderLight, width: 1)),
-            ),
-            child: Row(
-              children: [
-                _DetailActionBtn(
-                  icon: LucideIcons.pencil,
-                  label: 'Edit',
-                  onTap: () => context.go('/purchases/purchase-returns/edit/${returnDetail.id}'),
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppTheme.borderLight, width: 1),
                 ),
-                const _DetailActionDivider(),
-                CompositedTransformTarget(
-                  link: _pdfPrintLink,
-                  child: _DetailActionBtn(
-                    icon: LucideIcons.fileText,
-                    label: 'PDF/Print',
-                    trailingIcon: LucideIcons.chevronDown,
-                    onTap: () => _showPdfPrintMenu(context),
-                  ),
-                ),
-                const _DetailActionDivider(),
-                if (returnDetail.status.toLowerCase() == 'draft') ...[
+              ),
+              child: Row(
+                children: [
                   _DetailActionBtn(
-                    icon: LucideIcons.checkCircle,
-                    label: 'Confirm',
-                    onTap: () {},
+                    icon: LucideIcons.pencil,
+                    label: 'Edit',
+                    onTap: () => context.go(
+                      '/purchases/purchase-returns/edit/${returnDetail.id}',
+                    ),
                   ),
                   const _DetailActionDivider(),
-                ],
-                if (returnDetail.status.toLowerCase() == 'confirmed') ...[
-                  _DetailActionBtn(
-                    icon: LucideIcons.packageCheck,
-                    label: 'Record Receive',
-                    onTap: () {},
+                  CompositedTransformTarget(
+                    link: _pdfPrintLink,
+                    child: _DetailActionBtn(
+                      icon: LucideIcons.fileText,
+                      label: 'PDF/Print',
+                      trailingIcon: LucideIcons.chevronDown,
+                      onTap: () => _showPdfPrintMenu(context),
+                    ),
                   ),
                   const _DetailActionDivider(),
+                  if (returnDetail.status.toLowerCase() == 'draft') ...[
+                    _DetailActionBtn(
+                      icon: LucideIcons.checkCircle,
+                      label: 'Confirm',
+                      onTap: () {},
+                    ),
+                    const _DetailActionDivider(),
+                  ],
+                  if (returnDetail.status.toLowerCase() == 'confirmed') ...[
+                    _DetailActionBtn(
+                      icon: LucideIcons.packageCheck,
+                      label: 'Record Receive',
+                      onTap: () {},
+                    ),
+                    const _DetailActionDivider(),
+                  ],
+                  _DetailMoreBtn(
+                    onViewJournal: () {
+                      final ctx = _prJournalKey.currentContext;
+                      if (ctx != null) {
+                        Scrollable.ensureVisible(
+                          ctx,
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                    onDelete: () {
+                      setState(() => _detailIndex = null);
+                      context.go(
+                        _buildUrl(
+                          status: _selectedView != 'All' ? _selectedView : null,
+                          q: _searchQuery.isNotEmpty ? _searchQuery : null,
+                        ),
+                      );
+                    },
+                  ),
                 ],
-                _DetailMoreBtn(
-                  onViewJournal: () {
-                    final ctx = _prJournalKey.currentContext;
-                    if (ctx != null) {
-                      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-                    }
-                  },
-                  onDelete: () {
-                    setState(() => _detailIndex = null);
-                    context.go(_buildUrl(
-                      status: _selectedView != 'All' ? _selectedView : null,
-                      q: _searchQuery.isNotEmpty ? _searchQuery : null,
-                    ));
-                  },
-                ),
-              ],
-            ),
+              ),
             ),
           ),
           // ── Receive Batches — fixed tab, never scrolls away ──
@@ -1142,30 +1232,42 @@ class _PurchaseReturnsReportPageState
               controller: _detailScrollController,
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_receiveBatchesExpanded && returnDetail.receiveHistory.isNotEmpty) ...[
+                  if (_receiveBatchesExpanded &&
+                      returnDetail.receiveHistory.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    ...returnDetail.receiveHistory.map((batch) => Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 4),
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                          children: [
-                            const TextSpan(text: 'Receive Batch: '),
-                            TextSpan(
-                              text: batch.receiveNumber,
-                              style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.w500),
+                    ...returnDetail.receiveHistory.map(
+                      (batch) => Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 4),
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondary,
                             ),
-                          ],
+                            children: [
+                              const TextSpan(text: 'Receive Batch: '),
+                              TextSpan(
+                                text: batch.receiveNumber,
+                                style: const TextStyle(
+                                  color: AppTheme.primaryBlue,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    )),
+                    ),
                     const SizedBox(height: 12),
                   ],
                   _PrPdfPreview(returnDetail: returnDetail),
                   const SizedBox(height: 24),
-                  _PrJournalSection(key: _prJournalKey, returnDetail: returnDetail),
+                  _PrJournalSection(
+                    key: _prJournalKey,
+                    returnDetail: returnDetail,
+                  ),
                 ],
               ),
             ),
@@ -1178,7 +1280,8 @@ class _PurchaseReturnsReportPageState
   Widget _buildReceiveBatchesSection(PurchaseReturnDetailData returnDetail) {
     final count = returnDetail.receiveHistory.length;
     return GestureDetector(
-      onTap: () => setState(() => _receiveBatchesExpanded = !_receiveBatchesExpanded),
+      onTap: () =>
+          setState(() => _receiveBatchesExpanded = !_receiveBatchesExpanded),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1190,22 +1293,37 @@ class _PurchaseReturnsReportPageState
           children: [
             const Text(
               'Receive Batches',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
             ),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-              decoration: BoxDecoration(color: AppTheme.primaryBlue, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Text(
                 '$count',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
               ),
             ),
             const Spacer(),
             AnimatedRotation(
               turns: _receiveBatchesExpanded ? 0.25 : 0,
               duration: const Duration(milliseconds: 200),
-              child: const Icon(LucideIcons.chevronRight, size: 16, color: AppTheme.textSecondary),
+              child: const Icon(
+                LucideIcons.chevronRight,
+                size: 16,
+                color: AppTheme.textSecondary,
+              ),
             ),
           ],
         ),
@@ -1218,16 +1336,21 @@ class _PurchaseReturnsReportPageState
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(LucideIcons.packageMinus,
-              size: 40, color: AppTheme.textSecondary),
+          const Icon(
+            LucideIcons.packageMinus,
+            size: 40,
+            color: AppTheme.textSecondary,
+          ),
           const SizedBox(height: 12),
-          Text('No purchase returns found',
-              style: AppTheme.bodyText
-                  .copyWith(color: AppTheme.textSecondary)),
+          Text(
+            'No purchase returns found',
+            style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
+          ),
           const SizedBox(height: 4),
-          Text('Create your first return to get started.',
-              style: AppTheme.tableCell
-                  .copyWith(color: AppTheme.textSecondary)),
+          Text(
+            'Create your first return to get started.',
+            style: AppTheme.tableCell.copyWith(color: AppTheme.textSecondary),
+          ),
         ],
       ),
     );
@@ -1296,9 +1419,7 @@ class _FullTableRowState extends State<_FullTableRow> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          constraints: isWrap
-              ? const BoxConstraints(minHeight: 48)
-              : null,
+          constraints: isWrap ? const BoxConstraints(minHeight: 48) : null,
           height: isWrap ? null : 48,
           color: widget.checked
               ? AppTheme.primaryBlue.withValues(alpha: 0.07)
@@ -1324,11 +1445,12 @@ class _FullTableRowState extends State<_FullTableRow> {
                     child: Checkbox(
                       value: widget.checked,
                       onChanged: widget.onChanged,
-                      materialTapTargetSize:
-                          MaterialTapTargetSize.shrinkWrap,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       activeColor: AppTheme.primaryBlue,
                       side: const BorderSide(
-                          color: AppTheme.borderLight, width: 1.5),
+                        color: AppTheme.borderLight,
+                        width: 1.5,
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
@@ -1347,8 +1469,7 @@ class _FullTableRowState extends State<_FullTableRow> {
                           child: Text(
                             val,
                             maxLines: isWrap ? null : 1,
-                            overflow:
-                                isWrap ? null : TextOverflow.ellipsis,
+                            overflow: isWrap ? null : TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w500,
@@ -1359,8 +1480,7 @@ class _FullTableRowState extends State<_FullTableRow> {
                       : Text(
                           val,
                           maxLines: isWrap ? null : 1,
-                          overflow:
-                              isWrap ? null : TextOverflow.ellipsis,
+                          overflow: isWrap ? null : TextOverflow.ellipsis,
                           textAlign: TextAlign.left,
                           style: TextStyle(
                             fontSize: 12.5,
@@ -1426,11 +1546,10 @@ class _CompactListItemState extends State<_CompactListItem> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           color: bgColor,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1441,11 +1560,12 @@ class _CompactListItemState extends State<_CompactListItem> {
                     child: Checkbox(
                       value: widget.checked,
                       onChanged: widget.onCheckChanged,
-                      materialTapTargetSize:
-                          MaterialTapTargetSize.shrinkWrap,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       activeColor: AppTheme.primaryBlue,
                       side: const BorderSide(
-                          color: AppTheme.borderLight, width: 1.5),
+                        color: AppTheme.borderLight,
+                        width: 1.5,
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
@@ -1513,17 +1633,23 @@ class _PrPdfPreview extends StatelessWidget {
 
   static Color _ribbonColor(String status) {
     switch (status.toLowerCase()) {
-      case 'confirmed': return AppTheme.primaryBlue;
-      case 'vendor_received': return AppTheme.successGreen;
-      default: return AppTheme.textSecondary;
+      case 'confirmed':
+        return AppTheme.primaryBlue;
+      case 'vendor_received':
+        return AppTheme.successGreen;
+      default:
+        return AppTheme.textSecondary;
     }
   }
 
   static String _ribbonLabel(String status) {
     switch (status.toLowerCase()) {
-      case 'confirmed': return 'Confirmed';
-      case 'vendor_received': return 'Received';
-      default: return 'Draft';
+      case 'confirmed':
+        return 'Confirmed';
+      case 'vendor_received':
+        return 'Received';
+      default:
+        return 'Draft';
     }
   }
 
@@ -1531,7 +1657,8 @@ class _PrPdfPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,##,##0.00', 'en_IN');
     final dateStr = DateFormat('dd-MM-yyyy').format(returnDetail.date);
-    final isInterstate = returnDetail.sourceOfSupply != returnDetail.destinationOfSupply;
+    final isInterstate =
+        returnDetail.sourceOfSupply != returnDetail.destinationOfSupply;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -1541,12 +1668,16 @@ class _PrPdfPreview extends StatelessWidget {
             color: Colors.white,
             border: Border.all(color: _outerBorder),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
             ],
           ),
           padding: const EdgeInsets.all(40),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               // ── Logo + company (left) / title + number (right) ──
@@ -1559,18 +1690,44 @@ class _PrPdfPreview extends StatelessWidget {
                       children: [
                         const _PdfOrgLogo(width: 200, height: 80),
                         const SizedBox(height: 16),
-                        const Text('ZABNIX PRIVATE LIMITED',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF111111))),
+                        const Text(
+                          'ZABNIX PRIVATE LIMITED',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111111),
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        const Text('PERINTHALMANNA',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF444444))),
-                        const Text('MALAPPURAM Kerala 679322',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF444444))),
-                        const Text('India',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF444444))),
+                        const Text(
+                          'PERINTHALMANNA',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF444444),
+                          ),
+                        ),
+                        const Text(
+                          'MALAPPURAM Kerala 679322',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF444444),
+                          ),
+                        ),
+                        const Text(
+                          'India',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF444444),
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        const Text('GSTIN 32AACCZ4912F1ZL',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF444444))),
+                        const Text(
+                          'GSTIN 32AACCZ4912F1ZL',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF444444),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1578,14 +1735,32 @@ class _PrPdfPreview extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('PURCHASE RETURN',
-                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Color(0xFF111111), letterSpacing: 0.5)),
+                      const Text(
+                        'PURCHASE RETURN',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111111),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                       const SizedBox(height: 12),
-                      Text('PR# ${returnDetail.returnNumber}',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF111111))),
+                      Text(
+                        'PR# ${returnDetail.returnNumber}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111111),
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      Text('Balance: ₹${fmt.format(returnDetail.balance)}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF444444))),
+                      Text(
+                        'Balance: ₹${fmt.format(returnDetail.balance)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF444444),
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -1598,14 +1773,34 @@ class _PrPdfPreview extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Vendor', style: TextStyle(fontSize: 13, color: Color(0xFF444444))),
-                      const SizedBox(height: 4),
-                      Text(returnDetail.vendorName,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue)),
-                      const SizedBox(height: 2),
-                      ...returnDetail.vendorAddress.split('\n').map(
-                        (l) => Text(l, style: const TextStyle(fontSize: 11, color: Color(0xFF666666))),
+                      const Text(
+                        'Vendor',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF444444),
+                        ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        returnDetail.vendorName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      ...returnDetail.vendorAddress
+                          .split('\n')
+                          .map(
+                            (l) => Text(
+                              l,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF666666),
+                              ),
+                            ),
+                          ),
                     ],
                   ),
                   const Spacer(),
@@ -1626,19 +1821,70 @@ class _PrPdfPreview extends StatelessWidget {
               // ── Items table: dark header ──
               Container(
                 color: _tableHeaderBg,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 13,
+                ),
                 child: Row(
                   children: const [
-                    SizedBox(width: 32, child: Text('#', textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
-                    Expanded(child: Text('Item & Description',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
-                    SizedBox(width: 70, child: Text('Qty', textAlign: TextAlign.right,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
-                    SizedBox(width: 90, child: Text('Rate', textAlign: TextAlign.right,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
-                    SizedBox(width: 100, child: Text('Amount', textAlign: TextAlign.right,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
+                    SizedBox(
+                      width: 32,
+                      child: Text(
+                        '#',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Item & Description',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 70,
+                      child: Text(
+                        'Qty',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 90,
+                      child: Text(
+                        'Rate',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 100,
+                      child: Text(
+                        'Amount',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1647,36 +1893,95 @@ class _PrPdfPreview extends StatelessWidget {
                 final idx = entry.key;
                 final item = entry.value;
                 return Container(
-                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _rowDivider))),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: _rowDivider)),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(width: 32, child: Text('${idx + 1}', textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF444444)))),
+                      SizedBox(
+                        width: 32,
+                        child: Text(
+                          '${idx + 1}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF444444),
+                          ),
+                        ),
+                      ),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.name, style: const TextStyle(fontSize: 13, color: Color(0xFF111111))),
+                            Text(
+                              item.name,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF111111),
+                              ),
+                            ),
                             if (item.description.isNotEmpty) ...[
                               const SizedBox(height: 2),
-                              Text(item.description, style: const TextStyle(fontSize: 11, color: Color(0xFF888888))),
+                              Text(
+                                item.description,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF888888),
+                                ),
+                              ),
                             ],
                             if (item.reason != null) ...[
                               const SizedBox(height: 2),
-                              Text('Reason: ${item.reason}',
-                                  style: const TextStyle(fontSize: 11, color: AppTheme.primaryBlue, fontStyle: FontStyle.italic)),
+                              Text(
+                                'Reason: ${item.reason}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.primaryBlue,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
                             ],
                           ],
                         ),
                       ),
-                      SizedBox(width: 70, child: Text('${item.returnQty.toStringAsFixed(0)} ${item.unit}',
-                          textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, color: Color(0xFF111111)))),
-                      SizedBox(width: 90, child: Text(fmt.format(item.rate),
-                          textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, color: Color(0xFF111111)))),
-                      SizedBox(width: 100, child: Text(fmt.format(item.amount),
-                          textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, color: Color(0xFF111111)))),
+                      SizedBox(
+                        width: 70,
+                        child: Text(
+                          '${item.returnQty.toStringAsFixed(0)} ${item.unit}',
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF111111),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 90,
+                        child: Text(
+                          fmt.format(item.rate),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF111111),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 100,
+                        child: Text(
+                          fmt.format(item.amount),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF111111),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -1688,18 +1993,37 @@ class _PrPdfPreview extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    _pdfTotalRow('Sub Total', fmt.format(returnDetail.subtotal)),
+                    _pdfTotalRow(
+                      'Sub Total',
+                      fmt.format(returnDetail.subtotal),
+                    ),
                     const SizedBox(height: 4),
                     if (isInterstate)
-                      _pdfTotalRow('IGST [18%]', fmt.format(returnDetail.taxAmount))
+                      _pdfTotalRow(
+                        'IGST [18%]',
+                        fmt.format(returnDetail.taxAmount),
+                      )
                     else ...[
-                      _pdfTotalRow('CGST [9%]', fmt.format(returnDetail.taxAmount / 2)),
-                      _pdfTotalRow('SGST [9%]', fmt.format(returnDetail.taxAmount / 2)),
+                      _pdfTotalRow(
+                        'CGST [9%]',
+                        fmt.format(returnDetail.taxAmount / 2),
+                      ),
+                      _pdfTotalRow(
+                        'SGST [9%]',
+                        fmt.format(returnDetail.taxAmount / 2),
+                      ),
                     ],
                     if (returnDetail.shipping > 0)
-                      _pdfTotalRow('Shipping', fmt.format(returnDetail.shipping)),
+                      _pdfTotalRow(
+                        'Shipping',
+                        fmt.format(returnDetail.shipping),
+                      ),
                     const SizedBox(height: 8),
-                    _pdfTotalRow('Total', '₹${fmt.format(returnDetail.total)}', bold: true),
+                    _pdfTotalRow(
+                      'Total',
+                      '₹${fmt.format(returnDetail.total)}',
+                      bold: true,
+                    ),
                   ],
                 ),
               ),
@@ -1709,23 +2033,32 @@ class _PrPdfPreview extends StatelessWidget {
         ),
         // ── Corner status ribbon ──
         Positioned(
-          top: 0, left: 0,
+          top: 0,
+          left: 0,
           child: ClipRect(
             child: SizedBox(
-              width: 110, height: 110,
+              width: 110,
+              height: 110,
               child: Stack(
                 children: [
                   Positioned(
-                    top: 18, left: -28,
+                    top: 18,
+                    left: -28,
                     child: Transform.rotate(
                       angle: -0.785,
                       child: Container(
-                        width: 130, height: 36,
+                        width: 130,
+                        height: 36,
                         color: _ribbonColor(returnDetail.status),
                         alignment: Alignment.center,
                         child: Text(
                           _ribbonLabel(returnDetail.status),
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600, decoration: TextDecoration.none),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                          ),
                         ),
                       ),
                     ),
@@ -1745,8 +2078,18 @@ class _PrPdfPreview extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label : ', style: const TextStyle(fontSize: 12, color: Color(0xFF444444))),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF111111))),
+          Text(
+            '$label : ',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF444444)),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF111111),
+            ),
+          ),
         ],
       ),
     );
@@ -1756,12 +2099,26 @@ class _PrPdfPreview extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w700 : FontWeight.w400, color: const Color(0xFF444444))),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+            color: const Color(0xFF444444),
+          ),
+        ),
         const SizedBox(width: 48),
         SizedBox(
           width: 90,
-          child: Text(value, textAlign: TextAlign.right,
-              style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w700 : FontWeight.w400, color: const Color(0xFF111111))),
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+              color: const Color(0xFF111111),
+            ),
+          ),
         ),
       ],
     );
@@ -1780,9 +2137,17 @@ class _PrJournalSection extends StatelessWidget {
   List<_PrJournalEntry> _buildEntries() {
     return [
       _PrJournalEntry('Accounts Payable', returnDetail.total, 0),
-      _PrJournalEntry('Purchase Returns & Allowances', 0, returnDetail.subtotal),
+      _PrJournalEntry(
+        'Purchase Returns & Allowances',
+        0,
+        returnDetail.subtotal,
+      ),
       if (returnDetail.taxAmount > 0)
-        _PrJournalEntry('Input Tax Credit Reversal (GST)', 0, returnDetail.taxAmount),
+        _PrJournalEntry(
+          'Input Tax Credit Reversal (GST)',
+          0,
+          returnDetail.taxAmount,
+        ),
     ];
   }
 
@@ -1799,23 +2164,46 @@ class _PrJournalSection extends StatelessWidget {
         border: Border.all(color: AppTheme.borderLight),
         borderRadius: BorderRadius.circular(4),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.borderLight))),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+            ),
             child: Row(
               children: [
-                const Icon(LucideIcons.bookOpen, size: 15, color: AppTheme.textSecondary),
+                const Icon(
+                  LucideIcons.bookOpen,
+                  size: 15,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 8),
-                const Text('Journal', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                const Text(
+                  'Journal',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
                 const Spacer(),
-                Text(returnDetail.returnNumber, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(
+                  returnDetail.returnNumber,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1825,42 +2213,131 @@ class _PrJournalSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                Expanded(flex: 4, child: Text('Account',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _colHeaderColor))),
-                SizedBox(width: 140, child: Text('Debit', textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _colHeaderColor))),
-                SizedBox(width: 140, child: Text('Credit', textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _colHeaderColor))),
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    'Account',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _colHeaderColor,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    'Debit',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _colHeaderColor,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    'Credit',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _colHeaderColor,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           const Divider(height: 1, color: AppTheme.borderLight),
           // Rows
-          ...entries.map((e) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _dividerColor))),
-            child: Row(
-              children: [
-                Expanded(flex: 4, child: Text(e.account, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                SizedBox(width: 140, child: Text(e.debit > 0 ? fmt.format(e.debit) : '—',
-                    textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                SizedBox(width: 140, child: Text(e.credit > 0 ? fmt.format(e.credit) : '—',
-                    textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-              ],
+          ...entries.map(
+            (e) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: _dividerColor)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: Text(
+                      e.account,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 140,
+                    child: Text(
+                      e.debit > 0 ? fmt.format(e.debit) : '—',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 140,
+                    child: Text(
+                      e.credit > 0 ? fmt.format(e.credit) : '—',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          )),
+          ),
           const Divider(height: 1, color: AppTheme.borderLight),
           // Totals
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
-                const Expanded(flex: 4, child: Text('Total',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
-                SizedBox(width: 140, child: Text(fmt.format(totalDebit), textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
-                SizedBox(width: 140, child: Text(fmt.format(totalCredit), textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
+                const Expanded(
+                  flex: 4,
+                  child: Text(
+                    'Total',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    fmt.format(totalDebit),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    fmt.format(totalCredit),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1887,8 +2364,7 @@ class _PrDocumentPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,##,##0.00', 'en_IN');
-    final dateStr =
-        DateFormat('dd-MM-yyyy').format(returnDetail.date);
+    final dateStr = DateFormat('dd-MM-yyyy').format(returnDetail.date);
 
     return Container(
       decoration: BoxDecoration(
@@ -1904,7 +2380,7 @@ class _PrDocumentPreview extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Padding(
@@ -2001,10 +2477,8 @@ class _PrDocumentPreview extends StatelessWidget {
                   children: [
                     _previewMetaRow('Date', dateStr),
                     if (returnDetail.purchaseOrderNumber != null)
-                      _previewMetaRow(
-                          'PO#', returnDetail.purchaseOrderNumber!),
-                    _previewMetaRow(
-                        'Warehouse', returnDetail.warehouseName),
+                      _previewMetaRow('PO#', returnDetail.purchaseOrderNumber!),
+                    _previewMetaRow('Warehouse', returnDetail.warehouseName),
                   ],
                 ),
               ],
@@ -2015,51 +2489,66 @@ class _PrDocumentPreview extends StatelessWidget {
           // Items table header
           Container(
             color: const Color(0xFF374151),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Row(
               children: const [
                 SizedBox(
-                    width: 24,
-                    child: Text('#',
-                        style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white))),
+                  width: 24,
+                  child: Text(
+                    '#',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
                 Expanded(
                   flex: 5,
-                  child: Text('Item',
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text(
+                    'Item',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
                 SizedBox(
                   width: 60,
-                  child: Text('Qty',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text(
+                    'Qty',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
                 SizedBox(
                   width: 80,
-                  child: Text('Rate',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text(
+                    'Rate',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
                 SizedBox(
                   width: 80,
-                  child: Text('Amount',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text(
+                    'Amount',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -2070,50 +2559,60 @@ class _PrDocumentPreview extends StatelessWidget {
             final idx = entry.key;
             final item = entry.value;
             return Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 24, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 9),
               decoration: const BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(color: AppTheme.borderLight)),
+                border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
               ),
               child: Row(
                 children: [
                   SizedBox(
                     width: 24,
-                    child: Text('${idx + 1}',
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary)),
+                    child: Text(
+                      '${idx + 1}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                   Expanded(
                     flex: 5,
-                    child: Text(item.name,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary)),
+                    child: Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
                   ),
                   SizedBox(
                     width: 60,
                     child: Text(
-                        item.returnQty.toStringAsFixed(0),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12)),
+                      item.returnQty.toStringAsFixed(0),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                   SizedBox(
                     width: 80,
-                    child: Text(fmt.format(item.rate),
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 12)),
+                    child: Text(
+                      fmt.format(item.rate),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                   SizedBox(
                     width: 80,
-                    child: Text(fmt.format(item.amount),
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary)),
+                    child: Text(
+                      fmt.format(item.amount),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2128,17 +2627,19 @@ class _PrDocumentPreview extends StatelessWidget {
               child: SizedBox(
                 width: 240,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _previewTotalRow(
-                        'Sub Total', fmt.format(returnDetail.subtotal)),
+                      'Sub Total',
+                      fmt.format(returnDetail.subtotal),
+                    ),
+                    _previewTotalRow('Tax', fmt.format(returnDetail.taxAmount)),
+                    const Divider(color: AppTheme.borderLight, height: 12),
                     _previewTotalRow(
-                        'Tax', fmt.format(returnDetail.taxAmount)),
-                    const Divider(
-                        color: AppTheme.borderLight, height: 12),
-                    _previewTotalRow(
-                        'Total', fmt.format(returnDetail.total),
-                        bold: true),
+                      'Total',
+                      fmt.format(returnDetail.total),
+                      bold: true,
+                    ),
                   ],
                 ),
               ),
@@ -2155,42 +2656,45 @@ class _PrDocumentPreview extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label : ',
-              style: const TextStyle(
-                  fontSize: 11, color: AppTheme.textSecondary)),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary)),
+          Text(
+            '$label : ',
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _previewTotalRow(String label, String value,
-      {bool bold = false}) {
+  Widget _previewTotalRow(String label, String value, {bool bold = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(
-                fontSize: bold ? 13 : 12,
-                fontWeight:
-                    bold ? FontWeight.w700 : FontWeight.w400,
-                color: bold
-                    ? AppTheme.textPrimary
-                    : AppTheme.textSecondary,
-              )),
-          Text(value,
-              style: TextStyle(
-                fontSize: bold ? 13 : 12,
-                fontWeight:
-                    bold ? FontWeight.w700 : FontWeight.w600,
-                color: AppTheme.textPrimary,
-              )),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: bold ? 13 : 12,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+              color: bold ? AppTheme.textPrimary : AppTheme.textSecondary,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: bold ? 13 : 12,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
         ],
       ),
     );
@@ -2245,143 +2749,131 @@ class _PrTableHeaderState extends State<_PrTableHeader> {
       height: isWrap ? null : 40,
       constraints: isWrap ? const BoxConstraints(minHeight: 40) : null,
       color: AppTheme.bgLight,
-      padding: EdgeInsets.symmetric(
-          horizontal: 16, vertical: isWrap ? 10 : 0),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!widget.hasSelection)
-              SizedBox(
-                width: 28,
-                child: GestureDetector(
-                  onTap: widget.onColumnMenuTap,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Icon(
-                      LucideIcons.slidersHorizontal,
-                      size: 16,
-                      color: widget.columnMenuOpen
-                          ? AppTheme.primaryBlueDark
-                          : AppTheme.primaryBlue,
-                    ),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: isWrap ? 10 : 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!widget.hasSelection)
+            SizedBox(
+              width: 28,
+              child: GestureDetector(
+                onTap: widget.onColumnMenuTap,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Icon(
+                    LucideIcons.slidersHorizontal,
+                    size: 16,
+                    color: widget.columnMenuOpen
+                        ? AppTheme.primaryBlueDark
+                        : AppTheme.primaryBlue,
                   ),
                 ),
               ),
-            SizedBox(
-              width: 32,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Checkbox(
-                  value: widget.allSelected || widget.someSelected,
-                  tristate: false,
-                  onChanged: (v) => widget
-                      .onSelectAll(widget.allSelected ? false : true),
-                  materialTapTargetSize:
-                      MaterialTapTargetSize.shrinkWrap,
-                  activeColor: AppTheme.primaryBlue,
-                  side: const BorderSide(
-                      color: AppTheme.borderLight, width: 1.5),
-                  visualDensity: VisualDensity.compact,
-                ),
+            ),
+          SizedBox(
+            width: 32,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Checkbox(
+                value: widget.allSelected || widget.someSelected,
+                tristate: false,
+                onChanged: (v) =>
+                    widget.onSelectAll(widget.allSelected ? false : true),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                activeColor: AppTheme.primaryBlue,
+                side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
+                visualDensity: VisualDensity.compact,
               ),
             ),
-            ...widget.columns.map((col) {
-              final width = widget.colWidths[col.id] ?? 120.0;
-              final isSorted = widget.sortColumn == col.id;
-              final isHovered = _hoveredCol == col.id;
-              final isDragging = _draggingCol == col.id;
-              final showHandle = isHovered || isDragging;
-              return SizedBox(
-                width: width,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    InkWell(
-                      onTap: () => widget.onSort(col.id),
-                      child: Container(
-                        padding: const EdgeInsets.only(right: 14),
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                col.label.toUpperCase(),
-                                maxLines: isWrap ? null : 1,
-                                overflow: isWrap
-                                    ? null
-                                    : TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textSecondary,
-                                  letterSpacing: 0.3,
-                                ),
+          ),
+          ...widget.columns.map((col) {
+            final width = widget.colWidths[col.id] ?? 120.0;
+            final isSorted = widget.sortColumn == col.id;
+            final isHovered = _hoveredCol == col.id;
+            final isDragging = _draggingCol == col.id;
+            final showHandle = isHovered || isDragging;
+            return SizedBox(
+              width: width,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  InkWell(
+                    onTap: () => widget.onSort(col.id),
+                    child: Container(
+                      padding: const EdgeInsets.only(right: 14),
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              col.label.toUpperCase(),
+                              maxLines: isWrap ? null : 1,
+                              overflow: isWrap ? null : TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 0.3,
                               ),
                             ),
-                            if (isSorted) ...[
-                              const SizedBox(width: 4),
-                              Icon(
-                                widget.sortAscending
-                                    ? LucideIcons.chevronUp
-                                    : LucideIcons.chevronDown,
-                                size: 12,
-                                color: AppTheme.primaryBlue,
-                              ),
-                            ],
+                          ),
+                          if (isSorted) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              widget.sortAscending
+                                  ? LucideIcons.chevronUp
+                                  : LucideIcons.chevronDown,
+                              size: 12,
+                              color: AppTheme.primaryBlue,
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: 12,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.resizeLeftRight,
-                        onEnter: (_) =>
-                            setState(() => _hoveredCol = col.id),
-                        onExit: (_) => setState(() {
-                          if (_hoveredCol == col.id)
-                            _hoveredCol = null;
-                        }),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onHorizontalDragStart: (_) =>
-                              setState(() => _draggingCol = col.id),
-                          onHorizontalDragUpdate: (details) =>
-                              widget.onColumnResize(
-                                  col.id, details.delta.dx),
-                          onHorizontalDragEnd: (_) =>
-                              setState(() => _draggingCol = null),
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration:
-                                  const Duration(milliseconds: 120),
-                              width: showHandle ? 3 : 1,
-                              height: showHandle ? 24 : 16,
-                              decoration: BoxDecoration(
-                                color: isDragging
-                                    ? AppTheme.primaryBlue
-                                    : showHandle
-                                        ? AppTheme.primaryBlue
-                                            .withValues(alpha: 0.55)
-                                        : AppTheme.borderLight,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 12,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.resizeLeftRight,
+                      onEnter: (_) => setState(() => _hoveredCol = col.id),
+                      onExit: (_) => setState(() {
+                        if (_hoveredCol == col.id) _hoveredCol = null;
+                      }),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onHorizontalDragStart: (_) =>
+                            setState(() => _draggingCol = col.id),
+                        onHorizontalDragUpdate: (details) =>
+                            widget.onColumnResize(col.id, details.delta.dx),
+                        onHorizontalDragEnd: (_) =>
+                            setState(() => _draggingCol = null),
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 120),
+                            width: showHandle ? 3 : 1,
+                            height: showHandle ? 24 : 16,
+                            decoration: BoxDecoration(
+                              color: isDragging
+                                  ? AppTheme.primaryBlue
+                                  : showHandle
+                                  ? AppTheme.primaryBlue.withValues(alpha: 0.55)
+                                  : AppTheme.borderLight,
+                              borderRadius: BorderRadius.circular(2),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -2415,11 +2907,9 @@ class _PrColumnMenuOptionState extends State<_PrColumnMenuOption> {
     final foreground = filled
         ? AppTheme.backgroundColor
         : widget.selected
-            ? AppTheme.primaryBlue
-            : AppTheme.textPrimary;
-    final iconColor = filled
-        ? AppTheme.backgroundColor
-        : AppTheme.primaryBlue;
+        ? AppTheme.primaryBlue
+        : AppTheme.textPrimary;
+    final iconColor = filled ? AppTheme.backgroundColor : AppTheme.primaryBlue;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -2434,17 +2924,14 @@ class _PrColumnMenuOptionState extends State<_PrColumnMenuOption> {
             color: filled
                 ? AppTheme.primaryBlue.withValues(alpha: 0.9)
                 : widget.selected
-                    ? AppTheme.primaryBlue.withValues(alpha: 0.07)
-                    : AppTheme.backgroundColor,
+                ? AppTheme.primaryBlue.withValues(alpha: 0.07)
+                : AppTheme.backgroundColor,
             borderRadius: BorderRadius.circular(6),
             border: filled
-                ? Border.all(
-                    color: AppTheme.primaryBlueDark, width: 2)
+                ? Border.all(color: AppTheme.primaryBlueDark, width: 2)
                 : widget.selected
-                    ? Border.all(
-                        color:
-                            AppTheme.primaryBlue.withValues(alpha: 0.3))
-                    : null,
+                ? Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.3))
+                : null,
           ),
           child: Row(
             children: [
@@ -2536,7 +3023,13 @@ class _DetailActionBtn extends StatelessWidget {
           children: [
             Icon(icon, size: 13, color: AppTheme.textSecondary),
             const SizedBox(width: 5),
-            Text(label, style: const TextStyle(fontSize: 12.5, color: AppTheme.textPrimary)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppTheme.textPrimary,
+              ),
+            ),
             if (trailingIcon != null) ...[
               const SizedBox(width: 3),
               Icon(trailingIcon, size: 12, color: AppTheme.textSecondary),
@@ -2563,10 +3056,7 @@ class _DetailActionDivider extends StatelessWidget {
 }
 
 class _DetailMoreBtn extends StatelessWidget {
-  const _DetailMoreBtn({
-    required this.onViewJournal,
-    required this.onDelete,
-  });
+  const _DetailMoreBtn({required this.onViewJournal, required this.onDelete});
   final VoidCallback onViewJournal;
   final VoidCallback onDelete;
 
@@ -2577,14 +3067,18 @@ class _DetailMoreBtn extends StatelessWidget {
         backgroundColor: const WidgetStatePropertyAll(Colors.white),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
         elevation: const WidgetStatePropertyAll(4),
-        shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.12)),
+        shadowColor: WidgetStatePropertyAll(
+          Colors.black.withValues(alpha: 0.12),
+        ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
             side: const BorderSide(color: AppTheme.borderLight),
           ),
         ),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(vertical: 6),
+        ),
         minimumSize: const WidgetStatePropertyAll(Size(180, 0)),
       ),
       builder: (ctx, ctrl, _) => InkWell(
@@ -2598,9 +3092,16 @@ class _DetailMoreBtn extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: const [
-              Icon(LucideIcons.moreHorizontal, size: 14, color: AppTheme.textSecondary),
+              Icon(
+                LucideIcons.moreHorizontal,
+                size: 14,
+                color: AppTheme.textSecondary,
+              ),
               SizedBox(width: 4),
-              Text('More', style: TextStyle(fontSize: 12.5, color: AppTheme.textPrimary)),
+              Text(
+                'More',
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textPrimary),
+              ),
             ],
           ),
         ),
@@ -2625,11 +3126,7 @@ class _DetailMoreBtn extends StatelessWidget {
 }
 
 class _PrMoreMenuItem extends StatefulWidget {
-  const _PrMoreMenuItem({
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
+  const _PrMoreMenuItem({required this.label, required this.onTap, this.color});
   final String label;
   final VoidCallback onTap;
   final Color? color;
@@ -2764,7 +3261,11 @@ class _PrViewFilterOption extends StatefulWidget {
 // ── PDF/Print dropdown menu option ────────────────────────────────────────────
 
 class _DownloadMenuOption extends StatefulWidget {
-  const _DownloadMenuOption({required this.label, required this.onTap, this.icon});
+  const _DownloadMenuOption({
+    required this.label,
+    required this.onTap,
+    this.icon,
+  });
   final String label;
   final VoidCallback onTap;
   final IconData? icon;
@@ -2790,7 +3291,11 @@ class _DownloadMenuOptionState extends State<_DownloadMenuOption> {
           child: Row(
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon, size: 16, color: _hovered ? Colors.white : AppTheme.primaryBlue),
+                Icon(
+                  widget.icon,
+                  size: 16,
+                  color: _hovered ? Colors.white : AppTheme.primaryBlue,
+                ),
                 const SizedBox(width: 8),
               ],
               Text(
@@ -2837,8 +3342,9 @@ class _PrViewFilterOptionState extends State<_PrViewFilterOption> {
                   widget.label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        widget.selected ? FontWeight.w500 : FontWeight.w400,
+                    fontWeight: widget.selected
+                        ? FontWeight.w500
+                        : FontWeight.w400,
                     color: widget.selected
                         ? AppTheme.backgroundColor
                         : AppTheme.textPrimary,
@@ -2869,7 +3375,6 @@ class _PrViewFilterOptionState extends State<_PrViewFilterOption> {
   }
 }
 
-
 class _PdfOrgLogo extends ConsumerWidget {
   const _PdfOrgLogo({this.width = 160, this.height = 64});
   final double width;
@@ -2899,14 +3404,16 @@ class _PdfOrgLogo extends ConsumerWidget {
   }
 
   Widget _fallback() => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        alignment: Alignment.center,
-        child: const Text('LOGO',
-            style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8)),
-      );
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: const Color(0xFF1A1A2E),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    alignment: Alignment.center,
+    child: const Text(
+      'LOGO',
+      style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8),
+    ),
+  );
 }

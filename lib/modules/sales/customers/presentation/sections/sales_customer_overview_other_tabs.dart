@@ -61,8 +61,9 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                             if (comment.createdAt != null) ...[
                               const SizedBox(height: 4),
                               Text(
-                                DateFormat('dd-MM-yyyy hh:mm a')
-                                    .format(comment.createdAt!),
+                                DateFormat(
+                                  'dd-MM-yyyy hh:mm a',
+                                ).format(comment.createdAt!),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF6B7280),
@@ -109,9 +110,9 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
                 child: Theme(
-                  data: Theme.of(context).copyWith(
-                    dividerColor: Colors.transparent,
-                  ),
+                  data: Theme.of(
+                    context,
+                  ).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
                     title: Text(
                       group.label,
@@ -214,8 +215,9 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                                   width: 140,
                                   child: Text(
                                     item.date != null
-                                        ? DateFormat('dd-MM-yyyy hh:mm a')
-                                            .format(item.date!)
+                                        ? DateFormat(
+                                            'dd-MM-yyyy hh:mm a',
+                                          ).format(item.date!)
                                         : '-',
                                     textAlign: TextAlign.right,
                                     style: const TextStyle(
@@ -304,8 +306,9 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                           ),
                           if (mail.sentAt != null)
                             Text(
-                              DateFormat('dd-MM-yyyy hh:mm a')
-                                  .format(mail.sentAt!),
+                              DateFormat(
+                                'dd-MM-yyyy hh:mm a',
+                              ).format(mail.sentAt!),
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF6B7280),
@@ -335,8 +338,9 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
       0,
       (sum, entry) => sum + entry.credit,
     );
-    final double closingBalance =
-        statementEntries.isNotEmpty ? statementEntries.last.balance : 0;
+    final double closingBalance = statementEntries.isNotEmpty
+        ? statementEntries.last.balance
+        : 0;
 
     return Column(
       children: [
@@ -444,8 +448,9 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                                 children: [
                                   TableCellWidget(
                                     entry.date != null
-                                        ? DateFormat('dd-MM-yyyy')
-                                            .format(entry.date!)
+                                        ? DateFormat(
+                                            'dd-MM-yyyy',
+                                          ).format(entry.date!)
                                         : '-',
                                   ),
                                   TableCellWidget(entry.type),
@@ -494,11 +499,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              LucideIcons.inbox,
-              size: 28,
-              color: Color(0xFF9CA3AF),
-            ),
+            const Icon(LucideIcons.inbox, size: 28, color: Color(0xFF9CA3AF)),
             const SizedBox(height: 12),
             Text(
               title,
@@ -558,4 +559,3 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
     return NumberFormat('#,##0.00').format(amount);
   }
 }
-

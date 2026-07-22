@@ -46,7 +46,8 @@ class VendorCreditsCreatePage extends ConsumerStatefulWidget {
       _VendorCreditsCreatePageState();
 }
 
-class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePage> {
+class _VendorCreditsCreatePageState
+    extends ConsumerState<VendorCreditsCreatePage> {
   static const double _tableFieldHeight = 44;
   static const double _labelWidth = 150.0;
   static const double _rowMaxWidth = 1400.0;
@@ -189,6 +190,7 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
         collect(n.children);
       }
     }
+
     collect(nodes);
     if (flat.isEmpty) return const [];
 
@@ -267,7 +269,8 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
   }
 
   void _openEditItem(_VCLineItem lineItem) {
-    final fullItem = lineItem.sourceItem ??
+    final fullItem =
+        lineItem.sourceItem ??
         Item(
           type: 'goods',
           productName: '',
@@ -288,8 +291,9 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
             lineItem.sourceItem = updated;
             lineItem.hsnCodeOverride = null;
             if (updated.costPrice != null) {
-              lineItem.rateController.text =
-                  updated.costPrice!.toStringAsFixed(2);
+              lineItem.rateController.text = updated.costPrice!.toStringAsFixed(
+                2,
+              );
             }
           });
         },
@@ -450,8 +454,7 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
     final gross = qty * rate;
     if (_discountType == 'At Line Item Level') {
       final d = _parseMoney(item.discountController.text);
-      final discountAmt =
-          item.discountIsPercent ? gross * d / 100 : d;
+      final discountAmt = item.discountIsPercent ? gross * d / 100 : d;
       return (gross - discountAmt).clamp(0.0, double.infinity);
     }
     return gross.clamp(0.0, double.infinity);
@@ -499,7 +502,8 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
     final taxableAmountsByRate = <double, double>{};
     for (final item in _items) {
       if (item.sourceItem == null) continue;
-      final taxRate = item.selectedTaxRate ?? _taxPercentFromLabel(item.selectedTax);
+      final taxRate =
+          item.selectedTaxRate ?? _taxPercentFromLabel(item.selectedTax);
       if (taxRate <= 0) continue;
       taxableAmountsByRate.update(
         taxRate,
@@ -555,7 +559,11 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
   }
 
   double get _grandTotal =>
-      _subTotal - _txnDiscountAmount + _shippingAmount + _taxSummaryAmount + _adjustmentAmount;
+      _subTotal -
+      _txnDiscountAmount +
+      _shippingAmount +
+      _taxSummaryAmount +
+      _adjustmentAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -622,7 +630,7 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
               child: _MaxWidthContainer(
                 maxWidth: _rowMaxWidth,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
 
@@ -631,7 +639,7 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Vendor Name with INR badge
                             _CompactFormRow(
@@ -658,10 +666,10 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                               >(
                                                 value: _selectedVendorObj,
                                                 items:
-                                                    customersAsync
-                                                        .asData
-                                                        ?.value
-                                                        .cast<SalesCustomer>() ??
+                                                    customersAsync.asData?.value
+                                                        .cast<
+                                                          SalesCustomer
+                                                        >() ??
                                                     const <SalesCustomer>[],
                                                 isLoading:
                                                     customersAsync.isLoading,
@@ -673,12 +681,23 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                                 height: _fieldHeight,
                                                 menuMaxHeight: 320,
                                                 itemHeight: 72,
-                                                itemBuilder: (c, isSelected, isHovered) =>
-                                                    _VcVendorDropdownItem(
+                                                itemBuilder:
+                                                    (
+                                                      c,
+                                                      isSelected,
+                                                      isHovered,
+                                                    ) => _VcVendorDropdownItem(
                                                       name: c.displayName,
-                                                      code: c.customerNumber ?? '',
-                                                      subtitle: c.companyName ?? c.gstin ?? '',
-                                                      highlighted: isSelected || isHovered,
+                                                      code:
+                                                          c.customerNumber ??
+                                                          '',
+                                                      subtitle:
+                                                          c.companyName ??
+                                                          c.gstin ??
+                                                          '',
+                                                      highlighted:
+                                                          isSelected ||
+                                                          isHovered,
                                                     ),
                                                 showRightBorder: false,
                                                 borderRadius:
@@ -725,26 +744,36 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                               color: Colors.white,
                                             ),
                                             onPressed: () async {
-                                              final List<SalesCustomer> customers = ref
+                                              final List<SalesCustomer>
+                                              customers =
+                                                  ref
                                                       .read(customersProvider)
                                                       .asData
                                                       ?.value
                                                       .cast<SalesCustomer>() ??
                                                   const <SalesCustomer>[];
                                               final result =
-                                                  await AdvancedCustomerSearchModal
-                                                      .show(context, customers: customers);
+                                                  await AdvancedCustomerSearchModal.show(
+                                                    context,
+                                                    customers: customers,
+                                                  );
                                               if (result != null &&
                                                   mounted &&
                                                   customers.isNotEmpty) {
                                                 setState(() {
-                                                  _selectedVendorObj = customers.firstWhere(
-                                                    (c) => c.displayName == result,
-                                                    orElse: () => customers.first,
-                                                  );
+                                                  _selectedVendorObj = customers
+                                                      .firstWhere(
+                                                        (c) =>
+                                                            c.displayName ==
+                                                            result,
+                                                        orElse: () =>
+                                                            customers.first,
+                                                      );
                                                   _selectedSourceOfSupply =
-                                                      _selectedVendorObj?.placeOfSupply;
-                                                  _selectedDestinationOfSupply = null;
+                                                      _selectedVendorObj
+                                                          ?.placeOfSupply;
+                                                  _selectedDestinationOfSupply =
+                                                      null;
                                                   _selectedBill = null;
                                                 });
                                               }
@@ -762,7 +791,10 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                         alignment: Alignment.centerRight,
                                         child: Transform.translate(
                                           offset: Offset(
-                                            MediaQuery.of(context).size.width < 1000 ? 16.0 : 40.0,
+                                            MediaQuery.of(context).size.width <
+                                                    1000
+                                                ? 16.0
+                                                : 40.0,
                                             0,
                                           ),
                                           child: _VCVendorDetailsTag(
@@ -790,13 +822,22 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                 fieldWidth: 330,
                                 child: Builder(
                                   builder: (context) {
-                                    final stateNames = ref.watch(statesProvider('IN')).value?.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList() ?? [];
+                                    final stateNames =
+                                        ref
+                                            .watch(statesProvider('IN'))
+                                            .value
+                                            ?.map((s) => s['name'] ?? '')
+                                            .where((n) => n.isNotEmpty)
+                                            .toList() ??
+                                        [];
                                     return FormDropdown<String>(
                                       value: _selectedSourceOfSupply,
                                       items: stateNames,
                                       hint: 'Select Source of Supply',
                                       height: _fieldHeight,
-                                      onChanged: (val) => setState(() => _selectedSourceOfSupply = val),
+                                      onChanged: (val) => setState(
+                                        () => _selectedSourceOfSupply = val,
+                                      ),
                                     );
                                   },
                                 ),
@@ -809,13 +850,23 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                 fieldWidth: 330,
                                 child: Builder(
                                   builder: (context) {
-                                    final stateNames = ref.watch(statesProvider('IN')).value?.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList() ?? [];
+                                    final stateNames =
+                                        ref
+                                            .watch(statesProvider('IN'))
+                                            .value
+                                            ?.map((s) => s['name'] ?? '')
+                                            .where((n) => n.isNotEmpty)
+                                            .toList() ??
+                                        [];
                                     return FormDropdown<String>(
                                       value: _selectedDestinationOfSupply,
                                       items: stateNames,
                                       hint: 'Select Destination of Supply',
                                       height: _fieldHeight,
-                                      onChanged: (val) => setState(() => _selectedDestinationOfSupply = val),
+                                      onChanged: (val) => setState(
+                                        () =>
+                                            _selectedDestinationOfSupply = val,
+                                      ),
                                     );
                                   },
                                 ),
@@ -1060,7 +1111,8 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                       taxOptions: taxOptions,
                       isReverseCharge: _isReverseCharge,
                       onViewItemDetails: _openItemDetails,
-                      onViewItemDetailsTransactions: (item) => _openItemDetails(item, initialTab: 2),
+                      onViewItemDetailsTransactions: (item) =>
+                          _openItemDetails(item, initialTab: 2),
                       onEditItem: _openEditItem,
                       defaultPriceList: _selectedPriceList,
                       discountType: _discountType,
@@ -1082,7 +1134,7 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Sub Total
                                 Padding(
@@ -1116,11 +1168,18 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                   ),
                                 ),
                                 // Transaction-level Discount
-                                if (_discountType == 'At Transaction Level') ...[
+                                if (_discountType ==
+                                    'At Transaction Level') ...[
                                   Padding(
-                                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      20,
+                                      4,
+                                      20,
+                                      4,
+                                    ),
                                     child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
                                       children: [
                                         const SizedBox(
                                           width: 120,
@@ -1146,9 +1205,10 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                         ),
                                         const SizedBox(width: 6),
                                         GestureDetector(
-                                          onTap: () => setState(() =>
-                                              _txnDiscountIsPercent =
-                                                  !_txnDiscountIsPercent),
+                                          onTap: () => setState(
+                                            () => _txnDiscountIsPercent =
+                                                !_txnDiscountIsPercent,
+                                          ),
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
@@ -1156,12 +1216,16 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppTheme.bgDisabled,
-                                              borderRadius: BorderRadius.circular(4),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                               border: Border.all(
-                                                  color: AppTheme.borderLight),
+                                                color: AppTheme.borderLight,
+                                              ),
                                             ),
                                             child: Text(
-                                              _txnDiscountIsPercent ? '%' : 'â‚¹',
+                                              _txnDiscountIsPercent
+                                                  ? '%'
+                                                  : 'â‚¹',
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w600,
@@ -1250,19 +1314,33 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                   _buildGstSummaryRows(taxSummaryLines),
                                 ],
                                 // Total Tax Amount â€” always visible once any item is selected
-                                if (_items.any((i) => i.sourceItem != null)) ...[
+                                if (_items.any(
+                                  (i) => i.sourceItem != null,
+                                )) ...[
                                   if (taxSummaryLines.isEmpty)
-                                    const Divider(height: 1, color: AppTheme.borderLight),
+                                    const Divider(
+                                      height: 1,
+                                      color: AppTheme.borderLight,
+                                    ),
                                   CompositedTransformTarget(
                                     link: _totalTaxLayerLink,
                                     child: Padding(
-                                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        20,
+                                        8,
+                                        20,
+                                        8,
+                                      ),
                                       child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
                                         children: [
                                           const Text(
                                             'Total Tax Amount',
-                                            style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textPrimary,
+                                            ),
                                           ),
                                           const SizedBox(width: 12),
                                           SizedBox(
@@ -1270,27 +1348,56 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                             height: 34,
                                             child: Container(
                                               decoration: BoxDecoration(
-                                                border: Border.all(color: AppTheme.borderLight),
-                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(
+                                                  color: AppTheme.borderLight,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
                                               child: Row(
                                                 children: [
                                                   Expanded(
                                                     child: Padding(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 10,
+                                                          ),
                                                       child: Text(
-                                                        _formatMoney(_taxSummaryAmount),
-                                                        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                                                        textAlign: TextAlign.right,
+                                                        _formatMoney(
+                                                          _taxSummaryAmount,
+                                                        ),
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                          color: AppTheme
+                                                              .textPrimary,
+                                                        ),
+                                                        textAlign:
+                                                            TextAlign.right,
                                                       ),
                                                     ),
                                                   ),
                                                   Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                                                    decoration: const BoxDecoration(
-                                                      border: Border(left: BorderSide(color: AppTheme.borderLight)),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                        ),
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          border: Border(
+                                                            left: BorderSide(
+                                                              color: AppTheme
+                                                                  .borderLight,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    child: const Text(
+                                                      'INR',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppTheme
+                                                            .textSecondary,
+                                                      ),
                                                     ),
-                                                    child: const Text('INR', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                                                   ),
                                                 ],
                                               ),
@@ -1298,14 +1405,24 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                           ),
                                           const SizedBox(width: 8),
                                           GestureDetector(
-                                            onTap: () => _showTotalTaxPopover(context, taxSummaryLines),
+                                            onTap: () => _showTotalTaxPopover(
+                                              context,
+                                              taxSummaryLines,
+                                            ),
                                             child: Container(
                                               padding: const EdgeInsets.all(5),
                                               decoration: BoxDecoration(
-                                                border: Border.all(color: AppTheme.primaryBlue),
-                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(
+                                                  color: AppTheme.primaryBlue,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
-                                              child: const Icon(LucideIcons.pencil, size: 13, color: AppTheme.primaryBlue),
+                                              child: const Icon(
+                                                LucideIcons.pencil,
+                                                size: 13,
+                                                color: AppTheme.primaryBlue,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -1683,13 +1800,18 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Title bar
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
                             decoration: const BoxDecoration(
-                              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+                              border: Border(
+                                bottom: BorderSide(color: AppTheme.borderLight),
+                              ),
                             ),
                             child: Row(
                               children: [
@@ -1705,7 +1827,11 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                 ),
                                 GestureDetector(
                                   onTap: close,
-                                  child: const Icon(LucideIcons.x, size: 18, color: AppTheme.textSecondary),
+                                  child: const Icon(
+                                    LucideIcons.x,
+                                    size: 18,
+                                    color: AppTheme.textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1730,15 +1856,22 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                                     close();
                                     showDialog<void>(
                                       context: context,
-                                      barrierColor: Colors.black.withValues(alpha: 0.35),
+                                      barrierColor: Colors.black.withValues(
+                                        alpha: 0.35,
+                                      ),
                                       builder: (_) => Align(
                                         alignment: Alignment.topCenter,
-                                        child: _VCNewTaxFormDialog(isTds: isTds),
+                                        child: _VCNewTaxFormDialog(
+                                          isTds: isTds,
+                                        ),
                                       ),
                                     );
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 7,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: AppTheme.successDark,
                                       borderRadius: BorderRadius.circular(5),
@@ -1758,7 +1891,10 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                           ),
                           // Table header
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 9,
+                            ),
                             decoration: const BoxDecoration(
                               color: AppTheme.tableHeaderBg,
                               border: Border(
@@ -1768,10 +1904,54 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                             ),
                             child: const Row(
                               children: [
-                                Expanded(flex: 3, child: Text('TAX NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 0.4))),
-                                Expanded(flex: 2, child: Text('RATE (%)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 0.4))),
-                                Expanded(flex: 3, child: Text('NATURE OF COLLECTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 0.4))),
-                                Expanded(flex: 2, child: Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 0.4))),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    'TAX NAME',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textSecondary,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'RATE (%)',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textSecondary,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    'NATURE OF COLLECTION',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textSecondary,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'STATUS',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textSecondary,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -1781,7 +1961,10 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                             child: Center(
                               child: Text(
                                 emptyLabel,
-                                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
                               ),
                             ),
                           ),
@@ -1800,7 +1983,10 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
     Overlay.of(context).insert(_manageTaxOverlay!);
   }
 
-  void _showTotalTaxPopover(BuildContext context, List<_VCTaxSummaryLine> lines) {
+  void _showTotalTaxPopover(
+    BuildContext context,
+    List<_VCTaxSummaryLine> lines,
+  ) {
     _totalTaxOverlay?.remove();
     _totalTaxOverlay = null;
 
@@ -1847,103 +2033,152 @@ class _VendorCreditsCreatePageState extends ConsumerState<VendorCreditsCreatePag
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Header
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: const BoxDecoration(
-                              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Update Taxes Amount ( in INR )',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () {
-                                    _totalTaxOverlay?.remove();
-                                    _totalTaxOverlay = null;
-                                    for (final c in controllers.values) c.dispose();
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(3),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: AppTheme.primaryBlue),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Icon(LucideIcons.x, size: 13, color: Colors.red),
-                                  ),
-                                ),
-                              ],
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: AppTheme.borderLight),
                             ),
                           ),
-                          // Tax lines
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-                            child: Column(
-                              children: [
-                                for (final line in effectiveLines)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(line.label, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Update Taxes Amount ( in INR )',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  _totalTaxOverlay?.remove();
+                                  _totalTaxOverlay = null;
+                                  for (final c in controllers.values)
+                                    c.dispose();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    LucideIcons.x,
+                                    size: 13,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Tax lines
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+                          child: Column(
+                            children: [
+                              for (final line in effectiveLines)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          line.label,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                          ),
                                         ),
-                                        const SizedBox(width: 12),
-                                        SizedBox(
-                                          width: 100,
-                                          height: 34,
-                                          child: TextField(
-                                            controller: controllers[line.label],
-                                            keyboardType: TextInputType.number,
-                                            textAlign: TextAlign.right,
-                                            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                                            decoration: InputDecoration(
-                                              isDense: true,
-                                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: AppTheme.borderLight)),
-                                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: AppTheme.borderLight)),
-                                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: AppTheme.primaryBlue)),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      SizedBox(
+                                        width: 100,
+                                        height: 34,
+                                        child: TextField(
+                                          controller: controllers[line.label],
+                                          keyboardType: TextInputType.number,
+                                          textAlign: TextAlign.right,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 9,
+                                                ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: const BorderSide(
+                                                color: AppTheme.borderLight,
+                                              ),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: const BorderSide(
+                                                color: AppTheme.borderLight,
+                                              ),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: const BorderSide(
+                                                color: AppTheme.primaryBlue,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                              ],
-                            ),
+                                ),
+                            ],
                           ),
-                          // Update button
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-                            child: ZButton.primary(
-                              label: 'Update',
-                              onPressed: () {
-                                final newOverrides = <String, double>{};
-                                for (final line in effectiveLines) {
-                                  final c = controllers[line.label];
-                                  if (c != null) {
-                                    newOverrides[line.label] = double.tryParse(c.text.trim()) ?? line.amount;
-                                  }
+                        ),
+                        // Update button
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
+                          child: ZButton.primary(
+                            label: 'Update',
+                            onPressed: () {
+                              final newOverrides = <String, double>{};
+                              for (final line in effectiveLines) {
+                                final c = controllers[line.label];
+                                if (c != null) {
+                                  newOverrides[line.label] =
+                                      double.tryParse(c.text.trim()) ??
+                                      line.amount;
                                 }
-                                _totalTaxOverlay?.remove();
-                                _totalTaxOverlay = null;
-                                for (final c in controllers.values) c.dispose();
-                                setState(() => _taxOverrides = newOverrides);
-                              },
-                            ),
+                              }
+                              _totalTaxOverlay?.remove();
+                              _totalTaxOverlay = null;
+                              for (final c in controllers.values) c.dispose();
+                              setState(() => _taxOverrides = newOverrides);
+                            },
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
+            ),
           ],
         ),
       ),
@@ -2162,27 +2397,39 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
     if (_overrideLines != null) return _overrideLines!;
     final c = widget.customer;
     final lines = <String>[];
-    if ((c.billingAddressStreet1 ?? '').isNotEmpty) lines.add(c.billingAddressStreet1!);
-    if ((c.billingAddressStreet2 ?? '').isNotEmpty) lines.add(c.billingAddressStreet2!);
-    if ((c.billingAddressCity ?? '').isNotEmpty) lines.add(c.billingAddressCity!);
+    if ((c.billingAddressStreet1 ?? '').isNotEmpty)
+      lines.add(c.billingAddressStreet1!);
+    if ((c.billingAddressStreet2 ?? '').isNotEmpty)
+      lines.add(c.billingAddressStreet2!);
+    if ((c.billingAddressCity ?? '').isNotEmpty)
+      lines.add(c.billingAddressCity!);
     if ((c.billingAddressStateId ?? '').isNotEmpty) {
-      final zip = (c.billingAddressZip ?? '').isNotEmpty ? ' ${c.billingAddressZip}' : '';
+      final zip = (c.billingAddressZip ?? '').isNotEmpty
+          ? ' ${c.billingAddressZip}'
+          : '';
       lines.add('${c.billingAddressStateId}$zip');
     }
-    if ((c.billingAddressPhone ?? '').isNotEmpty) lines.add('Phone: ${c.billingAddressPhone}');
+    if ((c.billingAddressPhone ?? '').isNotEmpty)
+      lines.add('Phone: ${c.billingAddressPhone}');
     return lines;
   }
 
-  String get _displayName => _overrideName ?? widget.customer.displayName.toUpperCase();
+  String get _displayName =>
+      _overrideName ?? widget.customer.displayName.toUpperCase();
 
   String get _gstTreatmentLabel {
     if (_overrideGstTreatment != null) return _overrideGstTreatment!;
     switch (widget.customer.gstTreatment?.toLowerCase()) {
-      case 'registered_business': return 'Registered Business - Regular';
-      case 'unregistered_business': return 'Unregistered Business';
-      case 'overseas': return 'Overseas';
-      case 'consumer': return 'Consumer';
-      default: return widget.customer.gstTreatment ?? 'Unregistered Business';
+      case 'registered_business':
+        return 'Registered Business - Regular';
+      case 'unregistered_business':
+        return 'Unregistered Business';
+      case 'overseas':
+        return 'Overseas';
+      case 'consumer':
+        return 'Consumer';
+      default:
+        return widget.customer.gstTreatment ?? 'Unregistered Business';
     }
   }
 
@@ -2197,60 +2444,82 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
   }
 
   void _openBillingPicker(BuildContext context) {
-    if (_billingOverlay != null) { _closeBillingPicker(); return; }
+    if (_billingOverlay != null) {
+      _closeBillingPicker();
+      return;
+    }
     final addr = {'name': _displayName, 'lines': _billingLines};
-    _billingOverlay = OverlayEntry(builder: (ctx) {
-      return Stack(children: [
-        GestureDetector(onTap: _closeBillingPicker, behavior: HitTestBehavior.translucent, child: const SizedBox.expand()),
-        CompositedTransformFollower(
-          link: _billingLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, 20),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: Material(
-              color: AppTheme.backgroundColor,
-              elevation: 8,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 320,
-                decoration: BoxDecoration(
+    _billingOverlay = OverlayEntry(
+      builder: (ctx) {
+        return Stack(
+          children: [
+            GestureDetector(
+              onTap: _closeBillingPicker,
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+            CompositedTransformFollower(
+              link: _billingLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 20),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Material(
                   color: AppTheme.backgroundColor,
+                  elevation: 8,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderLight),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _VCAddressPickerRow(
-                      address: addr,
-                      isSelected: true,
-                      onSelected: _closeBillingPicker,
-                      onEdit: () {
-                        _closeBillingPicker();
-                        _openAddressEditDialog(context, addr);
-                      },
+                  child: Container(
+                    width: 320,
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderLight),
                     ),
-                    const Divider(height: 1, color: AppTheme.borderLight),
-                    _VCNewAddressAction(
-                      onTap: () {
-                        _closeBillingPicker();
-                        _openAddressEditDialog(context, const <String, dynamic>{'name': '', 'lines': <String>[]}, isNew: true);
-                      },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _VCAddressPickerRow(
+                          address: addr,
+                          isSelected: true,
+                          onSelected: _closeBillingPicker,
+                          onEdit: () {
+                            _closeBillingPicker();
+                            _openAddressEditDialog(context, addr);
+                          },
+                        ),
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                        _VCNewAddressAction(
+                          onTap: () {
+                            _closeBillingPicker();
+                            _openAddressEditDialog(
+                              context,
+                              const <String, dynamic>{
+                                'name': '',
+                                'lines': <String>[],
+                              },
+                              isNew: true,
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
-      ]);
-    });
+          ],
+        );
+      },
+    );
     Overlay.of(context).insert(_billingOverlay!);
     setState(() {});
   }
 
-  void _openAddressEditDialog(BuildContext context, Map<String, dynamic> addr, {bool isNew = false}) {
+  void _openAddressEditDialog(
+    BuildContext context,
+    Map<String, dynamic> addr, {
+    bool isNew = false,
+  }) {
     showDialog<Map<String, dynamic>?>(
       context: context,
       barrierColor: AppTheme.textPrimary.withValues(alpha: 0.4),
@@ -2279,7 +2548,10 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
   }
 
   void _openGstTreatmentPopover(BuildContext context) {
-    if (_gstTreatmentOverlay != null) { _closeGstTreatmentPopover(); return; }
+    if (_gstTreatmentOverlay != null) {
+      _closeGstTreatmentPopover();
+      return;
+    }
 
     String selectedTreatment = _gstTreatmentLabel;
     final gstinCtrl = TextEditingController(text: _gstinValue);
@@ -2297,201 +2569,296 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
       'SEZ Developer',
     ];
 
-    if (!treatments.contains(selectedTreatment)) selectedTreatment = treatments.first;
+    if (!treatments.contains(selectedTreatment))
+      selectedTreatment = treatments.first;
 
     _gstTreatmentOverlay = OverlayEntry(
-      builder: (ctx) => Stack(children: [
-        GestureDetector(
-          onTap: () {
-            gstinCtrl.dispose();
-            _closeGstTreatmentPopover();
-          },
-          behavior: HitTestBehavior.translucent,
-          child: const SizedBox.expand(),
-        ),
-        CompositedTransformFollower(
-          link: _gstTreatmentLink,
-          showWhenUnlinked: false,
-          targetAnchor: Alignment.bottomLeft,
-          followerAnchor: Alignment.topLeft,
-          offset: const Offset(0, 6),
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
-            child: StatefulBuilder(
-              builder: (context, setPopup) {
-                return Container(
-                  width: 320,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.borderLight),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Configure Tax Preferences',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              gstinCtrl.dispose();
-                              _closeGstTreatmentPopover();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
-                                borderRadius: BorderRadius.circular(4),
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            onTap: () {
+              gstinCtrl.dispose();
+              _closeGstTreatmentPopover();
+            },
+            behavior: HitTestBehavior.translucent,
+            child: const SizedBox.expand(),
+          ),
+          CompositedTransformFollower(
+            link: _gstTreatmentLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 6),
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+              child: StatefulBuilder(
+                builder: (context, setPopup) {
+                  return Container(
+                    width: 320,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.borderLight),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Configure Tax Preferences',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
-                              child: const Icon(LucideIcons.x, size: 12, color: AppTheme.errorRed),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      const SizedBox(height: 12),
-                      // GST Treatment
-                      const Text('GST Treatment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
-                      const SizedBox(height: 6),
-                      FormDropdown<String>(
-                        value: selectedTreatment,
-                        items: treatments,
-                        height: 34,
-                        onChanged: (v) { if (v != null) setPopup(() => selectedTreatment = v); },
-                      ),
-                      const SizedBox(height: 12),
-                      // GSTIN
-                      const Text.rich(
-                        TextSpan(children: [
-                          TextSpan(text: 'GSTIN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
-                          TextSpan(text: '*', style: TextStyle(fontSize: 12, color: AppTheme.errorRed)),
-                        ]),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: gstinCtrl,
-                        maxLines: 1,
-                        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                        decoration: InputDecoration(
-                          hintText: 'Enter GSTIN',
-                          hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: AppTheme.borderLight),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: AppTheme.borderLight),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                            GestureDetector(
+                              onTap: () {
+                                gstinCtrl.dispose();
+                                _closeGstTreatmentPopover();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: AppTheme.primaryBlue,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  LucideIcons.x,
+                                  size: 12,
+                                  color: AppTheme.errorRed,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                        const SizedBox(height: 12),
+                        // GST Treatment
+                        const Text(
+                          'GST Treatment',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textPrimary,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () {},
-                        child: const Text('Get Taxpayer details', style: TextStyle(fontSize: 11, color: AppTheme.primaryBlue, fontWeight: FontWeight.w500)),
-                      ),
-                      const SizedBox(height: 12),
-                      // Make it permanent
-                      const Text('Make it permanent?', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
-                      const SizedBox(height: 6),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: Checkbox(
-                              value: makePermanent,
-                              onChanged: (v) => setPopup(() => makePermanent = v ?? false),
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              activeColor: AppTheme.primaryBlue,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Expanded(
-                            child: Text(
-                              'Use these settings for all future transactions of this vendor.',
-                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      // Footer buttons
-                      Row(
-                        children: [
-                          SizedBox(
-                            height: 30,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                final result = {
-                                  'gstTreatment': selectedTreatment,
-                                  'gstin': gstinCtrl.text.trim(),
-                                };
-                                gstinCtrl.dispose();
-                                _closeGstTreatmentPopover();
-                                if (mounted) {
-                                  setState(() {
-                                    _overrideGstTreatment = result['gstTreatment'];
-                                    _overrideGstin = (result['gstin']?.isNotEmpty == true) ? result['gstin'] : null;
-                                  });
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.accentGreen,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        const SizedBox(height: 6),
+                        FormDropdown<String>(
+                          value: selectedTreatment,
+                          items: treatments,
+                          height: 34,
+                          onChanged: (v) {
+                            if (v != null)
+                              setPopup(() => selectedTreatment = v);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // GSTIN
+                        const Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'GSTIN',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
-                              child: const Text('Update', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            height: 30,
-                            child: OutlinedButton(
-                              onPressed: () {
-                                gstinCtrl.dispose();
-                                _closeGstTreatmentPopover();
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.textSecondary,
-                                side: const BorderSide(color: AppTheme.borderLight),
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              TextSpan(
+                                text: '*',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.errorRed,
+                                ),
                               ),
-                              child: const Text('Cancel', style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: gstinCtrl,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Enter GSTIN',
+                            hintStyle: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textMuted,
+                            ),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 9,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                              borderSide: const BorderSide(
+                                color: AppTheme.borderLight,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                              borderSide: const BorderSide(
+                                color: AppTheme.borderLight,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                              borderSide: const BorderSide(
+                                color: AppTheme.primaryBlue,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+                        ),
+                        const SizedBox(height: 4),
+                        GestureDetector(
+                          onTap: () {},
+                          child: const Text(
+                            'Get Taxpayer details',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.primaryBlue,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Make it permanent
+                        const Text(
+                          'Make it permanent?',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: Checkbox(
+                                value: makePermanent,
+                                onChanged: (v) =>
+                                    setPopup(() => makePermanent = v ?? false),
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                activeColor: AppTheme.primaryBlue,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Expanded(
+                              child: Text(
+                                'Use these settings for all future transactions of this vendor.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        // Footer buttons
+                        Row(
+                          children: [
+                            SizedBox(
+                              height: 30,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  final result = {
+                                    'gstTreatment': selectedTreatment,
+                                    'gstin': gstinCtrl.text.trim(),
+                                  };
+                                  gstinCtrl.dispose();
+                                  _closeGstTreatmentPopover();
+                                  if (mounted) {
+                                    setState(() {
+                                      _overrideGstTreatment =
+                                          result['gstTreatment'];
+                                      _overrideGstin =
+                                          (result['gstin']?.isNotEmpty == true)
+                                          ? result['gstin']
+                                          : null;
+                                    });
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.accentGreen,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Update',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 30,
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  gstinCtrl.dispose();
+                                  _closeGstTreatmentPopover();
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.textSecondary,
+                                  side: const BorderSide(
+                                    color: AppTheme.borderLight,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
 
     Overlay.of(context).insert(_gstTreatmentOverlay!);
@@ -2507,100 +2874,143 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
   }
 
   void _openGstinPopover(BuildContext context) {
-    if (_gstinOverlay != null) { _closeGstinPopover(); return; }
+    if (_gstinOverlay != null) {
+      _closeGstinPopover();
+      return;
+    }
 
     final gstin = _gstinValue;
     final state = widget.customer.billingAddressStateId ?? '';
-    final label = gstin.isNotEmpty ? '$gstin${state.isNotEmpty ? ' - $state' : ''}' : 'No GSTIN';
+    final label = gstin.isNotEmpty
+        ? '$gstin${state.isNotEmpty ? ' - $state' : ''}'
+        : 'No GSTIN';
 
-    _gstinOverlay = OverlayEntry(builder: (ctx) {
-      return Stack(children: [
-        GestureDetector(onTap: _closeGstinPopover, behavior: HitTestBehavior.translucent, child: const SizedBox.expand()),
-        CompositedTransformFollower(
-          link: _gstinLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, 4),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: Material(
-              color: Colors.white,
-              elevation: 6,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: 300,
-                decoration: BoxDecoration(
+    _gstinOverlay = OverlayEntry(
+      builder: (ctx) {
+        return Stack(
+          children: [
+            GestureDetector(
+              onTap: _closeGstinPopover,
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+            CompositedTransformFollower(
+              link: _gstinLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 4),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Material(
                   color: Colors.white,
+                  elevation: 6,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderLight),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // GSTIN row
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              label,
-                              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
-                            ),
+                  child: Container(
+                    width: 300,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.borderLight),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // GSTIN row
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
                           ),
-                          Column(
+                          child: Row(
                             children: [
-                              GestureDetector(
-                                onTap: () {},
-                                child: const Icon(Icons.arrow_drop_up, size: 16, color: AppTheme.textSecondary),
+                              Expanded(
+                                child: Text(
+                                  label,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
-                              GestureDetector(
-                                onTap: () {},
-                                child: const Icon(Icons.arrow_drop_down, size: 16, color: AppTheme.textSecondary),
+                              Column(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {},
+                                    child: const Icon(
+                                      Icons.arrow_drop_up,
+                                      size: 16,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {},
+                                    child: const Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 16,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: AppTheme.borderLight),
-                    // Manage Tax Informations
-                    InkWell(
-                      onTap: () {
-                        _closeGstinPopover();
-                        showDialog<void>(
-                          context: context,
-                          barrierColor: Colors.black.withValues(alpha: 0.35),
-                          builder: (_) => _VCManageTaxInfoDialog(
-                            gstin: _gstinValue,
-                            placeOfSupply: widget.customer.billingAddressStateId ?? '',
-                            onSelected: (gstin) {
-                              if (mounted) setState(() => _overrideGstin = gstin);
-                            },
-                          ),
-                        );
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        child: Row(
-                          children: [
-                            Text(
-                              'Manage Tax Informations',
-                              style: TextStyle(fontSize: 13, color: AppTheme.primaryBlue, fontWeight: FontWeight.w500),
-                            ),
-                            SizedBox(width: 6),
-                            Icon(LucideIcons.settings, size: 14, color: AppTheme.primaryBlue),
-                          ],
                         ),
-                      ),
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                        // Manage Tax Informations
+                        InkWell(
+                          onTap: () {
+                            _closeGstinPopover();
+                            showDialog<void>(
+                              context: context,
+                              barrierColor: Colors.black.withValues(
+                                alpha: 0.35,
+                              ),
+                              builder: (_) => _VCManageTaxInfoDialog(
+                                gstin: _gstinValue,
+                                placeOfSupply:
+                                    widget.customer.billingAddressStateId ?? '',
+                                onSelected: (gstin) {
+                                  if (mounted)
+                                    setState(() => _overrideGstin = gstin);
+                                },
+                              ),
+                            );
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  'Manage Tax Informations',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.primaryBlue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Icon(
+                                  LucideIcons.settings,
+                                  size: 14,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
-      ]);
-    });
+          ],
+        );
+      },
+    );
     Overlay.of(context).insert(_gstinOverlay!);
     setState(() {});
   }
@@ -2621,7 +3031,11 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
     final hasGstin = _gstinValue.isNotEmpty;
 
     return Padding(
-      padding: EdgeInsets.only(left: widget.labelWidth + 16, bottom: 12, top: 4),
+      padding: EdgeInsets.only(
+        left: widget.labelWidth + 16,
+        bottom: 12,
+        top: 4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2631,19 +3045,35 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
             child: GestureDetector(
               onTap: () => _openBillingPicker(context),
               child: Container(
-                padding: isBillingOpen ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4) : EdgeInsets.zero,
+                padding: isBillingOpen
+                    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+                    : EdgeInsets.zero,
                 decoration: isBillingOpen
-                    ? BoxDecoration(border: Border.all(color: AppTheme.primaryBlue), borderRadius: BorderRadius.circular(4))
+                    ? BoxDecoration(
+                        border: Border.all(color: AppTheme.primaryBlue),
+                        borderRadius: BorderRadius.circular(4),
+                      )
                     : null,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
                       'BILLING ADDRESS',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 0.5),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                     const SizedBox(width: 6),
-                    Icon(LucideIcons.pencil, size: 12, color: isBillingOpen ? AppTheme.primaryBlue : AppTheme.textSecondary),
+                    Icon(
+                      LucideIcons.pencil,
+                      size: 12,
+                      color: isBillingOpen
+                          ? AppTheme.primaryBlue
+                          : AppTheme.textSecondary,
+                    ),
                   ],
                 ),
               ),
@@ -2651,13 +3081,26 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
           ),
           const SizedBox(height: 6),
           // Vendor name
-          Text(_displayName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          Text(
+            _displayName,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
           const SizedBox(height: 2),
           // Address lines
           ..._billingLines.map(
             (line) => Padding(
               padding: const EdgeInsets.only(bottom: 2),
-              child: Text(line, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              child: Text(
+                line,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
             ),
           ),
           // Space after last address line (after phone)
@@ -2668,12 +3111,28 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('GST Treatment: ', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                Text(_gstTreatmentLabel, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
+                const Text(
+                  'GST Treatment: ',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                ),
+                Text(
+                  _gstTreatmentLabel,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(width: 6),
                 GestureDetector(
                   onTap: () => _openGstTreatmentPopover(context),
-                  child: Icon(LucideIcons.pencil, size: 12, color: isGstTreatmentOpen ? AppTheme.primaryBlue : AppTheme.textMuted),
+                  child: Icon(
+                    LucideIcons.pencil,
+                    size: 12,
+                    color: isGstTreatmentOpen
+                        ? AppTheme.primaryBlue
+                        : AppTheme.textMuted,
+                  ),
                 ),
               ],
             ),
@@ -2688,16 +3147,31 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
                 children: [
                   Text(
                     'GSTIN: ',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.3,
+                    ),
                   ),
                   Text(
                     _gstinValue,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   GestureDetector(
                     onTap: () => _openGstinPopover(context),
-                    child: Icon(LucideIcons.pencil, size: 12, color: isGstinOpen ? AppTheme.primaryBlue : AppTheme.textMuted),
+                    child: Icon(
+                      LucideIcons.pencil,
+                      size: 12,
+                      color: isGstinOpen
+                          ? AppTheme.primaryBlue
+                          : AppTheme.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -2719,7 +3193,11 @@ class _DatePickerField extends StatelessWidget {
   final DateTime? date;
   final ValueChanged<DateTime> onPick;
 
-  const _DatePickerField({required this.globalKey, required this.date, required this.onPick});
+  const _DatePickerField({
+    required this.globalKey,
+    required this.date,
+    required this.onPick,
+  });
 
   String _fmt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
@@ -2751,11 +3229,17 @@ class _DatePickerField extends StatelessWidget {
                 date != null ? _fmt(date!) : 'dd-MM-yyyy',
                 style: TextStyle(
                   fontSize: 13,
-                  color: date != null ? AppTheme.textPrimary : AppTheme.textHint,
+                  color: date != null
+                      ? AppTheme.textPrimary
+                      : AppTheme.textHint,
                 ),
               ),
             ),
-            const Icon(LucideIcons.calendar, size: 14, color: AppTheme.textSecondary),
+            const Icon(
+              LucideIcons.calendar,
+              size: 14,
+              color: AppTheme.textSecondary,
+            ),
           ],
         ),
       ),
@@ -2818,7 +3302,9 @@ class _VCNewTaxFormDialogState extends State<_VCNewTaxFormDialog> {
     final typeLabel = widget.isTds ? 'TDS' : 'TCS';
     final payableLabel = widget.isTds ? 'TDS Payable' : 'TCS Payable';
     final receivableLabel = widget.isTds ? 'TDS Receivable' : 'TCS Receivable';
-    final higherLabel = widget.isTds ? 'This is a Higher TDS Rate' : 'This is a Higher TCS Rate';
+    final higherLabel = widget.isTds
+        ? 'This is a Higher TDS Rate'
+        : 'This is a Higher TCS Rate';
 
     return Material(
       color: Colors.white,
@@ -2830,231 +3316,350 @@ class _VCNewTaxFormDialogState extends State<_VCNewTaxFormDialog> {
       child: SizedBox(
         width: 520,
         child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Title bar
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 18, 18, 18),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'New $typeLabel',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-                    ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title bar
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 18, 18, 18),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.borderLight),
                   ),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(LucideIcons.x, size: 18, color: AppTheme.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-            // Form body
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Row 1: Tax Name + Rate
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            RichText(
-                              text: const TextSpan(
-                                text: 'Tax Name',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
-                                children: [TextSpan(text: '*', style: TextStyle(color: Colors.red))],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            CustomTextField(
-                              controller: _taxNameCtrl,
-                              hintText: '',
-                              height: 36,
-                            ),
-                          ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'New $typeLabel',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            RichText(
-                              text: const TextSpan(
-                                text: 'Rate (%)',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
-                                children: [TextSpan(text: '*', style: TextStyle(color: Colors.red))],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            CustomTextField(
-                              controller: _rateCtrl,
-                              hintText: '',
-                              height: 36,
-                              keyboardType: TextInputType.number,
-                            ),
-                          ],
-                        ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 18,
+                        color: AppTheme.textSecondary,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Applicable Income Tax Act
-                  const Text('Applicable Income Tax Act', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
-                  const SizedBox(height: 6),
-                  FormDropdown<String>(
-                    value: _incomeAct,
-                    items: _incomeTaxActs,
-                    hint: 'Select',
-                    height: 36,
-                    onChanged: (val) { if (val != null) setState(() => _incomeAct = val); },
-                  ),
-                  const SizedBox(height: 16),
-                  // Nature of Collection
-                  RichText(
-                    text: const TextSpan(
-                      text: 'Nature of Collection',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
-                      children: [TextSpan(text: '*', style: TextStyle(color: Colors.red))],
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  FormDropdown<String>(
-                    value: _natureOfCollection,
-                    items: _natureOptions,
-                    hint: 'Select a Tax Type.',
-                    height: 36,
-                    onChanged: (val) => setState(() => _natureOfCollection = val),
-                  ),
-                  const SizedBox(height: 16),
-                  // Info note
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.infoBg,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
+                  ],
+                ),
+              ),
+              // Form body
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Row 1: Tax Name + Rate
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(LucideIcons.info, size: 14, color: AppTheme.primaryBlue),
-                        const SizedBox(width: 8),
                         Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textBody),
-                              children: [
-                                TextSpan(text: 'By default, $typeLabel will be tracked under '),
-                                TextSpan(text: payableLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                const TextSpan(text: ' and '),
-                                TextSpan(text: receivableLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                const TextSpan(text: ' accounts. Click Edit to choose an account of your choice. '),
-                                const TextSpan(
-                                  text: 'Edit',
-                                  style: TextStyle(color: AppTheme.primaryBlue, decoration: TextDecoration.underline),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              RichText(
+                                text: const TextSpan(
+                                  text: 'Tax Name',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: '*',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 6),
+                              CustomTextField(
+                                controller: _taxNameCtrl,
+                                hintText: '',
+                                height: 36,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              RichText(
+                                text: const TextSpan(
+                                  text: 'Rate (%)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: '*',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              CustomTextField(
+                                controller: _rateCtrl,
+                                hintText: '',
+                                height: 36,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Higher rate checkbox
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: Checkbox(
-                          value: _isHigherRate,
-                          onChanged: (v) => setState(() => _isHigherRate = v ?? false),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
+                    const SizedBox(height: 16),
+                    // Applicable Income Tax Act
+                    const Text(
+                      'Applicable Income Tax Act',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    FormDropdown<String>(
+                      value: _incomeAct,
+                      items: _incomeTaxActs,
+                      hint: 'Select',
+                      height: 36,
+                      onChanged: (val) {
+                        if (val != null) setState(() => _incomeAct = val);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Nature of Collection
+                    RichText(
+                      text: const TextSpan(
+                        text: 'Nature of Collection',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textPrimary,
                         ),
+                        children: [
+                          TextSpan(
+                            text: '*',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(higherLabel, style: const TextStyle(fontSize: 13, color: AppTheme.textBody)),
-                      const SizedBox(width: 6),
-                      ZTooltip(
-                        message: 'Select this if a higher $typeLabel rate applies when PAN is not provided.',
-                        child: const Icon(LucideIcons.helpCircle, size: 14, color: AppTheme.textSecondary),
+                    ),
+                    const SizedBox(height: 6),
+                    FormDropdown<String>(
+                      value: _natureOfCollection,
+                      items: _natureOptions,
+                      hint: 'Select a Tax Type.',
+                      height: 36,
+                      onChanged: (val) =>
+                          setState(() => _natureOfCollection = val),
+                    ),
+                    const SizedBox(height: 16),
+                    // Info note
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.infoBg,
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  // Applicable Period
-                  Row(
-                    children: [
-                      const Text('Applicable Period', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                      const SizedBox(width: 6),
-                      ZTooltip(
-                        message: 'The date range during which this $typeLabel rate is applicable.',
-                        child: const Icon(LucideIcons.helpCircle, size: 14, color: AppTheme.textSecondary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Start Date', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                            const SizedBox(height: 6),
-                            _DatePickerField(
-                              globalKey: _startDateKey,
-                              date: _startDate,
-                              onPick: (d) => setState(() => _startDate = d),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            LucideIcons.info,
+                            size: 14,
+                            color: AppTheme.primaryBlue,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textBody,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text:
+                                        'By default, $typeLabel will be tracked under ',
+                                  ),
+                                  TextSpan(
+                                    text: payableLabel,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const TextSpan(text: ' and '),
+                                  TextSpan(
+                                    text: receivableLabel,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const TextSpan(
+                                    text:
+                                        ' accounts. Click Edit to choose an account of your choice. ',
+                                  ),
+                                  const TextSpan(
+                                    text: 'Edit',
+                                    style: TextStyle(
+                                      color: AppTheme.primaryBlue,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('End Date', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                            const SizedBox(height: 6),
-                            _DatePickerField(
-                              globalKey: _endDateKey,
-                              date: _endDate,
-                              onPick: (d) => setState(() => _endDate = d),
+                    ),
+                    const SizedBox(height: 16),
+                    // Higher rate checkbox
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: Checkbox(
+                            value: _isHigherRate,
+                            onChanged: (v) =>
+                                setState(() => _isHigherRate = v ?? false),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            side: const BorderSide(
+                              color: AppTheme.borderColor,
+                              width: 1.5,
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  // Buttons
-                  Row(
-                    children: [
-                      ZButton.primary(label: 'Save', onPressed: () => Navigator.of(context).pop()),
-                      const SizedBox(width: 12),
-                      ZButton.secondary(label: 'Cancel', onPressed: () => Navigator.of(context).pop()),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 8),
+                        Text(
+                          higherLabel,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textBody,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        ZTooltip(
+                          message:
+                              'Select this if a higher $typeLabel rate applies when PAN is not provided.',
+                          child: const Icon(
+                            LucideIcons.helpCircle,
+                            size: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // Applicable Period
+                    Row(
+                      children: [
+                        const Text(
+                          'Applicable Period',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        ZTooltip(
+                          message:
+                              'The date range during which this $typeLabel rate is applicable.',
+                          child: const Icon(
+                            LucideIcons.helpCircle,
+                            size: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Start Date',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              _DatePickerField(
+                                globalKey: _startDateKey,
+                                date: _startDate,
+                                onPick: (d) => setState(() => _startDate = d),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'End Date',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              _DatePickerField(
+                                globalKey: _endDateKey,
+                                date: _endDate,
+                                onPick: (d) => setState(() => _endDate = d),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Buttons
+                    Row(
+                      children: [
+                        ZButton.primary(
+                          label: 'Save',
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        const SizedBox(width: 12),
+                        ZButton.secondary(
+                          label: 'Cancel',
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -3616,7 +4221,7 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Table header bar
         Container(
@@ -3764,120 +4369,115 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
               bottom: BorderSide(color: AppTheme.borderLight),
             ),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                const SizedBox(width: 40),
-                const Expanded(
-                  flex: 14,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('ITEM DETAILS'),
-                  ),
+          child: Row(
+            children: [
+              const SizedBox(width: 40),
+              const Expanded(
+                flex: 14,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: _TH('ITEM DETAILS'),
                 ),
-                _vLine(),
-                const Expanded(
-                  flex: 6,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('ACCOUNT'),
-                  ),
+              ),
+              _vLine(),
+              const Expanded(
+                flex: 6,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: _TH('ACCOUNT'),
                 ),
-                _vLine(),
-                const Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('QUANTITY', right: true),
-                  ),
+              ),
+              _vLine(),
+              const Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: _TH('QUANTITY', right: true),
                 ),
-                _vLine(),
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        const _TH('RATE'),
-                        const SizedBox(width: 4),
-                        Icon(
-                          LucideIcons.layoutGrid,
-                          size: 14,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ],
-                    ),
+              ),
+              _vLine(),
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-                ),
-                _vLine(),
-                if (widget.discountType == 'At Line Item Level') ...[
-                  const Expanded(
-                    flex: 3,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const _TH('RATE'),
+                      const SizedBox(width: 4),
+                      Icon(
+                        LucideIcons.layoutGrid,
+                        size: 14,
+                        color: AppTheme.textSecondary,
                       ),
-                      child: _TH('DISCOUNT', right: true),
-                    ),
+                    ],
                   ),
-                  _vLine(),
-                ],
-                Expanded(
-                  flex: 4,
+                ),
+              ),
+              _vLine(),
+              if (widget.discountType == 'At Line Item Level') ...[
+                const Expanded(
+                  flex: 3,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    child: widget.isReverseCharge
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Text(
-                                'TAX',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textSecondary,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              Text(
-                                '(REVERSE CHARGE)',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryBlue,
-                                  letterSpacing: 0.3,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          )
-                        : const _TH(
-                            'TAX',
-                            tooltip:
-                                'Applicable tax for the items. You can select a tax rate from the list.',
-                          ),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: _TH('DISCOUNT', right: true),
                   ),
                 ),
                 _vLine(),
-                const Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('AMOUNT', right: true),
-                  ),
-                ),
               ],
-            ),
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: widget.isReverseCharge
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text(
+                              'TAX',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            Text(
+                              '(REVERSE CHARGE)',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryBlue,
+                                letterSpacing: 0.3,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        )
+                      : const _TH(
+                          'TAX',
+                          tooltip:
+                              'Applicable tax for the items. You can select a tax rate from the list.',
+                        ),
+                ),
+              ),
+              _vLine(),
+              const Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: _TH('AMOUNT', right: true),
+                ),
+              ),
+            ],
           ),
         ),
         // Item rows
@@ -3895,75 +4495,71 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
                 setState(() => _hoveredItemActionIndex = null);
               }
             },
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundColor,
-                        border: Border(
-                          left: BorderSide(color: AppTheme.borderLight),
-                          right: BorderSide(color: AppTheme.borderLight),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          _VCItemRow(
-                            item: widget.items[index],
-                            availableProducts: widget.availableProducts,
-                            onSearchProducts: widget.onSearchProducts,
-                            onChanged: widget.onTotalsChanged,
-                            onAddBatches: () =>
-                                widget.onAddBatches(widget.items[index]),
-                            defaultWarehouse: widget.warehouse,
-                            accountTree: widget.accountTree,
-                            taxOptions: widget.taxOptions,
-                            selectedStockView: _selectedStockView,
-                            showAdditionalInformation:
-                                !_areAdditionalInfosHidden,
-                            onStockViewChanged: (v) =>
-                                setState(() => _selectedStockView = v),
-                            onViewItemDetails: () =>
-                                widget.onViewItemDetails(widget.items[index]),
-                            onViewItemDetailsTransactions: () =>
-                                widget.onViewItemDetailsTransactions(widget.items[index]),
-                            onEditItem: () =>
-                                widget.onEditItem(widget.items[index]),
-                            defaultPriceList: widget.defaultPriceList,
-                            discountType: widget.discountType,
-                          ),
-                          if (index < widget.items.length - 1)
-                            const Divider(
-                              height: 1,
-                              color: AppTheme.borderLight,
-                            ),
-                        ],
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      border: Border(
+                        left: BorderSide(color: AppTheme.borderLight),
+                        right: BorderSide(color: AppTheme.borderLight),
                       ),
                     ),
+                    child: Column(
+                      children: [
+                        _VCItemRow(
+                          item: widget.items[index],
+                          availableProducts: widget.availableProducts,
+                          onSearchProducts: widget.onSearchProducts,
+                          onChanged: widget.onTotalsChanged,
+                          onAddBatches: () =>
+                              widget.onAddBatches(widget.items[index]),
+                          defaultWarehouse: widget.warehouse,
+                          accountTree: widget.accountTree,
+                          taxOptions: widget.taxOptions,
+                          selectedStockView: _selectedStockView,
+                          showAdditionalInformation: !_areAdditionalInfosHidden,
+                          onStockViewChanged: (v) =>
+                              setState(() => _selectedStockView = v),
+                          onViewItemDetails: () =>
+                              widget.onViewItemDetails(widget.items[index]),
+                          onViewItemDetailsTransactions: () =>
+                              widget.onViewItemDetailsTransactions(
+                                widget.items[index],
+                              ),
+                          onEditItem: () =>
+                              widget.onEditItem(widget.items[index]),
+                          defaultPriceList: widget.defaultPriceList,
+                          discountType: widget.discountType,
+                        ),
+                        if (index < widget.items.length - 1)
+                          const Divider(height: 1, color: AppTheme.borderLight),
+                      ],
+                    ),
                   ),
-                  Row(
-                    children: [
-                      IgnorePointer(
-                        ignoring: !showActions,
-                        child: AnimatedOpacity(
-                          opacity: showActions ? 1 : 0,
-                          duration: const Duration(milliseconds: 120),
-                          child: SizedBox(
-                            width: _rowActionWidth,
-                            child: Center(child: _buildRowActionMenu(index)),
-                          ),
+                ),
+                Row(
+                  children: [
+                    IgnorePointer(
+                      ignoring: !showActions,
+                      child: AnimatedOpacity(
+                        opacity: showActions ? 1 : 0,
+                        duration: const Duration(milliseconds: 120),
+                        child: SizedBox(
+                          width: _rowActionWidth,
+                          child: Center(child: _buildRowActionMenu(index)),
                         ),
                       ),
-                      _VCDeleteRowButton(
-                        enabled: widget.items.length > 1,
-                        onTap: () => widget.onRemoveItem(index),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                    _VCDeleteRowButton(
+                      enabled: widget.items.length > 1,
+                      onTap: () => widget.onRemoveItem(index),
+                    ),
+                  ],
+                ),
+              ],
             ),
           );
         }),
@@ -4059,15 +4655,15 @@ class _VCItemRowState extends State<_VCItemRow> {
     _rateFocusNode = FocusNode();
     _rateFocusNode.addListener(() {
       if (_rateFocusNode.hasFocus) {
-        _previousRate =
-            double.tryParse(widget.item.rateController.text) ?? 0.0;
+        _previousRate = double.tryParse(widget.item.rateController.text) ?? 0.0;
       } else {
         _evaluateRateField();
         widget.onChanged();
       }
     });
     _hsnEditController = TextEditingController(
-      text: widget.item.hsnCodeOverride ?? widget.item.sourceItem?.hsnCode ?? '',
+      text:
+          widget.item.hsnCodeOverride ?? widget.item.sourceItem?.hsnCode ?? '',
     );
   }
 
@@ -4086,30 +4682,30 @@ class _VCItemRowState extends State<_VCItemRow> {
 
     if (val.startsWith('+=')) {
       final addVal = double.tryParse(val.substring(2)) ?? 0.0;
-      widget.item.rateController.text =
-          (_previousRate + addVal).toStringAsFixed(2);
+      widget.item.rateController.text = (_previousRate + addVal)
+          .toStringAsFixed(2);
       setState(() {});
       return;
     }
     if (val.startsWith('-=')) {
       final subVal = double.tryParse(val.substring(2)) ?? 0.0;
-      widget.item.rateController.text =
-          (_previousRate - subVal).toStringAsFixed(2);
+      widget.item.rateController.text = (_previousRate - subVal)
+          .toStringAsFixed(2);
       setState(() {});
       return;
     }
     if (val.startsWith('*=')) {
       final mulVal = double.tryParse(val.substring(2)) ?? 1.0;
-      widget.item.rateController.text =
-          (_previousRate * mulVal).toStringAsFixed(2);
+      widget.item.rateController.text = (_previousRate * mulVal)
+          .toStringAsFixed(2);
       setState(() {});
       return;
     }
     if (val.startsWith('/=')) {
       final divVal = double.tryParse(val.substring(2)) ?? 1.0;
       if (divVal != 0) {
-        widget.item.rateController.text =
-            (_previousRate / divVal).toStringAsFixed(2);
+        widget.item.rateController.text = (_previousRate / divVal)
+            .toStringAsFixed(2);
         setState(() {});
       }
       return;
@@ -4119,8 +4715,9 @@ class _VCItemRowState extends State<_VCItemRow> {
       String exp = val;
       if (exp.startsWith('=')) exp = exp.substring(1);
 
-      final match =
-          RegExp(r'^([\d.]+)\s*([\+\-\*\/])\s*([\d.]+)$').firstMatch(exp);
+      final match = RegExp(
+        r'^([\d.]+)\s*([\+\-\*\/])\s*([\d.]+)$',
+      ).firstMatch(exp);
       if (match != null) {
         final a = double.tryParse(match.group(1)!) ?? 0;
         final op = match.group(2)!;
@@ -4239,10 +4836,12 @@ class _VCItemRowState extends State<_VCItemRow> {
                                       value: option,
                                       groupValue: selected,
                                       onChanged: (v) {
-                                        if (v != null) setPopupState(() => selected = v);
+                                        if (v != null)
+                                          setPopupState(() => selected = v);
                                       },
                                       visualDensity: VisualDensity.compact,
-                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
                                       activeColor: AppTheme.primaryBlue,
                                     ),
                                   ),
@@ -4421,11 +5020,11 @@ class _VCItemRowState extends State<_VCItemRow> {
                             height: 30,
                             child: ElevatedButton(
                               onPressed: () {
-                                final val =
-                                    _hsnEditController.text.trim();
+                                final val = _hsnEditController.text.trim();
                                 setState(() {
-                                  widget.item.hsnCodeOverride =
-                                      val.isEmpty ? null : val;
+                                  widget.item.hsnCodeOverride = val.isEmpty
+                                      ? null
+                                      : val;
                                 });
                                 widget.onChanged();
                                 _closeHsnPopover();
@@ -4491,7 +5090,9 @@ class _VCItemRowState extends State<_VCItemRow> {
     if (widget.discountType == 'At Line Item Level') {
       final d = double.tryParse(item.discountController.text) ?? 0;
       final discountAmt = item.discountIsPercent ? gross * d / 100 : d;
-      return (gross - discountAmt).clamp(0.0, double.infinity).toStringAsFixed(2);
+      return (gross - discountAmt)
+          .clamp(0.0, double.infinity)
+          .toStringAsFixed(2);
     }
     return gross.clamp(0.0, double.infinity).toStringAsFixed(2);
   }
@@ -4522,647 +5123,641 @@ class _VCItemRowState extends State<_VCItemRow> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(
-            width: 40,
-            child: Padding(
-              padding: EdgeInsets.only(top: 14),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Icon(
-                  LucideIcons.gripVertical,
-                  size: 16,
-                  color: AppTheme.borderLight,
-                ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(
+          width: 40,
+          child: Padding(
+            padding: EdgeInsets.only(top: 14),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Icon(
+                LucideIcons.gripVertical,
+                size: 16,
+                color: AppTheme.borderLight,
               ),
             ),
           ),
-          // ITEM DETAILS
-          Expanded(
-            flex: 14,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppTheme.bgDisabled,
-                          borderRadius: BorderRadius.circular(4),
+        ),
+        // ITEM DETAILS
+        Expanded(
+          flex: 14,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppTheme.bgDisabled,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        LucideIcons.image,
+                        size: 20,
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FormDropdown<Item>(
+                        value: item.sourceItem,
+                        items: widget.availableProducts,
+                        hint: 'Type or click to select an item.',
+                        height: _VendorCreditsCreatePageState._tableFieldHeight,
+                        hideBorderDefault: true,
+                        allowClear: false,
+                        displayStringForValue: (p) => p.productName,
+                        searchStringForValue: (p) =>
+                            '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
+                        onSearch: widget.onSearchProducts,
+                        itemBuilder: (product, isSelected, isHovered) =>
+                            _VCProductDropdownItem(
+                              productName: product.productName,
+                              itemCode: product.itemCode,
+                              highlighted: isSelected || isHovered,
+                            ),
+                        onChanged: _onItemSelected,
+                      ),
+                    ),
+                    if (item.sourceItem != null) ...[
+                      const SizedBox(width: 4),
+                      PopupMenuButton<String>(
+                        offset: const Offset(0, 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: const BorderSide(color: AppTheme.borderLight),
                         ),
-                        child: const Icon(
-                          LucideIcons.image,
-                          size: 20,
-                          color: AppTheme.textMuted,
+                        color: Colors.white,
+                        elevation: 4,
+                        tooltip: '',
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(
+                          LucideIcons.moreHorizontal,
+                          size: 16,
+                          color: AppTheme.textSecondary,
+                        ),
+                        iconSize: 16,
+                        constraints: const BoxConstraints(
+                          minWidth: 200,
+                          maxWidth: 200,
+                        ),
+                        onSelected: (val) {
+                          if (val == 'details') {
+                            widget.onEditItem();
+                          } else if (val == 'view') {
+                            widget.onViewItemDetails();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem<String>(
+                            value: 'details',
+                            padding: EdgeInsets.zero,
+                            height: 44,
+                            child: _VCRowMenuHoverItem(
+                              label: 'Item Details',
+                              icon: LucideIcons.pencil,
+                            ),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'view',
+                            padding: EdgeInsets.zero,
+                            height: 44,
+                            child: _VCRowMenuHoverItem(
+                              label: 'View Item Details',
+                              icon: LucideIcons.shoppingBag,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 2),
+                      GestureDetector(
+                        onTap: () => _onItemSelected(null),
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(
+                            LucideIcons.x,
+                            size: 14,
+                            color: AppTheme.errorRed,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FormDropdown<Item>(
-                          value: item.sourceItem,
-                          items: widget.availableProducts,
-                          hint: 'Type or click to select an item.',
-                          height: _VendorCreditsCreatePageState._tableFieldHeight,
-                          hideBorderDefault: true,
-                          allowClear: false,
-                          displayStringForValue: (p) => p.productName,
-                          searchStringForValue: (p) =>
-                              '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
-                          onSearch: widget.onSearchProducts,
-                          itemBuilder: (product, isSelected, isHovered) =>
-                              _VCProductDropdownItem(
-                                productName: product.productName,
-                                itemCode: product.itemCode,
-                                highlighted: isSelected || isHovered,
+                    ],
+                  ],
+                ),
+                if (item.sourceItem != null) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 48),
+                    child: CustomTextField(
+                      controller: item.descriptionController,
+                      hintText: 'Item description',
+                      height: 32,
+                      hideBorderDefault: true,
+                      maxLines: 2,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 48),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.infoBg,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            item.sourceItem!.type.toUpperCase() == 'SERVICE'
+                                ? 'SERVICE'
+                                : 'GOODS',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.infoTextDark,
+                            ),
+                          ),
+                        ),
+                        if (item.sourceItem != null) ...[
+                          const SizedBox(width: 8),
+                          CompositedTransformTarget(
+                            link: _hsnLayerLink,
+                            child: GestureDetector(
+                              onTap: () => _showHsnPopover(context),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'HSN: ',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  Text(
+                                    item.hsnCodeOverride ??
+                                        item.sourceItem?.hsnCode ??
+                                        'â€”',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textPrimary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    LucideIcons.pencil,
+                                    size: 10,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                ],
                               ),
-                          onChanged: _onItemSelected,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+                if (widget.showAdditionalInformation) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 48, bottom: 4),
+                    child: _VCReportingTagsPopoverButton(
+                      item: item,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        _vLine(),
+        // ACCOUNT
+        Expanded(
+          flex: 6,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: AccountTreeDropdown(
+              value: item.selectedAccount,
+              nodes: widget.accountTree.isNotEmpty
+                  ? widget.accountTree
+                  : _vcFallbackAccountTree,
+              hint: 'Select Account',
+              height: _VendorCreditsCreatePageState._tableFieldHeight,
+              border: Border.all(color: Colors.transparent),
+              onChanged: (value) {
+                setState(() => item.selectedAccount = value);
+                widget.onChanged();
+              },
+            ),
+          ),
+        ),
+        _vLine(),
+        // QUANTITY
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                CustomTextField(
+                  controller: item.qtyController,
+                  height: _VendorCreditsCreatePageState._tableFieldHeight,
+                  textAlign: TextAlign.right,
+                  hintText: '0',
+                  hideBorderDefault: true,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => widget.onChanged(),
+                ),
+                if (item.sourceItem != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '${widget.selectedStockView}:',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: AppTheme.textSecondary,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                  Text(
+                    widget.selectedStockView == 'Available for Sale'
+                        ? '${item.sourceItem!.stockOnHand?.toStringAsFixed(0) ?? '0'} pcs'
+                        : '${item.sourceItem!.stockOnHand?.toStringAsFixed(0) ?? '0'} pcs',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: AppTheme.textSecondary,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                  const SizedBox(height: 4),
+                  WarehouseHoverPopover(
+                    productId: item.sourceItem?.id,
+                    warehouseName:
+                        item.warehouseLocation ?? widget.defaultWarehouse,
+                    selectedView: widget.selectedStockView,
+                    onViewChanged: widget.onStockViewChanged,
+                    onWarehouseChanged: (val) {
+                      setState(() => item.warehouseLocation = val);
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const Icon(
+                          LucideIcons.home,
+                          size: 12,
+                          color: AppTheme.primaryBlue,
                         ),
-                      ),
-                      if (item.sourceItem != null) ...[
                         const SizedBox(width: 4),
-                        PopupMenuButton<String>(
-                          offset: const Offset(0, 20),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: const BorderSide(
-                              color: AppTheme.borderLight,
+                        Flexible(
+                          child: Text(
+                            item.warehouseLocation ?? widget.defaultWarehouse,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.primaryBlue,
+                              decoration: TextDecoration.underline,
                             ),
-                          ),
-                          color: Colors.white,
-                          elevation: 4,
-                          tooltip: '',
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            LucideIcons.moreHorizontal,
-                            size: 16,
-                            color: AppTheme.textSecondary,
-                          ),
-                          iconSize: 16,
-                          constraints: const BoxConstraints(
-                            minWidth: 200,
-                            maxWidth: 200,
-                          ),
-                          onSelected: (val) {
-                            if (val == 'details') {
-                              widget.onEditItem();
-                            } else if (val == 'view') {
-                              widget.onViewItemDetails();
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem<String>(
-                              value: 'details',
-                              padding: EdgeInsets.zero,
-                              height: 44,
-                              child: _VCRowMenuHoverItem(
-                                label: 'Item Details',
-                                icon: LucideIcons.pencil,
-                              ),
-                            ),
-                            PopupMenuItem<String>(
-                              value: 'view',
-                              padding: EdgeInsets.zero,
-                              height: 44,
-                              child: _VCRowMenuHoverItem(
-                                label: 'View Item Details',
-                                icon: LucideIcons.shoppingBag,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 2),
-                        GestureDetector(
-                          onTap: () => _onItemSelected(null),
-                          behavior: HitTestBehavior.opaque,
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(
-                              LucideIcons.x,
-                              size: 14,
-                              color: AppTheme.errorRed,
-                            ),
+                            textAlign: TextAlign.right,
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48),
-                      child: CustomTextField(
-                        controller: item.descriptionController,
-                        hintText: 'Item description',
-                        height: 32,
-                        hideBorderDefault: true,
-                        maxLines: 2,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.infoBg,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              item.sourceItem!.type.toUpperCase() == 'SERVICE'
-                                  ? 'SERVICE'
-                                  : 'GOODS',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.infoTextDark,
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: widget.onAddBatches,
+                    child: item.savedBatches.isEmpty
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Icon(
+                                LucideIcons.alertTriangle,
+                                size: 12,
+                                color: AppTheme.errorRed,
                               ),
-                            ),
-                          ),
-                          if (item.sourceItem != null) ...[
-                            const SizedBox(width: 8),
-                            CompositedTransformTarget(
-                              link: _hsnLayerLink,
-                              child: GestureDetector(
-                                onTap: () => _showHsnPopover(context),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text(
-                                      'HSN: ',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                    Text(
-                                      item.hsnCodeOverride ??
-                                          item.sourceItem?.hsnCode ??
-                                          'â€”',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textPrimary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Icon(
-                                      LucideIcons.pencil,
-                                      size: 10,
-                                      color: AppTheme.primaryBlue,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (widget.showAdditionalInformation) ...[
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48, bottom: 4),
-                      child: _VCReportingTagsPopoverButton(
-                        item: item,
-                        onChanged: () => setState(() {}),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // ACCOUNT
-          Expanded(
-            flex: 6,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: AccountTreeDropdown(
-                value: item.selectedAccount,
-                nodes: widget.accountTree.isNotEmpty
-                    ? widget.accountTree
-                    : _vcFallbackAccountTree,
-                hint: 'Select Account',
-                height: _VendorCreditsCreatePageState._tableFieldHeight,
-                border: Border.all(color: Colors.transparent),
-                onChanged: (value) {
-                  setState(() => item.selectedAccount = value);
-                  widget.onChanged();
-                },
-              ),
-            ),
-          ),
-          _vLine(),
-          // QUANTITY
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  CustomTextField(
-                    controller: item.qtyController,
-                    height: _VendorCreditsCreatePageState._tableFieldHeight,
-                    textAlign: TextAlign.right,
-                    hintText: '0',
-                    hideBorderDefault: true,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => widget.onChanged(),
-                  ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '${widget.selectedStockView}:',
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: AppTheme.textSecondary,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                    Text(
-                      widget.selectedStockView == 'Available for Sale'
-                          ? '${item.sourceItem!.stockOnHand?.toStringAsFixed(0) ?? '0'} pcs'
-                          : '${item.sourceItem!.stockOnHand?.toStringAsFixed(0) ?? '0'} pcs',
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: AppTheme.textSecondary,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                    const SizedBox(height: 4),
-                    WarehouseHoverPopover(
-                      productId: item.sourceItem?.id,
-                      warehouseName:
-                          item.warehouseLocation ?? widget.defaultWarehouse,
-                      selectedView: widget.selectedStockView,
-                      onViewChanged: widget.onStockViewChanged,
-                      onWarehouseChanged: (val) {
-                        setState(() => item.warehouseLocation = val);
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          const Icon(
-                            LucideIcons.home,
-                            size: 12,
-                            color: AppTheme.primaryBlue,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              item.warehouseLocation ?? widget.defaultWarehouse,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: AppTheme.primaryBlue,
-                                decoration: TextDecoration.underline,
-                              ),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: widget.onAddBatches,
-                      child: item.savedBatches.isEmpty
-                          ? const Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Icon(
-                                  LucideIcons.alertTriangle,
-                                  size: 12,
-                                  color: AppTheme.errorRed,
-                                ),
-                                SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    'Add Batches',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppTheme.errorRed,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                              SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'Add Batches',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.errorRed,
+                                    decoration: TextDecoration.underline,
                                   ),
-                                ),
-                              ],
-                            )
-                          : Text(
-                              '${item.savedBatches.fold(0, (sum, b) => sum + (int.tryParse(b.quantityController.text) ?? 0))} pcs / ${item.savedBatches.length} ${item.savedBatches.length == 1 ? 'batch' : 'batches'}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: AppTheme.primaryBlue,
-                                decoration: TextDecoration.underline,
-                              ),
-                              textAlign: TextAlign.right,
-                            ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // RATE
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  CustomTextField(
-                    controller: item.rateController,
-                    focusNode: _rateFocusNode,
-                    height: _VendorCreditsCreatePageState._tableFieldHeight,
-                    textAlign: TextAlign.right,
-                    hintText: '0.00',
-                    hideBorderDefault: true,
-                    keyboardType: TextInputType.text,
-                    onChanged: (_) => widget.onChanged(),
-                  ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      height: 20,
-                      child: FormDropdown<String>(
-                        value: item.selectedPriceList ??
-                            widget.defaultPriceList?.name,
-                        items: const [
-                          'Standard Selling',
-                          'Wholesale Price',
-                          'Retail Price',
-                        ],
-                        hint: 'Apply Price List',
-                        height: 20,
-                        hideBorderDefault: true,
-                        allowClear: true,
-                        onChanged: (v) {
-                          setState(() => item.selectedPriceList = v);
-                          widget.onChanged();
-                        },
-                      ),
-                    ),
-                    InkWell(
-                      onTap: widget.onViewItemDetailsTransactions,
-                      child: const Text(
-                        'Recent Transactions',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.primaryBlue,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // DISCOUNT (line item level only)
-          if (widget.discountType == 'At Line Item Level') ...[
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        controller: item.discountController,
-                        height: _VendorCreditsCreatePageState._tableFieldHeight,
-                        textAlign: TextAlign.right,
-                        hintText: '0',
-                        hideBorderDefault: true,
-                        keyboardType: TextInputType.number,
-                        onChanged: (_) => widget.onChanged(),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          item.discountIsPercent = !item.discountIsPercent;
-                        });
-                        widget.onChanged();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.bgDisabled,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.borderLight),
-                        ),
-                        child: Text(
-                          item.discountIsPercent ? '%' : 'â‚¹',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            _vLine(),
-          ],
-          // TAX
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormDropdown<_VCTaxOption>(
-                    value: item.selectedTax == null
-                        ? null
-                        : widget.taxOptions.firstWhere(
-                            (o) => o.label == item.selectedTax,
-                            orElse: () => widget.taxOptions.firstWhere(
-                              (o) => !o.isHeader,
-                              orElse: () => const _VCTaxOption(label: ''),
-                            ),
-                          ),
-                    items: widget.taxOptions,
-                    hint: 'Select Tax',
-                    height: _VendorCreditsCreatePageState._tableFieldHeight,
-                    menuWidth: 360,
-                    hideBorderDefault: true,
-                    allowClear: true,
-                    displayStringForValue: (o) => o.label,
-                    isItemEnabled: (o) => !o.isHeader,
-                    itemBuilder: (option, isSelected, isHovered) {
-                      if (option.isHeader) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          color: AppTheme.bgLight,
-                          width: double.infinity,
-                          child: Text(
-                            option.label,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        );
-                      }
-                      final active = isHovered || isSelected;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        color: isHovered ? AppTheme.primaryBlue : Colors.white,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    option.label,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isHovered
-                                          ? Colors.white
-                                          : (isSelected
-                                                ? AppTheme.primaryBlue
-                                                : AppTheme.textPrimary),
-                                      fontWeight: active
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                                if (isSelected)
-                                  Icon(
-                                    Icons.check,
-                                    size: 16,
-                                    color: isHovered
-                                        ? Colors.white
-                                        : AppTheme.primaryBlue,
-                                  ),
-                              ],
-                            ),
-                            if (option.description != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                option.description!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isHovered
-                                      ? Colors.white70
-                                      : AppTheme.textSecondary,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                      );
-                    },
-                    onChanged: (val) {
-                      if (val != null && !val.isHeader) {
-                        setState(() {
-                          item.selectedTax = val.label;
-                          item.selectedTaxRate = val.rate > 0 ? val.rate : null;
-                        });
-                        widget.onChanged();
-                      } else if (val == null) {
-                        setState(() {
-                          item.selectedTax = null;
-                          item.selectedTaxRate = null;
-                        });
-                        widget.onChanged();
-                      }
-                    },
-                  ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 4),
-                    CompositedTransformTarget(
-                      link: _itcLayerLink,
-                      child: GestureDetector(
-                        onTap: () => _showItcPopover(context),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                item.itcStatus,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.textSecondary,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              LucideIcons.pencil,
-                              size: 10,
+                          )
+                        : Text(
+                            '${item.savedBatches.fold(0, (sum, b) => sum + (int.tryParse(b.quantityController.text) ?? 0))} pcs / ${item.savedBatches.length} ${item.savedBatches.length == 1 ? 'batch' : 'batches'}',
+                            style: const TextStyle(
+                              fontSize: 10,
                               color: AppTheme.primaryBlue,
+                              decoration: TextDecoration.underline,
                             ),
-                          ],
+                            textAlign: TextAlign.right,
+                          ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        _vLine(),
+        // RATE
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                CustomTextField(
+                  controller: item.rateController,
+                  focusNode: _rateFocusNode,
+                  height: _VendorCreditsCreatePageState._tableFieldHeight,
+                  textAlign: TextAlign.right,
+                  hintText: '0.00',
+                  hideBorderDefault: true,
+                  keyboardType: TextInputType.text,
+                  onChanged: (_) => widget.onChanged(),
+                ),
+                if (item.sourceItem != null) ...[
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 20,
+                    child: FormDropdown<String>(
+                      value:
+                          item.selectedPriceList ??
+                          widget.defaultPriceList?.name,
+                      items: const [
+                        'Standard Selling',
+                        'Wholesale Price',
+                        'Retail Price',
+                      ],
+                      hint: 'Apply Price List',
+                      height: 20,
+                      hideBorderDefault: true,
+                      allowClear: true,
+                      onChanged: (v) {
+                        setState(() => item.selectedPriceList = v);
+                        widget.onChanged();
+                      },
+                    ),
+                  ),
+                  InkWell(
+                    onTap: widget.onViewItemDetailsTransactions,
+                    child: const Text(
+                      'Recent Transactions',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.primaryBlue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        _vLine(),
+        // DISCOUNT (line item level only)
+        if (widget.discountType == 'At Line Item Level') ...[
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CustomTextField(
+                      controller: item.discountController,
+                      height: _VendorCreditsCreatePageState._tableFieldHeight,
+                      textAlign: TextAlign.right,
+                      hintText: '0',
+                      hideBorderDefault: true,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => widget.onChanged(),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        item.discountIsPercent = !item.discountIsPercent;
+                      });
+                      widget.onChanged();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.bgDisabled,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.borderLight),
+                      ),
+                      child: Text(
+                        item.discountIsPercent ? '%' : 'â‚¹',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
           ),
           _vLine(),
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  'â‚¹${_computeAmount(item)}',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+        ],
+        // TAX
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FormDropdown<_VCTaxOption>(
+                  value: item.selectedTax == null
+                      ? null
+                      : widget.taxOptions.firstWhere(
+                          (o) => o.label == item.selectedTax,
+                          orElse: () => widget.taxOptions.firstWhere(
+                            (o) => !o.isHeader,
+                            orElse: () => const _VCTaxOption(label: ''),
+                          ),
+                        ),
+                  items: widget.taxOptions,
+                  hint: 'Select Tax',
+                  height: _VendorCreditsCreatePageState._tableFieldHeight,
+                  menuWidth: 360,
+                  hideBorderDefault: true,
+                  allowClear: true,
+                  displayStringForValue: (o) => o.label,
+                  isItemEnabled: (o) => !o.isHeader,
+                  itemBuilder: (option, isSelected, isHovered) {
+                    if (option.isHeader) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        color: AppTheme.bgLight,
+                        width: double.infinity,
+                        child: Text(
+                          option.label,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      );
+                    }
+                    final active = isHovered || isSelected;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      color: isHovered ? AppTheme.primaryBlue : Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  option.label,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isHovered
+                                        ? Colors.white
+                                        : (isSelected
+                                              ? AppTheme.primaryBlue
+                                              : AppTheme.textPrimary),
+                                    fontWeight: active
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: isHovered
+                                      ? Colors.white
+                                      : AppTheme.primaryBlue,
+                                ),
+                            ],
+                          ),
+                          if (option.description != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              option.description!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isHovered
+                                    ? Colors.white70
+                                    : AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                  onChanged: (val) {
+                    if (val != null && !val.isHeader) {
+                      setState(() {
+                        item.selectedTax = val.label;
+                        item.selectedTaxRate = val.rate > 0 ? val.rate : null;
+                      });
+                      widget.onChanged();
+                    } else if (val == null) {
+                      setState(() {
+                        item.selectedTax = null;
+                        item.selectedTaxRate = null;
+                      });
+                      widget.onChanged();
+                    }
+                  },
+                ),
+                if (item.sourceItem != null) ...[
+                  const SizedBox(height: 4),
+                  CompositedTransformTarget(
+                    link: _itcLayerLink,
+                    child: GestureDetector(
+                      onTap: () => _showItcPopover(context),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.itcStatus,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.textSecondary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            LucideIcons.pencil,
+                            size: 10,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        _vLine(),
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'â‚¹${_computeAmount(item)}',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -5845,7 +6440,7 @@ class _VCItemDetailsSidePanelState extends State<_VCItemDetailsSidePanel> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Padding(
@@ -6308,36 +6903,34 @@ class _VCItemDetailsSidePanelState extends State<_VCItemDetailsSidePanel> {
           Positioned(
             top: 28,
             left: 0,
-            child: IntrinsicWidth(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.borderLight),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: txnTypes
-                      .map(
-                        (opt) => _VCStockDropdownOption(
-                          label: opt,
-                          selected: opt == _txnType,
-                          onTap: () => setState(() {
-                            _txnType = opt;
-                            _txnTypeDropdownOpen = false;
-                            _txnStatus = 'All';
-                          }),
-                        ),
-                      )
-                      .toList(),
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.borderLight),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: txnTypes
+                    .map(
+                      (opt) => _VCStockDropdownOption(
+                        label: opt,
+                        selected: opt == _txnType,
+                        onTap: () => setState(() {
+                          _txnType = opt;
+                          _txnTypeDropdownOpen = false;
+                          _txnStatus = 'All';
+                        }),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -6345,35 +6938,33 @@ class _VCItemDetailsSidePanelState extends State<_VCItemDetailsSidePanel> {
           Positioned(
             top: 28,
             right: 0,
-            child: IntrinsicWidth(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.borderLight),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: statusOptions
-                      .map(
-                        (opt) => _VCStockDropdownOption(
-                          label: opt,
-                          selected: opt == _txnStatus,
-                          onTap: () => setState(() {
-                            _txnStatus = opt;
-                            _txnStatusDropdownOpen = false;
-                          }),
-                        ),
-                      )
-                      .toList(),
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.borderLight),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: statusOptions
+                    .map(
+                      (opt) => _VCStockDropdownOption(
+                        label: opt,
+                        selected: opt == _txnStatus,
+                        onTap: () => setState(() {
+                          _txnStatus = opt;
+                          _txnStatusDropdownOpen = false;
+                        }),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -6640,10 +7231,7 @@ class _VCLineItem {
 
 // Fallback shown while chartOfAccountsProvider is still loading
 final List<shared_acct.AccountNode> _vcFallbackAccountTree = [
-  shared_acct.AccountNode(
-    id: 'Cost of Goods Sold',
-    name: 'Cost of Goods Sold',
-  ),
+  shared_acct.AccountNode(id: 'Cost of Goods Sold', name: 'Cost of Goods Sold'),
   shared_acct.AccountNode(id: 'Purchases', name: 'Purchases'),
   shared_acct.AccountNode(
     id: 'Purchase Returns and Allowances',
@@ -6666,10 +7254,12 @@ class _VCManageTaxInfoDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_VCManageTaxInfoDialog> createState() => _VCManageTaxInfoDialogState();
+  ConsumerState<_VCManageTaxInfoDialog> createState() =>
+      _VCManageTaxInfoDialogState();
 }
 
-class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> {
+class _VCManageTaxInfoDialogState
+    extends ConsumerState<_VCManageTaxInfoDialog> {
   bool _showAddForm = false;
   final TextEditingController _newGstinCtrl = TextEditingController();
   String? _newPlaceOfSupply;
@@ -6682,19 +7272,26 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
 
   @override
   Widget build(BuildContext context) {
-    final placeLabel = widget.placeOfSupply.isNotEmpty ? widget.placeOfSupply : 'â€”';
+    final placeLabel = widget.placeOfSupply.isNotEmpty
+        ? widget.placeOfSupply
+        : 'â€”';
 
     return Dialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.topCenter,
-      insetPadding: const EdgeInsets.only(left: 80, right: 80, top: 0, bottom: 40),
+      insetPadding: const EdgeInsets.only(
+        left: 80,
+        right: 80,
+        top: 0,
+        bottom: 40,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680, minHeight: 200),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Padding(
@@ -6704,7 +7301,11 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                   const Expanded(
                     child: Text(
                       'Manage Tax Informations',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                   ),
                   InkWell(
@@ -6713,10 +7314,17 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
+                        border: Border.all(
+                          color: AppTheme.primaryBlue,
+                          width: 1.5,
+                        ),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(LucideIcons.x, size: 14, color: AppTheme.errorRed),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 14,
+                        color: AppTheme.errorRed,
+                      ),
                     ),
                   ),
                 ],
@@ -6741,10 +7349,18 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                     backgroundColor: AppTheme.accentGreen,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                   ),
-                  child: const Text('Add New Tax Information', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  child: const Text(
+                    'Add New Tax Information',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
                 ),
               ),
             ),
@@ -6774,15 +7390,36 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                               Row(
                                 children: [
                                   const Text.rich(
-                                    TextSpan(children: [
-                                      TextSpan(text: 'GSTIN / UIN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.errorRed, letterSpacing: 0.3)),
-                                      TextSpan(text: '*', style: TextStyle(fontSize: 12, color: AppTheme.errorRed)),
-                                    ]),
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: 'GSTIN / UIN',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.errorRed,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '*',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.errorRed,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(width: 4),
                                   ZTooltip(
-                                    message: 'Enter the 15-digit GSTIN or UIN number for this vendor.',
-                                    child: const Icon(LucideIcons.helpCircle, size: 13, color: AppTheme.textMuted),
+                                    message:
+                                        'Enter the 15-digit GSTIN or UIN number for this vendor.',
+                                    child: const Icon(
+                                      LucideIcons.helpCircle,
+                                      size: 13,
+                                      color: AppTheme.textMuted,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -6790,28 +7427,47 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                               TextField(
                                 controller: _newGstinCtrl,
                                 maxLines: 1,
-                                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
                                 decoration: InputDecoration(
                                   isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 9,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(4),
-                                    borderSide: const BorderSide(color: AppTheme.borderLight),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.borderLight,
+                                    ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(4),
-                                    borderSide: const BorderSide(color: AppTheme.borderLight),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.borderLight,
+                                    ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(4),
-                                    borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.primaryBlue,
+                                    ),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 4),
                               GestureDetector(
                                 onTap: () {},
-                                child: const Text('Validate', style: TextStyle(fontSize: 12, color: AppTheme.primaryBlue, fontWeight: FontWeight.w500)),
+                                child: const Text(
+                                  'Validate',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.primaryBlue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -6822,18 +7478,42 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text.rich(
-                                TextSpan(children: [
-                                  TextSpan(text: 'Place of Supply', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.errorRed, letterSpacing: 0.3)),
-                                  TextSpan(text: '*', style: TextStyle(fontSize: 12, color: AppTheme.errorRed)),
-                                ]),
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: 'Place of Supply',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.errorRed,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: '*',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.errorRed,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 6),
                               FormDropdown<String>(
                                 value: _newPlaceOfSupply,
-                                items: ref.watch(statesProvider('IN')).value?.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList() ?? [],
+                                items:
+                                    ref
+                                        .watch(statesProvider('IN'))
+                                        .value
+                                        ?.map((s) => s['name'] ?? '')
+                                        .where((n) => n.isNotEmpty)
+                                        .toList() ??
+                                    [],
                                 hint: '',
                                 height: 34,
-                                onChanged: (v) => setState(() => _newPlaceOfSupply = v),
+                                onChanged: (v) =>
+                                    setState(() => _newPlaceOfSupply = v),
                               ),
                             ],
                           ),
@@ -6855,10 +7535,21 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                             backgroundColor: AppTheme.accentGreen,
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                          child: const Text('Save and Select', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          child: const Text(
+                            'Save and Select',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         OutlinedButton(
@@ -6870,10 +7561,18 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.textSecondary,
                             side: const BorderSide(color: AppTheme.borderLight),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                          child: const Text('Cancel', style: TextStyle(fontSize: 12)),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(fontSize: 12),
+                          ),
                         ),
                       ],
                     ),
@@ -6897,11 +7596,27 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                 children: const [
                   Expanded(
                     flex: 5,
-                    child: Text('GSTIN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.4)),
+                    child: Text(
+                      'GSTIN',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textSecondary,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
                   ),
                   Expanded(
                     flex: 4,
-                    child: Text('PLACE OF SUPPLY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.4)),
+                    child: Text(
+                      'PLACE OF SUPPLY',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textSecondary,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
                   ),
                   SizedBox(width: 24),
                 ],
@@ -6919,12 +7634,20 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                       children: [
                         Text(
                           widget.gstin.isNotEmpty ? widget.gstin : 'â€”',
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         const Text(
                           '(Primary Tax Information)',
-                          style: TextStyle(fontSize: 11, color: AppTheme.accentGreen, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.accentGreen,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
@@ -6933,14 +7656,25 @@ class _VCManageTaxInfoDialogState extends ConsumerState<_VCManageTaxInfoDialog> 
                     flex: 4,
                     child: Text(
                       placeLabel,
-                      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                   ),
                   // Up/down scroll arrows (decorative)
                   Column(
                     children: const [
-                      Icon(Icons.arrow_drop_up, size: 18, color: AppTheme.textSecondary),
-                      Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
+                      Icon(
+                        Icons.arrow_drop_up,
+                        size: 18,
+                        color: AppTheme.textSecondary,
+                      ),
+                      Icon(
+                        Icons.arrow_drop_down,
+                        size: 18,
+                        color: AppTheme.textSecondary,
+                      ),
                     ],
                   ),
                 ],
@@ -6991,7 +7725,11 @@ class _VCVendorDetailsTag extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Icon(LucideIcons.chevronRight, size: 14, color: AppTheme.backgroundColor),
+                  const Icon(
+                    LucideIcons.chevronRight,
+                    size: 14,
+                    color: AppTheme.backgroundColor,
+                  ),
                 ],
               ),
             ),
@@ -7008,10 +7746,14 @@ class _VCVendorDetailsSidePanel extends StatefulWidget {
   final SalesCustomer vendor;
   final VoidCallback onClose;
 
-  const _VCVendorDetailsSidePanel({required this.vendor, required this.onClose});
+  const _VCVendorDetailsSidePanel({
+    required this.vendor,
+    required this.onClose,
+  });
 
   @override
-  State<_VCVendorDetailsSidePanel> createState() => _VCVendorDetailsSidePanelState();
+  State<_VCVendorDetailsSidePanel> createState() =>
+      _VCVendorDetailsSidePanelState();
 }
 
 class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
@@ -7021,11 +7763,16 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
 
   String get _gstTreatmentLabel {
     switch (widget.vendor.gstTreatment?.toLowerCase()) {
-      case 'registered_business': return 'Registered Business';
-      case 'unregistered_business': return 'Unregistered Business';
-      case 'overseas': return 'Overseas';
-      case 'consumer': return 'Consumer';
-      default: return widget.vendor.gstTreatment ?? 'Unregistered Business';
+      case 'registered_business':
+        return 'Registered Business';
+      case 'unregistered_business':
+        return 'Unregistered Business';
+      case 'overseas':
+        return 'Overseas';
+      case 'consumer':
+        return 'Consumer';
+      default:
+        return widget.vendor.gstTreatment ?? 'Unregistered Business';
     }
   }
 
@@ -7045,7 +7792,7 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Padding(
@@ -7061,8 +7808,14 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    v.displayName.isEmpty ? '?' : v.displayName[0].toUpperCase(),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppTheme.textMuted),
+                    v.displayName.isEmpty
+                        ? '?'
+                        : v.displayName[0].toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textMuted,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -7070,7 +7823,13 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Vendor', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      const Text(
+                        'Vendor',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                       const SizedBox(height: 3),
                       Row(
                         children: [
@@ -7079,7 +7838,11 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                               v.displayName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -7090,7 +7853,11 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                               border: Border.all(color: AppTheme.primaryBlue),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Icon(LucideIcons.externalLink, size: 14, color: AppTheme.primaryBlue),
+                            child: const Icon(
+                              LucideIcons.externalLink,
+                              size: 14,
+                              color: AppTheme.primaryBlue,
+                            ),
                           ),
                         ],
                       ),
@@ -7102,7 +7869,11 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                   borderRadius: BorderRadius.circular(4),
                   child: const Padding(
                     padding: EdgeInsets.all(6),
-                    child: Icon(LucideIcons.x, size: 20, color: AppTheme.errorRed),
+                    child: Icon(
+                      LucideIcons.x,
+                      size: 20,
+                      color: AppTheme.errorRed,
+                    ),
                   ),
                 ),
               ],
@@ -7111,12 +7882,23 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
           // Tabs
           Container(
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AppTheme.borderLight), bottom: BorderSide(color: AppTheme.borderLight)),
+              border: Border(
+                top: BorderSide(color: AppTheme.borderLight),
+                bottom: BorderSide(color: AppTheme.borderLight),
+              ),
             ),
             child: Row(
               children: [
-                _VCPanelTabButton(label: 'Details', selected: _tab == 0, onTap: () => setState(() => _tab = 0)),
-                _VCPanelTabButton(label: 'Activity Log', selected: _tab == 1, onTap: () => setState(() => _tab = 1)),
+                _VCPanelTabButton(
+                  label: 'Details',
+                  selected: _tab == 0,
+                  onTap: () => setState(() => _tab = 0),
+                ),
+                _VCPanelTabButton(
+                  label: 'Activity Log',
+                  selected: _tab == 1,
+                  onTap: () => setState(() => _tab = 1),
+                ),
               ],
             ),
           ),
@@ -7126,7 +7908,7 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                 ? SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Summary cards
                         Container(
@@ -7134,42 +7916,85 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                             border: Border.all(color: AppTheme.borderLight),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: IntrinsicHeight(
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(LucideIcons.alertTriangle, size: 20, color: AppTheme.warningOrange),
-                                        const SizedBox(height: 12),
-                                        const Text('Outstanding Payables', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                                        const SizedBox(height: 10),
-                                        const Text('â‚¹0.00', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                                      ],
-                                    ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 18,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.alertTriangle,
+                                        size: 20,
+                                        color: AppTheme.warningOrange,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        'Outstanding Payables',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      const Text(
+                                        'â‚¹0.00',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const VerticalDivider(width: 1, color: AppTheme.borderLight),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(LucideIcons.badgeDollarSign, size: 20, color: AppTheme.successGreen),
-                                        const SizedBox(height: 12),
-                                        const Text('Unused Credits', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                                        const SizedBox(height: 10),
-                                        const Text('â‚¹0.00', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                                      ],
-                                    ),
+                              ),
+                              const VerticalDivider(
+                                width: 1,
+                                color: AppTheme.borderLight,
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 18,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.badgeDollarSign,
+                                        size: 20,
+                                        color: AppTheme.successGreen,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        'Unused Credits',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      const Text(
+                                        'â‚¹0.00',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 18),
@@ -7180,30 +8005,61 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Padding(
                                 padding: EdgeInsets.all(16),
-                                child: Text('Contact Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                                child: Text(
+                                  'Contact Details',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
                               ),
-                              const Divider(height: 1, color: AppTheme.borderLight),
+                              const Divider(
+                                height: 1,
+                                color: AppTheme.borderLight,
+                              ),
                               Padding(
                                 padding: const EdgeInsets.all(16),
                                 child: Column(
                                   children: [
-                                    _VCPanelDetailRow(label: 'Vendor Type', value: v.customerType ?? 'Individual'),
+                                    _VCPanelDetailRow(
+                                      label: 'Vendor Type',
+                                      value: v.customerType ?? 'Individual',
+                                    ),
                                     const SizedBox(height: 14),
-                                    const _VCPanelDetailRow(label: 'Currency', value: 'INR'),
+                                    const _VCPanelDetailRow(
+                                      label: 'Currency',
+                                      value: 'INR',
+                                    ),
                                     const SizedBox(height: 14),
-                                    const _VCPanelDetailRow(label: 'Credit Limit', value: 'â‚¹0.00'),
+                                    const _VCPanelDetailRow(
+                                      label: 'Credit Limit',
+                                      value: 'â‚¹0.00',
+                                    ),
                                     const SizedBox(height: 14),
-                                    const _VCPanelDetailRow(label: 'Payment Terms', value: 'â€”'),
+                                    const _VCPanelDetailRow(
+                                      label: 'Payment Terms',
+                                      value: 'â€”',
+                                    ),
                                     const SizedBox(height: 14),
-                                    _VCPanelDetailRow(label: 'GST Treatment', value: _gstTreatmentLabel),
+                                    _VCPanelDetailRow(
+                                      label: 'GST Treatment',
+                                      value: _gstTreatmentLabel,
+                                    ),
                                     const SizedBox(height: 14),
-                                    _VCPanelDetailRow(label: 'Place of Supply', value: v.placeOfSupply ?? 'â€”'),
+                                    _VCPanelDetailRow(
+                                      label: 'Place of Supply',
+                                      value: v.placeOfSupply ?? 'â€”',
+                                    ),
                                     const SizedBox(height: 14),
-                                    const _VCPanelDetailRow(label: 'Tax Preference', value: 'Taxable'),
+                                    const _VCPanelDetailRow(
+                                      label: 'Tax Preference',
+                                      value: 'Taxable',
+                                    ),
                                   ],
                                 ),
                               ),
@@ -7216,7 +8072,9 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                           label: 'Contact Persons',
                           count: 1,
                           expanded: _showContactPersons,
-                          onTap: () => setState(() => _showContactPersons = !_showContactPersons),
+                          onTap: () => setState(
+                            () => _showContactPersons = !_showContactPersons,
+                          ),
                         ),
                         if (_showContactPersons) ...[
                           const SizedBox(height: 8),
@@ -7228,11 +8086,20 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                             ),
                             child: Column(
                               children: [
-                                _VCPanelDetailRow(label: 'Name', value: v.displayName),
+                                _VCPanelDetailRow(
+                                  label: 'Name',
+                                  value: v.displayName,
+                                ),
                                 const SizedBox(height: 10),
-                                _VCPanelDetailRow(label: 'Phone', value: v.phone ?? v.mobilePhone ?? 'â€”'),
+                                _VCPanelDetailRow(
+                                  label: 'Phone',
+                                  value: v.phone ?? v.mobilePhone ?? 'â€”',
+                                ),
                                 const SizedBox(height: 10),
-                                _VCPanelDetailRow(label: 'Email', value: v.email ?? 'â€”'),
+                                _VCPanelDetailRow(
+                                  label: 'Email',
+                                  value: v.email ?? 'â€”',
+                                ),
                               ],
                             ),
                           ),
@@ -7242,7 +8109,8 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                         _VCPanelActionTile(
                           label: 'Address',
                           expanded: _showAddress,
-                          onTap: () => setState(() => _showAddress = !_showAddress),
+                          onTap: () =>
+                              setState(() => _showAddress = !_showAddress),
                         ),
                         if (_showAddress) ...[
                           const SizedBox(height: 8),
@@ -7255,16 +8123,49 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('BILLING ADDRESS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.5)),
+                                const Text(
+                                  'BILLING ADDRESS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
-                                Text(v.displayName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                                Text(
+                                  v.displayName,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
                                 if ((v.billingAddressStreet1 ?? '').isNotEmpty)
-                                  Text(v.billingAddressStreet1!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                  Text(
+                                    v.billingAddressStreet1!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
                                 if ((v.billingAddressCity ?? '').isNotEmpty)
-                                  Text(v.billingAddressCity!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                  Text(
+                                    v.billingAddressCity!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
                                 if ((v.billingAddressPhone ?? '').isNotEmpty)
-                                  Text('Phone: ${v.billingAddressPhone}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                  Text(
+                                    'Phone: ${v.billingAddressPhone}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -7273,7 +8174,13 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                     ),
                   )
                 : const Center(
-                    child: Text('No activity log available.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    child: Text(
+                      'No activity log available.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
           ),
         ],
@@ -7310,10 +8217,12 @@ class _VCAddressPickerRowState extends State<_VCAddressPickerRow> {
     final bgColor = _hovered
         ? AppTheme.primaryBlue
         : widget.isSelected
-            ? AppTheme.bgDisabled
-            : AppTheme.backgroundColor;
+        ? AppTheme.bgDisabled
+        : AppTheme.backgroundColor;
     final titleColor = _hovered ? Colors.white : AppTheme.textPrimary;
-    final detailColor = _hovered ? Colors.white.withValues(alpha: 0.82) : AppTheme.textSecondary;
+    final detailColor = _hovered
+        ? Colors.white.withValues(alpha: 0.82)
+        : AppTheme.textSecondary;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -7324,7 +8233,10 @@ class _VCAddressPickerRowState extends State<_VCAddressPickerRow> {
         child: Container(
           margin: const EdgeInsets.all(8),
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -7334,10 +8246,19 @@ class _VCAddressPickerRowState extends State<_VCAddressPickerRow> {
                   children: [
                     Text(
                       widget.address['name'] as String? ?? '',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: titleColor),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: titleColor,
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    ...lines.map((line) => Text(line, style: TextStyle(fontSize: 12, color: detailColor))),
+                    ...lines.map(
+                      (line) => Text(
+                        line,
+                        style: TextStyle(fontSize: 12, color: detailColor),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -7395,7 +8316,14 @@ class _VCNewAddressActionState extends State<_VCNewAddressAction> {
             children: [
               Icon(LucideIcons.plus, size: 14, color: fgColor),
               const SizedBox(width: 8),
-              Text('Add New Address', style: TextStyle(fontSize: 13, color: fgColor, fontWeight: FontWeight.w500)),
+              Text(
+                'Add New Address',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: fgColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),
@@ -7418,7 +8346,8 @@ class _VCAddressEditDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_VCAddressEditDialog> createState() => _VCAddressEditDialogState();
+  ConsumerState<_VCAddressEditDialog> createState() =>
+      _VCAddressEditDialogState();
 }
 
 class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
@@ -7432,26 +8361,49 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
   String? _country;
   String? _state;
 
-  static const List<String> _countries = ['India', 'United States', 'United Kingdom', 'UAE'];
+  static const List<String> _countries = [
+    'India',
+    'United States',
+    'United Kingdom',
+    'UAE',
+  ];
 
   @override
   void initState() {
     super.initState();
     final lines = widget.address['lines'] as List<String>? ?? [];
-    _attentionCtrl = TextEditingController(text: widget.address['name'] as String? ?? '');
-    _addressCtrl   = TextEditingController(text: lines.isNotEmpty ? lines[0] : '');
-    _street2Ctrl   = TextEditingController(text: lines.length > 1 ? lines[1] : '');
-    _cityCtrl      = TextEditingController(text: lines.length > 2 ? lines[2] : '');
-    _pinCtrl       = TextEditingController(text: lines.length > 3 ? lines[3].replaceAll(RegExp(r'[^0-9]'), '') : '');
-    _phoneCtrl     = TextEditingController(text: lines.length > 4 ? lines[4].replaceAll(RegExp(r'[^0-9]'), '') : '');
-    _faxCtrl       = TextEditingController();
-    _country       = widget.isNewAddress ? null : 'India';
-    _state         = widget.isNewAddress ? null : 'Kerala';
+    _attentionCtrl = TextEditingController(
+      text: widget.address['name'] as String? ?? '',
+    );
+    _addressCtrl = TextEditingController(
+      text: lines.isNotEmpty ? lines[0] : '',
+    );
+    _street2Ctrl = TextEditingController(
+      text: lines.length > 1 ? lines[1] : '',
+    );
+    _cityCtrl = TextEditingController(text: lines.length > 2 ? lines[2] : '');
+    _pinCtrl = TextEditingController(
+      text: lines.length > 3 ? lines[3].replaceAll(RegExp(r'[^0-9]'), '') : '',
+    );
+    _phoneCtrl = TextEditingController(
+      text: lines.length > 4 ? lines[4].replaceAll(RegExp(r'[^0-9]'), '') : '',
+    );
+    _faxCtrl = TextEditingController();
+    _country = widget.isNewAddress ? null : 'India';
+    _state = widget.isNewAddress ? null : 'Kerala';
   }
 
   @override
   void dispose() {
-    for (final c in [_attentionCtrl, _addressCtrl, _street2Ctrl, _cityCtrl, _pinCtrl, _phoneCtrl, _faxCtrl]) {
+    for (final c in [
+      _attentionCtrl,
+      _addressCtrl,
+      _street2Ctrl,
+      _cityCtrl,
+      _pinCtrl,
+      _phoneCtrl,
+      _faxCtrl,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -7459,11 +8411,14 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
 
   Map<String, dynamic> _buildResult() {
     final lines = <String>[];
-    if (_addressCtrl.text.trim().isNotEmpty) lines.add(_addressCtrl.text.trim());
-    if (_street2Ctrl.text.trim().isNotEmpty) lines.add(_street2Ctrl.text.trim());
+    if (_addressCtrl.text.trim().isNotEmpty)
+      lines.add(_addressCtrl.text.trim());
+    if (_street2Ctrl.text.trim().isNotEmpty)
+      lines.add(_street2Ctrl.text.trim());
     if (_cityCtrl.text.trim().isNotEmpty) lines.add(_cityCtrl.text.trim());
     if (_pinCtrl.text.trim().isNotEmpty) lines.add(_pinCtrl.text.trim());
-    if (_phoneCtrl.text.trim().isNotEmpty) lines.add('Phone: ${_phoneCtrl.text.trim()}');
+    if (_phoneCtrl.text.trim().isNotEmpty)
+      lines.add('Phone: ${_phoneCtrl.text.trim()}');
     return {'name': _attentionCtrl.text.trim(), 'lines': lines};
   }
 
@@ -7478,7 +8433,12 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.topCenter,
-      insetPadding: const EdgeInsets.only(left: 80, right: 80, top: 0, bottom: 40),
+      insetPadding: const EdgeInsets.only(
+        left: 80,
+        right: 80,
+        top: 0,
+        bottom: 40,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680),
         child: Column(
@@ -7491,7 +8451,11 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
                   Expanded(
                     child: Text(
                       widget.title,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                   ),
                   InkWell(
@@ -7500,10 +8464,17 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
+                        border: Border.all(
+                          color: AppTheme.primaryBlue,
+                          width: 1.5,
+                        ),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 16,
+                        color: AppTheme.errorRed,
+                      ),
                     ),
                   ),
                 ],
@@ -7529,9 +8500,17 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
                     const SizedBox(height: 16),
                     _label('Address'),
                     const SizedBox(height: 6),
-                    CustomTextField(controller: _addressCtrl, maxLines: 3, hintText: 'Street / Area'),
+                    CustomTextField(
+                      controller: _addressCtrl,
+                      maxLines: 3,
+                      hintText: 'Street / Area',
+                    ),
                     const SizedBox(height: 8),
-                    CustomTextField(controller: _street2Ctrl, maxLines: 3, hintText: 'Street 2'),
+                    CustomTextField(
+                      controller: _street2Ctrl,
+                      maxLines: 3,
+                      hintText: 'Street 2',
+                    ),
                     const SizedBox(height: 16),
                     _field('City', _cityCtrl),
                     const SizedBox(height: 16),
@@ -7546,7 +8525,14 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
                               const SizedBox(height: 6),
                               FormDropdown<String>(
                                 value: _state,
-                                items: ref.watch(statesProvider('IN')).value?.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList() ?? [],
+                                items:
+                                    ref
+                                        .watch(statesProvider('IN'))
+                                        .value
+                                        ?.map((s) => s['name'] ?? '')
+                                        .where((n) => n.isNotEmpty)
+                                        .toList() ??
+                                    [],
                                 hint: 'Select state',
                                 onChanged: (v) => setState(() => _state = v),
                               ),
@@ -7554,7 +8540,13 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Expanded(child: _field('Pin Code', _pinCtrl, keyboardType: TextInputType.number)),
+                        Expanded(
+                          child: _field(
+                            'Pin Code',
+                            _pinCtrl,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -7571,17 +8563,31 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
                                 children: [
                                   Container(
                                     height: 38,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: AppTheme.borderLight),
+                                      border: Border.all(
+                                        color: AppTheme.borderLight,
+                                      ),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: const [
-                                        Text('+91', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                                        Text(
+                                          '+91',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                        ),
                                         SizedBox(width: 4),
-                                        Icon(Icons.keyboard_arrow_down, size: 16, color: AppTheme.textSecondary),
+                                        Icon(
+                                          Icons.keyboard_arrow_down,
+                                          size: 16,
+                                          color: AppTheme.textSecondary,
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -7599,15 +8605,34 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Expanded(child: _field('Fax Number', _faxCtrl, keyboardType: TextInputType.phone)),
+                        Expanded(
+                          child: _field(
+                            'Fax Number',
+                            _faxCtrl,
+                            keyboardType: TextInputType.phone,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
                     RichText(
                       text: TextSpan(
                         children: [
-                          const TextSpan(text: 'Note: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                          TextSpan(text: noteText, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          const TextSpan(
+                            text: 'Note: ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          TextSpan(
+                            text: noteText,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -7618,12 +8643,20 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppTheme.borderLight))),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppTheme.borderLight)),
+              ),
               child: Row(
                 children: [
-                  ZButton.primary(label: 'Save', onPressed: () => Navigator.pop(context, _buildResult())),
+                  ZButton.primary(
+                    label: 'Save',
+                    onPressed: () => Navigator.pop(context, _buildResult()),
+                  ),
                   const SizedBox(width: 10),
-                  ZButton.secondary(label: 'Cancel', onPressed: () => Navigator.pop(context)),
+                  ZButton.secondary(
+                    label: 'Cancel',
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ],
               ),
             ),
@@ -7634,11 +8667,19 @@ class _VCAddressEditDialogState extends ConsumerState<_VCAddressEditDialog> {
   }
 
   Widget _label(String text) => Text(
-        text,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
-      );
+    text,
+    style: const TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      color: AppTheme.textPrimary,
+    ),
+  );
 
-  Widget _field(String label, TextEditingController ctrl, {TextInputType keyboardType = TextInputType.text}) {
+  Widget _field(
+    String label,
+    TextEditingController ctrl, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -7663,7 +8704,6 @@ class _VCTaxOption {
     this.rate = 0,
   });
 }
-
 
 // ---------------------------------------------------------------------------
 // Preferences dialog
@@ -7713,7 +8753,7 @@ class _VCPreferencesDialogState extends State<_VCPreferencesDialog> {
       width: 560,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
@@ -8365,10 +9405,12 @@ class _VcVendorDropdownItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor =
-        highlighted ? AppTheme.backgroundColor : AppTheme.textBody;
-    final secondaryColor =
-        highlighted ? AppTheme.backgroundColor : AppTheme.textSecondary;
+    final textColor = highlighted
+        ? AppTheme.backgroundColor
+        : AppTheme.textBody;
+    final secondaryColor = highlighted
+        ? AppTheme.backgroundColor
+        : AppTheme.textSecondary;
 
     return Container(
       height: 64,
@@ -8425,9 +9467,10 @@ class _VcVendorDropdownItem extends StatelessWidget {
                     if (code.isNotEmpty) ...[
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text('|',
-                            style: TextStyle(
-                                fontSize: 14, color: secondaryColor)),
+                        child: Text(
+                          '|',
+                          style: TextStyle(fontSize: 14, color: secondaryColor),
+                        ),
                       ),
                       Text(
                         code,
@@ -8446,8 +9489,11 @@ class _VcVendorDropdownItem extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(LucideIcons.building2,
-                          size: 14, color: secondaryColor),
+                      Icon(
+                        LucideIcons.building2,
+                        size: 14,
+                        color: secondaryColor,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(

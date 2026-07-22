@@ -63,20 +63,30 @@ class UserAccessNotifier extends StateNotifier<UserAccessState> {
     try {
       final requests = <Future>[
         _apiClient.dio.get('/branches', queryParameters: {'org_id': orgId}),
-        _apiClient.dio.get('/users/roles/catalog', queryParameters: {'org_id': orgId}),
-        _apiClient.dio.get('/warehouses-settings', queryParameters: {'org_id': orgId}),
+        _apiClient.dio.get(
+          '/users/roles/catalog',
+          queryParameters: {'org_id': orgId},
+        ),
+        _apiClient.dio.get(
+          '/warehouses-settings',
+          queryParameters: {'org_id': orgId},
+        ),
       ];
 
       if (userId != null && userId.isNotEmpty) {
         requests.add(
-          _apiClient.dio.get('/users/$userId', queryParameters: {'org_id': orgId}),
+          _apiClient.dio.get(
+            '/users/$userId',
+            queryParameters: {'org_id': orgId},
+          ),
         );
       }
 
       final responses = await Future.wait(requests);
 
       List<Map<String, dynamic>> asList(dynamic raw) {
-        if (raw is Map) return List<Map<String, dynamic>>.from(raw['data'] ?? []);
+        if (raw is Map)
+          return List<Map<String, dynamic>>.from(raw['data'] ?? []);
         return List<Map<String, dynamic>>.from(raw ?? []);
       }
 
@@ -84,19 +94,22 @@ class UserAccessNotifier extends StateNotifier<UserAccessState> {
       final rolesData = asList(responses[1].data);
       final warehousesData = asList(responses[2].data);
 
-      final apiBranches = branchesData.map((o) {
-        final map = Map<String, dynamic>.from(o);
-        if (map['display_name'] != null) map['name'] = map['display_name'];
+      final apiBranches = branchesData
+          .map((o) {
+            final map = Map<String, dynamic>.from(o);
+            if (map['display_name'] != null) map['name'] = map['display_name'];
 
-        // User location-access APIs store branch access against the canonical
-        // organisation_branch_master.id, not the branches table row id.
-        final entityId = map['entity_id']?.toString().trim();
-        if (entityId != null && entityId.isNotEmpty) {
-          map['id'] = entityId;
-        }
+            // User location-access APIs store branch access against the canonical
+            // organisation_branch_master.id, not the branches table row id.
+            final entityId = map['entity_id']?.toString().trim();
+            if (entityId != null && entityId.isNotEmpty) {
+              map['id'] = entityId;
+            }
 
-        return SettingsLocationRecord.fromJson(map);
-      }).where((o) => o.isBusiness).toList();
+            return SettingsLocationRecord.fromJson(map);
+          })
+          .where((o) => o.isBusiness)
+          .toList();
 
       final apiWarehouses = warehousesData.map((o) {
         final map = Map<String, dynamic>.from(o);
@@ -159,8 +172,10 @@ class UserAccessNotifier extends StateNotifier<UserAccessState> {
     final next = Set<String>.from(state.selectedBranchIds);
     if (next.contains(id)) {
       next.remove(id);
-      if (state.defaultBranchId == id) state = state.copyWith(defaultBranchId: null);
-      if (state.defaultWarehouseId == id) state = state.copyWith(defaultWarehouseId: null);
+      if (state.defaultBranchId == id)
+        state = state.copyWith(defaultBranchId: null);
+      if (state.defaultWarehouseId == id)
+        state = state.copyWith(defaultWarehouseId: null);
     } else {
       next.add(id);
     }
@@ -177,7 +192,10 @@ class UserAccessNotifier extends StateNotifier<UserAccessState> {
       );
     } else {
       // Select all (though UI calls selectVisible for selective select all)
-      final all = {...state.branches, ...state.warehouses}.map((e) => e.id).toSet();
+      final all = {
+        ...state.branches,
+        ...state.warehouses,
+      }.map((e) => e.id).toSet();
       state = state.copyWith(selectedBranchIds: all);
     }
   }
@@ -197,14 +215,10 @@ class UserAccessNotifier extends StateNotifier<UserAccessState> {
   }
 }
 
-enum RoleGroupType {
-  financial,
-  hr,
-  operation,
-  admin,
-}
+enum RoleGroupType { financial, hr, operation, admin }
 
-final userAccessProvider = StateNotifierProvider<UserAccessNotifier, UserAccessState>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return UserAccessNotifier(apiClient);
-});
+final userAccessProvider =
+    StateNotifierProvider<UserAccessNotifier, UserAccessState>((ref) {
+      final apiClient = ref.watch(apiClientProvider);
+      return UserAccessNotifier(apiClient);
+    });

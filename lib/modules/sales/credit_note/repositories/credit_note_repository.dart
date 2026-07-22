@@ -1,7 +1,7 @@
 import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/sales/credit_note/models/credit_note_model.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 abstract class CreditNoteRepository {
   Future<List<CreditNoteModel>> getCreditNotes({

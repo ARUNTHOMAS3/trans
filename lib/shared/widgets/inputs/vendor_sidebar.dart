@@ -35,7 +35,9 @@ class _VendorSidebarState extends State<VendorSidebar>
   @override
   void initState() {
     super.initState();
-    _paymentTermsList = List<Map<String, dynamic>>.from(widget.paymentTermsList);
+    _paymentTermsList = List<Map<String, dynamic>>.from(
+      widget.paymentTermsList,
+    );
     if (_paymentTermsList.isEmpty) {
       _loadPaymentTerms();
     }
@@ -77,7 +79,9 @@ class _VendorSidebarState extends State<VendorSidebar>
   @override
   Widget build(BuildContext context) {
     final v = widget.vendor;
-    final initials = v.displayName.isNotEmpty ? v.displayName[0].toUpperCase() : '?';
+    final initials = v.displayName.isNotEmpty
+        ? v.displayName[0].toUpperCase()
+        : '?';
 
     // Check if vendor name is Evanto to mock values
     final isEvanto = v.displayName.toLowerCase().contains('evanto');
@@ -103,7 +107,9 @@ class _VendorSidebarState extends State<VendorSidebar>
               height: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white, // Header and tabs area is white background
-                border: const Border(left: BorderSide(color: AppTheme.borderLight)),
+                border: const Border(
+                  left: BorderSide(color: AppTheme.borderLight),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.08),
@@ -115,11 +121,14 @@ class _VendorSidebarState extends State<VendorSidebar>
               child: Material(
                 color: Colors.transparent,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Top Header Section (Avatar, Name, Link, Close icon)
                     _buildTopHeader(initials, v),
-                    const Divider(height: 1, color: AppTheme.borderLight), // Divider under top header row (red line)
+                    const Divider(
+                      height: 1,
+                      color: AppTheme.borderLight,
+                    ), // Divider under top header row (red line)
                     // Sub Header Section (Company name, Email)
                     _buildSubHeader(v),
                     // Tabs Section
@@ -127,7 +136,9 @@ class _VendorSidebarState extends State<VendorSidebar>
                     // Main Content / Body (Grey shade area under details & activity log)
                     Expanded(
                       child: Container(
-                        color: const Color(0xFFF9FAFB), // Grey background for content below tabs
+                        color: const Color(
+                          0xFFF9FAFB,
+                        ), // Grey background for content below tabs
                         child: _tab == 0
                             ? _buildDetailsTab(v, payablesStr, creditsStr)
                             : _buildActivityLogTab(),
@@ -173,10 +184,7 @@ class _VendorSidebarState extends State<VendorSidebar>
               children: [
                 const Text(
                   'Vendor',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 2),
                 Row(
@@ -202,24 +210,29 @@ class _VendorSidebarState extends State<VendorSidebar>
                         onTap: () {
                           String orgId = '0000000000';
                           try {
-                            final location = GoRouter.of(context).routeInformationProvider.value.uri.toString();
-                            final match = RegExp(r'^/(\d{10,20})(/|$)').firstMatch(location);
+                            final location = GoRouter.of(
+                              context,
+                            ).routeInformationProvider.value.uri.toString();
+                            final match = RegExp(
+                              r'^/(\d{10,20})(/|$)',
+                            ).firstMatch(location);
                             final parsed = match?.group(1)?.trim();
                             if (parsed != null && parsed.isNotEmpty) {
                               orgId = parsed;
                             }
                           } catch (_) {}
-                          
+
                           if (orgId == '0000000000') {
                             try {
                               final box = Hive.box('config');
-                              final selected = box.get('selected_entity_id') as String?;
+                              final selected =
+                                  box.get('selected_entity_id') as String?;
                               if (selected != null && selected.isNotEmpty) {
                                 orgId = selected;
                               }
                             } catch (_) {}
                           }
-                          
+
                           widget.onClose();
                           context.go('/$orgId/purchases/vendors/${v.id}');
                         },
@@ -258,14 +271,23 @@ class _VendorSidebarState extends State<VendorSidebar>
       return const SizedBox.shrink();
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 16, 16), // Left-aligned with top header, slightly lower
+      padding: const EdgeInsets.fromLTRB(
+        20,
+        12,
+        16,
+        16,
+      ), // Left-aligned with top header, slightly lower
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if ((v.companyName ?? '').isNotEmpty)
             Row(
               children: [
-                const Icon(LucideIcons.fileText, size: 14, color: AppTheme.textSecondary),
+                const Icon(
+                  LucideIcons.fileText,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   v.companyName!,
@@ -281,7 +303,11 @@ class _VendorSidebarState extends State<VendorSidebar>
           if ((v.email ?? '').isNotEmpty)
             Row(
               children: [
-                const Icon(LucideIcons.mail, size: 14, color: AppTheme.textSecondary),
+                const Icon(
+                  LucideIcons.mail,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   v.email!,
@@ -306,7 +332,11 @@ class _VendorSidebarState extends State<VendorSidebar>
       child: Row(
         children: [
           _buildTabItem('Details', _tab == 0, () => setState(() => _tab = 0)),
-          _buildTabItem('Activity Log', _tab == 1, () => setState(() => _tab = 1)),
+          _buildTabItem(
+            'Activity Log',
+            _tab == 1,
+            () => setState(() => _tab = 1),
+          ),
         ],
       ),
     );
@@ -341,7 +371,7 @@ class _VendorSidebarState extends State<VendorSidebar>
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Merged summary card container
           Container(
@@ -350,64 +380,82 @@ class _VendorSidebarState extends State<VendorSidebar>
               border: Border.all(color: AppTheme.borderLight),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: IntrinsicHeight(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(LucideIcons.alertTriangle, size: 20, color: AppTheme.warningOrange),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Outstanding Payables',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 18,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.alertTriangle,
+                          size: 20,
+                          color: AppTheme.warningOrange,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Outstanding Payables',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            payablesStr,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
-                            ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          payablesStr,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: AppTheme.borderLight),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(LucideIcons.circleDot, size: 20, color: AppTheme.accentGreen),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Unused Credits',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                ),
+                const VerticalDivider(width: 1, color: AppTheme.borderLight),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 18,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.circleDot,
+                          size: 20,
+                          color: AppTheme.accentGreen,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Unused Credits',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            creditsStr,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
-                            ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          creditsStr,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),
@@ -456,7 +504,11 @@ class _VendorSidebarState extends State<VendorSidebar>
             padding: EdgeInsets.all(16),
             child: Text(
               'Contact Details',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
             ),
           ),
           const Divider(height: 1, color: AppTheme.borderLight),
@@ -468,11 +520,17 @@ class _VendorSidebarState extends State<VendorSidebar>
                 const SizedBox(height: 14),
                 _buildDetailRow('Payment Terms', paymentTermLabel),
                 const SizedBox(height: 14),
-                _buildDetailRow('Portal Status', v.enablePortal == true ? 'Enabled' : 'Disabled'),
+                _buildDetailRow(
+                  'Portal Status',
+                  v.enablePortal == true ? 'Enabled' : 'Disabled',
+                ),
                 const SizedBox(height: 14),
                 _buildDetailRow('Vendor Language', 'English'),
                 const SizedBox(height: 14),
-                _buildDetailRow('GST Treatment', v.gstTreatment ?? 'Unregistered Business'),
+                _buildDetailRow(
+                  'GST Treatment',
+                  v.gstTreatment ?? 'Unregistered Business',
+                ),
                 const SizedBox(height: 14),
                 _buildDetailRow('Source of Supply', sos),
               ],
@@ -523,7 +581,8 @@ class _VendorSidebarState extends State<VendorSidebar>
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: _showContactPersons,
-          onExpansionChanged: (val) => setState(() => _showContactPersons = val),
+          onExpansionChanged: (val) =>
+              setState(() => _showContactPersons = val),
           tilePadding: const EdgeInsets.symmetric(horizontal: 16),
           title: Row(
             children: [
@@ -538,7 +597,10 @@ class _VendorSidebarState extends State<VendorSidebar>
               if (count > 0) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE2E8F0),
                     borderRadius: BorderRadius.circular(4),
@@ -556,7 +618,9 @@ class _VendorSidebarState extends State<VendorSidebar>
             ],
           ),
           trailing: Icon(
-            _showContactPersons ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+            _showContactPersons
+                ? Icons.keyboard_arrow_up
+                : Icons.keyboard_arrow_down,
             color: AppTheme.textSecondary,
             size: 20,
           ),
@@ -578,18 +642,32 @@ class _VendorSidebarState extends State<VendorSidebar>
                   children: List.generate(list.length, (index) {
                     final p = list[index];
                     final salutation = (p['salutation'] ?? '').toString();
-                    final firstName = (p['firstName'] ?? p['first_name'] ?? '').toString();
-                    final lastName = (p['lastName'] ?? p['last_name'] ?? '').toString();
-                    final fullName = [salutation, firstName, lastName].where((s) => s.isNotEmpty).join(' ').trim();
+                    final firstName = (p['firstName'] ?? p['first_name'] ?? '')
+                        .toString();
+                    final lastName = (p['lastName'] ?? p['last_name'] ?? '')
+                        .toString();
+                    final fullName = [
+                      salutation,
+                      firstName,
+                      lastName,
+                    ].where((s) => s.isNotEmpty).join(' ').trim();
                     final name = fullName.isNotEmpty ? fullName : v.displayName;
-                    final contactInitial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+                    final contactInitial = name.isNotEmpty
+                        ? name[0].toUpperCase()
+                        : '?';
                     final email = (p['email'] ?? '').toString().trim();
-                    final workPhone = (p['workPhone'] ?? p['work_phone'] ?? '').toString().trim();
-                    final mobilePhone = (p['mobilePhone'] ?? p['mobile_phone'] ?? '').toString().trim();
-                    final isPrimary = p['isPrimary'] == true || p['is_primary'] == true;
+                    final workPhone = (p['workPhone'] ?? p['work_phone'] ?? '')
+                        .toString()
+                        .trim();
+                    final mobilePhone =
+                        (p['mobilePhone'] ?? p['mobile_phone'] ?? '')
+                            .toString()
+                            .trim();
+                    final isPrimary =
+                        p['isPrimary'] == true || p['is_primary'] == true;
 
                     return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -760,7 +838,7 @@ class _VendorSidebarState extends State<VendorSidebar>
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Billing Address Header with Icon
                   Row(
@@ -788,13 +866,13 @@ class _VendorSidebarState extends State<VendorSidebar>
                     padding: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
                     decoration: const BoxDecoration(
                       border: Border(
-                        left: BorderSide(
-                          color: Color(0xFFE2E8F0),
-                          width: 2,
-                        ),
+                        left: BorderSide(color: Color(0xFFE2E8F0), width: 2),
                       ),
                     ),
-                    child: _buildAddressContent(v.billingAddress, isBilling: true),
+                    child: _buildAddressContent(
+                      v.billingAddress,
+                      isBilling: true,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   // Shipping Address Header
@@ -813,13 +891,13 @@ class _VendorSidebarState extends State<VendorSidebar>
                     padding: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
                     decoration: const BoxDecoration(
                       border: Border(
-                        left: BorderSide(
-                          color: Color(0xFFE2E8F0),
-                          width: 2,
-                        ),
+                        left: BorderSide(color: Color(0xFFE2E8F0), width: 2),
                       ),
                     ),
-                    child: _buildAddressContent(v.shippingAddress, isBilling: false),
+                    child: _buildAddressContent(
+                      v.shippingAddress,
+                      isBilling: false,
+                    ),
                   ),
                 ],
               ),
@@ -830,7 +908,10 @@ class _VendorSidebarState extends State<VendorSidebar>
     );
   }
 
-  Widget _buildAddressContent(Map<String, dynamic>? address, {required bool isBilling}) {
+  Widget _buildAddressContent(
+    Map<String, dynamic>? address, {
+    required bool isBilling,
+  }) {
     if (address == null) {
       return Text(
         isBilling ? 'No Billing Address' : 'No Shipping Address',
@@ -839,13 +920,16 @@ class _VendorSidebarState extends State<VendorSidebar>
     }
 
     final List<String> lines = [];
-    if (address['attention'] != null && address['attention'].toString().trim().isNotEmpty) {
+    if (address['attention'] != null &&
+        address['attention'].toString().trim().isNotEmpty) {
       lines.add(address['attention'].toString().trim());
     }
-    if (address['street1'] != null && address['street1'].toString().trim().isNotEmpty) {
+    if (address['street1'] != null &&
+        address['street1'].toString().trim().isNotEmpty) {
       lines.add(address['street1'].toString().trim());
     }
-    if (address['street2'] != null && address['street2'].toString().trim().isNotEmpty) {
+    if (address['street2'] != null &&
+        address['street2'].toString().trim().isNotEmpty) {
       lines.add(address['street2'].toString().trim());
     }
 
@@ -857,10 +941,12 @@ class _VendorSidebarState extends State<VendorSidebar>
 
     if (cityStateZip.isNotEmpty) lines.add(cityStateZip);
 
-    if (address['country'] != null && address['country'].toString().trim().isNotEmpty) {
+    if (address['country'] != null &&
+        address['country'].toString().trim().isNotEmpty) {
       lines.add(address['country'].toString().trim());
     }
-    if (address['phone'] != null && address['phone'].toString().trim().isNotEmpty) {
+    if (address['phone'] != null &&
+        address['phone'].toString().trim().isNotEmpty) {
       lines.add('Phone: ${address['phone'].toString().trim()}');
     }
 
@@ -934,11 +1020,7 @@ class VendorSideTag extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(
-              LucideIcons.chevronRight,
-              size: 14,
-              color: Colors.white,
-            ),
+            const Icon(LucideIcons.chevronRight, size: 14, color: Colors.white),
           ],
         ),
       ),

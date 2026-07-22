@@ -2,10 +2,7 @@ abstract class DomainEvent {
   final DateTime occurredAt;
   final String eventType;
 
-  const DomainEvent({
-    required this.occurredAt,
-    required this.eventType,
-  });
+  const DomainEvent({required this.occurredAt, required this.eventType});
 }
 
 class TransactionTransitionedEvent extends DomainEvent {

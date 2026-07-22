@@ -29,4 +29,3 @@ class AppModule {
   final IconData icon;
   final List<AppNavItem> items;
 }
-

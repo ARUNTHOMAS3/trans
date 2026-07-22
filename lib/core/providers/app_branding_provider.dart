@@ -10,10 +10,8 @@ const String _kThemeModeKey = 'branding_theme';
 BrandingSettings loadCachedBranding() {
   try {
     final box = Hive.box('config');
-    final accentHex =
-        (box.get(_kAccentKey) as String?) ?? '#22A95E';
-    final themeMode =
-        (box.get(_kThemeModeKey) as String?) ?? 'dark';
+    final accentHex = (box.get(_kAccentKey) as String?) ?? '#22A95E';
+    final themeMode = (box.get(_kThemeModeKey) as String?) ?? 'dark';
     final clean = accentHex.replaceAll('#', '');
     final colorVal = int.tryParse('FF$clean', radix: 16);
     return BrandingSettings(
@@ -43,8 +41,7 @@ class BrandingSettings {
       );
 
   // Sidebar background
-  Color get sidebarBg =>
-      isDarkPane ? const Color(0xFF1F2637) : Colors.white;
+  Color get sidebarBg => isDarkPane ? const Color(0xFF1F2637) : Colors.white;
 
   // Collapse-toggle button background
   Color get collapseToggleBg =>
@@ -59,8 +56,7 @@ class BrandingSettings {
       isDarkPane ? const Color(0xFF2A3A55) : const Color(0xFFEFF6FF);
 
   // Item foreground (text + icons)
-  Color get itemFg =>
-      isDarkPane ? Colors.white : const Color(0xFF1F2937);
+  Color get itemFg => isDarkPane ? Colors.white : const Color(0xFF1F2937);
 
   // Muted foreground (inactive labels, arrows)
   Color get itemFgMuted =>
@@ -93,5 +89,5 @@ class AppBrandingNotifier extends StateNotifier<BrandingSettings> {
 
 final appBrandingProvider =
     StateNotifierProvider<AppBrandingNotifier, BrandingSettings>(
-  (ref) => AppBrandingNotifier(loadCachedBranding()),
-);
+      (ref) => AppBrandingNotifier(loadCachedBranding()),
+    );

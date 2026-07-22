@@ -187,7 +187,7 @@ export class PaymentsMadeService {
     const supabase = this.supabaseService.getClient();
     let query = supabase
       .from("payment_made_master")
-      .select("*, payment_made_attachments(*), payment_made_tax(*)")
+      .select("*, payment_made_attachments(*), payment_made_tax(*), vendors(*)")
       .eq("entity_id", tenant.entityId);
 
     if (vendorId) {

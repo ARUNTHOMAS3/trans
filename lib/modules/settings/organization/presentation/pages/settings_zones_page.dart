@@ -100,9 +100,7 @@ class _SettingsZonesPageState extends ConsumerState<SettingsZonesPage> {
 
   String get _currentOrgId {
     final user = ref.read(authUserProvider);
-    return (user?.orgId.isNotEmpty == true)
-        ? user!.orgId
-        : '';
+    return (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
   }
 
   bool get _isWarehouseScope => (widget.warehouseId ?? '').trim().isNotEmpty;
@@ -215,7 +213,10 @@ class _SettingsZonesPageState extends ConsumerState<SettingsZonesPage> {
           .replaceFirst('Exception: ', '')
           .replaceFirst('Error: ', '')
           .trim();
-      ZerpaiToast.error(context, message.isEmpty ? 'Failed to apply zone action' : message);
+      ZerpaiToast.error(
+        context,
+        message.isEmpty ? 'Failed to apply zone action' : message,
+      );
     }
   }
 
@@ -539,7 +540,8 @@ class _SettingsZonesPageState extends ConsumerState<SettingsZonesPage> {
                     'orgSystemId':
                         GoRouterState.of(
                           context,
-                        ).pathParameters['orgSystemId'] ?? resolveOrgSystemId(context),
+                        ).pathParameters['orgSystemId'] ??
+                        resolveOrgSystemId(context),
                   },
                 ),
                 splashRadius: 18,
@@ -575,7 +577,8 @@ class _SettingsZonesPageState extends ConsumerState<SettingsZonesPage> {
                     'orgSystemId':
                         GoRouterState.of(
                           context,
-                        ).pathParameters['orgSystemId'] ?? resolveOrgSystemId(context),
+                        ).pathParameters['orgSystemId'] ??
+                        resolveOrgSystemId(context),
                   },
                   queryParameters: _scopeQueryParameters(),
                 ),
@@ -820,7 +823,8 @@ class _SettingsZonesPageState extends ConsumerState<SettingsZonesPage> {
                     'orgSystemId':
                         GoRouterState.of(
                           context,
-                        ).pathParameters['orgSystemId'] ?? resolveOrgSystemId(context),
+                        ).pathParameters['orgSystemId'] ??
+                        resolveOrgSystemId(context),
                     'zoneId': zone.id,
                   },
                   queryParameters: _scopeQueryParameters(

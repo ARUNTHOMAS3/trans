@@ -34,7 +34,9 @@ class ZerpaiMonthYearPicker {
           builder: (ctx, setLocalState) {
             return Dialog(
               backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: SizedBox(
                 width: 320,
                 child: Padding(
@@ -46,7 +48,10 @@ class ZerpaiMonthYearPicker {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Select Month & Year',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -60,7 +65,9 @@ class ZerpaiMonthYearPicker {
                               showSearch: false,
                               onChanged: (v) {
                                 if (v == null) return;
-                                setLocalState(() => selectedMonth = int.parse(v));
+                                setLocalState(
+                                  () => selectedMonth = int.parse(v),
+                                );
                               },
                             ),
                           ),
@@ -110,4 +117,3 @@ class ZerpaiMonthYearPicker {
     return result;
   }
 }
-

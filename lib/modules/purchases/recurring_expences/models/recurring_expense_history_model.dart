@@ -41,7 +41,8 @@ class RecurringExpenseRun {
       recurringExpenseId: (json['recurring_expense_id'] ?? '').toString(),
       expenseId: json['expense_id']?.toString(),
       runDate: json['run_date']?.toString(),
-      generatedAmount: (json['generated_amount'] as num?)?.toDouble() ??
+      generatedAmount:
+          (json['generated_amount'] as num?)?.toDouble() ??
           double.tryParse((json['generated_amount'] ?? '0').toString()) ??
           0,
       status: RunStatusX.fromValue(json['status']?.toString()),
@@ -126,7 +127,9 @@ class RecurringExpenseRun {
   String get author {
     final actor = performedBy?.trim();
     if (actor != null && actor.isNotEmpty) {
-      if (RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(actor)) {
+      if (RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      ).hasMatch(actor)) {
         return 'AUTO';
       }
       return actor;

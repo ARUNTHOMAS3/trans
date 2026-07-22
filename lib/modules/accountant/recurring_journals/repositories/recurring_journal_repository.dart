@@ -151,7 +151,9 @@ class ApiRecurringJournalRepository implements RecurringJournalRepository {
   @override
   Future<RecurringJournal> cloneRecurringJournal(String id) async {
     try {
-      final response = await _dio.post('accountant/recurring-journals/$id/clone');
+      final response = await _dio.post(
+        'accountant/recurring-journals/$id/clone',
+      );
       return RecurringJournal.fromJson(_asMap(response.data));
     } on DioException catch (e) {
       throw Exception(

@@ -180,9 +180,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
           color: isSelected ? AppTheme.primaryBlueDark : Colors.white,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected
-                ? AppTheme.primaryBlueDark
-                : AppTheme.borderColor,
+            color: isSelected ? AppTheme.primaryBlueDark : AppTheme.borderColor,
           ),
         ),
         child: Text(
@@ -212,7 +210,10 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
           child: RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+              ),
               children: [
                 TextSpan(
                   text: _selectedPriceListTab == 0

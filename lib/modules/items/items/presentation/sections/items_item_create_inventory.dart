@@ -92,10 +92,11 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
   Widget _buildAdvancedInventory(ItemsState itemsState) {
     final controller = ref.read(itemsControllerProvider.notifier);
     final inventoryAccounts = itemsState.accounts.where((account) {
-      final accountType = (account['account_type'] ?? account['accountType'] ?? '')
-          .toString()
-          .trim()
-          .toLowerCase();
+      final accountType =
+          (account['account_type'] ?? account['accountType'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
       return accountType == 'stock';
     }).toList();
     final seenStorageLabels = <String>{};
@@ -138,9 +139,8 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
           // ---- Radio Tracking Modes ----
           RadioGroup<InventoryTrackingMode>(
             groupValue: trackingMode,
-            onChanged: (_) => updateState(
-              () => trackingMode = InventoryTrackingMode.batches,
-            ),
+            onChanged: (_) =>
+                updateState(() => trackingMode = InventoryTrackingMode.batches),
             child: Column(
               children: [
                 _trackingRadioRow(

@@ -57,7 +57,8 @@ class TrialBalanceScreen extends ConsumerWidget {
           enabled: true,
           ignoreContainers: true,
           child: _buildTrialBalanceContent(
-            context, currencyFormat,
+            context,
+            currencyFormat,
             accounts: [
               {'accountName': '—————————————', 'debit': 0, 'credit': 0},
               {'accountName': '———————————', 'debit': 0, 'credit': 0},
@@ -111,7 +112,11 @@ class TrialBalanceScreen extends ConsumerWidget {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 900),
         child: _buildReportTable(
-          context, currencyFormat, accounts, totalDebit, totalCredit,
+          context,
+          currencyFormat,
+          accounts,
+          totalDebit,
+          totalCredit,
         ),
       ),
     );

@@ -46,13 +46,47 @@ class InventoryValuationScreen extends ConsumerWidget {
         loading: () => Skeletonizer(
           enabled: true,
           ignoreContainers: true,
-          child: _buildInventoryContent(context, currencyFormat, items: [
-            {'itemName': '—————————————', 'sku': '——————', 'warehouse': '—————', 'stockOnHand': 0, 'assetValue': 0},
-            {'itemName': '———————————', 'sku': '——————', 'warehouse': '—————', 'stockOnHand': 0, 'assetValue': 0},
-            {'itemName': '————————————', 'sku': '——————', 'warehouse': '—————', 'stockOnHand': 0, 'assetValue': 0},
-            {'itemName': '———————', 'sku': '——————', 'warehouse': '—————', 'stockOnHand': 0, 'assetValue': 0},
-            {'itemName': '——————————', 'sku': '——————', 'warehouse': '—————', 'stockOnHand': 0, 'assetValue': 0},
-          ]),
+          child: _buildInventoryContent(
+            context,
+            currencyFormat,
+            items: [
+              {
+                'itemName': '—————————————',
+                'sku': '——————',
+                'warehouse': '—————',
+                'stockOnHand': 0,
+                'assetValue': 0,
+              },
+              {
+                'itemName': '———————————',
+                'sku': '——————',
+                'warehouse': '—————',
+                'stockOnHand': 0,
+                'assetValue': 0,
+              },
+              {
+                'itemName': '————————————',
+                'sku': '——————',
+                'warehouse': '—————',
+                'stockOnHand': 0,
+                'assetValue': 0,
+              },
+              {
+                'itemName': '———————',
+                'sku': '——————',
+                'warehouse': '—————',
+                'stockOnHand': 0,
+                'assetValue': 0,
+              },
+              {
+                'itemName': '——————————',
+                'sku': '——————',
+                'warehouse': '—————',
+                'stockOnHand': 0,
+                'assetValue': 0,
+              },
+            ],
+          ),
         ),
         error: (err, stack) => Center(
           child: Column(

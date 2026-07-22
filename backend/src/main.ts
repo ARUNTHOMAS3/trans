@@ -13,6 +13,7 @@ import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { StandardResponseInterceptor } from "./common/interceptors/standard_response.interceptor";
 import { GlobalExceptionFilter } from "./common/filters/global_exception.filter";
 import { BullBoardService } from "./modules/redis/bull_board.service";
+import { ObservabilityInterceptor } from "./common/observability/observability.interceptor";
 
 // Load base env first, then let .env.local override selectively.
 dotenv.config({ path: ".env" });
@@ -125,6 +126,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(
     app.get(AuditInterceptor),
     new StandardResponseInterceptor(),
+    app.get(ObservabilityInterceptor),
   );
   app.useGlobalFilters(new GlobalExceptionFilter());
 

@@ -19,10 +19,16 @@ class DashboardMetrics extends Equatable {
 
   factory DashboardMetrics.fromJson(Map<String, dynamic> json) {
     return DashboardMetrics(
-      financial: FinancialMetrics.fromJson(json['financial'] as Map<String, dynamic>),
+      financial: FinancialMetrics.fromJson(
+        json['financial'] as Map<String, dynamic>,
+      ),
       sales: SalesMetrics.fromJson(json['sales'] as Map<String, dynamic>),
-      inventory: InventoryMetrics.fromJson(json['inventory'] as Map<String, dynamic>),
-      operations: OperationsMetrics.fromJson(json['operations'] as Map<String, dynamic>),
+      inventory: InventoryMetrics.fromJson(
+        json['inventory'] as Map<String, dynamic>,
+      ),
+      operations: OperationsMetrics.fromJson(
+        json['operations'] as Map<String, dynamic>,
+      ),
       lastUpdated: DateTime.parse(json['lastUpdated'] as String),
     );
   }
@@ -55,12 +61,12 @@ class DashboardMetrics extends Equatable {
 
   @override
   List<Object?> get props => [
-        financial,
-        sales,
-        inventory,
-        operations,
-        lastUpdated,
-      ];
+    financial,
+    sales,
+    inventory,
+    operations,
+    lastUpdated,
+  ];
 }
 
 class FinancialMetrics extends Equatable {
@@ -88,7 +94,8 @@ class FinancialMetrics extends Equatable {
       totalExpenses: (json['totalExpenses'] as num?)?.toDouble() ?? 0.0,
       netProfit: (json['netProfit'] as num?)?.toDouble() ?? 0.0,
       profitMargin: (json['profitMargin'] as num?)?.toDouble() ?? 0.0,
-      accountsReceivable: (json['accountsReceivable'] as num?)?.toDouble() ?? 0.0,
+      accountsReceivable:
+          (json['accountsReceivable'] as num?)?.toDouble() ?? 0.0,
       accountsPayable: (json['accountsPayable'] as num?)?.toDouble() ?? 0.0,
       cashBalance: (json['cashBalance'] as num?)?.toDouble() ?? 0.0,
     );
@@ -108,14 +115,14 @@ class FinancialMetrics extends Equatable {
 
   @override
   List<Object?> get props => [
-        totalRevenue,
-        totalExpenses,
-        netProfit,
-        profitMargin,
-        accountsReceivable,
-        accountsPayable,
-        cashBalance,
-      ];
+    totalRevenue,
+    totalExpenses,
+    netProfit,
+    profitMargin,
+    accountsReceivable,
+    accountsPayable,
+    cashBalance,
+  ];
 }
 
 class SalesMetrics extends Equatable {
@@ -144,12 +151,16 @@ class SalesMetrics extends Equatable {
       pendingOrders: json['pendingOrders'] as int? ?? 0,
       completedOrders: json['completedOrders'] as int? ?? 0,
       averageOrderValue: (json['averageOrderValue'] as num?)?.toDouble() ?? 0.0,
-      topProducts: (json['topProducts'] as List<dynamic>?)
-          ?.map((item) => TopProduct.fromJson(item as Map<String, dynamic>))
-          .toList() ?? [],
-      salesTrends: (json['salesTrends'] as List<dynamic>?)
-          ?.map((item) => SalesTrend.fromJson(item as Map<String, dynamic>))
-          .toList() ?? [],
+      topProducts:
+          (json['topProducts'] as List<dynamic>?)
+              ?.map((item) => TopProduct.fromJson(item as Map<String, dynamic>))
+              .toList() ??
+          [],
+      salesTrends:
+          (json['salesTrends'] as List<dynamic>?)
+              ?.map((item) => SalesTrend.fromJson(item as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -167,14 +178,14 @@ class SalesMetrics extends Equatable {
 
   @override
   List<Object?> get props => [
-        totalOrders,
-        totalSales,
-        pendingOrders,
-        completedOrders,
-        averageOrderValue,
-        topProducts,
-        salesTrends,
-      ];
+    totalOrders,
+    totalSales,
+    pendingOrders,
+    completedOrders,
+    averageOrderValue,
+    topProducts,
+    salesTrends,
+  ];
 }
 
 class InventoryMetrics extends Equatable {
@@ -201,9 +212,13 @@ class InventoryMetrics extends Equatable {
       outOfStockItems: json['outOfStockItems'] as int? ?? 0,
       inventoryValue: (json['inventoryValue'] as num?)?.toDouble() ?? 0.0,
       turnoverRate: (json['turnoverRate'] as num?)?.toDouble() ?? 0.0,
-      lowStockAlerts: (json['lowStockAlerts'] as List<dynamic>?)
-          ?.map((item) => LowStockItem.fromJson(item as Map<String, dynamic>))
-          .toList() ?? [],
+      lowStockAlerts:
+          (json['lowStockAlerts'] as List<dynamic>?)
+              ?.map(
+                (item) => LowStockItem.fromJson(item as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
     );
   }
 
@@ -220,13 +235,13 @@ class InventoryMetrics extends Equatable {
 
   @override
   List<Object?> get props => [
-        totalItems,
-        lowStockItems,
-        outOfStockItems,
-        inventoryValue,
-        turnoverRate,
-        lowStockAlerts,
-      ];
+    totalItems,
+    lowStockItems,
+    outOfStockItems,
+    inventoryValue,
+    turnoverRate,
+    lowStockAlerts,
+  ];
 }
 
 class OperationsMetrics extends Equatable {
@@ -250,9 +265,13 @@ class OperationsMetrics extends Equatable {
       pendingApprovals: json['pendingApprovals'] as int? ?? 0,
       systemAlerts: json['systemAlerts'] as int? ?? 0,
       uptimePercentage: (json['uptimePercentage'] as num?)?.toDouble() ?? 0.0,
-      alerts: (json['alerts'] as List<dynamic>?)
-          ?.map((item) => SystemAlert.fromJson(item as Map<String, dynamic>))
-          .toList() ?? [],
+      alerts:
+          (json['alerts'] as List<dynamic>?)
+              ?.map(
+                (item) => SystemAlert.fromJson(item as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
     );
   }
 
@@ -268,12 +287,12 @@ class OperationsMetrics extends Equatable {
 
   @override
   List<Object?> get props => [
-        activeUsers,
-        pendingApprovals,
-        systemAlerts,
-        uptimePercentage,
-        alerts,
-      ];
+    activeUsers,
+    pendingApprovals,
+    systemAlerts,
+    uptimePercentage,
+    alerts,
+  ];
 }
 
 // Supporting models
@@ -332,11 +351,7 @@ class SalesTrend extends Equatable {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'period': period,
-      'revenue': revenue,
-      'orders': orders,
-    };
+    return {'period': period, 'revenue': revenue, 'orders': orders};
   }
 
   @override

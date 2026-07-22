@@ -3,11 +3,8 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 
-typedef ZModuleCellBuilder<T> = Widget Function(
-  BuildContext context,
-  T row,
-  ColumnConfig column,
-);
+typedef ZModuleCellBuilder<T> =
+    Widget Function(BuildContext context, T row, ColumnConfig column);
 
 class ZModuleTable<T> extends StatelessWidget {
   static const double _headerToolsWidth = 28;
@@ -36,7 +33,8 @@ class ZModuleTable<T> extends StatelessWidget {
   final List<T> rows;
   final List<ColumnConfig> visibleColumns;
   final String Function(T row) rowId;
-  final Widget Function(BuildContext context, ColumnConfig column) headerBuilder;
+  final Widget Function(BuildContext context, ColumnConfig column)
+  headerBuilder;
   final ZModuleCellBuilder<T> cellBuilder;
   final bool Function(String rowId) isSelected;
   final ValueChanged<bool> onAllSelectedChanged;
@@ -102,11 +100,16 @@ class ZModuleTable<T> extends StatelessWidget {
                 ),
                 ...visibleColumns.map((column) {
                   return InkWell(
-                    onTap: onHeaderTap == null ? null : () => onHeaderTap!(column.id),
+                    onTap: onHeaderTap == null
+                        ? null
+                        : () => onHeaderTap!(column.id),
                     child: SizedBox(
                       width: columnWidthBuilder(column.id),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
                         child: Row(
                           children: [
                             Expanded(child: headerBuilder(context, column)),
@@ -157,7 +160,10 @@ class ZModuleTable<T> extends StatelessWidget {
                       return SizedBox(
                         width: columnWidthBuilder(column.id),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                           child: cellBuilder(context, row, column),
                         ),
                       );

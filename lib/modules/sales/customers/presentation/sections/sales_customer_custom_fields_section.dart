@@ -13,4 +13,3 @@ extension _CustomFieldsSection on _SalesCustomerCreateScreenState {
     );
   }
 }
-

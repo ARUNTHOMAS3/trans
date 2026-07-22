@@ -42,12 +42,17 @@ class AppRoutes {
   static const String settingsDirectTaxes = '/settings/direct-taxes';
   static const String settingsEwayBills = '/settings/eway-bills';
   static const String settingsEinvoicing = '/settings/einvoicing';
-  static const String settingsMsme = '/settings/msme';
+  static const String settingsTaxCreate = '/settings/taxes/new';
+  static const String settingsTaxImport = '/settings/taxes/import';
+  static const String settingsTaxGroupImport = '/settings/taxes/groups/import';
   // Setup & Configurations
   static const String settingsGeneral = '/settings/general';
   static const String settingsCurrencies = '/settings/currencies';
   static const String settingsReminders = '/settings/reminders';
-  static const String settingsCustomerPortal = '/settings/customer-portal';
+  static const String settingsUnitsOfMeasurement =
+      '/settings/units-of-measurement';
+  static const String settingsCustomersAndVendors =
+      '/settings/customers-and-vendors';
   // Customization
   static const String settingsTransactionNumberSeries =
       '/settings/transaction-number-series';
@@ -57,10 +62,71 @@ class AppRoutes {
   static const String settingsSmsNotifications = '/settings/sms-notifications';
   static const String settingsReportingTags = '/settings/reporting-tags';
   static const String settingsWebTabs = '/settings/web-tabs';
+  static const String settingsTransactionNumberSeriesCreate =
+      '/settings/transaction-number-series/create';
+  static const String settingsEmailInsights =
+      '/settings/email-notifications/insights';
+  static const String settingsCustomerReviewNotification =
+      '/settings/email-notifications/customer-review';
+  static const String settingsReportingTagsCreate =
+      '/settings/reporting-tags/create';
+  static const String settingsApproval = '/settings/approval';
+  static const String settingsApprovalCreate = '/settings/approval/create';
+  static const String settingsLockConfiguration =
+      '/settings/lock-configuration';
+  static const String settingsLockConfigurationCreate =
+      '/settings/lock-configuration/create';
+  static const String settingsSalesOrders = '/settings/preferences/salesorders';
+  static const String settingsSalesOrdersCycle =
+      '/settings/preferences/salesorders/cycle';
+  static const String settingsSalesOrdersStatuses =
+      '/settings/preferences/salesorders/statuses';
+  static const String settingsInvoices = '/settings/preferences/invoices';
+  static const String settingsInvoicesCycle =
+      '/settings/preferences/invoices/cycle';
+  static const String settingsInvoicesStatuses =
+      '/settings/preferences/invoices/statuses';
+  static const String settingsCreditNotes = '/settings/preferences/creditnotes';
+  static const String settingsCreditNotesCycle =
+      '/settings/preferences/creditnotes/cycle';
+  static const String settingsCreditNotesStatuses =
+      '/settings/preferences/creditnotes/statuses';
+  static const String settingsDeliveryChallans =
+      '/settings/preferences/deliverychallans';
+  static const String settingsDeliveryChallansCycle =
+      '/settings/preferences/deliverychallans/cycle';
+  static const String settingsDeliveryChallansStatuses =
+      '/settings/preferences/deliverychallans/statuses';
+  static const String settingsRetainerInvoices =
+      '/settings/preferences/retainerinvoices';
+  static const String settingsExpenses = '/settings/preferences/expenses';
+  static const String settingsExpensesVehicle =
+      '/settings/preferences/expenses/vehicle';
+  static const String settingsExpensesCategories =
+      '/settings/preferences/expenses/categories';
+  static const String settingsExpensesFields =
+      '/settings/preferences/expenses/fields';
+  static const String settingsPurchaseOrders =
+      '/settings/preferences/purchaseorders';
+  static const String settingsPurchaseReceives =
+      '/settings/preferences/purchasereceives';
+  static const String settingsShipments = '/settings/preferences/shipments';
+  static const String settingsStockCounts = '/settings/preferences/stockcounts';
+  static const String settingsTransferOrders =
+      '/settings/preferences/transferorders';
+  static const String settingsItems = '/settings/items';
+  static const String settingsItemsNewField = '/settings/items/fields/new';
+  static const String settingsCurrenciesImport = '/settings/currencies/import';
   // Automation
   static const String settingsWorkflowRules = '/settings/workflow-rules';
   static const String settingsWorkflowActions = '/settings/workflow-actions';
   static const String settingsWorkflowLogs = '/settings/workflow-logs';
+  static const String settingsWorkflowOpsCenter =
+      '/settings/workflow-ops-center';
+  static const String settingsWorkflowInvestigation =
+      '/settings/workflow-investigation';
+  static const String settingsWorkflowMissionControl =
+      '/settings/workflow-mission-control';
   // Integrations & Marketplace
   static const String settingsIntegrationsZoho = '/settings/integrations/zoho';
   static const String settingsIntegrationsWhatsapp =
@@ -229,9 +295,11 @@ class AppRoutes {
   static const String moveOrdersDetail = '/inventory/move-orders/:id';
   static const String stockCounts = '/inventory/stock-counts';
   static const String stockCountsCreate = '/inventory/stock-counts/create';
-  static const String stockCountsPerform = '/inventory/stock-counts/:id/perform';
+  static const String stockCountsPerform =
+      '/inventory/stock-counts/:id/perform';
   static const String stockCountsDetail = '/inventory/stock-counts/:id';
-  static const String recurringStockCounts = '/inventory/stock-counts/recurring';
+  static const String recurringStockCounts =
+      '/inventory/stock-counts/recurring';
 
   // Items utility routes
   static const String itemGroups = '/items/item-groups';
@@ -249,7 +317,6 @@ class AppRoutes {
   static const String documents = '/documents';
   static const String auditLogs = '/audit-logs';
 
-
   // Purchases - Vendors
   static const String vendors = '/purchases/vendors';
   static const String vendorsCreate = '/purchases/vendors/create';
@@ -263,7 +330,8 @@ class AppRoutes {
   // Purchases - Expenses
   static const String expenses = '/purchases/expenses';
   static const String expensesCreate = '/purchases/expenses/create';
-  static const String expensesReceiptsInbox = '/purchases/expenses/receipts-inbox';
+  static const String expensesReceiptsInbox =
+      '/purchases/expenses/receipts-inbox';
 
   // Purchases - Recurring Expenses
   static const String recurringExpenses = '/purchases/recurring-expenses';
@@ -289,8 +357,7 @@ class AppRoutes {
   static const String purchaseReturns = '/purchases/purchase-returns';
   static const String purchaseReturnsCreate =
       '/purchases/purchase-returns/create';
-  static const String purchaseReturnsDetail =
-      '/purchases/purchase-returns/:id';
+  static const String purchaseReturnsDetail = '/purchases/purchase-returns/:id';
   static const String purchasesPurchaseOrders =
       '/purchases/purchase-orders'; // Legacy
   static const String purchasesPurchaseOrdersCreate =
@@ -366,12 +433,15 @@ class AppRoutes {
       '/accountant/transactions-report';
 
   // Procurement
-  static const String procurementPurchaseRequests = '/procurement/purchase-requests';
-  static const String procurementPurchaseRequestsCreate = '/procurement/purchase-requests/create';
-  static const String procurementPurchaseRequestOverview = '/procurement/purchase-requests/:id';
-  static const String procurementRequestedItems = '/procurement/purchase-requests/requested-items';
+  static const String procurementPurchaseRequests =
+      '/procurement/purchase-requests';
+  static const String procurementPurchaseRequestsCreate =
+      '/procurement/purchase-requests/create';
+  static const String procurementPurchaseRequestOverview =
+      '/procurement/purchase-requests/:id';
+  static const String procurementRequestedItems =
+      '/procurement/purchase-requests/requested-items';
   static const String procurementApprovals = '/procurement/approvals';
-  static const String procurementApprovalsOverview = '/procurement/approvals/overview';
+  static const String procurementApprovalsOverview =
+      '/procurement/approvals/overview';
 }
-
-

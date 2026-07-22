@@ -67,4 +67,3 @@ class DioClient {
 
 // Provider for Riverpod
 final dioProvider = Provider<Dio>((ref) => DioClient.instance);
-

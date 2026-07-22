@@ -157,7 +157,11 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
             ),
             const Spacer(),
             if (isSelected)
-              const Icon(Icons.check, size: 16, color: AppTheme.primaryBlueDark),
+              const Icon(
+                Icons.check,
+                size: 16,
+                color: AppTheme.primaryBlueDark,
+              ),
           ],
         ),
       ),

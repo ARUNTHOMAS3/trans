@@ -1,14 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/inventory_picklist_model.dart';
 import '../data/inventory_picklist_repository.dart';
 import '../data/inventory_picklist_repository_impl.dart';
 
 /// Provider for the Picklist repository.
-final inventoryPicklistRepositoryProvider = Provider<InventoryPicklistRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return InventoryPicklistRepositoryImpl(apiClient);
-});
+final inventoryPicklistRepositoryProvider =
+    Provider<InventoryPicklistRepository>((ref) {
+      final apiClient = ref.watch(apiClientProvider);
+      return InventoryPicklistRepositoryImpl(apiClient);
+    });
 
 /// Provider for managing the list of Picklists.
 class PicklistsNotifier extends AsyncNotifier<List<Picklist>> {
@@ -81,11 +82,14 @@ class PicklistsNotifier extends AsyncNotifier<List<Picklist>> {
 
 final picklistsProvider =
     AsyncNotifierProvider<PicklistsNotifier, List<Picklist>>(
-  PicklistsNotifier.new,
-);
+      PicklistsNotifier.new,
+    );
 
 /// Provider for a single Picklist by ID.
-final picklistByIdProvider = FutureProvider.family<Picklist?, String>((ref, id) {
+final picklistByIdProvider = FutureProvider.family<Picklist?, String>((
+  ref,
+  id,
+) {
   final repository = ref.watch(inventoryPicklistRepositoryProvider);
   return repository.getPicklist(id);
 });

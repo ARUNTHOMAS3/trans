@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/api_client.dart';
-import '../../../../shared/utils/error_handler.dart';
+import '../../../../core/utils/error_handler.dart';
 import '../../../auth/controller/auth_controller.dart';
 import '../models/manual_journal_model.dart';
 import '../repositories/manual_journal_repository.dart';

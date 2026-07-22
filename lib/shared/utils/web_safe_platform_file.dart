@@ -11,8 +11,8 @@ class WebSafePlatformFile extends PlatformFile {
     required super.size,
     super.bytes,
     super.readStream,
-  })  : _webSafePath = path,
-        super(path: path);
+  }) : _webSafePath = path,
+       super(path: path);
 
   @override
   String? get path => _webSafePath;

@@ -21,7 +21,8 @@ class ItemListScreen extends ConsumerWidget {
   const ItemListScreen({super.key});
 
   String _resolveOrgSystemId(BuildContext context) {
-    return GoRouterState.of(context).pathParameters['orgSystemId']?.trim() ?? '';
+    return GoRouterState.of(context).pathParameters['orgSystemId']?.trim() ??
+        '';
   }
 
   @override
@@ -179,10 +180,7 @@ class _ItemRow extends StatelessWidget {
         ZRowActions(
           onEdit: () => context.pushNamed(
             AppRoutes.itemsEdit,
-            pathParameters: {
-              'orgSystemId': orgSystemId,
-              'id': item.id ?? '',
-            },
+            pathParameters: {'orgSystemId': orgSystemId, 'id': item.id ?? ''},
           ),
           onDelete: onDelete,
           // onDuplicate: () => ... (backlog)

@@ -56,8 +56,7 @@ class UserProfile {
       email: json['email'] as String? ?? '',
       fullName: json['fullName'] as String? ?? '',
       role: json['role'] as String? ?? '',
-      roleLabel:
-          json['roleLabel'] as String? ?? json['role_label'] as String?,
+      roleLabel: json['roleLabel'] as String? ?? json['role_label'] as String?,
       roleIsDefault:
           json['roleIsDefault'] as bool? ??
           json['role_is_default'] as bool? ??
@@ -70,29 +69,31 @@ class UserProfile {
       avatarUrl: json['avatarUrl'] as String?,
       isActive: json['isActive'] as bool? ?? true,
       isVerified: json['isVerified'] as bool? ?? false,
-      lastLoginAt: parseNullableDate(json['lastLoginAt'] ?? json['last_login_at']),
+      lastLoginAt: parseNullableDate(
+        json['lastLoginAt'] ?? json['last_login_at'],
+      ),
       createdAt: parseDate(json['createdAt'] ?? json['created_at']),
       updatedAt: parseDate(json['updatedAt'] ?? json['updated_at']),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'email': email,
-        'fullName': fullName,
-        'role': role,
-        'roleLabel': roleLabel,
-        'roleIsDefault': roleIsDefault,
-        'orgId': orgId,
-        'orgName': orgName,
-        'phoneNumber': phoneNumber,
-        'department': department,
-        'position': position,
-        'avatarUrl': avatarUrl,
-        'isActive': isActive,
-        'isVerified': isVerified,
-        'lastLoginAt': lastLoginAt?.toIso8601String(),
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+    'id': id,
+    'email': email,
+    'fullName': fullName,
+    'role': role,
+    'roleLabel': roleLabel,
+    'roleIsDefault': roleIsDefault,
+    'orgId': orgId,
+    'orgName': orgName,
+    'phoneNumber': phoneNumber,
+    'department': department,
+    'position': position,
+    'avatarUrl': avatarUrl,
+    'isActive': isActive,
+    'isVerified': isVerified,
+    'lastLoginAt': lastLoginAt?.toIso8601String(),
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 }

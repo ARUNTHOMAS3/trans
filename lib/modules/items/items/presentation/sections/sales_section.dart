@@ -115,9 +115,9 @@ class SalesSection extends StatelessWidget {
 
       final typeRaw = _accountType(raw);
       final type = _toTitleCase(typeRaw.isEmpty ? 'Other' : typeRaw);
-      groupedByType.putIfAbsent(type, () => <AccountNode>[]).add(
-        AccountNode(id: id, name: name, selectable: true),
-      );
+      groupedByType
+          .putIfAbsent(type, () => <AccountNode>[])
+          .add(AccountNode(id: id, name: name, selectable: true));
     }
 
     final sortedTypes = groupedByType.keys.toList()
@@ -155,9 +155,7 @@ class SalesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color labelDim = sellable
-        ? AppTheme.textBody
-        : AppTheme.textMuted;
+    final Color labelDim = sellable ? AppTheme.textBody : AppTheme.textMuted;
 
     return Align(
       alignment: Alignment.topLeft,

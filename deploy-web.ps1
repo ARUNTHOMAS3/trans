@@ -118,7 +118,35 @@ $env:CLOUDFLARE_ACCOUNT_ID = $cloudflareAccountId
 Test-WranglerAuthPreflight -ExpectedAccountId $cloudflareAccountId
 
 Write-Host "Building Flutter Web..." -ForegroundColor Cyan
-flutter build web --release
+$frontendEnvPath = @(".env.local", "assets/.env") |
+  Where-Object { Test-Path $_ } |
+  Select-Object -First 1
+
+if (-not $frontendEnvPath) {
+  throw "Missing frontend build config. Create ignored .env.local or assets/.env with public build values."
+}
+
+$flutterDefines = @()
+foreach ($key in @("SUPABASE_URL", "SUPABASE_ANON_KEY")) {
+  $value = Get-DotenvValue -Path $frontendEnvPath -Key $key
+  if (-not $value) {
+    throw "Missing $key in $frontendEnvPath."
+  }
+  $flutterDefines += "--dart-define=$key=$value"
+}
+
+$sentryDsn = Get-DotenvValue -Path $frontendEnvPath -Key "SENTRY_DSN"
+if ($sentryDsn) {
+  $flutterDefines += "--dart-define=SENTRY_DSN=$sentryDsn"
+}
+
+Write-Host "Using build-time frontend configuration from $frontendEnvPath (values hidden)."
+flutter build web --release @flutterDefines
+
+$publicEnvArtifacts = @(Get-ChildItem -Path "build/web" -Recurse -Force -File -Filter ".env" -ErrorAction SilentlyContinue)
+if ($publicEnvArtifacts.Count -gt 0) {
+  throw "Refusing deployment: build/web contains environment-file artifacts. Remove the asset reference before deploying."
+}
 
 Write-Host "Copying Cloudflare routing files..." -ForegroundColor Cyan
 $requiredFiles = @(

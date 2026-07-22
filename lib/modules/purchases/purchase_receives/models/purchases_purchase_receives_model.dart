@@ -68,7 +68,8 @@ class BatchInfo {
     'quantity': quantity,
     'foc': foc,
     'manufacture_batch': manufactureBatch,
-    if (manufactureDate != null) 'manufacture_date': manufactureDate!.toIso8601String(),
+    if (manufactureDate != null)
+      'manufacture_date': manufactureDate!.toIso8601String(),
     if (expiryDate != null) 'expiry_date': expiryDate!.toIso8601String(),
     if (binId != null) 'bin_id': binId,
     if (binLabel != null) 'bin_label': binLabel,
@@ -82,8 +83,14 @@ class BatchInfo {
       mrp: (json['mrp'] as num?)?.toDouble() ?? 0,
       ptr: (json['ptr'] as num?)?.toDouble() ?? 0,
       quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
-      foc: (json['foc'] as num?)?.toDouble() ?? (json['foc_qty'] as num?)?.toDouble() ?? 0,
-      manufactureBatch: (json['manufacture_batch'] ?? json['manufacture_batch_number']) as String? ?? '',
+      foc:
+          (json['foc'] as num?)?.toDouble() ??
+          (json['foc_qty'] as num?)?.toDouble() ??
+          0,
+      manufactureBatch:
+          (json['manufacture_batch'] ?? json['manufacture_batch_number'])
+              as String? ??
+          '',
       manufactureDate: json['manufacture_date'] != null
           ? DateTime.parse(json['manufacture_date'] as String)
           : null,

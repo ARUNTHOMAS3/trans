@@ -90,7 +90,9 @@ class HomeDashboardScreen extends ConsumerWidget {
                   Expanded(
                     child: _KpiCard(
                       title: 'Purchase Receivables',
-                      value: currencyFormat.format(state.purchaseReceivablesAmount),
+                      value: currencyFormat.format(
+                        state.purchaseReceivablesAmount,
+                      ),
                       icon: LucideIcons.truck,
                       color: AppTheme.primaryBlueDark,
                       isLoading: state.isLoading,
@@ -194,7 +196,8 @@ class HomeDashboardScreen extends ConsumerWidget {
                         rows: state.topCustomers,
                         emptyMessage: 'No customer sales data available',
                         valueKey: 'amount',
-                        valueLabelBuilder: (value) => currencyFormat.format(value),
+                        valueLabelBuilder: (value) =>
+                            currencyFormat.format(value),
                       ),
                     ),
                   ),
@@ -206,7 +209,8 @@ class HomeDashboardScreen extends ConsumerWidget {
                         rows: state.topItems,
                         emptyMessage: 'No inventory movement data available',
                         valueKey: 'stockOnHand',
-                        valueLabelBuilder: (value) => '${value.toStringAsFixed(0)} units',
+                        valueLabelBuilder: (value) =>
+                            '${value.toStringAsFixed(0)} units',
                       ),
                     ),
                   ),
@@ -345,7 +349,10 @@ class _SalesLineChart extends StatelessWidget {
           LineChartData(
             lineBarsData: [
               LineChartBarData(
-                spots: List.generate(6, (i) => FlSpot(i.toDouble(), (i + 1) * 1000)),
+                spots: List.generate(
+                  6,
+                  (i) => FlSpot(i.toDouble(), (i + 1) * 1000),
+                ),
                 isCurved: true,
                 color: AppTheme.accentGreen,
                 barWidth: 2,
@@ -663,10 +670,7 @@ class _TopMetricList extends StatelessWidget {
           final row = entry.value;
           final value = (row[valueKey] as num?)?.toDouble() ?? 0;
           return Container(
-            padding: EdgeInsets.only(
-              top: entry.key == 0 ? 0 : 12,
-              bottom: 12,
-            ),
+            padding: EdgeInsets.only(top: entry.key == 0 ? 0 : 12, bottom: 12),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(

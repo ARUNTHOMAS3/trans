@@ -1181,13 +1181,19 @@ Future<void> showBulkUpdateDialog(
                                           ? () async {
                                               if (selectedIds.isEmpty) {
                                                 if (!context.mounted) return;
-                                                ZerpaiToast.info(context, 'No items selected');
+                                                ZerpaiToast.info(
+                                                  context,
+                                                  'No items selected',
+                                                );
                                                 return;
                                               }
                                               final updated =
                                                   await applyBulkUpdate();
                                               if (!context.mounted) return;
-                                              ZerpaiToast.success(context, '$updated item(s) updated successfully');
+                                              ZerpaiToast.success(
+                                                context,
+                                                '$updated item(s) updated successfully',
+                                              );
                                               Navigator.pop(ctx);
                                             }
                                           : null,

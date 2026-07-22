@@ -20,7 +20,6 @@ import 'package:zerpai_erp/shared/services/bin_locations_service.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
-
 // ─── GSTIN helpers (shared with Associate GSTIN dialog) ──────────────────────
 
 InputDecoration _gstDialogInput(String hint) => InputDecoration(
@@ -375,9 +374,7 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
     });
     try {
       final user = ref.read(authUserProvider);
-      final String orgId = (user?.orgId.isNotEmpty == true)
-          ? user!.orgId
-          : '';
+      final String orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
 
       // Load org name for the top bar
       final orgRes = await _apiClient.get('/lookups/org/$orgId');
@@ -397,8 +394,7 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
         '/lookups/gst-registration-types',
         useCache: true,
       );
-      final gstTypeOptions =
-          gstTypesRes.success && gstTypesRes.data is List
+      final gstTypeOptions = gstTypesRes.success && gstTypesRes.data is List
           ? (gstTypesRes.data as List)
                 .whereType<Map>()
                 .map(
@@ -747,10 +743,7 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
         ElevatedButton.icon(
           onPressed: () => context.goNamed(
             AppRoutes.settingsLocationsCreate,
-            pathParameters: {
-              'orgSystemId':
-                  resolveOrgSystemId(context),
-            },
+            pathParameters: {'orgSystemId': resolveOrgSystemId(context)},
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: accentColor,
@@ -1108,16 +1101,13 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
 
   Future<void> _onMenuSelected(String value, _BranchRow branch) async {
     final user = ref.read(authUserProvider);
-    final String orgId = (user?.orgId.isNotEmpty == true)
-        ? user!.orgId
-        : '';
+    final String orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
     switch (value) {
       case 'edit':
         context.goNamed(
           AppRoutes.settingsLocationsEdit,
           pathParameters: {
-            'orgSystemId':
-                resolveOrgSystemId(context),
+            'orgSystemId': resolveOrgSystemId(context),
             'id': branch.id,
           },
         );
@@ -1138,10 +1128,7 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
         if (!mounted) return;
         context.goNamed(
           AppRoutes.settingsZones,
-          pathParameters: {
-            'orgSystemId':
-                resolveOrgSystemId(context),
-          },
+          pathParameters: {'orgSystemId': resolveOrgSystemId(context)},
           queryParameters: {
             'locationId': branch.id,
             'locationName': branch.name,
@@ -1655,10 +1642,12 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                             final gstin = gstinCtrl.text
                                                 .trim()
                                                 .toUpperCase();
-                                            final validationError = validateGstin(gstin);
+                                            final validationError =
+                                                validateGstin(gstin);
                                             if (validationError != null) {
                                               setDS(
-                                                () => gstinError = validationError,
+                                                () => gstinError =
+                                                    validationError,
                                               );
                                               return;
                                             }
@@ -1925,9 +1914,7 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                               gstin = gstinCtrl.text.trim().toUpperCase();
                               final validationError = validateGstin(gstin);
                               if (validationError != null) {
-                                setDS(
-                                  () => gstinError = validationError,
-                                );
+                                setDS(() => gstinError = validationError);
                                 return;
                               }
                             } else {
@@ -2027,10 +2014,7 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
             ElevatedButton.icon(
               onPressed: () => context.goNamed(
                 AppRoutes.settingsLocationsCreate,
-                pathParameters: {
-                  'orgSystemId':
-                      resolveOrgSystemId(context),
-                },
+                pathParameters: {'orgSystemId': resolveOrgSystemId(context)},
               ),
               icon: const Icon(LucideIcons.plus, size: 16),
               label: const Text('Add Location'),
